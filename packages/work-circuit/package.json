@@ -6,7 +6,10 @@
   "type": "module",
   "scripts": {
     "compile": "aztec-nargo compile --workspace",
+    "export-vk": "bun scripts/export-vk.ts",
     "spike:determinism": "bun scripts/determinism.ts",
+    "spike:manifest": "bun scripts/layout-manifest.ts",
+    "spike:mutation": "bun scripts/mutation.ts",
     "spike:sweep": "bun scripts/sweep.ts",
     "spike:wasm": "bun scripts/wasm-prove.ts",
     "test": "bun test"
