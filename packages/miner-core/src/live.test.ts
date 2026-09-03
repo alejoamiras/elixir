@@ -57,6 +57,20 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
       (e: Error) => ({ ok: false as const, error: e.message.split('\n')[0] ?? '' }),
     );
 
+  // The wallet needs both instances of a deployment (the claim calls the token's mint).
+  const registerDeployment = async (d: Deployment): Promise<Contract> => {
+    const artifact = await loadMinerArtifact();
+    for (const [address, art] of [
+      [AztecAddress.fromStringUnsafe(d.miner), artifact],
+      [AztecAddress.fromStringUnsafe(d.token), TokenContract.artifact],
+    ] as const) {
+      const instance = await node.getContract(address);
+      if (!instance) throw new Error(`${address} is not on the node`);
+      await wallet.registerContract(instance, art);
+    }
+    return Contract.at(AztecAddress.fromStringUnsafe(d.miner), artifact, wallet);
+  };
+
   beforeAll(async () => {
     wallet = await EmbeddedWallet.create(nodeUrl, { ephemeral: true, pxe: { proverEnabled: true } });
     const fpc = await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
@@ -73,15 +87,7 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
       )
     ).address;
     deployment = await deployElixir(nodeUrl, secret, Fr.random(), { initialTarget: EASY_TARGET });
-    const artifact = await loadMinerArtifact();
-    const minerAddress = AztecAddress.fromString(deployment.miner);
-    const instance = await node.getContract(minerAddress);
-    if (!instance) throw new Error('miner not on the node');
-    await wallet.registerContract(instance, artifact);
-    const tokenInstance = await node.getContract(AztecAddress.fromString(deployment.token));
-    if (!tokenInstance) throw new Error('token not on the node');
-    await wallet.registerContract(tokenInstance, TokenContract.artifact);
-    miner = Contract.at(minerAddress, artifact, wallet);
+    miner = await registerDeployment(deployment);
     chainId = BigInt(await node.getChainId());
     const api = await Barretenberg.new({
       threads: Math.max(1, cpus().length - 1),
@@ -108,7 +114,7 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
       }),
     );
     expect(r.ok).toBe(true);
-    const token = TokenContract.at(AztecAddress.fromString(deployment.token), wallet);
+    const token = TokenContract.at(AztecAddress.fromStringUnsafe(deployment.token), wallet);
     const balance = ((await token.methods.balance_of_private(from).simulate({ from })) as { result: bigint })
       .result;
     expect(balance).toBe(PARAMS.REWARD);
@@ -126,7 +132,7 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
       }
     ).data;
     expect(data.nullifiers.length).toBeGreaterThanOrEqual(2); // tx nullifier + the ticket's
-    expect(data.noteHashes.length).toBe(1); // the minted note
+    expect(data.noteHashes.length).toBeGreaterThanOrEqual(1); // the minted note (+ the fee path's own)
   }, 900_000);
 
   test('a tampered proof field fails at proving and a replay of the winning proof is rejected', async () => {
@@ -169,11 +175,7 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
 
   test('a proof mined for one deployment does not claim on another', async () => {
     const other = await deployElixir(nodeUrl, Fr.random(), Fr.random(), { initialTarget: EASY_TARGET });
-    const otherAddress = AztecAddress.fromString(other.miner);
-    const instance = await node.getContract(otherAddress);
-    if (!instance) throw new Error('second miner not on the node');
-    await wallet.registerContract(instance, await loadMinerArtifact());
-    const otherMiner = Contract.at(otherAddress, await loadMinerArtifact(), wallet);
+    const otherMiner = await registerDeployment(other);
     const { winner, secret } = await mine(miner); // domain of the FIRST deployment
     const r = await send(
       buildClaim(otherMiner, {
@@ -186,24 +188,24 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
       }),
     );
     expect(r.ok).toBe(false);
+    // The rejection must come from the recursive verifier (domain mismatch), not from setup.
+    expect(r.ok ? '' : r.error).toMatch(/verif|proof/i);
   }, 900_000);
 
   test(`a burst of winners against N = ${PARAMS.N}: exactly N accepted, the rest revert as stale`, async () => {
     const burst = await deployElixir(nodeUrl, Fr.random(), Fr.random(), { initialTarget: EASY_TARGET });
-    const address = AztecAddress.fromString(burst.miner);
-    const instance = await node.getContract(address);
-    if (!instance) throw new Error('burst miner not on the node');
-    await wallet.registerContract(instance, await loadMinerArtifact());
-    const m = Contract.at(address, await loadMinerArtifact(), wallet);
+    const m = await registerDeployment(burst);
     const rules = await readRules(m, from);
     const winners: { winner: Winner; secret: Fr }[] = [];
     for (let i = 0; i < 2 * rules.N; i++) winners.push(await mine(m));
     const t0 = performance.now();
-    // One PXE proves sequentially, so the claims land in successive blocks rather than one; the
-    // state machine is what is under test: the epoch closes on the Nth and the rest are stale.
-    const results = await Promise.all(
-      winners.map(({ winner, secret }) =>
-        send(
+    // One PXE cannot simulate its own claims concurrently (it trips over nullifiers it has not
+    // yet seen inserted), so the winners are submitted one after another; the state machine is
+    // what is under test: the epoch closes on the Nth and every later claim is refused.
+    const results: Awaited<ReturnType<typeof send>>[] = [];
+    for (const { winner, secret } of winners) {
+      results.push(
+        await send(
           buildClaim(m, {
             epoch: 0n,
             nonce: winner.nonce,
@@ -213,10 +215,12 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
             recipient: from,
           }),
         ),
-      ),
-    );
+      );
+    }
     const accepted = results.filter((r) => r.ok).length;
     const stale = results.filter((r) => !r.ok && /stale|not open/i.test(r.error)).length;
+    for (const e of new Set(results.filter((r) => !r.ok).map((r) => r.error)))
+      console.log(`burst failure: ${e}`);
     console.log(
       `burst: ${accepted} accepted, ${stale} stale, ${results.length - accepted - stale} other failures, ${((performance.now() - t0) / 1000).toFixed(0)} s`,
     );
