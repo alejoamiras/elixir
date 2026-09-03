@@ -8,7 +8,7 @@ import { BB, workCircuitRoot } from './toolchain.ts';
 const args = process.argv.slice(2);
 const runsIdx = args.indexOf('--runs');
 const runs = runsIdx >= 0 ? Number(args[runsIdx + 1]) : 10;
-const crate = args.find((a, i) => !a.startsWith('--') && i !== runsIdx + 1) ?? 'elixir_work';
+const crate = args.find((a, i) => !a.startsWith('--') && (runsIdx < 0 || i !== runsIdx + 1)) ?? 'elixir_work';
 
 const root = workCircuitRoot;
 const bytecode = resolve(root, 'target', `${crate}.json`);

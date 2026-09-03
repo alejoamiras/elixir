@@ -89,7 +89,7 @@ try {
   results.walletSetupMs = performance.now() - t0;
   log(`wallet ready (${results.walletSetupMs} ms), account ${from}`);
 
-  const chainId = BigInt(await createAztecNodeClient(nodeUrl).getChainId());
+  const chainId = BigInt(await aztecNode.getChainId());
   const params = (
     (await miner.methods.epoch_params(0).simulate({ from })) as { result: { target: bigint; seed: bigint } }
   ).result;
@@ -125,12 +125,15 @@ try {
   await bb.destroy();
 
   t0 = performance.now();
-  const receipt = await miner.methods
+  const sent = await miner.methods
     .claim(0, win.nonce, win.out, secret, win.fields, from)
     .send({ from, fee, wait: { timeout: 1800 } });
-  results.claimMs = performance.now() - t0;
+  // At runtime the mined result is { receipt, offchainEffects, offchainMessages }.
+  const receipt = ((sent as unknown as { receipt?: unknown }).receipt ?? sent) as { blockNumber?: number };
+  const claimMs = performance.now() - t0;
+  results.claimMs = claimMs;
   results.claimBlock = receipt.blockNumber;
-  log(`claim mined in block ${receipt.blockNumber} (${(results.claimMs / 1000).toFixed(1)} s)`);
+  log(`claim mined in block ${receipt.blockNumber} (${(claimMs / 1000).toFixed(1)} s)`);
   const balance = ((await token.methods.balance_of_private(from).simulate({ from })) as { result: bigint })
     .result;
   results.balance = balance.toString();

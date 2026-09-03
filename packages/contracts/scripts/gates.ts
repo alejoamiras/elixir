@@ -1,15 +1,12 @@
 // Gate counts of the spike's private functions under Chonk (Mega circuits): extracts each function's
 // bytecode from the contract artifact into a program-shaped JSON and runs `bb gates --scheme chonk`.
 //   bun packages/contracts/scripts/gates.ts [fn…]
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { $ } from 'bun';
+import { BB } from '../../work-circuit/scripts/toolchain.ts';
 
 const root = resolve(import.meta.dir, '..');
-const pin = readFileSync(resolve(root, '../../.aztecrc'), 'utf8').trim();
-const BB = join(homedir(), '.aztec', 'versions', pin, 'node_modules', '.bin', 'bb');
-if (!existsSync(BB)) throw new Error(`aztec ${pin} is not installed`);
 
 const artifact = await Bun.file(resolve(root, 'target', 'elixir_spike-ElixirSpike.json')).json();
 const wanted = process.argv.slice(2);

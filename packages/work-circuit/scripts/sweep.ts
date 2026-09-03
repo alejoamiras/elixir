@@ -11,7 +11,7 @@ import { BB, workCircuitRoot } from './toolchain.ts';
 const args = process.argv.slice(2);
 const runsIdx = args.indexOf('--runs');
 const runs = runsIdx >= 0 ? Number(args[runsIdx + 1]) : 3;
-const crates = args.filter((a, i) => !a.startsWith('--') && i !== runsIdx + 1);
+const crates = args.filter((a, i) => !a.startsWith('--') && (runsIdx < 0 || i !== runsIdx + 1));
 const targets = crates.length ? crates : ['sweep_1024', 'elixir_work', 'sweep_4096'];
 
 interface Result {
