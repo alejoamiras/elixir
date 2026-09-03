@@ -74,9 +74,18 @@ try {
   const tokenArtifact = loadContractArtifact(
     await (await fetch('/artifacts/token_contract-Token.json')).json(),
   );
+  // The wallet needs each contract's instance (salt, deployer, init hash), not just its address.
+  const aztecNode = createAztecNodeClient(nodeUrl);
+  for (const [address, artifact] of [
+    [minerAddress, minerArtifact],
+    [tokenAddress, tokenArtifact],
+  ] as const) {
+    const instance = await aztecNode.getContract(address);
+    if (!instance) throw new Error(`contract ${address} is not published on the node`);
+    await wallet.registerContract(instance, artifact);
+  }
   const miner = Contract.at(minerAddress, minerArtifact, wallet);
   const token = Contract.at(tokenAddress, tokenArtifact, wallet);
-  await wallet.registerContract(await miner.instance, minerArtifact).catch(() => {});
   results.walletSetupMs = performance.now() - t0;
   log(`wallet ready (${results.walletSetupMs} ms), account ${from}`);
 
