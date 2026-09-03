@@ -2,7 +2,6 @@
 // in-page by bb.js, and the claim proved in-page (Chonk in WASM). The driver script deploys the
 // contracts and passes their addresses in the query string; results land in window.__spike.
 import { loadContractArtifact } from '@aztec/aztec.js/abi';
-import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Contract, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -11,6 +10,7 @@ import { Barretenberg, UltraHonkBackend } from '@aztec/bb.js';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { Noir } from '@aztec/noir-noir_js';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import {

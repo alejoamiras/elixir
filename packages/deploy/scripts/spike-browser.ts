@@ -40,7 +40,7 @@ cpSync(
 );
 cpSync(resolve(repo, 'packages/work-circuit/target/elixir_work.json'), `${pub}/elixir_work.json`);
 cpSync(
-  resolve(pkg, 'node_modules/@aztec-foundation/aztec-standards/artifacts/target/token_contract-Token.json'),
+  Bun.resolveSync('@aztec-foundation/aztec-standards/artifacts/target/token_contract-Token.json', pkg),
   `${pub}/token_contract-Token.json`,
 );
 
@@ -150,14 +150,16 @@ try {
   });
   vite.stderr?.on('data', (b: Buffer) => process.stderr.write(`[vite] ${b}`));
   const url = `http://127.0.0.1:${vitePort}/?node=${encodeURIComponent(node.nodeUrl)}&miner=${miner.address}&token=${token.address}&threads=${threads}`;
-  for (let i = 0; i < 60; i++) {
+  let viteReady = false;
+  for (let i = 0; i < 60 && !viteReady && vite.exitCode === null; i++) {
     try {
-      if ((await fetch(`http://127.0.0.1:${vitePort}/`)).ok) break;
+      viteReady = (await fetch(`http://127.0.0.1:${vitePort}/`)).ok;
     } catch {
       /* not up yet */
     }
-    await delay(500);
+    if (!viteReady) await delay(500);
   }
+  if (!viteReady) throw new Error(`vite did not start on port ${vitePort} (exit code ${vite.exitCode})`);
 
   // A persistent context's user-data-dir is on every Chromium process's command line, which is how
   // the process tree is found for the RSS watcher (Playwright exposes no browser pid here).

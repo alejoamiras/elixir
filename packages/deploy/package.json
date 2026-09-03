@@ -5,6 +5,7 @@
   "description": "Sandbox and testnet deployment, calibration, spike and epoch-stats scripts",
   "type": "module",
   "scripts": {
+    "spike:browser": "bun scripts/spike-browser.ts",
     "spike:claim": "bun scripts/spike-claim.ts",
     "test": "bun test"
   },

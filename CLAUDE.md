@@ -7,24 +7,27 @@ epochs close after `N` accepted claims and the target rescales by actual/expecte
 
 **Plan**: `implementations-plan/elixir-core/plan.md` (§2 mechanism, §4 security, §6 phases with gates, §9
 post-implementation). Hand-off: `implementations-plan/elixir-core/context.md`. Lessons: `implementations-plan/elixir-core/lessons/`.
+Phase 1 measurements: `implementations-plan/elixir-core/spike-results.md`.
 
 ## Packages (Bun workspace)
 
 | Package | Owns |
 |---|---|
-| `packages/contracts` | Aztec contracts: `elixir_miner` + aztec-standards token (git dep, `v5.2.0`) |
-| `packages/work-circuit` | Noir work circuit `W`, its VK / VK hash / proof-layout manifest, fixture proofs |
-| `packages/miner-core` | Platform-agnostic TS: proof → digest, retarget mirror, epoch reader, claim builder |
-| `packages/deploy` | Sandbox / testnet deploy, calibration, spike and epoch-stats scripts |
+| `packages/contracts` | Aztec contracts (Nargo workspace): the Phase 1 spike contract `elixir_spike`; `elixir_miner` arrives in Phase 2; aztec-standards token as a git dep (`v5.2.0`) |
+| `packages/work-circuit` | Noir work circuit `W` (`crates/lib` + `crates/elixir_work`), the VK-embedding verifier `crates/verify_w`, generated VK / proof-layout manifest, fixture proofs, spike scripts |
+| `packages/miner-core` | Platform-agnostic TS: proof → fields → ticket digest, domain separators (retarget mirror, epoch reader, claim builder arrive in Phase 3) |
+| `packages/deploy` | Spike drivers (`spike-claim.ts`, `spike-browser.ts` + the Vite page under `browser/`); sandbox / testnet deploy in later phases |
 | `packages/web-miner` | React + Vite miner with embedded wallet (arrives in Phase 4) |
 | `scripts/run` | Run isolation: port registry, isolated local network, per-worktree runner |
 
 ## Toolchain
 
-- **Aztec 5.2.0 only** (`.aztecrc`): `aztec-nargo` (Noir 1.0.0-beta.25), `aztec-txe`, `bb` from
+- **Aztec 5.2.0 only** (`.aztecrc`): `aztec-nargo` (Noir 1.0.0-beta.25), `aztec compile` (transpiles public bytecode
+  and writes Chonk VKs — plain `aztec-nargo compile` is not enough for contracts), `aztec-txe`, `bb` from
   `~/.aztec/versions/5.2.0`. Never bare `nargo`. `bb --version` prints `5.2.0-nightly.20260807` for this release.
 - **Bun ≥ 1.4** for everything (PM, runtime, `bun:test`). Biome lints and formats. Vitest only for React components.
-- Supply chain: `bunfig.toml` enforces a 7-day npm min-age and the isolated linker; CI installs with a frozen lockfile;
+- Supply chain: `bunfig.toml` enforces a 7-day npm min-age; the linker is **hoisted** (Vite's pre-bundler cannot
+  resolve the aztec packages' transitive imports under the isolated layout); CI installs with a frozen lockfile;
   GitHub Actions are pinned by commit SHA.
 
 ## Commands
@@ -38,6 +41,10 @@ bun test               # all bun:test suites (packages + scripts)
 bun run contracts:compile / contracts:test
 bun run e2e:agent -- <cmd>   # run <cmd> against a fresh isolated local network (AZTEC_NODE_URL set)
 bun scripts/run/isolated-node.ts --smoke
+bun run spike:work     # W sweep, determinism, WASM, manifest, mutation, ticket-cost (needs compiled work-circuit)
+bun run spike:gates    # Chonk gate counts of the spike contract's private functions
+BB_VERBOSE=1 LOG_LEVEL=verbose bun run spike:claim   # real claim tx on an isolated local network
+bun run spike:browser  # same claim proved in headless Chromium
 ```
 
 ## Conventions
@@ -47,6 +54,9 @@ bun scripts/run/isolated-node.ts --smoke
 - Run isolation: never hardcode ports, never kill by name. Ports come from `~/.agents/ports.md` via
   `scripts/run/registry.ts`; services run detached in their own process group; teardown kills only owned groups.
   Data dirs live under `.localnet/` (real disk, gitignored). A sandbox on 8080 belongs to someone else.
+- Long local runs (spikes, e2e) go in `tmux`; they die with the agent shell otherwise.
+- Proof validity is only checked by real proving: the ACVM (nargo test, TXE, PXE simulation) accepts any bytes in
+  the recursion black box. Tests about proofs must prove.
 - Comments say what the code cannot; no references to plans, phases or reviews in code.
 - Conventional commits (commitlint), signed. Feature branches only; PRs open only at the Delivery step of plan §9.
 - Tests: the smallest set that proves the behaviour and catches the expected failures. External-system code gets one

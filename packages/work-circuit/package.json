@@ -11,6 +11,7 @@
     "spike:manifest": "bun scripts/layout-manifest.ts",
     "spike:mutation": "bun scripts/mutation.ts",
     "spike:sweep": "bun scripts/sweep.ts",
+    "spike:ticket-cost": "bun scripts/ticket-cost.ts",
     "spike:wasm": "bun scripts/wasm-prove.ts",
     "test": "bun test"
   },

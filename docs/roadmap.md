@@ -7,8 +7,8 @@ backlog that the plan defers.
 
 | Phase | What | Status |
 |---|---|---|
-| 0 | Scaffold + CI (Bun workspace, Biome budgets, hooks, run isolation, per-package PR gates) | in progress |
-| 1 | Feasibility spike: work circuit, proof-layout manifest, real claim tx, ticket-cost measurements → GO / NO-GO | pending |
+| 0 | Scaffold + CI (Bun workspace, Biome budgets, hooks, run isolation, per-package PR gates) | done |
+| 1 | Feasibility spike: work circuit, proof-layout manifest, real claim tx, ticket-cost measurements → GO / NO-GO | measured; see `implementations-plan/elixir-core/spike-results.md` — owner decision pending |
 | 2 | Contracts (`elixir_miner`, token binding, retarget, TXE tests, retarget simulator) | after GO |
 | 3 | miner-core (proof → digest, retarget mirror, epoch reader, claim builder, live integration) | after GO |
 | 4 | Web miner (React + Vite, Worker-hosted bb.js, embedded wallet, sponsored FPC) | after GO |
@@ -20,8 +20,11 @@ backlog that the plan defers.
 - External wallet connection (`@aztec/wallet-sdk`); the embedded wallet ships first.
 - Mainnet fee path (fees are sponsored in this plan) and launch operations.
 - `/harden security` before any mainnet deployment (no external audit, plan Ask 8).
-- Content-hash pinning of the aztec binaries and bb.js WASM blobs in CI (plan §4) once Phase 1 fixes the exact
-  artifacts the build depends on.
+- Content-hash pinning of the aztec binaries and bb.js WASM blobs in CI (plan §4).
+- An executed same-witness re-derivation measurement (patched bb prover build); Phase 1 reports a timer-derived
+  estimate (`spike-results.md` §4b).
+- CRS integrity in the browser: hash the downloaded CRS against bb's pinned chunk hashes before handing it to bb.js,
+  or bundle a pinned CRS (`spike-results.md` §5).
 
 ## Decisions
 
