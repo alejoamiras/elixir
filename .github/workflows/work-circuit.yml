@@ -25,6 +25,8 @@ jobs:
               - 'packages/work-circuit/**'
               - '!packages/work-circuit/**/*.md'
               - '.aztecrc'
+              - 'toolchain.lock.json'
+              - 'scripts/run/toolchain.test.ts'
               - 'biome.json'
               - 'bunfig.toml'
               - 'tsconfig.json'
@@ -51,3 +53,5 @@ jobs:
       # The VK is the puzzle: every embedded copy and the layout manifest must match the commit.
       - run: bun run codegen && git diff --exit-code
       - run: bun test scripts/run/toolchain.test.ts packages/work-circuit
+        env:
+          ELIXIR_REQUIRE_TOOLCHAIN: '1'

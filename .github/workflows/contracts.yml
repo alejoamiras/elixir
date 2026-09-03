@@ -26,6 +26,8 @@ jobs:
               - '!packages/contracts/**/*.md'
               - 'packages/work-circuit/src/**'
               - '.aztecrc'
+              - 'toolchain.lock.json'
+              - 'scripts/run/toolchain.test.ts'
               - 'package.json'
               - 'bun.lock'
               - '.github/workflows/contracts.yml'
@@ -47,4 +49,6 @@ jobs:
       - uses: ./.github/actions/setup-aztec
       - run: bun run contracts:compile
       - run: bun test scripts/run/toolchain.test.ts
+        env:
+          ELIXIR_REQUIRE_TOOLCHAIN: '1'
       - run: bun run contracts:test

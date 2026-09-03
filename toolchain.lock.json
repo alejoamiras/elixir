@@ -1,7 +1,14 @@
 {
   "aztec": "5.2.0",
-  "bb": {
-    "linux-x64": "5a1c1ccd835e257217880936f837847fd74c8d5993497527f070fb2308f9145b"
+  "installer": {
+    "url": "https://install.aztec.network",
+    "sha256": "6e2843f5667d8acf372c5c293a83426759dde241090b62d3f91e0ffcf5751954"
+  },
+  "binaries": {
+    "linux-x64": {
+      "node_modules/@aztec/bb.js/build/amd64-linux/bb": "5a1c1ccd835e257217880936f837847fd74c8d5993497527f070fb2308f9145b",
+      "internal-bin/nargo": "b22dbfac734182440ca92647c8b97a5bc59e099bf5f0602782dbabdca1d98325"
+    }
   },
   "bbjs": {
     "dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz": "9106f6164e4714a87ce1cf13ceac4d22109767a16e6fb997f1af7e7fcc81ae45"
