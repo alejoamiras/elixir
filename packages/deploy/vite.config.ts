@@ -11,7 +11,8 @@ export default defineConfig({
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'require-corp',
     },
-    fs: { allow: ['..', '../..'] },
+    // The hoisted node_modules (WASM binaries served via /@fs/) lives at the repo root.
+    fs: { allow: [fileURLToPath(new URL('../..', import.meta.url))] },
   },
   resolve: {
     alias: [
