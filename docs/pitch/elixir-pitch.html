@@ -1,0 +1,385 @@
+<title>Elixir Proof-of-Proving</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --bg: #F2F4F8; --bg-2: #FFFFFF; --bg-3: #E6EAF2; --ink: #101522; --ink-2: #47506A; --ink-3: #7B849C; --line: #D5DAE6;
+    --gold: #9A6E12; --gold-soft: #F4E7C6; --gold-glow: rgba(228,177,74,.25);
+    --cyan: #147A6E; --cyan-soft: #CFEDE7; --coral: #B93A3A; --coral-soft: #F6D9D9;
+    --display: "Syne", "Helvetica Neue", Arial, sans-serif; --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif; --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #0B1020; --bg-2: #141B2E; --bg-3: #1B2440; --ink: #E8ECF5; --ink-2: #A9B2C8; --ink-3: #7C86A2; --line: #26304B;
+    --gold: #E4B14A; --gold-soft: #33290F; --gold-glow: rgba(228,177,74,.35);
+    --cyan: #5CD6C4; --cyan-soft: #10302C; --coral: #FF6B6B; --coral-soft: #3A1B1B; color-scheme: dark; } }
+  :root[data-theme="dark"] {
+    --bg: #0B1020; --bg-2: #141B2E; --bg-3: #1B2440; --ink: #E8ECF5; --ink-2: #A9B2C8; --ink-3: #7C86A2; --line: #26304B;
+    --gold: #E4B14A; --gold-soft: #33290F; --gold-glow: rgba(228,177,74,.35);
+    --cyan: #5CD6C4; --cyan-soft: #10302C; --coral: #FF6B6B; --coral-soft: #3A1B1B; color-scheme: dark; }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  a { color: var(--cyan); text-underline-offset: 3px; }
+  a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 24px; }
+  h1, h2, h3 { font-family: var(--display); letter-spacing: -0.01em; text-wrap: balance; }
+  h1 { font-weight: 800; font-size: clamp(44px, 8vw, 96px); line-height: .95; margin: 0; }
+  h2 { font-weight: 700; font-size: clamp(26px, 3.4vw, 36px); line-height: 1.1; margin: 0 0 14px; }
+  h3 { font-weight: 700; font-size: 19px; margin: 26px 0 8px; }
+  p { margin: 0 0 14px; max-width: 66ch; text-wrap: pretty; } ul, ol { margin: 0 0 14px; padding-left: 22px; max-width: 66ch; } li { margin-bottom: 7px; }
+  code { font-family: var(--mono); font-size: .86em; background: var(--bg-3); padding: 1px 6px; border-radius: 4px; }
+  pre { font-family: var(--mono); font-size: 13px; line-height: 1.55; background: var(--bg-3); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 10px 0 18px; }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .k { font-family: var(--mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  .num { font-variant-numeric: tabular-nums; font-family: var(--mono); }
+  section { padding: 56px 0; border-top: 1px solid var(--line); }
+  section.hero { border-top: 0; padding: 72px 0 40px; }
+  .lede { font-size: clamp(19px, 2.3vw, 24px); color: var(--ink-2); max-width: 30ch; margin: 18px 0 0; font-weight: 500; line-height: 1.35; }
+  .byline { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 8px 22px; color: var(--ink-3); font-family: var(--mono); font-size: 13px; }
+  .gold { color: var(--gold); } .cyan { color: var(--cyan); }
+
+  /* hero ticker */
+  .ticker { margin-top: 44px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-2); overflow: hidden; box-shadow: 0 0 0 1px var(--gold-glow), 0 30px 60px -40px var(--gold-glow); }
+  .ticker-head { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); }
+  .ticker-head b { color: var(--ink); font-weight: 600; }
+  .rows { display: grid; gap: 0; }
+  .row { display: grid; grid-template-columns: 74px 1fr 92px; gap: 12px; align-items: center; padding: 6px 16px; border-bottom: 1px dashed var(--line); font-family: var(--mono); font-size: 13px; }
+  .row:last-child { border-bottom: 0; }
+  .row .n { color: var(--ink-3); }
+  .row .h { letter-spacing: .02em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .row .h .z { color: var(--cyan); font-weight: 700; }
+  .row .s { text-align: right; color: var(--ink-3); }
+  .row.win { background: var(--gold-soft); }
+  .row.win .s { color: var(--gold); font-weight: 700; }
+  .row.win .h .z { color: var(--gold); }
+  .ticker-foot { padding: 12px 16px; border-top: 1px solid var(--line); font-size: 14px; color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+  button.btn { font: 600 13px var(--sans); color: var(--ink); background: var(--bg-3); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+  button.btn:hover { border-color: var(--ink-3); }
+
+  /* controls */
+  .sim { display: grid; grid-template-columns: 1fr; gap: 18px; margin-top: 22px; }
+  @media (min-width: 820px) { .sim { grid-template-columns: 1.1fr .9fr; } }
+  .panel { border: 1px solid var(--line); border-radius: 12px; background: var(--bg-2); padding: 16px 18px; }
+  .panel h3 { margin-top: 0; }
+  .ctl { display: grid; grid-template-columns: 150px 1fr 110px; gap: 12px; align-items: center; margin: 10px 0; font-size: 14px; }
+  .ctl input[type=range] { width: 100%; accent-color: var(--gold); }
+  .ctl .v { font-family: var(--mono); font-size: 13px; text-align: right; }
+  .stat { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 12px; }
+  .stat div { background: var(--bg-3); border-radius: 8px; padding: 10px 12px; }
+  .stat .k { display: block; margin-bottom: 4px; }
+  .stat .big { font-family: var(--mono); font-size: 20px; font-weight: 700; }
+  .target { font-family: var(--mono); font-size: 12.5px; letter-spacing: -.01em; word-break: break-all; margin-top: 10px; } .target small { display: block; color: var(--ink-3); font-size: 12px; margin-top: 2px; }
+  .target .z { color: var(--gold); font-weight: 700; }
+  .epoch { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; margin: 12px 0; }
+  .epoch i { display: block; aspect-ratio: 1; border-radius: 50%; border: 1px solid var(--line); background: var(--bg-3); transition: background .25s, transform .25s; }
+  .epoch i.on { background: var(--gold); border-color: var(--gold); transform: scale(1.12); }
+  .log { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); min-height: 4.6em; }
+  .log b { color: var(--ink); }
+
+  /* figures */
+  figure { margin: 22px 0 26px; } figure svg { max-width: 100%; height: auto; display: block; color: var(--ink); font-family: var(--sans); }
+  .fig { overflow-x: auto; }
+  figcaption { font-size: 14px; color: var(--ink-2); margin-top: 10px; max-width: 66ch; }
+  svg text { font-size: 12.5px; fill: currentColor; } svg .lbl { font-size: 11.5px; fill: var(--ink-2); } svg .mono { font-family: var(--mono); font-size: 11.5px; } svg .t { font-weight: 700; font-family: var(--display); font-size: 13px; }
+  svg .box { fill: var(--bg-2); stroke: var(--line); stroke-width: 1; } svg .box.gold { fill: var(--gold-soft); stroke: var(--gold); stroke-width: 1.6; } svg .box.cyan { fill: var(--cyan-soft); stroke: var(--cyan); stroke-width: 1.6; } svg .box.bad { fill: var(--coral-soft); stroke: var(--coral); stroke-width: 1.4; }
+  svg .edge { stroke: currentColor; stroke-width: 1.3; fill: none; } svg .edge.gold { stroke: var(--gold); stroke-width: 2; } svg .edge.cyan { stroke: var(--cyan); stroke-width: 2; } svg .edge.dash { stroke-dasharray: 5 4; stroke: var(--ink-3); }
+  svg .region { fill: none; stroke: var(--line); stroke-dasharray: 4 4; }
+  .flow-anim .pulse { animation: pulse 2.8s ease-in-out infinite; transform-origin: center; }
+  @keyframes pulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+  .flow-anim .dash-move { stroke-dasharray: 6 6; animation: dash 1.6s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+  @media (prefers-reduced-motion: reduce) { .flow-anim .pulse, .flow-anim .dash-move { animation: none; } }
+
+  table { border-collapse: collapse; width: 100%; font-size: 15px; margin: 8px 0 18px; } .tbl { overflow-x: auto; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; } th { font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; }
+  .receipts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 18px; }
+  .receipt { border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; background: var(--bg-2); }
+  .receipt .big { font-family: var(--mono); font-size: 30px; font-weight: 700; line-height: 1.1; margin: 4px 0 6px; }
+  .receipt .k { display: block; }
+  .receipt p { font-size: 14px; color: var(--ink-2); margin: 0; }
+  .callout { border-left: 3px solid var(--gold); background: var(--gold-soft); padding: 14px 18px; border-radius: 0 10px 10px 0; margin: 18px 0; max-width: 72ch; }
+  .callout p:last-child { margin-bottom: 0; }
+  .two { display: grid; grid-template-columns: 1fr; gap: 16px; } @media (min-width: 760px) { .two { grid-template-columns: 1fr 1fr; } }
+  .phases { list-style: none; padding: 0; max-width: none; counter-reset: ph; }
+  .phases li { display: grid; grid-template-columns: 72px 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .phases li:first-child { border-top: 0; }
+  .phases .ph { font-family: var(--display); font-weight: 800; font-size: 22px; color: var(--gold); }
+  .phases b { font-weight: 600; }
+  .phases p { font-size: 15px; color: var(--ink-2); margin: 2px 0 0; }
+  footer { padding: 40px 0 80px; color: var(--ink-3); font-size: 14px; }
+</style>
+
+<div class="wrap">
+
+<section class="hero">
+  <div class="k">Aztec Foundation · internal PoC pitch · September 2026</div>
+  <h1>Elixir</h1>
+  <p class="lede">A token you can only mine by making <span class="gold">Barretenberg</span> go faster.</p>
+  <div class="byline"><span>by alejo</span><span>status: planned, audited, starting this week</span><span>repo: alejoamiras/elixir</span></div>
+
+  <div class="ticker" id="ticker" aria-label="Live mining simulator">
+    <div class="ticker-head">
+      <span>miner <b>you</b></span><span>one row = one <b>full UltraHonk proof</b> of a fixed circuit</span><span>ticket = <b>Poseidon2(proof)</b></span><span>win when ticket &lt; target</span>
+    </div>
+    <div class="rows" id="rows"></div>
+    <div class="ticker-foot">
+      <button class="btn" id="toggle">pause</button>
+      <span id="foot-stats">proofs 0 · wins 0</span>
+      <span>Real random 128-bit tickets. Drag the target below and watch wins get rarer. That's the whole difficulty story.</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="k">tl;dr</div>
+  <h2>We want people to optimize the prover. So let's pay them for it.</h2>
+  <p>Everybody says "someone should make client-side proving faster". Nobody wakes up wanting to shave 8% off sumcheck. Bitcoin solved the equivalent problem for SHA256 by making the hash the thing that pays. Elixir does that for Barretenberg: the only way to earn ELX is to produce more accepting UltraHonk proofs per hour than the next person. Better algorithms, SIMD, a GPU prover, whatever. All of it is "mining".</p>
+  <p>It's a research PoC, Aztec-native, private by default, and the mechanism is the hard part. The UX is not. So this pitch is 90% mechanism.</p>
+</section>
+
+<section>
+  <div class="k">the trap</div>
+  <h2>Anything you can check natively, people will grind natively</h2>
+  <p>We had a v0 from the RIF era. It hashed <code>(seed, epoch, slot, nonce, miner)</code> with Poseidon2, and a public AVM function re-hashed once and minted if the digest was under a target. Cute, but the work never touched the prover: the miner runs Poseidon2 natively a billion times and the chain checks one. That is a CUDA kernel contest. Ingonyama already ships Poseidon2 kernels. Nobody optimizes bb to win that.</p>
+  <p>The fix is a trick Aleo landed on years ago: <strong>make the ticket the hash of the proof itself.</strong> To know whether a nonce wins, you must finish a proof. Losers never touch the chain.</p>
+  <figure>
+    <div class="fig">
+    <svg viewBox="0 0 900 250" role="img" aria-label="v0 grinds hashes natively and the chain checks one hash; Elixir grinds proofs and the chain verifies the winning proof.">
+      <defs><marker id="m1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+      <text x="20" y="30" class="t">v0 · hash grinding</text>
+      <rect x="20" y="44" width="330" height="70" rx="8" class="box bad"/>
+      <text x="34" y="68" class="mono">digest = Poseidon2(seed, e, slot, nonce, me)</text>
+      <text x="34" y="88" class="lbl">native · ~10⁹ / epoch · GPU wins</text>
+      <text x="34" y="104" class="lbl">this is 100% of the work</text>
+      <path d="M350,79 L420,79" class="edge" marker-end="url(#m1)"/>
+      <text x="385" y="70" class="lbl" text-anchor="middle">1 tx</text>
+      <rect x="420" y="44" width="225" height="70" rx="8" class="box"/>
+      <text x="434" y="68" class="mono">AVM: re-hash once, compare</text>
+      <text x="434" y="88" class="lbl">sequencer pays, not the miner</text>
+      <text x="434" y="104" class="lbl">bb never in the loop</text>
+      <rect x="665" y="44" width="215" height="70" rx="8" class="box"/>
+      <text x="679" y="68" class="mono">mint_to_public</text>
+      <text x="679" y="88" class="lbl">and nothing private, btw</text>
+
+      <text x="20" y="160" class="t">Elixir · proof grinding</text>
+      <rect x="20" y="174" width="330" height="70" rx="8" class="box cyan"/>
+      <text x="34" y="198" class="mono">proof = prove(W; seed, e, commit, nonce)</text>
+      <text x="34" y="218" class="lbl">seconds each · this is 100% of the work</text>
+      <text x="34" y="234" class="lbl">ticket = Poseidon2(proof) · checked locally</text>
+      <path d="M350,209 L420,209" class="edge gold" marker-end="url(#m1)"/>
+      <text x="385" y="200" class="lbl" text-anchor="middle">winners only</text>
+      <rect x="420" y="174" width="225" height="70" rx="8" class="box gold"/>
+      <text x="434" y="198" class="mono">private claim: verify_proof</text>
+      <text x="434" y="218" class="lbl">recursive UltraHonk, ≈20k gates</text>
+      <text x="434" y="234" class="lbl">re-hash, compare, nullify</text>
+      <rect x="665" y="174" width="215" height="70" rx="8" class="box"/>
+      <text x="679" y="198" class="mono">mint_to_private(me, 4 ELX)</text>
+      <text x="679" y="218" class="lbl">record_claim(e) public counter</text>
+      <text x="679" y="234" class="lbl">nobody learns who</text>
+    </svg>
+    </div>
+    <figcaption>Same three stages, different bottleneck. Moving the expensive step from "hash" to "prove" is the entire idea.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <div class="k">the loop</div>
+  <h2>Mining, one nonce at a time</h2>
+  <pre><code>params = ElixirMiner.epoch_params(e)            // seed_e, target_e, claims_e  (public reads)
+commit = Poseidon2(DOM_SECRET, secret)          // per-epoch random secret, never leaves the page
+loop while claims_e &lt; 24:
+  nonce += 1
+  witness = W(domain, seed_e, e, commit, nonce) // W = Poseidon2 chain, ~150k gates. Boring on purpose.
+  proof   = UltraHonk.prove(W, witness)         // the work. bb.js WASM in the browser, native bb later
+  digest  = Poseidon2(DOM_TICKET, proof[0..410])
+  if low128(digest) &lt; target_e: claim(e, nonce, out, secret, proof)   // rare</code></pre>
+  <p>Nobody searches for anything <em>inside</em> W. Native evaluation of the chain takes microseconds; proving it takes seconds. Faster Poseidon2 buys you nothing. Faster proving buys you tickets. The nonce is absorbed first so wire polynomials cannot be reused across nonces by an honest prover.</p>
+  <figure class="flow-anim">
+    <div class="fig">
+    <svg viewBox="0 0 900 200" role="img" aria-label="The claim transaction: one private function verifies the work proof recursively, hashes it, checks the target, emits a nullifier, mints privately and enqueues a public counter update.">
+      <defs><marker id="m2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+      <rect x="20" y="30" width="860" height="150" rx="10" class="region"/>
+      <text x="34" y="52" class="lbl">one Aztec tx · private function `claim` · proven by the miner's embedded wallet (Chonk)</text>
+      <rect x="40" y="70" width="180" height="80" rx="8" class="box cyan pulse"/>
+      <text x="52" y="94" class="t">verify_honk_proof</text>
+      <text x="52" y="112" class="mono">W_VK pinned as a global</text>
+      <text x="52" y="128" class="lbl">19,923 gates measured</text>
+      <text x="52" y="142" class="lbl">ECC ops → Goblin/ECCVM</text>
+      <path d="M220,110 L250,110" class="edge dash-move" marker-end="url(#m2)"/>
+      <rect x="250" y="70" width="170" height="80" rx="8" class="box"/>
+      <text x="262" y="94" class="t">digest &amp; check</text>
+      <text x="262" y="112" class="mono">Poseidon2(410 fields)</text>
+      <text x="262" y="128" class="mono">low128 &lt; target_e</text>
+      <text x="262" y="142" class="lbl">epoch e must be open</text>
+      <path d="M420,110 L450,110" class="edge dash-move" marker-end="url(#m2)"/>
+      <rect x="450" y="70" width="150" height="80" rx="8" class="box"/>
+      <text x="462" y="94" class="t">nullifier</text>
+      <text x="462" y="112" class="mono">H(digest), 254-bit</text>
+      <text x="462" y="128" class="lbl">one claim per transcript</text>
+      <path d="M600,110 L630,110" class="edge dash-move" marker-end="url(#m2)"/>
+      <rect x="630" y="70" width="240" height="80" rx="8" class="box gold pulse"/>
+      <text x="642" y="94" class="t">mint + count</text>
+      <text x="642" y="112" class="mono">Token.mint_to_private(me, 4)</text>
+      <text x="642" y="128" class="mono">enqueue record_claim(e, digest)</text>
+      <text x="642" y="142" class="lbl">public sees: epoch, digest, 4 ELX</text>
+      <text x="34" y="172" class="lbl">If the 24th claim lands after yours, yours reverts. Bitcoin orphan, Aztec flavour. You lose the fee, not the epoch.</text>
+    </svg>
+    </div>
+    <figcaption>The verifier is cheap inside an Aztec private function because Chonk offloads the curve arithmetic. As a plain Ultra circuit the same call is 681,980 gates.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <div class="k">difficulty, epochs, emission</div>
+  <h2>It's Bitcoin, with claims instead of blocks</h2>
+  <p>Bitcoin: hash below target, 2016-block window, retarget by actual/expected time clamped to ×4, fixed subsidy. Ours: ticket below a 128-bit target, <strong>an epoch is 24 accepted claims</strong>, retarget by actual/expected time clamped to ¼…4, fixed 4 ELX per claim. Counting claims instead of hours is what caps issuance: a 100× hashrate surge makes epochs short, never fat. Every closed epoch mints 96 ELX and only 24 transactions land, no matter how many GPUs show up.</p>
+  <div class="sim">
+    <div class="panel">
+      <h3>Play with the target</h3>
+      <div class="ctl"><label for="bits">leading zero bits</label><input id="bits" type="range" min="2" max="40" value="6"><span class="v" id="bits-v">6</span></div>
+      <div class="ctl"><label for="pps">your proofs / second</label><input id="pps" type="range" min="-1" max="3" step="0.05" value="0"><span class="v" id="pps-v">1.0</span></div>
+      <div class="target">target = <span id="target-hex"></span></div>
+      <div class="stat">
+        <div><span class="k">P(win) per proof</span><span class="big" id="pwin"></span></div>
+        <div><span class="k">expected proofs per win</span><span class="big" id="ppw"></span></div>
+        <div><span class="k">your expected time per win</span><span class="big" id="eta"></span></div>
+      </div>
+      <p style="font-size:14px;color:var(--ink-2);margin-top:12px">The contract never computes any of these. It compares two 128-bit numbers and rescales the target by measured time. Launch target ≈ 0.024 × 2<sup>128</sup>: one laptop at ~1,000 proofs/hour gets ~24 wins/hour.</p>
+    </div>
+    <div class="panel">
+      <h3>Epoch <span class="num" id="ep-n">0</span> · <span class="num" id="ep-c">0</span>/24 claims</h3>
+      <div class="epoch" id="epoch" aria-hidden="true"></div>
+      <div class="log" id="log">Waiting for the first win… (the simulator's "hour" is 40 seconds, so retargets are visible)</div>
+      <pre style="margin-top:12px"><code>on the 24th claim:
+  ratio  = clamp(actual / EXPECTED, ¼, 4)
+  target = target × ratio      // fast epoch → smaller → harder
+  seed   = H(seed, e+1, closing_digest, now)
+no 24th claim for 4 × EXPECTED? anyone may roll(): target × 4</code></pre>
+    </div>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th></th><th>Bitcoin</th><th>Elixir</th></tr></thead>
+    <tbody>
+      <tr><td>one attempt</td><td>SHA256d(header ‖ nonce), ns</td><td>UltraHonk proof of W, seconds</td></tr>
+      <tr><td>compared number</td><td>256-bit hash</td><td>low 128 bits of Poseidon2(proof)</td></tr>
+      <tr><td>who checks first</td><td>miner</td><td>miner, locally; losers never submit</td></tr>
+      <tr><td>who checks for real</td><td>every node</td><td>the private claim, recursively, then the kernel</td></tr>
+      <tr><td>window</td><td>2016 blocks</td><td>24 accepted claims</td></tr>
+      <tr><td>reward</td><td>fixed subsidy per block</td><td>fixed 4 ELX per claim, constant emission</td></tr>
+      <tr><td>hashrate collapse</td><td>wait it out</td><td>after 4 h anyone can close the epoch, ×4 easier</td></tr>
+      <tr><td>rewards</td><td>SHA256 ASICs</td><td>whoever proves Honk fastest</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="k">privacy</div>
+  <h2>Recipient-private, not "nobody can tell it's mining"</h2>
+  <div class="two">
+    <div class="panel"><h3 class="cyan">Private</h3><ul><li>Who mined. The commitment inside W is <code>H(secret)</code>; the secret is random per epoch and dies with it.</li><li>Balances. <code>mint_to_private</code> on the aztec-standards token, v5.2.0.</li><li>The proof and the nonce. They never leave the miner; the claim proves knowledge of them.</li></ul></div>
+    <div class="panel"><h3 class="gold">Public</h3><ul><li>That a claim happened, its epoch, the winning digest (pseudorandom), and 4 ELX.</li><li>That the tx is a mining claim (function identity, public effects).</li><li>Timing. RPC-level linkage is the miner's own problem, as in any Aztec app.</li></ul></div>
+  </div>
+</section>
+
+<section>
+  <div class="k">receipts</div>
+  <h2>Things we measured before writing a line of product code</h2>
+  <div class="receipts">
+    <div class="receipt"><span class="k">recursive verifier, Aztec private fn</span><div class="big cyan">19,923</div><p>gates under <code>bb gates --scheme chonk</code>. As a plain Ultra circuit: 681,980. Goblin is doing the heavy lifting.</p></div>
+    <div class="receipt"><span class="k">work circuit, per Poseidon2 step</span><div class="big">≈ 74</div><p>gates. 2048 steps = 151,726 gates, proves natively in 0.63 s on an M4 Pro. Browser is ~10× slower; that's the point of calibration.</p></div>
+    <div class="receipt"><span class="k">unconstrained proof fields</span><div class="big gold">0 / 410</div><p>Flip one bit anywhere in a real proof and <code>bb verify</code> fails. The ticket can bind the whole proof.</p></div>
+    <div class="receipt"><span class="k">does simulation check recursion?</span><div class="big" style="color:var(--coral)">no</div><p>An all-zero proof "executes" fine in ACVM. TXE tests are plumbing only; proof validity needs real proving in every test that matters.</p></div>
+    <div class="receipt"><span class="k">ECCVM budget per verification</span><div class="big">~2.5%</div><p>of the fixed 2<sup>15</sup> rows, estimated from bb's own numbers. Measured for the full claim tx in phase 1.</p></div>
+    <div class="receipt"><span class="k">audit trail so far</span><div class="big">4 rounds</div><p>codex reject → conditional; an independent Claude reviewer conditional; fresh-context codex reject → conditional. Everything adopted.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="k">the honest part</div>
+  <h2>What we're explicitly accepting, and where I want your eyes</h2>
+  <div class="callout"><p><strong>The guarantee is "one fresh accepting transcript per ticket", not "one honest proof per ticket".</strong> Non-ZK UltraHonk disables the first 4 sumcheck rows (σ = id there). A modified prover can re-prove the <em>same</em> witness with fresh junk in those 16 cells, update the wire commitments with ~16 scalar mults instead of size-n MSMs, and get a fresh ticket for roughly half to two-thirds of an honest prove. Still a full sumcheck and a KZG opening per ticket, still scales with circuit size, but it's a constant factor available to anyone who patches bb. Phase 1 builds the attack and measures it. <span class="gold">bb people: if constraining those rows in the non-ZK flavour is a 20-line upstream change, tell me.</span></p></div>
+  <ul>
+    <li><strong>Escape-hatch seeds are predictable.</strong> When an epoch closes by the 4-hour timeout, every seed input is public in advance. Only reachable under collapse; simulated, accepted.</li>
+    <li><strong>The deployer can pre-mine epoch 0.</strong> Addresses and constructor args are precomputable. Count-capping makes that worth 96 ELX. Disclosed.</li>
+    <li><strong>Winning tickets near an epoch's end go stale.</strong> Roughly 8% at N=24 with 1–2 min of claim proving. Bitcoin has orphans; we have this.</li>
+    <li><strong>No external audit, no mainnet in this plan.</strong> Testnet, embedded wallet, sponsored fees. The proof-system assumptions rest on measurements and on whoever here is willing to poke at them.</li>
+    <li><strong>Deployment needed a trick.</strong> Aztec addresses commit to constructor args, so a miner that takes the token and a token that takes the miner is a fixed point no salt solves. The miner is deployed token-less and bound once by the deployer; the setup authority then expires.</li>
+  </ul>
+</section>
+
+<section>
+  <div class="k">plan</div>
+  <h2>Five phases, one hard stop</h2>
+  <ol class="phases">
+    <li><span class="ph">0</span><div><b>Scaffold.</b><p>Bun workspace, Biome, CI gates, isolated local sandbox runs. Boring, one day.</p></div></li>
+    <li><span class="ph">1</span><div><b>Spike, then stop.</b><p>Work circuit at three sizes, proof-layout manifest, mutation tests through the recursive path, a real claim through an embedded wallet on a sandbox, ECCVM rows, in-browser time and memory, the disabled-row attack cost. Written GO / NO-GO. Nothing else starts until that's read.</p></div></li>
+    <li><span class="ph">2</span><div><b>Contracts.</b><p>Miner (claims, count-capped close, mulDiv retarget with range-checked division, escape hatch, one-shot token bind), aztec-standards token, Noir tests plus a retarget simulator with surges, collapse and a strategic withholder.</p></div></li>
+    <li><span class="ph">3</span><div><b>Miner core.</b><p>Platform-agnostic TypeScript: prove, hash, check, claim. Fixtures pin every hash to the Noir side. Real-proving integration on a sandbox, including a public-effects inspection that asserts exactly what leaks.</p></div></li>
+    <li><span class="ph">4·5</span><div><b>Web miner, then a testnet soak.</b><p>React + bb.js in a Worker, embedded wallet, sponsored fees. Then 24+ epochs on testnet with miners started and stopped so the target actually moves. Native mining via aztec-accelerator comes after, on the same core.</p></div></li>
+  </ol>
+  <p>Fallbacks if phase 1 says no: an L1 portal that verifies the winning proof with a generated Solidity verifier and messages Aztec (keeps the lottery), or pay-per-proof with a reward that auto-adjusts (drops the lottery, every proof is a tx). I'd rather not.</p>
+</section>
+
+<section>
+  <div class="k">ask</div>
+  <h2>What I want from you</h2>
+  <ul>
+    <li>Break the ticket. If you know a cheaper way to get a second accepting Honk transcript than the disabled-row trick, I want it now, not on testnet.</li>
+    <li>Opinions on W. A Poseidon2 chain measures the general prover path. Should the work look more like a real Aztec tx (Merkle paths, notes) so optimizations transfer 1:1?</li>
+    <li>ECCVM headroom and the Chonk tail: anything about stacking a recursive verification inside an app circuit that will bite us?</li>
+    <li>And obviously: if someone here ends up writing a faster prover to farm ELX, that is the project succeeding.</li>
+  </ul>
+</section>
+
+<footer>Elixir · proof-of-proving on Aztec · plan, recon, audits and probes live in the repo under <code>implementations-plan/elixir-core/</code>. Numbers above are from aztec 5.2.0 tooling on 3 Sep 2026.</footer>
+</div>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const rows = document.getElementById('rows'), foot = document.getElementById('foot-stats'), toggle = document.getElementById('toggle');
+  const bits = document.getElementById('bits'), bitsV = document.getElementById('bits-v'), pps = document.getElementById('pps'), ppsV = document.getElementById('pps-v');
+  const targetHex = document.getElementById('target-hex'), pwin = document.getElementById('pwin'), ppw = document.getElementById('ppw'), eta = document.getElementById('eta');
+  const epoch = document.getElementById('epoch'), epN = document.getElementById('ep-n'), epC = document.getElementById('ep-c'), log = document.getElementById('log');
+  const N = 24, EXPECTED = 40; // simulator seconds per "hour"
+  let proofs = 0, wins = 0, running = !reduce, ep = 0, claims = 0, epochStart = performance.now(), tBits = +bits.value, pending = [];
+  for (let i = 0; i < N; i++) { const d = document.createElement('i'); epoch.appendChild(d); }
+  const dots = [...epoch.children];
+  function rand128() { const a = new Uint32Array(4); crypto.getRandomValues(a); return [...a].map(x => x.toString(16).padStart(8, '0')).join(''); }
+  function lz(hex) { let n = 0; for (const c of hex) { const v = parseInt(c, 16); if (v === 0) { n += 4; continue; } n += Math.clz32(v) - 28; break; } return n; }
+  function fmt(x) { if (x < 1e3) return x.toFixed(x < 10 ? 2 : 0); const u = ['k', 'M', 'G', 'T', 'P', 'E']; let i = -1; while (x >= 1e3 && i < u.length - 1) { x /= 1e3; i++; } return x.toFixed(x < 10 ? 2 : 1) + u[i]; }
+  function fmtTime(s) { if (!isFinite(s)) return '∞'; if (s < 60) return s.toFixed(s < 10 ? 1 : 0) + ' s'; if (s < 3600) return (s / 60).toFixed(1) + ' min'; if (s < 86400) return (s / 3600).toFixed(1) + ' h'; if (s < 86400 * 365) return (s / 86400).toFixed(1) + ' d'; return (s / 86400 / 365).toFixed(1) + ' y'; }
+  function targetHexFor(b) { return '0'.repeat(Math.floor(b / 4)) + (b % 4 ? (0xF >> (b % 4)).toString(16) : 'f') + 'f'.repeat(31 - Math.floor(b / 4)); }
+  function refresh() {
+    const b = +bits.value, r = Math.pow(10, +pps.value);
+    bitsV.textContent = b; ppsV.textContent = r < 1 ? r.toFixed(2) : r.toFixed(r < 10 ? 1 : 0);
+    const th = targetHexFor(b); targetHex.innerHTML = '<span class="z">' + th.slice(0, Math.ceil(b / 4)) + '</span>' + th.slice(Math.ceil(b / 4)) + '<small>= 2¹²⁸ · 2⁻' + b + '</small>';
+    pwin.textContent = '2⁻' + b + ' ≈ ' + (Math.pow(2, -b) < 1e-4 ? Math.pow(2, -b).toExponential(1) : Math.pow(2, -b).toFixed(4));
+    ppw.textContent = fmt(Math.pow(2, b)); eta.textContent = fmtTime(Math.pow(2, b) / r);
+  }
+  bits.addEventListener('input', refresh); pps.addEventListener('input', refresh); refresh();
+  function addRow(hex, z, win) {
+    const row = document.createElement('div'); row.className = 'row' + (win ? ' win' : '');
+    row.innerHTML = '<span class="n">#' + proofs + '</span><span class="h"><span class="z">' + hex.slice(0, Math.max(1, Math.ceil(z / 4))) + '</span>' + hex.slice(Math.max(1, Math.ceil(z / 4))) + '</span><span class="s">' + (win ? 'WIN → claim' : z + ' zero bits') + '</span>';
+    rows.prepend(row); while (rows.children.length > 10) rows.lastChild.remove();
+  }
+  function closeEpoch(closingHex) {
+    const actual = (performance.now() - epochStart) / 1000, ratio = Math.min(4, Math.max(0.25, actual / EXPECTED));
+    const delta = -Math.log2(ratio); // smaller ratio → harder → more bits
+    const nb = Math.min(40, Math.max(2, Math.round(tBits + delta)));
+    log.innerHTML = '<b>epoch ' + ep + ' closed</b> after ' + actual.toFixed(0) + ' s (expected ' + EXPECTED + ') → ratio ' + ratio.toFixed(2) + ' → target ' + (ratio < 1 ? '÷' + (1 / ratio).toFixed(2) : '×' + ratio.toFixed(2)) + ' → ' + nb + ' zero bits. minted 24 × 4 = 96 ELX. seed ← H(seed, ' + (ep + 1) + ', ' + closingHex.slice(0, 8) + '…, now)';
+    ep++; claims = 0; epochStart = performance.now(); tBits = nb; bits.value = nb; refresh(); dots.forEach(d => d.classList.remove('on')); epN.textContent = ep; epC.textContent = 0;
+  }
+  function tick() {
+    if (!running) return;
+    tBits = +bits.value; proofs++;
+    const hex = rand128(), z = lz(hex), win = z >= tBits;
+    addRow(hex, z, win);
+    if (win) { wins++; claims++; dots[claims - 1].classList.add('on'); epC.textContent = claims; if (claims === 1 && ep === 0) log.innerHTML = '<b>first claim</b> in epoch 0 · the private claim verifies the proof and mints 4 ELX'; if (claims >= N) closeEpoch(hex); }
+    foot.textContent = 'proofs ' + proofs + ' · wins ' + wins + ' · epoch ' + ep;
+    const r = Math.pow(10, +pps.value); setTimeout(tick, Math.max(60, Math.min(900, 1000 / r)));
+  }
+  toggle.addEventListener('click', () => { running = !running; toggle.textContent = running ? 'pause' : 'run'; if (running) tick(); });
+  if (reduce) { toggle.textContent = 'run'; log.textContent = 'Reduced motion detected; press run to start the simulator.'; } else tick();
+})();
+</script>
