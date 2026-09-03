@@ -26,16 +26,18 @@ export default defineConfig({
   },
   optimizeDeps: {
     // CommonJS dependencies reached from the excluded packages still need Vite's ESM interop.
-    include: ['pino', 'pino/browser', 'msgpackr', 'msgpackr/pack', 'idb', 'comlink', 'ohash'],
-    // WASM loaders and the SQLite-OPFS store resolve their assets and worker relative to
-    // import.meta.url, which pre-bundling would rewrite to a chunk that has none of them.
-    exclude: [
-      '@aztec/bb.js',
-      '@aztec/noir-acvm_js',
-      '@aztec/noir-noirc_abi',
-      '@aztec/noir-noir_js',
-      '@aztec/kv-store',
-      '@aztec/sqlite3mc-wasm',
+    include: [
+      'pino',
+      'pino/browser',
+      '@aztec/bb.js > comlink',
+      '@aztec/bb.js > idb-keyval',
+      '@aztec/bb.js > msgpackr',
+      '@aztec/bb.js > pako',
+      '@aztec/noir-noir_js > pako',
     ],
+    // WASM loaders resolve their binaries relative to import.meta.url, which pre-bundling would
+    // rewrite to a chunk that has none of them. Excluding anything that imports @aztec/foundation
+    // cascades into serving foundation (and its CommonJS deps) unbundled, so nothing else goes here.
+    exclude: ['@aztec/bb.js', '@aztec/noir-acvm_js', '@aztec/noir-noirc_abi', '@aztec/noir-noir_js'],
   },
 });

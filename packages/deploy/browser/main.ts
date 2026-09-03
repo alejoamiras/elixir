@@ -8,6 +8,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { Barretenberg, UltraHonkBackend } from '@aztec/bb.js';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
+import { openTmpStore } from '@aztec/kv-store/deprecated/indexeddb';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { Noir } from '@aztec/noir-noir_js';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -48,7 +49,13 @@ try {
   if (!crossOriginIsolated)
     throw new Error('page is not crossOriginIsolated: no SharedArrayBuffer for bb.js threads');
   let t0 = performance.now();
-  const wallet = await EmbeddedWallet.create(nodeUrl, { ephemeral: true, pxe: { proverEnabled: true } });
+  // IndexedDB stores: the default SQLite-OPFS store spawns a worker whose URL the dev server's
+  // dependency pre-bundling breaks; the web miner will ship the OPFS assets explicitly instead.
+  const wallet = await EmbeddedWallet.create(nodeUrl, {
+    ephemeral: true,
+    pxe: { proverEnabled: true, store: await openTmpStore(true) },
+    walletDb: { store: await openTmpStore(true) },
+  });
   const fpc = await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
     salt: new Fr(SPONSORED_FPC_SALT),
   });
