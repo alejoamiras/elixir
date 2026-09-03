@@ -4,10 +4,14 @@
 //   bun packages/work-circuit/scripts/export-vk.ts [crate]
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { workCircuitRoot } from './toolchain.ts';
+import { $ } from 'bun';
+import { BB, repoRoot, workCircuitRoot } from './toolchain.ts';
 
 const crate = process.argv[2] ?? 'elixir_work';
 const dir = resolve(workCircuitRoot, 'target', crate);
+await $`${BB} write_vk -b ${workCircuitRoot}/target/${crate}.json --scheme ultra_honk -t noir-recursive-no-zk -o ${dir}`
+  .cwd(workCircuitRoot)
+  .quiet();
 const vk = new Uint8Array(await Bun.file(`${dir}/vk`).arrayBuffer());
 const vkHash = new Uint8Array(await Bun.file(`${dir}/vk_hash`).arrayBuffer());
 if (vk.length !== 115 * 32) throw new Error(`vk is ${vk.length} bytes, expected 115 × 32`);
@@ -32,12 +36,16 @@ export const W_VK_HASH = '${hash}';
 `;
 mkdirSync(resolve(workCircuitRoot, 'crates', 'verify_w', 'src'), { recursive: true });
 mkdirSync(resolve(workCircuitRoot, 'src', 'generated'), { recursive: true });
+// Every embedded copy of the VK is written from this one run; CI diffs them against the commit.
 await Bun.write(resolve(workCircuitRoot, 'crates', 'verify_w', 'src', 'vk.nr'), noir);
+await Bun.write(resolve(repoRoot, 'packages', 'contracts', 'elixir_spike', 'src', 'vk.nr'), noir);
 await Bun.write(resolve(workCircuitRoot, 'src', 'generated', 'vk.ts'), ts);
 // The committed fixture: the proof of Prover.toml's inputs, used by the layout, digest and
-// mutation tests so they never depend on a prover being available.
+// mutation tests so they never depend on a prover being available. The proof itself is only
+// refreshed when a prove (sweep.ts) has produced one.
 const fixtures = resolve(workCircuitRoot, 'fixtures', crate);
 mkdirSync(fixtures, { recursive: true });
-for (const f of ['proof', 'public_inputs', 'vk', 'vk_hash'])
-  await Bun.write(`${fixtures}/${f}`, Bun.file(`${dir}/${f}`));
+for (const f of ['proof', 'public_inputs', 'vk', 'vk_hash']) {
+  if (await Bun.file(`${dir}/${f}`).exists()) await Bun.write(`${fixtures}/${f}`, Bun.file(`${dir}/${f}`));
+}
 console.log(`W_VK_HASH = ${hash}; fixtures → ${fixtures}`);

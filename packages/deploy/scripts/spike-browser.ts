@@ -1,4 +1,4 @@
-// Feasibility spike, item 3 (browser): deploy the contracts from Node, then let a headless Chromium
+// The in-browser claim: deploy the contracts from Node, then let a headless Chromium
 // page (Vite dev server with COOP/COEP) run the embedded wallet, prove W with bb.js and prove + send
 // the claim in-page. Reports wall-clock per step and the peak RSS of the whole browser process tree.
 //   bun packages/deploy/scripts/spike-browser.ts [--threads N]

@@ -1,11 +1,12 @@
 // Ticket-cost measurements from bb's phase timers (`bb prove --bench_out`), N proves of W:
 //  (a) early abort — the ticket hashes the whole proof including KZG:W, the last transcript entry,
-//      so the digest is computable only once construct_proof has finished; the "abort point" cost
-//      is construct_proof itself and the remainder is serialisation. Reported as a ratio.
-//  (b) phase shares an attacker re-proving the SAME witness through the 4 disabled sumcheck rows
-//      can skip (witness generation, trace construction, the four wire MSMs) versus what it must
-//      redo (z_perm, sumcheck, Gemini/Shplonk, KZG). Their sum bounds that attack's cost from below;
-//      it is not an executed attack.
+//      so the digest is computable only once construct_proof returns; what a miner could skip is
+//      the serialisation tail after it. Reported as construct_proof's share of the wall clock.
+//  (b) phase shares a prover re-deriving a transcript for the SAME witness through the 4 disabled
+//      sumcheck rows can skip (witness generation, trace construction, the wire MSMs) versus what
+//      fresh Fiat–Shamir challenges force it to redo (z_perm, sumcheck, Gemini/Shplonk, KZG). An
+//      estimate from honest-prover timers, not an executed re-derivation; an optimised incremental
+//      prover could differ.
 //   bun packages/work-circuit/scripts/ticket-cost.ts [--runs 5] [crate]
 import { mkdirSync } from 'node:fs';
 import { cpus, hostname } from 'node:os';
@@ -82,7 +83,7 @@ for (const [name, v] of [
   console.log(`| ${name} | ${s(v)} | ${pct(v)} |`);
 }
 console.log(
-  `\n(a) early abort: digest computable at ${pct(proveEnd, proveEnd)} of prove (${pct(proveEnd, wall)} of wall clock)`,
+  `\n(a) early abort: the digest needs KZG:W (last transcript entry), i.e. all of construct_proof = ${pct(proveEnd, wall)} of the bb prove wall clock; only serialisation is skippable`,
 );
 console.log(
   `(b) same-witness re-proof: skip create_circuit + ProverInstance + commit_to_wires = ${pct(skippable)}; must redo z_perm + sumcheck + PCS (+ w_4/lookup commits) ≥ ${pct(attackFloor)} of an honest prove, ${pct(attackFloorFavourable)} if the w_4/lookup block is also skipped — an estimate from honest-prover phase timers, not an executed re-derivation`,

@@ -43,14 +43,15 @@ interface Owned {
 // `.aztecrc` pins the toolchain version; `~/.aztec/current` is a machine-global symlink that
 // any agent may move, so resolve the pinned version's binaries directly when they exist.
 function toolchainBin(name: string): string {
+  let pin = '';
   try {
-    const pin = readFileSync(join(repoRoot, '.aztecrc'), 'utf8').trim();
-    const bin = join(homedir(), '.aztec', 'versions', pin, 'bin', name);
-    if (pin && existsSync(bin)) return bin;
+    pin = readFileSync(join(repoRoot, '.aztecrc'), 'utf8').trim();
   } catch {
-    /* no .aztecrc: fall back to PATH */
+    return name; // no pin: whatever PATH provides
   }
-  return name;
+  const bin = join(homedir(), '.aztec', 'versions', pin, 'bin', name);
+  if (!existsSync(bin)) throw new Error(`aztec ${pin} is pinned by .aztecrc but ${bin} is missing`);
+  return bin;
 }
 
 function spawnDetached(

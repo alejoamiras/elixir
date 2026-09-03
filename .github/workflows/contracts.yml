@@ -46,4 +46,5 @@ jobs:
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-aztec
       - run: bun run contracts:compile
+      - run: bun test scripts/run/toolchain.test.ts
       - run: bun run contracts:test

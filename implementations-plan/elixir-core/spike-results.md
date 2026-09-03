@@ -39,7 +39,7 @@ with `proverEnabled: true` (native bb through bb.js), fees via the sponsored FPC
 | Replay of the same claim | rejected: nullifier collision at simulation ✓ |
 | All-zero proof, simulate only | **accepted** — the ACVM does not evaluate the recursion black box (Fact 12), also shown by the `#[test]` in `crates/verify_w` |
 | Wrong `out` (winning ticket) | rejected at proving: "Failed to verify the generated proof!" ✓ |
-| Tampered, one per phase, each still a winning ticket | io, oink, gemini_folds, shplonk, kzg (commitment limbs): "Deserialized point is not on the curve" at proving; sumcheck_univariates, sumcheck_evaluations, gemini_evals (scalars): "Failed to verify the generated proof!" — 8/8 rejected, none reached the node ✓ |
+| Tampered, one per phase, each still a winning ticket | Commitment phases (io, oink, gemini_folds, shplonk, kzg): the target point replaced by another **valid** point from the same proof (W's pairing inputs are points at infinity, so io P0 := W_L); scalar phases (sumcheck_univariates, sumcheck_evaluations, gemini_evals): one bit flipped. All 8 rejected at proving with "Failed to verify the generated proof!", none reached the node ✓. Natively (`spike:mutation`): 8 valid-point substitutions incl. the BN254 generator → 0 verify. |
 | `claim_split` (separate only_self verifier circuit) | accepted; 10.1 s, ClientIVC 5.26 s, 6,160 ECCVM rows — not faster than inline. **Inline stays.** |
 | Claim fee (receipt `transactionFee`, local network, sponsored by the FPC) | inline claim **62,693,849,472,000,000** fee-juice wei (≈ 0.0627 FJ); `claim_split` 58,524,892,272,000,000 (≈ 0.0585 FJ). Mainnet pricing is out of scope (Ask 10). |
 | Bun process RSS during the run | ≤ 0.94 GiB (the native bb prover runs in its own process) |
@@ -57,8 +57,8 @@ with `proverEnabled: true` (native bb through bb.js), fees via the sponsored FPC
 | sumcheck | 6.5 % |
 | PCS (Gemini + Shplonk + KZG) | 36.6 % |
 
-- (a) Early abort: the digest needs `KZG:W`, the last transcript entry, so it is computable at **100 %** of the prove (94.9 % of `bb prove` wall clock; the rest is I/O). GO ≥ 90 % ✓.
-- (b) Same-witness re-derivation through the 4 disabled sumcheck rows: **≈ 62 %** of an honest prove must be redone (z_perm, sumcheck, PCS, w_4/lookup commits), **≈ 54 %** if the w_4/lookup block is also skipped. This is an attacker-favourable implementation estimate from honest-prover phase timers, not an executed re-derivation and not a cryptographic lower bound for an optimised incremental prover: `beta, gamma` are sampled after the wire commitments (`oink_prover.cpp:40,163`), so any commitment change re-randomises z_perm, sumcheck and the PCS (codex consult, verified against source). bb has no prover-resume path; an executed re-derivation needs a patched C++ build (a follow-up, owner's call). GO ≥ 50 % ✓ on the estimate.
+- (a) Early abort: the digest needs `KZG:W`, the last transcript entry, so nothing before the end of `construct_proof` can be skipped; that is a structural fact, not a measurement. The measured quantity is `construct_proof`'s share of the `bb prove` wall clock, **94.9–95.2 %** (5-run medians, two runs): only serialisation and I/O are skippable. GO ≥ 90 % ✓.
+- (b) Same-witness re-derivation through the 4 disabled sumcheck rows: **not executed.** The plan asked for an implemented and timed re-derivation; that needs a patched bb prover (no resume path in bb; clang absent here, gcc builds unsupported upstream), so this arc reports an estimate instead: from honest-prover phase timers, **≈ 62 %** of an honest prove must be redone (z_perm, sumcheck, PCS, w_4/lookup commits), **≈ 54 %** if the w_4/lookup block is also skipped. Basis (codex consult, verified against source): `beta, gamma` are sampled after the wire commitments (`oink_prover.cpp:40,163`), so any commitment change re-randomises z_perm, sumcheck and the PCS. This is an attacker-favourable implementation estimate, not a cryptographic lower bound; an optimised incremental prover could differ. **GO criterion not met as written**; the owner decides whether the estimate suffices or the executed measurement is a condition for Phase 2.
 
 ## 5. CRS and simulation
 
@@ -73,15 +73,18 @@ with `proverEnabled: true` (native bb through bb.js), fees via the sponsored FPC
 | Tampered proofs fail to prove for every transcript phase (native: all 410 fields) | ✓ 8/8 phases, 410/410 native |
 | ECCVM rows for the full claim tx ≤ 2^14 | ✓ 6,259 |
 | Repeated W proofs byte-identical | ✓ |
-| Early-abort cost ≥ 90 % | ✓ 100 % |
-| Disabled-row re-derivation ≥ 50 % of an honest prove | ✓ ≈ 54–62 %, estimate (see 4b) |
+| Early-abort cost ≥ 90 % | ✓ 94.9–95.2 % of wall clock (structurally everything up to KZG:W) |
+| Disabled-row re-derivation implemented, measured, ≥ 50 % of an honest prove | **✗ not executed**; estimate ≈ 54–62 % (see 4b) — owner's call |
 | Claim gas/resource usage reported | ✓ fee 62.7e15 FJ wei (inline), 6,259 ECCVM rows, 953 Goblin ops, ClientIVC 5.3 s |
 | VK pinning confirmed in ACIR | ✓ |
 | Bootstrap dry run | ✓ |
 | In-browser claim time and peak memory (reported, not gated) | claim 21.9 s in-page, W proof 3.2–3.4 s, peak Chromium tree 2.4 GiB on this box (the plan's reference figures, ≤ 2 min p95 and ≤ 3 GB on the M4 Pro, are not gated; both look comfortably met here) |
 
-**Verdict: GO.** Every hard criterion of Ask 4 holds on real runs. Caveats the owner should weigh: (1) the
-disabled-row re-derivation figure is a timer-derived estimate, not an executed attack (§4b); (2) the browser CRS
-is not hash-checked by bb.js (§5); (3) all timings are from the homelab, roughly 1.8× slower than the reference laptop
-natively, while in-browser W proving here was faster than Bun's WASM runtime; (4) `claim_split` brings nothing, so
-the inline verifier stays; (5) the Chonk claim circuit is 30.2k gates, half the plan's 50–60k estimate.
+**Verdict: GO on nine of the ten hard criteria; the tenth (4b) is unexecuted and rests on an estimate, so the
+GO is conditional on the owner accepting that estimate or ordering the patched-prover measurement before Phase 2.**
+Other caveats: (1) the browser CRS is not hash-checked by bb.js (§5); (2) all timings are from the homelab, roughly
+1.8× slower than the reference laptop natively, while in-browser W proving here was faster than Bun's WASM runtime;
+(3) `claim_split` brings nothing, so the inline verifier stays; (4) the Chonk claim circuit is 30.2k gates, half the
+plan's 50–60k estimate; (5) the recursive tamper test replaces commitment points with other valid points from the
+same proof (a bit flip only breaks the encoding), so the pairing-input block is exercised through the downstream
+pairing check, not merely the deserialiser.

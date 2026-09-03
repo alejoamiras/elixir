@@ -48,5 +48,6 @@ jobs:
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-aztec
       - run: bun run lint
-      - run: bun run --cwd packages/work-circuit compile
-      - run: bun test packages/work-circuit
+      # The VK is the puzzle: every embedded copy and the layout manifest must match the commit.
+      - run: bun run codegen && git diff --exit-code
+      - run: bun test scripts/run/toolchain.test.ts packages/work-circuit

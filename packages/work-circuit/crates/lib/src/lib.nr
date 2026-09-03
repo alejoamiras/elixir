@@ -1,8 +1,8 @@
 use poseidon::poseidon2::Poseidon2;
 
-// Domain separators: the ASCII bytes of the tag, big-endian. Every Poseidon2 invocation in the
-// system starts with one of these so no two hashes can collide across roles. The TS mirror in
-// miner-core is pinned to these values by fixture.
+// Domain separators: the ASCII bytes of the tag, big-endian. Every role-level hash (deployment,
+// secret, work seed, ticket, nullifier, epoch seed) starts with one; the chain steps inside the
+// work do not need one. miner-core duplicates the values; cross-language vectors are still owed.
 pub global DOM_DEPLOY: Field = 0x454c582f6465706c; // "ELX/depl"
 pub global DOM_SECRET: Field = 0x454c582f73656372; // "ELX/secr"
 pub global DOM_WORK: Field = 0x454c582f776f726b; // "ELX/work"

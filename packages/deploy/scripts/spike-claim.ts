@@ -1,4 +1,4 @@
-// Feasibility spike, item 3: a real claim transaction end to end on an isolated local network.
+// A real claim transaction end to end on an isolated local network.
 //   boot node → embedded wallet (prover on) → sponsored FPC → bootstrap dry run (precomputed miner
 //   address, token with minter = miner, bind_token once, non-deployer bind reverts) → mine W with
 //   bb.js → wrong `out` and tampered proofs (one per transcript phase, each still a winning ticket)
@@ -202,19 +202,34 @@ try {
       miner.methods.claim(0, win.nonce, win.out, win.secret, zero, deployer).simulate({ from: deployer }),
     );
     console.log(`all-zero proof, simulate only: ${tamper.zeroProofSimulation}`);
+    // Scalar phases: flip a bit. Commitment phases: a bit flip only makes an invalid encoding, so
+    // substitute a whole VALID point (another of the proof's own points) to test that the
+    // transcript, not the deserialiser, binds it — including the pairing inputs enforced downstream.
+    const points = layout.slots
+      .filter((s) => s.kind === 'limb' && s.label.endsWith('.x_lo'))
+      .map((s) => s.index);
     for (const [phase, span] of Object.entries(layout.phases)) {
+      const isLimb = layout.slots[span.from]?.kind === 'limb';
+      let label = '';
       let fields = win.fields;
-      let slot = span.from;
-      let bit = 0;
-      for (;;) {
-        fields = win.fields.map((f, i) => (i === slot ? f.add(new Fr(1n << BigInt(bit))) : f));
-        if (isWinner(await computeDigest(fields), params.target)) break;
-        if (++bit === 8) {
-          bit = 0;
-          slot++;
+      for (let n = 0; ; n++) {
+        if (isLimb) {
+          const src = points.filter((p) => p !== span.from)[n % (points.length - 1)] ?? 0;
+          fields = win.fields.map((f, i) =>
+            i >= span.from && i < span.from + 4 ? (win.fields[src + i - span.from] ?? f) : f,
+          );
+          label = `tampered ${phase}: point[${span.from}] := point[${src}]`;
+          // W's pairing inputs are points at infinity: copying one over the other changes nothing.
+          if (fields.every((f, i) => f.equals(win.fields[i] ?? f))) continue;
+        } else {
+          fields = win.fields.map((f, i) =>
+            i === span.from + (n >> 3) ? f.add(new Fr(1n << BigInt(n & 7))) : f,
+          );
+          label = `tampered ${phase}[${span.from + (n >> 3)}] bit ${n & 7}`;
         }
+        if (isWinner(await computeDigest(fields), params.target)) break;
       }
-      tamper[phase] = await claim('claim', win, `tampered ${phase}[${slot}] bit ${bit}`, fields);
+      tamper[phase] = await claim('claim', win, label, fields);
     }
     results.tamper = tamper;
     const accepted = Object.entries(tamper).filter(([, r]) => (r as { ok?: boolean }).ok);

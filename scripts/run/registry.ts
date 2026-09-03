@@ -41,7 +41,9 @@ function reclaimStaleLock(): void {
     try {
       ownerAlive = alive(Number(readFileSync(lockOwner(), 'utf8').trim()));
     } catch {
-      ownerAlive = false;
+      // No owner file yet: the holder is between mkdir and writeFile, or died right there.
+      // Only the latter is reclaimable, so give the holder a grace period before deciding.
+      ownerAlive = Date.now() - st.mtimeMs < 2000;
     }
     if (!ownerAlive) rmSync(lock(), { recursive: true, force: true });
   } catch {
