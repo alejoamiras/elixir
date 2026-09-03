@@ -148,6 +148,8 @@ try {
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: true,
   });
+  // Both pipes must be drained: a full stdout pipe blocks the dev server silently.
+  vite.stdout?.on('data', (b: Buffer) => process.stdout.write(`[vite] ${b}`));
   vite.stderr?.on('data', (b: Buffer) => process.stderr.write(`[vite] ${b}`));
   const url = `http://127.0.0.1:${vitePort}/?node=${encodeURIComponent(node.nodeUrl)}&miner=${miner.address}&token=${token.address}&threads=${threads}`;
   let viteReady = false;
@@ -164,12 +166,18 @@ try {
   // A persistent context's user-data-dir is on every Chromium process's command line, which is how
   // the process tree is found for the RSS watcher (Playwright exposes no browser pid here).
   const userDataDir = resolve(pkg, 'target', `chromium-${runId}`);
-  const context = await chromium.launchPersistentContext(userDataDir, { headless: true });
+  const context = await chromium.launchPersistentContext(userDataDir, {
+    headless: true,
+    args: ['--disable-dev-shm-usage'],
+  });
   const browserPid = await findBrowserPid(userDataDir);
   const watcher = await peakRssWatcher(browserPid);
   const page = context.pages()[0] ?? (await context.newPage());
   page.on('console', (m) => console.log(`[page] ${m.text().slice(0, 300)}`));
   page.on('pageerror', (e) => console.log(`[page error] ${e.message}`));
+  page.on('crash', () => console.log('[page] renderer crashed'));
+  page.on('close', () => console.log('[page] closed'));
+  context.on('close', () => console.log('[browser] context closed'));
   const t0 = performance.now();
   await page.goto(url);
   await page.waitForFunction(() => window.__spike !== undefined, undefined, { timeout: 1_800_000 });
