@@ -113,3 +113,8 @@ Ask 4. Then stop. The hard GO criteria are listed in Ask 4; browser time and mem
 
 Small deviations: decide with `/codex xhigh`, log the consult in `lessons/`, proceed. Anything that changes the
 mechanism (§2), the security assumptions (§4) or the decided Asks (§5) is the owner's call: stop and surface it.
+
+## 9. Testnet deploy inputs (Phase 5, added 2026-09-03)
+
+- Node: `https://v5.testnet.rpc.aztec-labs.com` (public; the mainnet endpoint in nulo carries an API key in its URL — never copy it into this repo).
+- Deployer account secret: `~/Projects/nulo/packages/bridge-core/.env`, variable `BRIDGE_DEPLOYER_SECRET_TESTNET` (an Aztec account secret; the L1 keys in that file are not needed — fees are sponsored). The deploy script reads `ELIXIR_DEPLOYER_SECRET` and `AZTEC_NODE_URL`; run it as `set -a; source ~/Projects/nulo/packages/bridge-core/.env; set +a; ELIXIR_DEPLOYER_SECRET=$BRIDGE_DEPLOYER_SECRET_TESTNET AZTEC_NODE_URL=… bun run deploy:testnet`. Never copy the values into this repo's `.env`, never print them.
