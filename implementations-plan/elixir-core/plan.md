@@ -289,7 +289,7 @@ L1-portal verification (first fallback, Appendix B); pay-per-proof with reward a
 
 Commands are created in Phase 0 and are the project's real tooling from then on. Fast layers (`bun run lint`, `bun test` for touched packages) run after every meaningful step, not only at the gate.
 
-### Phase 0 — Scaffold + CI (my-stack)
+### Phase 0 — Scaffold + CI (my-stack) ✓
 Workspace, `bunfig.toml` (min-age, isolated linker), biome with complexity budgets, husky + commitlint + lint-staged, `sort-package-json`, `scripts/run/*`, per-package PR-gate workflows with `changes` jobs, `actionlint.yml`, `CLAUDE.md`, `docs/roadmap.md`, `implementations-plan/index.md`. Root scripts: `lint`, `lint:fix`, `lint:shell`, `lint:actions`, `test`, `test:components`, `test:e2e`, `e2e:agent`, `contracts:compile`, `contracts:test`, `spike:*`.
 **Gate**: `bun run lint && bun run lint:actions && bun run lint:shell && bun test` exit 0 on a placeholder test; conventional commits; workflows pass actionlint. Layers: lint/typecheck, unit.
 

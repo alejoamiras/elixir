@@ -1,13 +1,54 @@
 # elixir
 
-Privately mineable token on Aztec whose mining work is Barretenberg proving (proof-hash lottery, Bitcoin-style
-difficulty). Planning is complete and approved; implementation has not started.
+Privately mineable token on Aztec whose mining work is Barretenberg proving: a miner proves a fixed Noir circuit per
+nonce, the ticket is Poseidon2 over the whole UltraHonk proof, a ticket below the target wins, and the winner claims
+through a private Aztec transaction that verifies the proof in-circuit and mints privately. Bitcoin-style difficulty:
+epochs close after `N` accepted claims and the target rescales by actual/expected time, clamped to [¼, 4].
 
-**Start here**: `implementations-plan/elixir-core/context.md` (hand-off), then `implementations-plan/elixir-core/plan.md`
-(the plan; §6 phases with validation gates, §9 post-implementation protocol, Seeds at the bottom).
+**Plan**: `implementations-plan/elixir-core/plan.md` (§2 mechanism, §4 security, §6 phases with gates, §9
+post-implementation). Hand-off: `implementations-plan/elixir-core/context.md`. Lessons: `implementations-plan/elixir-core/lessons/`.
 
-Current state: arc A1 (Phase 0 scaffold + Phase 1 feasibility spike) is next. Phase 1 ends with a hard stop: report the
-GO / NO-GO to the owner before Phase 2 or any PR.
+## Packages (Bun workspace)
 
-Conventions: the owner's global `~/.claude/CLAUDE.md` and the `my-stack`, `run-isolation`, `blueprint` skills apply.
-Phase 0 replaces this file with the full project CLAUDE.md (packages, commands, complexity budgets).
+| Package | Owns |
+|---|---|
+| `packages/contracts` | Aztec contracts: `elixir_miner` + aztec-standards token (git dep, `v5.2.0`) |
+| `packages/work-circuit` | Noir work circuit `W`, its VK / VK hash / proof-layout manifest, fixture proofs |
+| `packages/miner-core` | Platform-agnostic TS: proof → digest, retarget mirror, epoch reader, claim builder |
+| `packages/deploy` | Sandbox / testnet deploy, calibration, spike and epoch-stats scripts |
+| `packages/web-miner` | React + Vite miner with embedded wallet (arrives in Phase 4) |
+| `scripts/run` | Run isolation: port registry, isolated local network, per-worktree runner |
+
+## Toolchain
+
+- **Aztec 5.2.0 only** (`.aztecrc`): `aztec-nargo` (Noir 1.0.0-beta.25), `aztec-txe`, `bb` from
+  `~/.aztec/versions/5.2.0`. Never bare `nargo`. `bb --version` prints `5.2.0-nightly.20260807` for this release.
+- **Bun ≥ 1.4** for everything (PM, runtime, `bun:test`). Biome lints and formats. Vitest only for React components.
+- Supply chain: `bunfig.toml` enforces a 7-day npm min-age and the isolated linker; CI installs with a frozen lockfile;
+  GitHub Actions are pinned by commit SHA.
+
+## Commands
+
+```
+bun run lint           # biome + sort-package-json --check
+bun run lint:fix
+bun run lint:shell     # shellcheck on scripts/run/*.sh and hooks
+bun run lint:actions   # actionlint
+bun test               # all bun:test suites (packages + scripts)
+bun run contracts:compile / contracts:test
+bun run e2e:agent -- <cmd>   # run <cmd> against a fresh isolated local network (AZTEC_NODE_URL set)
+bun scripts/run/isolated-node.ts --smoke
+```
+
+## Conventions
+
+- Complexity budgets (Biome, error level): cognitive ≤ 15 everywhere; ≤ 80 non-blank lines per production
+  function. Never suppress complexity rules in new code.
+- Run isolation: never hardcode ports, never kill by name. Ports come from `~/.agents/ports.md` via
+  `scripts/run/registry.ts`; services run detached in their own process group; teardown kills only owned groups.
+  Data dirs live under `.localnet/` (real disk, gitignored). A sandbox on 8080 belongs to someone else.
+- Comments say what the code cannot; no references to plans, phases or reviews in code.
+- Conventional commits (commitlint), signed. Feature branches only; PRs open only at the Delivery step of plan §9.
+- Tests: the smallest set that proves the behaviour and catches the expected failures. External-system code gets one
+  real-data integration test under `describe.skipIf(!ENV)`.
+- The owner's global `~/.claude/CLAUDE.md` and the `my-stack`, `run-isolation`, `blueprint` skills apply.
