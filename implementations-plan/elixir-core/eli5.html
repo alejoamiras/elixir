@@ -1,0 +1,253 @@
+<title>Elixir Blueprint</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,500;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #F5F7F3; --bg-2: #EBEFE7; --ink: #1A211D; --ink-2: #4E5A54; --ink-3: #7B877F; --line: #D3DAD2;
+    --copper: #B4602A; --copper-soft: #F1E1D3; --verdigris: #2C7F6C; --verdigris-soft: #D6E9E1;
+    --crit: #A8393A; --crit-soft: #F3DAD9; --warn: #9A6E12; --warn-soft: #F2E7C8; --code-bg: #ECEFE9;
+    --serif: "IBM Plex Serif", Georgia, serif; --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif; --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #13181A; --bg-2: #1B2224; --ink: #E4E9E4; --ink-2: #A9B4AD; --ink-3: #7E8A83; --line: #2E3A38;
+    --copper: #D98B4E; --copper-soft: #3A2A1E; --verdigris: #5BBFA5; --verdigris-soft: #1B3630;
+    --crit: #E06B6B; --crit-soft: #3D2222; --warn: #D8B252; --warn-soft: #3A3119; --code-bg: #1B2224; color-scheme: dark; } }
+  :root[data-theme="dark"] {
+    --bg: #13181A; --bg-2: #1B2224; --ink: #E4E9E4; --ink-2: #A9B4AD; --ink-3: #7E8A83; --line: #2E3A38;
+    --copper: #D98B4E; --copper-soft: #3A2A1E; --verdigris: #5BBFA5; --verdigris-soft: #1B3630;
+    --crit: #E06B6B; --crit-soft: #3D2222; --warn: #D8B252; --warn-soft: #3A3119; --code-bg: #1B2224; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  a { color: var(--copper); text-underline-offset: 2px; }
+  a:focus-visible { outline: 2px solid var(--copper); outline-offset: 2px; }
+  .page { max-width: 1000px; margin: 0 auto; padding: 40px 28px 96px; }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(32px, 5vw, 46px); line-height: 1.08; margin: 8px 0 12px; letter-spacing: -.01em; text-wrap: balance; }
+  .lede { font-family: var(--serif); font-style: italic; font-size: 19px; color: var(--ink-2); max-width: 62ch; margin: 0 0 14px; text-wrap: pretty; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 22px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); padding-bottom: 26px; border-bottom: 1px solid var(--line); margin-bottom: 30px; }
+  .meta b { color: var(--ink); font-weight: 500; }
+  main { display: grid; grid-template-columns: 1fr; }
+  .toc { display: none; }
+  @media (min-width: 900px) { main { grid-template-columns: 190px 1fr; gap: 44px; align-items: start; }
+    .toc { display: block; position: sticky; top: 24px; font-size: 13px; } .toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+    .toc a { color: var(--ink-2); text-decoration: none; display: block; padding: 2px 0 2px 10px; border-left: 2px solid var(--line); } .toc a:hover { color: var(--ink); border-left-color: var(--copper); } }
+  article { min-width: 0; }
+  section { padding: 6px 0 26px; margin-bottom: 18px; border-bottom: 1px solid var(--line); } section:last-of-type { border-bottom: 0; }
+  h2 { font-family: var(--serif); font-weight: 600; font-size: 26px; line-height: 1.2; margin: 6px 0 12px; text-wrap: balance; }
+  h3 { font-weight: 600; font-size: 16px; margin: 22px 0 8px; }
+  p { margin: 0 0 12px; max-width: 68ch; text-wrap: pretty; } ul, ol { margin: 0 0 12px; padding-left: 22px; max-width: 68ch; } li { margin-bottom: 6px; } li::marker { color: var(--ink-3); }
+  code { font-family: var(--mono); font-size: .88em; background: var(--code-bg); padding: 1px 5px; border-radius: 3px; }
+  pre { font-family: var(--mono); font-size: 12.5px; line-height: 1.5; background: var(--code-bg); border: 1px solid var(--line); padding: 14px 16px; overflow-x: auto; margin: 10px 0 16px; border-radius: 4px; white-space: pre-wrap; }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .pill { display: inline-block; font-family: var(--mono); font-size: 11px; letter-spacing: .04em; padding: 2px 8px; border-radius: 999px; vertical-align: middle; margin-left: 6px; }
+  .pill.crit { background: var(--crit-soft); color: var(--crit); } .pill.warn { background: var(--warn-soft); color: var(--warn); } .pill.ok { background: var(--verdigris-soft); color: var(--verdigris); } .pill.info { background: var(--copper-soft); color: var(--copper); }
+  figure { margin: 18px 0 22px; } .fig-wrap { overflow-x: auto; } figure svg { max-width: 100%; height: auto; display: block; color: var(--ink); font-family: var(--sans); }
+  figcaption { font-size: 13.5px; color: var(--ink-2); margin-top: 8px; max-width: 68ch; }
+  svg text { font-size: 12px; fill: currentColor; } svg .box { fill: var(--bg-2); stroke: currentColor; stroke-width: 1; } svg .box.accent { stroke: var(--copper); stroke-width: 1.6; fill: var(--copper-soft); } svg .box.good { stroke: var(--verdigris); stroke-width: 1.6; fill: var(--verdigris-soft); } svg .box.muted { stroke: var(--line); fill: var(--bg); }
+  svg .lbl { font-size: 11px; fill: var(--ink-2); } svg .mono { font-family: var(--mono); font-size: 11px; } svg .title { font-weight: 600; font-size: 12.5px; } svg .hot { fill: var(--copper); font-weight: 600; } svg .edge { stroke: currentColor; stroke-width: 1.2; fill: none; } svg .edge.hot { stroke: var(--copper); stroke-width: 1.8; } svg .region { fill: none; stroke: var(--line); stroke-dasharray: 4 4; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 8px 0 16px; } .tbl-wrap { overflow-x: auto; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; } th { font-family: var(--mono); font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; }
+  .phase { border-left: 3px solid var(--line); padding: 10px 16px; margin: 12px 0; background: var(--bg-2); border-radius: 0 4px 4px 0; } .phase.stop { border-left-color: var(--copper); } .phase h3 { margin: 0 0 6px; } .phase p { margin: 0 0 6px; } .proves { font-size: 13.5px; color: var(--ink-2); } .proves b { color: var(--ink); font-weight: 600; }
+  .callout { border-left: 3px solid var(--copper); background: var(--copper-soft); padding: 12px 16px; margin: 14px 0 18px; border-radius: 0 4px 4px 0; max-width: 72ch; } .callout.good { border-left-color: var(--verdigris); background: var(--verdigris-soft); } .callout p:last-child { margin-bottom: 0; }
+  .approval { border: 1px solid var(--copper); border-radius: 6px; padding: 14px 18px; background: var(--copper-soft); } .approval h2 { margin-top: 0; }
+  .seed { border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px; margin: 12px 0; } .seed.rec { border-color: var(--verdigris); background: var(--verdigris-soft); } .seed h3 { margin: 0 0 8px; }
+  .warning { color: var(--warn); font-weight: 600; }
+  .verdicts td:first-child { white-space: nowrap; }
+</style>
+
+<div class="page">
+<header>
+  <div class="eyebrow">Blueprint · mid · elixir-core · v6 · at approval gate</div>
+  <h1>Elixir Blueprint</h1>
+  <p class="lede">A token you mine by making Barretenberg proofs. Each proof is a lottery ticket; the ticket number is the proof's own fingerprint; winners claim privately; difficulty adjusts the Bitcoin way.</p>
+  <div class="meta">
+    <span>repo <b>~/Projects/elixir</b> (new, empty)</span>
+    <span>target <b>mainnet-deployable</b></span>
+    <span>plan <b>implementations-plan/elixir-core/plan.md</b></span>
+    <span>audits <b>codex: reject → conditional approve</b> · <b>fable: conditional approve</b> · <b>final codex: reject → conditional approve</b></span>
+  </div>
+</header>
+
+<main>
+<nav class="toc" aria-label="Sections"><ol>
+  <li><a href="#summary">Summary</a></li><li><a href="#tier">Why this tier</a></li><li><a href="#how">How mining works</a></li><li><a href="#measured">Already measured</a></li><li><a href="#phases">Phases</a></li><li><a href="#context">Human context</a></li><li><a href="#asks">Open questions</a></li><li><a href="#audits">Audit verdicts</a></li><li><a href="#approval">Your decision</a></li><li><a href="#seeds">Implementation seeds</a></li>
+</ol></nav>
+
+<article>
+<section id="summary">
+  <h2>Summary</h2>
+  <p>The prototype we are replacing made people grind Poseidon2 hashes on their CPU and rewarded whoever bought the most GPUs. This plan makes the <strong>proof itself</strong> the work. A miner repeatedly proves a small fixed circuit with Barretenberg; the hash of each finished proof is a lottery ticket; a ticket below the current target wins one reward. Winners submit a private Aztec transaction that re-verifies the proof inside a circuit, mints the reward into a private balance, and counts one claim toward the epoch. Losers never touch the chain. Epochs close after a fixed number of wins, so the chain sees a bounded number of claims per epoch no matter how much proving power joins, and the target adjusts by how long those wins took, exactly the way Bitcoin adjusts on block times.</p>
+  <p>This plan delivers the contracts, a platform-agnostic miner core, a browser miner, tests at every layer, and a testnet deployment soak. Native mining through aztec-accelerator comes later on the same core.</p>
+</section>
+
+<section id="tier">
+  <h2>Why this tier</h2>
+  <p>Rubric: novelty <strong>high</strong> (first proof-of-proving mechanism on Aztec), blast radius medium, irreversibility <strong>high</strong> (an immutable mainnet token), migration cost low, external coupling medium, security sensitivity <strong>high</strong> (value plus privacy). Three highs map to <code>deep</code>. You chose <code>mid</code>; the plan records that and compensates with measured facts instead of a third independent draft. Budget: two recon agents, code-review low on the spike arc and medium on the other two, codex loops until clean with a hard stop at three rounds.</p>
+</section>
+
+<section id="how">
+  <h2>How mining works</h2>
+  <figure>
+    <div class="fig-wrap">
+    <svg viewBox="0 0 860 260" role="img" aria-label="Mining loop: the miner proves the work circuit for each nonce, hashes the proof into a ticket, and only a ticket below the target crosses to the chain, where a private claim re-verifies the proof, mints privately and counts one claim.">
+      <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+      <rect x="20" y="30" width="420" height="200" rx="6" class="region"/>
+      <text x="34" y="52" class="lbl">Miner's machine · browser Worker or native bb</text>
+      <rect x="44" y="70" width="170" height="120" rx="4" class="box accent"/>
+      <text x="56" y="94" class="title">Prove the work circuit</text>
+      <text x="56" y="114" class="mono">inputs: seed, epoch,</text>
+      <text x="56" y="130" class="mono">  my secret's hash, nonce</text>
+      <text x="56" y="150" class="lbl">Poseidon2 chain, ~150k gates</text>
+      <text x="56" y="168" class="lbl hot">this IS the work · ~1 s native</text>
+      <path d="M214,130 L254,130" class="edge" marker-end="url(#a1)"/>
+      <rect x="254" y="70" width="166" height="120" rx="4" class="box"/>
+      <text x="266" y="94" class="title">Hash the proof</text>
+      <text x="266" y="114" class="mono">ticket = Poseidon2(proof)</text>
+      <text x="266" y="134" class="lbl">all 410 fields, so the ticket</text>
+      <text x="266" y="150" class="lbl">exists only when the proof does</text>
+      <text x="266" y="172" class="lbl hot">ticket &lt; target? rarely</text>
+      <text x="34" y="216" class="lbl">nonce += 1 and repeat · losers stay here forever</text>
+      <path d="M440,130 L500,130" class="edge hot" marker-end="url(#a1)"/>
+      <text x="470" y="120" class="mono" text-anchor="middle">winner</text>
+      <rect x="500" y="30" width="340" height="200" rx="6" class="region"/>
+      <text x="514" y="52" class="lbl">Aztec · one private transaction</text>
+      <rect x="524" y="70" width="292" height="120" rx="4" class="box good"/>
+      <text x="538" y="94" class="title">claim (private)</text>
+      <text x="538" y="114" class="mono">re-verify the proof in-circuit</text>
+      <text x="538" y="130" class="mono">check ticket &lt; target for that epoch</text>
+      <text x="538" y="146" class="mono">nullify the ticket · mint 4 ELX privately</text>
+      <text x="538" y="162" class="mono">count +1 claim for the epoch (public)</text>
+      <text x="538" y="182" class="lbl">nobody learns who mined</text>
+      <text x="514" y="216" class="lbl">measured: the in-circuit verifier costs ~20k gates here</text>
+    </svg>
+    </div>
+    <figcaption>The only way to learn whether a nonce wins is to finish a Barretenberg proof. Faster proving means more tickets per hour, which is the incentive we want.</figcaption>
+  </figure>
+  <figure>
+    <div class="fig-wrap">
+    <svg viewBox="0 0 860 190" role="img" aria-label="Epochs close after 24 accepted claims. A fast epoch (many miners) makes the next target harder; a slow one makes it easier; if nobody wins for four hours anyone can close the epoch early.">
+      <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+      <text x="20" y="26" class="lbl">time → · each dot is one accepted claim · an epoch closes on its 24th claim</text>
+      <line x1="40" y1="70" x2="820" y2="70" class="edge"/>
+      <g fill="var(--copper)">
+        <circle cx="60" cy="70" r="3.5"/><circle cx="72" cy="70" r="3.5"/><circle cx="85" cy="70" r="3.5"/><circle cx="99" cy="70" r="3.5"/><circle cx="114" cy="70" r="3.5"/><circle cx="130" cy="70" r="3.5"/><circle cx="147" cy="70" r="3.5"/><circle cx="165" cy="70" r="3.5"/><circle cx="184" cy="70" r="3.5"/><circle cx="204" cy="70" r="3.5"/><circle cx="225" cy="70" r="3.5"/><circle cx="247" cy="70" r="3.5"/>
+        <circle cx="290" cy="70" r="3.5"/><circle cx="296" cy="70" r="3.5"/><circle cx="302" cy="70" r="3.5"/><circle cx="308" cy="70" r="3.5"/><circle cx="314" cy="70" r="3.5"/><circle cx="320" cy="70" r="3.5"/><circle cx="326" cy="70" r="3.5"/><circle cx="332" cy="70" r="3.5"/><circle cx="338" cy="70" r="3.5"/><circle cx="344" cy="70" r="3.5"/><circle cx="350" cy="70" r="3.5"/><circle cx="356" cy="70" r="3.5"/>
+        <circle cx="420" cy="70" r="3.5"/><circle cx="460" cy="70" r="3.5"/><circle cx="510" cy="70" r="3.5"/><circle cx="570" cy="70" r="3.5"/><circle cx="640" cy="70" r="3.5"/>
+      </g>
+      <line x1="262" y1="58" x2="262" y2="82" stroke="var(--copper)" stroke-width="2"/>
+      <line x1="372" y1="58" x2="372" y2="82" stroke="var(--copper)" stroke-width="2"/>
+      <line x1="800" y1="58" x2="800" y2="82" stroke="var(--copper)" stroke-width="2" stroke-dasharray="3 3"/>
+      <text x="60" y="52" class="lbl">epoch e · ~1 hour · 24 wins</text>
+      <text x="290" y="52" class="lbl">e+1 · 100× more miners → 24 wins in minutes</text>
+      <text x="420" y="52" class="lbl">e+2 · target ÷4 · miners drop out</text>
+      <text x="60" y="110" class="lbl">close on 24th → next target × (actual ÷ expected)</text>
+      <text x="60" y="126" class="lbl">issuance per epoch = 24 × 4 ELX, by construction</text>
+      <text x="290" y="110" class="lbl hot">fast epoch → ratio clamped to ¼ → harder</text>
+      <text x="290" y="126" class="lbl">converges in ⌈log₄(100)⌉ = 4 epochs, like Bitcoin</text>
+      <text x="420" y="145" class="lbl">no 24th claim after 4 h? anyone may close it → easier</text>
+      <text x="420" y="161" class="lbl">a claim for an already-closed epoch simply fails (Bitcoin's orphan)</text>
+    </svg>
+    </div>
+    <figcaption>Counting claims instead of counting hours is what caps issuance. Under a sudden surge, epochs get short, not fat.</figcaption>
+  </figure>
+</section>
+
+<section id="measured">
+  <h2>Already measured, before any code is written</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Question</th><th>Answer</th><th>Why it matters</th></tr></thead>
+    <tbody>
+      <tr><td>Can an Aztec private function verify a Barretenberg proof, and what does it cost?</td><td><strong>Yes: 19,923 gates</strong> (681,980 if done as a plain circuit)</td><td>The whole design hinges on this. Aztec's client prover offloads the heavy curve math, so the verifier is cheap inside a transaction.</td></tr>
+      <tr><td>Does simulation catch a fake proof?</td><td><strong>No.</strong> An all-zero proof "executes" fine</td><td>Unit tests cannot test proof validity; real-proving tests are mandatory and the plan has them.</td></tr>
+      <tr><td>How much work is one ticket?</td><td>~74 gates per hash step; 2048 steps prove in <strong>0.6 s natively</strong></td><td>Ticket cost is tunable; the browser will be roughly ten times slower.</td></tr>
+      <tr><td>Can any part of a proof be changed for free (free tickets)?</td><td><strong>No.</strong> Flipping one bit in any of the 410 proof fields breaks verification</td><td>The ticket can safely be the hash of the whole proof.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="phases">
+  <h2>Phases</h2>
+  <div class="phase"><h3>Phase 0 · Scaffold and CI</h3><p>The repository on our stack: Bun workspace, Biome, commit hooks, supply-chain settings, isolated local runs, per-package CI gates, project docs.</p><p class="proves"><b>Proves itself by:</b> lint, workflow lint, shell lint and a placeholder test all green.</p></div>
+  <div class="phase stop"><h3>Phase 1 · Feasibility spike <span class="pill crit">hard stop</span></h3><p>Build the work circuit at three sizes, prove it natively and in the browser, check proofs are byte-identical when repeated, publish a labelled map of the 410 proof fields, tamper with proofs and confirm every tamper fails both natively and through the in-circuit path, send a real claim through a wallet to a sandbox node, measure browser time and memory and the claim's fee, and measure two ticket-cost floors: how much proving happens before a ticket can be known, and how much a modified prover can save by reusing work on the same inputs. Ends with a written GO / NO-GO against the thresholds you approve below, and <strong>stops for your decision</strong>.</p><p class="proves"><b>Proves itself by:</b> a results file with every measurement from real runs, plus every spike script exiting cleanly.</p></div>
+  <div class="phase"><h3>Phase 2 · Contracts</h3><p>The miner contract (claims, epoch close, retarget, escape hatch), the token ported to Aztec 5.2.0, a deploy script, and Noir tests for every rule: 24-claim close, clamps, extremes, stale claims, replay, ordering, atomic revert, plus a simulator for hashrate shocks and withholding.</p><p class="proves"><b>Proves itself by:</b> contracts compile, all Noir tests and simulator tests green.</p></div>
+  <div class="phase"><h3>Phase 3 · Miner core</h3><p>The shared TypeScript library both the browser and future native miner use: prove, hash, check, read epochs, build the claim. Fixtures pin every hash to the Noir side. A real-proving integration test against an isolated sandbox: mine at an easy target, claim, see the private balance grow; tampered proofs fail; a proof cannot be reused on a second deployment; the public trail reveals only what we say it does.</p><p class="proves"><b>Proves itself by:</b> unit tests green and the live sandbox integration passing on a port this run owns.</p></div>
+  <div class="phase"><h3>Phase 4 · Web miner</h3><p>React app: connect a wallet, derive the miner secret, mine in a Worker, claim through the wallet, watch the dashboard. Component tests, then a browser end-to-end run against the sandbox including worker crash recovery and memory measurement. Cloudflare Pages config with the security headers the prover needs.</p><p class="proves"><b>Proves itself by:</b> component tests, production build and the browser end-to-end run all green.</p></div>
+  <div class="phase"><h3>Phase 5 · Testnet soak and mainnet readiness</h3><p>Deploy to the public testnet, watch at least 24 epochs close and record how the target behaved, write the miner README, the threat model, and the mainnet checklist (security hardening pass plus external audit).</p><p class="proves"><b>Proves itself by:</b> deployment receipts, a committed soak report, docs updated in the same PR.</p></div>
+  <p>Delivery: three stacked pull requests, opened only after each arc's review loops converge: A1 = phases 0–1, A2 = phases 2–3, A3 = phases 4–5. Merging is always your call.</p>
+</section>
+
+<section id="context">
+  <h2>Human context</h2>
+  <h3>Why not just fix the old design?</h3>
+  <p>Any lottery whose ticket a miner can compute without proving turns back into hash grinding. The old design's ticket was a hash of public inputs and a nonce, so GPUs win and Barretenberg is never touched. Here the ticket is the hash of the finished proof: there is no shortcut to it that does not involve producing the proof.</p>
+  <h3>Why a lottery rather than "pay every proof"?</h3>
+  <p>Paying every proof is simpler and needs no in-circuit verifier, but then every proof is a transaction, so chain load grows with participation. With the lottery, the chain only ever sees winners, at most 24 per epoch. Codex initially preferred an L1-based variant as the fallback; both fallbacks are written up in the plan and only used if Phase 1 says no.</p>
+  <h3>What "private" means here</h3>
+  <p>Nobody can tell who mined or how much anyone holds. What is visible: that a claim happened, its epoch, its (random-looking) winning ticket, the fixed reward amount, and when. A claim is recognisable as a mining claim.</p>
+  <h3>What we are trusting</h3>
+  <p>One known shortcut exists and is priced in: Barretenberg's non-hiding proofs leave four rows of the circuit unconstrained, so a modified prover can re-prove the same inputs with fresh values there and get a new ticket for roughly half to two-thirds the cost of an honest proof, reusing the heavy curve math. Phase 1 builds that attack and measures it. That number is what the attack costs, not a proof that nothing cheaper exists; the "nothing cheaper" part is a stated assumption handed to the external audit. A GPU prover for Barretenberg, if someone builds one, is a welcome outcome rather than an attack.</p>
+  <h3>How the plan changed under review</h3>
+  <p>Codex rejected the first version for two real problems: hour-based epochs let a sudden 100× surge mint roughly 3,000 rewards before difficulty caught up, and the one-epoch grace period rewarded miners who hid their wins. Version two counts claims instead of hours, which caps issuance by construction, and drops grace. Codex then conditionally approved and asked for exact arithmetic, a missing circuit input, harder spike thresholds and honest wording; all adopted. The independent Claude reviewer found the same-inputs shortcut above, showed the wallet cannot sign the message the secret derivation needed (so the secret is now a fresh random value per epoch), proved the emergency-close formula always collapsed to "four times easier" (now stated plainly, with a less predictable seed), and asked for the difficulty arithmetic to be tested at realistic launch values, for the verifier to live inline in the claim, and for the mining fee to be measured. All six conditions adopted.</p>
+</section>
+
+<section id="asks">
+  <h2>Open questions for you (defaults in bold)</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>#</th><th>Question</th><th>Proposed default</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Economics</td><td><b>24 claims per epoch, one hour expected, four-hour escape hatch, 4 ELX per claim</b> → about 96 ELX per hour at steady state, forever; 18 decimals</td></tr>
+      <tr><td>2</td><td>How heavy is one ticket?</td><td><b>About 3 s per proof in a browser on an M-series laptop</b>; exact circuit size fixed by Phase 1</td></tr>
+      <tr><td>3</td><td>Aztec version and token</td><td><b>Aztec 5.2.0 everywhere; aztec-standards token ported to it</b>, never downgrade</td></tr>
+      <tr><td>4</td><td>What counts as GO after Phase 1?</td><td><b>Real claim sent through a wallet and accepted by a node; tampered proofs fail in-circuit for every proof section; the transaction uses at most half of the curve-math budget; repeated proofs identical; ≥ 90 % of proving cost is spent before a ticket can be known; the same-inputs shortcut still costs ≥ 50 % of an honest proof; browser claim under 2 min and 3 GB; claim fee under 10 % of the reward</b>. Anything else: NO-GO, back to you</td></tr>
+      <tr><td>5</td><td>Where does the miner's secret come from?</td><td><b>A fresh random value per epoch</b>, generated in the browser and discarded when the epoch closes. Tickets only live for their epoch, so nothing long-lived needs protecting, and the wallet never signs anything</td></tr>
+      <tr><td>6</td><td>Upgrades and mistakes</td><td><b>Immutable contracts, no admin, no pause</b>; a parameter mistake means redeploying and documenting the migration</td></tr>
+      <tr><td>7</td><td>Testnet</td><td><b>Current public Aztec testnet, sponsored fees</b></td></tr>
+      <tr><td>8</td><td>Before mainnet</td><td><b>Security hardening pass plus an independent external audit</b> of the circuit, key, contract and verifier path; you own budget and timing; the plan blocks mainnet on both</td></tr>
+      <tr><td>9</td><td>Tier</td><td><b>mid</b>, against the rubric's deep; acknowledged</td></tr>
+      <tr><td>10</td><td>How does a brand-new miner pay the claim's transaction fee on mainnet? (needs your explicit yes)</td><td>Testnet: sponsored. Mainnet: <b>miners bring their own fee asset, bridged from L1 and documented in the README</b>; or a later plan ships a fee contract that accepts ELX. Phase 1 reports the fee in fee-asset units and the ELX price at which the reward covers it</td></tr>
+      <tr><td>11</td><td>Who wires the miner to the token at launch?</td><td><b>The deploying key, in a single call that then locks forever.</b> Aztec addresses depend on constructor arguments, so the two contracts cannot each be born knowing the other; the miner is deployed first without a token and bound once</td></tr>
+      <tr><td>12</td><td>Can the deployer mine the first epoch before anyone else?</td><td>Yes, unavoidably. <b>Accepted and disclosed</b>: the first epoch is capped at 24 wins (96 ELX), after which the seed depends on things nobody can know in advance</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="audits">
+  <h2>Audit verdicts</h2>
+  <div class="tbl-wrap"><table class="verdicts">
+    <thead><tr><th>Reviewer</th><th>Verdict</th><th>What it changed</th></tr></thead>
+    <tbody>
+      <tr><td>codex, round 1</td><td><span class="pill crit">reject</span></td><td>Time-based epochs over-issued under surges; grace window rewarded withholding; ticket binding under-specified; spike thresholds unsafe. Led to count-capped epochs, no grace, whole-proof ticket with a layout manifest, redefined GO.</td></tr>
+      <tr><td>codex, round 2</td><td><span class="pill ok">conditional approve</span></td><td>Missing circuit input added; exact overflow-safe retarget arithmetic; early-abort and per-section tamper tests as hard gates; honest wording on load and emission. All conditions adopted.</td></tr>
+      <tr><td>fable-role (independent Claude)</td><td><span class="pill ok">conditional approve</span></td><td>Found the same-inputs proof shortcut and its cost floor; wallet cannot sign, so per-epoch random secret; emergency close is plainly "×4" with a better seed; difficulty arithmetic tested at launch values; verifier inline; fee measured and a mainnet fee-path question added. All six conditions adopted.</td></tr>
+      <tr><td>codex, final fresh-context pass, round 1</td><td><span class="pill crit">reject</span></td><td>Caught that the planned deployment was impossible (each contract's address depends on the other's), that the difficulty arithmetic lacked a time cap and a proper division check, and that the emergency-close seed and the first epoch are pre-mineable. Fixed: one-shot token binding after deployment, capped elapsed time, range-checked division, both pre-mining cases disclosed and bounded.</td></tr>
+      <tr><td>codex, final pass, re-verdict on v5</td><td><span class="pill ok">conditional approve</span></td><td>Both blockers cleared. Three narrow conditions: the bound token address must use the storage type private functions can actually read (which also gives one-shot binding for free), overflow-safe rounding in the difficulty clamp, and honest wording ("measured attack cost", "accepted claims capped"). All adopted in v6. This is the gate verdict.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="approval" class="approval">
+  <h2>Approval decision needed from you</h2>
+  <ul>
+    <li>Confirm scope: contracts + miner core + web miner + tests + testnet soak; native mining later via aztec-accelerator.</li>
+    <li>Confirm tier <code>mid</code> knowing the rubric said <code>deep</code>.</li>
+    <li>Answer or accept the defaults for questions 1–12 above; question 4 decides what Phase 1 must show, question 10 decides how mainnet miners pay fees, questions 11–12 accept the launch mechanics.</li>
+    <li>Confirm validation layers: lint/typecheck and unit on every phase; live sandbox integration on phases 1 and 3; browser end-to-end on phases 1 and 4; testnet on phase 5.</li>
+    <li>Confirm delivery: three stacked PRs (A1 spike · A2 protocol · A3 web + testnet), opened only after review loops converge; Phase 1 is a hard stop for your GO / NO-GO.</li>
+    <li>Confirm the mainnet gate: security hardening pass plus external audit before any mainnet deployment.</li>
+    <li>Approve, conditionally approve (with conditions), or reject (with blocking findings).</li>
+  </ul>
+</section>
+
+<section id="seeds">
+  <h2>Implementation seeds <span class="pill info">draft until approved</span></h2>
+  <p>Two ways to run the autonomous implementation session. <code>/goal</code> keeps working until a transcript-visible condition holds and survives <code>claude --resume</code>. <code>/loop</code> fires on an interval for up to seven days. Run either <em>inside</em> the repo at <code>~/Projects/elixir</code>.</p>
+  <p class="warning">Use exactly one per session. They do not compose; setting one replaces the other.</p>
+  <div class="seed rec"><h3>Recommended: /goal</h3>
+<pre><code>/goal Phases 0 and 1 marked ✓ in implementations-plan/elixir-core/plan.md (the per-phase headers in the file — not the chat), each ✓ backed by its phase's validation gate as written in plan.md reported passing in the transcript; `LESSONS_FILE=implementations-plan/elixir-core/lessons/phase-N.md` printed for each; spike-results.md committed with measured numbers for all Phase 1 items (both ticket-cost measurements, ECCVM rows, claim fee in fee-asset units with break-even price, inline-vs-split, bootstrap dry run, browser time and memory) and a GO / NO-GO verdict against Ask 4; arc A1's quality loop done (`/code-review low --fix` applied and committed separately; codex loop converged, evidenced by a resumed codex pass reporting no new material findings quoted in the transcript); `bun run lint` and `bun test` exit 0 in the transcript; then STOP and report the Phase 1 verdict to me — do not begin Phase 2, and do not open any PR, until I answer.</code></pre></div>
+  <div class="seed"><h3>Alternative: /loop 15m</h3>
+<pre><code>/loop 15m Drive implementations-plan/elixir-core forward, arc A1 only (phases 0–1). Never idle waiting for my input. Each firing: (1) reality check — read plan.md + lessons/, rebuild the task list from plan.md if empty, `git status`, `git log --oneline -5`; (2) no task in hand → next pending step; after each meaningful edit run `bun run lint` + `bun test` for touched packages, commit conventionally, push the arc branch (no PR); (3) stuck or facing a decision you'd bring to me → `/codex xhigh` (if codex is down, retry every 5 minutes until it answers), decide, log the consult in lessons/phase-N.md; hard limits stay hard (no merge, no deploy, no scope beyond plan.md); (4) same step failed 5 times → stop retrying, reassess with codex; (5) phase green = its gate in plan.md passes: paste the result, mark ✓, file lessons, print `LESSONS_FILE=...`; (6) Phase 1 ✓ → run A1's quality loop per plan.md §9 (`/code-review low --fix`, commit separately, codex loop until clean), then write the Phase 1 report (measured numbers, verdict vs Ask 4, what it implies for phases 2–5) and STOP — do not start Phase 2 or open PRs until I decide.</code></pre></div>
+  <p>Full technical plan: <code>implementations-plan/elixir-core/plan.md</code> · recon: <code>recon.md</code> · audits: <code>audit-codex.md</code>, <code>audit-fable.md</code> · lessons: <code>lessons/</code>.</p>
+</section>
+</article>
+</main>
+</div>
