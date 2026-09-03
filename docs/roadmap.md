@@ -20,7 +20,10 @@ backlog that the plan defers.
 - External wallet connection (`@aztec/wallet-sdk`); the embedded wallet ships first.
 - Mainnet fee path (fees are sponsored in this plan) and launch operations.
 - `/harden security` before any mainnet deployment (no external audit, plan Ask 8).
-- Content-hash pinning of the aztec binaries and bb.js WASM blobs in CI (plan §4).
+- Fully pinned toolchain install in CI: `toolchain.lock.json` pins the version installer script and verifies
+  nargo, bb and the WASM after install, but the installer's own downloads (`noirup` from a moving branch,
+  foundry, `npm install @aztec/*` without an integrity lock) still run unpinned on the runner. Owning the
+  install (lockfile + pinned nargo release) closes that.
 - An executed same-witness re-derivation measurement (patched bb prover build); Phase 1 reports a timer-derived
   estimate (`spike-results.md` §4b).
 - CRS integrity in the browser: hash the downloaded CRS against bb's pinned chunk hashes before handing it to bb.js,

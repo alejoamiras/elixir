@@ -15,14 +15,15 @@ runs:
       shell: bash
       env:
         VERSION: ${{ steps.pin.outputs.version }}
-      # The installer is a mutable script: it runs only after its bytes match the pinned hash.
-      # scripts/run/toolchain.test.ts then pins what it installed (bb, nargo, WASM).
+      # The version-specific installer is fetched directly (no bootstrap, no aztec-up) and runs
+      # only after its bytes match the pinned hash. Its own downloads (noirup, foundry, npm) are
+      # not pinned; scripts/run/toolchain.test.ts pins what they produced (nargo, bb, WASM).
       run: |
         if [ ! -x "$HOME/.aztec/versions/$VERSION/bin/aztec" ]; then
           url=$(jq -r .installer.url toolchain.lock.json)
           expected=$(jq -r .installer.sha256 toolchain.lock.json)
           curl -fsSL "$url" -o "$RUNNER_TEMP/aztec-install.sh"
           echo "$expected  $RUNNER_TEMP/aztec-install.sh" | sha256sum -c -
-          NON_INTERACTIVE=1 bash "$RUNNER_TEMP/aztec-install.sh"
+          bash "$RUNNER_TEMP/aztec-install.sh"
         fi
         echo "$HOME/.aztec/versions/$VERSION/bin" >> "$GITHUB_PATH"

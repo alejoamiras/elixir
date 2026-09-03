@@ -1,8 +1,8 @@
 {
   "aztec": "5.2.0",
   "installer": {
-    "url": "https://install.aztec.network",
-    "sha256": "6e2843f5667d8acf372c5c293a83426759dde241090b62d3f91e0ffcf5751954"
+    "url": "https://install.aztec-labs.com/5.2.0/install",
+    "sha256": "ee9f7f32dbac9ec929209fe77fd69aa145938391b7f5121109c67ea0b283bab6"
   },
   "binaries": {
     "linux-x64": {
