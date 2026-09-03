@@ -24,7 +24,7 @@ backlog that the plan defers.
   nargo, bb and the WASM after install, but the installer's own downloads (`noirup` from a moving branch,
   foundry, `npm install @aztec/*` without an integrity lock) still run unpinned on the runner. Owning the
   install (lockfile + pinned nargo release) closes that.
-- An executed same-witness re-derivation measurement (patched bb prover build); Phase 1 reports a timer-derived
+- An executed same-witness re-derivation measurement (patched bb prover build) — deferred by the owner after Phase 1; Phase 1 reports a timer-derived
   estimate (`spike-results.md` §4b).
 - CRS integrity in the browser: hash the downloaded CRS against bb's pinned chunk hashes before handing it to bb.js,
   or bundle a pinned CRS (`spike-results.md` §5).

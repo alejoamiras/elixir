@@ -370,6 +370,9 @@ Failure-retry policy: 3 failures on one step → stop and reassess (human-driven
 ### User decisions at the gate (2026-09-03)
 Asks 1, 2, 5, 6, 7, 9, 11, 12: defaults accepted. Ask 3: official `AztecProtocol/aztec-standards` v5.2.0, no port. Ask 4: browser time/memory reported, not gated. Ask 8: no external audit. Ask 10: embedded wallet + sponsored fees; mainnet deferred. Feedback folded into the ELI5: Bitcoin comparison with a worked retarget example, readable epoch diagram, explanation of the disabled-row shortcut and why it cannot be closed at the app layer. Unresolved / disputed: none.
 
+### Owner decisions after Phase 1 (2026-09-03)
+Phase 1 verdict accepted as **GO** with: (1) Ask 4's disabled-row re-derivation (4b) **deferred** — the timer-derived estimate in `spike-results.md` §4b stands, the executed patched-prover measurement moves to the roadmap; (2) the web miner **bundles a pinned CRS** (bb.js does no hash check; §5 of the results); (3) the CI hardening delivered in A1 (installer pinning, toolchain hash test, codegen diff) is acknowledged as more than this stage needed — keep it, do not extend it.
+
 ### Codex final pass, round 2 (resumed; conditional approve) — adopted
 `token` as `PublicImmutable` initialized by `bind_token` (private-readable, one-shot via its initialization nullifier; `PublicMutable` cannot be read from private, `public_mutable.nr:10`), post-bind anchor test, Phase 2 deploy wording fixed; `EXPECTED > 0` asserted, overflow-safe `ceil(t/4)` and saturating ×4 with extrema tests; "lower bound" replaced by "measured attack cost / upper bound on security" in §2.1, §3.3, Ask 4, Phase 1 item 4, Phase 5 and the seeds; ledger "caps chain load" → "caps accepted claims"; §4 fee paragraph in fee-asset/break-even terms. Nothing rejected. **Verdict recorded: conditional approve — conditions met in v6.**
 
