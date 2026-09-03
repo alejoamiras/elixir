@@ -1,0 +1,51 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      relevant: ${{ steps.override.outputs.relevant || steps.filter.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
+        id: filter
+        with:
+          filters: |
+            relevant:
+              - 'packages/deploy/**'
+              - '!packages/deploy/**/*.md'
+              - 'packages/miner-core/src/**'
+              - 'scripts/run/**'
+              - 'biome.json'
+              - 'bunfig.toml'
+              - 'tsconfig.json'
+              - 'package.json'
+              - 'bun.lock'
+              - '.github/workflows/deploy.yml'
+              - '.github/actions/**'
+      - name: Override for manual dispatch
+        if: github.event_name == 'workflow_dispatch'
+        id: override
+        run: echo "relevant=true" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: Lint + test
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup-bun
+      - run: bun run lint
+      - run: bun test packages/deploy

@@ -1,0 +1,10 @@
+{
+  "name": "@elixir/deploy",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Sandbox and testnet deployment, calibration, spike and epoch-stats scripts",
+  "type": "module",
+  "scripts": {
+    "test": "bun test"
+  }
+}

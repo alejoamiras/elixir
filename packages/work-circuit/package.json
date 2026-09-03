@@ -1,0 +1,11 @@
+{
+  "name": "@elixir/work-circuit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The Noir work circuit W (Poseidon2 chain), its VK, VK hash, proof-layout manifest and fixture proofs",
+  "type": "module",
+  "scripts": {
+    "compile": "aztec-nargo compile",
+    "test": "bun test"
+  }
+}

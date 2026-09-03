@@ -1,0 +1,49 @@
+{
+  "name": "elixir",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Privately mineable token on Aztec whose mining work is Barretenberg proving",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "contracts:compile": "bun run --cwd packages/contracts compile",
+    "contracts:test": "bun run --cwd packages/contracts test",
+    "e2e:agent": "scripts/run/agent.sh",
+    "lint": "biome check . && sort-package-json --check package.json 'packages/*/package.json'",
+    "lint:actions": "actionlint",
+    "lint:fix": "biome check --write . && sort-package-json package.json 'packages/*/package.json'",
+    "lint:shell": "shellcheck scripts/run/*.sh .husky/pre-commit .husky/commit-msg",
+    "prepare": "husky",
+    "test": "bun test",
+    "test:components": "bun run --filter './packages/web-miner' test:components",
+    "test:e2e": "bun run --filter './packages/*' test:e2e"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,json,jsonc}": [
+      "biome check --write --no-errors-on-unmatched"
+    ],
+    "*.sh": [
+      "shellcheck"
+    ],
+    ".github/workflows/*.yml": [
+      "actionlint"
+    ],
+    "**/package.json": [
+      "sort-package-json"
+    ]
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.10",
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
+    "@types/bun": "^1.4.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.4.1",
+    "sort-package-json": "^4.0.0"
+  },
+  "packageManager": "bun@1.4.0",
+  "engines": {
+    "bun": ">=1.4.0"
+  }
+}

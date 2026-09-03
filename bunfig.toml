@@ -1,0 +1,8 @@
+[install]
+# 7 days: a compromised release cannot be pulled in before the ecosystem has noticed it.
+minimumReleaseAge = 604800
+# Isolated linker: a package can only import what it declares (no phantom deps).
+linker = "isolated"
+
+[install.lockfile]
+frozen = false

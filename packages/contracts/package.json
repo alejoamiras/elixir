@@ -1,0 +1,11 @@
+{
+  "name": "@elixir/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Aztec contracts: elixir_miner plus the aztec-standards token as a git dependency",
+  "type": "module",
+  "scripts": {
+    "compile": "aztec-nargo compile --workspace",
+    "test": "aztec test"
+  }
+}
