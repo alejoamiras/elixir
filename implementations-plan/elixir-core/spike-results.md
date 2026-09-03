@@ -43,7 +43,7 @@ with `proverEnabled: true` (native bb through bb.js), fees via the sponsored FPC
 | `claim_split` (separate only_self verifier circuit) | accepted; 10.1 s, ClientIVC 5.26 s, 6,160 ECCVM rows — not faster than inline. **Inline stays.** |
 | Claim fee (receipt `transactionFee`, local network, sponsored by the FPC) | inline claim **62,693,849,472,000,000** fee-juice wei (≈ 0.0627 FJ); `claim_split` 58,524,892,272,000,000 (≈ 0.0585 FJ). Mainnet pricing is out of scope (Ask 10). |
 | Bun process RSS during the run | ≤ 0.94 GiB (the native bb prover runs in its own process) |
-| In-browser claim (headless Chromium, `crossOriginIsolated`) | PENDING (`spike:browser`) |
+| In-browser claim (`spike:browser`: Vite dev server with COOP/COEP, headless Chromium 151 via Playwright, `crossOriginIsolated = true`, 11 threads, IndexedDB stores) | **accepted**: wallet + PXE boot 5.9 s; bb.js init incl. CRS download 20.5 s (first use); W proofs in-page **3.4 s / 3.2 s** (faster than Bun's WASM runtime, 6.3 s); claim proved in-page (Chonk in WASM) and mined in **21.9 s**; private balance 4 ELX; page total 57.2 s; **peak RSS of the whole Chromium process tree 2,387 MiB** (sampled every 0.5 s). Machine: homelab (Ryzen 5 5600X), not the reference laptop. |
 
 ## 4. Ticket-cost measurements (`packages/work-circuit/scripts/ticket-cost.ts`, median of 5 native proves)
 
@@ -69,7 +69,7 @@ with `proverEnabled: true` (native bb through bb.js), fees via the sponsored FPC
 
 | GO criterion | Result |
 |---|---|
-| Valid claim through the embedded wallet with the real prover accepted by a node | ✓ (Node/Bun; browser: PENDING) |
+| Valid claim through the embedded wallet with the real prover accepted by a node | ✓ from Bun (native bb) and ✓ from a headless Chromium page (WASM) |
 | Tampered proofs fail to prove for every transcript phase (native: all 410 fields) | ✓ 8/8 phases, 410/410 native |
 | ECCVM rows for the full claim tx ≤ 2^14 | ✓ 6,259 |
 | Repeated W proofs byte-identical | ✓ |
@@ -78,6 +78,10 @@ with `proverEnabled: true` (native bb through bb.js), fees via the sponsored FPC
 | Claim gas/resource usage reported | ✓ fee 62.7e15 FJ wei (inline), 6,259 ECCVM rows, 953 Goblin ops, ClientIVC 5.3 s |
 | VK pinning confirmed in ACIR | ✓ |
 | Bootstrap dry run | ✓ |
-| In-browser claim time and peak memory (reported, not gated) | PENDING |
+| In-browser claim time and peak memory (reported, not gated) | claim 21.9 s in-page, W proof 3.2–3.4 s, peak Chromium tree 2.4 GiB on this box (the plan's reference figures, ≤ 2 min p95 and ≤ 3 GB on the M4 Pro, are not gated; both look comfortably met here) |
 
-**Verdict: PENDING** (browser and fee figures outstanding).
+**Verdict: GO.** Every hard criterion of Ask 4 holds on real runs. Caveats the owner should weigh: (1) the
+disabled-row re-derivation figure is a timer-derived estimate, not an executed attack (§4b); (2) the browser CRS
+is not hash-checked by bb.js (§5); (3) all timings are from the homelab, roughly 1.8× slower than the reference laptop
+natively, while in-browser W proving here was faster than Bun's WASM runtime; (4) `claim_split` brings nothing, so
+the inline verifier stays; (5) the Chonk claim circuit is 30.2k gates, half the plan's 50–60k estimate.
