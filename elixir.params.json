@@ -1,0 +1,31 @@
+{
+  "$comment": "Deployment parameters. One profile is selected by ELIXIR_PROFILE (default testnet) and `bun run codegen` writes it into the Noir globals, the TS constants and the deploy arguments. Contracts are immutable: changing a value means a new deployment. T_MAX must equal 4 × EXPECTED_EPOCH_SECONDS; INITIAL_TARGET is the 128-bit threshold a ticket's low 128 bits must stay under.",
+  "profiles": {
+    "testnet": {
+      "N": 4,
+      "EXPECTED_EPOCH_SECONDS": 300,
+      "T_MAX": 1200,
+      "REWARD": "4000000000000000000",
+      "DECIMALS": 18,
+      "INITIAL_TARGET": "0x10000000000000000000000000000000",
+      "GENESIS_SEED": "0x454c582f746573746e6574",
+      "CHAIN_LEN": 2048,
+      "VERSION": 1,
+      "TOKEN_NAME": "Elixir Testnet",
+      "TOKEN_SYMBOL": "tELX"
+    },
+    "mainnet": {
+      "N": 24,
+      "EXPECTED_EPOCH_SECONDS": 3600,
+      "T_MAX": 14400,
+      "REWARD": "4000000000000000000",
+      "DECIMALS": 18,
+      "INITIAL_TARGET": "0x4000000000000000000000000000000",
+      "GENESIS_SEED": "0x454c582f6d61696e6e6574",
+      "CHAIN_LEN": 2048,
+      "VERSION": 1,
+      "TOKEN_NAME": "Elixir",
+      "TOKEN_SYMBOL": "ELX"
+    }
+  }
+}

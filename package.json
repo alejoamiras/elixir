@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "codegen": "bun run --cwd packages/work-circuit compile && bun run --cwd packages/work-circuit export-vk && bun run --cwd packages/work-circuit spike:manifest",
+    "codegen": "bun scripts/params-codegen.ts && bun run --cwd packages/work-circuit compile && bun run --cwd packages/work-circuit export-vk && bun run --cwd packages/work-circuit spike:manifest",
     "contracts:compile": "bun run --cwd packages/contracts compile",
     "contracts:test": "bun run --cwd packages/contracts test",
     "e2e:agent": "scripts/run/agent.sh",
