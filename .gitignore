@@ -8,3 +8,4 @@ target/
 *.log
 *.tsbuildinfo
 .DS_Store
+packages/deploy/browser/public/artifacts/

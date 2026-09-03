@@ -1,0 +1,3 @@
+[workspace]
+members = ["elixir_spike"]
+default-member = "elixir_spike"

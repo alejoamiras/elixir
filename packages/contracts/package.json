@@ -5,7 +5,8 @@
   "description": "Aztec contracts: elixir_miner plus the aztec-standards token as a git dependency",
   "type": "module",
   "scripts": {
-    "compile": "aztec-nargo compile --workspace",
+    "compile": "aztec compile --workspace",
+    "spike:gates": "bun scripts/gates.ts",
     "test": "aztec test"
   }
 }

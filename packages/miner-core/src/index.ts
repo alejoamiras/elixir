@@ -1,1 +1,1 @@
-export const PACKAGE = '@elixir/miner-core';
+export * from './proof.ts';

@@ -1,8 +1,10 @@
 [install]
 # 7 days: a compromised release cannot be pulled in before the ecosystem has noticed it.
 minimumReleaseAge = 604800
-# Isolated linker: a package can only import what it declares (no phantom deps).
-linker = "isolated"
+# Hoisted rather than isolated: Vite's dependency pre-bundler resolves the @aztec packages'
+# transitive imports (zod, pino, @aztec/protocol-contracts, …) from the app root, which the
+# isolated layout does not provide.
+linker = "hoisted"
 
 [install.lockfile]
 frozen = false
