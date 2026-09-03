@@ -1,7 +1,4 @@
-// Live integration on an isolated local network (bun run e2e:agent -- bun test packages/miner-core):
-// deploy, mine at an easy target, claim with real proving, check the private balance, then the
-// failure modes only real proving can show (tampered field, cross-deployment replay), the public
-// effects a claim leaves behind, and a burst of winners against N.
+// Runs against an isolated local network: bun run e2e:agent -- bun test packages/miner-core
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { cpus } from 'node:os';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
@@ -11,17 +8,21 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
+import type { Gas } from '@aztec/stdlib/gas';
+import { siloNullifier } from '@aztec/stdlib/hash';
 import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
+import type { TxReceipt } from '@aztec/stdlib/tx';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { TokenContract } from '@aztec-foundation/aztec-standards/artifacts/src/artifacts/Token.js';
 import { type Deployment, deployElixir } from '../../deploy/src/deploy.ts';
 import { loadMinerArtifact, loadWorkArtifact } from './artifacts.ts';
-import { buildClaim } from './claim.ts';
+import { buildClaim, claimGasLimits } from './claim.ts';
 import { readOpenEpoch, readRules } from './epoch.ts';
 import { PARAMS } from './generated/params.ts';
 import { mineEpoch, type Winner } from './miner.ts';
-import { deployDomain } from './proof.ts';
+import { DOM_NULL, deployDomain } from './proof.ts';
 import { newEpochSecret } from './secret.ts';
 import { BbJsWorkProver, type WorkProver } from './work.ts';
 
@@ -31,7 +32,7 @@ const EASY_TARGET = 1n << 127n; // every other proof wins
 describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
   let wallet: EmbeddedWallet;
   let from: AztecAddress;
-  let fee: { paymentMethod: SponsoredFeePaymentMethod };
+  let fee: { paymentMethod: SponsoredFeePaymentMethod; gasSettings: { gasLimits: Gas } };
   let deployment: Deployment;
   let miner: Contract;
   let prover: WorkProver;
@@ -57,8 +58,24 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
       (e: Error) => ({ ok: false as const, error: e.message.split('\n')[0] ?? '' }),
     );
 
-  // The wallet needs both instances of a deployment (the claim calls the token's mint).
-  const registerDeployment = async (d: Deployment): Promise<Contract> => {
+  const newWallet = () => EmbeddedWallet.create(nodeUrl, { ephemeral: true, pxe: { proverEnabled: true } });
+  const registerFpc = async (w: EmbeddedWallet) => {
+    const fpc = await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
+      salt: new Fr(SPONSORED_FPC_SALT),
+    });
+    await w.registerContract(fpc, SponsoredFPCContract.artifact);
+    return { paymentMethod: new SponsoredFeePaymentMethod(fpc.address) };
+  };
+  const newAccount = async (w: EmbeddedWallet, secret = Fr.random()) =>
+    (
+      await w.createSchnorrInitializerlessAccount(
+        secret,
+        Fr.ZERO,
+        deriveMasterMessageSigningSecretKey(secret),
+      )
+    ).address;
+  // A wallet needs both instances of a deployment (the claim calls the token's mint).
+  const registerDeployment = async (d: Deployment, w = wallet): Promise<Contract> => {
     const artifact = await loadMinerArtifact();
     for (const [address, art] of [
       [AztecAddress.fromStringUnsafe(d.miner), artifact],
@@ -66,26 +83,16 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
     ] as const) {
       const instance = await node.getContract(address);
       if (!instance) throw new Error(`${address} is not on the node`);
-      await wallet.registerContract(instance, art);
+      await w.registerContract(instance, art);
     }
-    return Contract.at(AztecAddress.fromStringUnsafe(d.miner), artifact, wallet);
+    return Contract.at(AztecAddress.fromStringUnsafe(d.miner), artifact, w);
   };
 
   beforeAll(async () => {
-    wallet = await EmbeddedWallet.create(nodeUrl, { ephemeral: true, pxe: { proverEnabled: true } });
-    const fpc = await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
-      salt: new Fr(SPONSORED_FPC_SALT),
-    });
-    await wallet.registerContract(fpc, SponsoredFPCContract.artifact);
-    fee = { paymentMethod: new SponsoredFeePaymentMethod(fpc.address) };
+    wallet = await newWallet();
+    fee = { ...(await registerFpc(wallet)), gasSettings: { gasLimits: await claimGasLimits(node) } };
     const secret = Fr.random();
-    from = (
-      await wallet.createSchnorrInitializerlessAccount(
-        secret,
-        Fr.ZERO,
-        deriveMasterMessageSigningSecretKey(secret),
-      )
-    ).address;
+    from = await newAccount(wallet, secret);
     deployment = await deployElixir(nodeUrl, secret, Fr.random(), { initialTarget: EASY_TARGET });
     miner = await registerDeployment(deployment);
     chainId = BigInt(await node.getChainId());
@@ -128,10 +135,19 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
     expect(json.includes(secret.toString().slice(2))).toBe(false); // secret not visible
     const data = (
       effect as unknown as {
-        data: { nullifiers: unknown[]; noteHashes: unknown[]; publicDataWrites: unknown[] };
+        data: { nullifiers: Fr[]; noteHashes: unknown[]; publicDataWrites: { value: Fr }[] };
       }
     ).data;
-    expect(data.nullifiers.length).toBeGreaterThanOrEqual(2); // tx nullifier + the ticket's
+    // Exactly what a claim publishes: the siloed ticket nullifier, the digest as last_digest,
+    // the token's public total supply (first mint on this deployment) and one note hash.
+    const ticketNullifier = await siloNullifier(
+      miner.address,
+      await poseidon2Hash([new Fr(DOM_NULL), winner.digest]),
+    );
+    expect(data.nullifiers.some((n) => n.equals(ticketNullifier))).toBe(true);
+    const written = data.publicDataWrites.map((w) => w.value.toBigInt());
+    expect(written).toContain(winner.digest.toBigInt());
+    expect(written).toContain(PARAMS.REWARD);
     expect(data.noteHashes.length).toBeGreaterThanOrEqual(1); // the minted note (+ the fee path's own)
   }, 900_000);
 
@@ -192,41 +208,91 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
     expect(r.ok ? '' : r.error).toMatch(/verif|proof/i);
   }, 900_000);
 
+  // A claim that reverted in public still pays its fee; one refused at simulation costs nothing.
+  const submit = async (
+    c: { miner: Contract; account: AztecAddress },
+    w: { winner: Winner; secret: Fr },
+  ): Promise<{ ok: boolean; reverted: boolean; error: string; fee: bigint; ms: number }> => {
+    const t0 = performance.now();
+    const claim = buildClaim(c.miner, {
+      epoch: 0n,
+      nonce: w.winner.nonce,
+      out: w.winner.out,
+      secret: w.secret,
+      proofFields: w.winner.proofFields,
+      recipient: c.account,
+    });
+    try {
+      const r = await claim.send({ from: c.account, fee, wait: { timeout: 900, dontThrowOnRevert: true } });
+      const receipt = (r as { receipt?: TxReceipt }).receipt ?? (r as unknown as TxReceipt);
+      const ok = receipt.executionResult === 'success';
+      const where = `block ${receipt.blockNumber} #${receipt.txIndexInBlock}`;
+      console.log(
+        `claim ${receipt.txHash}: ${receipt.executionResult} in ${where}, fee ${receipt.transactionFee}`,
+      );
+      return {
+        ok,
+        reverted: !ok,
+        error: ok ? '' : (receipt.error ?? `reverted in ${where}`),
+        fee: receipt.transactionFee ?? 0n,
+        ms: performance.now() - t0,
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        reverted: false,
+        error: (e as Error).message.split('\n')[0] ?? '',
+        fee: 0n,
+        ms: performance.now() - t0,
+      };
+    }
+  };
+
   test(`a burst of winners against N = ${PARAMS.N}: exactly N accepted, the rest revert as stale`, async () => {
     const burst = await deployElixir(nodeUrl, Fr.random(), Fr.random(), { initialTarget: EASY_TARGET });
     const m = await registerDeployment(burst);
     const rules = await readRules(m, from);
     const winners: { winner: Winner; secret: Fr }[] = [];
     for (let i = 0; i < 2 * rules.N; i++) winners.push(await mine(m));
+    // One wallet per winner: a PXE cannot simulate its own claims concurrently, and separate
+    // wallets are what real miners are. All 2N claims race for the same epoch.
+    const claimants = await Promise.all(
+      winners.map(async () => {
+        const w = await newWallet();
+        await registerFpc(w);
+        return { wallet: w, account: await newAccount(w), miner: await registerDeployment(burst, w) };
+      }),
+    );
     const t0 = performance.now();
-    // One PXE cannot simulate its own claims concurrently (it trips over nullifiers it has not
-    // yet seen inserted), so the winners are submitted one after another; the state machine is
-    // what is under test: the epoch closes on the Nth and every later claim is refused.
-    const results: Awaited<ReturnType<typeof send>>[] = [];
-    for (const { winner, secret } of winners) {
-      results.push(
-        await send(
-          buildClaim(m, {
-            epoch: 0n,
-            nonce: winner.nonce,
-            out: winner.out,
-            secret,
-            proofFields: winner.proofFields,
-            recipient: from,
-          }),
-        ),
+    let results: Awaited<ReturnType<typeof submit>>[];
+    try {
+      results = await Promise.all(
+        winners.map((w, i) => submit(claimants[i] as (typeof claimants)[number], w)),
       );
+    } finally {
+      await Promise.all(claimants.map((c) => c.wallet.stop().catch(() => {})));
     }
-    const accepted = results.filter((r) => r.ok).length;
-    const stale = results.filter((r) => !r.ok && /stale|not open/i.test(r.error)).length;
+    const accepted = results.filter((r) => r.ok);
+    // A claim sequenced after the close reverts in public and pays (mined receipts carry no
+    // reason); one whose simulation already saw the close is refused before sending, for free.
+    const stale = results.filter((r) => !r.ok && (r.reverted || /stale|not open/i.test(r.error)));
+    const inPublic = stale.filter((r) => r.reverted).length;
     for (const e of new Set(results.filter((r) => !r.ok).map((r) => r.error)))
       console.log(`burst failure: ${e}`);
+    const fees = results.map((r) => r.fee);
     console.log(
-      `burst: ${accepted} accepted, ${stale} stale, ${results.length - accepted - stale} other failures, ${((performance.now() - t0) / 1000).toFixed(0)} s`,
+      `burst: ${accepted.length} accepted, ${stale.length} stale (${inPublic} reverted in public, ${stale.length - inPublic} refused at simulation), ${results.length - accepted.length - stale.length} other, ` +
+        `${((performance.now() - t0) / 1000).toFixed(0)} s wall, latency ${(Math.min(...results.map((r) => r.ms)) / 1000) | 0}–${(Math.max(...results.map((r) => r.ms)) / 1000) | 0} s, ` +
+        `fees accepted ${accepted.map((r) => r.fee).join('/')} stale ${stale.map((r) => r.fee).join('/')} (sum ${fees.reduce((a, b) => a + b, 0n)})`,
     );
-    expect(accepted).toBe(rules.N);
-    expect(stale).toBe(rules.N);
     const view = await readOpenEpoch(m, from);
+    const closed = Number(((await m.methods.claims_in(0n).simulate({ from })) as { result: bigint }).result);
+    console.log(
+      `after the burst: open epoch ${view.epoch}, claims in epoch 0: ${closed}, in the open one: ${view.claims}`,
+    );
+    expect(accepted.length).toBe(rules.N);
+    expect(stale.length).toBe(rules.N);
+    expect(closed).toBe(rules.N);
     expect(view.epoch).toBe(1n);
   }, 1_800_000);
 });

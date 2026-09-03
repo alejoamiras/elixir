@@ -1,6 +1,10 @@
-// The miner secret is a bearer credential for the tickets it commits to, but only within one
-// epoch: it is generated fresh when an epoch starts and discarded when the epoch closes, so
-// nothing long-lived needs a wallet signature or key derivation.
 import { Fr } from '@aztec/foundation/curves/bn254';
 
-export const newEpochSecret = (): Fr => Fr.random();
+// The secret is a bearer credential for the tickets it commits to, valid for one epoch: the
+// caller generates it when an epoch starts and discards it at close. Drawn straight from the
+// platform CSPRNG (Fr.random() can be made deterministic by the ambient SEED variable).
+export function newEpochSecret(): Fr {
+  const bytes = new Uint8Array(64);
+  globalThis.crypto.getRandomValues(bytes);
+  return Fr.fromBufferReduce(Buffer.from(bytes));
+}

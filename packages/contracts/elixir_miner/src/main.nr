@@ -1,7 +1,7 @@
-// The miner: a proof-hash lottery over UltraHonk proofs of the work circuit W. A claim verifies
-// the proof in-circuit, checks the ticket against the epoch's target, nullifies it and mints
-// privately; epochs close after N accepted claims (or after T_MAX via roll) and the target
-// rescales by actual/expected duration, clamped to [¼, 4]. No admin surface survives bind_token.
+// A proof-hash lottery over UltraHonk proofs of the work circuit W: a claim verifies the proof
+// in-circuit, checks the ticket against the epoch's target, nullifies it and mints privately.
+// Epochs close after N accepted claims or after T_MAX via roll; the target rescales by
+// actual/expected duration, clamped to [¼, 4]. No admin surface survives bind_token.
 mod params;
 mod retarget;
 mod test;
@@ -115,7 +115,7 @@ pub contract ElixirMiner {
     }
 
     // Escape hatch for hashrate collapse: anyone may close an epoch that stayed open for T_MAX.
-    // The retarget is exactly ×4, and every seed input is public in advance (accepted).
+    // The retarget is exactly ×4, and every input of the next seed is public in advance.
     #[external("public")]
     fn roll() {
         let e = self.storage.open_epoch.read();

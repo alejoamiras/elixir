@@ -20,7 +20,7 @@ pub struct Setup {
     pub token: AztecAddress,
 }
 
-// Bootstrap per the plan: token-less miner first, token with minter = miner, then bind once.
+// Token-less miner first (its address is then known), token with minter = miner, one bind.
 unconstrained fn setup() -> Setup {
     let mut env = TestEnvironment::new();
     let deployer = env.create_light_account();
@@ -211,6 +211,18 @@ unconstrained fn roll_after_t_max_eases_by_four_and_mixes_last_digest() {
     assert_eq(target_of(s, 1), INITIAL_TARGET * 4);
     let epoch1 = s.env.view_public(ElixirMiner::at(s.miner).epoch_params(1));
     assert_eq(epoch1.seed, expected_seed(s, last));
+}
+
+// The TXE applies public writes at once, so a claim after roll() in the same block already fails
+// its historical read. The real race — private anchored before the roll, public after it — ends
+// in record_claim's "stale claim" and is only reproducible on a network (miner-core's burst test).
+#[test(should_fail_with = "epoch is not open")]
+unconstrained fn claim_after_roll_in_the_same_block_is_refused_at_simulation() {
+    let s = setup();
+    s.env.advance_next_block_timestamp_by(T_MAX);
+    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).roll());
+    let (proof, _) = winning_proof(1000);
+    s.env.call_private(s.deployer, ElixirMiner::at(s.miner).claim(0, 1000, 0, 7, proof, s.deployer));
 }
 
 #[test(should_fail)]

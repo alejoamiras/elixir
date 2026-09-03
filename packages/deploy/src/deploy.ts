@@ -2,7 +2,8 @@
 // class, salt, deployer and its constructor args), the token with `minter` = that address, the
 // miner, then one bind_token. Fees go through the sponsored FPC; the deployer is an
 // initializerless Schnorr account derived from ELIXIR_DEPLOYER_SECRET (never logged).
-//   AZTEC_NODE_URL=… ELIXIR_DEPLOYER_SECRET=0x… [ELIXIR_DEPLOY_SALT=0x…] bun packages/deploy/src/deploy.ts
+//   AZTEC_NODE_URL=… ELIXIR_DEPLOYER_SECRET=0x… [ELIXIR_DEPLOY_SALT=0x…] [ELIXIR_DEPLOY_FORCE=1] \
+//     bun packages/deploy/src/deploy.ts
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadContractArtifact } from '@aztec/aztec.js/abi';
@@ -87,7 +88,8 @@ export async function deployElixir(
     return {
       profile: PROFILE,
       chainId,
-      nodeUrl,
+      // Origin only: a node URL can carry a provider API key in its path.
+      nodeUrl: new URL(nodeUrl).origin,
       deployer: deployer.toString(),
       miner: miner.address.toString(),
       token: token.address.toString(),
@@ -108,10 +110,14 @@ if (import.meta.main) {
   const secret = process.env.ELIXIR_DEPLOYER_SECRET;
   if (!nodeUrl || !secret) throw new Error('AZTEC_NODE_URL and ELIXIR_DEPLOYER_SECRET are required');
   const salt = process.env.ELIXIR_DEPLOY_SALT ? Fr.fromString(process.env.ELIXIR_DEPLOY_SALT) : Fr.random();
-  const deployment = await deployElixir(nodeUrl, Fr.fromString(secret), salt);
   const dir = resolve(repo, 'deployments');
-  mkdirSync(dir, { recursive: true });
   const file = resolve(dir, `${PROFILE}.json`);
+  if ((await Bun.file(file).exists()) && process.env.ELIXIR_DEPLOY_FORCE !== '1')
+    throw new Error(
+      `${file} already records a ${PROFILE} deployment; set ELIXIR_DEPLOY_FORCE=1 to replace it`,
+    );
+  const deployment = await deployElixir(nodeUrl, Fr.fromString(secret), salt);
+  mkdirSync(dir, { recursive: true });
   await Bun.write(file, `${JSON.stringify(deployment, null, 2)}\n`);
   console.log(`deployed ${PROFILE}: miner ${deployment.miner}, token ${deployment.token} → ${file}`);
 }

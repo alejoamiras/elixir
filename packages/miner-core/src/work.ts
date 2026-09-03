@@ -1,5 +1,3 @@
-// The work: prove W for one nonce. The prover is an interface so the browser Worker (bb.js WASM)
-// and a native prover can back the same mining loop.
 import { type Barretenberg, UltraHonkBackend } from '@aztec/bb.js';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Noir } from '@aztec/noir-noir_js';

@@ -18,13 +18,19 @@ export interface EpochView {
 // simulate() wraps the decoded return value: { result, offchainEffects, offchainMessages }.
 const unwrap = async <T>(p: Promise<unknown>): Promise<T> => ((await p) as { result: T }).result;
 
+// Three separate simulations can straddle an epoch close; re-read until the epoch is stable.
 export async function readOpenEpoch(miner: Contract, from: AztecAddress): Promise<EpochView> {
-  const epoch = await unwrap<bigint>(miner.methods.open_epoch().simulate({ from }));
-  const raw = await unwrap<{ target: bigint; seed: bigint; opened_at: bigint }>(
-    miner.methods.epoch_params(epoch).simulate({ from }),
-  );
-  const claims = Number(await unwrap<bigint>(miner.methods.claims_in(epoch).simulate({ from })));
-  return { epoch, params: { target: raw.target, seed: raw.seed, openedAt: raw.opened_at }, claims };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const epoch = await unwrap<bigint>(miner.methods.open_epoch().simulate({ from }));
+    const raw = await unwrap<{ target: bigint; seed: bigint; opened_at: bigint }>(
+      miner.methods.epoch_params(epoch).simulate({ from }),
+    );
+    const claims = Number(await unwrap<bigint>(miner.methods.claims_in(epoch).simulate({ from })));
+    const still = await unwrap<bigint>(miner.methods.open_epoch().simulate({ from }));
+    if (still === epoch)
+      return { epoch, params: { target: raw.target, seed: raw.seed, openedAt: raw.opened_at }, claims };
+  }
+  throw new Error('epoch kept changing while reading it');
 }
 
 export const readRules = async (miner: Contract, from: AztecAddress) => {

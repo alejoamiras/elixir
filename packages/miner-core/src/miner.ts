@@ -1,5 +1,3 @@
-// The mining loop for one epoch: prove W per nonce, hash the proof into the ticket, stop at the
-// first winner (or when asked to). Chain reads and claim submission live outside it.
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { computeDigest, isWinner, proofToFields, secretCommitment } from './proof.ts';
 import type { WorkProver } from './work.ts';
@@ -24,7 +22,11 @@ export interface Winner {
 }
 
 export interface MineOptions {
-  /** Called after every proof; return false to stop without a winner (epoch switched, user paused). */
+  /**
+   * Called after every proof, winners included, before anything is returned; return false to
+   * stop without a winner (epoch switched, user paused), which also discards a winner that was
+   * mined against a stale epoch.
+   */
   onAttempt?: (nonce: bigint, digest: Fr, proveMs: number) => boolean | undefined;
 }
 
@@ -47,7 +49,7 @@ export async function mineEpoch(
     const proofFields = proofToFields(proof);
     const digest = await computeDigest(proofFields);
     attempts++;
-    if (isWinner(digest, job.target)) return { nonce, out, proof, proofFields, digest, attempts };
     if (opts.onAttempt?.(nonce, digest, performance.now() - t0) === false) return null;
+    if (isWinner(digest, job.target)) return { nonce, out, proof, proofFields, digest, attempts };
   }
 }

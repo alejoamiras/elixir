@@ -24,6 +24,9 @@ jobs:
               - 'packages/contracts/**'
               - '!packages/contracts/**/*.md'
               - 'packages/work-circuit/src/**'
+              - 'packages/work-circuit/crates/**'
+              - 'elixir.params.json'
+              - 'scripts/params-codegen.ts'
               - '.aztecrc'
               - 'toolchain.lock.json'
               - 'scripts/run/toolchain.test.ts'
@@ -46,6 +49,8 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-aztec
+      # Generated Noir globals and VK copies must match elixir.params.json and the work circuit.
+      - run: bun run codegen && git diff --exit-code
       - run: bun run contracts:compile
       - run: bun test scripts/run/toolchain.test.ts
         env:

@@ -88,6 +88,15 @@ describe('retarget dynamics (mean-field simulator)', () => {
     expect(converged(sim.epochs[5]?.duration ?? 0, MAINNET)).toBe(true);
   });
 
+  test('from the configured 2^122 a ÷100 collapse saturates the target: liveness, not cadence', () => {
+    const sim = simulate(MAINNET, target0, () => H0 / 100, 6);
+    expect(sim.target).toBe(U128_MAX); // every proof wins from epoch 3 on
+    // The floor on epoch duration is N / H: 24 claims at H0/100 take ≈ 5625 s, never the 3600 s cadence.
+    const floor = MAINNET.N / (H0 / 100);
+    for (const e of sim.epochs.slice(3)) expect(Math.round(e.duration)).toBe(Math.round(floor));
+    expect(sim.epochs.slice(3).some((e) => converged(e.duration, MAINNET))).toBe(false);
+  });
+
   test('withholding the closing claim to stretch an epoch lowers the withholder’s ELX per hour', () => {
     // Honest: epochs close on schedule; the withholder owns share f of hashrate and earns f·N·R per hour.
     const f = 0.6;

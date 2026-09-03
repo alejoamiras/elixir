@@ -12,13 +12,19 @@ pub fn next_target(target: u128, actual: u64) -> u128 {
     std::static_assert(EXPECTED_EPOCH_SECONDS > 0, "EXPECTED_EPOCH_SECONDS must be positive");
     std::static_assert(EXPECTED_EPOCH_SECONDS < 131072, "EXPECTED_EPOCH_SECONDS must be below 2^17");
     assert(actual <= T_MAX, "actual duration above T_MAX");
-    let product: Field = (target as Field) * (actual as Field);
     let (q, r) = unsafe { div_rem_hint(target, actual) };
+    constrain_quotient(target, actual, q, r);
+    clamp(q, lower_bound(target), upper_bound(target))
+}
+
+// Pins (q, r) to ⌊target·actual / EXPECTED⌋ and the remainder. q < 2^130 and r < EXPECTED keep
+// q·EXPECTED + r below 2^148, so the field equality cannot be satisfied by a wrapped pair.
+pub fn constrain_quotient(target: u128, actual: u64, q: Field, r: Field) {
     q.assert_max_bit_size::<130>();
     r.assert_max_bit_size::<64>();
     assert((r as u64) < EXPECTED_EPOCH_SECONDS, "remainder not reduced");
+    let product: Field = (target as Field) * (actual as Field);
     assert(q * (EXPECTED_EPOCH_SECONDS as Field) + r == product, "quotient hint is wrong");
-    clamp(q, floor_bound(target), ceil_bound(target))
 }
 
 // Quotient and remainder of target × actual by EXPECTED, computed without overflowing u128:
@@ -33,12 +39,12 @@ unconstrained fn div_rem_hint(target: u128, actual: u64) -> (Field, Field) {
 }
 
 // ⌈target / 4⌉ without overflow.
-pub fn floor_bound(target: u128) -> u128 {
+pub fn lower_bound(target: u128) -> u128 {
     target / 4 + (if target % 4 != 0 { 1 } else { 0 })
 }
 
 // 4 × target, saturating at 2^128 − 1.
-pub fn ceil_bound(target: u128) -> u128 {
+pub fn upper_bound(target: u128) -> u128 {
     if target > U128_MAX / 4 { U128_MAX } else { target * 4 }
 }
 
@@ -71,32 +77,61 @@ fn quadruples_at_t_max_and_saturates() {
     assert_eq(next_target(1 << 127, T_MAX), U128_MAX);
 }
 
+// Reference quotient computed the same limb-wise way in test code (no u256 available).
+fn reference(t: u128, actual: u64) -> u128 {
+    let d = EXPECTED_EPOCH_SECONDS as u128;
+    (t / d) * (actual as u128) + ((t % d) * (actual as u128)) / d
+}
+
 #[test]
 fn exact_at_launch_targets_with_odd_durations() {
-    // target × actual / EXPECTED for targets in 2^118..2^126 and a duration that does not divide.
     let actual = EXPECTED_EPOCH_SECONDS + 7;
     let t: u128 = (1 << 118) + 12345;
-    let expected = (t / (EXPECTED_EPOCH_SECONDS as u128)) * (actual as u128)
-        + ((t % (EXPECTED_EPOCH_SECONDS as u128)) * (actual as u128)) / (EXPECTED_EPOCH_SECONDS as u128);
-    assert_eq(next_target(t, actual), expected);
-    let t2: u128 = (1 << 126) - 1;
+    assert_eq(next_target(t, actual), reference(t, actual));
+    // 2^126 × 307 exceeds u128: the product only exists in the field.
+    let t2: u128 = (1 << 126) + 999;
+    assert_eq(next_target(t2, actual), reference(t2, actual));
     assert_eq(next_target(t2, EXPECTED_EPOCH_SECONDS), t2);
 }
 
 #[test]
 fn bound_helpers_at_extrema() {
-    assert_eq(floor_bound(1), 1);
-    assert_eq(floor_bound(2), 1);
-    assert_eq(floor_bound(3), 1);
-    assert_eq(floor_bound(4), 1);
-    assert_eq(floor_bound(5), 2);
-    assert_eq(floor_bound(U128_MAX), U128_MAX / 4 + 1);
-    assert_eq(ceil_bound(1 << 126), U128_MAX);
-    assert_eq(ceil_bound((1 << 126) - 1), ((1 << 126) - 1) * 4);
+    assert_eq(lower_bound(1), 1);
+    assert_eq(lower_bound(2), 1);
+    assert_eq(lower_bound(3), 1);
+    assert_eq(lower_bound(4), 1);
+    assert_eq(lower_bound(5), 2);
+    assert_eq(lower_bound(U128_MAX), U128_MAX / 4 + 1);
+    assert_eq(upper_bound(1 << 126), U128_MAX);
+    assert_eq(upper_bound((1 << 126) - 1), ((1 << 126) - 1) * 4);
     assert_eq(next_target(1, 1), 1);
 }
 
 #[test(should_fail_with = "actual duration above T_MAX")]
 fn rejects_durations_above_t_max() {
     let _ = next_target(1 << 122, T_MAX + 1);
+}
+
+#[test(should_fail_with = "quotient hint is wrong")]
+fn rejects_a_quotient_off_by_one() {
+    let t: u128 = 1 << 122;
+    let q = (t as Field) - 1; // true quotient at actual == EXPECTED is t
+    constrain_quotient(t, EXPECTED_EPOCH_SECONDS, q, 0);
+}
+
+#[test(should_fail_with = "remainder not reduced")]
+fn rejects_an_unreduced_remainder() {
+    let t: u128 = 1 << 122;
+    // q·d + r == product also holds for q − 1, r + d: the range check on r rejects it.
+    constrain_quotient(t, EXPECTED_EPOCH_SECONDS, (t as Field) - 1, EXPECTED_EPOCH_SECONDS as Field);
+}
+
+#[test(should_fail)]
+fn rejects_a_wrapped_quotient() {
+    // q = −1 (mod p) satisfies q·d + r == product with r = product + d, a wrapped pair that only
+    // the range checks reject: q has 254 bits, r has far more than 64.
+    let t: u128 = 1 << 122;
+    let d = EXPECTED_EPOCH_SECONDS as Field;
+    let product = (t as Field) * d;
+    constrain_quotient(t, EXPECTED_EPOCH_SECONDS, 0 - 1, product + d);
 }
