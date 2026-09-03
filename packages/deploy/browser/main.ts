@@ -34,8 +34,8 @@ const log = (s: string) => {
 };
 const q = new URLSearchParams(location.search);
 const nodeUrl = q.get('node') ?? '';
-const minerAddress = AztecAddress.fromString(q.get('miner') ?? '');
-const tokenAddress = AztecAddress.fromString(q.get('token') ?? '');
+const minerAddress = AztecAddress.fromStringUnsafe(q.get('miner') ?? '');
+const tokenAddress = AztecAddress.fromStringUnsafe(q.get('token') ?? '');
 const threads = Number(q.get('threads') ?? Math.max(1, navigator.hardwareConcurrency - 1));
 const VERSION = 1n;
 const results: Record<string, unknown> = {

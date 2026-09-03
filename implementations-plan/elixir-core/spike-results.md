@@ -41,7 +41,7 @@ with `proverEnabled: true` (native bb through bb.js), fees via the sponsored FPC
 | Wrong `out` (winning ticket) | rejected at proving: "Failed to verify the generated proof!" ✓ |
 | Tampered, one per phase, each still a winning ticket | io, oink, gemini_folds, shplonk, kzg (commitment limbs): "Deserialized point is not on the curve" at proving; sumcheck_univariates, sumcheck_evaluations, gemini_evals (scalars): "Failed to verify the generated proof!" — 8/8 rejected, none reached the node ✓ |
 | `claim_split` (separate only_self verifier circuit) | accepted; 10.1 s, ClientIVC 5.26 s, 6,160 ECCVM rows — not faster than inline. **Inline stays.** |
-| Claim fee | sponsored (FPC); `transactionFee` from the receipt: PENDING (next run) |
+| Claim fee (receipt `transactionFee`, local network, sponsored by the FPC) | inline claim **62,693,849,472,000,000** fee-juice wei (≈ 0.0627 FJ); `claim_split` 58,524,892,272,000,000 (≈ 0.0585 FJ). Mainnet pricing is out of scope (Ask 10). |
 | Bun process RSS during the run | ≤ 0.94 GiB (the native bb prover runs in its own process) |
 | In-browser claim (headless Chromium, `crossOriginIsolated`) | PENDING (`spike:browser`) |
 
@@ -75,7 +75,7 @@ with `proverEnabled: true` (native bb through bb.js), fees via the sponsored FPC
 | Repeated W proofs byte-identical | ✓ |
 | Early-abort cost ≥ 90 % | ✓ 100 % |
 | Disabled-row re-derivation ≥ 50 % of an honest prove | ✓ ≈ 54–62 %, estimate (see 4b) |
-| Claim gas/resource usage reported | PENDING fee figure |
+| Claim gas/resource usage reported | ✓ fee 62.7e15 FJ wei (inline), 6,259 ECCVM rows, 953 Goblin ops, ClientIVC 5.3 s |
 | VK pinning confirmed in ACIR | ✓ |
 | Bootstrap dry run | ✓ |
 | In-browser claim time and peak memory (reported, not gated) | PENDING |
