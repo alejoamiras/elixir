@@ -33,10 +33,16 @@ export interface Deployment {
   deployedAt: string;
 }
 
+export interface DeployOverrides {
+  /** Tests mine at an easy target; real deployments always take the profile's value. */
+  initialTarget?: bigint;
+}
+
 export async function deployElixir(
   nodeUrl: string,
   deployerSecret: Fr,
   salt = Fr.random(),
+  overrides: DeployOverrides = {},
 ): Promise<Deployment> {
   const wallet = await EmbeddedWallet.create(nodeUrl, { ephemeral: true, pxe: { proverEnabled: true } });
   try {
@@ -59,7 +65,7 @@ export async function deployElixir(
     const minerDeploy = Contract.deploy(
       wallet,
       minerArtifact,
-      [PARAMS.INITIAL_TARGET, new Fr(PARAMS.GENESIS_SEED)],
+      [overrides.initialTarget ?? PARAMS.INITIAL_TARGET, new Fr(PARAMS.GENESIS_SEED)],
       'constructor',
       { deployer, salt },
     );
