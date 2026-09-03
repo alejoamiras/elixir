@@ -57,7 +57,7 @@
 
 <div class="page">
 <header>
-  <div class="eyebrow">Blueprint · mid · elixir-core · v7 · at approval gate</div>
+  <div class="eyebrow">Blueprint · mid · elixir-core · v7 · approved 3 Sep 2026</div>
   <h1>Elixir Blueprint</h1>
   <p class="lede">A token you mine by making Barretenberg proofs. Each proof is a lottery ticket; the ticket number is the proof's own fingerprint; winners claim privately; difficulty adjusts the Bitcoin way.</p>
   <div class="meta">
@@ -273,8 +273,8 @@
 </section>
 
 <section id="seeds">
-  <h2>Implementation seeds <span class="pill info">draft until approved</span></h2>
-  <p>Two ways to run the autonomous implementation session. <code>/goal</code> keeps working until a transcript-visible condition holds and survives <code>claude --resume</code>. <code>/loop</code> fires on an interval for up to seven days. Run either <em>inside</em> the repo at <code>~/Projects/elixir</code>.</p>
+  <h2>Implementation seeds <span class="pill ok">final</span></h2>
+  <p>Approved scope. Two ways to run the autonomous implementation session; read <code>implementations-plan/elixir-core/context.md</code> first on a fresh machine. <code>/goal</code> keeps working until a transcript-visible condition holds and survives <code>claude --resume</code>. <code>/loop</code> fires on an interval for up to seven days. Run either <em>inside</em> the repo at <code>~/Projects/elixir</code>.</p>
   <p class="warning">Use exactly one per session. They do not compose; setting one replaces the other.</p>
   <div class="seed rec"><h3>Recommended: /goal</h3>
 <pre><code>/goal Phases 0 and 1 marked ✓ in implementations-plan/elixir-core/plan.md (the per-phase headers in the file — not the chat), each ✓ backed by its phase's validation gate as written in plan.md reported passing in the transcript; `LESSONS_FILE=implementations-plan/elixir-core/lessons/phase-N.md` printed for each; spike-results.md committed with measured numbers for all Phase 1 items (both ticket-cost measurements, ECCVM rows, claim fee in fee-asset units with break-even price, inline-vs-split, bootstrap dry run, browser time and memory) and a GO / NO-GO verdict against Ask 4; arc A1's quality loop done (`/code-review low --fix` applied and committed separately; codex loop converged, evidenced by a resumed codex pass reporting no new material findings quoted in the transcript); `bun run lint` and `bun test` exit 0 in the transcript; then STOP and report the Phase 1 verdict to me — do not begin Phase 2, and do not open any PR, until I answer.</code></pre></div>

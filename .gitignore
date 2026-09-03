@@ -1,0 +1,8 @@
+node_modules/
+dist/
+target/
+.run-state/
+.env
+.env.local
+*.log
+.DS_Store
