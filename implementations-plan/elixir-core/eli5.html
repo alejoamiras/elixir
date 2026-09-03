@@ -57,12 +57,12 @@
 
 <div class="page">
 <header>
-  <div class="eyebrow">Blueprint · mid · elixir-core · v6 · at approval gate</div>
+  <div class="eyebrow">Blueprint · mid · elixir-core · v7 · at approval gate</div>
   <h1>Elixir Blueprint</h1>
   <p class="lede">A token you mine by making Barretenberg proofs. Each proof is a lottery ticket; the ticket number is the proof's own fingerprint; winners claim privately; difficulty adjusts the Bitcoin way.</p>
   <div class="meta">
     <span>repo <b>~/Projects/elixir</b> (new, empty)</span>
-    <span>target <b>mainnet-deployable</b></span>
+    <span>target <b>testnet, mainnet-grade mechanism</b></span>
     <span>plan <b>implementations-plan/elixir-core/plan.md</b></span>
     <span>audits <b>codex: reject → conditional approve</b> · <b>fable: conditional approve</b> · <b>final codex: reject → conditional approve</b></span>
   </div>
@@ -70,14 +70,14 @@
 
 <main>
 <nav class="toc" aria-label="Sections"><ol>
-  <li><a href="#summary">Summary</a></li><li><a href="#tier">Why this tier</a></li><li><a href="#how">How mining works</a></li><li><a href="#measured">Already measured</a></li><li><a href="#phases">Phases</a></li><li><a href="#context">Human context</a></li><li><a href="#asks">Open questions</a></li><li><a href="#audits">Audit verdicts</a></li><li><a href="#approval">Your decision</a></li><li><a href="#seeds">Implementation seeds</a></li>
+  <li><a href="#summary">Summary</a></li><li><a href="#tier">Why this tier</a></li><li><a href="#how">How mining works</a></li><li><a href="#bitcoin">Bitcoin vs ours</a></li><li><a href="#measured">Already measured</a></li><li><a href="#phases">Phases</a></li><li><a href="#context">Human context</a></li><li><a href="#asks">Decisions</a></li><li><a href="#audits">Audit verdicts</a></li><li><a href="#approval">Your decision</a></li><li><a href="#seeds">Implementation seeds</a></li>
 </ol></nav>
 
 <article>
 <section id="summary">
   <h2>Summary</h2>
   <p>The prototype we are replacing made people grind Poseidon2 hashes on their CPU and rewarded whoever bought the most GPUs. This plan makes the <strong>proof itself</strong> the work. A miner repeatedly proves a small fixed circuit with Barretenberg; the hash of each finished proof is a lottery ticket; a ticket below the current target wins one reward. Winners submit a private Aztec transaction that re-verifies the proof inside a circuit, mints the reward into a private balance, and counts one claim toward the epoch. Losers never touch the chain. Epochs close after a fixed number of wins, so the chain sees a bounded number of claims per epoch no matter how much proving power joins, and the target adjusts by how long those wins took, exactly the way Bitcoin adjusts on block times.</p>
-  <p>This plan delivers the contracts, a platform-agnostic miner core, a browser miner, tests at every layer, and a testnet deployment soak. Native mining through aztec-accelerator comes later on the same core.</p>
+  <p>This plan delivers the contracts, a platform-agnostic miner core, a browser miner with an embedded wallet and sponsored fees, tests at every layer, and a testnet deployment soak. Native mining through aztec-accelerator, external wallets and mainnet come later on the same core.</p>
 </section>
 
 <section id="tier">
@@ -125,31 +125,65 @@
   </figure>
   <figure>
     <div class="fig-wrap">
-    <svg viewBox="0 0 860 190" role="img" aria-label="Epochs close after 24 accepted claims. A fast epoch (many miners) makes the next target harder; a slow one makes it easier; if nobody wins for four hours anyone can close the epoch early.">
-      <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
-      <text x="20" y="26" class="lbl">time → · each dot is one accepted claim · an epoch closes on its 24th claim</text>
-      <line x1="40" y1="70" x2="820" y2="70" class="edge"/>
-      <g fill="var(--copper)">
-        <circle cx="60" cy="70" r="3.5"/><circle cx="72" cy="70" r="3.5"/><circle cx="85" cy="70" r="3.5"/><circle cx="99" cy="70" r="3.5"/><circle cx="114" cy="70" r="3.5"/><circle cx="130" cy="70" r="3.5"/><circle cx="147" cy="70" r="3.5"/><circle cx="165" cy="70" r="3.5"/><circle cx="184" cy="70" r="3.5"/><circle cx="204" cy="70" r="3.5"/><circle cx="225" cy="70" r="3.5"/><circle cx="247" cy="70" r="3.5"/>
-        <circle cx="290" cy="70" r="3.5"/><circle cx="296" cy="70" r="3.5"/><circle cx="302" cy="70" r="3.5"/><circle cx="308" cy="70" r="3.5"/><circle cx="314" cy="70" r="3.5"/><circle cx="320" cy="70" r="3.5"/><circle cx="326" cy="70" r="3.5"/><circle cx="332" cy="70" r="3.5"/><circle cx="338" cy="70" r="3.5"/><circle cx="344" cy="70" r="3.5"/><circle cx="350" cy="70" r="3.5"/><circle cx="356" cy="70" r="3.5"/>
-        <circle cx="420" cy="70" r="3.5"/><circle cx="460" cy="70" r="3.5"/><circle cx="510" cy="70" r="3.5"/><circle cx="570" cy="70" r="3.5"/><circle cx="640" cy="70" r="3.5"/>
-      </g>
-      <line x1="262" y1="58" x2="262" y2="82" stroke="var(--copper)" stroke-width="2"/>
-      <line x1="372" y1="58" x2="372" y2="82" stroke="var(--copper)" stroke-width="2"/>
-      <line x1="800" y1="58" x2="800" y2="82" stroke="var(--copper)" stroke-width="2" stroke-dasharray="3 3"/>
-      <text x="60" y="52" class="lbl">epoch e · ~1 hour · 24 wins</text>
-      <text x="290" y="52" class="lbl">e+1 · 100× more miners → 24 wins in minutes</text>
-      <text x="420" y="52" class="lbl">e+2 · target ÷4 · miners drop out</text>
-      <text x="60" y="110" class="lbl">close on 24th → next target × (actual ÷ expected)</text>
-      <text x="60" y="126" class="lbl">issuance per epoch = 24 × 4 ELX, by construction</text>
-      <text x="290" y="110" class="lbl hot">fast epoch → ratio clamped to ¼ → harder</text>
-      <text x="290" y="126" class="lbl">converges in ⌈log₄(100)⌉ = 4 epochs, like Bitcoin</text>
-      <text x="420" y="145" class="lbl">no 24th claim after 4 h? anyone may close it → easier</text>
-      <text x="420" y="161" class="lbl">a claim for an already-closed epoch simply fails (Bitcoin's orphan)</text>
+    <svg viewBox="0 0 880 330" role="img" aria-label="Three consecutive epochs. Each closes after 24 wins. A fast epoch makes the next target four times harder; the one after that lands near the one-hour goal again.">
+      <text x="20" y="28" class="title">An epoch is 24 wins, not an hour. The clock only tells the contract how hard to make the next one.</text>
+      <rect x="20" y="50" width="270" height="150" rx="6" class="box"/>
+      <text x="34" y="74" class="title">Epoch e</text>
+      <text x="34" y="94" class="lbl">24 wins arrive over 60 minutes</text>
+      <g fill="var(--copper)"><circle cx="40.0" cy="120" r="3"/><circle cx="50.6" cy="120" r="3"/><circle cx="61.2" cy="120" r="3"/><circle cx="71.8" cy="120" r="3"/><circle cx="82.4" cy="120" r="3"/><circle cx="93.0" cy="120" r="3"/><circle cx="103.6" cy="120" r="3"/><circle cx="114.2" cy="120" r="3"/><circle cx="124.8" cy="120" r="3"/><circle cx="135.39999999999998" cy="120" r="3"/><circle cx="146.0" cy="120" r="3"/><circle cx="156.6" cy="120" r="3"/><circle cx="167.2" cy="120" r="3"/><circle cx="177.79999999999998" cy="120" r="3"/><circle cx="188.4" cy="120" r="3"/><circle cx="199.0" cy="120" r="3"/><circle cx="209.6" cy="120" r="3"/><circle cx="220.2" cy="120" r="3"/><circle cx="230.79999999999998" cy="120" r="3"/><circle cx="241.4" cy="120" r="3"/><circle cx="252.0" cy="120" r="3"/><circle cx="262.6" cy="120" r="3"/><circle cx="273.2" cy="120" r="3"/><circle cx="283.79999999999995" cy="120" r="3"/></g>
+      <text x="34" y="150" class="mono">actual ÷ expected = 1.0</text>
+      <text x="34" y="168" class="mono">next target × 1.0</text>
+      <text x="34" y="188" class="lbl">mints 24 × 4 = 96 ELX</text>
+      <rect x="305" y="50" width="270" height="150" rx="6" class="box accent"/>
+      <text x="319" y="74" class="title">Epoch e+1 · ten times more miners</text>
+      <text x="319" y="94" class="lbl">24 wins arrive in 6 minutes</text>
+      <g fill="var(--copper)"><circle cx="325" cy="120" r="3"/><circle cx="330" cy="120" r="3"/><circle cx="335" cy="120" r="3"/><circle cx="340" cy="120" r="3"/><circle cx="345" cy="120" r="3"/><circle cx="350" cy="120" r="3"/><circle cx="355" cy="120" r="3"/><circle cx="360" cy="120" r="3"/><circle cx="365" cy="120" r="3"/><circle cx="370" cy="120" r="3"/><circle cx="375" cy="120" r="3"/><circle cx="380" cy="120" r="3"/><circle cx="385" cy="120" r="3"/><circle cx="390" cy="120" r="3"/><circle cx="395" cy="120" r="3"/><circle cx="400" cy="120" r="3"/><circle cx="405" cy="120" r="3"/><circle cx="410" cy="120" r="3"/><circle cx="415" cy="120" r="3"/><circle cx="420" cy="120" r="3"/><circle cx="425" cy="120" r="3"/><circle cx="430" cy="120" r="3"/><circle cx="435" cy="120" r="3"/><circle cx="440" cy="120" r="3"/></g>
+      <text x="319" y="150" class="mono">actual ÷ expected = 0.1</text>
+      <text x="319" y="168" class="mono hot">clamped to ¼ → next target ÷ 4</text>
+      <text x="319" y="188" class="lbl">still mints exactly 96 ELX</text>
+      <rect x="590" y="50" width="270" height="150" rx="6" class="box"/>
+      <text x="604" y="74" class="title">Epoch e+2</text>
+      <text x="604" y="94" class="lbl">24 wins arrive in 24 minutes</text>
+      <g fill="var(--copper)"><circle cx="610.0" cy="120" r="3"/><circle cx="614.3" cy="120" r="3"/><circle cx="618.6" cy="120" r="3"/><circle cx="622.9" cy="120" r="3"/><circle cx="627.2" cy="120" r="3"/><circle cx="631.5" cy="120" r="3"/><circle cx="635.8" cy="120" r="3"/><circle cx="640.1" cy="120" r="3"/><circle cx="644.4" cy="120" r="3"/><circle cx="648.7" cy="120" r="3"/><circle cx="653.0" cy="120" r="3"/><circle cx="657.3" cy="120" r="3"/><circle cx="661.6" cy="120" r="3"/><circle cx="665.9" cy="120" r="3"/><circle cx="670.2" cy="120" r="3"/><circle cx="674.5" cy="120" r="3"/><circle cx="678.8" cy="120" r="3"/><circle cx="683.1" cy="120" r="3"/><circle cx="687.4" cy="120" r="3"/><circle cx="691.7" cy="120" r="3"/><circle cx="696.0" cy="120" r="3"/><circle cx="700.3" cy="120" r="3"/><circle cx="704.6" cy="120" r="3"/><circle cx="708.9" cy="120" r="3"/></g>
+      <text x="604" y="150" class="mono">actual ÷ expected = 0.4</text>
+      <text x="604" y="168" class="mono">next target × 0.4 → about 60 min</text>
+      <text x="604" y="188" class="lbl">96 ELX again; converged</text>
+      <path d="M290,125 L305,125" class="edge hot"/><path d="M575,125 L590,125" class="edge hot"/>
+      <text x="20" y="236" class="lbl">Each dot is one accepted claim. The 24th claim closes the epoch and sets the next target in the same transaction.</text>
+      <text x="20" y="256" class="lbl">A claim that arrives after the close is rejected, like an orphaned Bitcoin block.</text>
+      <text x="20" y="276" class="lbl">If no 24th claim arrives for 4 hours, anyone may close the epoch and the next target is 4× easier.</text>
+      <text x="20" y="296" class="lbl">Issuance is fixed per epoch (96 ELX); what a surge changes is how fast epochs go by, never how much each one mints.</text>
     </svg>
     </div>
     <figcaption>Counting claims instead of counting hours is what caps issuance. Under a sudden surge, epochs get short, not fat.</figcaption>
   </figure>
+</section>
+
+<section id="bitcoin">
+  <h2>Bitcoin mining versus ours, side by side</h2>
+  <p>Bitcoin miners take the block header, append a random number (the nonce), and run SHA256 on it. The result is a 256-bit number. If it is below the target, the block is valid. "Leading zeros" is just a picture of that comparison: a target of 2<sup>256−k</sup> means the hash must start with at least k zero bits. Every attempt costs nanoseconds, so miners try quintillions per block, and every 2016 blocks the network compares how long those blocks took to two weeks and rescales the target by that ratio, capped at four times either way. Each valid block mints a fixed subsidy.</p>
+  <p>Ours is the same shape with one substitution: <strong>the thing you hash is a proof, and making that proof is the expensive step.</strong></p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th></th><th>Bitcoin</th><th>Elixir</th></tr></thead>
+    <tbody>
+      <tr><td>One attempt</td><td>SHA256 of header + nonce, nanoseconds</td><td>A full Barretenberg proof of a fixed circuit with inputs (epoch seed, epoch, your commitment, nonce), seconds</td></tr>
+      <tr><td>The number you compare</td><td>The 256-bit hash</td><td>The low 128 bits of Poseidon2(the whole 410-field proof), the "ticket"</td></tr>
+      <tr><td>Win condition</td><td>hash &lt; target</td><td>ticket &lt; target, exactly the same "leading zeros" idea, on 128 bits</td></tr>
+      <tr><td>Who checks first</td><td>The miner, locally</td><td>The miner, locally: hashing 410 numbers is instant. Only winners send a transaction</td></tr>
+      <tr><td>Who checks for real</td><td>Every node re-hashes the header</td><td>The private claim function re-verifies the proof in-circuit, re-hashes it, and re-compares</td></tr>
+      <tr><td>Chance per attempt</td><td>target ÷ 2<sup>256</sup></td><td>target ÷ 2<sup>128</sup>. The contract never computes this; it only compares numbers</td></tr>
+      <tr><td>Reward</td><td>Fixed subsidy per block</td><td>Fixed 4 ELX per accepted claim</td></tr>
+      <tr><td>Adjustment window</td><td>2016 blocks</td><td>24 accepted claims (one "epoch")</td></tr>
+      <tr><td>Adjustment rule</td><td>target × (actual time ÷ 2 weeks), capped ×4 / ÷4</td><td>target × (actual time ÷ 1 hour), capped ×4 / ÷4, computed by the contract when the 24th claim lands</td></tr>
+      <tr><td>What the work rewards</td><td>Faster SHA256 hardware</td><td>Faster Barretenberg proving: better algorithms, SIMD, or a GPU prover</td></tr>
+    </tbody>
+  </table></div>
+  <h3>What the circuit is for</h3>
+  <p>Nobody searches for anything <em>inside</em> the circuit. It is a fixed, boring computation, a chain of a few thousand Poseidon2 hashes, chosen only because it is easy to write, deterministic, and big enough that proving it takes seconds. The miner's search is over nonces, and every nonce costs one complete proof. Making Poseidon2 itself faster does not help anyone: evaluating the chain natively takes microseconds either way; what takes seconds is producing the proof of it. So the only way to get more tickets per hour is to prove faster, which is the point.</p>
+  <h3>How the target gets set and moved, with numbers</h3>
+  <p>Two knobs, and they are different things. The <strong>circuit size</strong> fixes the cost of one ticket for the life of a deployment, like SHA256's cost per hash. The <strong>target</strong> is what moves. Suppose one laptop proves about 1,000 tickets an hour and we want 24 wins an hour from it at launch: the initial target is set so each ticket wins with probability 24 ÷ 1,000, that is target = 0.024 × 2<sup>128</sup>. Now ten laptops join. Twenty-four wins arrive in six minutes instead of sixty, the ratio is 0.1, the clamp turns it into ÷4, and the next epoch's target is a quarter of the old one. That epoch takes 24 minutes; the ratio 0.4 is applied unclamped; the epoch after that takes about an hour again. Two epochs to absorb a tenfold surge, four for a hundredfold. Emission never changed: every closed epoch mints 24 × 4 = 96 ELX. And if everyone leaves, no 24th claim arrives; after four hours anyone can close the epoch, and the target becomes four times easier each time that happens until miners return.</p>
+  <h3>Can the "re-prove the same inputs" shortcut be closed?</h3>
+  <p>Not at our layer. Barretenberg's non-hiding proof flavour reserves the first four rows of every circuit for the hiding flavour's randomness and leaves them unconstrained; the verifier ignores them by design. Our circuit code cannot touch those rows, and hashing only parts of the proof does not help because every part depends on them. Switching to the hiding flavour makes it worse: re-randomising a proof is then the intended feature. A fix would be a small upstream change to Barretenberg (constrain or zero those rows in the non-hiding flavour), which we could propose but do not control. The practical impact is a constant factor: whoever patches the prover gets tickets at roughly half to two-thirds the honest cost, still paying a full sumcheck and opening per ticket, and still scaling with circuit size. Phase 1 builds the attack and measures the real number.</p>
 </section>
 
 <section id="measured">
@@ -169,10 +203,10 @@
   <h2>Phases</h2>
   <div class="phase"><h3>Phase 0 · Scaffold and CI</h3><p>The repository on our stack: Bun workspace, Biome, commit hooks, supply-chain settings, isolated local runs, per-package CI gates, project docs.</p><p class="proves"><b>Proves itself by:</b> lint, workflow lint, shell lint and a placeholder test all green.</p></div>
   <div class="phase stop"><h3>Phase 1 · Feasibility spike <span class="pill crit">hard stop</span></h3><p>Build the work circuit at three sizes, prove it natively and in the browser, check proofs are byte-identical when repeated, publish a labelled map of the 410 proof fields, tamper with proofs and confirm every tamper fails both natively and through the in-circuit path, send a real claim through a wallet to a sandbox node, measure browser time and memory and the claim's fee, and measure two ticket-cost floors: how much proving happens before a ticket can be known, and how much a modified prover can save by reusing work on the same inputs. Ends with a written GO / NO-GO against the thresholds you approve below, and <strong>stops for your decision</strong>.</p><p class="proves"><b>Proves itself by:</b> a results file with every measurement from real runs, plus every spike script exiting cleanly.</p></div>
-  <div class="phase"><h3>Phase 2 · Contracts</h3><p>The miner contract (claims, epoch close, retarget, escape hatch), the token ported to Aztec 5.2.0, a deploy script, and Noir tests for every rule: 24-claim close, clamps, extremes, stale claims, replay, ordering, atomic revert, plus a simulator for hashrate shocks and withholding.</p><p class="proves"><b>Proves itself by:</b> contracts compile, all Noir tests and simulator tests green.</p></div>
+  <div class="phase"><h3>Phase 2 · Contracts</h3><p>The miner contract (claims, epoch close, retarget, escape hatch, one-shot token binding), the official aztec-standards token at v5.2.0, a deploy script, and Noir tests for every rule: 24-claim close, clamps, extremes, stale claims, replay, ordering, atomic revert, plus a simulator for hashrate shocks and withholding.</p><p class="proves"><b>Proves itself by:</b> contracts compile, all Noir tests and simulator tests green.</p></div>
   <div class="phase"><h3>Phase 3 · Miner core</h3><p>The shared TypeScript library both the browser and future native miner use: prove, hash, check, read epochs, build the claim. Fixtures pin every hash to the Noir side. A real-proving integration test against an isolated sandbox: mine at an easy target, claim, see the private balance grow; tampered proofs fail; a proof cannot be reused on a second deployment; the public trail reveals only what we say it does.</p><p class="proves"><b>Proves itself by:</b> unit tests green and the live sandbox integration passing on a port this run owns.</p></div>
-  <div class="phase"><h3>Phase 4 · Web miner</h3><p>React app: connect a wallet, derive the miner secret, mine in a Worker, claim through the wallet, watch the dashboard. Component tests, then a browser end-to-end run against the sandbox including worker crash recovery and memory measurement. Cloudflare Pages config with the security headers the prover needs.</p><p class="proves"><b>Proves itself by:</b> component tests, production build and the browser end-to-end run all green.</p></div>
-  <div class="phase"><h3>Phase 5 · Testnet soak and mainnet readiness</h3><p>Deploy to the public testnet, watch at least 24 epochs close and record how the target behaved, write the miner README, the threat model, and the mainnet checklist (security hardening pass plus external audit).</p><p class="proves"><b>Proves itself by:</b> deployment receipts, a committed soak report, docs updated in the same PR.</p></div>
+  <div class="phase"><h3>Phase 4 · Web miner</h3><p>React app: an embedded wallet is created on first visit, a fresh secret per epoch, mining in a Worker, claims proven in the page with sponsored fees, a live dashboard. Component tests, then a browser end-to-end run against the sandbox including worker crash recovery and memory measurement. Cloudflare Pages config with the security headers the prover needs.</p><p class="proves"><b>Proves itself by:</b> component tests, production build and the browser end-to-end run all green.</p></div>
+  <div class="phase"><h3>Phase 5 · Testnet soak and docs</h3><p>Deploy to the public testnet, watch at least 24 epochs close (a full day, with miners deliberately started and stopped so the target actually moves) and record how it behaved, write the miner README and the threat model, and list what mainnet will need later.</p><p class="proves"><b>Proves itself by:</b> deployment receipts, a committed soak report, docs updated in the same PR.</p></div>
   <p>Delivery: three stacked pull requests, opened only after each arc's review loops converge: A1 = phases 0–1, A2 = phases 2–3, A3 = phases 4–5. Merging is always your call.</p>
 </section>
 
@@ -191,22 +225,22 @@
 </section>
 
 <section id="asks">
-  <h2>Open questions for you (defaults in bold)</h2>
+  <h2>Open questions, now decided (3 Sep 2026)</h2>
   <div class="tbl-wrap"><table>
-    <thead><tr><th>#</th><th>Question</th><th>Proposed default</th></tr></thead>
+    <thead><tr><th>#</th><th>Question</th><th>Decision</th></tr></thead>
     <tbody>
-      <tr><td>1</td><td>Economics</td><td><b>24 claims per epoch, one hour expected, four-hour escape hatch, 4 ELX per claim</b> → about 96 ELX per hour at steady state, forever; 18 decimals</td></tr>
-      <tr><td>2</td><td>How heavy is one ticket?</td><td><b>About 3 s per proof in a browser on an M-series laptop</b>; exact circuit size fixed by Phase 1</td></tr>
-      <tr><td>3</td><td>Aztec version and token</td><td><b>Aztec 5.2.0 everywhere; aztec-standards token ported to it</b>, never downgrade</td></tr>
-      <tr><td>4</td><td>What counts as GO after Phase 1?</td><td><b>Real claim sent through a wallet and accepted by a node; tampered proofs fail in-circuit for every proof section; the transaction uses at most half of the curve-math budget; repeated proofs identical; ≥ 90 % of proving cost is spent before a ticket can be known; the same-inputs shortcut still costs ≥ 50 % of an honest proof; browser claim under 2 min and 3 GB; claim fee under 10 % of the reward</b>. Anything else: NO-GO, back to you</td></tr>
-      <tr><td>5</td><td>Where does the miner's secret come from?</td><td><b>A fresh random value per epoch</b>, generated in the browser and discarded when the epoch closes. Tickets only live for their epoch, so nothing long-lived needs protecting, and the wallet never signs anything</td></tr>
-      <tr><td>6</td><td>Upgrades and mistakes</td><td><b>Immutable contracts, no admin, no pause</b>; a parameter mistake means redeploying and documenting the migration</td></tr>
-      <tr><td>7</td><td>Testnet</td><td><b>Current public Aztec testnet, sponsored fees</b></td></tr>
-      <tr><td>8</td><td>Before mainnet</td><td><b>Security hardening pass plus an independent external audit</b> of the circuit, key, contract and verifier path; you own budget and timing; the plan blocks mainnet on both</td></tr>
-      <tr><td>9</td><td>Tier</td><td><b>mid</b>, against the rubric's deep; acknowledged</td></tr>
-      <tr><td>10</td><td>How does a brand-new miner pay the claim's transaction fee on mainnet? (needs your explicit yes)</td><td>Testnet: sponsored. Mainnet: <b>miners bring their own fee asset, bridged from L1 and documented in the README</b>; or a later plan ships a fee contract that accepts ELX. Phase 1 reports the fee in fee-asset units and the ELX price at which the reward covers it</td></tr>
-      <tr><td>11</td><td>Who wires the miner to the token at launch?</td><td><b>The deploying key, in a single call that then locks forever.</b> Aztec addresses depend on constructor arguments, so the two contracts cannot each be born knowing the other; the miner is deployed first without a token and bound once</td></tr>
-      <tr><td>12</td><td>Can the deployer mine the first epoch before anyone else?</td><td>Yes, unavoidably. <b>Accepted and disclosed</b>: the first epoch is capped at 24 wins (96 ELX), after which the seed depends on things nobody can know in advance</td></tr>
+      <tr><td>1</td><td>Economics</td><td><b>Defaults</b>: 24 claims per epoch, one hour expected, four-hour escape hatch, 4 ELX per claim, 18 decimals. About 96 ELX per hour at steady state, forever</td></tr>
+      <tr><td>2</td><td>How heavy is one ticket?</td><td><b>Default</b>: about 3 s per proof in a browser on an M-series laptop, fixed by Phase 1. This is the per-ticket cost and does not scale; difficulty scales through the target (see the worked example above)</td></tr>
+      <tr><td>3</td><td>Aztec version and token</td><td><b>Aztec 5.2.0 everywhere; the official AztecProtocol/aztec-standards token at tag v5.2.0</b>, used as-is. No port</td></tr>
+      <tr><td>4</td><td>What counts as GO after Phase 1?</td><td><b>Real claim sent through the embedded wallet and accepted by a node; tampered proofs fail in-circuit for every proof section; the transaction uses at most half of the curve-math budget; repeated proofs identical; ≥ 90 % of proving cost is spent before a ticket can be known; the same-inputs shortcut still costs ≥ 50 % of an honest proof.</b> Browser time and memory are reported carefully, not gated</td></tr>
+      <tr><td>5</td><td>Where does the miner's secret come from?</td><td><b>A fresh random value per epoch</b>, generated in the page and discarded when the epoch closes</td></tr>
+      <tr><td>6</td><td>Upgrades and mistakes</td><td><b>Immutable contracts</b>; a parameter mistake means redeploying. Good enough for now</td></tr>
+      <tr><td>7</td><td>Network and fees</td><td><b>Public testnet, sponsored fees</b></td></tr>
+      <tr><td>8</td><td>Before mainnet</td><td><b>No independent external audit.</b> Security hardening pass when mainnet comes, in a later plan. The proof-system assumptions therefore rest on Phase 1's measurements and our own review</td></tr>
+      <tr><td>9</td><td>Tier</td><td><b>mid</b>, acknowledged against the rubric's deep</td></tr>
+      <tr><td>10</td><td>Wallet and mainnet fees</td><td><b>Embedded wallet inside the miner page plus sponsored fees.</b> Mainnet is a later plan; the mechanism is the hard part</td></tr>
+      <tr><td>11</td><td>Who wires the miner to the token at launch?</td><td><b>The deploying key, once, then it locks.</b> Addresses are derivable in advance, and the bootstrap relies on that for the miner, but a derivation includes the constructor arguments, so two contracts that each want the other's address at birth have no solution; the one-shot bind only breaks that loop</td></tr>
+      <tr><td>12</td><td>Can the deployer mine the first epoch early?</td><td><b>Yes, accepted and disclosed</b>; capped at 24 wins (96 ELX)</td></tr>
     </tbody>
   </table></div>
 </section>
@@ -230,10 +264,10 @@
   <ul>
     <li>Confirm scope: contracts + miner core + web miner + tests + testnet soak; native mining later via aztec-accelerator.</li>
     <li>Confirm tier <code>mid</code> knowing the rubric said <code>deep</code>.</li>
-    <li>Answer or accept the defaults for questions 1–12 above; question 4 decides what Phase 1 must show, question 10 decides how mainnet miners pay fees, questions 11–12 accept the launch mechanics.</li>
+    <li>Confirm the twelve decisions recorded above are what you meant.</li>
     <li>Confirm validation layers: lint/typecheck and unit on every phase; live sandbox integration on phases 1 and 3; browser end-to-end on phases 1 and 4; testnet on phase 5.</li>
     <li>Confirm delivery: three stacked PRs (A1 spike · A2 protocol · A3 web + testnet), opened only after review loops converge; Phase 1 is a hard stop for your GO / NO-GO.</li>
-    <li>Confirm the mainnet gate: security hardening pass plus external audit before any mainnet deployment.</li>
+    <li>Confirm mainnet is out of scope for this plan (hardening pass later, no external audit).</li>
     <li>Approve, conditionally approve (with conditions), or reject (with blocking findings).</li>
   </ul>
 </section>
