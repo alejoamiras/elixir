@@ -5,11 +5,11 @@ conversation it never saw. Nothing here overrides `plan.md`; where they disagree
 
 ## 1. Where things stand (2026-09-04)
 
-- **Phases 0–4 are implemented and marked ✓ in `plan.md` §6; Phase 5 is closing** (soak run, report, audits, PRs — the
-  ✓ on its header and the `gh stack` PRs are the last steps of this session), on three stacked branches: A1
+- **All five phases are implemented and marked ✓ in `plan.md` §6**, on three stacked branches: A1
   `worktree-elixir-core` (Phases 0–1), A2 `elixir-core/protocol` (Phases 2–3), A3 `elixir-core/web-testnet`
-  (Phases 4–5). Each arc closes with a codex audit loop; a fresh-session cross-arc pass follows. **Nothing is merged** —
-  merging is the owner's call. Lessons per phase: `lessons/phase-{0..5}.md`; the plan index: `../index.md`.
+  (Phases 4–5). Each arc closed a codex audit loop (A2: 3 rounds, A3: 4 rounds), then a fresh-session cross-arc pass.
+  The stacked PRs are opened with `gh stack`; **nothing is merged** — merging is the owner's call. Lessons per phase:
+  `lessons/phase-{0..5}.md`; the plan index: `../index.md`.
 - **Testnet**: the `testnet` profile is live on the public Aztec testnet (`docs/deployments.md`, `deployments/testnet.json`,
   web-miner `.env.production`). The 2 h soak report is `docs/soak-report.md`. Two findings shape any follow-up: the closing
   claim needs the per-tx maximum gas (`claimGasLimits`, mandatory), and a stale claim that reverts in public blocks that

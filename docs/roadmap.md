@@ -12,7 +12,7 @@ backlog that the plan defers.
 | 2 | Contracts (`elixir_miner`, token binding, retarget, TXE tests, retarget simulator) | done |
 | 3 | miner-core (proof → digest, retarget mirror, epoch reader, claim builder, live integration, concurrent burst) | done |
 | 4 | Web miner (React + Vite + shadcn, Worker-hosted bb.js, embedded wallet, sponsored FPC, pinned CRS, Playwright E2E) | done |
-| 5 | Testnet soak on the `testnet` profile (≤ 2 h), docs, mainnet-readiness notes | in progress |
+| 5 | Testnet soak on the `testnet` profile (2 h, 21 epochs closed, `docs/soak-report.md`), docs, mainnet-readiness notes | done |
 
 ## Deferred (later plans)
 

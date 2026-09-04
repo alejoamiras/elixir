@@ -54,10 +54,13 @@ const hours = (to - from) / 3600;
 // counts as closed when its close also falls inside the window.
 const all = await epochStats(process.env.AZTEC_NODE_URL ?? deployment.nodeUrl, deployment.miner);
 const activeAtStart = all.findLastIndex((e) => e.openedAt <= from);
+// An epoch still open at the cutoff shows the claim count read now, which may include later claims.
 const epochs = all
   .filter((e, i) => i >= Math.max(0, activeAtStart) && e.openedAt <= to)
   .map((e) =>
-    e.duration !== null && e.openedAt + e.duration <= to ? e : { ...e, duration: null, retarget: null },
+    e.duration !== null && e.openedAt + e.duration <= to
+      ? e
+      : { ...e, duration: null, retarget: null, claimsNote: ' (latest, open at cutoff)' },
   );
 const closed = epochs.filter((e) => e.duration !== null);
 const durations = closed.map((e) => e.duration as number);
@@ -77,8 +80,8 @@ const steps = rows
   .join('\n');
 const epochTable = epochs
   .map(
-    (e: EpochRow) =>
-      `| ${e.epoch} | ${new Date(e.openedAt * 1000).toISOString().slice(11, 19)} | ${e.claims} | ${e.duration === null ? 'open' : `${e.duration} s`} | ${e.retarget === null ? '–' : `×${e.retarget.toFixed(3)}`} | ${e.difficulty.toFixed(1)} |`,
+    (e: EpochRow & { claimsNote?: string }) =>
+      `| ${e.epoch} | ${new Date(e.openedAt * 1000).toISOString().slice(11, 19)} | ${e.claims}${e.claimsNote ?? ''} | ${e.duration === null ? 'open' : `${e.duration} s`} | ${e.retarget === null ? '–' : `×${e.retarget.toFixed(3)}`} | ${e.difficulty.toFixed(1)} |`,
   )
   .join('\n');
 const perMiner = labels
