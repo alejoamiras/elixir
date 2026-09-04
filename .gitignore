@@ -12,4 +12,6 @@ packages/deploy/browser/public/artifacts/
 packages/web-miner/public/artifacts/
 packages/web-miner/public/crs/
 packages/web-miner/test-results/
+packages/web-miner/e2e/.peak-rss.json
+packages/web-miner/e2e/.run.json
 packages/web-miner/playwright-report/
