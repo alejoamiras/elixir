@@ -48,3 +48,9 @@ Note for the next Aztec bump: re-run `bun audit`; if it comes back clean, drop `
   `BUN_RUNTIME_TRANSPILER_CACHE_PATH=0 bun test` reproduces it in seconds. `scripts/test-preload.ts`
   (registered in `bunfig.toml [test]`) supplies the method, mirroring the module's own non-Jest fallback.
   Reproduce CI-like conditions locally with the cache disabled before trusting a green `bun test`.
+- **First real use of the production bundle (owner, 2026-09-04 12:35 UTC): "prover failed to start: Buffer is not
+  defined".** Vite bundles Workers with their own plugin list and never runs vite-plugin-node-polyfills' global
+  injection for them, so the built prover Worker had no `Buffer` while the dev server (which the E2E drives)
+  injects it. `src/shims/node-globals.ts`, imported first in the Worker, installs the plugin's own shims; the
+  `worker.plugins` route does not work for globals (the plugin injects from its `config` hook, which Vite skips
+  for Workers). Gap to close: the E2E only ever exercised `vite` dev, never `vite build` + `vite preview`.
