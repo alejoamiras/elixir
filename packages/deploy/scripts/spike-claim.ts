@@ -5,6 +5,7 @@
 //   fail to prove → claim (inline verifier) → balance = REWARD → replay rejected → claim_split.
 // Run with BB_VERBOSE=1 LOG_LEVEL=verbose to capture bb's "Num rows in the ECCVM" lines.
 //   bun packages/deploy/scripts/spike-claim.ts [--skip-tamper] [--skip-split]
+
 import { cpus, hostname } from 'node:os';
 import { resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
@@ -16,6 +17,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { BackendType, Barretenberg, UltraHonkBackend } from '@aztec/bb.js';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { Noir } from '@aztec/noir-noir_js';
 import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
@@ -24,10 +26,10 @@ import { TokenContract } from '@aztec-foundation/aztec-standards/artifacts/src/a
 import { startIsolatedNode } from '../../../scripts/run/isolated-node.ts';
 import {
   computeDigest,
-  deployDomain,
+  DOM_DEPLOY,
+  DOM_SECRET,
   isWinner,
   proofToFields,
-  secretCommitment,
 } from '../../miner-core/src/proof.ts';
 import layout from '../../work-circuit/src/generated/proof-layout.json';
 
@@ -120,7 +122,12 @@ try {
     miner.methods.epoch_params(0),
   );
   console.log(`epoch_params(0) = ${json(params)}`);
-  const domain = await deployDomain(chainId, miner.address.toField(), VERSION);
+  const domain = await poseidon2Hash([
+    new Fr(DOM_DEPLOY),
+    new Fr(chainId),
+    miner.address.toField(),
+    new Fr(VERSION),
+  ]); // elixir_spike's 4-input domain
   const workArtifact = await Bun.file(resolve(repo, 'packages/work-circuit/target/elixir_work.json')).json();
   const noir = new Noir(workArtifact);
   const bb = await Barretenberg.new({
@@ -137,7 +144,7 @@ try {
   }
   const mine = async (): Promise<Win> => {
     const secret = Fr.random();
-    const commit = await secretCommitment(secret);
+    const commit = await poseidon2Hash([new Fr(DOM_SECRET), secret]); // elixir_spike predates recipient binding
     for (let nonce = 1n; ; nonce++) {
       const inputs = {
         domain: domain.toString(),

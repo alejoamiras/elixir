@@ -1,0 +1,17 @@
+{
+  "hosts": ["https://crs.aztec-cdn.foundation", "https://crs.aztec-labs.com"],
+  "files": {
+    "g1_compressed.dat": {
+      "bytes": 16777216,
+      "sha256": "1d03ebeb73e1a6d426e44a2ccc88b04125ca185ab9d1679817380502a723fa80"
+    },
+    "g2.dat": {
+      "bytes": 128,
+      "sha256": "01797bfc4de5a96f0e516a9ea4537d18786dc30cb991aca4274c95822b69c32f"
+    },
+    "grumpkin_g1_v2.dat": {
+      "bytes": 4194304,
+      "sha256": "64236c9455e75aeea77a94587ea607eed2e978d2609a421d66bf10bb9698b8fd"
+    }
+  }
+}

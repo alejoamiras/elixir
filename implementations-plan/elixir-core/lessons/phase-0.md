@@ -1,5 +1,7 @@
 # Phase 0 lessons — planning
 
+**Gate (plan §6)**: `bun run lint && bun run lint:actions && bun run lint:shell && bun test` exit 0. Result: **passed** (3 tests at the time: registry ×2, miner-core placeholder ×1).
+
 - 2026-09-03 · Recon (2 sonnet Explore agents): aztec-nr 5.2.0 capability map; recursion/bb.js/aztec-standards. Load-bearing finding: chonk/README.md puts a naive in-circuit UltraHonk verifier above 512K gates; bb.js WASM CRS default 2^19. Became Phase 1's go/no-go.
 - 2026-09-03 · Tier: rubric said `deep` (novelty, irreversibility, security all HIGH); user chose `mid`. Recorded in plan.md.
 - 2026-09-03 · Probe (scratch, not committed): `verify_honk_proof_non_zk` costs 681,980 gates as a plain Ultra circuit but 19,923 gates inside an Aztec private function under `bb gates --scheme chonk` (baseline private fn 5,469). Aztec function bytecode must be extracted from the contract artifact (`functions[]` named `__aztec_nr_internals__<fn>`) into a program-shaped JSON; `--scheme ultra_honk` rejects it (CallData/ReturnData blocks need MegaCircuitBuilder). Turned plan Inferences I1/I2 into Fact 11; the spike now measures wall-clock and ECCVM headroom instead of gate count.

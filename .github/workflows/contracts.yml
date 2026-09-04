@@ -25,7 +25,10 @@ jobs:
               - '!packages/contracts/**/*.md'
               - 'packages/work-circuit/src/**'
               - 'packages/work-circuit/crates/**'
-              - 'packages/miner-core/src/generated/**'
+              - 'packages/work-circuit/fixtures/**'
+              - 'packages/miner-core/src/**'
+              - 'packages/web-miner/**'
+              - '!packages/web-miner/**/*.md'
               - 'elixir.params.json'
               - 'scripts/params-codegen.ts'
               - '.aztecrc'
@@ -57,3 +60,5 @@ jobs:
         env:
           ELIXIR_REQUIRE_TOOLCHAIN: '1'
       - run: bun run contracts:test
+      # The only job with the compiled artifacts: build the production web bundle here.
+      - run: bun run --cwd packages/web-miner build

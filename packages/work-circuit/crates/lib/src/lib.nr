@@ -1,14 +1,9 @@
 use poseidon::poseidon2::Poseidon2;
 
-// Domain separators: the ASCII bytes of the tag, big-endian. Every role-level hash (deployment,
-// secret, work seed, ticket, nullifier, epoch seed) starts with one; the chain steps inside the
-// work do not need one. miner-core duplicates the values; cross-language vectors are still owed.
-pub global DOM_DEPLOY: Field = 0x454c582f6465706c; // "ELX/depl"
-pub global DOM_SECRET: Field = 0x454c582f73656372; // "ELX/secr"
-pub global DOM_WORK: Field = 0x454c582f776f726b; // "ELX/work"
-pub global DOM_TICKET: Field = 0x454c582f7469636b; // "ELX/tick"
-pub global DOM_NULL: Field = 0x454c582f6e756c6c; // "ELX/null"
-pub global DOM_SEED: Field = 0x454c582f73656564; // "ELX/seed"
+// Domain separators come from elixir.params.json through the codegen (domains.nr), the same
+// source miner-core reads; the chain steps inside the work do not need one.
+mod domains;
+pub use domains::{DOM_DEPLOY, DOM_LAUNCH, DOM_NULL, DOM_SECRET, DOM_SEED, DOM_TICKET, DOM_WORK};
 
 // The work: a Poseidon2 chain of length L seeded by every public input. The nonce is absorbed
 // first so no wire polynomial can be shared between nonces by an honest prover.

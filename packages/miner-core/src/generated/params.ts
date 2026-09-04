@@ -4,6 +4,9 @@ export const PARAMS = {
   N: 4,
   EXPECTED_EPOCH_SECONDS: 300n,
   T_MAX: 1200n,
+  CLAIM_TTL_SECONDS: 600n,
+  LAUNCH_NOTICE_SECONDS: 0n,
+  REVEAL_WINDOW_SECONDS: 0n,
   REWARD: 4000000000000000000n,
   DECIMALS: 18,
   INITIAL_TARGET: 21267647932558653966460912964485513216n,
@@ -12,4 +15,14 @@ export const PARAMS = {
   VERSION: 1n,
   TOKEN_NAME: 'Elixir Testnet',
   TOKEN_SYMBOL: 'tELX',
+} as const;
+/** Domain separators: the ASCII tag as a big-endian field element; identical to the Noir globals. */
+export const DOMAINS = {
+  DOM_DEPLOY: 0x454c582f6465706cn, // "ELX/depl"
+  DOM_SECRET: 0x454c582f73656372n, // "ELX/secr"
+  DOM_WORK: 0x454c582f776f726bn, // "ELX/work"
+  DOM_TICKET: 0x454c582f7469636bn, // "ELX/tick"
+  DOM_NULL: 0x454c582f6e756c6cn, // "ELX/null"
+  DOM_SEED: 0x454c582f73656564n, // "ELX/seed"
+  DOM_LAUNCH: 0x454c582f6c6e6368n, // "ELX/lnch"
 } as const;

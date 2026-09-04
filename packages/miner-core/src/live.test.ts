@@ -37,16 +37,22 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
   let miner: Contract;
   let prover: WorkProver;
   let chainId: bigint;
+  let rollupVersion: bigint;
   const node = createAztecNodeClient(nodeUrl);
 
-  const mine = async (m: Contract, secret = newEpochSecret()): Promise<{ winner: Winner; secret: Fr }> => {
+  const mine = async (
+    m: Contract,
+    secret = newEpochSecret(),
+    recipient: AztecAddress = from,
+  ): Promise<{ winner: Winner; secret: Fr }> => {
     const view = await readOpenEpoch(m, from);
-    const domain = await deployDomain(chainId, m.address.toField(), PARAMS.VERSION);
+    const domain = await deployDomain(chainId, rollupVersion, m.address.toField(), PARAMS.VERSION);
     const winner = await mineEpoch(prover, {
       domain,
       seed: new Fr(view.params.seed),
       epoch: view.epoch,
       secret,
+      recipient: recipient.toField(),
       target: view.params.target,
     });
     if (!winner) throw new Error('mining stopped without a winner');
@@ -96,6 +102,7 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
     deployment = await deployElixir(nodeUrl, secret, Fr.random(), { initialTarget: EASY_TARGET });
     miner = await registerDeployment(deployment);
     chainId = BigInt(await node.getChainId());
+    rollupVersion = BigInt((await node.getNodeInfo()).rollupVersion);
     const api = await Barretenberg.new({
       threads: Math.max(1, cpus().length - 1),
       backend: BackendType.WasmWorker,
@@ -149,6 +156,10 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
       for (const nested of c.nestedExecutionResults) walk(nested);
     };
     walk(sim.privateExecutionResult.entrypoint);
+    // The claim caps its own lifetime: an expired claim is dropped, never reverted at the sponsor's cost.
+    const anchorTs =
+      sim.privateExecutionResult.entrypoint.publicInputs.anchorBlockHeader.globalVariables.timestamp;
+    expect(sim.publicInputs.expirationTimestamp).toBe(anchorTs + PARAMS.CLAIM_TTL_SECONDS);
     const r = await send(claim);
     expect(r.ok).toBe(true);
     const token = TokenContract.at(AztecAddress.fromStringUnsafe(deployment.token), wallet);
@@ -335,17 +346,18 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
     const burst = await deployElixir(nodeUrl, Fr.random(), Fr.random(), { initialTarget: EASY_TARGET });
     const m = await registerDeployment(burst);
     const rules = await readRules(m, from);
-    const winners: { winner: Winner; secret: Fr }[] = [];
-    for (let i = 0; i < 2 * rules.N; i++) winners.push(await mine(m));
     // One wallet per winner: a PXE cannot simulate its own claims concurrently, and separate
-    // wallets are what real miners are. All 2N claims race for the same epoch.
+    // wallets are what real miners are. All 2N claims race for the same epoch. Each ticket is
+    // mined for its claimant, as the commitment binds the recipient.
     const claimants = await Promise.all(
-      winners.map(async () => {
+      Array.from({ length: 2 * rules.N }, async () => {
         const w = await newWallet();
         await registerFpc(w);
         return { wallet: w, account: await newAccount(w), miner: await registerDeployment(burst, w) };
       }),
     );
+    const winners: { winner: Winner; secret: Fr }[] = [];
+    for (const c of claimants) winners.push(await mine(m, newEpochSecret(), c.account));
     const t0 = performance.now();
     let results: Awaited<ReturnType<typeof submit>>[];
     try {

@@ -17,7 +17,7 @@ Phase 1 measurements: `implementations-plan/elixir-core/spike-results.md`.
 | `packages/work-circuit` | Noir work circuit `W` (`crates/lib` + `crates/elixir_work`), the VK-embedding verifier `crates/verify_w`, generated VK / proof-layout manifest, fixture proofs, spike scripts |
 | `packages/miner-core` | Platform-agnostic TS: proof → fields → ticket digest, domain separators (retarget mirror, epoch reader, claim builder arrive in Phase 3) |
 | `packages/deploy` | Spike drivers (`spike-claim.ts`, `spike-browser.ts` + the Vite page under `browser/`); sandbox / testnet deploy in later phases |
-| `packages/web-miner` | React + Vite miner with embedded wallet (arrives in Phase 4) |
+| `packages/web-miner` | React + Vite + Tailwind + shadcn miner: embedded wallet (IndexedDB), sponsored FPC, W proved by bb.js in a Worker, pinned CRS (`crs.lock.json`, served from `/crs`), Vitest specs, Playwright E2E on the isolated network, Cloudflare Pages config (`wrangler.jsonc`, `public/_headers`) |
 | `scripts/run` | Run isolation: port registry, isolated local network, per-worktree runner |
 
 ## Toolchain
@@ -40,6 +40,14 @@ bun run lint:actions   # actionlint
 bun test               # all bun:test suites (packages + scripts)
 bun run contracts:compile / contracts:test
 bun run e2e:agent -- <cmd>   # run <cmd> against a fresh isolated local network (AZTEC_NODE_URL set)
+bun run e2e:agent -- bun test packages/miner-core                        # live miner-core suite
+bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e           # web miner in headless Chromium (production build; E2E_SERVER=dev for the dev server)
+bun run test:components        # web-miner Vitest specs
+AZTEC_NODE_URL=… ELIXIR_DEPLOYER_SECRET=… [ELIXIR_LAUNCH_AT=<unix s>] bun run deploy   # deploy the generated profile → deployments/<profile>.json (announce before launch_at)
+AZTEC_NODE_URL=… bun run launch -- commit|reveal|open   # launch lottery of the recorded deployment (anyone; see docs/deployments.md)
+AZTEC_NODE_URL=… bun run soak -- --hours 2 --epochs 24     # headless soak miner with a hashrate schedule
+bun run epoch:stats            # epoch history of deployments/<profile>.json from public storage
+bun run --cwd packages/web-miner dev | build   # both fetch the pinned CRS and copy the artifacts first
 bun scripts/run/isolated-node.ts --smoke
 bun run spike:work     # W sweep, determinism, WASM, manifest, mutation, ticket-cost (needs compiled work-circuit)
 bun run spike:gates    # Chonk gate counts of the spike contract's private functions

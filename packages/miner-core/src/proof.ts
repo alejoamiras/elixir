@@ -1,16 +1,12 @@
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { DOMAINS } from './generated/params.ts';
 
 /** A non-ZK UltraHonk proof for the Noir recursive verifier: 410 fields, 32-byte big-endian each. */
 export const PROOF_FIELDS = 410;
 
-// Domain separators: ASCII tags, big-endian. Must equal the Noir globals in elixir_work_lib.
-export const DOM_DEPLOY = 0x454c582f6465706cn;
-export const DOM_SECRET = 0x454c582f73656372n;
-export const DOM_WORK = 0x454c582f776f726bn;
-export const DOM_TICKET = 0x454c582f7469636bn;
-export const DOM_NULL = 0x454c582f6e756c6cn;
-export const DOM_SEED = 0x454c582f73656564n;
+// Domain separators are generated from elixir.params.json, the same source as the Noir globals.
+export const { DOM_DEPLOY, DOM_SECRET, DOM_WORK, DOM_TICKET, DOM_NULL, DOM_SEED, DOM_LAUNCH } = DOMAINS;
 
 /** Split bb's binary proof into its field elements. Throws on any length but 410 × 32 bytes. */
 export function proofToFields(proof: Uint8Array): Fr[] {
@@ -35,8 +31,18 @@ export const low128 = (digest: Fr): bigint => digest.toBigInt() & ((1n << 128n) 
 export const isWinner = (digest: Fr, target: bigint): boolean => low128(digest) < target;
 
 /** Poseidon2(DOM_SECRET, secret): the miner's commitment carried in the work circuit. */
-export const secretCommitment = (secret: Fr): Promise<Fr> => poseidon2Hash([new Fr(DOM_SECRET), secret]);
+/** Poseidon2(DOM_SECRET, secret, recipient): a leaked (proof, secret) can only pay this recipient. */
+export const secretCommitment = (secret: Fr, recipient: Fr): Promise<Fr> =>
+  poseidon2Hash([new Fr(DOM_SECRET), secret, recipient]);
 
-/** Poseidon2(DOM_DEPLOY, chain_id, miner_contract, version): binds a proof to one deployment. */
-export const deployDomain = (chainId: bigint, minerContract: Fr, version: bigint): Promise<Fr> =>
-  poseidon2Hash([new Fr(DOM_DEPLOY), new Fr(chainId), minerContract, new Fr(version)]);
+/**
+ * Poseidon2(DOM_DEPLOY, chain_id, rollup_version, miner_contract, version): binds a proof to one
+ * deployment on one rollup, so a fork or upgrade sharing chain id, address and state cannot reuse work.
+ */
+export const deployDomain = (
+  chainId: bigint,
+  rollupVersion: bigint,
+  minerContract: Fr,
+  version: bigint,
+): Promise<Fr> =>
+  poseidon2Hash([new Fr(DOM_DEPLOY), new Fr(chainId), new Fr(rollupVersion), minerContract, new Fr(version)]);
