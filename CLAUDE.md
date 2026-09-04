@@ -43,7 +43,7 @@ bun run e2e:agent -- <cmd>   # run <cmd> against a fresh isolated local network 
 bun run e2e:agent -- bun test packages/miner-core                        # live miner-core suite
 bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e           # web miner in headless Chromium (production build; E2E_SERVER=dev for the dev server)
 bun run test:components        # web-miner Vitest specs
-AZTEC_NODE_URL=… ELIXIR_DEPLOYER_SECRET=… bun run deploy   # deploy the generated profile → deployments/<profile>.json
+AZTEC_NODE_URL=… ELIXIR_DEPLOYER_SECRET=… [ELIXIR_LAUNCH_AT=<unix s>] bun run deploy   # deploy the generated profile → deployments/<profile>.json (announce before launch_at)
 AZTEC_NODE_URL=… bun run soak -- --hours 2 --epochs 24     # headless soak miner with a hashrate schedule
 bun run epoch:stats            # epoch history of deployments/<profile>.json from public storage
 bun run --cwd packages/web-miner dev | build   # both fetch the pinned CRS and copy the artifacts first

@@ -28,6 +28,10 @@ describe('proof → ticket', () => {
 
   test('secret commitment differs from the raw secret', async () => {
     const secret = new Fr(7n);
-    expect((await secretCommitment(secret)).equals(secret)).toBe(false);
+    expect((await secretCommitment(secret, new Fr(1n))).equals(secret)).toBe(false);
+    // The recipient is part of the preimage: the same secret commits differently per recipient.
+    expect(
+      (await secretCommitment(secret, new Fr(1n))).equals(await secretCommitment(secret, new Fr(2n))),
+    ).toBe(false);
   });
 });

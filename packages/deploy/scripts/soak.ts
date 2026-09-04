@@ -104,7 +104,8 @@ const miner = Contract.at(AztecAddress.fromStringUnsafe(deployment.miner), miner
 const token = Contract.at(AztecAddress.fromStringUnsafe(deployment.token), TokenContract.artifact, wallet);
 const rules = await readRules(miner, from);
 const chainId = BigInt(await node.getChainId());
-const domain = await deployDomain(chainId, miner.address.toField(), PARAMS.VERSION);
+const rollupVersion = BigInt((await node.getNodeInfo()).rollupVersion);
+const domain = await deployDomain(chainId, rollupVersion, miner.address.toField(), PARAMS.VERSION);
 
 // Every row names the run and the deployment, so reports from different runs cannot be confused.
 const runId = `${label}-${startedAt.getTime()}`;
@@ -172,6 +173,7 @@ for (let s = 0; !(await done()); s = (s + 1) % schedule.length) {
           seed: new Fr(view.params.seed),
           epoch: view.epoch,
           secret: epochSecret,
+          recipient: from.toField(),
           target: view.params.target,
         },
         {

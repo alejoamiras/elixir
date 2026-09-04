@@ -18,7 +18,12 @@ backlog that the plan defers.
 
 - Native / CLI mining via aztec-accelerator on top of miner-core.
 - External wallet connection (`@aztec/wallet-sdk`); the embedded wallet ships first.
-- Mainnet fee path (fees are sponsored in this plan) and launch operations.
+- Mainnet fee path (fees are sponsored in this plan) and launch operations. Any sponsor that pays for arbitrary
+  calls is drainable by public reverts (premature `roll()`, claims sequenced after a close): self-paid fees, or a
+  sponsor with per-account quotas and a function allowlist (`docs/threat-model.md`).
+- Live forced-expiry test: a claim held past `CLAIM_TTL_SECONDS` must be dropped, its PXE delivery index freed
+  on the next sender sync, and a second claim from the same account accepted (the expiration itself is asserted
+  in the live suite today).
 - `/harden security` before any mainnet deployment (no external audit, plan Ask 8).
 - Fully pinned toolchain install in CI: `toolchain.lock.json` pins the version installer script and verifies
   nargo, bb and the WASM after install, but the installer's own downloads (`noirup` from a moving branch,

@@ -31,8 +31,18 @@ export const low128 = (digest: Fr): bigint => digest.toBigInt() & ((1n << 128n) 
 export const isWinner = (digest: Fr, target: bigint): boolean => low128(digest) < target;
 
 /** Poseidon2(DOM_SECRET, secret): the miner's commitment carried in the work circuit. */
-export const secretCommitment = (secret: Fr): Promise<Fr> => poseidon2Hash([new Fr(DOM_SECRET), secret]);
+/** Poseidon2(DOM_SECRET, secret, recipient): a leaked (proof, secret) can only pay this recipient. */
+export const secretCommitment = (secret: Fr, recipient: Fr): Promise<Fr> =>
+  poseidon2Hash([new Fr(DOM_SECRET), secret, recipient]);
 
-/** Poseidon2(DOM_DEPLOY, chain_id, miner_contract, version): binds a proof to one deployment. */
-export const deployDomain = (chainId: bigint, minerContract: Fr, version: bigint): Promise<Fr> =>
-  poseidon2Hash([new Fr(DOM_DEPLOY), new Fr(chainId), minerContract, new Fr(version)]);
+/**
+ * Poseidon2(DOM_DEPLOY, chain_id, rollup_version, miner_contract, version): binds a proof to one
+ * deployment on one rollup, so a fork or upgrade sharing chain id, address and state cannot reuse work.
+ */
+export const deployDomain = (
+  chainId: bigint,
+  rollupVersion: bigint,
+  minerContract: Fr,
+  version: bigint,
+): Promise<Fr> =>
+  poseidon2Hash([new Fr(DOM_DEPLOY), new Fr(chainId), new Fr(rollupVersion), minerContract, new Fr(version)]);

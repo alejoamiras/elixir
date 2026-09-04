@@ -4,6 +4,7 @@ export interface MineJob {
   seed: string;
   domain: string;
   secret: string;
+  recipient: string;
   target: bigint;
   secretId: number;
   startNonce: bigint;

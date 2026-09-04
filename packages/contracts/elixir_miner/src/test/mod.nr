@@ -4,7 +4,7 @@
 mod vectors;
 
 use crate::ElixirMiner;
-use crate::params::{EXPECTED_EPOCH_SECONDS, N, REWARD, T_MAX};
+use crate::params::{CLAIM_TTL_SECONDS, EXPECTED_EPOCH_SECONDS, N, REWARD, T_MAX};
 use crate::retarget::next_target;
 use crate::ticket::{low128, ticket_digest};
 use aztec::{protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment};
@@ -24,11 +24,16 @@ pub struct Setup {
 
 // Token-less miner first (its address is then known), token with minter = miner, one bind.
 unconstrained fn setup() -> Setup {
+    setup_launching_at(0)
+}
+
+// launch_at = 0 launches at deployment; a future value keeps epoch 0 closed until then.
+unconstrained fn setup_launching_at(launch_at: u64) -> Setup {
     let mut env = TestEnvironment::new();
     let deployer = env.create_light_account();
     let miner = env.deploy("ElixirMiner").with_public_initializer(
         deployer,
-        ElixirMiner::interface().constructor(INITIAL_TARGET, 1234),
+        ElixirMiner::interface().constructor(INITIAL_TARGET, 1234, launch_at),
     );
     let token = env.deploy("@token_contract/Token").with_public_initializer(
         deployer,
@@ -120,7 +125,7 @@ unconstrained fn bind_token_rejects_non_deployer() {
     let stranger = env.create_light_account();
     let miner = env.deploy("ElixirMiner").with_public_initializer(
         deployer,
-        ElixirMiner::interface().constructor(INITIAL_TARGET, 1),
+        ElixirMiner::interface().constructor(INITIAL_TARGET, 1, 0),
     );
     env.call_public(stranger, ElixirMiner::at(miner).bind_token(stranger));
 }
@@ -137,7 +142,7 @@ unconstrained fn claim_before_binding_fails() {
     let deployer = env.create_light_account();
     let miner = env.deploy("ElixirMiner").with_public_initializer(
         deployer,
-        ElixirMiner::interface().constructor(INITIAL_TARGET, 1),
+        ElixirMiner::interface().constructor(INITIAL_TARGET, 1, 0),
     );
     env.mine_block();
     let (proof, _) = winning_proof(1);
@@ -146,29 +151,6 @@ unconstrained fn claim_before_binding_fails() {
 
 // The token refuses the miner as minter: the whole claim fails (mint is a private call inside the
 // claim), so the count, the nullifier and the balance are untouched by construction.
-#[test(should_fail_with = "caller is not minter")]
-unconstrained fn claim_fails_when_the_bound_token_refuses_the_miner() {
-    let mut env = TestEnvironment::new();
-    let deployer = env.create_light_account();
-    let miner = env.deploy("ElixirMiner").with_public_initializer(
-        deployer,
-        ElixirMiner::interface().constructor(INITIAL_TARGET, 1234),
-    );
-    let token = env.deploy("@token_contract/Token").with_public_initializer(
-        deployer,
-        Token::interface().constructor_with_minter(
-            "Elixir0000000000000000000000000",
-            "ELX0000000000000000000000000000",
-            18,
-            deployer,
-            AztecAddress::zero(),
-        ),
-    );
-    env.call_public(deployer, ElixirMiner::at(miner).bind_token(token));
-    env.mine_block();
-    let (proof, _) = winning_proof(1000);
-    env.call_private(deployer, ElixirMiner::at(miner).claim(0, 1000, 0, 7, proof, deployer));
-}
 
 #[test(should_fail)]
 unconstrained fn record_claim_is_only_self() {
@@ -266,5 +248,120 @@ unconstrained fn claim_against_a_closed_epoch_fails() {
 unconstrained fn constants_match_the_profile() {
     let s = setup();
     let c = s.env.view_public(ElixirMiner::at(s.miner).constants());
-    assert_eq(c, [N as Field, EXPECTED_EPOCH_SECONDS as Field, T_MAX as Field, REWARD as Field]);
+    assert_eq(
+        c,
+        [N as Field, EXPECTED_EPOCH_SECONDS as Field, T_MAX as Field, REWARD as Field, CLAIM_TTL_SECONDS as Field],
+    );
+}
+
+// --- Hardening: launch gating, token binding invariants, retarget envelope under roll/close ---
+
+#[test(should_fail_with = "not launched")]
+unconstrained fn claim_before_launch_is_refused() {
+    let mut env = TestEnvironment::new();
+    let launch_at = env.last_block_timestamp() + 1000;
+    let s = setup_launching_at(launch_at);
+    let _ = claim(s, 0, 1000);
+}
+
+#[test(should_fail_with = "not launched")]
+unconstrained fn roll_before_launch_is_refused() {
+    let mut env = TestEnvironment::new();
+    let launch_at = env.last_block_timestamp() + 1000;
+    let s = setup_launching_at(launch_at);
+    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).roll());
+}
+
+#[test]
+unconstrained fn epoch_zero_opens_at_launch() {
+    let mut env = TestEnvironment::new();
+    let launch_at = env.last_block_timestamp() + 1000;
+    let s = setup_launching_at(launch_at);
+    let params = s.env.view_public(ElixirMiner::at(s.miner).epoch_params(0));
+    assert_eq(params.opened_at, launch_at);
+    s.env.mine_block_at(launch_at);
+    let _ = claim(s, 0, 1000);
+    assert_eq(s.env.view_public(ElixirMiner::at(s.miner).claims_in(0)), 1);
+}
+
+#[test]
+unconstrained fn a_past_launch_at_means_now() {
+    let s = setup_launching_at(1);
+    let params = s.env.view_public(ElixirMiner::at(s.miner).epoch_params(0));
+    assert(params.opened_at > 1);
+}
+
+#[test(should_fail_with = "token minter is not this miner")]
+unconstrained fn bind_token_rejects_a_token_minted_by_someone_else() {
+    let mut env = TestEnvironment::new();
+    let deployer = env.create_light_account();
+    let miner = env.deploy("ElixirMiner").with_public_initializer(
+        deployer,
+        ElixirMiner::interface().constructor(INITIAL_TARGET, 1, 0),
+    );
+    let token = env.deploy("@token_contract/Token").with_public_initializer(
+        deployer,
+        Token::interface().constructor_with_minter(
+            "Elixir0000000000000000000000000",
+            "ELX0000000000000000000000000000",
+            18,
+            deployer,
+            AztecAddress::zero(),
+        ),
+    );
+    env.call_public(deployer, ElixirMiner::at(miner).bind_token(token));
+}
+
+#[test(should_fail_with = "token is zero")]
+unconstrained fn bind_token_rejects_zero() {
+    let mut env = TestEnvironment::new();
+    let deployer = env.create_light_account();
+    let miner = env.deploy("ElixirMiner").with_public_initializer(
+        deployer,
+        ElixirMiner::interface().constructor(INITIAL_TARGET, 1, 0),
+    );
+    env.call_public(deployer, ElixirMiner::at(miner).bind_token(AztecAddress::zero()));
+}
+
+#[test]
+unconstrained fn constants_expose_the_claim_ttl() {
+    let s = setup();
+    let c = s.env.view_public(ElixirMiner::at(s.miner).constants());
+    assert_eq(c[4], CLAIM_TTL_SECONDS as Field);
+}
+
+// An attacker alternating rolls (×4) with instant fills (÷4) cannot walk the target anywhere:
+// each pair returns exactly to where it started, and a roll never opens more than ×4.
+#[test]
+unconstrained fn rolls_and_instant_fills_cancel_exactly() {
+    let s = setup();
+    let t0 = target_of(s, 0);
+    s.env.advance_next_block_timestamp_by(T_MAX);
+    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).roll());
+    s.env.mine_block();
+    assert_eq(target_of(s, 1), t0 * 4);
+    for i in 0..N {
+        // Fixture search windows are 4096 wide; spacing k by that keeps every ticket distinct.
+        let _ = claim(s, 1, 5000 + (i as Field) * 4096);
+    }
+    assert_eq(open_epoch(s), 2);
+    assert_eq(target_of(s, 2), t0);
+}
+
+#[test(should_fail_with = "token not bound")]
+unconstrained fn roll_requires_a_bound_token() {
+    let mut env = TestEnvironment::new();
+    let deployer = env.create_light_account();
+    let miner = env.deploy("ElixirMiner").with_public_initializer(
+        deployer,
+        ElixirMiner::interface().constructor(INITIAL_TARGET, 1, 0),
+    );
+    env.advance_next_block_timestamp_by(T_MAX);
+    env.call_public(deployer, ElixirMiner::at(miner).roll());
+}
+
+#[test]
+unconstrained fn bound_token_reports_the_binding() {
+    let s = setup();
+    assert_eq(s.env.view_public(ElixirMiner::at(s.miner).bound_token()), s.token);
 }

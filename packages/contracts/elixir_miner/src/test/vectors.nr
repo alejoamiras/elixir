@@ -431,19 +431,26 @@ fn low128_matches_miner_core() {
 #[test]
 fn deploy_domain_matches_miner_core() {
     let d = v_deploy();
-    assert_eq(d, 0x7c859a6c478063bbb504a47d0f05746b8728bb885aa0d4ee8db8bba2232ac5);
+    assert_eq(d, 0x3053d8092997d8abdbc33cc9d6260e3b741f3d54865230ca5e23ebcf2b76bf02);
 }
 
 fn v_deploy() -> Field {
     Poseidon2::hash(
-        [DOM_DEPLOY, 0x7a69, 0x1234, 0x1],
-        4,
+        [
+            DOM_DEPLOY,
+            0x7a69,
+            0x6c9467ce,
+            0x1234,
+            0x1,
+        ],
+        5,
     )
 }
 
 #[test]
 fn secret_commitment_matches_miner_core() {
-    assert_eq(Poseidon2::hash([DOM_SECRET, 0x7], 2), 0x255625407eb92ed7cfe8900add88179ef26cbcc649bc5d0ff916c858f328ea8d);
+    let c = Poseidon2::hash([DOM_SECRET, 0x7, 0x1e57], 3);
+    assert_eq(c, 0x20a80cde33ea16d7ffae7a6c042ca2a285495be3c14c75fa69430bf9119e1ca4);
 }
 
 #[test]

@@ -7,6 +7,8 @@ export interface MiningJob {
   seed: Fr;
   epoch: bigint;
   secret: Fr;
+  /** Bound into the commitment: whoever else obtains the proof and secret cannot redirect the reward. */
+  recipient: Fr;
   target: bigint;
   /** First nonce to try; a miner resuming mid-epoch continues where it stopped. */
   startNonce?: bigint;
@@ -35,7 +37,7 @@ export async function mineEpoch(
   job: MiningJob,
   opts: MineOptions = {},
 ): Promise<Winner | null> {
-  const minerCommit = await secretCommitment(job.secret);
+  const minerCommit = await secretCommitment(job.secret, job.recipient);
   let attempts = 0;
   for (let nonce = job.startNonce ?? 1n; ; nonce++) {
     const t0 = performance.now();

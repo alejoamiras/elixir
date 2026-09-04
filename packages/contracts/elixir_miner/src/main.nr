@@ -1,5 +1,7 @@
 // Invariants: at most N accepted claims and N × REWARD minted per epoch; the target moves by at
-// most ×4 or ÷4 per close; no privileged call remains once bind_token has run.
+// most ×4 or ÷4 per close; epoch 0 accepts nothing before launch_at; no privileged call remains
+// once bind_token has run.
+mod launch;
 mod params;
 mod retarget;
 mod test;
@@ -21,7 +23,10 @@ pub contract ElixirMiner {
     use poseidon::poseidon2::Poseidon2;
     use std::meta::derive;
     use token_contract::Token;
-    use crate::params::{EXPECTED_EPOCH_SECONDS, N, REWARD, T_MAX, VERSION};
+    use crate::launch::{binding_allowed, opened_at_for};
+    use crate::params::{
+        CLAIM_TTL_SECONDS, EXPECTED_EPOCH_SECONDS, LAUNCH_NOTICE_SECONDS, N, REWARD, T_MAX, VERSION,
+    };
     use crate::retarget::next_target;
     use crate::ticket::{low128, ticket_digest};
     use crate::vk::{W_VK, W_VK_HASH};
@@ -47,11 +52,14 @@ pub contract ElixirMiner {
 
     #[external("public")]
     #[initializer]
-    fn constructor(initial_target: u128, genesis_seed: Field) {
+    fn constructor(initial_target: u128, genesis_seed: Field, launch_at: u64) {
         assert(initial_target > 0, "target must be positive");
         self.storage.deployer.initialize(self.msg_sender());
+        // A future launch_at lets the deployment be announced first, so epoch 0 is a public race
+        // rather than a private premine (see launch.nr for the notice rule).
+        let opened_at = opened_at_for(launch_at, self.context.timestamp(), LAUNCH_NOTICE_SECONDS);
         self.storage.epochs.at(0).initialize(
-            EpochParams { target: initial_target, seed: genesis_seed, opened_at: self.context.timestamp() },
+            EpochParams { target: initial_target, seed: genesis_seed, opened_at },
         );
         self.storage.open_epoch.write(0);
     }
@@ -61,6 +69,14 @@ pub contract ElixirMiner {
     #[external("public")]
     fn bind_token(token: AztecAddress) {
         assert(self.msg_sender() == self.storage.deployer.read(), "not deployer");
+        assert(!token.is_zero(), "token is zero");
+        let minter = self.view(Token::at(token).get_minter());
+        assert(minter == self.context.this_address(), "token minter is not this miner");
+        let opened_at = self.storage.epochs.at(0).read().opened_at;
+        assert(
+            binding_allowed(self.context.timestamp(), opened_at, LAUNCH_NOTICE_SECONDS),
+            "token must be bound before launch",
+        );
         self.storage.token.initialize(token);
     }
 
@@ -74,19 +90,33 @@ pub contract ElixirMiner {
         recipient: AztecAddress,
     ) {
         // A claim against a closed epoch fails here, at simulation, before any proving.
+        let anchor = self.context.get_anchor_block_header();
         let open = public_storage_historical_read(
-            self.context.get_anchor_block_header(),
+            anchor,
             self.storage.open_epoch.get_storage_slot(),
             self.context.this_address(),
         );
         assert(open == e as Field, "epoch is not open");
+        // The tx would otherwise stay valid for MAX_TX_LIFETIME after its anchor: cheap work against a
+        // long-closed, easier epoch could then be submitted to revert at the fee payer's expense. An
+        // expired claim is dropped instead; the PXE frees its pending delivery index on the next sync.
+        self.context.set_expiration_timestamp(anchor.timestamp() + CLAIM_TTL_SECONDS);
         let params = self.storage.epochs.at(e).read();
+        assert(anchor.timestamp() >= params.opened_at, "not launched");
         let token = self.storage.token.read();
+        // The rollup version separates forks that would otherwise share chain id, address and state.
         let domain = Poseidon2::hash(
-            [DOM_DEPLOY, self.context.chain_id(), self.context.this_address().to_field(), VERSION],
-            4,
+            [
+                DOM_DEPLOY,
+                self.context.chain_id(),
+                self.context.version(),
+                self.context.this_address().to_field(),
+                VERSION,
+            ],
+            5,
         );
-        let commit = Poseidon2::hash([DOM_SECRET, secret], 2);
+        // The recipient sits inside the commitment, so a leaked (proof, secret) pays nobody else.
+        let commit = Poseidon2::hash([DOM_SECRET, secret, recipient.to_field()], 3);
         verify_honk_proof_non_zk(W_VK, proof, [domain, params.seed, e as Field, commit, nonce, out], W_VK_HASH);
         let digest = ticket_digest(proof);
         assert(low128(digest) < params.target, "ticket above target");
@@ -116,9 +146,13 @@ pub contract ElixirMiner {
     // The retarget is exactly ×4, and every input of the next seed is public in advance.
     #[external("public")]
     fn roll() {
+        // An unbound deployment must not be rolled towards a trivial target before it can mint.
+        assert(self.storage.token.is_initialized(), "token not bound");
         let e = self.storage.open_epoch.read();
         let opened_at = self.storage.epochs.at(e).read().opened_at;
-        assert(self.context.timestamp() - opened_at >= T_MAX, "epoch has not reached T_MAX");
+        let now = self.context.timestamp();
+        assert(now >= opened_at, "not launched");
+        assert(now - opened_at >= T_MAX, "epoch has not reached T_MAX");
         self.internal.close(e, T_MAX, self.storage.last_digest.at(e).read());
     }
 
@@ -152,9 +186,29 @@ pub contract ElixirMiner {
         self.storage.claims.at(e).read()
     }
 
+    // Which token this deployment mints, for checking against the announcement.
     #[external("public")]
     #[view]
-    fn constants() -> [Field; 4] {
-        [N as Field, EXPECTED_EPOCH_SECONDS as Field, T_MAX as Field, REWARD as Field]
+    fn bound_token() -> AztecAddress {
+        self.storage.token.read()
+    }
+
+    // The pinned work-circuit VK, for checking a deployment against its announcement.
+    #[external("public")]
+    #[view]
+    fn work_vk_hash() -> Field {
+        W_VK_HASH
+    }
+
+    #[external("public")]
+    #[view]
+    fn constants() -> [Field; 5] {
+        [
+            N as Field,
+            EXPECTED_EPOCH_SECONDS as Field,
+            T_MAX as Field,
+            REWARD as Field,
+            CLAIM_TTL_SECONDS as Field,
+        ]
     }
 }

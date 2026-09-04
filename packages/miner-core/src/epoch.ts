@@ -35,6 +35,14 @@ export async function readOpenEpoch(miner: Contract, from: AztecAddress): Promis
 }
 
 export const readRules = async (miner: Contract, from: AztecAddress) => {
-  const [n, expected, tMax, reward] = await unwrap<bigint[]>(miner.methods.constants().simulate({ from }));
-  return { N: Number(n), EXPECTED_EPOCH_SECONDS: expected ?? 0n, T_MAX: tMax ?? 0n, REWARD: reward ?? 0n };
+  const [n, expected, tMax, reward, ttl] = await unwrap<bigint[]>(
+    miner.methods.constants().simulate({ from }),
+  );
+  return {
+    N: Number(n),
+    EXPECTED_EPOCH_SECONDS: expected ?? 0n,
+    T_MAX: tMax ?? 0n,
+    REWARD: reward ?? 0n,
+    CLAIM_TTL_SECONDS: ttl ?? 0n,
+  };
 };

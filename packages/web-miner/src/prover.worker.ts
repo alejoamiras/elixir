@@ -40,6 +40,7 @@ async function run(job: MineJob) {
         seed: Fr.fromString(job.seed),
         epoch: job.epoch,
         secret: Fr.fromString(job.secret),
+        recipient: Fr.fromString(job.recipient),
         target: job.target,
         startNonce: job.startNonce,
       },

@@ -30,6 +30,7 @@ export async function boot(
   step('connecting to the node');
   const node = createAztecNodeClient(connection.nodeUrl);
   const chainId = BigInt(await node.getChainId());
+  const rollupVersion = BigInt((await node.getNodeInfo()).rollupVersion);
   step('opening the wallet (first visit creates an account)');
   const { wallet, account, fee, created } = await openWallet(connection.nodeUrl, node, chainId);
   step('registering the deployment');
@@ -48,6 +49,7 @@ export async function boot(
     fee,
     connection,
     chainId,
+    rollupVersion,
   );
   await controller.ready();
   await controller.begin();

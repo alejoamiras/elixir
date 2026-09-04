@@ -14,8 +14,8 @@ const vectors = (await Bun.file(
   fixtureProof: string[];
   digest: string;
   low128: string;
-  deployDomain: { chainId: string; miner: string; version: string; value: string };
-  secretCommitment: { secret: string; value: string };
+  deployDomain: { chainId: string; rollupVersion: string; miner: string; version: string; value: string };
+  secretCommitment: { secret: string; recipient: string; value: string };
   nullifier: string;
   nextSeed: { seed: string; nextEpoch: string; now: string; value: string };
   retarget: { expectedEpochSeconds: number; target: string; actual: string; value: string };
@@ -37,10 +37,11 @@ describe('cross-language vectors', () => {
 
   test('deploy domain, secret commitment, ticket nullifier and seed chain', async () => {
     const d = vectors.deployDomain;
-    expect((await deployDomain(big(d.chainId), fr(d.miner), big(d.version))).toBigInt()).toBe(big(d.value));
-    expect((await secretCommitment(fr(vectors.secretCommitment.secret))).toBigInt()).toBe(
-      big(vectors.secretCommitment.value),
-    );
+    expect(
+      (await deployDomain(big(d.chainId), big(d.rollupVersion), fr(d.miner), big(d.version))).toBigInt(),
+    ).toBe(big(d.value));
+    const c = vectors.secretCommitment;
+    expect((await secretCommitment(fr(c.secret), fr(c.recipient))).toBigInt()).toBe(big(c.value));
     expect((await poseidon2Hash([new Fr(DOM_NULL), fr(vectors.digest)])).toBigInt()).toBe(
       big(vectors.nullifier),
     );

@@ -48,6 +48,7 @@ export class MinerController {
     private readonly fee: Fee,
     private readonly connection: Connection,
     private readonly chainId: bigint,
+    private readonly rollupVersion: bigint,
   ) {
     this.prover = this.attach();
   }
@@ -121,7 +122,7 @@ export class MinerController {
 
   async begin() {
     this.domain = (
-      await deployDomain(this.chainId, this.d.miner.address.toField(), PARAMS.VERSION)
+      await deployDomain(this.chainId, this.rollupVersion, this.d.miner.address.toField(), PARAMS.VERSION)
     ).toString();
     await this.refresh();
     this.timer = setInterval(
@@ -195,6 +196,7 @@ export class MinerController {
           secret,
           target: c.target,
           secretId: c.secretId,
+          recipient: this.account.toString(),
           startNonce: this.nextNonce.get(key) ?? 1n,
         };
         this.post({ type: 'mine', job });

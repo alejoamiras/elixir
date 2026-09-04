@@ -27,6 +27,13 @@ conversation it never saw. Nothing here overrides `plan.md`; where they disagree
 - Next step: **arc A1 = Phase 0 (scaffold) + Phase 1 (feasibility spike)**, then STOP and report the GO / NO-GO to the
   owner. Do not start Phase 2 or open a PR before the owner answers. The seeds at the bottom of `plan.md` encode this.
 
+**Hardening pass (2026-09-04, after the hand-off above).** The miner contract changed: `constructor(initial_target,
+genesis_seed, launch_at)` with a profile notice period (`LAUNCH_NOTICE_SECONDS`), a claim TTL
+(`CLAIM_TTL_SECONDS`, `set_expiration_timestamp`), the commitment `Poseidon2(DOM_SECRET, secret, recipient)`, the
+deploy domain with the rollup version, `bind_token` invariants, `work_vk_hash()`, `constants()` with five fields.
+Findings, decisions and the codex verdicts: `audit-hardening.md`. The public testnet deployment in
+`deployments/testnet.json` predates it and no longer matches the artifact; redeploying is the owner's call.
+
 ## 2. What this is, in one paragraph
 
 A privately mineable token on Aztec whose mining work is Barretenberg proving. A miner proves a fixed Noir circuit

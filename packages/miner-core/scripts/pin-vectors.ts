@@ -23,9 +23,11 @@ const digest = await computeDigest(fields);
 const hex = (v: Fr | bigint) => `0x${(typeof v === 'bigint' ? v : v.toBigInt()).toString(16)}`;
 
 const chainId = 31337n;
+const rollupVersion = 1821665230n;
 const miner = new Fr(0x1234n);
 const version = 1n;
 const secret = new Fr(7n);
+const recipient = new Fr(0x1e57n);
 const seed = new Fr(5n);
 const nextEpoch = 1n;
 const now = 100n;
@@ -41,9 +43,14 @@ const vectors = {
     chainId: hex(chainId),
     miner: hex(miner),
     version: hex(version),
-    value: hex(await deployDomain(chainId, miner, version)),
+    rollupVersion: hex(rollupVersion),
+    value: hex(await deployDomain(chainId, rollupVersion, miner, version)),
   },
-  secretCommitment: { secret: hex(secret), value: hex(await secretCommitment(secret)) },
+  secretCommitment: {
+    secret: hex(secret),
+    recipient: hex(recipient),
+    value: hex(await secretCommitment(secret, recipient)),
+  },
   nullifier: hex(await poseidon2Hash([new Fr(DOM_NULL), digest])),
   nextSeed: {
     seed: hex(seed),

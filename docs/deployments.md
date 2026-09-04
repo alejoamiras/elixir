@@ -1,5 +1,19 @@
 # Deployments
 
+## Bootstrap (fair launch)
+
+A deployment nobody knows about can be mined alone before it is announced, so a legitimate launch is announced
+first: publish the miner class id, salt, constructor arguments (`initial_target`, `genesis_seed`, `launch_at`), the
+token address and `launch_at` (unix seconds, `ELIXIR_LAUNCH_AT` for `bun run deploy`) well before `launch_at`.
+Epoch 0 opens at `launch_at` for everyone at once; claims and rolls before it are refused. The mainnet profile refuses a `launch_at` less than `LAUNCH_NOTICE_SECONDS` (one day) after deployment.
+Verify a deployment against its announcement with `epoch_params(0)` (`target`, `seed`, `opened_at`), `constants()`,
+`work_vk_hash()`, `bound_token()` (must equal the announced token: a deployer could otherwise announce one token and
+bind another) and the class ids and rollup version in `deployments/<profile>.json` (`minerClassId`, `tokenClassId`,
+`rollupVersion`). Under a notice period the token must be bound before `launch_at`, and `roll()` refuses an unbound
+deployment, so a mainnet instance that opens unbound is dead rather than rollable to a trivial target. Nobody rolls for a reward, so run a keeper that calls `roll()` after `T_MAX`
+(the soak driver and the web miner offer it) or an epoch stuck at `N − 1` claims hangs.
+
+
 Contracts are immutable: a parameter change is a new deployment (`elixir.params.json` → `bun run codegen` →
 `bun run contracts:compile` → `bun run deploy`). The machine-readable record of each deployment is
 `deployments/<profile>.json`, written by the deploy script (and refused as an overwrite unless

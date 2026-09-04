@@ -1,6 +1,7 @@
 // In-browser half of the spike: an embedded wallet with the prover on, the sponsored FPC, W proved
 // in-page by bb.js, and the claim proved in-page (Chonk in WASM). The driver script deploys the
 // contracts and passes their addresses in the query string; results land in window.__spike.
+
 import { loadContractArtifact } from '@aztec/aztec.js/abi';
 import { Contract, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
@@ -8,6 +9,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { Barretenberg, UltraHonkBackend } from '@aztec/bb.js';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
+import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { openTmpStore } from '@aztec/kv-store/deprecated/indexeddb';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { Noir } from '@aztec/noir-noir_js';
@@ -16,10 +18,10 @@ import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import {
   computeDigest,
-  deployDomain,
+  DOM_DEPLOY,
+  DOM_SECRET,
   isWinner,
   proofToFields,
-  secretCommitment,
 } from '../../miner-core/src/proof.ts';
 
 declare global {
@@ -93,7 +95,12 @@ try {
   const params = (
     (await miner.methods.epoch_params(0).simulate({ from })) as { result: { target: bigint; seed: bigint } }
   ).result;
-  const domain = await deployDomain(chainId, minerAddress.toField(), VERSION);
+  const domain = await poseidon2Hash([
+    new Fr(DOM_DEPLOY),
+    new Fr(chainId),
+    minerAddress.toField(),
+    new Fr(VERSION),
+  ]); // elixir_spike's 4-input domain
   const workArtifact = await (await fetch('/artifacts/elixir_work.json')).json();
   const noir = new Noir(workArtifact);
   t0 = performance.now();
@@ -102,7 +109,7 @@ try {
   results.bbInitMs = performance.now() - t0;
 
   const secret = Fr.random();
-  const commit = await secretCommitment(secret);
+  const commit = await poseidon2Hash([new Fr(DOM_SECRET), secret]); // elixir_spike predates recipient binding
   const proveMs: number[] = [];
   let win: { nonce: bigint; out: Fr; fields: Fr[] } | undefined;
   for (let nonce = 1n; !win; nonce++) {
