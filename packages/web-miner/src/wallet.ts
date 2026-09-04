@@ -25,7 +25,7 @@ export async function openWallet(nodeUrl: string, node: Node, chainId: bigint): 
   const log = createLogger('web-miner');
   // Stores are per rollup, not per L1 chain: two rollups on Sepolia must never share PXE state.
   const info = await node.getNodeInfo();
-  const ns = `${chainId}-${info.rollupVersion}-${info.l1ContractAddresses.rollupAddress.toString().slice(2, 10)}`;
+  const ns = `${chainId}-${info.rollupVersion}-${info.l1ContractAddresses.rollupAddress.toString()}`;
   const [pxeStore, walletStore] = await Promise.all([
     AztecIndexedDBStore.open(log, `elixir-pxe-${ns}`, false),
     AztecIndexedDBStore.open(log, `elixir-wallet-${ns}`, false),

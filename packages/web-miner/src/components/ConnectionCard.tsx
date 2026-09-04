@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { type Connection, isPinnedByQuery, saveConnection } from '../config';
+import { allowedNodeOrigins, type Connection, isPinnedByQuery, saveConnection } from '../config';
 
 const fields: { key: keyof Connection; label: string; placeholder: string }[] = [
   { key: 'nodeUrl', label: 'Node URL', placeholder: 'https://…' },
@@ -51,6 +51,10 @@ export function ConnectionCard({ connection }: { connection: Connection }) {
           </Button>
           {pinned && <span className="text-muted-foreground text-xs">set by the page URL</span>}
         </div>
+        <p className="text-muted-foreground text-xs">
+          This build's security policy allows nodes at {allowedNodeOrigins().join(', ')}
+          {import.meta.env.DEV ? ' and local nodes' : ''}; other origins need a rebuild.
+        </p>
       </CardContent>
     </Card>
   );

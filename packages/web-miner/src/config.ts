@@ -49,3 +49,35 @@ export const saveConnection = (c: Connection): void => {
 
 /** The query string wins over storage, so an E2E page can never pick up a stale saved node. */
 export const isPinnedByQuery = (): boolean => Object.keys(fromQuery()).length > 0;
+
+/**
+ * Node origins this build may talk to. The production CSP (`public/_headers`) is static, so a
+ * node outside this list would fail at boot with an opaque fetch error; the list is checked first
+ * and shown in the Network card. Dev builds additionally accept local nodes.
+ */
+export const allowedNodeOrigins = (): string[] => {
+  const configured = (import.meta.env.VITE_ALLOWED_NODE_ORIGINS ?? defaults.nodeUrl)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((u) => new URL(u).origin);
+  return [...new Set(configured)];
+};
+
+const isLocal = (origin: string) => /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin);
+
+/** The first configured URL the CSP would block, or null when every one is allowed. */
+export const firstDisallowedUrl = (c: Connection): string | null => {
+  for (const url of [c.nodeUrl, c.crossCheckUrl].filter(Boolean)) {
+    let origin: string;
+    try {
+      origin = new URL(url).origin;
+    } catch {
+      return url;
+    }
+    if (allowedNodeOrigins().includes(origin)) continue;
+    if (import.meta.env.DEV && isLocal(origin)) continue;
+    return url;
+  }
+  return null;
+};

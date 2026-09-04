@@ -28,15 +28,14 @@ backlog that the plan defers.
   estimate (`spike-results.md` §4b).
 - Web miner storage: the embedded wallet uses the deprecated IndexedDB stores (`@aztec/kv-store/deprecated/indexeddb`);
   moving to the SQLite-OPFS default needs its worker and WASM assets emitted unhashed by the build.
-- Web miner E2E does not record peak browser memory (Phase 1's spike page did: 2,387 MiB process-tree RSS
-  for wallet + W proving + in-page claim); the persistent-context RSS watcher from `spike-browser.ts` can be
-  ported into the Playwright fixture.
 - **Claiming after a public revert** (Phase 5 finding): a stale claim that reverts in public leaves the miner's
   PXE with a pending note-delivery index for a nullifier that never landed; the next claim's constrained delivery
   asserts it and is refused until the reverted tx is FINALIZED on L1 (tens of minutes on the testnet). The web
   miner reports this and stops; the soak driver rotates to a fresh account. Options to remove the wait: a PXE that
-  reconciles `executionResult: reverted` receipts before finalization (upstream), or a client-side drop of the
-  reverted tx's pending indexes through the PXE's tagging store; both are outside this plan.
+  reconciles `executionResult: reverted` receipts before finalization (upstream; the PXE's tagging store must not be
+  mutated from outside — its finality guard exists for reorgs), or a contract redesign without constrained delivery:
+  the standard token's `initialize_transfer_commitment(to, miner)` followed by a public `mint_to_commitment(commitment,
+  reward)`. The latter needs a redeploy and a privacy-footprint review (the public-effects test would change).
 - Testnet soak operations: the soak driver (`packages/deploy/scripts/soak.ts`) mines from one machine with a
   hashrate schedule; a second machine or a second deployment profile would exercise multi-miner races beyond the
   8-wallet local burst.

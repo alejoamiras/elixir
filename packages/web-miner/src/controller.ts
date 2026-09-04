@@ -14,6 +14,7 @@ import type { FromWorker, MineJob, ToWorker } from './worker-protocol';
 type Store = ReturnType<typeof createStore>;
 
 const EPOCH_POLL_MS = 10_000;
+const MAX_CONSECUTIVE_CRASHES = 3;
 
 interface Prover {
   worker: Worker;
@@ -35,6 +36,7 @@ export class MinerController {
   private domain: string | undefined;
   private prover: Prover;
   private generations = 0;
+  private crashes = 0;
   private refreshing: Promise<void> = Promise.resolve();
 
   constructor(
@@ -57,16 +59,25 @@ export class MinerController {
   private attach(): Prover {
     const generation = ++this.generations;
     const worker = this.spawnWorker();
+    let initialised = false;
     const ready = new Promise<void>((resolve, reject) => {
       worker.onmessage = (e: MessageEvent<FromWorker>) => {
-        if (this.prover?.generation !== generation && this.generations !== generation) return;
-        if (e.data.type === 'ready') resolve();
-        if (e.data.type === 'error') reject(new Error(e.data.message));
+        if (this.generations !== generation) return;
+        if (e.data.type === 'ready') {
+          initialised = true;
+          this.crashes = 0;
+          resolve();
+        }
+        if (e.data.type === 'error') {
+          reject(new Error(e.data.message));
+          if (!initialised) return this.abandonProver(`prover failed to start: ${e.data.message}`);
+        }
         this.onWorker(e.data);
       };
       worker.onerror = (e) => {
         reject(new Error(e.message));
         if (this.generations !== generation) return;
+        if (!initialised) return this.abandonProver(`prover failed to start: ${e.message}`);
         this.replaceProver(`worker crashed: ${e.message}`);
       };
     });
@@ -75,11 +86,22 @@ export class MinerController {
     return { worker, ready, generation };
   }
 
+  /** A crash after a successful start is replaced, a bounded number of times in a row. */
   private replaceProver(reason: string) {
     this.prover.worker.terminate();
     this.dispatch({ type: 'failed', error: reason });
     this.log(reason);
+    if (++this.crashes > MAX_CONSECUTIVE_CRASHES)
+      return this.abandonProver('prover keeps crashing; reload the page');
     this.prover = this.attach();
+  }
+
+  /** A failure before the prover ever became ready would repeat identically: no respawn. */
+  private abandonProver(reason: string) {
+    this.prover.worker.terminate();
+    this.generations++;
+    this.dispatch({ type: 'failed', error: reason });
+    this.log(reason);
   }
 
   /** Prover readiness for callers that must not race the init handshake; rejects on init failure. */
@@ -219,7 +241,7 @@ export class MinerController {
         this.nextNonce.set(`${m.epoch}:${m.secretId}`, m.nextNonce);
         return;
       case 'error':
-        this.replaceProver(`worker: ${m.message}`);
+        if (this.generations === this.prover.generation) this.replaceProver(`worker: ${m.message}`);
         return;
       case 'ready':
         return;

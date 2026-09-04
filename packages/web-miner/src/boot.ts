@@ -2,7 +2,7 @@
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import type { createStore } from 'jotai';
 import { attachDeployment, readEpochRules } from './chain';
-import type { Connection } from './config';
+import { allowedNodeOrigins, type Connection, firstDisallowedUrl } from './config';
 import { MinerController } from './controller';
 import { preloadPinnedCrs, purgeCrsCache } from './pinned-crs';
 import { bootAtom, rulesAtom } from './state';
@@ -19,6 +19,11 @@ export async function boot(
     );
   if (!connection.miner || !connection.token)
     throw new Error('no deployment configured: set the miner and token addresses');
+  const blocked = firstDisallowedUrl(connection);
+  if (blocked)
+    throw new Error(
+      `${blocked} is outside this build's allowed node origins (${allowedNodeOrigins().join(', ')}): the CSP in public/_headers would block it — edit it and rebuild`,
+    );
   step('verifying the pinned CRS');
   await purgeCrsCache();
   await preloadPinnedCrs();

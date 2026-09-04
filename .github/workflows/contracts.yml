@@ -26,6 +26,8 @@ jobs:
               - 'packages/work-circuit/src/**'
               - 'packages/work-circuit/crates/**'
               - 'packages/miner-core/src/generated/**'
+              - 'packages/web-miner/**'
+              - '!packages/web-miner/**/*.md'
               - 'elixir.params.json'
               - 'scripts/params-codegen.ts'
               - '.aztecrc'

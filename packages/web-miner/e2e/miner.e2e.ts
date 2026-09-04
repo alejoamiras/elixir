@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
 import { type E2eRun, RUN_FILE } from './run.ts';
 
@@ -14,10 +15,46 @@ async function bootPage(page: Page, url: string): Promise<void> {
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
 }
 
+// Peak RSS of the browser's process tree, sampled from `ps`; Playwright's Chromium is the one whose
+// command line carries its temporary profile directory.
+function rssWatcher(): { peakMiB: () => number; stop: () => void } {
+  let peak = 0;
+  const timer = setInterval(() => {
+    try {
+      const rows = execSync('ps -eo pid=,ppid=,rss=,args=', { encoding: 'utf8' }).split('\n');
+      const roots = rows
+        .filter((l) => l.includes('playwright_chromiumdev_profile'))
+        .map((l) => Number(l.trim().split(/\s+/)[0]));
+      const byParent = new Map<number, number[]>();
+      const rss = new Map<number, number>();
+      for (const l of rows) {
+        const [pid, ppid, kb] = l.trim().split(/\s+/).map(Number) as [number, number, number];
+        rss.set(pid, kb);
+        byParent.set(ppid, [...(byParent.get(ppid) ?? []), pid]);
+      }
+      const seen = new Set<number>();
+      let total = 0;
+      const stack = [...roots];
+      while (stack.length) {
+        const p = stack.pop() as number;
+        if (seen.has(p)) continue;
+        seen.add(p);
+        total += rss.get(p) ?? 0;
+        stack.push(...(byParent.get(p) ?? []));
+      }
+      peak = Math.max(peak, total);
+    } catch {
+      /* ps hiccup */
+    }
+  }, 500);
+  return { peakMiB: () => Math.round(peak / 1024), stop: () => clearInterval(timer) };
+}
+
 test('first visit creates an account, mines at the easy target, claims and shows the balance', async ({
   page,
 }) => {
   const r = run();
+  const memory = rssWatcher();
   await bootPage(page, pageUrl(r));
   expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
   await expect(page.getByTestId('balance')).toHaveText(/^0 tELX$/);
@@ -43,6 +80,13 @@ test('first visit creates an account, mines at the easy target, claims and shows
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
   await expect(page.getByTestId('balance')).toHaveText(/^8 tELX$/);
   await page.getByTestId('stop').click();
+  memory.stop();
+  console.log(`peak browser process-tree RSS: ${memory.peakMiB()} MiB`);
+  writeFileSync(
+    new URL('./.peak-rss.json', import.meta.url).pathname,
+    JSON.stringify({ peakMiB: memory.peakMiB() }),
+  );
+  expect(memory.peakMiB()).toBeGreaterThan(0);
 });
 
 test('a poisoned CRS cache is purged before proving', async ({ page }) => {

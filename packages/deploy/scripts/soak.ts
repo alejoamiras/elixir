@@ -80,6 +80,11 @@ const newAccount = async () => {
 // account's rewards in the final balance.
 const accounts: AztecAddress[] = [];
 let from = await newAccount();
+const rotateAccount = async () => {
+  accounts.push(from);
+  from = await newAccount();
+  await line({ event: 'rotated-account', account: from.toString() });
+};
 const minerArtifact = await loadMinerArtifact();
 for (const [address, art] of [
   [AztecAddress.fromStringUnsafe(deployment.miner), minerArtifact],
@@ -213,6 +218,9 @@ for (let s = 0; !(await done()); s = (s + 1) % schedule.length) {
           ms: Date.now() - t0,
           attempts: winner.attempts,
         });
+        // A public revert blocks this account's note delivery until the tx finalizes: rotate now,
+        // before the next winner is wasted on it.
+        if (!ok) await rotateAccount();
       } catch (e) {
         stale++;
         await line({
@@ -221,11 +229,7 @@ for (let s = 0; !(await done()); s = (s + 1) % schedule.length) {
           error: String(e).split('\n')[0],
           ms: Date.now() - t0,
         });
-        if (isDeliveryBlockedError(e)) {
-          accounts.push(from);
-          from = await newAccount();
-          await line({ event: 'rotated-account', account: from.toString() });
-        }
+        if (isDeliveryBlockedError(e)) await rotateAccount();
       }
     }
   } finally {
