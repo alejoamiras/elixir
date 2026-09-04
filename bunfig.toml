@@ -8,3 +8,7 @@ linker = "hoisted"
 
 [install.lockfile]
 frozen = false
+
+[test]
+# See scripts/test-preload.ts: Bun 1.4.0 lacks expect.addEqualityTesters, which @aztec/foundation calls.
+preload = ["./scripts/test-preload.ts"]
