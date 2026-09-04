@@ -76,13 +76,23 @@ export async function crossCheck(d: Deployment, crossCheckUrl: string, epoch: Ep
   const openSlot = layout.open_epoch?.slot;
   const epochsSlot = layout.epochs?.slot;
   if (!openSlot || !epochsSlot) throw new Error('storage layout lacks open_epoch / epochs');
-  const open = await other.getPublicStorageAt('latest', d.miner.address, openSlot);
+  const read = async (slot: Fr) =>
+    (await other.getPublicStorageAt('latest', d.miner.address, slot)).toBigInt();
+  const open = await read(openSlot);
   // EpochParams is stored packed as [target, seed, opened_at] followed by its hash.
-  const paramsSlot = await deriveStorageSlotInMap(epochsSlot, { toField: () => new Fr(epoch.epoch) });
-  const target = await other.getPublicStorageAt('latest', d.miner.address, paramsSlot);
-  if (open.toBigInt() !== epoch.epoch || target.toBigInt() !== epoch.target)
+  const base = (await deriveStorageSlotInMap(epochsSlot, { toField: () => new Fr(epoch.epoch) })).toBigInt();
+  const [target, seed, openedAt] = await Promise.all([0n, 1n, 2n].map((i) => read(new Fr(base + i))));
+  const disagreements = (
+    [
+      ['open_epoch', open, epoch.epoch],
+      ['target', target, epoch.target],
+      ['seed', seed, epoch.seed],
+      ['opened_at', openedAt, epoch.openedAt],
+    ] as const
+  ).filter(([, theirs, ours]) => theirs !== ours);
+  if (disagreements.length)
     throw new Error(
-      `nodes disagree: primary says epoch ${epoch.epoch} target ${epoch.target}, cross-check says ${open.toBigInt()} / ${target.toBigInt()}`,
+      `nodes disagree on ${disagreements.map(([name, theirs, ours]) => `${name} (primary ${ours}, cross-check ${theirs})`).join(', ')}`,
     );
 }
 

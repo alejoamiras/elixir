@@ -1,6 +1,8 @@
 // TXE tests are plumbing-only: the simulator accepts any bytes as a proof (the first test pins
 // that fact), so everything about proof validity is proved elsewhere. Each claim uses a distinct
 // "proof" ground until its ticket wins, which also gives every claim its own nullifier.
+mod vectors;
+
 use crate::ElixirMiner;
 use crate::params::{EXPECTED_EPOCH_SECONDS, N, REWARD, T_MAX};
 use crate::retarget::next_target;

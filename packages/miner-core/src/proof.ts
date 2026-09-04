@@ -1,16 +1,12 @@
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { DOMAINS } from './generated/params.ts';
 
 /** A non-ZK UltraHonk proof for the Noir recursive verifier: 410 fields, 32-byte big-endian each. */
 export const PROOF_FIELDS = 410;
 
-// Domain separators: ASCII tags, big-endian. Must equal the Noir globals in elixir_work_lib.
-export const DOM_DEPLOY = 0x454c582f6465706cn;
-export const DOM_SECRET = 0x454c582f73656372n;
-export const DOM_WORK = 0x454c582f776f726bn;
-export const DOM_TICKET = 0x454c582f7469636bn;
-export const DOM_NULL = 0x454c582f6e756c6cn;
-export const DOM_SEED = 0x454c582f73656564n;
+// Domain separators are generated from elixir.params.json, the same source as the Noir globals.
+export const { DOM_DEPLOY, DOM_SECRET, DOM_WORK, DOM_TICKET, DOM_NULL, DOM_SEED } = DOMAINS;
 
 /** Split bb's binary proof into its field elements. Throws on any length but 410 × 32 bytes. */
 export function proofToFields(proof: Uint8Array): Fr[] {

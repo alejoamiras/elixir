@@ -113,12 +113,24 @@ describe('retarget dynamics (mean-field simulator)', () => {
     // Deployer alone at genesis: whatever the head start, epoch 0 mints at most N·R.
     const sim = simulate(MAINNET, target0, () => H0 * 1000, 1);
     expect(sim.epochs[0]?.minted).toBe(BigInt(MAINNET.N) * REWARD);
-    // Escape-hatch seeds are public from opened_at + T_MAX: a sequencer-miner choosing the roll
-    // slot gains at most the claims it can prove during its head start, still ≤ N in epoch e+1.
-    const headStartSeconds = 36; // one slot
-    const p = Number(target0 * 4n) / Number(TWO_128);
-    const preMinedClaims = Math.floor(H0 * headStartSeconds * p);
-    expect(preMinedClaims).toBeLessThanOrEqual(MAINNET.N);
+    // Escape-hatch seeds are public from opened_at + T_MAX: a sequencer-miner may delay the roll by
+    // up to K slots and mine every candidate seed meanwhile, then include the roll whose seed it
+    // did best against. Its edge is the claims it already holds when that epoch opens.
+    const slotSeconds = 36;
+    const p = Number(target0 * 4n) / Number(TWO_128); // the rolled epoch is ×4 easier
+    const advantage = (K: number, share: number) => {
+      // Work spread over K candidates, all of it on the head start; the best candidate ends up
+      // with at least the mean plus the fluctuation of a Poisson maximum, bounded by the total.
+      const total = share * H0 * slotSeconds * K * p;
+      return Math.min(total, total / K + Math.sqrt(total / K) * Math.sqrt(2 * Math.log(K)));
+    };
+    const worst = Math.max(...[1, 2, 5, 10].map((K) => advantage(K, 1)));
+    console.log(
+      `roll-slot choice: best pre-mined claims over K ≤ 10 slots ≈ ${worst.toFixed(2)} (N = ${MAINNET.N})`,
+    );
+    expect(worst).toBeLessThanOrEqual(MAINNET.N);
+    // With the whole network's hashrate (share = 1) it is still one epoch's issuance at most.
+    expect(BigInt(Math.ceil(advantage(10, 1))) * REWARD).toBeLessThanOrEqual(BigInt(MAINNET.N) * REWARD);
   });
 
   test('a burst of 200 winners against N = 24 leaves exactly 24 accepted and consistent state', () => {

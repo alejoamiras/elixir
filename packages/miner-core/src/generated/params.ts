@@ -13,3 +13,12 @@ export const PARAMS = {
   TOKEN_NAME: 'Elixir Testnet',
   TOKEN_SYMBOL: 'tELX',
 } as const;
+/** Domain separators: the ASCII tag as a big-endian field element; identical to the Noir globals. */
+export const DOMAINS = {
+  DOM_DEPLOY: 0x454c582f6465706cn, // "ELX/depl"
+  DOM_SECRET: 0x454c582f73656372n, // "ELX/secr"
+  DOM_WORK: 0x454c582f776f726bn, // "ELX/work"
+  DOM_TICKET: 0x454c582f7469636bn, // "ELX/tick"
+  DOM_NULL: 0x454c582f6e756c6cn, // "ELX/null"
+  DOM_SEED: 0x454c582f73656564n, // "ELX/seed"
+} as const;

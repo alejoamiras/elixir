@@ -1,5 +1,7 @@
 # Phase 4 lessons — web miner (homelab, 2026-09-04)
 
+**Gate (plan §6)**: `bun run test:components && bun run --cwd packages/web-miner build && bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e` exit 0; lint. Result at close: **passed** — Vitest 8/8, build, Playwright 4/4, exit 0 (`packages/deploy/target/phase4-gate.log`). Re-run after every audit round; the last run has Vitest 12/12 and 8 E2E cases (the cross-check lies about each of the four epoch fields), exit 0.
+
 - Scaffold: `bunx shadcn@latest init -t vite -b radix -p nova -y -n web-miner --no-monorepo` (the preset prompt is interactive unless `-p` is given). It creates a *nested git repo*, ESLint and Prettier configs and a README — all removed; Biome and the workspace hooks own lint/format. `shadcn add card badge progress separator sonner input label alert` brought the components; the look is the untouched Nova preset (owner: no branding).
 - Biome refuses the generated `index.css` (`@custom-variant`, `@theme inline`) until `css.parser.tailwindDirectives = true` in `biome.json`.
 - Root `bun test` discovers anything named `*.spec.*` / `*.test.*` across the workspace: the Playwright spec is `e2e/miner.e2e.ts` with `testMatch: /.*\.e2e\.ts$/`, and the Vitest files stay `*.test.ts` (Bun rewrites `vitest` imports to `bun:test`, so they also pass under the root run).

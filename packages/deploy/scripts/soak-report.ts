@@ -2,7 +2,7 @@
 // Rows must belong to the recorded deployment; epochs are limited to the soak's time window.
 //   AZTEC_NODE_URL=… bun packages/deploy/scripts/soak-report.ts packages/deploy/target/soak-*.jsonl
 import { resolve } from 'node:path';
-import { PROFILE } from '../../miner-core/src/generated/params.ts';
+import { PARAMS, PROFILE } from '../../miner-core/src/generated/params.ts';
 import { type EpochRow, epochStats } from './epoch-stats.ts';
 
 interface Row {
@@ -105,7 +105,7 @@ its close is inside the window.${legacyRows ? ` ${legacyRows} rows predate the d
 | | |
 |---|---|
 | Epochs closed in the window | ${closed.length} |
-| Epoch duration: median / min / max | ${durations.length ? `${median(durations)} s / ${Math.min(...durations)} s / ${Math.max(...durations)} s` : '–'} (expected 300 s, T_MAX 1200 s) |
+| Epoch duration: median / min / max | ${durations.length ? `${median(durations)} s / ${Math.min(...durations)} s / ${Math.max(...durations)} s` : '–'} (expected ${PARAMS.EXPECTED_EPOCH_SECONDS} s, T_MAX ${PARAMS.T_MAX} s) |
 | Retarget ratios | ${closed.map((e) => `×${(e.retarget as number).toFixed(2)}`).join(', ')} |
 | Accepted claims (all miners) | ${total('claim')} |
 | Reverted in public (stale, fee paid) | ${total('reverted')} |

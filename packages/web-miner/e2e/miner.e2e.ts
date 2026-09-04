@@ -110,28 +110,45 @@ test('a poisoned CRS cache is purged before proving', async ({ page }) => {
   await page.getByTestId('stop').click();
 });
 
-test('a lying cross-check node stops the miner before any work is wasted', async ({ page }) => {
-  const r = run();
-  // A second "node" that proxies the real one and lies only about public storage (batched or not).
-  await page.route('http://127.0.0.1:1/**', async (route) => {
-    const upstream = await route.fetch({ url: r.nodeUrl });
-    const body = (await upstream.json()) as unknown;
-    const request = route.request().postDataJSON() as { method: string } | { method: string }[];
-    const lie = (res: { result?: unknown }, req: { method: string }) =>
-      req.method.endsWith('getPublicStorageAt')
-        ? { ...res, result: `0x${'ff'.repeat(16).padStart(64, '0')}` }
-        : res;
-    const json = Array.isArray(body)
-      ? body.map((res, i) =>
-          lie(res as { result?: unknown }, (request as { method: string }[])[i] ?? { method: '' }),
-        )
-      : lie(body as { result?: unknown }, request as { method: string });
-    await route.fulfill({ json });
+// The cross-check reads open_epoch, then the packed [target, seed, opened_at]; each case lies about
+// exactly one of them, so a comparison that skipped a field would let its case through.
+for (const [field, readIndex] of [
+  ['open_epoch', 1],
+  ['target', 2],
+  ['seed', 3],
+  ['opened_at', 4],
+] as const) {
+  test(`a cross-check node lying only about ${field} stops the miner before any work is wasted`, async ({
+    page,
+  }) => {
+    const r = run();
+    let storageReads = 0;
+    // A second "node" that proxies the real one and alters one public-storage answer (batched or not).
+    await page.route('http://127.0.0.1:1/**', async (route) => {
+      const upstream = await route.fetch({ url: r.nodeUrl });
+      const body = (await upstream.json()) as unknown;
+      const request = route.request().postDataJSON() as { method: string } | { method: string }[];
+      const lie = (res: { result?: unknown }, req: { method: string }) => {
+        if (!req.method.endsWith('getPublicStorageAt')) return res;
+        storageReads++;
+        return storageReads === readIndex
+          ? { ...res, result: `0x${'ff'.repeat(16).padStart(64, '0')}` }
+          : res;
+      };
+      const json = Array.isArray(body)
+        ? body.map((res, i) =>
+            lie(res as { result?: unknown }, (request as { method: string }[])[i] ?? { method: '' }),
+          )
+        : lie(body as { result?: unknown }, request as { method: string });
+      await route.fulfill({ json });
+    });
+    await page.goto(pageUrl(r, { crossCheck: 'http://127.0.0.1:1' }));
+    await expect(page.getByTestId('boot-error')).toContainText(`nodes disagree on ${field}`, {
+      timeout: BOOT_MS,
+    });
+    await expect(page.getByTestId('start')).toBeDisabled();
   });
-  await page.goto(pageUrl(r, { crossCheck: 'http://127.0.0.1:1' }));
-  await expect(page.getByTestId('boot-error')).toContainText('nodes disagree', { timeout: BOOT_MS });
-  await expect(page.getByTestId('start')).toBeDisabled();
-});
+}
 
 test('a malformed RPC payload is rejected, not acted on', async ({ page }) => {
   const r = run();

@@ -1,5 +1,14 @@
 {
   "$comment": "Deployment parameters. One profile is selected by ELIXIR_PROFILE (default testnet) and `bun run codegen` writes it into the Noir globals, the TS constants and the deploy arguments. Contracts are immutable: changing a value means a new deployment. T_MAX must equal 4 × EXPECTED_EPOCH_SECONDS; INITIAL_TARGET is the 128-bit threshold a ticket's low 128 bits must stay under.",
+  "$domains": "Domain separators shared by the Noir circuits/contract and miner-core: the ASCII tag, big-endian, as one field. Generated into the work lib's domains.nr and miner-core's params.ts; a change here changes the work circuit and the ticket, i.e. a new deployment.",
+  "domains": {
+    "DEPLOY": "ELX/depl",
+    "SECRET": "ELX/secr",
+    "WORK": "ELX/work",
+    "TICKET": "ELX/tick",
+    "NULL": "ELX/null",
+    "SEED": "ELX/seed"
+  },
   "profiles": {
     "testnet": {
       "N": 4,
