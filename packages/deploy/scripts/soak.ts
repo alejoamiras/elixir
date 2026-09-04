@@ -1,6 +1,7 @@
 // Headless miner for the testnet soak: mines the deployment in deployments/<profile>.json with
 // the native bb backend, claims every win, rolls after T_MAX, and varies its own hashrate on a
-// schedule so the retarget sees real load changes. Stops after --hours or --epochs closed epochs.
+// schedule so the retarget sees real load changes. Stops after --hours (capped at 2) or once
+// --epochs epochs have closed on chain, whichever comes first.
 //   AZTEC_NODE_URL=… bun packages/deploy/scripts/soak.ts [--hours 2] [--epochs 24] [--threads N]
 //                    [--schedule full,half,pause,full] [--label miner-a] [--report soak.jsonl]
 import { appendFileSync, mkdirSync } from 'node:fs';
@@ -19,7 +20,7 @@ import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { TokenContract } from '@aztec-foundation/aztec-standards/artifacts/src/artifacts/Token.js';
 import { loadMinerArtifact, loadWorkArtifact } from '../../miner-core/src/artifacts.ts';
-import { buildClaim, claimGasLimits } from '../../miner-core/src/claim.ts';
+import { buildClaim, claimGasLimits, isDeliveryBlockedError } from '../../miner-core/src/claim.ts';
 import { readOpenEpoch, readRules } from '../../miner-core/src/epoch.ts';
 import { PARAMS, PROFILE } from '../../miner-core/src/generated/params.ts';
 import { mineEpoch } from '../../miner-core/src/miner.ts';
@@ -27,18 +28,25 @@ import { deployDomain } from '../../miner-core/src/proof.ts';
 import { newEpochSecret } from '../../miner-core/src/secret.ts';
 import { BbJsWorkProver } from '../../miner-core/src/work.ts';
 
+const MAX_HOURS = 2; // owner's cap on the testnet soak
 const repo = resolve(import.meta.dir, '../../..');
 const args = process.argv.slice(2);
 const opt = (name: string, fallback: string) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 ? (args[i + 1] ?? fallback) : fallback;
 };
-const hours = Number(opt('hours', '2'));
+const hours = Math.min(MAX_HOURS, Number(opt('hours', String(MAX_HOURS))));
 const maxEpochs = Number(opt('epochs', '24'));
 const maxThreads = Number(opt('threads', String(Math.max(1, cpus().length - 1))));
 const schedule = opt('schedule', 'full,half,pause,full').split(',');
 const label = opt('label', 'soak');
-const report = resolve(opt('report', `packages/deploy/target/soak-${label}.jsonl`));
+const startedAt = new Date();
+const report = resolve(
+  opt(
+    'report',
+    `packages/deploy/target/soak-${label}-${startedAt.toISOString().replace(/[:.]/g, '-')}.jsonl`,
+  ),
+);
 const nodeUrl = process.env.AZTEC_NODE_URL;
 if (!nodeUrl) throw new Error('AZTEC_NODE_URL is required');
 mkdirSync(dirname(report), { recursive: true });
@@ -57,14 +65,21 @@ const fee = {
   paymentMethod: new SponsoredFeePaymentMethod(fpc.address),
   gasSettings: { gasLimits: await claimGasLimits(node) },
 };
-const secret = Fr.random();
-const from = (
-  await wallet.createSchnorrInitializerlessAccount(
-    secret,
-    Fr.ZERO,
-    deriveMasterMessageSigningSecretKey(secret),
-  )
-).address;
+const newAccount = async () => {
+  const secret = Fr.random();
+  return (
+    await wallet.createSchnorrInitializerlessAccount(
+      secret,
+      Fr.ZERO,
+      deriveMasterMessageSigningSecretKey(secret),
+    )
+  ).address;
+};
+// A claim that reverted in public leaves this account's note-delivery sequence blocked until the
+// tx finalizes on L1; the soak rotates to a fresh account instead of waiting, keeping every
+// account's rewards in the final balance.
+const accounts: AztecAddress[] = [];
+let from = await newAccount();
 const minerArtifact = await loadMinerArtifact();
 for (const [address, art] of [
   [AztecAddress.fromStringUnsafe(deployment.miner), minerArtifact],
@@ -80,8 +95,10 @@ const rules = await readRules(miner, from);
 const chainId = BigInt(await node.getChainId());
 const domain = await deployDomain(chainId, miner.address.toField(), PARAMS.VERSION);
 
+// Every row names the run and the deployment, so reports from different runs cannot be confused.
+const runId = `${label}-${startedAt.getTime()}`;
 const line = async (o: Record<string, unknown>) => {
-  const row = { t: new Date().toISOString(), label, ...o };
+  const row = { t: new Date().toISOString(), label, run: runId, miner: deployment.miner, ...o };
   console.log(JSON.stringify(row));
   appendFileSync(report, `${JSON.stringify(row)}\n`);
 };
@@ -90,10 +107,11 @@ const line = async (o: Record<string, unknown>) => {
 const stepSeconds = Math.max(300, Math.floor((hours * 3600) / schedule.length));
 const threadsFor = (step: string) => (step === 'half' ? Math.max(1, Math.floor(maxThreads / 2)) : maxThreads);
 
-const started = Date.now();
-const deadline = started + hours * 3600_000;
+const deadline = startedAt.getTime() + hours * 3600_000;
+const remainingSeconds = () => Math.max(1, Math.floor((deadline - Date.now()) / 1000));
 const startEpoch = (await readOpenEpoch(miner, from)).epoch;
-let closed = 0n;
+/** Epochs closed on chain since the run started, whoever closed them. */
+const closedOnChain = async () => (await readOpenEpoch(miner, from)).epoch - startEpoch;
 let claims = 0;
 let stale = 0;
 let proofs = 0;
@@ -105,9 +123,12 @@ await line({
   schedule,
   stepSeconds,
   epoch: startEpoch.toString(),
+  account: from.toString(),
 });
 
-for (let s = 0; Date.now() < deadline && closed < BigInt(maxEpochs); s = (s + 1) % schedule.length) {
+const done = async () => Date.now() >= deadline || (await closedOnChain()) >= BigInt(maxEpochs);
+
+for (let s = 0; !(await done()); s = (s + 1) % schedule.length) {
   const step = schedule[s] ?? 'full';
   const stepEnd = Math.min(deadline, Date.now() + stepSeconds * 1000);
   await line({
@@ -117,7 +138,7 @@ for (let s = 0; Date.now() < deadline && closed < BigInt(maxEpochs); s = (s + 1)
     until: new Date(stepEnd).toISOString(),
   });
   if (step === 'pause') {
-    while (Date.now() < stepEnd) {
+    while (Date.now() < stepEnd && !(await done())) {
       await maybeRoll();
       await delay(30_000);
     }
@@ -129,11 +150,10 @@ for (let s = 0; Date.now() < deadline && closed < BigInt(maxEpochs); s = (s + 1)
   }).catch(() => Barretenberg.new({ threads: threadsFor(step), backend: BackendType.WasmWorker }));
   const prover = new BbJsWorkProver(await loadWorkArtifact(), api);
   try {
-    while (Date.now() < stepEnd && closed < BigInt(maxEpochs)) {
+    while (Date.now() < stepEnd && !(await done())) {
       await maybeRoll();
       const view = await readOpenEpoch(miner, from);
       const epochSecret = newEpochSecret();
-      let switched = false;
       const winner = await mineEpoch(
         prover,
         {
@@ -158,27 +178,27 @@ for (let s = 0; Date.now() < deadline && closed < BigInt(maxEpochs); s = (s + 1)
         },
       );
       if (!winner) continue;
-      const before = await readOpenEpoch(miner, from);
-      if (before.epoch !== view.epoch) {
-        switched = true;
+      if ((await readOpenEpoch(miner, from)).epoch !== view.epoch) {
         stale++;
-        await line({
-          event: 'stale-before-send',
-          epoch: view.epoch.toString(),
-          now: before.epoch.toString(),
-        });
+        await line({ event: 'stale-before-send', epoch: view.epoch.toString() });
         continue;
       }
       const t0 = Date.now();
       try {
-        const sent = await buildClaim(miner, {
-          epoch: view.epoch,
-          nonce: winner.nonce,
-          out: winner.out,
-          secret: epochSecret,
-          proofFields: winner.proofFields,
-          recipient: from,
-        }).send({ from, fee, wait: { timeout: 900, dontThrowOnRevert: true } });
+        const claim = () =>
+          buildClaim(miner, {
+            epoch: view.epoch,
+            nonce: winner.nonce,
+            out: winner.out,
+            secret: epochSecret,
+            proofFields: winner.proofFields,
+            recipient: from,
+          }).send({
+            from,
+            fee,
+            wait: { timeout: Math.min(900, remainingSeconds()), dontThrowOnRevert: true },
+          });
+        const sent = await claim();
         const receipt = (
           sent as { receipt?: { executionResult?: string; blockNumber?: number; transactionFee?: bigint } }
         ).receipt;
@@ -201,21 +221,25 @@ for (let s = 0; Date.now() < deadline && closed < BigInt(maxEpochs); s = (s + 1)
           error: String(e).split('\n')[0],
           ms: Date.now() - t0,
         });
+        if (isDeliveryBlockedError(e)) {
+          accounts.push(from);
+          from = await newAccount();
+          await line({ event: 'rotated-account', account: from.toString() });
+        }
       }
-      const after = await readOpenEpoch(miner, from);
-      if (after.epoch > view.epoch || switched) closed = after.epoch - startEpoch;
     }
   } finally {
     await api.destroy().catch(() => {});
   }
 }
 
-const balance = ((await token.methods.balance_of_private(from).simulate({ from })) as { result: bigint })
-  .result;
+let balance = 0n;
+for (const a of [...accounts, from])
+  balance += ((await token.methods.balance_of_private(a).simulate({ from: a })) as { result: bigint }).result;
 await line({
   event: 'end',
-  hoursElapsed: ((Date.now() - started) / 3600_000).toFixed(2),
-  closedEpochs: closed.toString(),
+  hoursElapsed: ((Date.now() - startedAt.getTime()) / 3600_000).toFixed(2),
+  closedEpochs: (await closedOnChain()).toString(),
   claims,
   stale,
   proofs,
@@ -229,7 +253,7 @@ async function maybeRoll() {
   if (age < rules.T_MAX) return;
   await line({ event: 'roll', epoch: view.epoch.toString(), age: age.toString() });
   try {
-    await miner.methods.roll().send({ from, fee, wait: { timeout: 900 } });
+    await miner.methods.roll().send({ from, fee, wait: { timeout: Math.min(900, remainingSeconds()) } });
   } catch (e) {
     await line({ event: 'roll-failed', error: String(e).split('\n')[0] });
   }

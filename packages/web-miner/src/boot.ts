@@ -4,7 +4,7 @@ import type { createStore } from 'jotai';
 import { attachDeployment, readEpochRules } from './chain';
 import type { Connection } from './config';
 import { MinerController } from './controller';
-import { preloadPinnedCrs } from './pinned-crs';
+import { preloadPinnedCrs, purgeCrsCache } from './pinned-crs';
 import { bootAtom, rulesAtom } from './state';
 import { openWallet } from './wallet';
 
@@ -20,6 +20,7 @@ export async function boot(
   if (!connection.miner || !connection.token)
     throw new Error('no deployment configured: set the miner and token addresses');
   step('verifying the pinned CRS');
+  await purgeCrsCache();
   await preloadPinnedCrs();
   step('connecting to the node');
   const node = createAztecNodeClient(connection.nodeUrl);

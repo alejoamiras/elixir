@@ -9,7 +9,11 @@ export interface MineJob {
   startNonce: bigint;
 }
 
-export type ToWorker = { type: 'init'; threads: number } | { type: 'mine'; job: MineJob } | { type: 'stop' };
+export type ToWorker =
+  | { type: 'init'; threads: number }
+  | { type: 'mine'; job: MineJob }
+  | { type: 'stop' }
+  | { type: 'crash' };
 
 export type FromWorker =
   | { type: 'ready'; threads: number; initMs: number }

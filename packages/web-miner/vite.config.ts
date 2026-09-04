@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
@@ -6,11 +7,31 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
-// SharedArrayBuffer (bb.js threads) needs cross-origin isolation; production gets the same headers
-// from public/_headers on Cloudflare Pages.
-const isolation = {
-  'Cross-Origin-Opener-Policy': 'same-origin',
-  'Cross-Origin-Embedder-Policy': 'require-corp',
+// public/_headers is the source of truth (Cloudflare Pages applies it in production). The dev and
+// preview servers send the same headers, with connect-src widened to local nodes only, so an E2E
+// page runs under the production policy: the CRS CDN hosts are blocked there too.
+function productionHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  for (const line of readFileSync(here('./public/_headers'), 'utf8').split('\n')) {
+    const m = line.match(/^\s+([A-Za-z-]+):\s*(.+)$/);
+    if (m) headers[m[1] as string] = m[2] as string;
+  }
+  const csp = headers['Content-Security-Policy'];
+  if (csp)
+    headers['Content-Security-Policy'] = csp.replace(
+      /connect-src ([^;]+)/,
+      'connect-src $1 http://127.0.0.1:* http://localhost:*',
+    );
+  return headers;
+}
+const headers = productionHeaders();
+// The dev server injects inline scripts (React refresh preamble, HMR client); the built bundle has none.
+const devHeaders = {
+  ...headers,
+  'Content-Security-Policy': (headers['Content-Security-Policy'] ?? '').replace(
+    "script-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+  ),
 };
 
 export default defineConfig({
@@ -20,11 +41,11 @@ export default defineConfig({
     nodePolyfills({ globals: { Buffer: true, global: true, process: true } }),
   ],
   server: {
-    headers: isolation,
+    headers: devHeaders,
     // The hoisted node_modules (WASM binaries served via /@fs/) lives at the repo root.
     fs: { allow: [here('../..')] },
   },
-  preview: { headers: isolation },
+  preview: { headers },
   resolve: {
     alias: [
       { find: '@', replacement: here('./src') },

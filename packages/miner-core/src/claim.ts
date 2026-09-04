@@ -27,5 +27,17 @@ export interface ClaimInput {
   recipient: AztecAddress;
 }
 
+/**
+ * After one of this account's claims reverted in public (a stale claim), the PXE keeps a pending
+ * note-delivery index for a sequence nullifier that never landed, and every later claim's
+ * constrained delivery asserts it: "unknown nullifier". The PXE only reconciles once the reverted
+ * tx is FINALIZED on L1, so the account cannot claim until then (tens of minutes on the testnet).
+ */
+export const isDeliveryBlockedError = (e: unknown): boolean =>
+  /unknown nullifier|Nullifier read request/i.test(e instanceof Error ? e.message : String(e));
+
+export const DELIVERY_BLOCKED_MESSAGE =
+  'a claim that reverted in public blocks this wallet’s note delivery until it finalizes on L1 (tens of minutes); try again later';
+
 export const buildClaim = (miner: Contract, c: ClaimInput): ContractFunctionInteraction =>
   miner.methods.claim(c.epoch, c.nonce, c.out, c.secret, c.proofFields, c.recipient);

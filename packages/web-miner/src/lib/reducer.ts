@@ -60,10 +60,13 @@ export function reduce(state: MinerState, event: Event): [MinerState, Command[]]
       return state.phase === 'idle' ? startJob(state, event.epoch) : [state, []];
     case 'stop':
       return [{ ...state, phase: 'idle', job: null }, state.phase === 'idle' ? [] : [{ type: 'halt' }]];
-    case 'epoch':
+    case 'epoch': {
       // A new epoch while mining: the in-flight nonce is worthless and the secret rotates with it.
+      // The running job is halted first; the Worker starts the replacement once it has stopped.
       if (state.phase !== 'mining' || state.job?.epoch === event.epoch.epoch) return [state, []];
-      return startJob({ ...state, tickets: 0 }, event.epoch);
+      const [next, commands] = startJob({ ...state, tickets: 0 }, event.epoch);
+      return [next, [{ type: 'halt' }, ...commands]];
+    }
     case 'attempt':
       return [
         { ...state, tickets: state.tickets + 1, recent: [...state.recent, event.proveMs].slice(-RECENT) },

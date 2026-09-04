@@ -36,9 +36,9 @@ export function App({
       <MiningCard controller={controller} />
       <LogCard />
       <p className="text-muted-foreground text-xs">
-        A hosted page can read this tab's secret, proofs and recipient; run it from your own build if that
-        matters. Chain reads come from the configured node and can only waste work if the node lies — claims
-        are verified on-chain.
+        Whoever serves this page controls it: a compromised host could redirect claims or spend this wallet.
+        Run your own build if that matters. Chain reads come from the configured node and can only waste work
+        if the node lies — claims are verified on-chain.
       </p>
       <Toaster />
     </main>

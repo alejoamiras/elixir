@@ -26,7 +26,10 @@ describe('miner reducer', () => {
     [s] = reduce(s, { type: 'attempt', proveMs: 3000 });
     expect(s.tickets).toBe(2);
     const [s2, cmds] = reduce(s, { type: 'epoch', epoch: epoch(4n, 99n) });
-    expect(cmds).toEqual([{ type: 'mine', epoch: 4n, seed: 99n, target: 1n << 122n, secretId: 2 }]);
+    expect(cmds).toEqual([
+      { type: 'halt' },
+      { type: 'mine', epoch: 4n, seed: 99n, target: 1n << 122n, secretId: 2 },
+    ]);
     expect(s2.job?.secretId).toBe(2);
     expect(s2.tickets).toBe(0);
     // The same epoch reported again is a no-op.

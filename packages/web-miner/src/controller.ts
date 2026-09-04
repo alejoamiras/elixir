@@ -1,6 +1,7 @@
 // Drives the reducer: chain reads on a timer, the Worker for proving, the wallet for claims.
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { createStore } from 'jotai';
+import { DELIVERY_BLOCKED_MESSAGE, isDeliveryBlockedError } from '../../miner-core/src/claim.ts';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { deployDomain } from '../../miner-core/src/proof.ts';
 import { newEpochSecret } from '../../miner-core/src/secret.ts';
@@ -14,6 +15,12 @@ type Store = ReturnType<typeof createStore>;
 
 const EPOCH_POLL_MS = 10_000;
 
+interface Prover {
+  worker: Worker;
+  ready: Promise<void>;
+  generation: number;
+}
+
 export class MinerController {
   private secrets = new Map<number, string>();
   private nextNonce = new Map<string, bigint>();
@@ -26,8 +33,9 @@ export class MinerController {
   } | null = null;
   private timer: ReturnType<typeof setInterval> | undefined;
   private domain: string | undefined;
-  private worker: Worker;
-  private workerReady: Promise<void>;
+  private prover: Prover;
+  private generations = 0;
+  private refreshing: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly store: Store,
@@ -39,35 +47,49 @@ export class MinerController {
     private readonly connection: Connection,
     private readonly chainId: bigint,
   ) {
-    [this.worker, this.workerReady] = this.attach(spawnWorker());
+    this.prover = this.attach();
   }
 
-  /** Wires a Worker and starts its prover; resolves once the CRS and circuit are loaded. */
-  private attach(worker: Worker): [Worker, Promise<void>] {
+  /**
+   * Spawns a Worker and starts its prover. Messages from a superseded generation are ignored, so
+   * a crashed Worker's late events cannot touch the state of its replacement.
+   */
+  private attach(): Prover {
+    const generation = ++this.generations;
+    const worker = this.spawnWorker();
     const ready = new Promise<void>((resolve, reject) => {
       worker.onmessage = (e: MessageEvent<FromWorker>) => {
+        if (this.prover?.generation !== generation && this.generations !== generation) return;
         if (e.data.type === 'ready') resolve();
+        if (e.data.type === 'error') reject(new Error(e.data.message));
         this.onWorker(e.data);
       };
       worker.onerror = (e) => {
         reject(new Error(e.message));
-        this.dispatch({ type: 'failed', error: `worker crashed: ${e.message}` });
+        if (this.generations !== generation) return;
+        this.replaceProver(`worker crashed: ${e.message}`);
       };
     });
+    ready.catch(() => {});
     worker.postMessage({ type: 'init', threads: this.threads } satisfies ToWorker);
-    return [worker, ready];
+    return { worker, ready, generation };
   }
 
-  /** Prover readiness for callers that must not race the init handshake. */
+  private replaceProver(reason: string) {
+    this.prover.worker.terminate();
+    this.dispatch({ type: 'failed', error: reason });
+    this.log(reason);
+    this.prover = this.attach();
+  }
+
+  /** Prover readiness for callers that must not race the init handshake; rejects on init failure. */
   ready(): Promise<void> {
-    return this.workerReady;
+    return this.prover.ready;
   }
 
-  /** Test hook: kills the prover mid-job; the next start uses a fresh one. */
+  /** Test hook: makes the Worker throw, which takes the same path as any real crash. */
   crashProver() {
-    this.worker.terminate();
-    this.dispatch({ type: 'failed', error: 'worker crashed: terminated' });
-    [this.worker, this.workerReady] = this.attach(this.spawnWorker());
+    this.prover.worker.postMessage({ type: 'crash' } satisfies ToWorker);
   }
 
   log(line: string) {
@@ -98,11 +120,22 @@ export class MinerController {
     this.dispatch({ type: 'stop' });
   }
 
-  /** Re-reads the open epoch (cross-checked when configured) and the balance. */
-  async refresh() {
+  /**
+   * Re-reads the open epoch (cross-checked when configured) and the balance. Refreshes are
+   * serialised and an older epoch never overwrites a newer one, so a slow poll cannot restart
+   * mining on stale parameters.
+   */
+  refresh(): Promise<void> {
+    const run = this.refreshing.then(() => this.readChain());
+    this.refreshing = run.catch(() => {});
+    return run;
+  }
+
+  private async readChain() {
     const epoch = await readEpoch(this.d, this.account);
     if (this.connection.crossCheckUrl) await crossCheck(this.d, this.connection.crossCheckUrl, epoch);
     const previous = this.store.get(epochAtom);
+    if (previous && epoch.epoch < previous.epoch) return;
     this.store.set(epochAtom, epoch);
     if (previous && previous.epoch !== epoch.epoch) {
       this.log(`epoch ${epoch.epoch} opened (target ${epoch.target.toString(16)})`);
@@ -128,6 +161,8 @@ export class MinerController {
     switch (c.type) {
       case 'mine': {
         const secret = newEpochSecret().toString();
+        // Only the current secret is kept: a past epoch's tickets are worthless.
+        this.secrets.clear();
         this.secrets.set(c.secretId, secret);
         const key = `${c.epoch}:${c.secretId}`;
         const job: MineJob = {
@@ -157,9 +192,9 @@ export class MinerController {
   }
 
   private post(m: ToWorker) {
-    const worker = this.worker;
-    void this.workerReady.then(
-      () => worker.postMessage(m),
+    const prover = this.prover;
+    void prover.ready.then(
+      () => prover.worker.postMessage(m),
       () => {},
     );
   }
@@ -180,17 +215,11 @@ export class MinerController {
         };
         this.dispatch({ type: 'winner', epoch: m.epoch, secretId: m.secretId });
         return;
-      case 'stopped': {
+      case 'stopped':
         this.nextNonce.set(`${m.epoch}:${m.secretId}`, m.nextNonce);
-        // A halt issued by an epoch switch is followed by the new job; the Worker mines one at a time.
-        const job = this.store.get(minerAtom).job;
-        if (job && (job.epoch !== m.epoch || job.secretId !== m.secretId))
-          this.execute({ type: 'mine', ...job });
         return;
-      }
       case 'error':
-        this.dispatch({ type: 'failed', error: m.message });
-        this.log(`worker: ${m.message}`);
+        this.replaceProver(`worker: ${m.message}`);
         return;
       case 'ready':
         return;
@@ -201,6 +230,7 @@ export class MinerController {
     const p = this.pending;
     const secret = p && this.secrets.get(p.secretId);
     if (!p || !secret) return this.dispatch({ type: 'failed', error: 'no pending ticket' });
+    this.pending = null;
     this.log(`claiming in epoch ${p.epoch}: proving the claim in-page…`);
     try {
       const block = await sendClaim(this.d, this.account, this.fee, {
@@ -216,11 +246,13 @@ export class MinerController {
       await this.refresh();
       this.start();
     } catch (e) {
-      const message = e instanceof Error ? (e.message.split('\n')[0] ?? '') : String(e);
+      const message = isDeliveryBlockedError(e)
+        ? DELIVERY_BLOCKED_MESSAGE
+        : e instanceof Error
+          ? (e.message.split('\n')[0] ?? '')
+          : String(e);
       this.log(`claim failed: ${message}`);
       this.dispatch({ type: 'failed', error: message });
-    } finally {
-      this.pending = null;
     }
   }
 }

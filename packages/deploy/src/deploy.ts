@@ -84,6 +84,30 @@ export async function deployElixir(
     if (!miner.address.equals(predicted))
       throw new Error('deployed miner address differs from the precomputed one');
     await miner.methods.bind_token(token.address).send({ from: deployer, fee, wait: { timeout: 600 } });
+    // The record must describe what is on chain, not what the local artifact was compiled with.
+    const read = async <T>(p: Promise<unknown>) => ((await p) as { result: T }).result;
+    const [n, expected, tMax, reward] = await read<bigint[]>(
+      miner.methods.constants().simulate({ from: deployer }),
+    );
+    const epoch0 = await read<{ target: bigint; seed: bigint }>(
+      miner.methods.epoch_params(0n).simulate({ from: deployer }),
+    );
+    const minter = await read<{ toString(): string }>(
+      token.methods.get_minter().simulate({ from: deployer }),
+    );
+    const mismatches = [
+      [n, BigInt(PARAMS.N), 'N'],
+      [expected, PARAMS.EXPECTED_EPOCH_SECONDS, 'EXPECTED_EPOCH_SECONDS'],
+      [tMax, PARAMS.T_MAX, 'T_MAX'],
+      [reward, PARAMS.REWARD, 'REWARD'],
+      [epoch0.target, overrides.initialTarget ?? PARAMS.INITIAL_TARGET, 'INITIAL_TARGET'],
+      [epoch0.seed, PARAMS.GENESIS_SEED, 'GENESIS_SEED'],
+    ].filter(([onChain, local]) => onChain !== local);
+    if (mismatches.length)
+      throw new Error(
+        `deployed contract disagrees with the generated params: ${mismatches.map((m) => m[2]).join(', ')}`,
+      );
+    if (minter.toString() !== miner.address.toString()) throw new Error('token minter is not the miner');
     const chainId = String(await createAztecNodeClient(nodeUrl).getChainId());
     return {
       profile: PROFILE,

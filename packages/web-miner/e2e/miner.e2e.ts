@@ -33,12 +33,43 @@ test('first visit creates an account, mines at the easy target, claims and shows
   await expect(page.getByTestId('phase')).toHaveText('mining');
   await page.getByTestId('stop').click();
   await expect(page.getByTestId('phase')).toHaveText('idle');
+  // Second visit: the persisted account signs again and its notes are still there.
+  const account = await page.getByTestId('account').getAttribute('title');
+  await page.reload();
+  await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
+  expect(await page.getByTestId('account').getAttribute('title')).toBe(account);
+  await expect(page.getByTestId('balance')).toHaveText(/^4 tELX$/);
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
+  await expect(page.getByTestId('balance')).toHaveText(/^8 tELX$/);
+  await page.getByTestId('stop').click();
+});
+
+test('a poisoned CRS cache is purged before proving', async ({ page }) => {
+  const r = run();
+  // bb.js prefers its idb-keyval cache (32 MiB of uncompressed G1 points) over any download; fill it
+  // with zeros before the page runs. Proving with it would fail; the page must purge it.
+  await page.addInitScript(() => {
+    if ((window as { __poisoned?: boolean }).__poisoned) return;
+    (window as { __poisoned?: boolean }).__poisoned = true;
+    const req = indexedDB.open('keyval-store', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('keyval');
+    req.onsuccess = () => {
+      const tx = req.result.transaction('keyval', 'readwrite');
+      tx.objectStore('keyval').put(new Uint8Array(2 ** 19 * 64), 'g1Data');
+      tx.objectStore('keyval').put(new Uint8Array(128), 'g2Data');
+    };
+  });
+  await bootPage(page, pageUrl(r));
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
+  await page.getByTestId('stop').click();
 });
 
 test('a lying cross-check node stops the miner before any work is wasted', async ({ page }) => {
   const r = run();
   // A second "node" that proxies the real one and lies only about public storage (batched or not).
-  await page.route('http://cross-check.invalid/**', async (route) => {
+  await page.route('http://127.0.0.1:1/**', async (route) => {
     const upstream = await route.fetch({ url: r.nodeUrl });
     const body = (await upstream.json()) as unknown;
     const request = route.request().postDataJSON() as { method: string } | { method: string }[];
@@ -53,17 +84,17 @@ test('a lying cross-check node stops the miner before any work is wasted', async
       : lie(body as { result?: unknown }, request as { method: string });
     await route.fulfill({ json });
   });
-  await page.goto(pageUrl(r, { crossCheck: 'http://cross-check.invalid' }));
+  await page.goto(pageUrl(r, { crossCheck: 'http://127.0.0.1:1' }));
   await expect(page.getByTestId('boot-error')).toContainText('nodes disagree', { timeout: BOOT_MS });
   await expect(page.getByTestId('start')).toBeDisabled();
 });
 
 test('a malformed RPC payload is rejected, not acted on', async ({ page }) => {
   const r = run();
-  await page.route('http://cross-check.invalid/**', (route) =>
+  await page.route('http://127.0.0.1:1/**', (route) =>
     route.fulfill({ json: { jsonrpc: '2.0', id: 1, result: { not: 'a field' } } }),
   );
-  await page.goto(pageUrl(r, { crossCheck: 'http://cross-check.invalid' }));
+  await page.goto(pageUrl(r, { crossCheck: 'http://127.0.0.1:1' }));
   await expect(page.getByTestId('boot-error')).toBeVisible({ timeout: BOOT_MS });
   await expect(page.getByTestId('start')).toBeDisabled();
 });

@@ -57,3 +57,5 @@ jobs:
         env:
           ELIXIR_REQUIRE_TOOLCHAIN: '1'
       - run: bun run contracts:test
+      # The only job with the compiled artifacts: build the production web bundle here.
+      - run: bun run --cwd packages/web-miner build
