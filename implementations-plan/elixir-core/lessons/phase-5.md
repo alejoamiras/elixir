@@ -54,3 +54,8 @@ Note for the next Aztec bump: re-run `bun audit`; if it comes back clean, drop `
   injects it. `src/shims/node-globals.ts`, imported first in the Worker, installs the plugin's own shims; the
   `worker.plugins` route does not work for globals (the plugin injects from its `config` hook, which Vite skips
   for Workers). Gap to close: the E2E only ever exercised `vite` dev, never `vite build` + `vite preview`.
+- **E2E now runs against the production build by default** (`E2E_SERVER=preview`: `vite build --outDir e2e/.dist`
+  with the run's node origin, contract addresses and the lying-node mock origin in `VITE_ALLOWED_NODE_ORIGINS`,
+  served by `vite preview`; `E2E_SERVER=dev` keeps the dev server). Playwright captures `console` from a
+  production page just as well; nothing strips it. What the build needs and dev hides: the Worker's Node
+  globals and the origin allowlist, both of which are now exercised.

@@ -37,7 +37,8 @@ isolated network).
 
 ```
 bun run test:components                                             # Vitest: reducer, formatting
-bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e      # Playwright in headless Chromium on an isolated network
+bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e      # Playwright in headless Chromium on an isolated network, against a production build
+E2E_SERVER=dev bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e   # same, on the dev server (readable stacks)
 ```
 
 ## Deploy

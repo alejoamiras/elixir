@@ -41,7 +41,7 @@ bun test               # all bun:test suites (packages + scripts)
 bun run contracts:compile / contracts:test
 bun run e2e:agent -- <cmd>   # run <cmd> against a fresh isolated local network (AZTEC_NODE_URL set)
 bun run e2e:agent -- bun test packages/miner-core                        # live miner-core suite
-bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e           # web miner in headless Chromium
+bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e           # web miner in headless Chromium (production build; E2E_SERVER=dev for the dev server)
 bun run test:components        # web-miner Vitest specs
 AZTEC_NODE_URL=… ELIXIR_DEPLOYER_SECRET=… bun run deploy   # deploy the generated profile → deployments/<profile>.json
 AZTEC_NODE_URL=… bun run soak -- --hours 2 --epochs 24     # headless soak miner with a hashrate schedule
