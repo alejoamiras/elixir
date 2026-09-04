@@ -41,3 +41,10 @@ so the pick refused to overwrite it — delete the regenerated file and continue
   endpoint answered 503.
 
 Note for the next Aztec bump: re-run `bun audit`; if it comes back clean, drop `continue-on-error` again.
+- **Every `@aztec/foundation` import threw at load under `bun test` in CI only.** Bun 1.4.0 injects its test
+  `expect` into whatever it transpiles during `bun test`, including `@aztec/foundation`'s field module, which
+  then calls `expect.addEqualityTesters` (Jest/Vitest API Bun lacks) and throws. A warm transpiler cache
+  (first transpiled under `bun run`, not `bun test`) hides it, which is why every local run passed;
+  `BUN_RUNTIME_TRANSPILER_CACHE_PATH=0 bun test` reproduces it in seconds. `scripts/test-preload.ts`
+  (registered in `bunfig.toml [test]`) supplies the method, mirroring the module's own non-Jest fallback.
+  Reproduce CI-like conditions locally with the cache disabled before trusting a green `bun test`.
