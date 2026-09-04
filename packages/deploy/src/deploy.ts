@@ -109,6 +109,11 @@ if (import.meta.main) {
   const nodeUrl = process.env.AZTEC_NODE_URL;
   const secret = process.env.ELIXIR_DEPLOYER_SECRET;
   if (!nodeUrl || !secret) throw new Error('AZTEC_NODE_URL and ELIXIR_DEPLOYER_SECRET are required');
+  // Validated and reduced here: the field constructors throw messages that echo their input, and
+  // a 32-byte key can exceed the field modulus. Any 1–32-byte hex value maps to one deployer.
+  if (!/^(0x)?[0-9a-fA-F]{1,64}$/.test(secret))
+    throw new Error('ELIXIR_DEPLOYER_SECRET must be hex, at most 32 bytes');
+  const deployerSecret = Fr.fromBufferReduce(Buffer.from(secret.replace(/^0x/, '').padStart(64, '0'), 'hex'));
   const salt = process.env.ELIXIR_DEPLOY_SALT ? Fr.fromString(process.env.ELIXIR_DEPLOY_SALT) : Fr.random();
   const dir = resolve(repo, 'deployments');
   const file = resolve(dir, `${PROFILE}.json`);
@@ -116,7 +121,7 @@ if (import.meta.main) {
     throw new Error(
       `${file} already records a ${PROFILE} deployment; set ELIXIR_DEPLOY_FORCE=1 to replace it`,
     );
-  const deployment = await deployElixir(nodeUrl, Fr.fromString(secret), salt);
+  const deployment = await deployElixir(nodeUrl, deployerSecret, salt);
   mkdirSync(dir, { recursive: true });
   await Bun.write(file, `${JSON.stringify(deployment, null, 2)}\n`);
   console.log(`deployed ${PROFILE}: miner ${deployment.miner}, token ${deployment.token} → ${file}`);

@@ -1,0 +1,24 @@
+{
+  "profile": "testnet",
+  "chainId": "11155111",
+  "nodeUrl": "https://v5.testnet.rpc.aztec-labs.com",
+  "deployer": "0x2c7a1312299762bab96e91d83c26c4bf1754959bf95854df117b42bca4e3c54b",
+  "miner": "0x1e57c92988aa827a6a3b98ae9c78717885f6fed42c4923db7f7778285890665f",
+  "token": "0x2e4c2883e2a77f0a6385c8f8b7c5400cf2f25103bea803f642076ccb80154fa3",
+  "minerSalt": "0x18069b05bfdfd2307ee74a7211abd165411f6890dd922506586ba6e57b63cd18",
+  "tokenSalt": "0x0b434343e4f7e6c3b2f712a7311200470d92544e3a6f10e482dc184b93731860",
+  "params": {
+    "N": 4,
+    "EXPECTED_EPOCH_SECONDS": "300",
+    "T_MAX": "1200",
+    "REWARD": "4000000000000000000",
+    "DECIMALS": 18,
+    "INITIAL_TARGET": "21267647932558653966460912964485513216",
+    "GENESIS_SEED": "83776408139055556161594740",
+    "CHAIN_LEN": 2048,
+    "VERSION": "1",
+    "TOKEN_NAME": "Elixir Testnet",
+    "TOKEN_SYMBOL": "tELX"
+  },
+  "deployedAt": "2026-09-04T01:27:01.942Z"
+}

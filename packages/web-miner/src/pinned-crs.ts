@@ -54,7 +54,8 @@ async function serve(url: URL, init: RequestInit | undefined): Promise<Response>
 }
 
 globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-  const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+  const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  const url = new URL(href, globalThis.location?.href);
   return HOSTS.has(url.origin) ? serve(url, init) : originalFetch(input, init);
 };
 

@@ -1,7 +1,12 @@
 import { type Barretenberg, UltraHonkBackend } from '@aztec/bb.js';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Noir } from '@aztec/noir-noir_js';
-import type { WorkArtifact } from './artifacts.ts';
+
+/** The compiled work circuit as nargo emits it (bytecode + ABI); loaded by the caller. */
+export interface WorkArtifact {
+  bytecode: string;
+  abi: unknown;
+}
 
 export interface WorkInputs {
   domain: Fr;
