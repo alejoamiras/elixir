@@ -35,15 +35,17 @@ export interface Deployment {
   minerSalt: string;
   tokenSalt: string;
   params: Record<string, string | number>;
-  /** Unix seconds; epoch 0 accepts claims from here, as read back from epoch_params(0). */
+  /** Unix seconds; launch() may open epoch 0 from here (genesis().launch_at). */
   launchAt: string;
+  /** Set when this deployment launched at once (launchAt 0): epoch 0's opened_at. */
+  launchedAt?: string;
   deployedAt: string;
 }
 
 export interface DeployOverrides {
   /** Tests mine at an easy target; real deployments always take the profile's value. */
   initialTarget?: bigint;
-  /** Unix seconds; announce the deployment before it so epoch 0 is a public race. 0 launches at once. */
+  /** Unix seconds; announce the deployment before it. 0 launches at once (the deployer calls launch()). */
   launchAt?: bigint;
 }
 
@@ -53,11 +55,12 @@ async function verifyOnChain(
   token: Contract,
   from: AztecAddress,
   initialTarget: bigint,
-): Promise<{ target: bigint; seed: bigint; opened_at: bigint }> {
+  launched: boolean,
+): Promise<{ launchAt: bigint; openedAt?: bigint }> {
   const read = async <T>(p: Promise<unknown>) => ((await p) as { result: T }).result;
   const [n, expected, tMax, reward, ttl] = await read<bigint[]>(miner.methods.constants().simulate({ from }));
-  const epoch0 = await read<{ target: bigint; seed: bigint; opened_at: bigint }>(
-    miner.methods.epoch_params(0n).simulate({ from }),
+  const genesis = await read<{ target: bigint; seed: bigint; launch_at: bigint }>(
+    miner.methods.genesis().simulate({ from }),
   );
   const minter = await read<{ toString(): string }>(token.methods.get_minter().simulate({ from }));
   const bound = await read<{ toString(): string }>(miner.methods.bound_token().simulate({ from }));
@@ -67,8 +70,8 @@ async function verifyOnChain(
     [tMax, PARAMS.T_MAX, 'T_MAX'],
     [reward, PARAMS.REWARD, 'REWARD'],
     [ttl, PARAMS.CLAIM_TTL_SECONDS, 'CLAIM_TTL_SECONDS'],
-    [epoch0.target, initialTarget, 'INITIAL_TARGET'],
-    [epoch0.seed, PARAMS.GENESIS_SEED, 'GENESIS_SEED'],
+    [genesis.target, initialTarget, 'INITIAL_TARGET'],
+    [genesis.seed, PARAMS.GENESIS_SEED, 'GENESIS_SEED'],
   ].filter(([onChain, local]) => onChain !== local);
   if (mismatches.length)
     throw new Error(
@@ -76,7 +79,12 @@ async function verifyOnChain(
     );
   if (minter.toString() !== miner.address.toString()) throw new Error('token minter is not the miner');
   if (bound.toString() !== token.address.toString()) throw new Error('the miner bound a different token');
-  return epoch0;
+  if (!launched) return { launchAt: genesis.launch_at };
+  const epoch0 = await read<{ target: bigint; opened_at: bigint }>(
+    miner.methods.epoch_params(0n).simulate({ from }),
+  );
+  if (epoch0.target !== genesis.target) throw new Error('epoch 0 opened with a different target');
+  return { launchAt: genesis.launch_at, openedAt: epoch0.opened_at };
 }
 
 export async function deployElixir(
@@ -132,11 +140,15 @@ export async function deployElixir(
     if (!miner.address.equals(predicted))
       throw new Error('deployed miner address differs from the precomputed one');
     await miner.methods.bind_token(token.address).send({ from: deployer, fee, wait: { timeout: 600 } });
-    const epoch0 = await verifyOnChain(
+    // An announced launch is opened later by whoever calls launch() (scripts/launch.ts).
+    const launchNow = (overrides.launchAt ?? 0n) === 0n;
+    if (launchNow) await miner.methods.launch().send({ from: deployer, fee, wait: { timeout: 600 } });
+    const launch = await verifyOnChain(
       miner,
       token,
       deployer,
       overrides.initialTarget ?? PARAMS.INITIAL_TARGET,
+      launchNow,
     );
     const info = await createAztecNodeClient(nodeUrl).getNodeInfo();
     const chainId = String(info.l1ChainId);
@@ -156,7 +168,8 @@ export async function deployElixir(
       params: Object.fromEntries(
         Object.entries(PARAMS).map(([k, v]) => [k, typeof v === 'bigint' ? v.toString() : v]),
       ),
-      launchAt: epoch0.opened_at.toString(),
+      launchAt: launch.launchAt.toString(),
+      ...(launch.openedAt === undefined ? {} : { launchedAt: launch.openedAt.toString() }),
       deployedAt: new Date().toISOString(),
     };
   } finally {

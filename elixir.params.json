@@ -7,7 +7,8 @@
     "WORK": "ELX/work",
     "TICKET": "ELX/tick",
     "NULL": "ELX/null",
-    "SEED": "ELX/seed"
+    "SEED": "ELX/seed",
+    "LAUNCH": "ELX/lnch"
   },
   "profiles": {
     "testnet": {
@@ -16,6 +17,7 @@
       "T_MAX": 1200,
       "CLAIM_TTL_SECONDS": 600,
       "LAUNCH_NOTICE_SECONDS": 0,
+      "REVEAL_WINDOW_SECONDS": 0,
       "REWARD": "4000000000000000000",
       "DECIMALS": 18,
       "INITIAL_TARGET": "0x10000000000000000000000000000000",
@@ -31,6 +33,7 @@
       "T_MAX": 14400,
       "CLAIM_TTL_SECONDS": 1800,
       "LAUNCH_NOTICE_SECONDS": 86400,
+      "REVEAL_WINDOW_SECONDS": 600,
       "REWARD": "4000000000000000000",
       "DECIMALS": 18,
       "INITIAL_TARGET": "0x4000000000000000000000000000000",

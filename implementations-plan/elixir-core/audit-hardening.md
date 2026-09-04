@@ -77,9 +77,52 @@ Unbound target saturation and token substitution confirmed closed; `opened_at_fo
 rules and fails closed on u64 overflow". Non-material: the bind-before-launch deadline was only exercised
 under the testnet profile — extracted into `launch.nr::binding_allowed` with unit tests, like the launch rule.
 
+## Round 5 (owner-directed): the launch lottery
+
+The owner judged launch gating alone weak ("it just removes the deployer as the person that can front-run
+the first epoch") and asked for a `launch()` step introducing what randomness there is. A first cut mixed the
+launcher's address and the launch slot's timestamp into `seed_0`; codex round 5 ("material findings remain:
+deterministic launcher grinding and a deployer-controlled late-binding delay") showed it was *worse* than a
+public seed: both inputs are choosable before the launch, so the first launcher pre-mines its branch for the
+whole notice period and invalidates everyone else's stockpile (5 % of hashrate expects ≈ 29 winners over a
+24 h notice, enough for all 24 claims); and dropping the bind-before-launch rule let the deployer stall the
+launch while mining. Replaced by a RANDAO-style lottery (`launch.nr`): commit `Poseidon2(DOM_LAUNCH, preimage)`
+before `launch_at`, reveal inside `REVEAL_WINDOW_SECONDS` after it (mainnet 600 s, testnet 0), `launch()` after
+the window; `seed_0 = Poseidon2(DOM_SEED, genesis_seed, 0, mix, now)` with the mix folding every reveal in
+order. Plainly: the last revealer keeps a one-bit option per commitment, each branch costs its own pre-mining
+inside the window, so the head start is bounded by the window and shrinks as honest participants reveal late.
+The binding deadline is back (`binding_allowed`), `roll()` refuses an unlaunched epoch, `genesis()` and
+`launch_lottery()` are views, `bun run launch -- commit|reveal|open` runs the phases from a throwaway account.
+Residuals (3) seed grinding and (5) handshake linkability have no fix and are written up in plain language
+in the threat model.
+
+## Codex round 6 — "material findings remain: the lottery does not universally bound pre-mining to the reveal window and permits copy/order grinding"
+
+| # | finding | decision |
+|---|---|---|
+| 1 | HIGH the window bound needs an honest, uncensored, late reveal; with none the head start is the notice plus the window, and a sequencer can censor reveals and pick the launch slot | true of any RANDAO-style scheme; no fundless bond can compel a reveal. Documented plainly; the launch announcement should ask miners to commit and reveal late. Still better than a public seed whenever anyone honest takes part |
+| 2 | MEDIUM commitment copying: `H(DOM_LAUNCH, preimage)` could be cloned into many addresses and revealed once the preimage is public | commitment is `Poseidon2(DOM_LAUNCH, miner, sender, preimage)` in the contract and `launch.ts` |
+| 3 | MEDIUM order-dependent folding gives ~e·k! branches | the mix is the sum of revealed commitments (commutative): `2^k` |
+
+Confirmed: non-reveals and commit spam cannot block or delay a launch (nothing is iterated); concurrent
+launches yield one success; the binding deadline fails closed; `W = 0` immediate launches are consistent.
+The positive reveal path is covered by Noir unit tests only (the testnet profile has no window).
+
+## Codex round 7 — "material findings remain: the commutative mix exposes the supposed reveal entropy during commitment"
+
+| # | finding | decision |
+|---|---|---|
+| 1 | HIGH the mix summed the *commitment*, public before `launch_at`, so a full set of reveals produced a sum known during the whole notice | the reveal now folds `Poseidon2(DOM_LAUNCH, 2, miner, sender, preimage)`, unknowable until the preimage is out; the commitment (tag 1) only verifies it. Unit test: contribution ≠ commitment |
+| 2 | doc mismatch ("order-dependent mixing") | corrected |
+
+## Codex round 8 — "no new material findings"
+
+Commitment and contribution derivations match between Noir and TypeScript; copying, cross-deployment
+replay and reveal-order manipulation are closed; what remains is the documented `2^k` subset option.
+
 ## Tests added
 
-TXE (`src/test/mod.nr`) plus Noir unit tests, 45 in the contract crate: claim and roll before launch refused; an unbound deployment cannot be rolled; `bound_token()` reports the binding; the notice rule's both branches (`launch.nr`); `epoch_params(0).opened_at ==
+TXE (`src/test/mod.nr`) plus Noir unit tests, 54 in the contract crate: claim and roll before launch refused; launch before the window closes, unbound or twice refused; commitments once per address and only before `launch_at`; reveals only inside a window; `bound_token()` reports the binding; the launch rules, lottery phases, commutative mixing and contribution ≠ commitment (`launch.nr`); `epoch_params(0).opened_at ==
 launch_at`; a past `launch_at` means now; `bind_token` rejects the zero address and a token minted by someone
 else; `constants()[4]` is the TTL; a roll (×4) followed by an instant fill (÷4) returns exactly to the starting
 target. The obsolete "bound token refuses the miner at claim time" test was removed (the bind itself refuses

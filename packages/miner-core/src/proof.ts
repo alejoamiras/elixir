@@ -6,7 +6,7 @@ import { DOMAINS } from './generated/params.ts';
 export const PROOF_FIELDS = 410;
 
 // Domain separators are generated from elixir.params.json, the same source as the Noir globals.
-export const { DOM_DEPLOY, DOM_SECRET, DOM_WORK, DOM_TICKET, DOM_NULL, DOM_SEED } = DOMAINS;
+export const { DOM_DEPLOY, DOM_SECRET, DOM_WORK, DOM_TICKET, DOM_NULL, DOM_SEED, DOM_LAUNCH } = DOMAINS;
 
 /** Split bb's binary proof into its field elements. Throws on any length but 410 × 32 bytes. */
 export function proofToFields(proof: Uint8Array): Fr[] {

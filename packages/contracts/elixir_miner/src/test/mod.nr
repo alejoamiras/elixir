@@ -5,9 +5,13 @@ mod vectors;
 
 use crate::ElixirMiner;
 use crate::params::{CLAIM_TTL_SECONDS, EXPECTED_EPOCH_SECONDS, N, REWARD, T_MAX};
+use crate::launch::commitment_of;
 use crate::retarget::next_target;
 use crate::ticket::{low128, ticket_digest};
-use aztec::{protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment};
+use aztec::{
+    protocol::{address::AztecAddress, traits::ToField},
+    test::helpers::test_environment::TestEnvironment,
+};
 use bb_proof_verification::RECURSIVE_PROOF_LENGTH;
 use elixir_work_lib::DOM_SEED;
 use poseidon::poseidon2::Poseidon2;
@@ -22,13 +26,17 @@ pub struct Setup {
     pub token: AztecAddress,
 }
 
-// Token-less miner first (its address is then known), token with minter = miner, one bind.
+// Token-less miner first (its address is then known), token with minter = miner, one bind, then
+// the deployer launches: epoch 0 opens at once (no notice period in the test profile).
 unconstrained fn setup() -> Setup {
-    setup_launching_at(0)
+    let s = setup_unlaunched(0);
+    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).launch());
+    s.env.mine_block();
+    s
 }
 
-// launch_at = 0 launches at deployment; a future value keeps epoch 0 closed until then.
-unconstrained fn setup_launching_at(launch_at: u64) -> Setup {
+// Deployed and bound, not launched; launch_at = 0 means "as soon as someone calls launch()".
+unconstrained fn setup_unlaunched(launch_at: u64) -> Setup {
     let mut env = TestEnvironment::new();
     let deployer = env.create_light_account();
     let miner = env.deploy("ElixirMiner").with_public_initializer(
@@ -254,41 +262,111 @@ unconstrained fn constants_match_the_profile() {
     );
 }
 
-// --- Hardening: launch gating, token binding invariants, retarget envelope under roll/close ---
+// --- Hardening: launch, token binding invariants, retarget envelope under roll/close ---
 
-#[test(should_fail_with = "not launched")]
+#[test(should_fail)]
 unconstrained fn claim_before_launch_is_refused() {
-    let mut env = TestEnvironment::new();
-    let launch_at = env.last_block_timestamp() + 1000;
-    let s = setup_launching_at(launch_at);
+    let s = setup_unlaunched(0);
     let _ = claim(s, 0, 1000);
 }
 
 #[test(should_fail_with = "not launched")]
 unconstrained fn roll_before_launch_is_refused() {
-    let mut env = TestEnvironment::new();
-    let launch_at = env.last_block_timestamp() + 1000;
-    let s = setup_launching_at(launch_at);
+    let s = setup_unlaunched(0);
+    s.env.advance_next_block_timestamp_by(T_MAX);
     s.env.call_public(s.deployer, ElixirMiner::at(s.miner).roll());
 }
 
-#[test]
-unconstrained fn epoch_zero_opens_at_launch() {
+#[test(should_fail_with = "reveal window not over")]
+unconstrained fn launch_before_its_time_is_refused() {
     let mut env = TestEnvironment::new();
     let launch_at = env.last_block_timestamp() + 1000;
-    let s = setup_launching_at(launch_at);
-    let params = s.env.view_public(ElixirMiner::at(s.miner).epoch_params(0));
-    assert_eq(params.opened_at, launch_at);
+    let s = setup_unlaunched(launch_at);
+    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).launch());
+}
+
+#[test(should_fail_with = "token not bound")]
+unconstrained fn launch_requires_a_bound_token() {
+    let mut env = TestEnvironment::new();
+    let deployer = env.create_light_account();
+    let miner = env.deploy("ElixirMiner").with_public_initializer(
+        deployer,
+        ElixirMiner::interface().constructor(INITIAL_TARGET, 1, 0),
+    );
+    env.call_public(deployer, ElixirMiner::at(miner).launch());
+}
+
+#[test(should_fail)]
+unconstrained fn launch_is_one_shot() {
+    let s = setup();
+    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).launch());
+}
+
+#[test]
+unconstrained fn epoch_zero_opens_when_launched_at_or_after_launch_at() {
+    let mut env = TestEnvironment::new();
+    let launch_at = env.last_block_timestamp() + 1000;
+    let mut s = setup_unlaunched(launch_at);
+    assert_eq(s.env.view_public(ElixirMiner::at(s.miner).genesis()).launch_at, launch_at);
     s.env.mine_block_at(launch_at);
+    let stranger = s.env.create_light_account();
+    s.env.call_public(stranger, ElixirMiner::at(s.miner).launch());
+    s.env.mine_block();
+    let params = s.env.view_public(ElixirMiner::at(s.miner).epoch_params(0));
+    assert(params.opened_at >= launch_at);
+    assert_eq(params.target, INITIAL_TARGET);
     let _ = claim(s, 0, 1000);
     assert_eq(s.env.view_public(ElixirMiner::at(s.miner).claims_in(0)), 1);
 }
 
 #[test]
-unconstrained fn a_past_launch_at_means_now() {
-    let s = setup_launching_at(1);
-    let params = s.env.view_public(ElixirMiner::at(s.miner).epoch_params(0));
-    assert(params.opened_at > 1);
+unconstrained fn a_past_launch_at_means_launchable_now() {
+    let s = setup_unlaunched(1);
+    assert(s.env.view_public(ElixirMiner::at(s.miner).genesis()).launch_at > 1);
+}
+
+// Launch lottery: commitments land before launch_at, never twice, never after; with no reveal
+// window (this profile) nothing can be revealed and epoch 0 opens at launch_at (the seed rule
+// itself is unit-tested in launch.nr).
+#[test]
+unconstrained fn a_commitment_is_accepted_once_before_launch_at() {
+    let mut env = TestEnvironment::new();
+    let launch_at = env.last_block_timestamp() + 1000;
+    let mut s = setup_unlaunched(launch_at);
+    let player = s.env.create_light_account();
+    let c = commitment_of(s.miner.to_field(), player.to_field(), 42);
+    s.env.call_public(player, ElixirMiner::at(s.miner).commit_launch(c));
+    let (mix, reveals) = s.env.view_public(ElixirMiner::at(s.miner).launch_lottery());
+    assert_eq(mix, 0);
+    assert_eq(reveals, 0);
+}
+
+#[test(should_fail_with = "already committed")]
+unconstrained fn a_second_commitment_from_the_same_address_is_refused() {
+    let mut env = TestEnvironment::new();
+    let launch_at = env.last_block_timestamp() + 1000;
+    let s = setup_unlaunched(launch_at);
+    let c = commitment_of(s.miner.to_field(), s.deployer.to_field(), 42);
+    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).commit_launch(c));
+    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).commit_launch(c + 1));
+}
+
+#[test(should_fail_with = "commit phase is over")]
+unconstrained fn a_commitment_after_launch_at_is_refused() {
+    let s = setup_unlaunched(0);
+    let c = commitment_of(s.miner.to_field(), s.deployer.to_field(), 42);
+    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).commit_launch(c));
+}
+
+#[test(should_fail_with = "not in the reveal window")]
+unconstrained fn a_reveal_needs_a_window() {
+    let mut env = TestEnvironment::new();
+    let launch_at = env.last_block_timestamp() + 1000;
+    let s = setup_unlaunched(launch_at);
+    let c = commitment_of(s.miner.to_field(), s.deployer.to_field(), 42);
+    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).commit_launch(c));
+    s.env.mine_block_at(launch_at);
+    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).reveal_launch(42));
 }
 
 #[test(should_fail_with = "token minter is not this miner")]
@@ -330,6 +408,12 @@ unconstrained fn constants_expose_the_claim_ttl() {
     assert_eq(c[4], CLAIM_TTL_SECONDS as Field);
 }
 
+#[test]
+unconstrained fn bound_token_reports_the_binding() {
+    let s = setup();
+    assert_eq(s.env.view_public(ElixirMiner::at(s.miner).bound_token()), s.token);
+}
+
 // An attacker alternating rolls (×4) with instant fills (÷4) cannot walk the target anywhere:
 // each pair returns exactly to where it started, and a roll never opens more than ×4.
 #[test]
@@ -346,22 +430,4 @@ unconstrained fn rolls_and_instant_fills_cancel_exactly() {
     }
     assert_eq(open_epoch(s), 2);
     assert_eq(target_of(s, 2), t0);
-}
-
-#[test(should_fail_with = "token not bound")]
-unconstrained fn roll_requires_a_bound_token() {
-    let mut env = TestEnvironment::new();
-    let deployer = env.create_light_account();
-    let miner = env.deploy("ElixirMiner").with_public_initializer(
-        deployer,
-        ElixirMiner::interface().constructor(INITIAL_TARGET, 1, 0),
-    );
-    env.advance_next_block_timestamp_by(T_MAX);
-    env.call_public(deployer, ElixirMiner::at(miner).roll());
-}
-
-#[test]
-unconstrained fn bound_token_reports_the_binding() {
-    let s = setup();
-    assert_eq(s.env.view_public(ElixirMiner::at(s.miner).bound_token()), s.token);
 }

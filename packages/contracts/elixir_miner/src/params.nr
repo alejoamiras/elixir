@@ -4,5 +4,6 @@ pub global EXPECTED_EPOCH_SECONDS: u64 = 300;
 pub global T_MAX: u64 = 1200;
 pub global CLAIM_TTL_SECONDS: u64 = 600;
 pub global LAUNCH_NOTICE_SECONDS: u64 = 0;
+pub global REVEAL_WINDOW_SECONDS: u64 = 0;
 pub global REWARD: u128 = 4000000000000000000;
 pub global VERSION: Field = 1;
