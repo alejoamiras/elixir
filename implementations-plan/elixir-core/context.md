@@ -31,8 +31,8 @@ conversation it never saw. Nothing here overrides `plan.md`; where they disagree
 genesis_seed, launch_at)` with a profile notice period (`LAUNCH_NOTICE_SECONDS`), a claim TTL
 (`CLAIM_TTL_SECONDS`, `set_expiration_timestamp`), the commitment `Poseidon2(DOM_SECRET, secret, recipient)`, the
 deploy domain with the rollup version, `bind_token` invariants, `work_vk_hash()`, `constants()` with five fields.
-Findings, decisions and the codex verdicts: `audit-hardening.md`. The public testnet deployment in
-`deployments/testnet.json` predates it and no longer matches the artifact; redeploying is the owner's call.
+Findings, decisions and the codex verdicts: `audit-hardening.md`. Redeployed to the public testnet on 2026-09-04 15:04 UTC (miner `0x06ccc95e…0015`, token `0x1fa8ff38…8f68`, launched at once);
+the 01:27 deployment stays on chain unused. Launch lottery: `audit-hardening.md` rounds 5–8.
 
 ## 2. What this is, in one paragraph
 

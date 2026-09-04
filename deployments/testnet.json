@@ -3,14 +3,20 @@
   "chainId": "11155111",
   "nodeUrl": "https://v5.testnet.rpc.aztec-labs.com",
   "deployer": "0x2c7a1312299762bab96e91d83c26c4bf1754959bf95854df117b42bca4e3c54b",
-  "miner": "0x1e57c92988aa827a6a3b98ae9c78717885f6fed42c4923db7f7778285890665f",
-  "token": "0x2e4c2883e2a77f0a6385c8f8b7c5400cf2f25103bea803f642076ccb80154fa3",
-  "minerSalt": "0x18069b05bfdfd2307ee74a7211abd165411f6890dd922506586ba6e57b63cd18",
-  "tokenSalt": "0x0b434343e4f7e6c3b2f712a7311200470d92544e3a6f10e482dc184b93731860",
+  "miner": "0x06ccc95e0260aa0cbd6c382ce0521563f6c2dead02470b5dd0332adbc3190015",
+  "token": "0x1fa8ff38a247fa569ef5c83109282491b64fbba4a81a77e684854a0ad4858f68",
+  "minerClassId": "0x25ce05d80c7676955be615dfe0d5befd6bb043c54cd0b62166bd237ae5452ccd",
+  "tokenClassId": "0x10fd5603d57b91daa46f9b8f98ff0cbd4516315ce10e423c05dcfe9638bfecbf",
+  "rollupVersion": "1821665230",
+  "minerSalt": "0x1b35713625308a56b918aad001ddfdfde45c2a0090a68bce4075237219d9d75c",
+  "tokenSalt": "0x052b87dd18673b8910c6ae841df480183e0e4116a148a93a657ab43e1c200d22",
   "params": {
     "N": 4,
     "EXPECTED_EPOCH_SECONDS": "300",
     "T_MAX": "1200",
+    "CLAIM_TTL_SECONDS": "600",
+    "LAUNCH_NOTICE_SECONDS": "0",
+    "REVEAL_WINDOW_SECONDS": "0",
     "REWARD": "4000000000000000000",
     "DECIMALS": 18,
     "INITIAL_TARGET": "21267647932558653966460912964485513216",
@@ -20,5 +26,7 @@
     "TOKEN_NAME": "Elixir Testnet",
     "TOKEN_SYMBOL": "tELX"
   },
-  "deployedAt": "2026-09-04T01:27:01.942Z"
+  "launchAt": "1788534324",
+  "launchedAt": "1788534324",
+  "deployedAt": "2026-09-04T15:04:27.663Z"
 }
