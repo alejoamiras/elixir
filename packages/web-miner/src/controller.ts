@@ -14,7 +14,7 @@ import type { FromWorker, MineJob, ToWorker } from './worker-protocol';
 type Store = ReturnType<typeof createStore>;
 
 const EPOCH_POLL_MS = 10_000;
-const MAX_CONSECUTIVE_CRASHES = 3;
+const MAX_CRASHES = 3;
 
 interface Prover {
   worker: Worker;
@@ -65,7 +65,6 @@ export class MinerController {
         if (this.generations !== generation) return;
         if (e.data.type === 'ready') {
           initialised = true;
-          this.crashes = 0;
           resolve();
         }
         if (e.data.type === 'error') {
@@ -86,21 +85,23 @@ export class MinerController {
     return { worker, ready, generation };
   }
 
-  /** A crash after a successful start is replaced, a bounded number of times in a row. */
+  /** A crash after a successful start is replaced, a bounded number of times per page lifetime. */
   private replaceProver(reason: string) {
     this.prover.worker.terminate();
     this.dispatch({ type: 'failed', error: reason });
     this.log(reason);
-    if (++this.crashes > MAX_CONSECUTIVE_CRASHES)
-      return this.abandonProver('prover keeps crashing; reload the page');
+    if (++this.crashes >= MAX_CRASHES) return this.abandonProver('prover keeps crashing; reload the page');
     this.prover = this.attach();
   }
 
-  /** A failure before the prover ever became ready would repeat identically: no respawn. */
+  /**
+   * Terminal: a failure before the prover ever became ready would repeat identically, and a prover
+   * that keeps crashing is not worth another Worker. The reducer refuses `start` from here on.
+   */
   private abandonProver(reason: string) {
     this.prover.worker.terminate();
     this.generations++;
-    this.dispatch({ type: 'failed', error: reason });
+    this.dispatch({ type: 'prover-dead', error: reason });
     this.log(reason);
   }
 

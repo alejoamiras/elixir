@@ -20,6 +20,8 @@ export interface MinerState {
   /** Prove durations of the last attempts, newest last, for the proofs/s readout. */
   recent: number[];
   lastError: string | null;
+  /** Set once the prover is abandoned (start failure or repeated crashes): only a reload helps. */
+  proverDead: boolean;
 }
 
 export const initial: MinerState = {
@@ -29,6 +31,7 @@ export const initial: MinerState = {
   tickets: 0,
   recent: [],
   lastError: null,
+  proverDead: false,
 };
 
 export type Event =
@@ -38,7 +41,8 @@ export type Event =
   | { type: 'attempt'; proveMs: number }
   | { type: 'winner'; epoch: bigint; secretId: number }
   | { type: 'claimed' }
-  | { type: 'failed'; error: string };
+  | { type: 'failed'; error: string }
+  | { type: 'prover-dead'; error: string };
 
 export type Command =
   | { type: 'mine'; epoch: bigint; seed: bigint; target: bigint; secretId: number }
@@ -57,7 +61,9 @@ function startJob(state: MinerState, epoch: EpochInfo): [MinerState, Command[]] 
 export function reduce(state: MinerState, event: Event): [MinerState, Command[]] {
   switch (event.type) {
     case 'start':
-      return state.phase === 'idle' ? startJob(state, event.epoch) : [state, []];
+      return state.phase === 'idle' && !state.proverDead ? startJob(state, event.epoch) : [state, []];
+    case 'prover-dead':
+      return [{ ...state, phase: 'idle', job: null, lastError: event.error, proverDead: true }, []];
     case 'stop':
       return [{ ...state, phase: 'idle', job: null }, state.phase === 'idle' ? [] : [{ type: 'halt' }]];
     case 'epoch': {

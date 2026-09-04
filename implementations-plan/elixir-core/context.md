@@ -3,10 +3,22 @@
 Read this first, then `plan.md`. Everything below is what a fresh agent would otherwise have to reconstruct from a
 conversation it never saw. Nothing here overrides `plan.md`; where they disagree, `plan.md` wins and this file is stale.
 
-## 1. Where things stand (2026-09-03)
+## 1. Where things stand (2026-09-04)
 
-- **Plan approved** by the owner on 2026-09-03 with the decisions recorded in `plan.md` §5 (Asks 1–12, all marked *decided*)
-  and §8 "User decisions at the gate". Nothing is implemented yet; the repo holds only planning artifacts.
+- **Phases 0–4 are implemented and marked ✓ in `plan.md` §6; Phase 5 is closing** (soak run, report, audits, PRs — the
+  ✓ on its header and the `gh stack` PRs are the last steps of this session), on three stacked branches: A1
+  `worktree-elixir-core` (Phases 0–1), A2 `elixir-core/protocol` (Phases 2–3), A3 `elixir-core/web-testnet`
+  (Phases 4–5). Each arc closes with a codex audit loop; a fresh-session cross-arc pass follows. **Nothing is merged** —
+  merging is the owner's call. Lessons per phase: `lessons/phase-{0..5}.md`; the plan index: `../index.md`.
+- **Testnet**: the `testnet` profile is live on the public Aztec testnet (`docs/deployments.md`, `deployments/testnet.json`,
+  web-miner `.env.production`). The 2 h soak report is `docs/soak-report.md`. Two findings shape any follow-up: the closing
+  claim needs the per-tx maximum gas (`claimGasLimits`, mandatory), and a stale claim that reverts in public blocks that
+  account's note delivery until the tx finalizes on L1 (`docs/roadmap.md` has the options).
+- **Owner actions pending**: review and merge the stack (or not); **rotate the testnet deployer secret** (it was echoed
+  into a local log by a library error during the first deploy attempts — `lessons/phase-5.md`); decide on the reverted-claim
+  recovery design before mainnet. Mainnet is not deployed and out of this plan's scope.
+- Earlier history, kept for the record: **plan approved** by the owner on 2026-09-03 with the decisions in `plan.md` §5
+  (Asks 1–12, all *decided*) and §8.
 - The plan went through: codex round 1 `reject` → round 2 `conditional approve`; independent Claude ("fable") audit
   `conditional approve`; fresh-context final codex `reject` → `conditional approve`. Every condition was adopted; the
   ledger in §8 says what changed and why. Transcripts: `audit-codex.md`, `audit-fable.md`.
@@ -117,4 +129,5 @@ mechanism (§2), the security assumptions (§4) or the decided Asks (§5) is the
 ## 9. Testnet deploy inputs (Phase 5, added 2026-09-03)
 
 - Node: `https://v5.testnet.rpc.aztec-labs.com` (public; the mainnet endpoint in nulo carries an API key in its URL — never copy it into this repo).
+- The secret in that env is a 32-byte key without `0x`, above the BN254 modulus: the deploy CLI validates it with a regex and reduces it into the field itself (`Fr.fromBufferReduce`) — never hand it to `Fr.fromString` / `new Fr`, whose error messages echo the value. The same secret → the same deployer address, so re-running the deploy reuses the account.
 - Deployer account secret: `~/Projects/nulo/packages/bridge-core/.env`, variable `BRIDGE_DEPLOYER_SECRET_TESTNET` (an Aztec account secret; the L1 keys in that file are not needed — fees are sponsored). The deploy script reads `ELIXIR_DEPLOYER_SECRET` and `AZTEC_NODE_URL`; run it as `set -a; source ~/Projects/nulo/packages/bridge-core/.env; set +a; ELIXIR_DEPLOYER_SECRET=$BRIDGE_DEPLOYER_SECRET_TESTNET AZTEC_NODE_URL=… bun run deploy:testnet`. Never copy the values into this repo's `.env`, never print them.

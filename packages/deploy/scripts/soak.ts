@@ -35,9 +35,14 @@ const opt = (name: string, fallback: string) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 ? (args[i + 1] ?? fallback) : fallback;
 };
-const hours = Math.min(MAX_HOURS, Number(opt('hours', String(MAX_HOURS))));
-const maxEpochs = Number(opt('epochs', '24'));
-const maxThreads = Number(opt('threads', String(Math.max(1, cpus().length - 1))));
+const positive = (name: string, fallback: string) => {
+  const n = Number(opt(name, fallback));
+  if (!Number.isFinite(n) || n <= 0) throw new Error(`--${name} must be a positive number`);
+  return n;
+};
+const hours = Math.min(MAX_HOURS, positive('hours', String(MAX_HOURS)));
+const maxEpochs = positive('epochs', '24');
+const maxThreads = positive('threads', String(Math.max(1, cpus().length - 1)));
 const schedule = opt('schedule', 'full,half,pause,full').split(',');
 const label = opt('label', 'soak');
 const startedAt = new Date();

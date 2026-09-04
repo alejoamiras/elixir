@@ -27,7 +27,7 @@ export function MiningCard({ controller }: { controller: () => MinerController |
         <div className="flex gap-2">
           <Button
             data-testid="start"
-            disabled={!ready || miner.phase !== 'idle'}
+            disabled={!ready || miner.phase !== 'idle' || miner.proverDead}
             onClick={() => controller()?.start()}
           >
             Start

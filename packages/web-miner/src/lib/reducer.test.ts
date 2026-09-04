@@ -58,4 +58,12 @@ describe('miner reducer', () => {
     expect(proofsPerSecond([])).toBe(0);
     expect(proofsPerSecond([2000, 2000])).toBe(0.5);
   });
+
+  test('an abandoned prover is terminal: start is refused until the page reloads', () => {
+    const [s] = reduce(initial, { type: 'start', epoch: epoch(1n) });
+    const [dead, cmds] = reduce(s, { type: 'prover-dead', error: 'prover keeps crashing; reload the page' });
+    expect(cmds).toEqual([]);
+    expect(dead).toMatchObject({ phase: 'idle', job: null, proverDead: true });
+    expect(reduce(dead, { type: 'start', epoch: epoch(1n) })).toEqual([dead, []]);
+  });
 });

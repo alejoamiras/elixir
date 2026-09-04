@@ -22,7 +22,7 @@ export async function boot(
   const blocked = firstDisallowedUrl(connection);
   if (blocked)
     throw new Error(
-      `${blocked} is outside this build's allowed node origins (${allowedNodeOrigins().join(', ')}): the CSP in public/_headers would block it — edit it and rebuild`,
+      `${blocked} is outside this build's allowed node origins (${allowedNodeOrigins().join(', ')}): add it to VITE_ALLOWED_NODE_ORIGINS in .env.production and to connect-src in public/_headers, then rebuild`,
     );
   step('verifying the pinned CRS');
   await purgeCrsCache();
