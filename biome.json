@@ -9,7 +9,9 @@
       "!**/.run-state",
       "!**/fixtures",
       "!**/generated",
-      "!implementations-plan"
+      "!implementations-plan",
+      "!docs/pitch",
+      "!docs/**/*.html"
     ]
   },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 110 },

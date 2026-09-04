@@ -3,7 +3,6 @@ name: work-circuit
 on:
   workflow_dispatch:
   pull_request:
-    branches: [main]
 
 permissions:
   contents: read
