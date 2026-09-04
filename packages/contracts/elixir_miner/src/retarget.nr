@@ -17,8 +17,9 @@ pub fn next_target(target: u128, actual: u64) -> u128 {
     clamp(q, lower_bound(target), upper_bound(target))
 }
 
-// Pins (q, r) to ⌊target·actual / EXPECTED⌋ and the remainder. q < 2^130 and r < EXPECTED keep
-// q·EXPECTED + r below 2^148, so the field equality cannot be satisfied by a wrapped pair.
+// Pins (q, r) to ⌊target·actual / EXPECTED⌋ and the remainder. q ≤ 2^130 − 1 and r ≤ EXPECTED − 1
+// keep q·EXPECTED + r ≤ 2^130·EXPECTED − 1 < 2^147, as is target·actual, so the field equality
+// cannot be satisfied by a wrapped pair.
 pub fn constrain_quotient(target: u128, actual: u64, q: Field, r: Field) {
     q.assert_max_bit_size::<130>();
     r.assert_max_bit_size::<64>();

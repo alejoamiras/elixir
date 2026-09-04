@@ -219,7 +219,10 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
     ]);
     const writes = new Map(data.publicDataWrites.map((w) => [w.leafSlot.toBigInt(), w.value.toBigInt()]));
     for (const [slot, value] of expected) expect(writes.get(slot)).toBe(value);
-    expect(writes.size).toBe(base.publicDataWrites.length + expected.size);
+    // The only other write is the fee-juice deduction: the same leaf slot the baseline wrote.
+    expect([...writes.keys()].filter((s) => !expected.has(s))).toEqual(
+      base.publicDataWrites.map((w) => w.leafSlot.toBigInt()),
+    );
   }, 900_000);
 
   test('a tampered proof field fails at proving and a replay of the winning proof is rejected', async () => {
