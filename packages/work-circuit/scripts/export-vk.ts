@@ -39,6 +39,7 @@ mkdirSync(resolve(workCircuitRoot, 'src', 'generated'), { recursive: true });
 // Every embedded copy of the VK is written from this one run; CI diffs them against the commit.
 await Bun.write(resolve(workCircuitRoot, 'crates', 'verify_w', 'src', 'vk.nr'), noir);
 await Bun.write(resolve(repoRoot, 'packages', 'contracts', 'elixir_spike', 'src', 'vk.nr'), noir);
+await Bun.write(resolve(repoRoot, 'packages', 'contracts', 'elixir_miner', 'src', 'vk.nr'), noir);
 await Bun.write(resolve(workCircuitRoot, 'src', 'generated', 'vk.ts'), ts);
 // The committed fixture: the proof of Prover.toml's inputs, used by the layout, digest and
 // mutation tests so they never depend on a prover being available. The proof itself is only

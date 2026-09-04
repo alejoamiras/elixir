@@ -24,6 +24,8 @@ jobs:
               - 'packages/miner-core/**'
               - '!packages/miner-core/**/*.md'
               - 'packages/work-circuit/src/**'
+              - 'elixir.params.json'
+              - 'scripts/params-codegen.ts'
               - 'scripts/run/**'
               - 'biome.json'
               - 'bunfig.toml'

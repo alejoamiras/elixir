@@ -23,6 +23,8 @@ jobs:
             relevant:
               - 'packages/work-circuit/**'
               - '!packages/work-circuit/**/*.md'
+              - 'elixir.params.json'
+              - 'scripts/params-codegen.ts'
               - '.aztecrc'
               - 'toolchain.lock.json'
               - 'scripts/run/toolchain.test.ts'

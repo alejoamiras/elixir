@@ -240,9 +240,12 @@ async function runWithNode(cmd: string[]): Promise<number> {
 }
 
 if (import.meta.main) {
-  const argv = process.argv.slice(2);
+  // `bun script.ts -- cmd` may or may not keep the `--` (bun consumes it); either way the rest is the command.
+  const argv = process.argv.slice(2).filter((a) => a !== '--smoke');
   const sep = argv.indexOf('--');
-  const cmd = sep >= 0 ? argv.slice(sep + 1) : [];
+  const cmd = sep >= 0 ? argv.slice(sep + 1) : argv;
+  if (!cmd.length && !process.argv.includes('--smoke'))
+    throw new Error('usage: isolated-node.ts --smoke | -- <cmd> [args…]');
   if (argv.includes('--smoke')) {
     const node = await startIsolatedNode();
     console.info(`SMOKE OK — node at ${node.nodeUrl}, run ${node.runId}; tearing down.`);

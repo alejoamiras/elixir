@@ -1,0 +1,19 @@
+// Compiled artifacts are build outputs (contracts:compile, work-circuit compile), not committed;
+// Node-side consumers resolve them from the sibling packages, the web miner bundles the same files.
+import { resolve } from 'node:path';
+import { loadContractArtifact } from '@aztec/aztec.js/abi';
+import type { ContractArtifact } from '@aztec/stdlib/abi';
+
+const repo = resolve(import.meta.dir, '../../..');
+export const MINER_ARTIFACT_PATH = resolve(repo, 'packages/contracts/target/elixir_miner-ElixirMiner.json');
+export const WORK_ARTIFACT_PATH = resolve(repo, 'packages/work-circuit/target/elixir_work.json');
+
+export interface WorkArtifact {
+  bytecode: string;
+  abi: unknown;
+}
+
+export const loadMinerArtifact = async (): Promise<ContractArtifact> =>
+  loadContractArtifact(await Bun.file(MINER_ARTIFACT_PATH).json());
+
+export const loadWorkArtifact = (): Promise<WorkArtifact> => Bun.file(WORK_ARTIFACT_PATH).json();
