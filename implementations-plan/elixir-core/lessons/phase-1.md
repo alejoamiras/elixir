@@ -1,5 +1,7 @@
 # Phase 1 lessons — feasibility spike (homelab, AMD Ryzen 5 5600X × 12 threads, 30 GB)
 
+**Gate (plan §6)**: `spike-results.md` committed with all six sections filled from real runs; `spike:work`, `spike:gates`, `spike:claim`, `spike:browser` exit 0; lint green. Result: **passed with one owner waiver** — item 4(b), the executed disabled-row re-derivation, is deferred (plan §8, 2026-09-03); the timer-derived estimate in `spike-results.md` §4b stands. GO given by the owner.
+
 ## Item 1 — work circuit
 
 - 2026-09-03 · `packages/work-circuit` is a Nargo workspace: `crates/lib` (generic `work::<L>` + the six domain separators), `crates/elixir_work` (production, `CHAIN_LEN = 2048`), `crates/sweep_{1024,4096}` (calibration only), `crates/verify_w` (plain recursive verifier with the VK embedded, for ACIR inspection and native measurements). Public inputs: `[domain, seed, epoch, miner_commit, nonce, out]`.

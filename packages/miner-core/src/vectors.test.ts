@@ -50,10 +50,18 @@ describe('cross-language vectors', () => {
     );
   });
 
-  test('retarget vector (skipped when the profile changed EXPECTED_EPOCH_SECONDS)', () => {
-    const r = vectors.retarget;
-    if (BigInt(r.expectedEpochSeconds) !== PARAMS.EXPECTED_EPOCH_SECONDS) return;
-    const rules = { N: PARAMS.N, EXPECTED_EPOCH_SECONDS: PARAMS.EXPECTED_EPOCH_SECONDS, T_MAX: PARAMS.T_MAX };
-    expect(nextTarget(big(r.target), big(r.actual), rules)).toBe(big(r.value));
-  });
+  // Pinned under one profile's EXPECTED_EPOCH_SECONDS; another profile reports a visible skip, not
+  // a silent pass. Re-pin (pin-vectors.ts) when a profile is promoted.
+  test.skipIf(BigInt(vectors.retarget.expectedEpochSeconds) !== PARAMS.EXPECTED_EPOCH_SECONDS)(
+    `retarget vector (pinned for EXPECTED_EPOCH_SECONDS = ${vectors.retarget.expectedEpochSeconds})`,
+    () => {
+      const r = vectors.retarget;
+      const rules = {
+        N: PARAMS.N,
+        EXPECTED_EPOCH_SECONDS: PARAMS.EXPECTED_EPOCH_SECONDS,
+        T_MAX: PARAMS.T_MAX,
+      };
+      expect(nextTarget(big(r.target), big(r.actual), rules)).toBe(big(r.value));
+    },
+  );
 });

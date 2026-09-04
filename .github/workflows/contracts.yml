@@ -25,6 +25,7 @@ jobs:
               - '!packages/contracts/**/*.md'
               - 'packages/work-circuit/src/**'
               - 'packages/work-circuit/crates/**'
+              - 'packages/work-circuit/fixtures/**'
               - 'packages/miner-core/src/**'
               - 'packages/web-miner/**'
               - '!packages/web-miner/**/*.md'
