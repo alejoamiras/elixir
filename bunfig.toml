@@ -1,0 +1,14 @@
+[install]
+# 7 days: a compromised release cannot be pulled in before the ecosystem has noticed it.
+minimumReleaseAge = 604800
+# Hoisted rather than isolated: Vite's dependency pre-bundler resolves the @aztec packages'
+# transitive imports (zod, pino, @aztec/protocol-contracts, …) from the app root, which the
+# isolated layout does not provide.
+linker = "hoisted"
+
+[install.lockfile]
+frozen = false
+
+[test]
+# See scripts/test-preload.ts: Bun 1.4.0 lacks expect.addEqualityTesters, which @aztec/foundation calls.
+preload = ["./scripts/test-preload.ts"]

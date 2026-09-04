@@ -1,0 +1,5 @@
+domain = "1"
+seed = "2"
+epoch = "0"
+miner_commit = "3"
+nonce = "4"

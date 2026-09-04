@@ -1,0 +1,30 @@
+{
+  "name": "@elixir/deploy",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Sandbox and testnet deployment, calibration, spike and epoch-stats scripts",
+  "type": "module",
+  "scripts": {
+    "spike:browser": "bun scripts/spike-browser.ts",
+    "spike:claim": "bun scripts/spike-claim.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@aztec-foundation/aztec-standards": "5.2.0",
+    "@aztec/accounts": "5.2.0",
+    "@aztec/aztec.js": "5.2.0",
+    "@aztec/bb.js": "5.2.0",
+    "@aztec/constants": "5.2.0",
+    "@aztec/foundation": "5.2.0",
+    "@aztec/kv-store": "5.2.0",
+    "@aztec/noir-contracts.js": "5.2.0",
+    "@aztec/noir-noir_js": "5.2.0",
+    "@aztec/stdlib": "5.2.0",
+    "@aztec/wallets": "5.2.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1",
+    "vite": "^8.2.2",
+    "vite-plugin-node-polyfills": "^0.28.0"
+  }
+}

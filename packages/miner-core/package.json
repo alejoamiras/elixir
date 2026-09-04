@@ -1,0 +1,14 @@
+{
+  "name": "@elixir/miner-core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Platform-agnostic mining core: proof to ticket digest, retarget mirror, epoch reader, claim builder",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@aztec/foundation": "5.2.0"
+  }
+}

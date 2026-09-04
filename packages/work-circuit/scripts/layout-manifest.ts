@@ -1,0 +1,111 @@
+// Proof-layout manifest: every one of the 410 fields of a non-ZK UltraHonk proof (Poseidon2
+// transcript, padded to CONST_PROOF_SIZE_LOG_N) labelled by transcript phase, derived from bb's
+// serialisation for the pinned version (honk/proof_length.hpp, ultra_honk/oink_prover.cpp,
+// bbapi/bbapi_ultra_honk.cpp: the proof keeps the IO pairing-point block that precedes the
+// witness commitments; only the inner public inputs are split off).
+// Writes src/generated/proof-layout.json and cross-checks the fixture proof's field widths.
+//   bun packages/work-circuit/scripts/layout-manifest.ts
+import { resolve } from 'node:path';
+import { AZTEC_VERSION, workCircuitRoot } from './toolchain.ts';
+
+const CONST_PROOF_SIZE_LOG_N = 25; // constants.hpp
+const BATCHED_RELATION_PARTIAL_LENGTH = 8; // ultra_flavor.hpp: MAX_PARTIAL_RELATION_LENGTH (7) + 1
+const NUM_ALL_ENTITIES = 41; // ultra_flavor_generated.hpp: 28 precomputed + 8 witness + 5 shifted
+const FRS_PER_COMMITMENT = 4; // BN254 G1 affine as 2 × 2 limbs (136 + 118 bits)
+const PAIRING_INPUTS_FIELDS = 8; // public_inputs_type.hpp: 2 BIGGROUP points × 4
+const WITNESS_COMMITMENTS = [
+  'W_L',
+  'W_R',
+  'W_O',
+  'LOOKUP_READ_COUNTS',
+  'LOOKUP_READ_TAGS',
+  'W_4',
+  'LOOKUP_INVERSES',
+  'Z_PERM',
+];
+
+export interface Slot {
+  index: number;
+  phase:
+    | 'io'
+    | 'oink'
+    | 'sumcheck_univariates'
+    | 'sumcheck_evaluations'
+    | 'gemini_folds'
+    | 'gemini_evals'
+    | 'shplonk'
+    | 'kzg';
+  label: string;
+  /** Commitment limbs are < 2^136 (or < 2^118); scalars are full field elements. */
+  kind: 'limb' | 'scalar';
+}
+
+function build(): Slot[] {
+  const slots: Slot[] = [];
+  const push = (phase: Slot['phase'], label: string, kind: Slot['kind']) =>
+    slots.push({ index: slots.length, phase, label, kind });
+  const comm = (phase: Slot['phase'], label: string) => {
+    for (const limb of ['x_lo', 'x_hi', 'y_lo', 'y_hi']) push(phase, `${label}.${limb}`, 'limb');
+  };
+  comm('io', 'pairing_inputs.P0');
+  comm('io', 'pairing_inputs.P1');
+  for (const w of WITNESS_COMMITMENTS) comm('oink', w);
+  for (let r = 0; r < CONST_PROOF_SIZE_LOG_N; r++) {
+    for (let k = 0; k < BATCHED_RELATION_PARTIAL_LENGTH; k++)
+      push('sumcheck_univariates', `Sumcheck:univariate_${r}[${k}]`, 'scalar');
+  }
+  for (let i = 0; i < NUM_ALL_ENTITIES; i++)
+    push('sumcheck_evaluations', `Sumcheck:evaluations[${i}]`, 'scalar');
+  for (let i = 1; i < CONST_PROOF_SIZE_LOG_N; i++) comm('gemini_folds', `Gemini:FOLD_${i}`);
+  for (let i = 1; i <= CONST_PROOF_SIZE_LOG_N; i++) push('gemini_evals', `Gemini:a_${i}`, 'scalar');
+  comm('shplonk', 'Shplonk:Q');
+  comm('kzg', 'KZG:W');
+  return slots;
+}
+
+const slots = build();
+if (slots.length !== 410) throw new Error(`layout has ${slots.length} slots, expected 410`);
+if (PAIRING_INPUTS_FIELDS !== 2 * FRS_PER_COMMITMENT)
+  throw new Error('pairing inputs must be two commitments');
+
+// Cross-check against the fixture: every limb slot must fit in 17 bytes. (Scalars may by chance be
+// small, so only the limb direction is asserted.)
+const proof = new Uint8Array(
+  await Bun.file(resolve(workCircuitRoot, 'fixtures', 'elixir_work', 'proof')).arrayBuffer(),
+);
+if (proof.length !== 410 * 32) throw new Error(`fixture proof is ${proof.length} bytes`);
+for (const s of slots) {
+  if (s.kind !== 'limb') continue;
+  const field = proof.subarray(s.index * 32, s.index * 32 + 32);
+  const lead = field.findIndex((b) => b !== 0);
+  if (lead !== -1 && lead < 15)
+    throw new Error(`slot ${s.index} (${s.label}) is not a limb: ${Buffer.from(field).toString('hex')}`);
+}
+
+const phases: Record<string, { from: number; to: number; count: number }> = {};
+for (const s of slots) {
+  phases[s.phase] ??= { from: s.index, to: s.index, count: 0 };
+  const p = phases[s.phase];
+  if (p) {
+    p.to = s.index;
+    p.count++;
+  }
+}
+const manifest = {
+  aztecVersion: AZTEC_VERSION,
+  flavor: 'UltraFlavor (non-ZK), Poseidon2 transcript, verifier target noir-recursive-no-zk',
+  constants: {
+    CONST_PROOF_SIZE_LOG_N,
+    BATCHED_RELATION_PARTIAL_LENGTH,
+    NUM_ALL_ENTITIES,
+    FRS_PER_COMMITMENT,
+  },
+  phases,
+  slots,
+};
+const json = JSON.stringify(manifest, null, 2);
+const sha256 = new Bun.CryptoHasher('sha256').update(json).digest('hex');
+await Bun.write(resolve(workCircuitRoot, 'src', 'generated', 'proof-layout.json'), json);
+console.log(`proof-layout.json: 410 slots, sha256 ${sha256}`);
+for (const [name, p] of Object.entries(phases))
+  console.log(`  ${name.padEnd(22)} ${String(p.from).padStart(3)}..${String(p.to).padEnd(3)} (${p.count})`);

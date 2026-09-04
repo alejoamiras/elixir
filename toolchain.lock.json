@@ -1,0 +1,21 @@
+{
+  "aztec": "5.2.0",
+  "installer": {
+    "url": "https://install.aztec-labs.com/5.2.0/install",
+    "sha256": "ee9f7f32dbac9ec929209fe77fd69aa145938391b7f5121109c67ea0b283bab6"
+  },
+  "binaries": {
+    "linux-x64": {
+      "node_modules/@aztec/bb.js/build/amd64-linux/bb": "5a1c1ccd835e257217880936f837847fd74c8d5993497527f070fb2308f9145b",
+      "internal-bin/nargo": "b22dbfac734182440ca92647c8b97a5bc59e099bf5f0602782dbabdca1d98325"
+    }
+  },
+  "bbjs": {
+    "dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz": "9106f6164e4714a87ce1cf13ceac4d22109767a16e6fb997f1af7e7fcc81ae45"
+  },
+  "nargo": {
+    "AztecProtocol/aztec-packages/v5.2.0": "49a592109ec4f18d79212b43d621891aaf36f7b6",
+    "noir-lang/poseidon/v0.3.0": "0880c371e88e583d39515fd3f877538657ac41eb",
+    "AztecProtocol/aztec-standards/v5.2.0": "6fd2912de1fecd477e53861e95e7e551d0cae067"
+  }
+}
