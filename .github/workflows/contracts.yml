@@ -25,6 +25,7 @@ jobs:
               - '!packages/contracts/**/*.md'
               - 'packages/work-circuit/src/**'
               - 'packages/work-circuit/crates/**'
+              - 'packages/miner-core/src/generated/**'
               - 'elixir.params.json'
               - 'scripts/params-codegen.ts'
               - '.aztecrc'

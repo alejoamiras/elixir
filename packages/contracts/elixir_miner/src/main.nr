@@ -1,7 +1,5 @@
-// A proof-hash lottery over UltraHonk proofs of the work circuit W: a claim verifies the proof
-// in-circuit, checks the ticket against the epoch's target, nullifies it and mints privately.
-// Epochs close after N accepted claims or after T_MAX via roll; the target rescales by
-// actual/expected duration, clamped to [¼, 4]. No admin surface survives bind_token.
+// Invariants: at most N accepted claims and N × REWARD minted per epoch; the target moves by at
+// most ×4 or ÷4 per close; no privileged call remains once bind_token has run.
 mod params;
 mod retarget;
 mod test;

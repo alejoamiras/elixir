@@ -142,6 +142,32 @@ unconstrained fn claim_before_binding_fails() {
     env.call_private(deployer, ElixirMiner::at(miner).claim(0, 1, 0, 7, proof, deployer));
 }
 
+// The token refuses the miner as minter: the whole claim fails (mint is a private call inside the
+// claim), so the count, the nullifier and the balance are untouched by construction.
+#[test(should_fail_with = "caller is not minter")]
+unconstrained fn claim_fails_when_the_bound_token_refuses_the_miner() {
+    let mut env = TestEnvironment::new();
+    let deployer = env.create_light_account();
+    let miner = env.deploy("ElixirMiner").with_public_initializer(
+        deployer,
+        ElixirMiner::interface().constructor(INITIAL_TARGET, 1234),
+    );
+    let token = env.deploy("@token_contract/Token").with_public_initializer(
+        deployer,
+        Token::interface().constructor_with_minter(
+            "Elixir0000000000000000000000000",
+            "ELX0000000000000000000000000000",
+            18,
+            deployer,
+            AztecAddress::zero(),
+        ),
+    );
+    env.call_public(deployer, ElixirMiner::at(miner).bind_token(token));
+    env.mine_block();
+    let (proof, _) = winning_proof(1000);
+    env.call_private(deployer, ElixirMiner::at(miner).claim(0, 1000, 0, 7, proof, deployer));
+}
+
 #[test(should_fail)]
 unconstrained fn record_claim_is_only_self() {
     let s = setup();

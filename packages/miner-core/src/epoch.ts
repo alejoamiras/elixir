@@ -18,7 +18,8 @@ export interface EpochView {
 // simulate() wraps the decoded return value: { result, offchainEffects, offchainMessages }.
 const unwrap = async <T>(p: Promise<unknown>): Promise<T> => ((await p) as { result: T }).result;
 
-// Three separate simulations can straddle an epoch close; re-read until the epoch is stable.
+// Separate simulations can straddle an epoch close; the view is only returned once the open
+// epoch reads the same before and after the parameter reads.
 export async function readOpenEpoch(miner: Contract, from: AztecAddress): Promise<EpochView> {
   for (let attempt = 0; attempt < 3; attempt++) {
     const epoch = await unwrap<bigint>(miner.methods.open_epoch().simulate({ from }));

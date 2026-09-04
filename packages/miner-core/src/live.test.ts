@@ -11,9 +11,9 @@ import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import type { Gas } from '@aztec/stdlib/gas';
-import { siloNullifier } from '@aztec/stdlib/hash';
+import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap, siloNullifier } from '@aztec/stdlib/hash';
 import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
-import type { TxReceipt } from '@aztec/stdlib/tx';
+import type { PrivateCallExecutionResult, TxReceipt } from '@aztec/stdlib/tx';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { TokenContract } from '@aztec-foundation/aztec-standards/artifacts/src/artifacts/Token.js';
 import { type Deployment, deployElixir } from '../../deploy/src/deploy.ts';
@@ -108,18 +108,48 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
     await wallet?.stop();
   });
 
+  type Footprint = {
+    nullifiers: Fr[];
+    noteHashes: unknown[];
+    publicDataWrites: { leafSlot: Fr; value: Fr }[];
+  };
+  const footprint = async (r: Awaited<ReturnType<typeof send>>): Promise<Footprint> => {
+    if (!r.ok) throw new Error(`tx failed: ${r.error}`);
+    const effect = await node.getTxEffect((r.receipt as { txHash: never }).txHash);
+    if (!effect) throw new Error('no tx effect');
+    return (effect as unknown as { data: Footprint }).data;
+  };
+
   test('a mined ticket claims REWARD into the private balance and its public effects reveal only the digest', async () => {
+    // Baseline: the same account and fee path sending a trivial call, so protocol-level effects
+    // (the tx-hash nullifier, the fee-juice write) are measured, not assumed, and the claim's own
+    // footprint is asserted as an exact delta.
+    const base = await footprint(await send(miner.methods.constants() as ReturnType<typeof buildClaim>));
     const { winner, secret } = await mine(miner);
-    const r = await send(
-      buildClaim(miner, {
-        epoch: 0n,
-        nonce: winner.nonce,
-        out: winner.out,
-        secret,
-        proofFields: winner.proofFields,
-        recipient: from,
-      }),
-    );
+    const claim = buildClaim(miner, {
+      epoch: 0n,
+      nonce: winner.nonce,
+      out: winner.out,
+      secret,
+      proofFields: winner.proofFields,
+      recipient: from,
+    });
+    // Every private-side nullifier, attributed to the contract that pushed it.
+    const sim = await wallet.simulateTx(await claim.request({ fee: { paymentMethod: fee.paymentMethod } }), {
+      from,
+      skipFeeEnforcement: true,
+    });
+    const pushed: { contract: AztecAddress; inner: Fr }[] = [];
+    const notes: AztecAddress[] = [];
+    const walk = (c: PrivateCallExecutionResult) => {
+      const pi = c.publicInputs;
+      for (const n of pi.nullifiers.array.slice(0, pi.nullifiers.claimedLength))
+        pushed.push({ contract: pi.callContext.contractAddress, inner: n.value });
+      for (let i = 0; i < pi.noteHashes.claimedLength; i++) notes.push(pi.callContext.contractAddress);
+      for (const nested of c.nestedExecutionResults) walk(nested);
+    };
+    walk(sim.privateExecutionResult.entrypoint);
+    const r = await send(claim);
     expect(r.ok).toBe(true);
     const token = TokenContract.at(AztecAddress.fromStringUnsafe(deployment.token), wallet);
     const balance = ((await token.methods.balance_of_private(from).simulate({ from })) as { result: bigint })
@@ -135,20 +165,61 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
     expect(json.includes(secret.toString().slice(2))).toBe(false); // secret not visible
     const data = (
       effect as unknown as {
-        data: { nullifiers: Fr[]; noteHashes: unknown[]; publicDataWrites: { value: Fr }[] };
+        data: { nullifiers: Fr[]; noteHashes: unknown[]; publicDataWrites: { leafSlot: Fr; value: Fr }[] };
       }
     ).data;
-    // Exactly what a claim publishes: the siloed ticket nullifier, the digest as last_digest,
-    // the token's public total supply (first mint on this deployment) and one note hash.
-    const ticketNullifier = await siloNullifier(
-      miner.address,
-      await poseidon2Hash([new Fr(DOM_NULL), winner.digest]),
+    // Beyond the baseline the claim adds exactly: the miner's ticket nullifier, the token's
+    // note-delivery sequence nullifier, the message registry's handshake nullifier and note (a
+    // first delivery from this token to this recipient), the minted note, and three storage
+    // writes — claims[0] = 1, last_digest[0] = digest, the token's total supply = REWARD (first
+    // mint on this deployment). The account and the FPC push nothing.
+    const tokenAddress = AztecAddress.fromStringUnsafe(deployment.token);
+    const by = (contract: AztecAddress) => pushed.filter((p) => p.contract.equals(contract));
+    expect(by(miner.address).map((p) => p.inner.toBigInt())).toEqual([
+      (await poseidon2Hash([new Fr(DOM_NULL), winner.digest])).toBigInt(),
+    ]);
+    expect(by(tokenAddress)).toHaveLength(1);
+    expect(by(from)).toHaveLength(0);
+    expect(pushed).toHaveLength(3);
+    expect(data.nullifiers).toHaveLength(base.nullifiers.length + pushed.length);
+    // The delivery nullifiers derive from the execution's ephemeral handshake secrets, so the
+    // attribution simulation and the sent tx disagree on their values; the ticket is deterministic.
+    const ticket = by(miner.address)[0];
+    if (!ticket) throw new Error('unreachable: the miner pushed the ticket');
+    const siloedTicket = await siloNullifier(miner.address, ticket.inner);
+    expect(data.nullifiers.some((n) => n.equals(siloedTicket))).toBe(true);
+    // Note hashes: the minted note from the token and the handshake record from the registry
+    // that validated the delivery (the contract behind the third nullifier); none from the miner.
+    const registry = pushed.find(
+      (p) => !p.contract.equals(miner.address) && !p.contract.equals(tokenAddress),
     );
-    expect(data.nullifiers.some((n) => n.equals(ticketNullifier))).toBe(true);
-    const written = data.publicDataWrites.map((w) => w.value.toBigInt());
-    expect(written).toContain(winner.digest.toBigInt());
-    expect(written).toContain(PARAMS.REWARD);
-    expect(data.noteHashes.length).toBeGreaterThanOrEqual(1); // the minted note (+ the fee path's own)
+    if (!registry) throw new Error('unreachable: the handshake nullifier has a contract');
+    expect(notes.filter((a) => a.equals(tokenAddress))).toHaveLength(1);
+    expect(notes.filter((a) => a.equals(registry.contract))).toHaveLength(1);
+    expect(notes).toHaveLength(2);
+    expect(data.noteHashes).toHaveLength(base.noteHashes.length + notes.length);
+    const leaf = async (
+      contract: AztecAddress,
+      layout: Record<string, { slot: Fr }>,
+      name: string,
+      key?: Fr,
+    ) => {
+      const base = layout[name]?.slot;
+      if (!base) throw new Error(`no storage slot for ${name}`);
+      const slot = key === undefined ? base : await deriveStorageSlotInMap(base, { toField: () => key });
+      return (await computePublicDataTreeLeafSlot(contract, slot)).toBigInt();
+    };
+    const expected = new Map<bigint, bigint>([
+      [await leaf(miner.address, miner.artifact.storageLayout, 'claims', Fr.ZERO), 1n],
+      [
+        await leaf(miner.address, miner.artifact.storageLayout, 'last_digest', Fr.ZERO),
+        winner.digest.toBigInt(),
+      ],
+      [await leaf(tokenAddress, TokenContract.artifact.storageLayout, 'total_supply'), PARAMS.REWARD],
+    ]);
+    const writes = new Map(data.publicDataWrites.map((w) => [w.leafSlot.toBigInt(), w.value.toBigInt()]));
+    for (const [slot, value] of expected) expect(writes.get(slot)).toBe(value);
+    expect(writes.size).toBe(base.publicDataWrites.length + expected.size);
   }, 900_000);
 
   test('a tampered proof field fails at proving and a replay of the winning proof is rejected', async () => {
@@ -212,7 +283,15 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
   const submit = async (
     c: { miner: Contract; account: AztecAddress },
     w: { winner: Winner; secret: Fr },
-  ): Promise<{ ok: boolean; reverted: boolean; error: string; fee: bigint; ms: number }> => {
+  ): Promise<{
+    ok: boolean;
+    reverted: boolean;
+    error: string;
+    fee: bigint;
+    ms: number;
+    /** Block number and index within it, for mined claims. */
+    at?: [number, number];
+  }> => {
     const t0 = performance.now();
     const claim = buildClaim(c.miner, {
       epoch: 0n,
@@ -236,6 +315,7 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
         error: ok ? '' : (receipt.error ?? `reverted in ${where}`),
         fee: receipt.transactionFee ?? 0n,
         ms: performance.now() - t0,
+        at: [Number(receipt.blockNumber), Number(receipt.txIndexInBlock)],
       };
     } catch (e) {
       return {
@@ -294,5 +374,15 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
     expect(stale.length).toBe(rules.N);
     expect(closed).toBe(rules.N);
     expect(view.epoch).toBe(1n);
+    // The paid public path must actually have been exercised: at least one claim was sequenced
+    // after the closing success, reverted there, and paid for it.
+    const position = (r: { at?: [number, number] }) => (r.at?.[0] ?? 0) * 1_000_000 + (r.at?.[1] ?? 0);
+    const closer = Math.max(...accepted.map(position));
+    const mined = stale.filter((r) => r.reverted);
+    expect(mined.length).toBeGreaterThan(0);
+    for (const r of mined) {
+      expect(r.fee).toBeGreaterThan(0n);
+      expect(position(r)).toBeGreaterThan(closer);
+    }
   }, 1_800_000);
 });
