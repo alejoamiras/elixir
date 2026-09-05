@@ -1,9 +1,6 @@
-// Writes the selected profile of yacana.params.json into every place a parameter is consumed:
-// the miner contract's Noir globals, the work circuit's chain length, the domain separators
-// shared by the Noir crates and miner-core, and miner-core's TS constants. It also turns the
-// pinned cross-language vectors (packages/work-circuit/fixtures/vectors.json, written by
-// packages/miner-core/scripts/pin-vectors.ts) into Noir tests, so the contract checks the same
-// hashes miner-core checks. Everything generated is committed and diffed in CI.
+// One profile of yacana.params.json becomes every Noir global and TS constant that consumes it,
+// plus Noir tests of the vectors miner-core pinned (fixtures/vectors.json); all outputs are
+// committed and CI fails on drift.
 //   YACANA_PROFILE=testnet|mainnet bun scripts/params-codegen.ts
 import { existsSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';

@@ -7,7 +7,8 @@ import { resolve } from 'node:path';
 import { $ } from 'bun';
 
 const repo = resolve(import.meta.dir, '..');
-const EXTENSIONS = /\.(ts|tsx|nr|toml|json|jsonc|yml|md|html)$/;
+// Binary fixtures are skipped by content; everything else tracked is scanned, path included.
+const BINARY = /\/fixtures\/[^/]+\/(proof|public_inputs|vk|vk_hash)$/;
 const EXEMPT_PATHS = [
   /^implementations-plan\//,
   /^docs\/pitch\//,
@@ -17,27 +18,47 @@ const EXEMPT_PATHS = [
 ];
 // Paths that legitimately keep the old name may be referenced from live files.
 const EXEMPT_REFERENCES = [/implementations-plan\/elixir-[\w-]*/g, /deployments\/elixir-testnet-[\w.-]*/g];
-const OLD_NAME = /\b(elixir|Elixir|ELIXIR|ELX|tELX)\b/;
+// Any spelling inside identifiers too (ElixirMiner, VITE_ELIXIR_MINER, deployElixir, elixir_work);
+// the symbol is bounded by non-alphanumerics so hex and base64 runs cannot trip it.
+const OLD_NAME = /elixir|(^|[^a-z0-9])t?ELX([^a-z0-9]|$)/i;
 
-const tracked = (await $`git ls-files`.cwd(repo).text()).split('\n').filter((f) => EXTENSIONS.test(f));
+const tracked = (await $`git ls-files`.cwd(repo).text()).split('\n').filter(Boolean);
 
 const offending = (file: string, text: string): string[] => {
   const lines = text.split('\n');
-  // docs/deployments.md keeps the old deployment under an "Archived" heading; everything from there on is history.
-  const end = file === 'docs/deployments.md' ? lines.findIndex((l) => l.startsWith('## Archived')) : -1;
+  // docs/deployments.md keeps the old deployment under an "Archived" heading, up to the next heading.
+  const start = file === 'docs/deployments.md' ? lines.findIndex((l) => l.startsWith('## Archived')) : -1;
+  const end = start === -1 ? -1 : lines.findIndex((l, i) => i > start && l.startsWith('## '));
   return lines
-    .slice(0, end === -1 ? lines.length : end)
     .map((line, i) => ({ line: EXEMPT_REFERENCES.reduce((l, re) => l.replace(re, ''), line), i }))
+    .filter(({ i }) => start === -1 || i < start || (end !== -1 && i >= end))
     .filter(({ line }) => OLD_NAME.test(line))
     .map(({ i }) => `${file}:${i + 1}`);
 };
 
 describe('rename guard', () => {
   test('no active file names the old protocol', () => {
-    const hits = tracked
-      .filter((f) => !EXEMPT_PATHS.some((re) => re.test(f)))
-      .flatMap((f) => offending(f, readFileSync(resolve(repo, f), 'utf8')));
+    const live = tracked.filter((f) => !EXEMPT_PATHS.some((re) => re.test(f)));
+    const hits = [
+      ...live.filter((f) => OLD_NAME.test(f)).map((f) => `${f} (path)`),
+      ...live
+        .filter((f) => !BINARY.test(f))
+        .flatMap((f) => offending(f, readFileSync(resolve(repo, f), 'utf8'))),
+    ];
     expect(hits).toEqual([]);
+  });
+
+  test('the pattern catches identifier spellings', () => {
+    for (const s of [
+      'ElixirMiner',
+      'VITE_ELIXIR_MINER',
+      'deployElixir',
+      'elixir_work.json',
+      '4 tELX',
+      'ELX/depl',
+    ])
+      expect(OLD_NAME.test(s)).toBe(true);
+    for (const s of ['sha256:9ELXq', 'PIXELXY', 'yacana_work']) expect(OLD_NAME.test(s)).toBe(false);
   });
 
   test('workspace packages are scoped @yacana', () => {

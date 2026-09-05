@@ -69,7 +69,7 @@ console.log(
 );
 
 const wrongPi = publicInputs.slice();
-wrongPi[wrongPi.length - 1] ^= 1; // nonce +/- 1
+wrongPi[wrongPi.length - 1] ^= 1; // the circuit's output field
 const wrongPiOk = await verify(proof, wrongPi);
 const wrongVkOk = await verify(proof, publicInputs, resolve(root, 'target', 'sweep_1024', 'vk'));
 console.log(`wrong public inputs verifies: ${wrongPiOk}; wrong VK (sweep_1024) verifies: ${wrongVkOk}`);

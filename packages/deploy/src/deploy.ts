@@ -35,7 +35,10 @@ export interface Deployment {
   minerSalt: string;
   tokenSalt: string;
   params: Record<string, string | number>;
-  /** Unix seconds; launch() may open epoch 0 from here (genesis().launch_at). */
+  /**
+   * genesis().launch_at as the chain normalised it (a constructor argument of 0 becomes the deploy
+   * block's time), so it is not the constructor argument that predicts the address.
+   */
   launchAt: string;
   /** Set when this deployment launched at once (launchAt 0): epoch 0's opened_at. */
   launchedAt?: string;

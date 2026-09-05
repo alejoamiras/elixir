@@ -19,17 +19,24 @@ jobs:
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         with:
+          predicate-quantifier: some-with-excludes
           filters: |
             relevant:
               - 'packages/miner-core/**'
-              - '!packages/miner-core/**/*.md'
               - 'packages/work-circuit/src/**'
               - 'packages/work-circuit/crates/**'
               - 'packages/work-circuit/fixtures/**'
               - 'packages/contracts/yacana_miner/src/**'
               - 'yacana.params.json'
-              - 'scripts/params-codegen.ts'
-              - 'scripts/run/**'
+              - 'scripts/**'
+              - 'packages/deploy/**'
+              - 'packages/contracts/scripts/**'
+              - 'packages/work-circuit/scripts/**'
+              - 'packages/web-miner/e2e/**'
+              - 'packages/web-miner/scripts/**'
+              - 'deployments/**'
+              - 'docs/**'
+              - '**/*.md'
               - 'biome.json'
               - 'bunfig.toml'
               - 'tsconfig.json'
@@ -58,4 +65,5 @@ jobs:
         shell: bash
         continue-on-error: true
         run: bun audit | tee -a "$GITHUB_STEP_SUMMARY"
-      - run: bun test packages/miner-core scripts
+      - run: bun run typecheck
+      - run: bun test packages/miner-core packages/deploy scripts

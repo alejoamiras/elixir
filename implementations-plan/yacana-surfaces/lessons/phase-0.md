@@ -65,3 +65,30 @@ epoch  claims  opened_at (UTC)       duration  retarget  difficulty
 ```
 
 Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · web-miner `typecheck` ✓ · `bun test` 41 pass / 6 skip / 0 fail ✓ · `epoch:stats` shows epoch 0 ✓.
+
+## Arc 0 codex loop (2026-09-05)
+
+**Round 1** — session `01a07274-374c-7a21-8d1a-9bad08ec6109` (gpt-6-astra, xhigh, read-only; files in `~/.cache/tmp/codex-zq0gF8Lc`).
+Verdict: "The rename and deployment are internally consistent; I found material guard, generation, and CI gaps, but no new
+critical or high-severity exploit." Six findings, all verified against the repo and applied:
+1. **Guard regex missed identifier spellings** (`ElixirMiner`, `VITE_ELIXIR_MINER`, `deployElixir`, `elixir_work.json` all
+   evaded `\b…\b`; `.sh`, `.env.production`, `_headers`, file names unchecked). Now: substring `elixir` (any case) plus
+   `t?ELX` bounded by non-alphanumerics, every tracked file except binary fixtures, paths included, the archived section
+   bounded to its heading, positive/negative pattern cases in the test.
+2. **`codegen` compiled before exporting the VK** (stale `verify_w.json`) and `export-vk` copied whatever proof sat in
+   `target/<crate>/` next to a fresh VK. Now: `codegen` recompiles after the export; `export-vk` runs `bb verify` on the
+   fixture and refuses a proof that does not verify under the new VK.
+3. **Root `typecheck` had no CI consumer.** `miner-core.yml` runs it (and `bun test packages/deploy`), with its filter widened
+   to the root program's inputs (`scripts/**`, `packages/deploy/**`, the scripts/e2e dirs, `deployments/**`, docs).
+4. **`dorny/paths-filter` negations made every filter universal** (`!pkg/**/*.md` matches any unrelated file under the
+   default `some` quantifier; codex reproduced `README.md` triggering all five workflows). All five workflows now set
+   `predicate-quantifier: some-with-excludes` (supported at the pinned SHA, verified in its `action.yml`).
+5. **Record test accepted unusable values.** Addresses now parse through `AztecAddress.fromStringUnsafe` + `isValid()`
+   (5.2.0 has no throwing `fromString`; plan text saying `AztecAddress.fromString` means this pair), class ids/salts through
+   `Fr.fromString`, zero rejected, `launchedAt ≥ launchAt`.
+6. Comments: stale two-input `secretCommitment` docstring deleted; `mutation.ts` "nonce +/- 1" was wrong (the last public
+   input is the output); codegen header compressed; record-test header no longer over-claims; `launchAt` documented as the
+   chain-normalised value (not the address-predicting constructor argument).
+Looks-fine list from codex: domain values, seeds, VK copies, artifact paths and production addresses agree; both addresses
+and class ids reproduce from the artifacts; the archived record is byte-for-byte unchanged; no surviving deployer authority;
+dropping the two tsconfig flags is defensible.

@@ -30,7 +30,6 @@ export const low128 = (digest: Fr): bigint => digest.toBigInt() & ((1n << 128n) 
 
 export const isWinner = (digest: Fr, target: bigint): boolean => low128(digest) < target;
 
-/** Poseidon2(DOM_SECRET, secret): the miner's commitment carried in the work circuit. */
 /** Poseidon2(DOM_SECRET, secret, recipient): a leaked (proof, secret) can only pay this recipient. */
 export const secretCommitment = (secret: Fr, recipient: Fr): Promise<Fr> =>
   poseidon2Hash([new Fr(DOM_SECRET), secret, recipient]);
