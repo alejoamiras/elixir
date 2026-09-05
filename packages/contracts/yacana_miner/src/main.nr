@@ -11,7 +11,7 @@ mod vk;
 use aztec::macros::aztec;
 
 #[aztec]
-pub contract ElixirMiner {
+pub contract YacanaMiner {
     use aztec::{
         history::storage::public_storage_historical_read,
         macros::{functions::{external, initializer, internal, only_self, view}, storage::storage},
@@ -19,7 +19,7 @@ pub contract ElixirMiner {
         state_vars::{Map, PublicImmutable, PublicMutable, StateVariable},
     };
     use bb_proof_verification::{RECURSIVE_PROOF_LENGTH, verify_honk_proof_non_zk};
-    use elixir_work_lib::{DOM_DEPLOY, DOM_NULL, DOM_SECRET, DOM_SEED};
+    use yacana_work_lib::{DOM_DEPLOY, DOM_NULL, DOM_SECRET, DOM_SEED};
     use poseidon::poseidon2::Poseidon2;
     use std::meta::derive;
     use token_contract::Token;

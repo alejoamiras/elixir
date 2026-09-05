@@ -23,7 +23,7 @@ const rand = () => {
 };
 
 const root = workCircuitRoot;
-const fixtures = resolve(root, 'fixtures', 'elixir_work');
+const fixtures = resolve(root, 'fixtures', 'yacana_work');
 const scratch = resolve(root, 'target', 'mutation');
 mkdirSync(scratch, { recursive: true });
 const proof = new Uint8Array(await Bun.file(`${fixtures}/proof`).arrayBuffer());
@@ -60,7 +60,7 @@ for (let c = 0; c < combos; c++) {
   const k = 2 + Math.floor(rand() * 7);
   const idx = new Set<number>();
   while (idx.size < k) idx.add(Math.floor(rand() * n));
-  let m = proof;
+  let m: Uint8Array = proof;
   for (const i of idx) m = flip(m, i, Math.floor(rand() * 254));
   if (await verify(m)) comboSurvivors.push([...idx]);
 }
@@ -75,11 +75,11 @@ const wrongVkOk = await verify(proof, publicInputs, resolve(root, 'target', 'swe
 console.log(`wrong public inputs verifies: ${wrongPiOk}; wrong VK (sweep_1024) verifies: ${wrongVkOk}`);
 
 // ZK-flavour proof (verifier target noir-recursive) checked with the non-ZK verifier target.
-const zkDir = resolve(root, 'target', 'elixir_work-zk');
-await $`${BB} write_vk -b ${root}/target/elixir_work.json --scheme ultra_honk -t noir-recursive -o ${zkDir}`
+const zkDir = resolve(root, 'target', 'yacana_work-zk');
+await $`${BB} write_vk -b ${root}/target/yacana_work.json --scheme ultra_honk -t noir-recursive -o ${zkDir}`
   .cwd(root)
   .quiet();
-await $`${BB} prove -b ${root}/target/elixir_work.json -w ${root}/target/elixir_work.gz -k ${zkDir}/vk --scheme ultra_honk -t noir-recursive -o ${zkDir}`
+await $`${BB} prove -b ${root}/target/yacana_work.json -w ${root}/target/yacana_work.gz -k ${zkDir}/vk --scheme ultra_honk -t noir-recursive -o ${zkDir}`
   .cwd(root)
   .quiet();
 // A bit flip in a commitment limb yields an invalid point encoding, which says nothing about the

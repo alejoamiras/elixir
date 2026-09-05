@@ -26,7 +26,8 @@
     "spike:work": "bun run --cwd packages/work-circuit spike:sweep && bun run --cwd packages/work-circuit spike:determinism && bun run --cwd packages/work-circuit spike:wasm && bun run --cwd packages/work-circuit spike:manifest && bun run --cwd packages/work-circuit spike:mutation && bun run --cwd packages/work-circuit spike:ticket-cost",
     "test": "bun test",
     "test:components": "bun run --filter './packages/web-miner' test:components",
-    "test:e2e": "bun run --filter './packages/*' test:e2e"
+    "test:e2e": "bun run --filter './packages/*' test:e2e",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,jsonc}": [
@@ -49,7 +50,8 @@
     "@types/bun": "^1.4.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.4.1",
-    "sort-package-json": "^4.0.0"
+    "sort-package-json": "^4.0.0",
+    "typescript": "~6"
   },
   "packageManager": "bun@1.4.0",
   "engines": {

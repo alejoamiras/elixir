@@ -21,7 +21,7 @@ async function init(threads: number) {
   // bb.js prefers its IndexedDB copy of the CRS over any download: only bytes that went through
   // the pinned path may be there, so the cache is dropped before the backend is created.
   await purgeCrsCache();
-  const artifact = await (await fetch('/artifacts/elixir_work.json')).json();
+  const artifact = await (await fetch('/artifacts/yacana_work.json')).json();
   const api = await Barretenberg.new({ threads, backend: BackendType.WasmWorker });
   prover = new BbJsWorkProver(artifact, api);
   post({ type: 'ready', threads, initMs: performance.now() - t0 });

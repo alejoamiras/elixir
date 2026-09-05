@@ -1,4 +1,4 @@
-// Deploys one profile of elixir.params.json: the token-less miner (its address depends only on
+// Deploys one profile of yacana.params.json: the token-less miner (its address depends only on
 // class, salt, deployer and its constructor args), the token with `minter` = that address, the
 // miner, then one bind_token. Fees go through the sponsored FPC; the deployer is an
 // initializerless Schnorr account derived from ELIXIR_DEPLOYER_SECRET (never logged).
@@ -87,7 +87,7 @@ async function verifyOnChain(
   return { launchAt: genesis.launch_at, openedAt: epoch0.opened_at };
 }
 
-export async function deployElixir(
+export async function deployYacana(
   nodeUrl: string,
   deployerSecret: Fr,
   salt = Fr.random(),
@@ -109,7 +109,7 @@ export async function deployElixir(
       )
     ).address;
     const minerArtifact = loadContractArtifact(
-      await Bun.file(resolve(repo, 'packages/contracts/target/elixir_miner-ElixirMiner.json')).json(),
+      await Bun.file(resolve(repo, 'packages/contracts/target/yacana_miner-YacanaMiner.json')).json(),
     );
     const minerDeploy = Contract.deploy(
       wallet,
@@ -195,7 +195,7 @@ if (import.meta.main) {
     );
   const launchAt = BigInt(process.env.ELIXIR_LAUNCH_AT ?? '0');
   if (launchAt < 0n || launchAt >= 1n << 63n) throw new Error('ELIXIR_LAUNCH_AT must be unix seconds');
-  const deployment = await deployElixir(nodeUrl, deployerSecret, salt, { launchAt });
+  const deployment = await deployYacana(nodeUrl, deployerSecret, salt, { launchAt });
   mkdirSync(dir, { recursive: true });
   await Bun.write(file, `${JSON.stringify(deployment, null, 2)}\n`);
   console.log(`deployed ${PROFILE}: miner ${deployment.miner}, token ${deployment.token} → ${file}`);

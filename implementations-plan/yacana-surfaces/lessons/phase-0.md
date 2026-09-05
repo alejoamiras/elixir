@@ -1,0 +1,26 @@
+# Lessons — arc 0 (rename)
+
+## P0.1 Protocol rename (2026-09-05)
+
+**Result:** ✓. New `W_VK_HASH = 0x1d1043617e4762fe8a2bb2ecf572de706ae890fdb4a4ff0d8f298e24722ece7b` (was `0x09fdc6…fb53`).
+Order that worked: `git mv` crates/fixtures → sed renames → `params-codegen` → work-circuit `compile` → `sweep.ts --runs 1 yacana_work`
+(the fixture proof comes from `target/<crate>/`, which `sweep.ts` writes; `determinism.ts` writes to `target/<crate>-det` and never feeds
+the fixture) → `determinism.ts --runs 3` (3/3 byte-identical, sha256 `57799830…be42`) → `export-vk` → `pin-vectors` → `params-codegen`
+(vectors.nr) → `spike:manifest` → work-circuit `compile` AGAIN → contracts compile.
+
+- **`bun run codegen` leaves `target/verify_w.json` one VK behind.** Its order is compile → export-vk, so the verify_w artifact
+  is built against the previous `vk.nr`; `vk-pinning.test.ts` compiles verify_w itself so it is unaffected, but anything reading
+  `target/verify_w.json` after a VK change needs a second compile.
+- **nargo `--print-acir` prints constants above p/2 as negatives.** The new hash happens to be > p/2, so the pinning test's
+  `(\d+)` regex silently dropped the `ASSERT w492 = -…` line. Fixed: `(-?\d+)` normalised mod p.
+- **Root `typecheck` (new) surfaced ten latent errors** in scripts nobody type-checked (Bun runs them untyped): `launch.ts`
+  logged `receipt.txHash` off a `{ receipt }` wrapper (printed `undefined` at runtime), an `unknown`→`number` template, a
+  `Uint8Array<ArrayBuffer>` narrowing in `mutation.ts`, `proof-shape.ts` not a module, `window.__spike`/`window.yacana`
+  declared only in files outside the program, and `process.off('SIGINT')` rejected by bun-types 1.4's `memoryPressure`
+  override (cast through `EventEmitter`). Root `tsconfig.json` dropped `noUncheckedIndexedAccess` and
+  `exactOptionalPropertyTypes` (never enforced; `exactOptionalPropertyTypes` makes `NodeEmbeddedWallet` unassignable to
+  aztec's `Wallet`, an upstream typing gap) and excludes `packages/web-miner/src` (its own `tsc -b` with `jsx` + `@/` paths
+  covers it; the gates run both). `typescript ~6` is now a root devDependency.
+- Timings (homelab, Ryzen 5 5600X): work-circuit compile < 1 s; prove 2.6 s; contracts compile ≈ 4 min; `aztec test` 54 tests ≈ 3 min.
+
+Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · web-miner `typecheck` ✓ · `bun run codegen && git diff --exit-code` ✓ (after `git add -A`) · `contracts:compile` ✓ · `contracts:test` 54 passed ✓ · `bun test` 37 pass / 6 skip / 0 fail ✓.

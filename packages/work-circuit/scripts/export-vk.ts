@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 import { $ } from 'bun';
 import { BB, repoRoot, workCircuitRoot } from './toolchain.ts';
 
-const crate = process.argv[2] ?? 'elixir_work';
+const crate = process.argv[2] ?? 'yacana_work';
 const dir = resolve(workCircuitRoot, 'target', crate);
 await $`${BB} write_vk -b ${workCircuitRoot}/target/${crate}.json --scheme ultra_honk -t noir-recursive-no-zk -o ${dir}`
   .cwd(workCircuitRoot)
@@ -38,8 +38,8 @@ mkdirSync(resolve(workCircuitRoot, 'crates', 'verify_w', 'src'), { recursive: tr
 mkdirSync(resolve(workCircuitRoot, 'src', 'generated'), { recursive: true });
 // Every embedded copy of the VK is written from this one run; CI diffs them against the commit.
 await Bun.write(resolve(workCircuitRoot, 'crates', 'verify_w', 'src', 'vk.nr'), noir);
-await Bun.write(resolve(repoRoot, 'packages', 'contracts', 'elixir_spike', 'src', 'vk.nr'), noir);
-await Bun.write(resolve(repoRoot, 'packages', 'contracts', 'elixir_miner', 'src', 'vk.nr'), noir);
+await Bun.write(resolve(repoRoot, 'packages', 'contracts', 'yacana_spike', 'src', 'vk.nr'), noir);
+await Bun.write(resolve(repoRoot, 'packages', 'contracts', 'yacana_miner', 'src', 'vk.nr'), noir);
 await Bun.write(resolve(workCircuitRoot, 'src', 'generated', 'vk.ts'), ts);
 // The committed fixture: the proof of Prover.toml's inputs, used by the layout, digest and
 // mutation tests so they never depend on a prover being available. The proof itself is only

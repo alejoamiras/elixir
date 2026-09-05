@@ -13,7 +13,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { Fr } from '@aztec/aztec.js/fields';
 import { lanePortBase, runPortWindowBase } from '../../../scripts/run/port-window.ts';
 import { claim, release } from '../../../scripts/run/registry.ts';
-import { deployElixir } from '../../deploy/src/deploy.ts';
+import { deployYacana } from '../../deploy/src/deploy.ts';
 import { type E2eRun, type E2eServer, RUN_FILE } from './run.ts';
 
 const nodeUrl = process.env.AZTEC_NODE_URL;
@@ -72,7 +72,7 @@ const port = await claim({
 });
 try {
   const target = BigInt(process.env.ELIXIR_E2E_TARGET ?? String(1n << 127n));
-  const deployed = await deployElixir(nodeUrl, Fr.random(), Fr.random(), { initialTarget: target });
+  const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: target });
   const log = openSync(resolve(pkg, 'e2e/.vite.log'), 'w');
   if (server === 'preview') buildForRun(log, deployed.miner, deployed.token);
   const vite = startServer(log, port);

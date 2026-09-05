@@ -3,7 +3,7 @@
 // "proof" ground until its ticket wins, which also gives every claim its own nullifier.
 mod vectors;
 
-use crate::ElixirMiner;
+use crate::YacanaMiner;
 use crate::params::{CLAIM_TTL_SECONDS, EXPECTED_EPOCH_SECONDS, N, REWARD, T_MAX};
 use crate::launch::commitment_of;
 use crate::retarget::next_target;
@@ -13,7 +13,7 @@ use aztec::{
     test::helpers::test_environment::TestEnvironment,
 };
 use bb_proof_verification::RECURSIVE_PROOF_LENGTH;
-use elixir_work_lib::DOM_SEED;
+use yacana_work_lib::DOM_SEED;
 use poseidon::poseidon2::Poseidon2;
 use token_contract::Token;
 
@@ -30,7 +30,7 @@ pub struct Setup {
 // the deployer launches: epoch 0 opens at once (no notice period in the test profile).
 unconstrained fn setup() -> Setup {
     let s = setup_unlaunched(0);
-    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).launch());
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).launch());
     s.env.mine_block();
     s
 }
@@ -39,21 +39,21 @@ unconstrained fn setup() -> Setup {
 unconstrained fn setup_unlaunched(launch_at: u64) -> Setup {
     let mut env = TestEnvironment::new();
     let deployer = env.create_light_account();
-    let miner = env.deploy("ElixirMiner").with_public_initializer(
+    let miner = env.deploy("YacanaMiner").with_public_initializer(
         deployer,
-        ElixirMiner::interface().constructor(INITIAL_TARGET, 1234, launch_at),
+        YacanaMiner::interface().constructor(INITIAL_TARGET, 1234, launch_at),
     );
     let token = env.deploy("@token_contract/Token").with_public_initializer(
         deployer,
         Token::interface().constructor_with_minter(
-            "Elixir0000000000000000000000000",
-            "ELX0000000000000000000000000000",
+            "Yacana0000000000000000000000000",
+            "YACA000000000000000000000000000",
             18,
             miner,
             AztecAddress::zero(),
         ),
     );
-    env.call_public(deployer, ElixirMiner::at(miner).bind_token(token));
+    env.call_public(deployer, YacanaMiner::at(miner).bind_token(token));
     env.mine_block();
     Setup { env, deployer, miner, token }
 }
@@ -91,22 +91,22 @@ unconstrained fn losing_proof(k: Field) -> ([Field; RECURSIVE_PROOF_LENGTH], Fie
 
 unconstrained fn claim(s: Setup, e: u64, k: Field) -> Field {
     let (proof, digest) = winning_proof(k);
-    s.env.call_private(s.deployer, ElixirMiner::at(s.miner).claim(e, k, 0, 7, proof, s.deployer));
+    s.env.call_private(s.deployer, YacanaMiner::at(s.miner).claim(e, k, 0, 7, proof, s.deployer));
     s.env.mine_block();
     digest
 }
 
 unconstrained fn open_epoch(s: Setup) -> u64 {
-    s.env.view_public(ElixirMiner::at(s.miner).open_epoch())
+    s.env.view_public(YacanaMiner::at(s.miner).open_epoch())
 }
 
 unconstrained fn target_of(s: Setup, e: u64) -> u128 {
-    s.env.view_public(ElixirMiner::at(s.miner).epoch_params(e)).target
+    s.env.view_public(YacanaMiner::at(s.miner).epoch_params(e)).target
 }
 
 unconstrained fn expected_seed(s: Setup, closing_digest: Field) -> Field {
-    let epoch0 = s.env.view_public(ElixirMiner::at(s.miner).epoch_params(0));
-    let epoch1 = s.env.view_public(ElixirMiner::at(s.miner).epoch_params(1));
+    let epoch0 = s.env.view_public(YacanaMiner::at(s.miner).epoch_params(0));
+    let epoch1 = s.env.view_public(YacanaMiner::at(s.miner).epoch_params(1));
     Poseidon2::hash([DOM_SEED, epoch0.seed, 1, closing_digest, epoch1.opened_at as Field], 5)
 }
 
@@ -115,7 +115,7 @@ unconstrained fn txe_accepts_a_fabricated_proof() {
     // Documents why proof validity must be tested with real proving: this passes.
     let s = setup();
     let _ = claim(s, 0, 1000);
-    assert_eq(s.env.view_public(ElixirMiner::at(s.miner).claims_in(0)), 1);
+    assert_eq(s.env.view_public(YacanaMiner::at(s.miner).claims_in(0)), 1);
 }
 
 #[test]
@@ -131,30 +131,30 @@ unconstrained fn bind_token_rejects_non_deployer() {
     let mut env = TestEnvironment::new();
     let deployer = env.create_light_account();
     let stranger = env.create_light_account();
-    let miner = env.deploy("ElixirMiner").with_public_initializer(
+    let miner = env.deploy("YacanaMiner").with_public_initializer(
         deployer,
-        ElixirMiner::interface().constructor(INITIAL_TARGET, 1, 0),
+        YacanaMiner::interface().constructor(INITIAL_TARGET, 1, 0),
     );
-    env.call_public(stranger, ElixirMiner::at(miner).bind_token(stranger));
+    env.call_public(stranger, YacanaMiner::at(miner).bind_token(stranger));
 }
 
 #[test(should_fail)]
 unconstrained fn bind_token_is_one_shot() {
     let s = setup();
-    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).bind_token(s.token));
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).bind_token(s.token));
 }
 
 #[test(should_fail)]
 unconstrained fn claim_before_binding_fails() {
     let mut env = TestEnvironment::new();
     let deployer = env.create_light_account();
-    let miner = env.deploy("ElixirMiner").with_public_initializer(
+    let miner = env.deploy("YacanaMiner").with_public_initializer(
         deployer,
-        ElixirMiner::interface().constructor(INITIAL_TARGET, 1, 0),
+        YacanaMiner::interface().constructor(INITIAL_TARGET, 1, 0),
     );
     env.mine_block();
     let (proof, _) = winning_proof(1);
-    env.call_private(deployer, ElixirMiner::at(miner).claim(0, 1, 0, 7, proof, deployer));
+    env.call_private(deployer, YacanaMiner::at(miner).claim(0, 1, 0, 7, proof, deployer));
 }
 
 // The token refuses the miner as minter: the whole claim fails (mint is a private call inside the
@@ -163,7 +163,7 @@ unconstrained fn claim_before_binding_fails() {
 #[test(should_fail)]
 unconstrained fn record_claim_is_only_self() {
     let s = setup();
-    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).record_claim(0, 1));
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).record_claim(0, 1));
 }
 
 #[test(should_fail)]
@@ -177,7 +177,7 @@ unconstrained fn same_ticket_cannot_be_claimed_twice() {
 unconstrained fn losing_ticket_is_rejected() {
     let s = setup();
     let (proof, _) = losing_proof(1);
-    s.env.call_private(s.deployer, ElixirMiner::at(s.miner).claim(0, 1, 0, 7, proof, s.deployer));
+    s.env.call_private(s.deployer, YacanaMiner::at(s.miner).claim(0, 1, 0, 7, proof, s.deployer));
 }
 
 #[test]
@@ -190,9 +190,9 @@ unconstrained fn nth_claim_closes_the_epoch_and_retargets_exactly() {
         closing = claim(s, 0, (1000 * (i + 1)) as Field);
     }
     assert_eq(open_epoch(s), 1);
-    assert_eq(s.env.view_public(ElixirMiner::at(s.miner).claims_in(0)), N);
-    let epoch0 = s.env.view_public(ElixirMiner::at(s.miner).epoch_params(0));
-    let epoch1 = s.env.view_public(ElixirMiner::at(s.miner).epoch_params(1));
+    assert_eq(s.env.view_public(YacanaMiner::at(s.miner).claims_in(0)), N);
+    let epoch0 = s.env.view_public(YacanaMiner::at(s.miner).epoch_params(0));
+    let epoch1 = s.env.view_public(YacanaMiner::at(s.miner).epoch_params(1));
     let actual = epoch1.opened_at - epoch0.opened_at;
     assert(actual < EXPECTED_EPOCH_SECONDS);
     assert_eq(epoch1.target, next_target(INITIAL_TARGET, actual));
@@ -216,7 +216,7 @@ unconstrained fn late_count_close_is_capped_at_t_max() {
 unconstrained fn roll_before_t_max_fails() {
     let s = setup();
     s.env.advance_next_block_timestamp_by(T_MAX - 1);
-    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).roll());
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).roll());
 }
 
 #[test]
@@ -224,10 +224,10 @@ unconstrained fn roll_after_t_max_eases_by_four_and_mixes_last_digest() {
     let s = setup();
     let last = claim(s, 0, 1000);
     s.env.advance_next_block_timestamp_by(T_MAX);
-    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).roll());
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).roll());
     assert_eq(open_epoch(s), 1);
     assert_eq(target_of(s, 1), INITIAL_TARGET * 4);
-    let epoch1 = s.env.view_public(ElixirMiner::at(s.miner).epoch_params(1));
+    let epoch1 = s.env.view_public(YacanaMiner::at(s.miner).epoch_params(1));
     assert_eq(epoch1.seed, expected_seed(s, last));
 }
 
@@ -238,16 +238,16 @@ unconstrained fn roll_after_t_max_eases_by_four_and_mixes_last_digest() {
 unconstrained fn claim_after_roll_in_the_same_block_is_refused_at_simulation() {
     let s = setup();
     s.env.advance_next_block_timestamp_by(T_MAX);
-    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).roll());
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).roll());
     let (proof, _) = winning_proof(1000);
-    s.env.call_private(s.deployer, ElixirMiner::at(s.miner).claim(0, 1000, 0, 7, proof, s.deployer));
+    s.env.call_private(s.deployer, YacanaMiner::at(s.miner).claim(0, 1000, 0, 7, proof, s.deployer));
 }
 
 #[test(should_fail)]
 unconstrained fn claim_against_a_closed_epoch_fails() {
     let s = setup();
     s.env.advance_next_block_timestamp_by(T_MAX);
-    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).roll());
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).roll());
     s.env.mine_block();
     let _ = claim(s, 0, 1000);
 }
@@ -255,7 +255,7 @@ unconstrained fn claim_against_a_closed_epoch_fails() {
 #[test]
 unconstrained fn constants_match_the_profile() {
     let s = setup();
-    let c = s.env.view_public(ElixirMiner::at(s.miner).constants());
+    let c = s.env.view_public(YacanaMiner::at(s.miner).constants());
     assert_eq(
         c,
         [N as Field, EXPECTED_EPOCH_SECONDS as Field, T_MAX as Field, REWARD as Field, CLAIM_TTL_SECONDS as Field],
@@ -274,7 +274,7 @@ unconstrained fn claim_before_launch_is_refused() {
 unconstrained fn roll_before_launch_is_refused() {
     let s = setup_unlaunched(0);
     s.env.advance_next_block_timestamp_by(T_MAX);
-    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).roll());
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).roll());
 }
 
 #[test(should_fail_with = "reveal window not over")]
@@ -282,24 +282,24 @@ unconstrained fn launch_before_its_time_is_refused() {
     let mut env = TestEnvironment::new();
     let launch_at = env.last_block_timestamp() + 1000;
     let s = setup_unlaunched(launch_at);
-    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).launch());
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).launch());
 }
 
 #[test(should_fail_with = "token not bound")]
 unconstrained fn launch_requires_a_bound_token() {
     let mut env = TestEnvironment::new();
     let deployer = env.create_light_account();
-    let miner = env.deploy("ElixirMiner").with_public_initializer(
+    let miner = env.deploy("YacanaMiner").with_public_initializer(
         deployer,
-        ElixirMiner::interface().constructor(INITIAL_TARGET, 1, 0),
+        YacanaMiner::interface().constructor(INITIAL_TARGET, 1, 0),
     );
-    env.call_public(deployer, ElixirMiner::at(miner).launch());
+    env.call_public(deployer, YacanaMiner::at(miner).launch());
 }
 
 #[test(should_fail)]
 unconstrained fn launch_is_one_shot() {
     let s = setup();
-    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).launch());
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).launch());
 }
 
 #[test]
@@ -307,22 +307,22 @@ unconstrained fn epoch_zero_opens_when_launched_at_or_after_launch_at() {
     let mut env = TestEnvironment::new();
     let launch_at = env.last_block_timestamp() + 1000;
     let mut s = setup_unlaunched(launch_at);
-    assert_eq(s.env.view_public(ElixirMiner::at(s.miner).genesis()).launch_at, launch_at);
+    assert_eq(s.env.view_public(YacanaMiner::at(s.miner).genesis()).launch_at, launch_at);
     s.env.mine_block_at(launch_at);
     let stranger = s.env.create_light_account();
-    s.env.call_public(stranger, ElixirMiner::at(s.miner).launch());
+    s.env.call_public(stranger, YacanaMiner::at(s.miner).launch());
     s.env.mine_block();
-    let params = s.env.view_public(ElixirMiner::at(s.miner).epoch_params(0));
+    let params = s.env.view_public(YacanaMiner::at(s.miner).epoch_params(0));
     assert(params.opened_at >= launch_at);
     assert_eq(params.target, INITIAL_TARGET);
     let _ = claim(s, 0, 1000);
-    assert_eq(s.env.view_public(ElixirMiner::at(s.miner).claims_in(0)), 1);
+    assert_eq(s.env.view_public(YacanaMiner::at(s.miner).claims_in(0)), 1);
 }
 
 #[test]
 unconstrained fn a_past_launch_at_means_launchable_now() {
     let s = setup_unlaunched(1);
-    assert(s.env.view_public(ElixirMiner::at(s.miner).genesis()).launch_at > 1);
+    assert(s.env.view_public(YacanaMiner::at(s.miner).genesis()).launch_at > 1);
 }
 
 // Launch lottery: commitments land before launch_at, never twice, never after; with no reveal
@@ -335,8 +335,8 @@ unconstrained fn a_commitment_is_accepted_once_before_launch_at() {
     let mut s = setup_unlaunched(launch_at);
     let player = s.env.create_light_account();
     let c = commitment_of(s.miner.to_field(), player.to_field(), 42);
-    s.env.call_public(player, ElixirMiner::at(s.miner).commit_launch(c));
-    let (mix, reveals) = s.env.view_public(ElixirMiner::at(s.miner).launch_lottery());
+    s.env.call_public(player, YacanaMiner::at(s.miner).commit_launch(c));
+    let (mix, reveals) = s.env.view_public(YacanaMiner::at(s.miner).launch_lottery());
     assert_eq(mix, 0);
     assert_eq(reveals, 0);
 }
@@ -347,15 +347,15 @@ unconstrained fn a_second_commitment_from_the_same_address_is_refused() {
     let launch_at = env.last_block_timestamp() + 1000;
     let s = setup_unlaunched(launch_at);
     let c = commitment_of(s.miner.to_field(), s.deployer.to_field(), 42);
-    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).commit_launch(c));
-    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).commit_launch(c + 1));
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).commit_launch(c));
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).commit_launch(c + 1));
 }
 
 #[test(should_fail_with = "commit phase is over")]
 unconstrained fn a_commitment_after_launch_at_is_refused() {
     let s = setup_unlaunched(0);
     let c = commitment_of(s.miner.to_field(), s.deployer.to_field(), 42);
-    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).commit_launch(c));
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).commit_launch(c));
 }
 
 #[test(should_fail_with = "not in the reveal window")]
@@ -364,54 +364,54 @@ unconstrained fn a_reveal_needs_a_window() {
     let launch_at = env.last_block_timestamp() + 1000;
     let s = setup_unlaunched(launch_at);
     let c = commitment_of(s.miner.to_field(), s.deployer.to_field(), 42);
-    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).commit_launch(c));
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).commit_launch(c));
     s.env.mine_block_at(launch_at);
-    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).reveal_launch(42));
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).reveal_launch(42));
 }
 
 #[test(should_fail_with = "token minter is not this miner")]
 unconstrained fn bind_token_rejects_a_token_minted_by_someone_else() {
     let mut env = TestEnvironment::new();
     let deployer = env.create_light_account();
-    let miner = env.deploy("ElixirMiner").with_public_initializer(
+    let miner = env.deploy("YacanaMiner").with_public_initializer(
         deployer,
-        ElixirMiner::interface().constructor(INITIAL_TARGET, 1, 0),
+        YacanaMiner::interface().constructor(INITIAL_TARGET, 1, 0),
     );
     let token = env.deploy("@token_contract/Token").with_public_initializer(
         deployer,
         Token::interface().constructor_with_minter(
-            "Elixir0000000000000000000000000",
-            "ELX0000000000000000000000000000",
+            "Yacana0000000000000000000000000",
+            "YACA000000000000000000000000000",
             18,
             deployer,
             AztecAddress::zero(),
         ),
     );
-    env.call_public(deployer, ElixirMiner::at(miner).bind_token(token));
+    env.call_public(deployer, YacanaMiner::at(miner).bind_token(token));
 }
 
 #[test(should_fail_with = "token is zero")]
 unconstrained fn bind_token_rejects_zero() {
     let mut env = TestEnvironment::new();
     let deployer = env.create_light_account();
-    let miner = env.deploy("ElixirMiner").with_public_initializer(
+    let miner = env.deploy("YacanaMiner").with_public_initializer(
         deployer,
-        ElixirMiner::interface().constructor(INITIAL_TARGET, 1, 0),
+        YacanaMiner::interface().constructor(INITIAL_TARGET, 1, 0),
     );
-    env.call_public(deployer, ElixirMiner::at(miner).bind_token(AztecAddress::zero()));
+    env.call_public(deployer, YacanaMiner::at(miner).bind_token(AztecAddress::zero()));
 }
 
 #[test]
 unconstrained fn constants_expose_the_claim_ttl() {
     let s = setup();
-    let c = s.env.view_public(ElixirMiner::at(s.miner).constants());
+    let c = s.env.view_public(YacanaMiner::at(s.miner).constants());
     assert_eq(c[4], CLAIM_TTL_SECONDS as Field);
 }
 
 #[test]
 unconstrained fn bound_token_reports_the_binding() {
     let s = setup();
-    assert_eq(s.env.view_public(ElixirMiner::at(s.miner).bound_token()), s.token);
+    assert_eq(s.env.view_public(YacanaMiner::at(s.miner).bound_token()), s.token);
 }
 
 // An attacker alternating rolls (×4) with instant fills (÷4) cannot walk the target anywhere:
@@ -421,7 +421,7 @@ unconstrained fn rolls_and_instant_fills_cancel_exactly() {
     let s = setup();
     let t0 = target_of(s, 0);
     s.env.advance_next_block_timestamp_by(T_MAX);
-    s.env.call_public(s.deployer, ElixirMiner::at(s.miner).roll());
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).roll());
     s.env.mine_block();
     assert_eq(target_of(s, 1), t0 * 4);
     for i in 0..N {

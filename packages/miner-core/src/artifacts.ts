@@ -6,8 +6,8 @@ import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { WorkArtifact } from './work.ts';
 
 const repo = resolve(import.meta.dir, '../../..');
-export const MINER_ARTIFACT_PATH = resolve(repo, 'packages/contracts/target/elixir_miner-ElixirMiner.json');
-export const WORK_ARTIFACT_PATH = resolve(repo, 'packages/work-circuit/target/elixir_work.json');
+export const MINER_ARTIFACT_PATH = resolve(repo, 'packages/contracts/target/yacana_miner-YacanaMiner.json');
+export const WORK_ARTIFACT_PATH = resolve(repo, 'packages/work-circuit/target/yacana_work.json');
 
 export const loadMinerArtifact = async (): Promise<ContractArtifact> =>
   loadContractArtifact(await Bun.file(MINER_ARTIFACT_PATH).json());

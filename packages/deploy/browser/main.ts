@@ -71,7 +71,7 @@ try {
   );
   const from = account.address;
   const minerArtifact = loadContractArtifact(
-    await (await fetch('/artifacts/elixir_spike-ElixirSpike.json')).json(),
+    await (await fetch('/artifacts/yacana_spike-YacanaSpike.json')).json(),
   );
   const tokenArtifact = loadContractArtifact(
     await (await fetch('/artifacts/token_contract-Token.json')).json(),
@@ -100,8 +100,8 @@ try {
     new Fr(chainId),
     minerAddress.toField(),
     new Fr(VERSION),
-  ]); // elixir_spike's 4-input domain
-  const workArtifact = await (await fetch('/artifacts/elixir_work.json')).json();
+  ]); // yacana_spike's 4-input domain
+  const workArtifact = await (await fetch('/artifacts/yacana_work.json')).json();
   const noir = new Noir(workArtifact);
   t0 = performance.now();
   const bb = await Barretenberg.new({ threads });
@@ -109,7 +109,7 @@ try {
   results.bbInitMs = performance.now() - t0;
 
   const secret = Fr.random();
-  const commit = await poseidon2Hash([new Fr(DOM_SECRET), secret]); // elixir_spike predates recipient binding
+  const commit = await poseidon2Hash([new Fr(DOM_SECRET), secret]); // yacana_spike predates recipient binding
   const proveMs: number[] = [];
   let win: { nonce: bigint; out: Fr; fields: Fr[] } | undefined;
   for (let nonce = 1n; !win; nonce++) {

@@ -7,7 +7,7 @@ mod vk;
 use aztec::macros::aztec;
 
 #[aztec]
-pub contract ElixirSpike {
+pub contract YacanaSpike {
     use aztec::{
         history::storage::public_storage_historical_read,
         macros::{functions::{external, initializer, internal, only_self, view}, storage::storage},
@@ -15,7 +15,7 @@ pub contract ElixirSpike {
         state_vars::{Map, PublicImmutable, PublicMutable, StateVariable},
     };
     use bb_proof_verification::{RECURSIVE_PROOF_LENGTH, verify_honk_proof_non_zk};
-    use elixir_work_lib::{DOM_DEPLOY, DOM_NULL, DOM_SECRET};
+    use yacana_work_lib::{DOM_DEPLOY, DOM_NULL, DOM_SECRET};
     use poseidon::poseidon2::Poseidon2;
     use std::meta::derive;
     use token_contract::Token;
@@ -24,7 +24,7 @@ pub contract ElixirSpike {
 
     global VERSION: Field = 1;
     global N: u32 = 24;
-    global REWARD: u128 = 4_000_000_000_000_000_000; // 4 ELX, 18 decimals
+    global REWARD: u128 = 4_000_000_000_000_000_000; // 4 YACA, 18 decimals
     global NUM_PUBLIC_INPUTS: u32 = 6;
 
     #[derive(Deserialize, Eq, Packable, Serialize)]
@@ -89,7 +89,7 @@ pub contract ElixirSpike {
         let (params, token) = self.internal.read_epoch_and_token(e);
         let public_inputs = self.internal.public_inputs(e, nonce, out, secret, params.seed);
         let digest = self.call(
-            ElixirSpike::at(self.context.this_address()).verify_ticket(proof, public_inputs),
+            YacanaSpike::at(self.context.this_address()).verify_ticket(proof, public_inputs),
         );
         self.internal.settle(e, digest, params.target, token, recipient);
     }

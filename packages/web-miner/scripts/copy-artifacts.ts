@@ -8,8 +8,8 @@ const out = resolve(pkg, 'public/artifacts');
 mkdirSync(out, { recursive: true });
 
 const sources: Record<string, string> = {
-  'elixir_miner-ElixirMiner.json': resolve(repo, 'packages/contracts/target/elixir_miner-ElixirMiner.json'),
-  'elixir_work.json': resolve(repo, 'packages/work-circuit/target/elixir_work.json'),
+  'yacana_miner-YacanaMiner.json': resolve(repo, 'packages/contracts/target/yacana_miner-YacanaMiner.json'),
+  'yacana_work.json': resolve(repo, 'packages/work-circuit/target/yacana_work.json'),
   'token_contract-Token.json': Bun.resolveSync(
     '@aztec-foundation/aztec-standards/artifacts/target/token_contract-Token.json',
     pkg,

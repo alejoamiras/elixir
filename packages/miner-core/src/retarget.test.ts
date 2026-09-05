@@ -7,7 +7,7 @@ const TESTNET: EpochRules = { N: 4, EXPECTED_EPOCH_SECONDS: 300n, T_MAX: 1200n }
 const TWO_128 = 1n << 128n;
 
 describe('nextTarget mirrors the Noir retarget', () => {
-  // Same vectors as the #[test]s in packages/contracts/elixir_miner/src/retarget.nr (testnet rules).
+  // Same vectors as the #[test]s in packages/contracts/yacana_miner/src/retarget.nr (testnet rules).
   test('parity vectors', () => {
     const t = 1n << 122n;
     expect(nextTarget(t, 300n, TESTNET)).toBe(t);
@@ -97,7 +97,7 @@ describe('retarget dynamics (mean-field simulator)', () => {
     expect(sim.epochs.slice(3).some((e) => converged(e.duration, MAINNET))).toBe(false);
   });
 
-  test('withholding the closing claim to stretch an epoch lowers the withholder’s ELX per hour', () => {
+  test('withholding the closing claim to stretch an epoch lowers the withholder’s YACA per hour', () => {
     // Honest: epochs close on schedule; the withholder owns share f of hashrate and earns f·N·R per hour.
     const f = 0.6;
     const honestPerHour = f * MAINNET.N * Number(REWARD);

@@ -74,7 +74,7 @@ try {
 
   // Bootstrap: the miner's address depends only on class, salt, deployer and its own args.
   const minerArtifact = loadContractArtifact(
-    await Bun.file(resolve(repo, 'packages/contracts/target/elixir_spike-ElixirSpike.json')).json(),
+    await Bun.file(resolve(repo, 'packages/contracts/target/yacana_spike-YacanaSpike.json')).json(),
   );
   const minerDeploy = Contract.deploy(wallet, minerArtifact, [TARGET, Fr.random()], 'constructor', {
     deployer,
@@ -84,8 +84,8 @@ try {
   let t0 = performance.now();
   const { contract: token } = await TokenContract.deployWithOpts(
     { method: 'constructor_with_minter', wallet, instantiation: { deployer, salt: Fr.random() } },
-    'Elixir',
-    'ELX',
+    'Yacana',
+    'YACA',
     18,
     predicted,
     AztecAddress.ZERO,
@@ -127,8 +127,8 @@ try {
     new Fr(chainId),
     miner.address.toField(),
     new Fr(VERSION),
-  ]); // elixir_spike's 4-input domain
-  const workArtifact = await Bun.file(resolve(repo, 'packages/work-circuit/target/elixir_work.json')).json();
+  ]); // yacana_spike's 4-input domain
+  const workArtifact = await Bun.file(resolve(repo, 'packages/work-circuit/target/yacana_work.json')).json();
   const noir = new Noir(workArtifact);
   const bb = await Barretenberg.new({
     threads: Math.max(1, cpus().length - 1),
@@ -144,7 +144,7 @@ try {
   }
   const mine = async (): Promise<Win> => {
     const secret = Fr.random();
-    const commit = await poseidon2Hash([new Fr(DOM_SECRET), secret]); // elixir_spike predates recipient binding
+    const commit = await poseidon2Hash([new Fr(DOM_SECRET), secret]); // yacana_spike predates recipient binding
     for (let nonce = 1n; ; nonce++) {
       const inputs = {
         domain: domain.toString(),

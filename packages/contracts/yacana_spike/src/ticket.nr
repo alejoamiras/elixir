@@ -1,5 +1,5 @@
 use bb_proof_verification::RECURSIVE_PROOF_LENGTH;
-use elixir_work_lib::DOM_TICKET;
+use yacana_work_lib::DOM_TICKET;
 use poseidon::poseidon2::Poseidon2;
 
 // The ticket: Poseidon2 over the domain tag and all 410 proof fields (254-bit).

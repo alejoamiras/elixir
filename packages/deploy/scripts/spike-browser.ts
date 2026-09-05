@@ -23,6 +23,12 @@ import { startIsolatedNode } from '../../../scripts/run/isolated-node.ts';
 import { lanePortBase, runPortWindowBase } from '../../../scripts/run/port-window.ts';
 import { claim as claimPort, release } from '../../../scripts/run/registry.ts';
 
+declare global {
+  interface Window {
+    __spike?: Record<string, unknown>;
+  }
+}
+
 const args = process.argv.slice(2);
 const threadsIdx = args.indexOf('--threads');
 const threads = threadsIdx >= 0 ? Number(args[threadsIdx + 1]) : Math.max(1, cpus().length - 1);
@@ -35,10 +41,10 @@ const t = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 const pub = resolve(pkg, 'browser/public/artifacts');
 mkdirSync(pub, { recursive: true });
 cpSync(
-  resolve(repo, 'packages/contracts/target/elixir_spike-ElixirSpike.json'),
-  `${pub}/elixir_spike-ElixirSpike.json`,
+  resolve(repo, 'packages/contracts/target/yacana_spike-YacanaSpike.json'),
+  `${pub}/yacana_spike-YacanaSpike.json`,
 );
-cpSync(resolve(repo, 'packages/work-circuit/target/elixir_work.json'), `${pub}/elixir_work.json`);
+cpSync(resolve(repo, 'packages/work-circuit/target/yacana_work.json'), `${pub}/yacana_work.json`);
 cpSync(
   Bun.resolveSync('@aztec-foundation/aztec-standards/artifacts/target/token_contract-Token.json', pkg),
   `${pub}/token_contract-Token.json`,
@@ -123,7 +129,7 @@ try {
     )
   ).address;
   const minerArtifact = loadContractArtifact(
-    await Bun.file(resolve(repo, 'packages/contracts/target/elixir_spike-ElixirSpike.json')).json(),
+    await Bun.file(resolve(repo, 'packages/contracts/target/yacana_spike-YacanaSpike.json')).json(),
   );
   const minerDeploy = Contract.deploy(wallet, minerArtifact, [TARGET, Fr.random()], 'constructor', {
     deployer,
@@ -132,8 +138,8 @@ try {
   const predicted = (await minerDeploy.getInstance()).address;
   const { contract: token } = await TokenContract.deployWithOpts(
     { method: 'constructor_with_minter', wallet, instantiation: { deployer, salt: Fr.random() } },
-    'Elixir',
-    'ELX',
+    'Yacana',
+    'YACA',
     18,
     predicted,
     AztecAddress.ZERO,
@@ -184,9 +190,10 @@ try {
   const spike = (await page.evaluate(() => window.__spike)) as Record<string, unknown>;
   watcher.stop();
   results.page = spike;
-  results.totalMs = performance.now() - t0;
-  results.peakBrowserRssMiB = Math.round(watcher.peakKiB() / 1024);
-  console.log(`page done in ${t(results.totalMs)}; peak browser tree RSS ${results.peakBrowserRssMiB} MiB`);
+  const totalMs = performance.now() - t0;
+  const peakBrowserRssMiB = Math.round(watcher.peakKiB() / 1024);
+  Object.assign(results, { totalMs, peakBrowserRssMiB });
+  console.log(`page done in ${t(totalMs)}; peak browser tree RSS ${peakBrowserRssMiB} MiB`);
   console.log(JSON.stringify(spike, null, 2));
   await context.close();
   if (!spike.ok) process.exitCode = 1;

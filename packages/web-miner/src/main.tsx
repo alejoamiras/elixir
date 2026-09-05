@@ -22,7 +22,7 @@ setInterval(() => store.set(nowAtom, Date.now()), 1000);
 // E2E hooks: the test drives the same controller the buttons use.
 declare global {
   interface Window {
-    elixir?: {
+    yacana?: {
       store: typeof store;
       controller: () => MinerController | undefined;
       ready: Promise<unknown>;
@@ -30,7 +30,7 @@ declare global {
     };
   }
 }
-window.elixir = {
+window.yacana = {
   store,
   controller: () => controller,
   ready: controllerPromise,

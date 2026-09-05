@@ -54,7 +54,7 @@ try {
     )
   ).address;
   const artifact = loadContractArtifact(
-    await Bun.file(resolve(repo, 'packages/contracts/target/elixir_miner-ElixirMiner.json')).json(),
+    await Bun.file(resolve(repo, 'packages/contracts/target/yacana_miner-YacanaMiner.json')).json(),
   );
   const miner = await Contract.at(AztecAddress.fromStringUnsafe(deployment.miner), artifact, wallet);
   const genesis = await unwrap<{ launch_at: bigint }>(miner.methods.genesis().simulate({ from }));
@@ -85,7 +85,7 @@ try {
   } else {
     if (now < genesis.launch_at + window)
       throw new Error(`reveal window closes at ${genesis.launch_at + window}; now ${now}`);
-    const receipt = await send(miner.methods.launch());
+    const { receipt } = await send(miner.methods.launch());
     const opened = await unwrap<{ opened_at: bigint }>(miner.methods.epoch_params(0n).simulate({ from }));
     console.log(
       `launched ${deployment.miner}: epoch 0 opened at ${opened.opened_at} (tx ${String(receipt.txHash)})`,

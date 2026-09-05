@@ -27,7 +27,7 @@ export async function epochStats(nodeUrl: string, minerAddress: string): Promise
   const node = createAztecNodeClient(nodeUrl);
   const miner = AztecAddress.fromStringUnsafe(minerAddress);
   const artifact = loadContractArtifact(
-    await Bun.file(resolve(repo, 'packages/contracts/target/elixir_miner-ElixirMiner.json')).json(),
+    await Bun.file(resolve(repo, 'packages/contracts/target/yacana_miner-YacanaMiner.json')).json(),
   );
   const layout = artifact.storageLayout;
   const slot = (name: string) => {

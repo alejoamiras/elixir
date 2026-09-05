@@ -16,7 +16,7 @@ const opt = (name: string, dflt: number) => {
 };
 const runs = opt('--runs', 3);
 const threads = opt('--threads', Math.max(1, cpus().length - 1));
-const crate = args.filter((a) => !a.startsWith('--') && !/^\d+$/.test(a))[0] ?? 'elixir_work';
+const crate = args.filter((a) => !a.startsWith('--') && !/^\d+$/.test(a))[0] ?? 'yacana_work';
 
 const root = workCircuitRoot;
 const artifact = await Bun.file(resolve(root, 'target', `${crate}.json`)).json();

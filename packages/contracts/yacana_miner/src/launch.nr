@@ -6,7 +6,7 @@
 // candidate branch costs its own pre-mining inside the window, so the head start is bounded by
 // the window instead of the notice, provided at least one honest reveal lands late and
 // uncensored; with none, the seed only depends on values its author knew all along.
-use elixir_work_lib::{DOM_LAUNCH, DOM_SEED};
+use yacana_work_lib::{DOM_LAUNCH, DOM_SEED};
 use poseidon::poseidon2::Poseidon2;
 
 // The earliest time the lottery may start. A profile with a notice period refuses a launch closer

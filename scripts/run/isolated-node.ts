@@ -9,6 +9,7 @@
 //   bun scripts/run/isolated-node.ts -- <cmd> [args…]   run <cmd> with AZTEC_NODE_URL / L1_RPC_URL set
 import { type ChildProcess, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import type { EventEmitter } from 'node:events';
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -180,8 +181,9 @@ export async function startIsolatedNode(opts: IsolatedNodeOptions = {}): Promise
   const teardown = async (): Promise<void> => {
     if (torn) return;
     torn = true;
-    process.off('SIGINT', onSignal);
-    process.off('SIGTERM', onSignal);
+    // bun-types 1.4 narrows process.off to its 'memoryPressure' overload; the emitter view keeps the signal one.
+    (process as EventEmitter).off('SIGINT', onSignal);
+    (process as EventEmitter).off('SIGTERM', onSignal);
     for (const o of [...owned].reverse()) killOwned(o);
     await release(runId).catch(() => {});
     rmSync(runRoot, { recursive: true, force: true });
