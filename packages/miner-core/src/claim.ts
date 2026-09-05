@@ -2,6 +2,7 @@ import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { Contract, ContractFunctionInteraction } from '@aztec/aztec.js/contracts';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { Gas } from '@aztec/stdlib/gas';
+import { classifyClaimFailure } from './claim-failure.ts';
 
 /**
  * Gas limits a claim must declare: the network's per-tx maximum. A claim's public cost depends on
@@ -27,17 +28,8 @@ export interface ClaimInput {
   recipient: AztecAddress;
 }
 
-/**
- * After one of this account's claims reverted in public (a stale claim), the PXE keeps a pending
- * note-delivery index for a sequence nullifier that never landed, and every later claim's
- * constrained delivery asserts it: "unknown nullifier". The PXE only reconciles once the reverted
- * tx is FINALIZED on L1, so the account cannot claim until then (tens of minutes on the testnet).
- */
-export const isDeliveryBlockedError = (e: unknown): boolean =>
-  /unknown nullifier|Nullifier read request/i.test(e instanceof Error ? e.message : String(e));
-
-export const DELIVERY_BLOCKED_MESSAGE =
-  'a claim that reverted in public blocks this wallet’s note delivery until it finalizes on L1 (tens of minutes); try again later';
+/** The soak miner rotates its account on this; the page resets its chain view (see claim-failure.ts). */
+export const isDeliveryBlockedError = (e: unknown): boolean => classifyClaimFailure(e) === 'delivery-blocked';
 
 export const buildClaim = (miner: Contract, c: ClaimInput): ContractFunctionInteraction =>
   miner.methods.claim(c.epoch, c.nonce, c.out, c.secret, c.proofFields, c.recipient);

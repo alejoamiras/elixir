@@ -20,5 +20,12 @@
     "scripts",
     "*.ts"
   ],
-  "exclude": ["node_modules", "**/dist", "**/target", "packages/ui/src", "packages/web-miner/src"]
+  "exclude": [
+    "node_modules",
+    "**/dist",
+    "**/target",
+    "packages/ui/src",
+    "packages/web-miner/src",
+    "packages/web-miner/tests"
+  ]
 }

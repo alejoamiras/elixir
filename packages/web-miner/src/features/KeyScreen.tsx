@@ -6,6 +6,7 @@ import type { MasterRecord } from '../keys/store';
 import { shortAddress } from '../lib/format';
 import type { Session } from '../session';
 import { bootAtom } from '../state';
+import { WordsBackup, WordsRestore } from './WordsScreens';
 
 function Fingerprint() {
   return (
@@ -21,15 +22,35 @@ function Fingerprint() {
   );
 }
 
-/** One card, one consent, one button; the twelve words are a small link (arc 2, P2.4). */
+type Words = { mode: 'none' } | { mode: 'create'; phrase: string } | { mode: 'restore' };
+
+/** One card, one consent, one button; the twelve words are a small link under it. */
 function CreateKey({ session, error }: { session: Session; error?: string }) {
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [words, setWords] = useState<Words>({ mode: 'none' });
   const allowed = keysAllowed(location.hostname);
   const go = (fn: () => Promise<void>) => {
     setBusy(true);
     void fn().finally(() => setBusy(false));
   };
+  if (words.mode === 'create')
+    return (
+      <WordsBackup
+        phrase={words.phrase}
+        error={error}
+        onDone={() => session.createWithWords(words.phrase, true)}
+        onSkip={() => session.createWithWords(words.phrase, false)}
+      />
+    );
+  if (words.mode === 'restore')
+    return (
+      <WordsRestore
+        error={error}
+        onOpen={(phrase) => session.restoreWithWords(phrase)}
+        onBack={() => setWords({ mode: 'none' })}
+      />
+    );
   return (
     <div className="flex flex-col gap-5" data-testid="key-screen">
       <div>
@@ -81,7 +102,12 @@ function CreateKey({ session, error }: { session: Session; error?: string }) {
         </p>
       </div>
       <div className="flex gap-5 text-sm">
-        <Button variant="link" disabled>
+        <Button
+          variant="link"
+          disabled={busy || !allowed}
+          onClick={() => setWords({ mode: 'create', phrase: session.newWords() })}
+          data-testid="use-words"
+        >
           Use twelve words instead
         </Button>
         <Button
@@ -133,10 +159,21 @@ function WelcomeBack({
   error?: string;
 }) {
   const [busy, setBusy] = useState(false);
+  const [restore, setRestore] = useState(false);
+  const [create, setCreate] = useState(false);
+  if (create) return <CreateKey session={session} error={error} />;
   const open = (r: MasterRecord) => {
     setBusy(true);
     void session.open(r).finally(() => setBusy(false));
   };
+  if (restore)
+    return (
+      <WordsRestore
+        error={error}
+        onOpen={(phrase) => session.restoreWithWords(phrase)}
+        onBack={() => setRestore(false)}
+      />
+    );
   return (
     <div className="flex flex-col gap-5" data-testid="key-screen">
       <div>
@@ -155,6 +192,12 @@ function WelcomeBack({
       <div className="flex gap-5 text-sm">
         <Button variant="link" disabled={busy} onClick={() => void session.restoreWithPasskey()}>
           Use another passkey
+        </Button>
+        <Button variant="link" disabled={busy} onClick={() => setRestore(true)} data-testid="restore-words">
+          Enter twelve words instead
+        </Button>
+        <Button variant="link" disabled={busy} onClick={() => setCreate(true)} data-testid="create-new-key">
+          Create a new key
         </Button>
       </div>
     </div>

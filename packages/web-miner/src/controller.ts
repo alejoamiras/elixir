@@ -1,21 +1,36 @@
-// Drives the reducer: chain reads on a timer, the Worker for proving, the wallet for claims.
+// Drives the reducer: chain reads on a timer, the Worker for proving, the wallet for claims, the
+// chain-view reset after a lost race.
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { TxEffect } from '@aztec/stdlib/tx';
 import type { createStore } from 'jotai';
-import { DELIVERY_BLOCKED_MESSAGE, isDeliveryBlockedError } from '../../miner-core/src/claim.ts';
+import {
+  claimFailureMessage,
+  classifyClaimFailure,
+  finalitySeconds,
+} from '../../miner-core/src/claim-failure.ts';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { difficulty } from '../../miner-core/src/metrics.ts';
-import { deployDomain } from '../../miner-core/src/proof.ts';
+import { deployDomain, ticketNullifier } from '../../miner-core/src/proof.ts';
 import { newEpochSecret } from '../../miner-core/src/secret.ts';
 import { type Deployment, type Fee, readBalance, readEpoch, sendClaim, sendRoll } from './chain';
+import { chime } from './chime';
 import { amount } from './lib/format';
 import { type Command, type Event, reduce } from './lib/reducer';
+import { settingsAtom } from './settings';
 import { balanceAtom, claimsAtom, epochAtom, logAtom, minerAtom } from './state';
 import type { FromWorker, MineJob, ToWorker } from './worker-protocol';
 
 type Store = ReturnType<typeof createStore>;
 
 const EPOCH_POLL_MS = 10_000;
+/** Failed reads for this long mean the node is gone, not slow. */
+const OFFLINE_AFTER_MS = 60_000;
 const MAX_CRASHES = 3;
+/** The pause when the rollup's constants cannot be read either. */
+const FALLBACK_FINALITY_S = 40 * 60;
+
+type PauseReason = 'battery' | 'hidden' | 'withdraw' | 'offline' | 'lost-race';
 
 interface Prover {
   worker: Worker;
@@ -23,7 +38,68 @@ interface Prover {
   generation: number;
 }
 
+export interface Rebound {
+  deployment: Deployment;
+  fee: Fee;
+}
+
+export interface MinerOptions {
+  store: Store;
+  spawnWorker: () => Worker;
+  threads: number;
+  deployment: Deployment;
+  account: AztecAddress;
+  fee: Fee;
+  chainId: bigint;
+  rollupVersion: bigint;
+  /** Rebuilds the key's chain view (wallet, account, deployment) after a lost race. */
+  recover?: () => Promise<Rebound>;
+}
+
+/** What the E2E checks about the last minted claim: the effect as read, and the expected nullifier. */
+export interface LastClaim {
+  txHash: string;
+  nullifiers: string[];
+  noteHashes: string[];
+  ticketNullifier: string;
+}
+
+const short = (hex: string) => `${hex.slice(0, 8)}…${hex.slice(-4)}`;
+
+/**
+ * The effect holds the tx-hash nullifier, the ticket's, the token's delivery nullifier and, on a
+ * first contact, the registry's handshake nullifier and note; the ticket is matched by value, the
+ * minted note is the first note hash.
+ */
+async function claimMarks(
+  effect: TxEffect,
+  digest: string,
+  miner: AztecAddress,
+): Promise<LastClaim & { nullifier: string; noteHash: string; noteHashes: string[] }> {
+  const ticket = (await ticketNullifier(Fr.fromString(digest), miner)).toString();
+  const nullifiers = effect.nullifiers.map((n) => n.toString());
+  const noteHashes = effect.noteHashes.map((n) => n.toString());
+  return {
+    txHash: effect.txHash.toString(),
+    nullifiers,
+    noteHashes,
+    ticketNullifier: ticket,
+    nullifier: nullifiers.find((n) => n === ticket) ?? nullifiers[1] ?? '0x0',
+    noteHash: noteHashes[0] ?? '0x0',
+  };
+}
+
 export class MinerController {
+  private readonly store: Store;
+  private readonly spawnWorker: () => Worker;
+  private threads: number;
+  private d: Deployment;
+  private readonly account: AztecAddress;
+  private fee: Fee;
+  private readonly chainId: bigint;
+  private readonly rollupVersion: bigint;
+  private readonly recover: (() => Promise<Rebound>) | undefined;
+
   private secrets = new Map<number, string>();
   private nextNonce = new Map<string, bigint>();
   private pending: {
@@ -31,27 +107,35 @@ export class MinerController {
     nonce: bigint;
     out: string;
     proofFields: string[];
+    digest: string;
     secretId: number;
   } | null = null;
   private timer: ReturnType<typeof setInterval> | undefined;
+  private pauseTimer: ReturnType<typeof setTimeout> | undefined;
   private domain: string | undefined;
   private prover: Prover;
   private generations = 0;
   private crashes = 0;
   private refreshing: Promise<void> = Promise.resolve();
+  private lastRead = Date.now();
+  private offline = false;
+  /** When the chain view was last rebuilt; a block that survives a rebuild gets the pause instead. */
+  private rebuiltAt: number | null = null;
   /** Why mining is paused by the page itself (not the user); it resumes when the reason clears. */
-  private pausedBy = new Set<'battery' | 'hidden'>();
+  private pausedBy = new Set<PauseReason>();
+  private resumeWhenClear = false;
+  lastClaim: LastClaim | undefined;
 
-  constructor(
-    private readonly store: Store,
-    private readonly spawnWorker: () => Worker,
-    private threads: number,
-    private readonly d: Deployment,
-    private readonly account: AztecAddress,
-    private readonly fee: Fee,
-    private readonly chainId: bigint,
-    private readonly rollupVersion: bigint,
-  ) {
+  constructor(o: MinerOptions) {
+    this.store = o.store;
+    this.spawnWorker = o.spawnWorker;
+    this.threads = o.threads;
+    this.d = o.deployment;
+    this.account = o.account;
+    this.fee = o.fee;
+    this.chainId = o.chainId;
+    this.rollupVersion = o.rollupVersion;
+    this.recover = o.recover;
     this.prover = this.attach();
   }
 
@@ -127,14 +211,12 @@ export class MinerController {
       await deployDomain(this.chainId, this.rollupVersion, this.d.miner.address.toField(), PARAMS.VERSION)
     ).toString();
     await this.refresh();
-    this.timer = setInterval(
-      () => void this.refresh().catch((e) => this.log(`refresh: ${String(e)}`)),
-      EPOCH_POLL_MS,
-    );
+    this.timer = setInterval(() => void this.poll(), EPOCH_POLL_MS);
   }
 
   dispose() {
     if (this.timer) clearInterval(this.timer);
+    if (this.pauseTimer) clearTimeout(this.pauseTimer);
   }
 
   start() {
@@ -144,6 +226,7 @@ export class MinerController {
   }
 
   stop() {
+    this.resumeWhenClear = false;
     this.dispatch({ type: 'stop' });
   }
 
@@ -159,19 +242,29 @@ export class MinerController {
     return this.threads;
   }
 
-  /** A page-side pause (battery, hidden tab): stops now, restarts by itself once every reason clears. */
-  pause(reason: 'battery' | 'hidden') {
+  get deployment(): Deployment {
+    return this.d;
+  }
+
+  get address(): AztecAddress {
+    return this.account;
+  }
+
+  get feeSettings(): Fee {
+    return this.fee;
+  }
+
+  /** A page-side pause (battery, hidden tab, …): stops now, restarts by itself once every reason clears. */
+  pause(reason: PauseReason) {
     const wasMining = this.store.get(minerAtom).phase === 'mining';
     this.pausedBy.add(reason);
     if (wasMining) {
-      this.stop();
+      this.dispatch({ type: 'stop' });
       this.resumeWhenClear = true;
     }
   }
 
-  private resumeWhenClear = false;
-
-  release(reason: 'battery' | 'hidden') {
+  release(reason: PauseReason) {
     this.pausedBy.delete(reason);
     if (this.pausedBy.size || !this.resumeWhenClear) return;
     this.resumeWhenClear = false;
@@ -186,6 +279,28 @@ export class MinerController {
     const run = this.refreshing.then(() => this.readChain());
     this.refreshing = run.catch(() => {});
     return run;
+  }
+
+  /** The timer's refresh: a node silent for a minute pauses mining, its first answer resumes it. */
+  private async poll() {
+    // A rebuild swaps the deployment under the reads; its failures say nothing about the node.
+    if (this.store.get(minerAtom).phase === 'recovering') return;
+    try {
+      await this.refresh();
+      this.lastRead = Date.now();
+      if (!this.offline) return;
+      this.offline = false;
+      this.log('node reachable again');
+      this.dispatch({ type: 'online' });
+      this.release('offline');
+    } catch (e) {
+      this.log(`refresh: ${claimFailureMessage(e)}`);
+      if (this.offline || Date.now() - this.lastRead < OFFLINE_AFTER_MS) return;
+      this.offline = true;
+      this.log('node unreachable for a minute: mining paused');
+      this.pause('offline');
+      this.dispatch({ type: 'offline', since: this.lastRead });
+    }
   }
 
   private async readChain() {
@@ -280,9 +395,10 @@ export class MinerController {
           nonce: m.nonce,
           out: m.out,
           proofFields: m.proofFields,
+          digest: m.digest,
           secretId: m.secretId,
         };
-        this.dispatch({ type: 'winner', epoch: m.epoch, secretId: m.secretId });
+        this.dispatch({ type: 'winner', epoch: m.epoch, secretId: m.secretId, at: Date.now() });
         return;
       case 'stopped':
         this.nextNonce.set(`${m.epoch}:${m.secretId}`, m.nextNonce);
@@ -300,27 +416,99 @@ export class MinerController {
     const secret = p && this.secrets.get(p.secretId);
     if (!p || !secret) return this.dispatch({ type: 'failed', error: 'no pending ticket' });
     this.pending = null;
+    const before = this.store.get(epochAtom)?.claims ?? 0;
     this.log(`claiming in epoch ${p.epoch}: proving the claim in-page…`);
     try {
-      const block = await sendClaim(this.d, this.account, this.fee, {
-        ...p,
-        secret,
-        recipient: this.account,
-      });
+      const sent = await sendClaim(this.d, this.account, this.fee, { ...p, secret, recipient: this.account });
+      const ttl = sent.expiresAt
+        ? `expires ${new Date(sent.expiresAt * 1000).toISOString().slice(11, 19)}`
+        : 'expiry unknown';
+      this.log(`claim ${short(sent.txHash)} sent (${ttl})`);
+      this.dispatch({ type: 'sent', txHash: sent.txHash, expiresAt: sent.expiresAt, at: Date.now() });
+      const { block, effect } = await sent.wait();
+      this.dispatch({ type: 'included', block, at: Date.now() });
+      const marks = await claimMarks(effect, p.digest, this.d.miner.address);
+      this.lastClaim = marks;
+      await this.refresh();
       const reward = `${amount(PARAMS.REWARD, PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL}`;
       this.log(`claim mined in block ${block}: +${reward}`);
       this.store.set(claimsAtom, (c) => [...c, { epoch: p.epoch, block, at: Date.now() }]);
-      this.dispatch({ type: 'claimed', block, reward, at: Date.now() });
-      await this.refresh();
+      this.dispatch({
+        type: 'claimed',
+        block,
+        reward,
+        txHash: sent.txHash,
+        nullifier: marks.nullifier,
+        noteHash: marks.noteHash,
+        noteHashes: marks.noteHashes.length,
+        claims: [before, before + 1],
+        at: Date.now(),
+      });
+      this.announceWin(block);
       this.start();
     } catch (e) {
-      const message = isDeliveryBlockedError(e)
-        ? DELIVERY_BLOCKED_MESSAGE
-        : e instanceof Error
-          ? (e.message.split('\n')[0] ?? '')
-          : String(e);
-      this.log(`claim failed: ${message}`);
-      this.dispatch({ type: 'failed', error: message, at: Date.now() });
+      await this.claimFailed(e);
     }
+  }
+
+  /** Never an amount: the notification and the tab are the only things another app can read. */
+  private announceWin(block: number) {
+    const settings = this.store.get(settingsAtom);
+    if (settings.sound) chime();
+    if (settings.notify && typeof Notification !== 'undefined' && Notification.permission === 'granted')
+      new Notification('Yacana · claim minted', {
+        body: `A claim from this key landed in block ${block.toLocaleString('en-US')}.`,
+        tag: 'yacana-claim',
+      });
+  }
+
+  private async claimFailed(e: unknown) {
+    const kind = classifyClaimFailure(e);
+    const message = claimFailureMessage(e);
+    this.log(`claim failed (${kind}): ${message}`);
+    this.dispatch({ type: 'failed', error: message, kind, at: Date.now() });
+    if (kind !== 'reverted' && kind !== 'delivery-blocked') return;
+    // A delivery still blocked after a rebuild is the PXE waiting for L1: only time helps.
+    const rebuilt = this.rebuiltAt !== null && Date.now() - this.rebuiltAt < (await this.finalityMs());
+    if (kind === 'delivery-blocked' && rebuilt) return this.pauseUntilFinal();
+    await this.rebuildChainView();
+  }
+
+  private async rebuildChainView() {
+    this.log('lost a race: rebuilding this key’s chain view from the chain…');
+    try {
+      if (!this.recover) throw new Error('no recovery available');
+      const { deployment, fee } = await this.recover();
+      this.d = deployment;
+      this.fee = fee;
+      this.rebuiltAt = Date.now();
+      // The first read syncs the fresh PXE: the notes come back before mining resumes.
+      await this.refresh();
+      this.lastRead = Date.now();
+      this.dispatch({ type: 'recovered', at: Date.now() });
+      this.log('chain view rebuilt; mining resumes');
+      this.start();
+    } catch (e) {
+      this.log(`rebuild failed: ${claimFailureMessage(e)}`);
+      await this.pauseUntilFinal();
+    }
+  }
+
+  private async finalityMs(): Promise<number> {
+    const seconds = await this.d.node
+      .getL1Constants()
+      .then(finalitySeconds)
+      .catch(() => FALLBACK_FINALITY_S);
+    return seconds * 1000;
+  }
+
+  /** The honest fallback: claims wait for L1 finality of the reverted one, then mining resumes. */
+  private async pauseUntilFinal() {
+    const until = Date.now() + (await this.finalityMs());
+    this.log(`claims paused until ${new Date(until).toISOString().slice(11, 19)}`);
+    this.pausedBy.add('lost-race');
+    this.resumeWhenClear = true;
+    this.dispatch({ type: 'paused', until, at: Date.now() });
+    this.pauseTimer = setTimeout(() => this.release('lost-race'), until - Date.now());
   }
 }

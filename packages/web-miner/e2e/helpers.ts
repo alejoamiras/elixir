@@ -3,9 +3,23 @@ import { readFileSync } from 'node:fs';
 import { type CDPSession, expect, type Page } from '@playwright/test';
 import { type E2eRun, RUN_FILE } from './run.ts';
 
+/** The page's E2E hooks (main.tsx); only what the specs use. */
 declare global {
   interface Window {
-    yacana?: { crashProver(): void };
+    yacana?: {
+      crashProver(): void;
+      session: { publicBalance(owner: string): Promise<bigint> };
+      controller():
+        | {
+            lastClaim?: {
+              txHash: string;
+              nullifiers: string[];
+              noteHashes: string[];
+              ticketNullifier: string;
+            };
+          }
+        | undefined;
+    };
   }
 }
 

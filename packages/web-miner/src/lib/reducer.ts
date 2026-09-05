@@ -1,5 +1,7 @@
-// The miner's state machine, kept pure so the epoch-switch and secret-rotation rules are unit
-// tested without a Worker or a chain: the controller feeds it events, it says what to do next.
+// The miner's state machine, kept pure so the epoch-switch, secret-rotation and claim-outcome
+// rules are unit tested without a Worker or a chain: the controller feeds it events, it says what
+// to do next.
+import { CLAIM_FAILURE_COPY, type ClaimFailure } from '../../../miner-core/src/claim-failure.ts';
 import type { ProofLine, Sample } from '../../../ui/src/index.ts';
 
 export interface EpochInfo {
@@ -10,9 +12,44 @@ export interface EpochInfo {
   claims: number;
 }
 
-export type Phase = 'idle' | 'mining' | 'claiming';
+/** `recovering`: the chain view is being rebuilt after a lost race; `start` waits for it. */
+export type Phase = 'idle' | 'mining' | 'claiming' | 'recovering';
 
 export type LedgerLine = ProofLine & { id: number };
+
+/** The claim in flight: `proving` in-page, `sent` to the node (the TTL runs), `waiting` for its note. */
+export interface ClaimProgress {
+  step: 'proving' | 'sent' | 'waiting';
+  /** Wall clock (ms) when the current step started. */
+  since: number;
+  /** Durations (ms) of the finished steps, in order. */
+  done: number[];
+  txHash?: string;
+  /** Unix seconds; the sequencer drops the claim past this. */
+  expiresAt?: number;
+}
+
+/** What the chain saw of the last claim; shown until the next attempt. */
+export interface Minted {
+  block: number;
+  txHash: string;
+  nullifier: string;
+  noteHash: string;
+  /** How many note hashes the transaction carried (a first contact adds the handshake's). */
+  noteHashes: number;
+  /** The epoch's claim count before and after. */
+  claims: [number, number];
+}
+
+export type NoticeKind = 'reverted' | 'expired' | 'failed' | 'prover-dead' | 'offline' | 'paused';
+
+/** The card under the loop. `until` (ms) is when a pause ends. */
+export interface Notice {
+  kind: NoticeKind;
+  title: string;
+  body: string;
+  until?: number;
+}
 
 export interface MinerState {
   phase: Phase;
@@ -34,7 +71,9 @@ export interface MinerState {
   /** Newest first, at most LEDGER lines. */
   ledger: LedgerLine[];
   wins: number;
-  lastError: string | null;
+  claim: ClaimProgress | null;
+  minted: Minted | null;
+  notice: Notice | null;
   /** Set once the prover is abandoned (start failure or repeated crashes): only a reload helps. */
   proverDead: boolean;
 }
@@ -51,7 +90,9 @@ export const initial: MinerState = {
   winAt: null,
   ledger: [],
   wins: 0,
-  lastError: null,
+  claim: null,
+  minted: null,
+  notice: null,
   proverDead: false,
 };
 
@@ -66,9 +107,16 @@ export type Event =
   | { type: 'stop' }
   | ({ type: 'epoch'; epoch: EpochInfo; difficultyRatio?: number } & Partial<Clock>)
   | ({ type: 'attempt'; proveMs: number; score: number; win: boolean } & Clock)
-  | { type: 'winner'; epoch: bigint; secretId: number }
-  | ({ type: 'claimed'; block: number; reward: string; chain?: string } & Partial<Clock>)
-  | ({ type: 'failed'; error: string } & Partial<Clock>)
+  | { type: 'winner'; epoch: bigint; secretId: number; at?: number }
+  | { type: 'sent'; txHash: string; expiresAt?: number; at?: number }
+  | { type: 'included'; block: number; at?: number }
+  | ({ type: 'claimed'; reward: string } & Minted & Partial<Clock>)
+  | ({ type: 'failed'; error: string; kind?: ClaimFailure } & Partial<Clock>)
+  | { type: 'recovered'; at?: number }
+  /** The honest pause after a recovery that did not unblock the key. */
+  | { type: 'paused'; until: number; at?: number }
+  | { type: 'offline'; since: number }
+  | { type: 'online' }
   | { type: 'prover-dead'; error: string };
 
 export type Command =
@@ -82,6 +130,7 @@ const LEDGER = 200;
 const SAMPLE_SPAN_MS = 60_000;
 
 const clock = (at?: number): string => new Date(at ?? Date.now()).toISOString().slice(11, 19);
+const now = (at?: number): number => at ?? Date.now();
 
 let lineId = 0;
 const line = (state: MinerState, l: ProofLine): LedgerLine[] =>
@@ -90,7 +139,7 @@ const line = (state: MinerState, l: ProofLine): LedgerLine[] =>
 function startJob(state: MinerState, epoch: EpochInfo): [MinerState, Command[]] {
   const secretId = state.secretId + 1;
   const job = { epoch: epoch.epoch, seed: epoch.seed, target: epoch.target, secretId };
-  return [{ ...state, phase: 'mining', job, secretId, lastError: null }, [{ type: 'mine', ...job }]];
+  return [{ ...state, phase: 'mining', job, secretId, notice: null }, [{ type: 'mine', ...job }]];
 }
 
 function attempt(state: MinerState, e: Extract<Event, { type: 'attempt' }>): MinerState {
@@ -115,6 +164,7 @@ function attempt(state: MinerState, e: Extract<Event, { type: 'attempt' }>): Min
     best,
     samples,
     winAt: e.win ? e.t : state.winAt,
+    minted: null,
     ledger: line(state, l),
   };
 }
@@ -144,22 +194,68 @@ function winner(state: MinerState, e: Extract<Event, { type: 'winner' }>): [Mine
   if (state.phase !== 'mining' || !state.job) return [state, []];
   if (e.epoch !== state.job.epoch || e.secretId !== state.job.secretId)
     return [state, [{ type: 'discard', reason: 'won against a closed epoch' }]];
-  return [{ ...state, phase: 'claiming' }, [{ type: 'submit' }]];
+  const claim: ClaimProgress = { step: 'proving', since: now(e.at), done: [] };
+  return [{ ...state, phase: 'claiming', claim, notice: null }, [{ type: 'submit' }]];
+}
+
+/** Moves the claim to its next step, closing the elapsed time of the current one. */
+function advance(
+  state: MinerState,
+  step: ClaimProgress['step'],
+  at: number | undefined,
+  patch: Partial<ClaimProgress> = {},
+): MinerState {
+  if (!state.claim) return state;
+  const t = now(at);
+  const done = [...state.claim.done, Math.max(0, t - state.claim.since)];
+  return { ...state, claim: { ...state.claim, ...patch, step, since: t, done } };
 }
 
 function claimed(state: MinerState, e: Extract<Event, { type: 'claimed' }>): MinerState {
+  const { type: _, reward, at, t: __, ...minted } = e;
   return {
     ...state,
     phase: 'idle',
     job: null,
     wins: state.wins + 1,
+    claim: null,
+    minted,
     ledger: line(state, {
       kind: 'minted',
-      time: clock(e.at),
-      text: `claim in block ${e.block.toLocaleString('en-US')} · ${e.reward} minted, privately`,
-      ...(e.chain && { chain: e.chain }),
+      time: clock(at),
+      text: `claim in block ${e.block.toLocaleString('en-US')} · ${reward} minted, privately`,
     }),
   };
+}
+
+/** The same epoch again with a fresh secret: an expired claim's ticket is spent nowhere. */
+function continueMining(state: MinerState): [MinerState, Command[]] {
+  if (!state.job) return [{ ...state, phase: 'idle' }, []];
+  const secretId = state.secretId + 1;
+  const job = { ...state.job, secretId };
+  return [{ ...state, phase: 'mining', job, secretId }, [{ type: 'mine', ...job }]];
+}
+
+function failed(state: MinerState, e: Extract<Event, { type: 'failed' }>): [MinerState, Command[]] {
+  const base = {
+    ...state,
+    claim: null,
+    ledger: line(state, { kind: 'failed', time: clock(e.at), text: e.error }),
+  };
+  if (e.kind === 'expired')
+    return continueMining({ ...base, notice: { kind: 'expired', ...CLAIM_FAILURE_COPY.expired } });
+  if (e.kind === 'reverted' || e.kind === 'delivery-blocked')
+    return [
+      {
+        ...base,
+        phase: 'recovering',
+        job: null,
+        notice: { kind: 'reverted', ...CLAIM_FAILURE_COPY[e.kind] },
+      },
+      [],
+    ];
+  const notice: Notice = { kind: 'failed', title: CLAIM_FAILURE_COPY.other.title, body: e.error };
+  return [{ ...base, phase: 'idle', job: null, notice }, [{ type: 'halt' }]];
 }
 
 export function reduce(state: MinerState, event: Event): [MinerState, Command[]] {
@@ -167,7 +263,17 @@ export function reduce(state: MinerState, event: Event): [MinerState, Command[]]
     case 'start':
       return state.phase === 'idle' && !state.proverDead ? startJob(state, event.epoch) : [state, []];
     case 'prover-dead':
-      return [{ ...state, phase: 'idle', job: null, lastError: event.error, proverDead: true }, []];
+      return [
+        {
+          ...state,
+          phase: 'idle',
+          job: null,
+          claim: null,
+          notice: { kind: 'prover-dead', title: 'prover stopped', body: event.error },
+          proverDead: true,
+        },
+        [],
+      ];
     case 'stop':
       return [{ ...state, phase: 'idle', job: null }, state.phase === 'idle' ? [] : [{ type: 'halt' }]];
     case 'epoch':
@@ -176,18 +282,51 @@ export function reduce(state: MinerState, event: Event): [MinerState, Command[]]
       return [attempt(state, event), []];
     case 'winner':
       return winner(state, event);
+    case 'sent':
+      return [advance(state, 'sent', event.at, { txHash: event.txHash, expiresAt: event.expiresAt }), []];
+    case 'included':
+      return [advance(state, 'waiting', event.at), []];
     case 'claimed':
       return [claimed(state, event), []];
     case 'failed':
+      return failed(state, event);
+    case 'recovered':
       return [
         {
           ...state,
           phase: 'idle',
-          job: null,
-          lastError: event.error,
-          ledger: line(state, { kind: 'failed', time: clock(event.at), text: event.error }),
+          ledger: line(state, {
+            kind: 'epoch',
+            time: clock(event.at),
+            text: 'chain view rebuilt · notes recovered',
+          }),
+          notice: null,
         },
-        [{ type: 'halt' }],
+        [],
       ];
+    case 'paused': {
+      const minutes = Math.max(1, Math.round((event.until - now(event.at)) / 60_000));
+      const notice: Notice = {
+        kind: 'paused',
+        title: 'claims paused',
+        body: `The reset did not unblock this key. It can claim again once the reverted claim finalizes on L1, in about ${minutes} min. Mining resumes by itself.`,
+        until: event.until,
+      };
+      return [{ ...state, phase: 'idle', notice }, []];
+    }
+    case 'offline':
+      return [
+        {
+          ...state,
+          notice: {
+            kind: 'offline',
+            title: 'node unreachable',
+            body: `No answer from the node since ${clock(event.since)}. Mining is paused; it resumes when the node answers.`,
+          },
+        },
+        [],
+      ];
+    case 'online':
+      return [state.notice?.kind === 'offline' ? { ...state, notice: null } : state, []];
   }
 }

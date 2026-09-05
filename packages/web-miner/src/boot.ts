@@ -2,20 +2,21 @@
 // the key screen (a passkey or the words → a master), then wallet, account, rules and prover.
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
+import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 import type { createStore } from 'jotai';
 import { deriveAccountFields } from '../../miner-core/src/keys/derive.ts';
 import { assertDeployment, expectedFromStrings } from '../../miner-core/src/reader.ts';
 import type { PreflightRow } from '../../ui/src/index.ts';
 import { attachDeployment, loadArtifact, type Node, readEpochRules } from './chain';
 import { allowedNodeOrigins, type Connection, disallowedNodeUrl } from './config';
-import { MinerController } from './controller';
+import { MinerController, type Rebound } from './controller';
 import { preparePasskeys } from './keys/passkey';
 import { assertNoLegacyWalletDb, listRecords, type MasterRecord } from './keys/store';
 import { shortAddress } from './lib/format';
 import { preloadPinnedCrs, purgeCrsCache } from './pinned-crs';
 import { loadSettings } from './settings';
 import { bootAtom, rulesAtom } from './state';
-import { openWallet, registerAccount } from './wallet';
+import { type OpenedWallet, openWallet, registerAccount, resetAccountView } from './wallet';
 
 type Store = ReturnType<typeof createStore>;
 
@@ -117,39 +118,50 @@ export async function preflight(store: Store, connection: Connection): Promise<P
   return { node, chainId, rollupVersion, minerArtifact, block };
 }
 
-/** From a master (already checked against the record) to a running miner. */
+/**
+ * From a master (already checked against the record) to a running miner. `wallet()` is the current
+ * one: a lost race replaces it with a rebuilt chain view.
+ */
 export async function startSession(
   store: Store,
   pre: Preflighted,
   connection: Connection,
   record: MasterRecord,
   master: Uint8Array,
-): Promise<MinerController> {
+): Promise<{ controller: MinerController; wallet: () => EmbeddedWallet }> {
   const step = (s: string) => store.set(bootAtom, { phase: 'opening', step: s });
   step('opening the wallet');
-  const opened = await openWallet(connection.nodeUrl, pre.node, pre.chainId);
+  let opened = await openWallet(pre.node, pre.chainId);
   step(`registering your key ${shortAddress(record.account.address)}`);
-  const account = await registerAccount(opened, await deriveAccountFields(master, record.account.index));
+  const fields = await deriveAccountFields(master, record.account.index);
+  const account = await registerAccount(opened, fields);
   if (account.toString() !== record.account.address)
     throw new Error('the wallet derived a different address than the vault');
   step('registering the deployment');
-  const deployment = await attachDeployment(opened.wallet, pre.node, connection, pre.minerArtifact);
+  const attach = (o: OpenedWallet) =>
+    attachDeployment(o.wallet, pre.node, connection, pre.minerArtifact, o.lastSent);
+  const deployment = await attach(opened);
   store.set(rulesAtom, await readEpochRules(deployment, account));
+  const recover = async (): Promise<Rebound> => {
+    opened = await resetAccountView(opened, pre.node, pre.chainId, fields);
+    return { deployment: await attach(opened), fee: opened.fee };
+  };
   step('starting the prover');
   const threads = loadSettings().threads ?? Math.max(1, (navigator.hardwareConcurrency || 2) - 1);
-  const spawn = () => new Worker(new URL('./prover.worker.ts', import.meta.url), { type: 'module' });
-  const controller = new MinerController(
+  const spawnWorker = () => new Worker(new URL('./prover.worker.ts', import.meta.url), { type: 'module' });
+  const controller = new MinerController({
     store,
-    spawn,
+    spawnWorker,
     threads,
     deployment,
     account,
-    opened.fee,
-    pre.chainId,
-    pre.rollupVersion,
-  );
+    fee: opened.fee,
+    chainId: pre.chainId,
+    rollupVersion: pre.rollupVersion,
+    recover,
+  });
   await controller.ready();
   await controller.begin();
   store.set(bootAtom, { phase: 'ready', account: account.toString(), threads, record });
-  return controller;
+  return { controller, wallet: () => opened.wallet };
 }

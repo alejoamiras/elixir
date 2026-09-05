@@ -17,6 +17,7 @@ import { isDesktop } from './desktop';
 import { KeyScreen } from './features/KeyScreen';
 import { useHotkeys, usePauses, useResumeOnOpen } from './features/use-page-behaviour';
 import { hostKind } from './host';
+import { pillStatus } from './lib/status';
 import { navigate, type Route, useRoute } from './routes';
 import { Mine } from './routes/Mine';
 import { Settings } from './routes/Settings';
@@ -40,7 +41,7 @@ function useTabStatus(enabled: boolean) {
     if (!enabled) return applyTabStatus({ mark: 'idle' });
     const perMinute = proofsPerMinute(miner.recent);
     applyTabStatus({
-      mark: miner.proverDead ? 'paused' : miner.phase === 'idle' ? 'idle' : 'mining',
+      mark: pillStatus(miner) === 'paused' ? 'paused' : miner.phase === 'idle' ? 'idle' : 'mining',
       ...(miner.phase !== 'idle' && perMinute > 0 && { rate: `${perMinute.toFixed(0)}/min` }),
       ...(epoch && rules && { claims: `${epoch.claims}/${rules.N}` }),
     });
@@ -79,7 +80,7 @@ function Shell({ children }: { children: ReactNode }) {
         </nav>
         <span className="ml-auto flex items-center gap-3">
           <Badge variant="warn">testnet · fees sponsored</Badge>
-          <StatusPill status={miner.proverDead ? 'paused' : miner.phase} data-testid="phase" />
+          <StatusPill status={pillStatus(miner)} data-testid="phase" />
         </span>
       </header>
       {(kind === 'preview' || kind === 'unknown') && (
@@ -116,7 +117,7 @@ export function App({ connection, session }: { connection: Connection; session: 
       )}
       {!open && boot.phase !== 'error' && <KeyScreen session={session} />}
       {open && route === 'mine' && <Mine controller={controller} />}
-      {open && route === 'wallet' && <Wallet />}
+      {open && route === 'wallet' && <Wallet session={session} />}
       {route === 'settings' && <Settings connection={connection} controller={controller} session={session} />}
       <p className="text-xs text-ink-2">
         Whoever serves this page controls it: a compromised host could redirect claims or spend this wallet.

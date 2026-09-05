@@ -10,6 +10,14 @@ const epoch = (n: bigint, seed = 7n): EpochInfo => ({
   claims: 0,
 });
 
+const MINTED = {
+  txHash: '0xt',
+  nullifier: '0xn',
+  noteHash: '0xh',
+  noteHashes: 1,
+  claims: [1, 2] as [number, number],
+};
+
 const attempt = (score: number, t = 0, win = false) =>
   ({ type: 'attempt', proveMs: 3000, score, win, at: 1_700_000_000_000 + t, t }) as const;
 
@@ -53,7 +61,7 @@ describe('miner reducer', () => {
     expect(s.ledger[0]).toMatchObject({ kind: 'win', n: 4, score: 51.4 });
     expect(s.winAt).toBe(9000);
     [s] = reduce(s, { type: 'winner', epoch: 3n, secretId: 1 });
-    [s] = reduce(s, { type: 'claimed', block: 184209, reward: '4 tYACA', chain: 'nullifier · note hash' });
+    [s] = reduce(s, { type: 'claimed', block: 184209, reward: '4 tYACA', ...MINTED });
     expect(s.ledger[0]).toMatchObject({
       kind: 'minted',
       text: 'claim in block 184,209 · 4 tYACA minted, privately',
@@ -87,14 +95,67 @@ describe('miner reducer', () => {
     expect(claiming.phase).toBe('claiming');
     // While claiming, an epoch switch does not restart mining (the claim decides first).
     expect(reduce(claiming, { type: 'epoch', epoch: epoch(4n) })[1]).toEqual([]);
-    expect(reduce(claiming, { type: 'claimed', block: 1, reward: '4' })[0].phase).toBe('idle');
+    expect(reduce(claiming, { type: 'claimed', block: 1, reward: '4', ...MINTED })[0].phase).toBe('idle');
   });
 
-  test('failures halt and keep the message', () => {
+  test('the claim walks proving → sent (with the expiry) → waiting → minted marks, cleared by the next attempt', () => {
+    let [s] = reduce(initial, { type: 'start', epoch: epoch(3n) });
+    [s] = reduce(s, { type: 'winner', epoch: 3n, secretId: 1, at: 1000 });
+    expect(s.claim).toEqual({ step: 'proving', since: 1000, done: [] });
+    [s] = reduce(s, { type: 'sent', txHash: '0xab', expiresAt: 600, at: 41_000 });
+    expect(s.claim).toEqual({ step: 'sent', since: 41_000, done: [40_000], txHash: '0xab', expiresAt: 600 });
+    [s] = reduce(s, { type: 'included', block: 9, at: 50_000 });
+    expect(s.claim).toMatchObject({ step: 'waiting', done: [40_000, 9000] });
+    [s] = reduce(s, { type: 'claimed', block: 9, reward: '4 tYACA', ...MINTED, at: 51_000 });
+    expect(s).toMatchObject({ phase: 'idle', claim: null, minted: MINTED, wins: 1 });
+    [s] = reduce(s, { type: 'start', epoch: epoch(3n) });
+    expect(s.minted).toMatchObject({ ...MINTED, block: 9 });
+    [s] = reduce(s, attempt(2));
+    expect(s.minted).toBeNull();
+  });
+
+  test('an expired claim keeps mining the same epoch under a fresh secret and says so', () => {
+    let [s] = reduce(initial, { type: 'start', epoch: epoch(3n) });
+    [s] = reduce(s, { type: 'winner', epoch: 3n, secretId: 1 });
+    const [next, cmds] = reduce(s, { type: 'failed', error: 'Transaction 0x1 was dropped', kind: 'expired' });
+    expect(next).toMatchObject({ phase: 'mining', claim: null, secretId: 2, notice: { kind: 'expired' } });
+    expect(cmds).toEqual([{ type: 'mine', epoch: 3n, seed: 7n, target: 1n << 122n, secretId: 2 }]);
+    expect(next.ledger[0]).toMatchObject({ kind: 'failed', text: 'Transaction 0x1 was dropped' });
+  });
+
+  test('a reverted or blocked claim enters recovering; recovered returns to idle, paused waits', () => {
+    let [s] = reduce(initial, { type: 'start', epoch: epoch(3n) });
+    [s] = reduce(s, { type: 'winner', epoch: 3n, secretId: 1 });
+    for (const kind of ['reverted', 'delivery-blocked'] as const) {
+      const [r, cmds] = reduce(s, { type: 'failed', error: 'reverted', kind });
+      expect(r).toMatchObject({ phase: 'recovering', job: null, notice: { kind: 'reverted' } });
+      expect(cmds).toEqual([]);
+      expect(reduce(r, { type: 'start', epoch: epoch(3n) })[1]).toEqual([]);
+    }
+    const [r] = reduce(s, { type: 'failed', error: 'reverted', kind: 'reverted' });
+    const [ok] = reduce(r, { type: 'recovered' });
+    expect(ok).toMatchObject({ phase: 'idle', notice: null });
+    expect(ok.ledger[0]).toMatchObject({ kind: 'epoch', text: 'chain view rebuilt · notes recovered' });
+    const [paused] = reduce(r, { type: 'paused', until: 100 + 25 * 60_000, at: 100 });
+    expect(paused.phase).toBe('idle');
+    expect(paused.notice).toMatchObject({ kind: 'paused', until: 100 + 25 * 60_000 });
+    expect(paused.notice?.body).toContain('about 25 min');
+  });
+
+  test('offline shows a card that online clears, without touching any other notice', () => {
+    const [off] = reduce(initial, { type: 'offline', since: 0 });
+    expect(off.notice?.kind).toBe('offline');
+    expect(reduce(off, { type: 'online' })[0].notice).toBeNull();
+    const [dead] = reduce(initial, { type: 'prover-dead', error: 'gone' });
+    expect(reduce(dead, { type: 'online' })[0].notice?.kind).toBe('prover-dead');
+  });
+
+  test('other failures halt and keep the message', () => {
     const [s] = reduce(initial, { type: 'start', epoch: epoch(1n) });
     const [failed, cmds] = reduce(s, { type: 'failed', error: 'worker crashed' });
-    expect(failed).toMatchObject({ phase: 'idle', lastError: 'worker crashed' });
+    expect(failed).toMatchObject({ phase: 'idle', notice: { kind: 'failed', body: 'worker crashed' } });
     expect(cmds).toEqual([{ type: 'halt' }]);
+    expect(reduce(failed, { type: 'start', epoch: epoch(1n) })[0].notice).toBeNull();
   });
 
   test('an abandoned prover is terminal: start is refused until the page reloads', () => {

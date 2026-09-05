@@ -9,13 +9,38 @@ import { loadConnection } from './config';
 import type { MinerController } from './controller';
 import { aliasRedirect } from './host';
 import { Session } from './session';
-import { nowAtom } from './state';
+import { claimsAtom, nowAtom } from './state';
 
 const alias = aliasRedirect(location);
 if (alias) location.replace(alias);
 
 const store = createStore();
 const connection = loadConnection();
+// Claims history stays on this device (localStorage), keyed by nothing: it names no key.
+const CLAIMS_KEY = 'yacana.claims';
+try {
+  const stored = JSON.parse(localStorage.getItem(CLAIMS_KEY) ?? '[]') as {
+    epoch: string;
+    block: number;
+    at: number;
+  }[];
+  store.set(
+    claimsAtom,
+    stored.map((c) => ({ ...c, epoch: BigInt(c.epoch) })),
+  );
+} catch {
+  /* foreign value: start empty */
+}
+store.sub(claimsAtom, () => {
+  try {
+    localStorage.setItem(
+      CLAIMS_KEY,
+      JSON.stringify(store.get(claimsAtom).map((c) => ({ ...c, epoch: c.epoch.toString() }))),
+    );
+  } catch {
+    /* private mode */
+  }
+});
 const session = new Session(store, connection);
 setInterval(() => store.set(nowAtom, Date.now()), 1000);
 

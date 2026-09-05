@@ -1,13 +1,16 @@
 import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import { BOOT_MS, bootPage, pageUrl, passKeyScreen, run } from './helpers.ts';
 
-// Peak RSS of the browser's process tree, sampled from `ps`; Playwright's Chromium is the one whose
-// command line carries its temporary profile directory.
-function rssWatcher(): { peakMiB: () => number; stop: () => void } {
+// RSS of the browser's process tree, sampled from `ps`; Playwright's Chromium is the one whose
+// command line carries its temporary profile directory. `peakMiB` is the highest sample, `nowMiB`
+// the latest: a leak shows in the steady state, a peak also counts the old backend's memory before
+// the collector returns it.
+function rssWatcher(): { peakMiB: () => number; nowMiB: () => number; stop: () => void } {
   let peak = 0;
-  const timer = setInterval(() => {
+  let now = 0;
+  const sample = () => {
     try {
       const rows = execSync('ps -eo pid=,ppid=,rss=,args=', { encoding: 'utf8' }).split('\n');
       const roots = rows
@@ -30,12 +33,31 @@ function rssWatcher(): { peakMiB: () => number; stop: () => void } {
         total += rss.get(p) ?? 0;
         stack.push(...(byParent.get(p) ?? []));
       }
+      now = total;
       peak = Math.max(peak, total);
     } catch {
       /* ps hiccup */
     }
-  }, 500);
-  return { peakMiB: () => Math.round(peak / 1024), stop: () => clearInterval(timer) };
+  };
+  const timer = setInterval(sample, 500);
+  const mib = (kb: number) => Math.round(kb / 1024);
+  return {
+    peakMiB: () => mib(peak),
+    nowMiB: () => {
+      sample();
+      return mib(now);
+    },
+    stop: () => clearInterval(timer),
+  };
+}
+
+/** Collects garbage in the page and lets the process tree settle before a memory sample. */
+async function settled(page: Page, memory: { nowMiB: () => number }): Promise<number> {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('HeapProfiler.collectGarbage');
+  await cdp.detach();
+  await page.waitForTimeout(3000);
+  return memory.nowMiB();
 }
 
 test('first visit creates an account, mines at the easy target, claims and shows the balance', async ({
@@ -122,7 +144,7 @@ test('three power changes keep mining, the ledger grows, memory stays bounded', 
   await expect(page.getByTestId('phase')).toHaveText('mining');
   const lines = () => page.getByTestId('ledger').locator('[data-slot=proof-line]');
   await expect(lines()).not.toHaveCount(0, { timeout: 3 * 60_000 });
-  const baseline = memory.peakMiB();
+  const baseline = await settled(page, memory);
   const slider = page.getByRole('slider');
   const max = Number(await slider.getAttribute('max'));
   for (const threads of [Math.max(1, Math.ceil(max / 2)), 1, max]) {
@@ -135,10 +157,13 @@ test('three power changes keep mining, the ledger grows, memory stays bounded', 
       .toBeGreaterThanOrEqual(2);
   }
   await expect(page.getByTestId('phase')).not.toHaveText('idle');
+  const after = await settled(page, memory);
   await page.getByTestId('stop').click();
   memory.stop();
-  console.log(`RSS baseline ${baseline} MiB, peak after three rebuilds ${memory.peakMiB()} MiB`);
-  expect(memory.peakMiB() - baseline).toBeLessThanOrEqual(300);
+  console.log(
+    `RSS baseline ${baseline} MiB, after three rebuilds ${after} MiB (peak ${memory.peakMiB()} MiB)`,
+  );
+  expect(after - baseline).toBeLessThanOrEqual(300);
 });
 
 test('a prover crash surfaces as an error and mining restarts on the next start', async ({ page }) => {

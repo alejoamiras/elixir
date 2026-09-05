@@ -66,13 +66,19 @@ export function Settings({
   const cores = navigator.hardwareConcurrency || 2;
   const threads = s.threads ?? Math.max(1, cores - 1);
   useEffect(() => setTheme(s.theme), [s.theme, setTheme]);
+  // Notifications need the browser's permission, asked for on the toggle (a user gesture).
+  const toggle = async (k: BooleanSetting, v: boolean) => {
+    if (k === 'notify' && v && typeof Notification !== 'undefined' && Notification.permission !== 'granted')
+      if ((await Notification.requestPermission()) !== 'granted') return;
+    set({ [k]: v });
+  };
   const flag = (k: BooleanSetting, id: string, label: string, hint?: string, disabled?: boolean) => (
     <Toggle
       id={id}
       label={label}
       hint={hint}
       value={s[k]}
-      onChange={(v) => set({ [k]: v })}
+      onChange={(v) => void toggle(k, v)}
       disabled={disabled}
     />
   );

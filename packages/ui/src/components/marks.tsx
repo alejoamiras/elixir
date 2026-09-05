@@ -7,12 +7,15 @@ export const shortHash = (h: string): string => (h.length > 14 ? `${h.slice(0, 6
 export function Marks({
   nullifier,
   noteHash,
+  moreNotes = 0,
   claims,
   suffix,
   className,
 }: {
   nullifier: string;
   noteHash: string;
+  /** Note hashes in the transaction beyond the mint's (a first contact's handshake). */
+  moreNotes?: number;
   /** Before and after the claim. */
   claims: [number, number];
   /** e.g. "epoch closed". */
@@ -34,6 +37,7 @@ export function Marks({
       </span>
       <span className={chip}>
         <span className="text-ink-2">note hash</span> {shortHash(noteHash)}
+        {moreNotes > 0 && <span className="text-ink-2">+{moreNotes}</span>}
       </span>
       <span className={chip}>
         <span className="text-ink-2">claims</span> {claims[0]} → {claims[1]}

@@ -84,3 +84,94 @@ package's own `describeAztecMap` suite + a WalletDB lifecycle test), `wallet.ts`
   Convenience mode seals the master and opens with the authenticator removed; switching back deletes the ciphertext.
 
 Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · web-miner `typecheck` ✓ · `bun test` 97 ✓ · `test:components` 24 + 27 ✓ · E(web-miner) 7 passed (5.5 min: miner ×5 through the passkey key screen, `passkey.e2e.ts` ×2) ✓.
+
+## P2.4 Twelve words, wallet route, withdraw (2026-09-05)
+
+**Result:** ✓. `features/WordsScreens.tsx` (show → written checkbox hides the words → quiz on words 3/7/11, paste
+refused; restore with the hostname banner and paste allowed), `features/words-quiz.ts` (pure, Vitest), the `Session`
+words flows (`newWords`, `createWithWords`, `restoreWithWords`, `markBackedUp`, `forget`), `routes/Wallet.tsx` (balance
++ claims, Receive, recovery status with the back-up nudge, keys on this device with the typed-suffix Forget, senders,
+claims history), `features/WithdrawSheet.tsx` + `withdraw-form.ts` (the review snapshots the parsed recipient, mode
+and integer amount; the send uses the snapshot; `recipientKnown` is worded as a warning, never a guarantee), the
+controller's `withdraw` pause reason. `e2e/words.e2e.ts` (create → quiz → mine → forget → restore → same address) and
+`e2e/withdraw.e2e.ts` (private to a second key on the device, public to an address, the recipient sees it).
+
+- `AztecAddress.fromString` does not exist in 5.2.0: `fromStringUnsafe` + `isValid()` (Grumpkin x-coordinate); the
+  review test walks small integers until it finds one that is in the field but not on the curve.
+- `registerSender(address, alias)` needs the alias (`''`); a class field initialiser cannot use constructor parameters
+  before the base call (the `Session` timer moved into the constructor).
+- A reload keeps the hash route: a spec that reloads from `/mine/settings` lands on Settings, where no key tile is
+  rendered. Every reopen in the specs clicks Mine first.
+- **The sheet's Done bypassed the reset**: `onOpenChange(false)` closed it without clearing `step`, so the next
+  Withdraw reopened on the "sent" view and the spec waited 20 min for the recipient field. One `close()` for both.
+- **An idle isolated chain rejects every claim as expired**: the local network only built a block when a tx arrived,
+  so after a stalled spec the PXE's anchor block was 20 min old and `anchor + CLAIM_TTL_SECONDS` was already in the past
+  ("Invalid tx: Invalid expiration timestamp"). `isolated-node.ts` now passes `--sequencer.minTxsPerBlock 0`: a block
+  every slot, as on the real networks.
+- The words spec mined at the easy target and won on its first proof, which takes the Stop button away (claiming);
+  it now runs on the impossible-target deployment like the memory spec.
+- `bun run e2e:agent -- … test:e2e -- words.e2e.ts` broke the runner: it split the command at the *second* `--`
+  (spawned `words.e2e.ts`, ENOENT) and, with no `error` handler on the child, never tore the node down (an orphaned
+  anvil + node found 36 min later, killed by their own process groups). The runner now only strips a leading `--`
+  and exits 127 on a spawn error.
+
+Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · web-miner `tsc -b` ✓ · `bun test` 105 ✓ (7 skipped live) · `test:components` 30 + 27 ✓ · E(web-miner) 11 passed (11.3 min; `words.e2e.ts` 33 s, `withdraw.e2e.ts` 1.7 min) ✓ (run `.run-state/e2e-p25d.log`).
+
+## P2.5 States, lost-race recovery, resilience (2026-09-05)
+
+**Result:** ✓. `chain.ts` `sendClaim` → `{ txHash, expiresAt, wait() }` (`NO_WAIT` send; `wait` = `waitForTx` to
+PROPOSED, then `getTxReceipt(txHash, { includeTxEffect: true })`), `wallet.ts` `resetAccountView` (stop the wallet →
+`indexedDB.deleteDatabase` with a 10 s grace for another tab → `openWallet` → `registerAccount`), the reducer's claim
+states (`claim` proving → sent → waiting, `minted` marks until the next attempt, `notice` cards: reverted / expired /
+failed / prover-dead / offline / paused, phase `recovering`), the controller's `claimFailed` → `rebuildChainView` →
+`refresh` (the first read syncs the fresh PXE) → `recovered` → `start()`, the honest pause from the rollup's L1
+constants (`finalitySeconds` = (proofSubmissionEpochs + 1) × epochDuration × slotDuration) when a rebuild fails or a
+delivery is still blocked right after one; the offline pause (60 s of failed polls, 10 s retries, auto-resume);
+notifications (block number only), the chime, Document PiP (`pip.ts`, the loop's Pop out), `miner-core/claim-failure.ts`
+(+ `finalitySeconds`), `proof.ts` `ticketNullifier`, `e2e.yml` (dispatch-only evidence, 90 min), `e2e/states.e2e.ts`
+(+ `e2e/burst.ts`).
+
+- **The expiry comes from the transaction itself, not from a computed anchor.** `send({ wait: NO_WAIT })` returns
+  only the hash; the proven tx's anchor header never leaves `BaseWallet.sendTx`. The wallet is created on the page's
+  node client wrapped in a Proxy whose `sendTx` records `tx.data.expirationTimestamp` (the value the contract set:
+  `anchor.timestamp() + CLAIM_TTL_SECONDS`, and the one the sequencer enforces). Plan deviation, same information,
+  no second RPC round trip; `openWallet(node, chainId)` no longer takes the URL.
+- `resetAccountView` takes the previous wallet (plan: `nodeUrl, node, chainId, fields`): the old PXE holds the
+  IndexedDB connection and `deleteDatabase` blocks until it closes; `wallet.stop()` closes it.
+- **Marks by value, not by index.** The chip shows the nullifier of the effect that *equals* the ticket's, recomputed
+  in-page; the E2E asserts the match on the first claim and on one after the rebuild (`controller.lastClaim`).
+- A delivery still blocked right after a rebuild means the PXE is waiting for L1: pause, do not rebuild again
+  (`rebuiltAt` within the finality window). Covered by the bun test with fake worker + fake contracts.
+- An expired claim keeps the same epoch under a fresh secret from the reducer (`mine` command), so "mining continues"
+  needs no controller round trip and the "claim expired" card survives until the next winner.
+- A bun test that reaches TSX through the controller cannot type-check under the root `tsconfig` (no `jsx`); web-miner
+  gained `tsconfig.tests.json` (app options + bun types, `include: tests`) referenced from its `tsc -b`, and the root
+  excludes `packages/web-miner/tests`.
+- **The lost race in the E2E is real but deterministic**: the page's second claim is proven normally; its
+  `aztec_sendTx` is held at the wire by a Playwright route while `e2e/burst.ts` (a second wallet, native bb, ~11 s per
+  claim) claims the epoch closed; the release lands the real tx, which reverts in public. No timing race between two
+  provers. Observed on the isolated network: revert at +0 s, "chain view rebuilt · notes recovered" 4 s later, mining
+  resumed on the next epoch, and the balance stayed 4 × claims across the reset (the note minted before it came back
+  through the handshake: the fresh PXE needs no sender registration). **The inference holds**; the honest pause stays
+  as the fallback path (bun test).
+- **The ticket nullifier in the effect is siloed** (`siloNullifier(miner, Poseidon2(DOM_NULL, digest))`), which the
+  first E2E attempt learnt the hard way (four nullifiers, none equal to the inner one). First contact: 4 nullifiers
+  (tx hash, ticket, delivery, handshake) and 2 note hashes (mint, handshake note); later claims: 3 and 1. The chip shows
+  the mint's note hash (the first) and "+1" for the handshake's. The `ui` Stepper did not forward `data-testid`; it
+  spreads its props now.
+- Errors from the burst were invisible at first (stderr truncated to 300 chars, INFO noise): the claim's nested
+  `mint_to_private` needs the token registered in the burst wallet too ("simulation error" from the ACVM).
+- **The memory gate measured the wrong thing**: the peak of the process tree counts the old bb.js backend before the
+  collector returns it, and varied 160 → 221 → 359 MiB across identical runs (one over the 300 MiB gate). The spec now
+  compares steady states: a CDP `HeapProfiler.collectGarbage` + 3 s settle before the baseline and after the third
+  rebuild (+168 MiB, peak 1669). A leak shows in the steady state; a peak also shows GC timing.
+- A rebuild takes the reads away from the poll: `poll()` skips the `recovering` phase and `lastRead` is reset after a
+  rebuild, or a slow rebuild would have counted as a node outage and parked the miner with no resume.
+- Upstream: [aztec-packages#25418](https://github.com/AztecProtocol/aztec-packages/issues/25418) (filed from this
+  phase; linked in `docs/roadmap.md`).
+- `e2e.yml`: `workflow_dispatch` only, 90 min, `actions/upload-artifact` v5 pinned by SHA (verified against the tag),
+  `test-results` kept 14 days; the header comment says why it is evidence and not a gate.
+- One commit for P2.4 + P2.5: the two phases interleave in `session.ts`, `boot.ts` and the E2E helpers, and the same
+  E2E run is both gates.
+
+Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · web-miner `tsc -b` ✓ · `bun test` 105 ✓ (claim-failure 8, recovery 2) · `test:components` 30 + 27 ✓ (reducer 11) · E(web-miner) 11 passed (11.3 min; `states.e2e.ts`: offline 1.2 min, lost race 1.9 min; memory +219 MiB steady state) ✓.
