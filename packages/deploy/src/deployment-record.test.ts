@@ -22,13 +22,14 @@ const canonical = (v: unknown): unknown =>
 describe(`deployments/${PROFILE}.json`, () => {
   test('has the record shape', async () => {
     expect(record.profile).toBe(PROFILE);
-    // A deployed address is a Grumpkin x-coordinate; fromString throws on malformed or out-of-field values.
+    // A deployed address is a non-zero Grumpkin x-coordinate (isValid); parsing rejects out-of-field values.
     for (const k of ['deployer', 'miner', 'token']) {
       const address = AztecAddress.fromStringUnsafe(record[k] as string);
       expect([k, address.isZero(), await address.isValid()]).toEqual([k, false, true]);
     }
-    for (const k of ['minerClassId', 'tokenClassId', 'minerSalt', 'tokenSalt'])
+    for (const k of ['minerClassId', 'tokenClassId'])
       expect(Fr.fromString(record[k] as string).isZero()).toBe(false);
+    for (const k of ['minerSalt', 'tokenSalt']) Fr.fromString(record[k] as string); // zero is a legal salt
     for (const k of ['chainId', 'rollupVersion', 'launchAt']) expect(record[k]).toMatch(DECIMAL);
     if (record.launchedAt !== undefined) {
       expect(record.launchedAt).toMatch(DECIMAL);

@@ -19,7 +19,7 @@ const EXEMPT_PATHS = [
 // Paths that legitimately keep the old name may be referenced from live files.
 const EXEMPT_REFERENCES = [/implementations-plan\/elixir-[\w-]*/g, /deployments\/elixir-testnet-[\w.-]*/g];
 // Any spelling inside identifiers too (ElixirMiner, VITE_ELIXIR_MINER, deployElixir, elixir_work);
-// the symbol is bounded by non-alphanumerics so hex and base64 runs cannot trip it.
+// the symbol is bounded by non-alphanumerics so it cannot match inside a longer token.
 const OLD_NAME = /elixir|(^|[^a-z0-9])t?ELX([^a-z0-9]|$)/i;
 
 const tracked = (await $`git ls-files`.cwd(repo).text()).split('\n').filter(Boolean);

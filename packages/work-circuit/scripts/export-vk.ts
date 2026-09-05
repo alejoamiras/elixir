@@ -43,22 +43,20 @@ await Bun.write(resolve(repoRoot, 'packages', 'contracts', 'yacana_miner', 'src'
 await Bun.write(resolve(workCircuitRoot, 'src', 'generated', 'vk.ts'), ts);
 // The committed fixture: the proof of Prover.toml's inputs, used by the layout, digest and
 // mutation tests so they never depend on a prover being available. The proof itself is only
-// refreshed when a prove (sweep.ts) has produced one, and it must verify under the VK exported
-// here: a stale proof next to a new VK would pin vectors no circuit can satisfy.
+// refreshed when a prove (sweep.ts) has produced one, and whatever ends up committed must verify
+// under the VK exported here, or the pinned vectors describe a proof no circuit can satisfy.
 const fixtures = resolve(workCircuitRoot, 'fixtures', crate);
 mkdirSync(fixtures, { recursive: true });
-if (await Bun.file(`${dir}/proof`).exists()) {
-  const ok =
-    await $`${BB} verify -p ${dir}/proof -i ${dir}/public_inputs -k ${dir}/vk --scheme ultra_honk -t noir-recursive-no-zk`
-      .cwd(workCircuitRoot)
-      .nothrow()
-      .quiet();
-  if (ok.exitCode !== 0)
-    throw new Error(
-      `${dir}/proof does not verify under the new VK; re-prove with sweep.ts --runs 1 ${crate}`,
-    );
-}
 for (const f of ['proof', 'public_inputs', 'vk', 'vk_hash']) {
   if (await Bun.file(`${dir}/${f}`).exists()) await Bun.write(`${fixtures}/${f}`, Bun.file(`${dir}/${f}`));
 }
+const verified =
+  await $`${BB} verify -p ${fixtures}/proof -i ${fixtures}/public_inputs -k ${fixtures}/vk --scheme ultra_honk -t noir-recursive-no-zk`
+    .cwd(workCircuitRoot)
+    .nothrow()
+    .quiet();
+if (verified.exitCode !== 0)
+  throw new Error(
+    `${fixtures}/proof does not verify under the exported VK; re-prove with sweep.ts --runs 1 ${crate}`,
+  );
 console.log(`W_VK_HASH = ${hash}; fixtures → ${fixtures}`);

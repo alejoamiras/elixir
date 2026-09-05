@@ -92,3 +92,13 @@ critical or high-severity exploit." Six findings, all verified against the repo 
 Looks-fine list from codex: domain values, seeds, VK copies, artifact paths and production addresses agree; both addresses
 and class ids reproduce from the artifacts; the archived record is byte-for-byte unchanged; no surviving deployer authority;
 dropping the two tsconfig flags is defensible.
+
+**Round 2** (resumed) — "Two material gaps remain, plus small validation and comment corrections." Applied:
+1. `export-vk` verified `target/<crate>/proof` only when present, so a clean checkout skipped the check and copied a new
+   VK beside the committed proof. Now the **fixture directory** is verified unconditionally after the copy (checked by
+   moving `target/yacana_work` away and re-running: the committed fixture verifies, no diff).
+2. `miner-core.yml` is now unconditional: the guard scans every tracked file and the root typecheck covers every package's
+   scripts, so no path filter can be complete (`packages/web-miner/.env.production`, `index.html`, `commitlint.config.ts`
+   were the examples). It is the cheap no-toolchain job.
+3. Zero salts are legal (`YACANA_DEPLOY_SALT=0x0`), so the record test parses salts without a non-zero check.
+4. Two comments corrected (no `AztecAddress.fromString` in 5.2.0; base64 `+ELX/` can match, the claim was dropped).
