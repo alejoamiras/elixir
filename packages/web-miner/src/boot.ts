@@ -1,8 +1,9 @@
-// Boot sequence: pinned CRS, isolation check, node, wallet, deployment, rules, prover Worker.
+// Boot sequence: pinned CRS, isolation check, node, deployment check, wallet, rules, prover Worker.
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import type { createStore } from 'jotai';
-import { attachDeployment, readEpochRules } from './chain';
-import { allowedNodeOrigins, type Connection, firstDisallowedUrl } from './config';
+import { assertDeployment, expectedFromStrings } from '../../miner-core/src/reader.ts';
+import { attachDeployment, loadArtifact, readEpochRules } from './chain';
+import { allowedNodeOrigins, type Connection, disallowedNodeUrl } from './config';
 import { MinerController } from './controller';
 import { preloadPinnedCrs, purgeCrsCache } from './pinned-crs';
 import { bootAtom, rulesAtom } from './state';
@@ -17,12 +18,10 @@ export async function boot(
     throw new Error(
       'this page is not cross-origin isolated: bb.js cannot use threads (check the COOP/COEP headers)',
     );
-  if (!connection.miner || !connection.token)
-    throw new Error('no deployment configured: set the miner and token addresses');
-  const blocked = firstDisallowedUrl(connection);
+  const blocked = disallowedNodeUrl(connection);
   if (blocked)
     throw new Error(
-      `${blocked} is outside this build's allowed node origins (${allowedNodeOrigins().join(', ')}): add it to VITE_ALLOWED_NODE_ORIGINS in .env.production and to connect-src in public/_headers, then rebuild`,
+      `${blocked} is outside this build's allowed node origins (${allowedNodeOrigins().join(', ')}): change it in packages/site/site.env and rebuild`,
     );
   step('verifying the pinned CRS');
   await purgeCrsCache();
@@ -31,10 +30,24 @@ export async function boot(
   const node = createAztecNodeClient(connection.nodeUrl);
   const chainId = BigInt(await node.getChainId());
   const rollupVersion = BigInt((await node.getNodeInfo()).rollupVersion);
+  step('checking the deployment');
+  const minerArtifact = await loadArtifact('yacana_miner-YacanaMiner');
+  await assertDeployment(
+    node,
+    expectedFromStrings({
+      chainId: import.meta.env.VITE_CHAIN_ID,
+      rollupVersion: import.meta.env.VITE_ROLLUP_VERSION,
+      miner: connection.miner,
+      minerClassId: import.meta.env.VITE_YACANA_MINER_CLASS,
+      token: connection.token,
+      tokenClassId: import.meta.env.VITE_YACANA_TOKEN_CLASS,
+    }),
+    minerArtifact.storageLayout,
+  );
   step('opening the wallet (first visit creates an account)');
   const { wallet, account, fee, created } = await openWallet(connection.nodeUrl, node, chainId);
   step('registering the deployment');
-  const deployment = await attachDeployment(wallet, node, connection);
+  const deployment = await attachDeployment(wallet, node, connection, minerArtifact);
   const rules = await readEpochRules(deployment, account);
   store.set(rulesAtom, rules);
   step('starting the prover');
@@ -47,7 +60,6 @@ export async function boot(
     deployment,
     account,
     fee,
-    connection,
     chainId,
     rollupVersion,
   );

@@ -5,8 +5,7 @@ import { DELIVERY_BLOCKED_MESSAGE, isDeliveryBlockedError } from '../../miner-co
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { deployDomain } from '../../miner-core/src/proof.ts';
 import { newEpochSecret } from '../../miner-core/src/secret.ts';
-import { crossCheck, type Deployment, type Fee, readBalance, readEpoch, sendClaim, sendRoll } from './chain';
-import type { Connection } from './config';
+import { type Deployment, type Fee, readBalance, readEpoch, sendClaim, sendRoll } from './chain';
 import { type Command, type Event, reduce } from './lib/reducer';
 import { balanceAtom, claimsAtom, epochAtom, logAtom, minerAtom } from './state';
 import type { FromWorker, MineJob, ToWorker } from './worker-protocol';
@@ -46,7 +45,6 @@ export class MinerController {
     private readonly d: Deployment,
     private readonly account: AztecAddress,
     private readonly fee: Fee,
-    private readonly connection: Connection,
     private readonly chainId: bigint,
     private readonly rollupVersion: bigint,
   ) {
@@ -145,9 +143,8 @@ export class MinerController {
   }
 
   /**
-   * Re-reads the open epoch (cross-checked when configured) and the balance. Refreshes are
-   * serialised and an older epoch never overwrites a newer one, so a slow poll cannot restart
-   * mining on stale parameters.
+   * Re-reads the open epoch and the balance. Refreshes are serialised and an older epoch never
+   * overwrites a newer one, so a slow poll cannot restart mining on stale parameters.
    */
   refresh(): Promise<void> {
     const run = this.refreshing.then(() => this.readChain());
@@ -157,7 +154,6 @@ export class MinerController {
 
   private async readChain() {
     const epoch = await readEpoch(this.d, this.account);
-    if (this.connection.crossCheckUrl) await crossCheck(this.d, this.connection.crossCheckUrl, epoch);
     const previous = this.store.get(epochAtom);
     if (previous && epoch.epoch < previous.epoch) return;
     this.store.set(epochAtom, epoch);

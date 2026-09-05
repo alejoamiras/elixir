@@ -3,7 +3,7 @@
 // CDN hosts, so an unintercepted request fails loudly instead of trusting transport security.
 // Import first in every context that creates a Barretenberg instance (page and Worker).
 import { delMany } from 'idb-keyval';
-import lock from '../crs.lock.json';
+import lock from '../../site/crs.lock.json';
 
 const HOSTS = new Set(lock.hosts);
 const files = lock.files as Record<string, { bytes: number; sha256: string }>;

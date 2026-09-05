@@ -4,11 +4,6 @@ import { allowedNodeOrigins, type Connection, isPinnedByQuery, saveConnection } 
 
 const fields: { key: keyof Connection; label: string; placeholder: string }[] = [
   { key: 'nodeUrl', label: 'Node URL', placeholder: 'https://…' },
-  {
-    key: 'crossCheckUrl',
-    label: 'Cross-check node (optional)',
-    placeholder: 'a second node to compare epochs',
-  },
   { key: 'miner', label: 'Miner contract', placeholder: '0x…' },
   { key: 'token', label: 'Token contract', placeholder: '0x…' },
 ];

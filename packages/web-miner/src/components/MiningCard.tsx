@@ -1,5 +1,5 @@
 import { useAtomValue } from 'jotai';
-import { Button, StatusPill, Tile, TileHeader } from '../../../ui/src/index.ts';
+import { Button, Tile, TileHeader } from '../../../ui/src/index.ts';
 import type { MinerController } from '../controller';
 import { compact, duration, expectedSecondsToWin } from '../lib/format';
 import { proofsPerSecond } from '../lib/reducer';
@@ -13,7 +13,7 @@ export function MiningCard({ controller }: { controller: () => MinerController |
   const ready = boot.phase === 'ready';
   return (
     <Tile>
-      <TileHeader aside={<StatusPill status={miner.phase} data-testid="phase" />}>Mining</TileHeader>
+      <TileHeader>Mining</TileHeader>
       <div className="grid gap-3 text-sm">
         <div className="flex gap-2">
           <Button

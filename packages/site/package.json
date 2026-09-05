@@ -1,0 +1,19 @@
+{
+  "name": "@yacana/site",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The deployable: one env source of truth, the shared Vite base, the rendered headers, assembly of the three apps",
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4",
+    "@vitejs/plugin-react": "^6",
+    "typescript": "~6",
+    "vite": "^8",
+    "vite-plugin-node-polyfills": "^0.28.0",
+    "wrangler": "4.127.1"
+  }
+}

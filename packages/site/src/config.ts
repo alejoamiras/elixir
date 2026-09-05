@@ -1,0 +1,129 @@
+// One public configuration for the three apps: site.env (node, allowlist, RP ID) plus the
+// deployment record (addresses, class ids, chain). Production builds take nothing from the
+// process environment; e2e and dev builds may override every value through VITE_* variables.
+export type SiteMode = 'production' | 'e2e' | 'dev';
+
+export interface SiteConfig {
+  mode: SiteMode;
+  nodeUrl: string;
+  allowedNodeOrigins: string[];
+  rpId: string;
+  sourceCommit: string;
+  chainId: string;
+  rollupVersion: string;
+  miner: string;
+  token: string;
+  minerClassId: string;
+  tokenClassId: string;
+  /** `?node=&miner=&token=` are honoured by the page; only e2e builds set it. */
+  queryOverrides: boolean;
+}
+
+export interface DeploymentRecord {
+  chainId: string;
+  rollupVersion: string;
+  miner: string;
+  token: string;
+  minerClassId: string;
+  tokenClassId: string;
+}
+
+type Env = Record<string, string | undefined>;
+
+/** KEY=value lines; `#` comments and blank lines ignored; no quoting or interpolation. */
+export const parseEnvFile = (text: string): Record<string, string> => {
+  const out: Record<string, string> = {};
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq < 1) throw new Error(`site.env: malformed line "${line}"`);
+    out[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+  }
+  return out;
+};
+
+const required = (source: Record<string, string | undefined>, key: string, where: string): string => {
+  const v = source[key];
+  if (!v) throw new Error(`${where}: ${key} is required`);
+  return v;
+};
+
+const origins = (list: string): string[] => [
+  ...new Set(
+    list
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((u) => new URL(u).origin),
+  ),
+];
+
+export function loadSiteConfig(opts: {
+  mode: SiteMode;
+  siteEnv: Record<string, string>;
+  deployment: DeploymentRecord;
+  env?: Env;
+  sourceCommit: string;
+}): SiteConfig {
+  const { mode, siteEnv, deployment } = opts;
+  // Overrides exist so an e2e run can point the build at its throwaway deployment on a local node.
+  const env = mode === 'production' ? {} : (opts.env ?? {});
+  const pick = (key: string, fallback: string) => env[key] || fallback;
+  const nodeUrl = pick('VITE_AZTEC_NODE_URL', required(siteEnv, 'VITE_AZTEC_NODE_URL', 'site.env'));
+  const allowed = origins(
+    pick('VITE_ALLOWED_NODE_ORIGINS', required(siteEnv, 'VITE_ALLOWED_NODE_ORIGINS', 'site.env')),
+  );
+  if (!allowed.includes(new URL(nodeUrl).origin))
+    throw new Error(`VITE_AZTEC_NODE_URL ${nodeUrl} is not among VITE_ALLOWED_NODE_ORIGINS`);
+  const config: SiteConfig = {
+    mode,
+    nodeUrl,
+    allowedNodeOrigins: allowed,
+    rpId: pick('VITE_RP_ID', required(siteEnv, 'VITE_RP_ID', 'site.env')),
+    sourceCommit: opts.sourceCommit,
+    chainId: pick('VITE_CHAIN_ID', deployment.chainId),
+    rollupVersion: pick('VITE_ROLLUP_VERSION', deployment.rollupVersion),
+    miner: pick('VITE_YACANA_MINER', deployment.miner),
+    token: pick('VITE_YACANA_TOKEN', deployment.token),
+    minerClassId: pick('VITE_YACANA_MINER_CLASS', deployment.minerClassId),
+    tokenClassId: pick('VITE_YACANA_TOKEN_CLASS', deployment.tokenClassId),
+    queryOverrides: mode === 'e2e' && env.VITE_E2E_QUERY_OVERRIDES === '1',
+  };
+  if (mode === 'production') assertProductionConfig(config, siteEnv);
+  return config;
+}
+
+const IP_OR_LOCAL = /^(localhost|127\.\d+\.\d+\.\d+|\[?::1\]?|\d+\.\d+\.\d+\.\d+)$/;
+
+/** What may never reach Cloudflare: test hooks, local or plaintext nodes, a foreign relying party. */
+export function assertProductionConfig(c: SiteConfig, siteEnv: Record<string, string>): void {
+  if (c.queryOverrides) throw new Error('production build with VITE_E2E_QUERY_OVERRIDES set');
+  for (const o of [new URL(c.nodeUrl).origin, ...c.allowedNodeOrigins]) {
+    const u = new URL(o);
+    if (u.protocol !== 'https:') throw new Error(`production node origin ${o} is not https`);
+    if (IP_OR_LOCAL.test(u.hostname)) throw new Error(`production node origin ${o} is local`);
+  }
+  if (c.rpId !== siteEnv.VITE_RP_ID) throw new Error(`RP ID ${c.rpId} differs from site.env`);
+  if (IP_OR_LOCAL.test(c.rpId) || !c.rpId.includes('.'))
+    throw new Error(`RP ID ${c.rpId} is not a production hostname`);
+}
+
+/** Vite `define` entries: every VITE_* the apps read, as JSON literals. */
+export const viteDefine = (c: SiteConfig): Record<string, string> =>
+  Object.fromEntries(
+    Object.entries({
+      VITE_SITE_MODE: c.mode,
+      VITE_AZTEC_NODE_URL: c.nodeUrl,
+      VITE_ALLOWED_NODE_ORIGINS: c.allowedNodeOrigins.join(','),
+      VITE_RP_ID: c.rpId,
+      VITE_SOURCE_COMMIT: c.sourceCommit,
+      VITE_CHAIN_ID: c.chainId,
+      VITE_ROLLUP_VERSION: c.rollupVersion,
+      VITE_YACANA_MINER: c.miner,
+      VITE_YACANA_TOKEN: c.token,
+      VITE_YACANA_MINER_CLASS: c.minerClassId,
+      VITE_YACANA_TOKEN_CLASS: c.tokenClassId,
+      VITE_E2E_QUERY_OVERRIDES: c.queryOverrides ? '1' : '',
+    }).map(([k, v]) => [`import.meta.env.${k}`, JSON.stringify(v)]),
+  );

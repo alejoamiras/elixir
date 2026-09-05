@@ -8,7 +8,11 @@ import { App } from './App';
 import { boot } from './boot';
 import { loadConnection } from './config';
 import type { MinerController } from './controller';
+import { aliasRedirect } from './host';
 import { bootAtom, nowAtom } from './state';
+
+const alias = aliasRedirect(location);
+if (alias) location.replace(alias);
 
 const store = createStore();
 const connection = loadConnection();

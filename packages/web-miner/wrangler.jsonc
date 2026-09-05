@@ -1,7 +1,6 @@
 {
-  // Cloudflare Pages: `bun run build` then `wrangler pages deploy dist` — a manual owner action.
+  // Local `wrangler pages dev dist` parity only; the deployable project is packages/site.
   "$schema": "https://json.schemastore.org/wrangler.json",
-  "name": "yacana-web-miner",
   "compatibility_date": "2026-09-01",
   "pages_build_output_dir": "dist"
 }

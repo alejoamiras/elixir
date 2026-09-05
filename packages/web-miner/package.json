@@ -5,11 +5,11 @@
   "description": "Browser miner: embedded wallet, sponsored fees, W proved by bb.js in a Worker, claims proved in-page",
   "type": "module",
   "scripts": {
-    "build": "bun scripts/fetch-crs.ts && bun scripts/copy-artifacts.ts && tsc -b && vite build",
-    "dev": "bun scripts/fetch-crs.ts && bun scripts/copy-artifacts.ts && vite",
+    "build": "bun ../site/scripts/fetch-crs.ts public && bun ../site/scripts/copy-artifacts.ts public && tsc -b && vite build",
+    "dev": "bun ../site/scripts/fetch-crs.ts public && bun ../site/scripts/copy-artifacts.ts public && vite",
     "preview": "vite preview",
     "test:components": "vitest run",
-    "test:e2e": "bun scripts/fetch-crs.ts && bun scripts/copy-artifacts.ts && playwright test",
+    "test:e2e": "bun ../site/scripts/fetch-crs.ts public && bun ../site/scripts/copy-artifacts.ts public && playwright test",
     "typecheck": "tsc -b"
   },
   "dependencies": {
