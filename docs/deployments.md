@@ -22,11 +22,46 @@ Contracts are immutable: a parameter change is a new deployment (`yacana.params.
 `deployments/<profile>.json`, written by the deploy script (and refused as an overwrite unless
 `YACANA_DEPLOY_FORCE=1`).
 
-## Public Aztec testnet — `testnet` profile (Yacana)
+## Public Aztec testnet — `testnet` profile (2026-09-05, Yacana)
 
-Not deployed yet: the Yacana contracts (new domain tags `YACA/*`, new work-circuit VK, token `Yacana Testnet` /
-`tYACA`) are deployed by the `yacana-surfaces` plan; the record lands in `deployments/testnet.json` and this
-section is filled in from it. Until then the web miner has no production deployment to point at.
+First deployment under the Yacana name: new domain tags (`YACA/*`), genesis seed, work-circuit VK
+(`W_VK_HASH` `0x1d1043617e4762fe8a2bb2ecf572de706ae890fdb4a4ff0d8f298e24722ece7b`) and token metadata; the contract
+logic is the hardened one of the archived pre-rename deployment below.
+
+| | |
+|---|---|
+| Node | `https://v5.testnet.rpc.aztec-labs.com` (L1 chain 11155111, node `5.2.0-nightly.20260815` at deploy time) |
+| Miner (`YacanaMiner`) | `0x2091605cff5bb6658821ef6df7a268e7b499ff326cafba8a5696102212565e3e` |
+| Token (aztec-standards `Token` v5.2.0, minter = miner, `bound_token()`) | `0x2f83633f946bdf7ea294183c9c49dfb4172646b1edf81a6fb4b4f305bbd42d88` |
+| Deployer (initializerless Schnorr account, no privilege after `bind_token`) | `0x2c7a1312299762bab96e91d83c26c4bf1754959bf95854df117b42bca4e3c54b` |
+| Miner salt / token salt | `0x0f4915a7…fa94c` / `0x17a20a0f…6c686` (full values in `deployments/testnet.json`) |
+| Miner class id / token class id | `0x20680945…bebb9` / `0x10fd5603…fecbf` |
+| Rollup version (in the deploy domain) | 1821665230 |
+| Fees | sponsored FPC (`SPONSORED_FPC_SALT`) |
+| Deployed / launched | 2026-09-05T16:38:35.518Z / epoch 0 opened 2026-09-05T16:39:00Z (`launchAt` 1788626340, immediate: no notice or reveal window in this profile) |
+
+Parameters (the `testnet` profile, also embedded in the contract as compile-time globals):
+
+| parameter | value |
+|---|---|
+| `N` (accepted claims per epoch) | 4 |
+| `EXPECTED_EPOCH_SECONDS` | 300 |
+| `T_MAX` (escape hatch, = 4 × expected) | 1200 |
+| `REWARD` | 4 tYACA (4 × 10^18, 18 decimals) |
+| `INITIAL_TARGET` | 2^124 (≈ 16 proofs per winning ticket) |
+| `GENESIS_SEED` | `0x594143412f746573746e6574` ("YACA/testnet") |
+| `CHAIN_LEN` (work circuit) | 2048 |
+| `VERSION` (domain separator) | 1 |
+| `CLAIM_TTL_SECONDS` | 600 |
+| `LAUNCH_NOTICE_SECONDS` / `REVEAL_WINDOW_SECONDS` | 0 / 0 (mainnet: 86400 / 600) |
+| Token | "Yacana Testnet" / `tYACA` |
+
+Web miner: `packages/web-miner/.env.production` carries these addresses; the page can be pointed elsewhere
+through its Network card or `?node=&miner=&token=`.
+
+Verify from public storage: `bun run epoch:stats` (reads `deployments/testnet.json`) prints every epoch's
+target, opening time, claim count, duration and retarget ratio; `packages/deploy/src/deployment-record.test.ts`
+checks the record's shape and that its `params` match `yacana.params.json`.
 
 ## Mainnet
 

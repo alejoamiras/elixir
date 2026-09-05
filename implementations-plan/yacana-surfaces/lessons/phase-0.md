@@ -39,3 +39,29 @@ filters, docs; `deployments/testnet.json` → `deployments/elixir-testnet-2026-0
 - The web miner's `.env.production` keeps the old addresses under the new keys until P0.3 writes the Yacana ones.
 
 Gate: `bun install --frozen-lockfile` ✓ · `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · web-miner `typecheck` ✓ · `bun test` 39 pass / 6 skip / 0 fail ✓ · `test:components` 12 passed ✓ · E(web-miner) 8 passed (3.7 min) ✓.
+
+## P0.3 Fresh testnet deployment (2026-09-05)
+
+**Result:** ✓. `AZTEC_NODE_URL=https://v5.testnet.rpc.aztec-labs.com bun run deploy` with `YACANA_DEPLOYER_SECRET` taken
+from the owner's env file inside a throwaway wrapper script (sourced at runtime, exported, the sibling variables
+unset; the log was deleted after the run; nothing echoed the value). Same deployer account as the archived
+deployment (`0x2c7a1312…c54b`; a fixed account salt), so a rotated secret would have changed it — the owner's call.
+
+- miner `0x2091605cff5bb6658821ef6df7a268e7b499ff326cafba8a5696102212565e3e`, token
+  `0x2f83633f946bdf7ea294183c9c49dfb4172646b1edf81a6fb4b4f305bbd42d88`, miner class
+  `0x20680945…ebb9` (new: new VK + domains), token class unchanged (`0x10fd5603…ecbf`, same aztec-standards artifact),
+  `launchAt = launchedAt = 1788626340`, deployed 16:38:35Z; 4 sponsored transactions, ≈ 2.5 min end to end.
+- The record test (`packages/deploy/src/deployment-record.test.ts`) compares `params` against `yacana.params.json`
+  after canonicalising numbers / hex to decimal strings, which is how the deploy script serialises bigints.
+- `scripts/rename-guard.test.ts` flagged itself once it was tracked (its own regexes name the old protocol) — it now
+  exempts its own path. The Yacana section of `docs/deployments.md` must not name the old protocol either; only the
+  `## Archived` tail may.
+
+Evidence, `AZTEC_NODE_URL=https://v5.testnet.rpc.aztec-labs.com bun run epoch:stats` (2026-09-05 16:40 UTC):
+
+```
+epoch  claims  opened_at (UTC)       duration  retarget  difficulty
+    0       0  2026-09-05T16:39:00     open        –  16.0
+```
+
+Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · web-miner `typecheck` ✓ · `bun test` 41 pass / 6 skip / 0 fail ✓ · `epoch:stats` shows epoch 0 ✓.

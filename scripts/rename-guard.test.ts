@@ -13,6 +13,7 @@ const EXEMPT_PATHS = [
   /^docs\/pitch\//,
   /^deployments\/elixir-testnet-/,
   /^bun\.lock$/,
+  /^scripts\/rename-guard\.test\.ts$/,
 ];
 // Paths that legitimately keep the old name may be referenced from live files.
 const EXEMPT_REFERENCES = [/implementations-plan\/elixir-[\w-]*/g, /deployments\/elixir-testnet-[\w.-]*/g];
