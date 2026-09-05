@@ -10,15 +10,18 @@ export function WalletCard() {
   const claims = useAtomValue(claimsAtom);
   return (
     <Tile>
-      <TileHeader aside={boot.phase === 'ready' && boot.created && <Badge variant="uv">new account</Badge>}>
-        Wallet
+      <TileHeader
+        aside={
+          boot.phase === 'ready' && (
+            <Badge variant={boot.record.method === 'passkey' ? 'uv' : 'neutral'}>
+              {boot.record.method === 'passkey' ? 'passkey' : 'twelve words'}
+            </Badge>
+          )
+        }
+      >
+        your key
       </TileHeader>
       <div className="grid gap-2 text-sm">
-        {boot.phase === 'booting' && (
-          <p className="text-ink-2" data-testid="boot-step">
-            {boot.step}…
-          </p>
-        )}
         {boot.phase === 'ready' && (
           <>
             <div className="flex justify-between">

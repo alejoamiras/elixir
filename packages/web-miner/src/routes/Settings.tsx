@@ -14,8 +14,9 @@ import {
 import { ConnectionCard } from '../components/ConnectionCard';
 import type { Connection } from '../config';
 import type { MinerController } from '../controller';
+import type { Session } from '../session';
 import { type BooleanSetting, useSettings } from '../settings';
-import { logAtom } from '../state';
+import { bootAtom, logAtom } from '../state';
 
 function Toggle({
   id,
@@ -52,11 +53,14 @@ const THEMES: { value: Theme; label: string }[] = [
 export function Settings({
   connection,
   controller,
+  session,
 }: {
   connection: Connection;
   controller: () => MinerController | undefined;
+  session: Session;
 }) {
   const [s, set] = useSettings();
+  const boot = useAtomValue(bootAtom);
   const { setTheme } = useTheme();
   const log = useAtomValue(logAtom);
   const cores = navigator.hardwareConcurrency || 2;
@@ -112,6 +116,26 @@ export function Settings({
           'Mini window',
           canPip ? 'Document Picture-in-Picture' : 'not supported by this browser',
           !canPip,
+        )}
+      </Tile>
+      <Tile>
+        <TileHeader>Key</TileHeader>
+        {boot.phase === 'ready' && boot.record.method === 'passkey' ? (
+          <>
+            <Toggle
+              id="stay-open"
+              label="Stay open on this device"
+              hint="off (default): one touch per open, no spend secret at rest · on: the key is sealed under a device key in this browser's storage (plaintext-equivalent against a stolen unencrypted disk)"
+              value={!boot.record.askEveryOpen}
+              onChange={(v) => void session.setStayOpen(v)}
+            />
+            <p className="mt-3 text-xs text-warn">
+              A passkey key has no backup: if the passkey is lost and was not synced, so is the balance. Move
+              funds off a key that holds more than a session's worth.
+            </p>
+          </>
+        ) : (
+          <p className="text-xs text-ink-2">Open a key to see its options.</p>
         )}
       </Tile>
       <Tile>

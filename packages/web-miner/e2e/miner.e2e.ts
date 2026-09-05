@@ -1,25 +1,7 @@
 import { execSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
-import { expect, type Page, test } from '@playwright/test';
-import { type E2eRun, RUN_FILE } from './run.ts';
-
-declare global {
-  interface Window {
-    yacana?: { crashProver(): void };
-  }
-}
-
-const run = (): E2eRun => JSON.parse(readFileSync(RUN_FILE, 'utf8')) as E2eRun;
-const pageUrl = (r: E2eRun, extra: Record<string, string> = {}) =>
-  `${r.baseURL}/?${new URLSearchParams({ node: r.nodeUrl, miner: r.miner, token: r.token, ...extra })}`;
-
-const BOOT_MS = 8 * 60_000; // CRS verification, wallet + PXE boot, bb.js init
-
-async function bootPage(page: Page, url: string): Promise<void> {
-  page.on('pageerror', (e) => console.log(`[page error] ${e.message}`));
-  await page.goto(url);
-  await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
-}
+import { writeFileSync } from 'node:fs';
+import { expect, test } from '@playwright/test';
+import { BOOT_MS, bootPage, pageUrl, passKeyScreen, run } from './helpers.ts';
 
 // Peak RSS of the browser's process tree, sampled from `ps`; Playwright's Chromium is the one whose
 // command line carries its temporary profile directory.
@@ -79,6 +61,7 @@ test('first visit creates an account, mines at the easy target, claims and shows
   // Second visit: the persisted account signs again and its notes are still there.
   const account = await page.getByTestId('account').getAttribute('title');
   await page.reload();
+  await passKeyScreen(page);
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
   expect(await page.getByTestId('account').getAttribute('title')).toBe(account);
   await expect(page.getByTestId('balance')).toHaveText(/^4 tYACA$/);
@@ -124,7 +107,7 @@ test('a malformed RPC payload is rejected, not acted on', async ({ page }) => {
   );
   await page.goto(pageUrl(r, { node: 'http://127.0.0.1:1' }));
   await expect(page.getByTestId('boot-error')).toBeVisible({ timeout: BOOT_MS });
-  await expect(page.getByTestId('start')).toBeDisabled();
+  await expect(page.getByTestId('key-screen')).toHaveCount(0);
 });
 
 // Power changes rebuild bb.js in place; the job resumes at its next nonce. The process tree must

@@ -55,3 +55,32 @@ auto-resume; resume on open.
   floats.
 
 Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · web-miner `typecheck` ✓ · `bun test` 69 ✓ · `test:components` 20 + 27 ✓ · E(web-miner) 5 passed (4.9 min; the new spec: three reconfigures, ledger grows, RSS +221 MiB) ✓.
+
+## P2.3 Passkey keys + vault (2026-09-05)
+
+**Result:** ✓. `miner-core/src/keys/derive.ts` (HKDF-SHA256 with the versioned labels; `masterFromPrf` 32 B in, 32 B out;
+`deriveAccountFields(master, index)` 64 B per label → `fromBufferReduce`) and `keys/mnemonic.ts` (`@scure/bip39` 2.3.0
+exact, NFKD-normalised, `masterFromMnemonic`), pinned by golden vectors including the **addresses** (computed offline
+with `getSchnorrInitializerlessAccountContractAddress`, `@aztec/accounts`): PRF `00..1f` → account 0
+`0x1362161b…474b`, account 1 `0x02979e13…0ba9`; the bip39 test phrase → `0x1d344823…ebc1`. `web-miner/src/keys/passkey.ts`
+(every ceremony invariant, PRF input hashed at import, create→get fallback, `NoPrfError`), `keys/store.ts` (the vault:
+records + a non-extractable AES-GCM device key in `yacana-keys`; AAD `yacana-key:v:method:id`; every open re-derives
+account 0 and fails closed), `wallet/memory-store.ts` (an `AztecAsyncKVStore` for the WalletDB, run against the kv-store
+package's own `describeAztecMap` suite + a WalletDB lifecycle test), `wallet.ts` around supplied fields, `session.ts`
+(create / open / restore / stay-open), the key screen (card, consent, sync warning, Welcome back with one touch),
+`boot.ts` split into preflight (evidence rows) → key → session.
+
+- **The kv-store map suite is bun-only** (jest globals, not exported from the package barrel — imported by path) and the
+  vault spec needs bb.js's Grumpkin for the address check, which throws `std::bad_cast` under jsdom. Both live in
+  `packages/web-miner/tests/*.bun.test.ts`: bun runs them (WebCrypto + `fake-indexeddb`), Vitest excludes `*.bun.test.ts`,
+  and the root `tsconfig` now includes `packages/*/tests` so they type-check with bun types. The plan said Vitest for the
+  vault; the substance (WebCrypto, fake IndexedDB, AAD/IV/mode assertions) is identical.
+- **LMDB range semantics**: forward `[start, end)`, reverse `(start, end]` descending — the suite pins it.
+- **Chromium allows one internal virtual authenticator per environment**; the E2E helper returns the one it made so a spec
+  can clear its credentials instead of adding another. A reload on `/mine/settings` reopens on the settings route, so
+  the convenience-mode reopen navigates to Mine before reading the key tile.
+- At rest after a first passkey boot (asserted by the E2E from inside the page): one record with `askEveryOpen: true`,
+  no `sealed`, the only 32-byte hex in it is the address; no `yacana-wallet-*` database; the `yacana-pxe-*` store exists.
+  Convenience mode seals the master and opens with the authenticator removed; switching back deletes the ciphertext.
+
+Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · web-miner `typecheck` ✓ · `bun test` 97 ✓ · `test:components` 24 + 27 ✓ · E(web-miner) 7 passed (5.5 min: miner ×5 through the passkey key screen, `passkey.e2e.ts` ×2) ✓.

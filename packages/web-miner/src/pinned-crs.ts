@@ -61,7 +61,14 @@ globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
 };
 
 /** Verifies and caches every pinned file; call at boot so a bad asset fails before any proving. */
-export const preloadPinnedCrs = (): Promise<Uint8Array[]> => Promise.all(Object.keys(files).map(load));
+/** Loads and verifies every pinned asset; reports the total size and the G1 pin for the preflight row. */
+export const preloadPinnedCrs = async (): Promise<{ bytes: number; sha256: string }> => {
+  const loaded = await Promise.all(Object.keys(files).map(load));
+  return {
+    bytes: loaded.reduce((n, b) => n + b.length, 0),
+    sha256: files['g1_compressed.dat']?.sha256 ?? '',
+  };
+};
 
 /**
  * bb.js serves the CRS from its own IndexedDB cache (idb-keyval keys) before it ever fetches, so

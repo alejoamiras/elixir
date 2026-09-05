@@ -1,5 +1,5 @@
 import { useAtomValue } from 'jotai';
-import { type ReactNode, useEffect } from 'react';
+import { type ReactNode, useCallback, useEffect } from 'react';
 import { proofsPerMinute } from '../../miner-core/src/metrics.ts';
 import {
   Alert,
@@ -13,14 +13,15 @@ import {
 } from '../../ui/src/index.ts';
 import { DesktopOnly } from './components/DesktopOnly';
 import type { Connection } from './config';
-import type { MinerController } from './controller';
 import { isDesktop } from './desktop';
+import { KeyScreen } from './features/KeyScreen';
 import { useHotkeys, usePauses, useResumeOnOpen } from './features/use-page-behaviour';
 import { hostKind } from './host';
 import { navigate, type Route, useRoute } from './routes';
 import { Mine } from './routes/Mine';
 import { Settings } from './routes/Settings';
 import { Wallet } from './routes/Wallet';
+import type { Session } from './session';
 import { useSettings } from './settings';
 import { bootAtom, epochAtom, minerAtom, rulesAtom } from './state';
 import { applyTabStatus } from './tab-status';
@@ -94,21 +95,17 @@ function Shell({ children }: { children: ReactNode }) {
   );
 }
 
-export function App({
-  connection,
-  controller,
-}: {
-  connection: Connection;
-  controller: () => MinerController | undefined;
-}) {
+export function App({ connection, session }: { connection: Connection; session: Session }) {
   const boot = useAtomValue(bootAtom);
   const route = useRoute();
   const [settings] = useSettings();
+  const controller = useCallback(() => session.controller, [session]);
   useTabStatus(settings.tabStatus);
   useHotkeys(controller);
   usePauses(controller, settings);
   useResumeOnOpen(controller);
   if (!isDesktop(window)) return <DesktopOnly />;
+  const open = boot.phase === 'ready';
   return (
     <Shell>
       {boot.phase === 'error' && (
@@ -117,9 +114,10 @@ export function App({
           <AlertDescription>{boot.message}</AlertDescription>
         </Alert>
       )}
-      {route === 'mine' && <Mine controller={controller} />}
-      {route === 'wallet' && <Wallet />}
-      {route === 'settings' && <Settings connection={connection} controller={controller} />}
+      {!open && boot.phase !== 'error' && <KeyScreen session={session} />}
+      {open && route === 'mine' && <Mine controller={controller} />}
+      {open && route === 'wallet' && <Wallet />}
+      {route === 'settings' && <Settings connection={connection} controller={controller} session={session} />}
       <p className="text-xs text-ink-2">
         Whoever serves this page controls it: a compromised host could redirect claims or spend this wallet.
         Run your own build if that matters. Chain reads come from the node in Settings and can only waste work

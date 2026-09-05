@@ -1,57 +1,142 @@
-// Boot sequence: pinned CRS, isolation check, node, deployment check, wallet, rules, prover Worker.
+// Boot in three parts: the preflight (isolation, CRS, node, deployment, each with its evidence),
+// the key screen (a passkey or the words → a master), then wallet, account, rules and prover.
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { createStore } from 'jotai';
+import { deriveAccountFields } from '../../miner-core/src/keys/derive.ts';
 import { assertDeployment, expectedFromStrings } from '../../miner-core/src/reader.ts';
-import { attachDeployment, loadArtifact, readEpochRules } from './chain';
+import type { PreflightRow } from '../../ui/src/index.ts';
+import { attachDeployment, loadArtifact, type Node, readEpochRules } from './chain';
 import { allowedNodeOrigins, type Connection, disallowedNodeUrl } from './config';
 import { MinerController } from './controller';
+import { preparePasskeys } from './keys/passkey';
+import { assertNoLegacyWalletDb, listRecords, type MasterRecord } from './keys/store';
+import { shortAddress } from './lib/format';
 import { preloadPinnedCrs, purgeCrsCache } from './pinned-crs';
+import { loadSettings } from './settings';
 import { bootAtom, rulesAtom } from './state';
-import { openWallet } from './wallet';
+import { openWallet, registerAccount } from './wallet';
 
-export async function boot(
-  store: ReturnType<typeof createStore>,
-  connection: Connection,
-): Promise<MinerController> {
-  const step = (s: string) => store.set(bootAtom, { phase: 'booting', step: s });
-  if (!crossOriginIsolated)
-    throw new Error(
-      'this page is not cross-origin isolated: bb.js cannot use threads (check the COOP/COEP headers)',
-    );
-  const blocked = disallowedNodeUrl(connection);
-  if (blocked)
-    throw new Error(
-      `${blocked} is outside this build's allowed node origins (${allowedNodeOrigins().join(', ')}): change it in packages/site/site.env and rebuild`,
-    );
-  step('verifying the pinned CRS');
-  await purgeCrsCache();
-  await preloadPinnedCrs();
-  step('connecting to the node');
+type Store = ReturnType<typeof createStore>;
+
+export interface Preflighted {
+  node: Node;
+  chainId: bigint;
+  rollupVersion: bigint;
+  minerArtifact: ContractArtifact;
+  block: number;
+}
+
+const short = (hex: string) => `${hex.slice(0, 10)}…${hex.slice(-4)}`;
+
+/** Runs the checks one by one, each row's evidence landing in the store as it completes. */
+export async function preflight(store: Store, connection: Connection): Promise<Preflighted> {
+  const rows: PreflightRow[] = [
+    { id: 'isolation', label: 'cross-origin isolated', state: 'pending' },
+    { id: 'crs', label: 'pinned CRS', state: 'pending' },
+    { id: 'node', label: 'node', state: 'pending' },
+    { id: 'deployment', label: 'deployment', state: 'pending' },
+  ];
+  const set = (id: string, patch: Partial<PreflightRow>) => {
+    const i = rows.findIndex((r) => r.id === id);
+    rows[i] = { ...(rows[i] as PreflightRow), ...patch };
+    store.set(bootAtom, { phase: 'preflight', rows: [...rows] });
+  };
+  const run = async <T>(id: string, fn: () => Promise<{ evidence: string; value: T }>): Promise<T> => {
+    set(id, { state: 'running' });
+    const t0 = performance.now();
+    try {
+      const { evidence, value } = await fn();
+      set(id, { state: 'ok', evidence, ms: performance.now() - t0 });
+      return value;
+    } catch (e) {
+      set(id, {
+        state: 'failed',
+        error: e instanceof Error ? e.message : String(e),
+        ms: performance.now() - t0,
+      });
+      throw e;
+    }
+  };
+  set('isolation', { state: 'pending' });
+  await run('isolation', async () => {
+    if (!crossOriginIsolated)
+      throw new Error(
+        'this page is not cross-origin isolated: bb.js cannot use threads (check the COOP/COEP headers)',
+      );
+    const blocked = disallowedNodeUrl(connection);
+    if (blocked)
+      throw new Error(
+        `${blocked} is outside this build's allowed node origins (${allowedNodeOrigins().join(', ')}): change it in packages/site/site.env and rebuild`,
+      );
+    await assertNoLegacyWalletDb();
+    return { evidence: `${navigator.hardwareConcurrency || 2} threads available`, value: undefined };
+  });
+  await run('crs', async () => {
+    await purgeCrsCache();
+    const { bytes, sha256 } = await preloadPinnedCrs();
+    return {
+      evidence: `${Math.round(bytes / 2 ** 20)} MiB · sha256 ${sha256.slice(0, 4)}…${sha256.slice(-4)}`,
+      value: undefined,
+    };
+  });
   const node = createAztecNodeClient(connection.nodeUrl);
-  const chainId = BigInt(await node.getChainId());
-  const rollupVersion = BigInt((await node.getNodeInfo()).rollupVersion);
-  step('checking the deployment');
-  const minerArtifact = await loadArtifact('yacana_miner-YacanaMiner');
-  await assertDeployment(
-    node,
-    expectedFromStrings({
-      chainId: import.meta.env.VITE_CHAIN_ID,
-      rollupVersion: import.meta.env.VITE_ROLLUP_VERSION,
-      miner: connection.miner,
-      minerClassId: import.meta.env.VITE_YACANA_MINER_CLASS,
-      token: connection.token,
-      tokenClassId: import.meta.env.VITE_YACANA_TOKEN_CLASS,
-    }),
-    minerArtifact.storageLayout,
-  );
-  step('opening the wallet (first visit creates an account)');
-  const { wallet, account, fee, created } = await openWallet(connection.nodeUrl, node, chainId);
+  const { chainId, rollupVersion, block } = await run('node', async () => {
+    const [chain, info, tip] = await Promise.all([
+      node.getChainId(),
+      node.getNodeInfo(),
+      node.getBlockNumber(),
+    ]);
+    const block = Number(tip);
+    return {
+      evidence: `${new URL(connection.nodeUrl).host} · block ${block.toLocaleString('en-US')}`,
+      value: { chainId: BigInt(chain), rollupVersion: BigInt(info.rollupVersion), block },
+    };
+  });
+  const minerArtifact = await run('deployment', async () => {
+    const artifact = await loadArtifact('yacana_miner-YacanaMiner');
+    await assertDeployment(
+      node,
+      expectedFromStrings({
+        chainId: import.meta.env.VITE_CHAIN_ID,
+        rollupVersion: import.meta.env.VITE_ROLLUP_VERSION,
+        miner: connection.miner,
+        minerClassId: import.meta.env.VITE_YACANA_MINER_CLASS,
+        token: connection.token,
+        tokenClassId: import.meta.env.VITE_YACANA_TOKEN_CLASS,
+      }),
+      artifact.storageLayout,
+    );
+    return {
+      evidence: `miner ${short(connection.miner)} · class ${short(import.meta.env.VITE_YACANA_MINER_CLASS)}`,
+      value: artifact,
+    };
+  });
+  await preparePasskeys();
+  store.set(bootAtom, { phase: 'key', records: await listRecords() });
+  return { node, chainId, rollupVersion, minerArtifact, block };
+}
+
+/** From a master (already checked against the record) to a running miner. */
+export async function startSession(
+  store: Store,
+  pre: Preflighted,
+  connection: Connection,
+  record: MasterRecord,
+  master: Uint8Array,
+): Promise<MinerController> {
+  const step = (s: string) => store.set(bootAtom, { phase: 'opening', step: s });
+  step('opening the wallet');
+  const opened = await openWallet(connection.nodeUrl, pre.node, pre.chainId);
+  step(`registering your key ${shortAddress(record.account.address)}`);
+  const account = await registerAccount(opened, await deriveAccountFields(master, record.account.index));
+  if (account.toString() !== record.account.address)
+    throw new Error('the wallet derived a different address than the vault');
   step('registering the deployment');
-  const deployment = await attachDeployment(wallet, node, connection, minerArtifact);
-  const rules = await readEpochRules(deployment, account);
-  store.set(rulesAtom, rules);
+  const deployment = await attachDeployment(opened.wallet, pre.node, connection, pre.minerArtifact);
+  store.set(rulesAtom, await readEpochRules(deployment, account));
   step('starting the prover');
-  const threads = Math.max(1, (navigator.hardwareConcurrency || 2) - 1);
+  const threads = loadSettings().threads ?? Math.max(1, (navigator.hardwareConcurrency || 2) - 1);
   const spawn = () => new Worker(new URL('./prover.worker.ts', import.meta.url), { type: 'module' });
   const controller = new MinerController(
     store,
@@ -59,12 +144,12 @@ export async function boot(
     threads,
     deployment,
     account,
-    fee,
-    chainId,
-    rollupVersion,
+    opened.fee,
+    pre.chainId,
+    pre.rollupVersion,
   );
   await controller.ready();
   await controller.begin();
-  store.set(bootAtom, { phase: 'ready', account: account.toString(), threads, created });
+  store.set(bootAtom, { phase: 'ready', account: account.toString(), threads, record });
   return controller;
 }
