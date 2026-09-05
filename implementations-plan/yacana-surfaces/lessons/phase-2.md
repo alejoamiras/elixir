@@ -215,3 +215,7 @@ Protocol note: the plan stops the loop after three rounds still producing materi
 
 Gate after the fixes: `bun run lint` ✓ · `typecheck` ✓ · web-miner `tsc -b` ✓ · `bun test` 117 ✓ · `test:components` 33 + 27 ✓ · E(web-miner) 11 passed (12.4 min) ✓.
 
+**Round 4** (resumed, the `7adaca6` diff). One P2: two Start clicks during the read of a rebuilt view started two reads, and the second completion restarted mining behind a Stop. `readRebuilt` now coalesces onto one in-flight promise (`7fce9e5`); the bun test presses Start twice, Stops, and sees exactly two mining jobs ever posted. Two test comments dropped.
+
+**Round 5** (resumed, the `7fce9e5` diff). Verdict, quoted: "No new material findings; the round‑4 race is fixed. Confidence: high." — the loop converged. E(web-miner) on `7fce9e5`: 11 passed (11.1 min) ✓.
+
