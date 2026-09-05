@@ -49,6 +49,11 @@ export function siteConfig(command: 'build' | 'serve', env: NodeJS.ProcessEnv = 
     deployment,
     env,
     sourceCommit: sourceCommit(env),
+    bbVersion: (
+      JSON.parse(readFileSync(resolve(repo, 'node_modules/@aztec/bb.js/package.json'), 'utf8')) as {
+        version: string;
+      }
+    ).version,
   });
 }
 

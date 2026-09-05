@@ -14,11 +14,21 @@ export type ToWorker =
   | { type: 'init'; threads: number }
   | { type: 'mine'; job: MineJob }
   | { type: 'stop' }
+  /** Finish the proof in flight, rebuild bb.js with `threads`, resume the job at its next nonce. */
+  | { type: 'reconfigure'; threads: number }
   | { type: 'crash' };
 
 export type FromWorker =
   | { type: 'ready'; threads: number; initMs: number }
-  | { type: 'attempt'; epoch: bigint; secretId: number; nonce: bigint; proveMs: number }
+  | {
+      type: 'attempt';
+      epoch: bigint;
+      secretId: number;
+      nonce: bigint;
+      proveMs: number;
+      score: number;
+      win: boolean;
+    }
   | {
       type: 'winner';
       epoch: bigint;

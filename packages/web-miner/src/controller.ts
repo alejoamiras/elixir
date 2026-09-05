@@ -3,9 +3,11 @@ import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { createStore } from 'jotai';
 import { DELIVERY_BLOCKED_MESSAGE, isDeliveryBlockedError } from '../../miner-core/src/claim.ts';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
+import { difficulty } from '../../miner-core/src/metrics.ts';
 import { deployDomain } from '../../miner-core/src/proof.ts';
 import { newEpochSecret } from '../../miner-core/src/secret.ts';
 import { type Deployment, type Fee, readBalance, readEpoch, sendClaim, sendRoll } from './chain';
+import { amount } from './lib/format';
 import { type Command, type Event, reduce } from './lib/reducer';
 import { balanceAtom, claimsAtom, epochAtom, logAtom, minerAtom } from './state';
 import type { FromWorker, MineJob, ToWorker } from './worker-protocol';
@@ -37,11 +39,13 @@ export class MinerController {
   private generations = 0;
   private crashes = 0;
   private refreshing: Promise<void> = Promise.resolve();
+  /** Why mining is paused by the page itself (not the user); it resumes when the reason clears. */
+  private pausedBy = new Set<'battery' | 'hidden'>();
 
   constructor(
     private readonly store: Store,
     private readonly spawnWorker: () => Worker,
-    private readonly threads: number,
+    private threads: number,
     private readonly d: Deployment,
     private readonly account: AztecAddress,
     private readonly fee: Fee,
@@ -134,12 +138,44 @@ export class MinerController {
   }
 
   start() {
+    if (this.pausedBy.size) return;
     const epoch = this.store.get(epochAtom);
     if (epoch) this.dispatch({ type: 'start', epoch });
   }
 
   stop() {
     this.dispatch({ type: 'stop' });
+  }
+
+  /** Power: the Worker finishes the proof in flight, rebuilds bb.js and resumes at the next nonce. */
+  reconfigure(threads: number) {
+    if (threads === this.threads) return;
+    this.threads = threads;
+    this.post({ type: 'reconfigure', threads });
+    this.log(`power: ${threads} threads`);
+  }
+
+  get currentThreads(): number {
+    return this.threads;
+  }
+
+  /** A page-side pause (battery, hidden tab): stops now, restarts by itself once every reason clears. */
+  pause(reason: 'battery' | 'hidden') {
+    const wasMining = this.store.get(minerAtom).phase === 'mining';
+    this.pausedBy.add(reason);
+    if (wasMining) {
+      this.stop();
+      this.resumeWhenClear = true;
+    }
+  }
+
+  private resumeWhenClear = false;
+
+  release(reason: 'battery' | 'hidden') {
+    this.pausedBy.delete(reason);
+    if (this.pausedBy.size || !this.resumeWhenClear) return;
+    this.resumeWhenClear = false;
+    this.start();
   }
 
   /**
@@ -159,7 +195,12 @@ export class MinerController {
     this.store.set(epochAtom, epoch);
     if (previous && previous.epoch !== epoch.epoch) {
       this.log(`epoch ${epoch.epoch} opened (target ${epoch.target.toString(16)})`);
-      this.dispatch({ type: 'epoch', epoch });
+      this.dispatch({
+        type: 'epoch',
+        epoch,
+        difficultyRatio: difficulty(epoch.target) / difficulty(previous.target),
+        at: Date.now(),
+      });
     }
     this.store.set(balanceAtom, await readBalance(this.d, this.account));
   }
@@ -223,7 +264,14 @@ export class MinerController {
   private onWorker(m: FromWorker) {
     switch (m.type) {
       case 'attempt':
-        this.dispatch({ type: 'attempt', proveMs: m.proveMs });
+        this.dispatch({
+          type: 'attempt',
+          proveMs: m.proveMs,
+          score: m.score,
+          win: m.win,
+          at: Date.now(),
+          t: performance.now(),
+        });
         return;
       case 'winner':
         this.log(`ticket wins after ${m.attempts} proofs (nonce ${m.nonce})`);
@@ -259,11 +307,10 @@ export class MinerController {
         secret,
         recipient: this.account,
       });
-      this.log(
-        `claim mined in block ${block}: +${PARAMS.REWARD / 10n ** BigInt(PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL}`,
-      );
+      const reward = `${amount(PARAMS.REWARD, PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL}`;
+      this.log(`claim mined in block ${block}: +${reward}`);
       this.store.set(claimsAtom, (c) => [...c, { epoch: p.epoch, block, at: Date.now() }]);
-      this.dispatch({ type: 'claimed' });
+      this.dispatch({ type: 'claimed', block, reward, at: Date.now() });
       await this.refresh();
       this.start();
     } catch (e) {
@@ -273,7 +320,7 @@ export class MinerController {
           ? (e.message.split('\n')[0] ?? '')
           : String(e);
       this.log(`claim failed: ${message}`);
-      this.dispatch({ type: 'failed', error: message });
+      this.dispatch({ type: 'failed', error: message, at: Date.now() });
     }
   }
 }

@@ -9,6 +9,7 @@ export interface SiteConfig {
   allowedNodeOrigins: string[];
   rpId: string;
   sourceCommit: string;
+  bbVersion: string;
   chainId: string;
   rollupVersion: string;
   miner: string;
@@ -65,6 +66,7 @@ export function loadSiteConfig(opts: {
   deployment: DeploymentRecord;
   env?: Env;
   sourceCommit: string;
+  bbVersion: string;
 }): SiteConfig {
   const { mode, siteEnv, deployment } = opts;
   // Overrides exist so an e2e run can point the build at its throwaway deployment on a local node.
@@ -82,6 +84,7 @@ export function loadSiteConfig(opts: {
     allowedNodeOrigins: allowed,
     rpId: pick('VITE_RP_ID', required(siteEnv, 'VITE_RP_ID', 'site.env')),
     sourceCommit: opts.sourceCommit,
+    bbVersion: opts.bbVersion,
     chainId: pick('VITE_CHAIN_ID', deployment.chainId),
     rollupVersion: pick('VITE_ROLLUP_VERSION', deployment.rollupVersion),
     miner: pick('VITE_YACANA_MINER', deployment.miner),
@@ -118,6 +121,7 @@ export const viteDefine = (c: SiteConfig): Record<string, string> =>
       VITE_ALLOWED_NODE_ORIGINS: c.allowedNodeOrigins.join(','),
       VITE_RP_ID: c.rpId,
       VITE_SOURCE_COMMIT: c.sourceCommit,
+      VITE_BB_VERSION: c.bbVersion,
       VITE_CHAIN_ID: c.chainId,
       VITE_ROLLUP_VERSION: c.rollupVersion,
       VITE_YACANA_MINER: c.miner,

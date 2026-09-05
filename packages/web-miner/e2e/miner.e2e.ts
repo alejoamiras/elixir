@@ -70,8 +70,8 @@ test('first visit creates an account, mines at the easy target, claims and shows
   await expect(page.getByTestId('phase')).toHaveText('claiming', { timeout: 5 * 60_000 });
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
   await expect(page.getByTestId('balance')).toHaveText(/^4 tYACA$/);
-  await expect(page.getByTestId('epoch-claims')).toHaveText('1 / 4');
-  await expect(page.getByTestId('log')).toContainText('claim mined in block');
+  await expect(page.getByTestId('epoch-claims')).toHaveText('1 of 4');
+  await expect(page.getByTestId('ledger')).toContainText('minted, privately');
   // Mining resumes on its own after a claim; stop it cleanly.
   await expect(page.getByTestId('phase')).toHaveText('mining');
   await page.getByTestId('stop').click();
@@ -125,6 +125,37 @@ test('a malformed RPC payload is rejected, not acted on', async ({ page }) => {
   await page.goto(pageUrl(r, { node: 'http://127.0.0.1:1' }));
   await expect(page.getByTestId('boot-error')).toBeVisible({ timeout: BOOT_MS });
   await expect(page.getByTestId('start')).toBeDisabled();
+});
+
+// Power changes rebuild bb.js in place; the job resumes at its next nonce. The process tree must
+// not keep the old backends: growth above 300 MiB over three rebuilds means a leak (then the
+// fallback is a Worker respawn per change).
+test('three power changes keep mining, the ledger grows, memory stays bounded', async ({ page }) => {
+  const r = run();
+  // The hard deployment: no win, so no claim proof (≈ 2 GB on its own) muddies the measurement.
+  await bootPage(page, pageUrl(r, { miner: r.hardMiner, token: r.hardToken }));
+  const memory = rssWatcher();
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('phase')).toHaveText('mining');
+  const lines = () => page.getByTestId('ledger').locator('[data-slot=proof-line]');
+  await expect(lines()).not.toHaveCount(0, { timeout: 3 * 60_000 });
+  const baseline = memory.peakMiB();
+  const slider = page.getByRole('slider');
+  const max = Number(await slider.getAttribute('max'));
+  for (const threads of [Math.max(1, Math.ceil(max / 2)), 1, max]) {
+    const before = await lines().count();
+    await slider.fill(String(threads));
+    await expect(page.getByText(new RegExp(`^${threads} threads?`))).toBeVisible();
+    // Attempts keep landing on the rebuilt backend (a claim in between is fine: mining resumes).
+    await expect
+      .poll(async () => (await lines().count()) - before, { timeout: 5 * 60_000 })
+      .toBeGreaterThanOrEqual(2);
+  }
+  await expect(page.getByTestId('phase')).not.toHaveText('idle');
+  await page.getByTestId('stop').click();
+  memory.stop();
+  console.log(`RSS baseline ${baseline} MiB, peak after three rebuilds ${memory.peakMiB()} MiB`);
+  expect(memory.peakMiB() - baseline).toBeLessThanOrEqual(300);
 });
 
 test('a prover crash surfaces as an error and mining restarts on the next start', async ({ page }) => {

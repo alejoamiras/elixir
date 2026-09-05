@@ -29,3 +29,29 @@ the RP host or localhost in non-production builds); desktop-only screen (`< 900 
   checks that every drift (chain, rollup, class, foreign miner, foreign token) is refused: 71 s on the isolated network.
 
 Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · site + web-miner `typecheck` ✓ · `bun test` 61 ✓ · `test:components` 15 + 27 ✓ · E(web-miner) 4 passed (2.9 min) ✓ · plus `e2e:agent -- bun test packages/miner-core/src/reader.live.test.ts` 1 pass.
+
+## P2.2 Cockpit, power, settings (2026-09-05)
+
+**Result:** ✓. `miner-core/src/metrics.ts` (score, difficulty, proofsPerMinute over 20, nextWinSeconds, closePreview,
+escapeHatchIn; `difficulty`/`expectedSecondsToWin` left `format.ts`), the Worker reports `score` + `win` per attempt and
+takes `reconfigure`; its scheduling is now `prover-loop.ts` (pure, backend injected) so the resume rule is unit-tested:
+finish the proof in flight → destroy + init → the same job continues at `nextNonce` with the same secret; a `stop`
+during a reconfigure rebuilds without resuming; an idle reconfigure rebuilds at once and a job arriving meanwhile
+waits. The reducer carries score/best/samples/winAt/ledger (200 lines, ★ ✓ ✗ ── grammar with clocked events).
+Cockpit = LoopTile (pill, per-proof time, Start/Stop, ScoreLoop, the three numbers), RailTile (EpochRail with the
+close preview / hatch rows and the PowerSlider), LedgerTile, the key tile; Settings = Performance / Behaviour /
+Appearance / About / Network in `yacana.settings`; hotkeys Space · [ ] · w · ,; battery and hidden-tab pauses with
+auto-resume; resume on open.
+
+- **The memory gate must not include a claim.** On the easy E2E target a claim proof (ClientIVC in the PXE, ≈ 2 GB)
+  lands between reconfigures; the first run showed +690 MiB and would have condemned the in-place rebuild. `run-setup`
+  now deploys a second instance at an impossible target (`1 << 64`) and the spec pins the page to it: three rebuilds
+  (5 → 1 → 11 threads) grew the process tree by **221 MiB** (1402 → 1623), under the 300 MiB gate, so the in-place
+  `reconfigure` stays (no respawn fallback).
+- `bb.js` does not export its `package.json`; the version is a `define` (`VITE_BB_VERSION`) read by the site config.
+- A mapped "boolean keys of Settings" type picks up `undefined` from the optional `threads`; an explicit `BOOLEANS`
+  tuple is the honest type.
+- `low128 < target` is `score > difficulty`, not `≥`; the reducer takes the Worker's `win` flag instead of comparing
+  floats.
+
+Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · web-miner `typecheck` ✓ · `bun test` 69 ✓ · `test:components` 20 + 27 ✓ · E(web-miner) 5 passed (4.9 min; the new spec: three reconfigures, ledger grows, RSS +221 MiB) ✓.

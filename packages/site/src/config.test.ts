@@ -7,7 +7,7 @@ const siteEnv = parseEnvFile(readFileSync(resolve(import.meta.dir, '../site.env'
 const deployment = JSON.parse(
   readFileSync(resolve(import.meta.dir, '../../../deployments/testnet.json'), 'utf8'),
 ) as DeploymentRecord;
-const base = { siteEnv, deployment, sourceCommit: 'abc' };
+const base = { siteEnv, deployment, sourceCommit: 'abc', bbVersion: '5.2.0' };
 
 describe('site config', () => {
   test('production takes site.env and the record and ignores the process environment', () => {

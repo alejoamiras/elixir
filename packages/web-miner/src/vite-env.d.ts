@@ -7,6 +7,7 @@ interface ImportMetaEnv {
   readonly VITE_ALLOWED_NODE_ORIGINS: string;
   readonly VITE_RP_ID: string;
   readonly VITE_SOURCE_COMMIT: string;
+  readonly VITE_BB_VERSION: string;
   readonly VITE_CHAIN_ID: string;
   readonly VITE_ROLLUP_VERSION: string;
   readonly VITE_YACANA_MINER: string;

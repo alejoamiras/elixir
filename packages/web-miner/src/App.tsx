@@ -1,5 +1,6 @@
 import { useAtomValue } from 'jotai';
 import { type ReactNode, useEffect } from 'react';
+import { proofsPerMinute } from '../../miner-core/src/metrics.ts';
 import {
   Alert,
   AlertDescription,
@@ -14,12 +15,13 @@ import { DesktopOnly } from './components/DesktopOnly';
 import type { Connection } from './config';
 import type { MinerController } from './controller';
 import { isDesktop } from './desktop';
+import { useHotkeys, usePauses, useResumeOnOpen } from './features/use-page-behaviour';
 import { hostKind } from './host';
-import { proofsPerSecond } from './lib/reducer';
 import { navigate, type Route, useRoute } from './routes';
 import { Mine } from './routes/Mine';
 import { Settings } from './routes/Settings';
 import { Wallet } from './routes/Wallet';
+import { useSettings } from './settings';
 import { bootAtom, epochAtom, minerAtom, rulesAtom } from './state';
 import { applyTabStatus } from './tab-status';
 
@@ -29,18 +31,19 @@ const NAV: { route: Route; label: string }[] = [
   { route: 'settings', label: 'Settings' },
 ];
 
-function useTabStatus() {
+function useTabStatus(enabled: boolean) {
   const miner = useAtomValue(minerAtom);
   const epoch = useAtomValue(epochAtom);
   const rules = useAtomValue(rulesAtom);
   useEffect(() => {
-    const perMinute = proofsPerSecond(miner.recent) * 60;
+    if (!enabled) return applyTabStatus({ mark: 'idle' });
+    const perMinute = proofsPerMinute(miner.recent);
     applyTabStatus({
       mark: miner.proverDead ? 'paused' : miner.phase === 'idle' ? 'idle' : 'mining',
       ...(miner.phase !== 'idle' && perMinute > 0 && { rate: `${perMinute.toFixed(0)}/min` }),
       ...(epoch && rules && { claims: `${epoch.claims}/${rules.N}` }),
     });
-  }, [miner, epoch, rules]);
+  }, [enabled, miner, epoch, rules]);
 }
 
 function Shell({ children }: { children: ReactNode }) {
@@ -100,7 +103,11 @@ export function App({
 }) {
   const boot = useAtomValue(bootAtom);
   const route = useRoute();
-  useTabStatus();
+  const [settings] = useSettings();
+  useTabStatus(settings.tabStatus);
+  useHotkeys(controller);
+  usePauses(controller, settings);
+  useResumeOnOpen(controller);
   if (!isDesktop(window)) return <DesktopOnly />;
   return (
     <Shell>
@@ -112,7 +119,7 @@ export function App({
       )}
       {route === 'mine' && <Mine controller={controller} />}
       {route === 'wallet' && <Wallet />}
-      {route === 'settings' && <Settings connection={connection} />}
+      {route === 'settings' && <Settings connection={connection} controller={controller} />}
       <p className="text-xs text-ink-2">
         Whoever serves this page controls it: a compromised host could redirect claims or spend this wallet.
         Run your own build if that matters. Chain reads come from the node in Settings and can only waste work

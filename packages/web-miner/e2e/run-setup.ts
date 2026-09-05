@@ -84,6 +84,7 @@ const port = await claim({
 try {
   const target = BigInt(process.env.YACANA_E2E_TARGET ?? String(1n << 127n));
   const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: target });
+  const hard = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: 1n << 64n });
   const log = openSync(resolve(pkg, 'e2e/.vite.log'), 'w');
   const env = e2eEnv(deployed);
   if (server === 'preview') buildForRun(log, env);
@@ -96,6 +97,8 @@ try {
     nodeUrl,
     miner: deployed.miner,
     token: deployed.token,
+    hardMiner: hard.miner,
+    hardToken: hard.token,
     vitePid: vite.pid as number,
     runId,
     server,
