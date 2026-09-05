@@ -83,3 +83,7 @@ edge-positioning issue." Applied: (1) Tailwind's generated `data-[state]` animat
 — `text-ink-2!` (important) wins; (3) merged labels at 0 % / 100 % are edge-aligned, only intermediate ones centred;
 (4) the `Kpi` paragraph codex had flagged was still there — deleted. Codex re-probed the canvas: theme/resize redraws,
 no hidden drawing, observers disconnected on unmount.
+
+**Round 3** (resumed) — converged. Verbatim: "The fix diff resolves the remaining findings without introducing regressions.
+**No new material findings.**" Codex verified the production CSS gates the dialog/sheet animations on `no-preference`, the
+important toaster override, and the rendered slider labels for 1, 2, 3, 4 and 12 cores.
