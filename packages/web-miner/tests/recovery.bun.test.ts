@@ -160,7 +160,6 @@ describe('lost-race recovery', () => {
     );
     worker.emit(winner);
     await settle(() => store.get(minerAtom).proverDead);
-    // The card carries the cause verbatim: here, what to do about the other tab.
     expect(store.get(minerAtom).notice?.kind).toBe('prover-dead');
     expect(store.get(minerAtom).notice?.body).toContain('another tab holds this key’s chain view open');
     expect(store.get(minerAtom).notice?.title).toContain('reload the page');
@@ -207,12 +206,17 @@ describe('lost-race recovery', () => {
     expect(store.get(minerAtom)).toMatchObject({ phase: 'idle' });
     expect(store.get(minerAtom).notice?.body).toContain('press Start');
     expect(store.get(balanceAtom)).toBe(5n);
-    // Start reads the rebuilt view first; only a successful read clears the card and mines.
+    controller.start();
     controller.start();
     await settle(() => store.get(minerAtom).phase === 'mining');
     expect(store.get(minerAtom).notice).toBeNull();
     expect(store.get(balanceAtom)).toBe(9n);
     expect(store.get(minerAtom).ledger.map((l) => l.kind)).toEqual(['epoch', 'failed', 'failed']);
+    // The second Start joined the same read: a Stop now is not undone by a second completion.
+    controller.stop();
+    await new Promise((r) => setTimeout(r, 100));
+    expect(store.get(minerAtom).phase).toBe('idle');
+    expect(worker.sent.filter((m) => m.type === 'mine')).toHaveLength(2);
     controller.dispose();
   });
 

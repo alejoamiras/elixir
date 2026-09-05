@@ -137,6 +137,7 @@ export class MinerController {
   private rebuiltAt: number | null = null;
   /** A rebuilt view that has not been read yet: Start reads it before anything mines. */
   private unread = false;
+  private reading: Promise<void> | undefined;
   /** Why mining is paused by the page itself (not the user); it resumes when the reason clears. */
   private pausedBy = new Set<PauseReason>();
   private resumeWhenClear = false;
@@ -537,9 +538,17 @@ export class MinerController {
 
   /**
    * The first read of a rebuilt view syncs the fresh PXE: the notes come back before mining
-   * resumes. Until it succeeds nothing is known to be recovered, and Start retries it.
+   * resumes. Until it succeeds nothing is known to be recovered, and Start retries it; one read
+   * at a time, so a second Start cannot restart mining behind a Stop.
    */
-  private async readRebuilt() {
+  private readRebuilt(): Promise<void> {
+    this.reading ??= this.readRebuiltOnce().finally(() => {
+      this.reading = undefined;
+    });
+    return this.reading;
+  }
+
+  private async readRebuiltOnce() {
     try {
       await this.refresh();
     } catch (e) {
