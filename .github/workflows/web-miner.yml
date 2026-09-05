@@ -25,6 +25,7 @@ jobs:
               - 'packages/web-miner/**'
               - '!packages/web-miner/**/*.md'
               - 'packages/miner-core/src/**'
+              - 'packages/ui/**'
               - 'yacana.params.json'
               - 'scripts/params-codegen.ts'
               - 'biome.json'

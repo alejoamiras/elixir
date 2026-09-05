@@ -1,8 +1,5 @@
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Button, Input, Label, Tile, TileHeader } from '../../../ui/src/index.ts';
 import { allowedNodeOrigins, type Connection, isPinnedByQuery, saveConnection } from '../config';
 
 const fields: { key: keyof Connection; label: string; placeholder: string }[] = [
@@ -21,11 +18,9 @@ export function ConnectionCard({ connection }: { connection: Connection }) {
   const pinned = isPinnedByQuery();
   const dirty = JSON.stringify(draft) !== JSON.stringify(connection);
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Network</CardTitle>
-      </CardHeader>
-      <CardContent className="grid gap-3">
+    <Tile>
+      <TileHeader>Network</TileHeader>
+      <div className="grid gap-3">
         {fields.map((f) => (
           <div key={f.key} className="grid gap-1">
             <Label htmlFor={f.key}>{f.label}</Label>
@@ -41,6 +36,7 @@ export function ConnectionCard({ connection }: { connection: Connection }) {
         <div className="flex items-center gap-2">
           <Button
             size="sm"
+            variant="primary"
             disabled={!dirty || pinned}
             onClick={() => {
               saveConnection(draft);
@@ -49,13 +45,13 @@ export function ConnectionCard({ connection }: { connection: Connection }) {
           >
             Save and reload
           </Button>
-          {pinned && <span className="text-muted-foreground text-xs">set by the page URL</span>}
+          {pinned && <span className="text-ink-2 text-xs">set by the page URL</span>}
         </div>
-        <p className="text-muted-foreground text-xs">
+        <p className="text-ink-2 text-xs">
           This build's security policy allows nodes at {allowedNodeOrigins().join(', ')}
           {import.meta.env.DEV ? ' and local nodes' : ''}; other origins need a rebuild.
         </p>
-      </CardContent>
-    </Card>
+      </div>
+    </Tile>
   );
 }

@@ -38,3 +38,19 @@ when the hatch ≤ 0), `PowerSlider` (native range; eco/balanced/max = ⌈(cores
 - `toHaveTextContent` sees no spaces between flex-gapped spans; assert with regexes, not the visual string.
 
 Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · ui `typecheck` ✓ · `test:components` ui 25 + web-miner 12 ✓ · `bun test` 55 pass ✓.
+
+## P1.3 web-miner on ui (2026-09-05)
+
+**Result:** ✓, no redesign. `index.css` is two lines (`@import "../../ui/src/theme.css"; @source "../../ui/src";`);
+the five cards render as `Tile`/`TileHeader` (the `aside` slot takes what sat right of the title), the phase badge is
+the `StatusPill`, the boot alert is `variant="bad"`; `components/ui/*`, `theme-provider.tsx`, `lib/utils.ts` and
+`components.json` deleted; `ThemeProvider` mounted in `main.tsx` (the old one never was). Dependencies dropped from
+web-miner: geist, next-themes, shadcn, cva, clsx, tailwind-merge, radix-ui, lucide-react, sonner, tw-animate-css,
+@tanstack/react-query (unused) — lockfile −500 lines. Vitest include is now `*.vitest.tsx` + `*.test.ts`.
+`web-miner.yml` and `contracts.yml` filters add `packages/ui/**`; CLAUDE.md gains the `packages/ui` row.
+
+- The production build carries both variable fonts as woff2 subsets (self-hosted; `font-src 'self'` holds) and the ui
+  utilities (`label-mono`, `bg-raised`, `fill-uv`) reach the CSS through `@source`. Test ids and copy unchanged, so the
+  eight E2E specs pass as they were.
+
+Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · ui + web-miner `typecheck` ✓ · `test:components` 25 + 12 ✓ · `bun test` 55 ✓ · E(web-miner) 8 passed (3.6 min) ✓.

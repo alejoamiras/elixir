@@ -28,6 +28,7 @@ jobs:
               - 'packages/work-circuit/crates/**'
               - 'packages/work-circuit/fixtures/**'
               - 'packages/miner-core/src/**'
+              - 'packages/ui/**'
               - 'packages/web-miner/**'
               - '!packages/web-miner/**/*.md'
               - 'yacana.params.json'

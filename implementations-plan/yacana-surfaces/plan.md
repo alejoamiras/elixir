@@ -170,7 +170,7 @@ Gate: L(ui) · C · `bun run lint:actions`. Layers: lint · component.
 **P1.2 Signature components.** ✓ Goal: ScoreLoop (canvas; a pure `score-loop-model.ts` for the sample buffer, log axis 1–1000, win rise/flash; one dot per attempt at its real time; `prefers-reduced-motion` still frame; no drawing while hidden), ProofLine (★ ✓ ✗ ── grammar, 120 ms entry, 200-line window), Stepper (real times), Preflight (evidence rows, failure state), EpochRail (segments with the miner's own claims brighter, expected tick, kv rows, "Close the epoch" when the hatch ≤ 0), PowerSlider (labels, clamp, keyboard), Marks. Tests: one spec each — dots per attempt and the win flag (model), all four line kinds, failure evidence, the button at T_MAX, clamp and emitted threads, reduced motion.
 Gate: L(ui) · C. Layers: lint · component.
 
-**P1.3 web-miner on ui (no redesign).** Goal: the current miner renders from `ui` (primitives, theme, fonts); local copies deleted; `web-miner.yml` and `contracts.yml` filters add `packages/ui/**`. Tests: the existing suites.
+**P1.3 web-miner on ui (no redesign).** ✓ Goal: the current miner renders from `ui` (primitives, theme, fonts); local copies deleted; `web-miner.yml` and `contracts.yml` filters add `packages/ui/**`. Tests: the existing suites.
 Gate: L(ui, web-miner) · C · E(web-miner) · `bun run lint:actions`. Layers: lint · component · e2e-isolated.
 
 ### Arc 2 · miner
