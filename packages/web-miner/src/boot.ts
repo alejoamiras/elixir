@@ -39,14 +39,19 @@ const short = (hex: string) => `${hex.slice(0, 10)}…${hex.slice(-4)}`;
 /** A request to the node that gets no answer for this long is dead; the SDK sets no deadline. */
 const NODE_REQUEST_MS = 120_000;
 
-/** Bounds every request the page makes to the node, including the PXE's from inside the wallet. */
+/**
+ * Bounds every request the page makes to the node, including the PXE's from inside the wallet;
+ * a caller's own signal (in `init` or on a `Request`) keeps cancelling alongside the deadline.
+ */
 function boundNodeRequests(nodeUrl: string): void {
   const origin = new URL(nodeUrl).origin;
   const fetch = globalThis.fetch.bind(globalThis);
   globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
     const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    if (init?.signal || new URL(href, location.href).origin !== origin) return fetch(input, init);
-    return fetch(input, { ...init, signal: AbortSignal.timeout(NODE_REQUEST_MS) });
+    if (new URL(href, location.href).origin !== origin) return fetch(input, init);
+    const own = init?.signal ?? (input instanceof Request ? input.signal : null);
+    const deadline = AbortSignal.timeout(NODE_REQUEST_MS);
+    return fetch(input, { ...init, signal: own ? AbortSignal.any([own, deadline]) : deadline });
   };
 }
 

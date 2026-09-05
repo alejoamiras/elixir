@@ -87,11 +87,7 @@ export const registerAccount = async (w: OpenedWallet, fields: AccountFields): P
 
 const DELETE_GRACE_MS = 10_000;
 
-/**
- * A delete another connection is blocking. The request stays queued in the browser until that
- * connection closes, and any open of the same name queues behind it, so nothing can be reopened
- * on this page: the only way out is closing the other tab and reloading.
- */
+/** A blocked delete queues every later open of the name until the other connection closes. */
 export class ChainViewHeldError extends Error {
   constructor() {
     super('another tab holds this key’s chain view open; close it and reload this page');

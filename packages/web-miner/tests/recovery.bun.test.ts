@@ -160,8 +160,10 @@ describe('lost-race recovery', () => {
     );
     worker.emit(winner);
     await settle(() => store.get(minerAtom).proverDead);
+    // The card carries the cause verbatim: here, what to do about the other tab.
     expect(store.get(minerAtom).notice?.kind).toBe('prover-dead');
-    expect(store.get(minerAtom).notice?.body).toContain('reload the page');
+    expect(store.get(minerAtom).notice?.body).toContain('another tab holds this key’s chain view open');
+    expect(store.get(minerAtom).notice?.title).toContain('reload the page');
     controller.dispose();
   });
 
@@ -182,16 +184,20 @@ describe('lost-race recovery', () => {
     controller.dispose();
   });
 
-  test('a rebuilt view that cannot be read is not declared recovered', async () => {
-    const unreadable = fakeDeployment(
+  test('a rebuilt view that cannot be read is not declared recovered; Start reads it again', async () => {
+    let reads = 0;
+    const flaky = fakeDeployment(
       9n,
       () => Promise.reject(BLOCKED),
-      () => Promise.reject(new Error('fetch failed')),
+      async () => {
+        if (reads++ === 0) throw new Error('fetch failed');
+        return 3n;
+      },
     );
     const controller = await boot(
       fakeDeployment(5n, () => Promise.reject(REVERTED)),
       async () => ({
-        deployment: unreadable,
+        deployment: flaky,
         fee,
         rebuilt: true,
       }),
@@ -201,6 +207,12 @@ describe('lost-race recovery', () => {
     expect(store.get(minerAtom)).toMatchObject({ phase: 'idle' });
     expect(store.get(minerAtom).notice?.body).toContain('press Start');
     expect(store.get(balanceAtom)).toBe(5n);
+    // Start reads the rebuilt view first; only a successful read clears the card and mines.
+    controller.start();
+    await settle(() => store.get(minerAtom).phase === 'mining');
+    expect(store.get(minerAtom).notice).toBeNull();
+    expect(store.get(balanceAtom)).toBe(9n);
+    expect(store.get(minerAtom).ledger.map((l) => l.kind)).toEqual(['epoch', 'failed', 'failed']);
     controller.dispose();
   });
 

@@ -135,6 +135,8 @@ export class MinerController {
   private offline = false;
   /** When the chain view was last rebuilt; a block that survives a rebuild gets the pause instead. */
   private rebuiltAt: number | null = null;
+  /** A rebuilt view that has not been read yet: Start reads it before anything mines. */
+  private unread = false;
   /** Why mining is paused by the page itself (not the user); it resumes when the reason clears. */
   private pausedBy = new Set<PauseReason>();
   private resumeWhenClear = false;
@@ -243,6 +245,7 @@ export class MinerController {
       this.resumeWhenClear = true;
       return;
     }
+    if (this.unread) return void this.readRebuilt();
     const epoch = this.store.get(epochAtom);
     if (epoch) this.dispatch({ type: 'start', epoch });
   }
@@ -519,7 +522,7 @@ export class MinerController {
       rebound = await this.recover();
     } catch (e) {
       this.log(`rebuild failed: ${claimFailureMessage(e)}`);
-      return this.abandonProver('the chain view could not be rebuilt or reopened; reload the page');
+      return this.abandonProver(`the chain view could not be rebuilt: ${claimFailureMessage(e)}`);
     }
     this.d = rebound.deployment;
     this.fee = rebound.fee;
@@ -528,8 +531,15 @@ export class MinerController {
       return this.pauseUntilFinal();
     }
     this.rebuiltAt = Date.now();
-    // The first read syncs the fresh PXE: the notes come back before mining resumes. Without it
-    // nothing is known to be recovered; the view stays, and Start reads again.
+    this.unread = true;
+    await this.readRebuilt();
+  }
+
+  /**
+   * The first read of a rebuilt view syncs the fresh PXE: the notes come back before mining
+   * resumes. Until it succeeds nothing is known to be recovered, and Start retries it.
+   */
+  private async readRebuilt() {
     try {
       await this.refresh();
     } catch (e) {
@@ -540,6 +550,7 @@ export class MinerController {
         at: Date.now(),
       });
     }
+    this.unread = false;
     this.lastRead = Date.now();
     this.dispatch({ type: 'recovered', at: Date.now() });
     this.log('chain view rebuilt; mining resumes');

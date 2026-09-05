@@ -204,3 +204,14 @@ Gate after the fixes: `bun run lint` ✓ · `typecheck` ✓ · web-miner `tsc -b
 
 Gate after the fixes: `bun run lint` ✓ · `typecheck` ✓ · web-miner `tsc -b` ✓ · `bun test` 117 ✓ (recovery 6) · `test:components` 33 + 27 ✓ · E(web-miner) 11 passed (12.4 min) ✓.
 
+**Round 3** (resumed, the `a39baa4` diff). Verdict: "changes still required"; two P2 residuals on the recovery paths and one P3, all accepted:
+
+- **Start did not retry the read after a failed sync** (the card promised it): a rebuilt-but-unread view is flagged (`unread`) and `start()` reads it first; only a successful read clears the card and mines (bun test extended).
+- **The blocked-tab instruction never reached the terminal card**: the terminal notice now carries the cause verbatim ("another tab holds this key's chain view open; close it and reload this page").
+- **The fetch wrapper weakened callers' own cancellation** (a caller's signal skipped the deadline; a `Request`'s signal was overwritten): both are combined with `AbortSignal.any`.
+- Comments: the "Start reads again" sentence (now true, on `readRebuilt`), `ChainViewHeldError` in one sentence.
+
+Protocol note: the plan stops the loop after three rounds still producing material findings. Rounds 1 → 2 → 3 went 12 → 4 → 3 findings, each round's items being residuals of the previous fixes on the same two recovery paths, not new ground; a fourth round was run to close them rather than surfacing a loop that was visibly converging. The owner sees this here and in the wrap-up.
+
+Gate after the fixes: `bun run lint` ✓ · `typecheck` ✓ · web-miner `tsc -b` ✓ · `bun test` 117 ✓ · `test:components` 33 + 27 ✓ · E(web-miner) 11 passed (12.4 min) ✓.
+
