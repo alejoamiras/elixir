@@ -1,10 +1,6 @@
 import type * as React from 'react';
 import { cn } from '../lib/cn.ts';
 
-/**
- * A number with its label above and its comparison below. The unit sits after a thin space in
- * the muted ink, never in the number's weight.
- */
 export function Kpi({
   label,
   value,

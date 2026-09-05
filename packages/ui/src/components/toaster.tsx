@@ -26,7 +26,7 @@ export function Toaster(props: ToasterProps) {
           '--border-radius': 'var(--radius-md)',
         } as React.CSSProperties
       }
-      toastOptions={{ classNames: { description: '[&]:text-ink-2' } }}
+      toastOptions={{ classNames: { description: 'text-ink-2!' } }}
       {...props}
     />
   );

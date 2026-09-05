@@ -68,20 +68,21 @@ export function PowerSlider({
         className="w-full accent-uv"
       />
       <div className="relative h-8 font-mono text-2xs text-ink-2" aria-hidden>
-        {mergedLabels(labels).map(({ names, threads: t }) => (
-          <span
-            key={names}
-            data-slot="power-label"
-            data-on={t === value ? '' : undefined}
-            className={cn(
-              'absolute -translate-x-1/2 text-center whitespace-nowrap',
-              t === value && 'text-uv-2',
-            )}
-            style={{ left: `${pct(t)}%` }}
-          >
-            {names} · {t}
-          </span>
-        ))}
+        {mergedLabels(labels).map(({ names, threads: t }) => {
+          const at = pct(t);
+          const edge = at <= 0 ? 'left-0' : at >= 100 ? 'right-0' : '-translate-x-1/2';
+          return (
+            <span
+              key={names}
+              data-slot="power-label"
+              data-on={t === value ? '' : undefined}
+              className={cn('absolute whitespace-nowrap', edge, t === value && 'text-uv-2')}
+              style={edge === '-translate-x-1/2' ? { left: `${at}%` } : undefined}
+            >
+              {names} · {t}
+            </span>
+          );
+        })}
       </div>
     </div>
   );

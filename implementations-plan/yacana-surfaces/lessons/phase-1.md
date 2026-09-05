@@ -75,3 +75,11 @@ path." Eight findings, all verified and applied:
 7. Sonner never read `--font-family`; the wrapper sets `fontFamily` and the description colour through the ink token.
 8. Comments: the model's "fading margin" claim was false (it keeps exactly `spanMs`) and the mark's "shared geometry" is
    duplicated (now says so); twelve narrating one-liners deleted.
+
+**Round 2** (resumed) — "Changes still needed: two CSS fixes remain ineffective, and the merged slider labels expose an
+edge-positioning issue." Applied: (1) Tailwind's generated `data-[state]` animation selectors outrank
+`motion-reduce:animate-none`, so the dialog/sheet enter/exit classes are `motion-safe:data-[state=…]:animate-…` instead
+(codex checked the compiled media query); (2) `[&]:text-ink-2` lands in the utilities layer under Sonner's unlayered rules
+— `text-ink-2!` (important) wins; (3) merged labels at 0 % / 100 % are edge-aligned, only intermediate ones centred;
+(4) the `Kpi` paragraph codex had flagged was still there — deleted. Codex re-probed the canvas: theme/resize redraws,
+no hidden drawing, observers disconnected on unmount.
