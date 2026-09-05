@@ -102,3 +102,6 @@ dropping the two tsconfig flags is defensible.
    were the examples). It is the cheap no-toolchain job.
 3. Zero salts are legal (`YACANA_DEPLOY_SALT=0x0`), so the record test parses salts without a non-zero check.
 4. Two comments corrected (no `AztecAddress.fromString` in 5.2.0; base64 `+ELX/` can match, the claim was dropped).
+
+**Round 3** (resumed) — converged. Verbatim: "No new material findings in this fix diff; the previously identified arc 0
+issues are resolved." Codex re-ran the focused tests, root typecheck, actionlint and a native fixture verification itself.
