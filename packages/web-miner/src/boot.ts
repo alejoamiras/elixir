@@ -132,36 +132,53 @@ export async function startSession(
   const step = (s: string) => store.set(bootAtom, { phase: 'opening', step: s });
   step('opening the wallet');
   let opened = await openWallet(pre.node, pre.chainId);
-  step(`registering your key ${shortAddress(record.account.address)}`);
-  const fields = await deriveAccountFields(master, record.account.index);
-  const account = await registerAccount(opened, fields);
-  if (account.toString() !== record.account.address)
-    throw new Error('the wallet derived a different address than the vault');
-  step('registering the deployment');
-  const attach = (o: OpenedWallet) =>
-    attachDeployment(o.wallet, pre.node, connection, pre.minerArtifact, o.lastSent);
-  const deployment = await attach(opened);
-  store.set(rulesAtom, await readEpochRules(deployment, account));
-  const recover = async (): Promise<Rebound> => {
-    opened = await resetAccountView(opened, pre.node, pre.chainId, fields);
-    return { deployment: await attach(opened), fee: opened.fee };
-  };
-  step('starting the prover');
-  const threads = loadSettings().threads ?? Math.max(1, (navigator.hardwareConcurrency || 2) - 1);
-  const spawnWorker = () => new Worker(new URL('./prover.worker.ts', import.meta.url), { type: 'module' });
-  const controller = new MinerController({
-    store,
-    spawnWorker,
-    threads,
-    deployment,
-    account,
-    fee: opened.fee,
-    chainId: pre.chainId,
-    rollupVersion: pre.rollupVersion,
-    recover,
-  });
-  await controller.ready();
-  await controller.begin();
-  store.set(bootAtom, { phase: 'ready', account: account.toString(), threads, record });
-  return { controller, wallet: () => opened.wallet };
+  let controller: MinerController | undefined;
+  try {
+    step(`registering your key ${shortAddress(record.account.address)}`);
+    const fields = await deriveAccountFields(master, record.account.index);
+    const account = await registerAccount(opened, fields);
+    if (account.toString() !== record.account.address)
+      throw new Error('the wallet derived a different address than the vault');
+    step('registering the deployment');
+    const attach = (o: OpenedWallet) =>
+      attachDeployment(o.wallet, pre.node, connection, pre.minerArtifact, o.lastSent);
+    const deployment = await attach(opened);
+    store.set(rulesAtom, await readEpochRules(deployment, account));
+    // A drop that fails leaves the old wallet stopped: reopen the namespace as it is, so the page
+    // keeps a working wallet, and say so (`rebuilt: false`).
+    const recover = async (): Promise<Rebound> => {
+      let rebuilt = true;
+      try {
+        opened = await resetAccountView(opened, pre.node, pre.chainId, fields);
+      } catch {
+        rebuilt = false;
+        opened = await openWallet(pre.node, pre.chainId);
+        await registerAccount(opened, fields);
+      }
+      return { deployment: await attach(opened), fee: opened.fee, rebuilt };
+    };
+    step('starting the prover');
+    const threads = loadSettings().threads ?? Math.max(1, (navigator.hardwareConcurrency || 2) - 1);
+    const spawnWorker = () => new Worker(new URL('./prover.worker.ts', import.meta.url), { type: 'module' });
+    controller = new MinerController({
+      store,
+      spawnWorker,
+      threads,
+      deployment,
+      account,
+      fee: opened.fee,
+      chainId: pre.chainId,
+      rollupVersion: pre.rollupVersion,
+      recover,
+    });
+    await controller.ready();
+    await controller.begin();
+    store.set(bootAtom, { phase: 'ready', account: account.toString(), threads, record });
+    return { controller, wallet: () => opened.wallet };
+  } catch (e) {
+    // Nothing of a failed start survives: a retry must not find a second PXE on the namespace.
+    controller?.dispose();
+    await opened.wallet.stop().catch(() => {});
+    throw e;
+  }
 }

@@ -1,5 +1,5 @@
-// The one security policy of the origin. Cloudflare Pages applies the rendered `_headers`; the
-// dev and preview servers send the same map, so nothing runs under a looser policy than it ships with.
+// The one security policy of the origin. Cloudflare Pages applies the rendered `_headers` and the
+// preview server sends the same map; only `dev` (Vite's dev server) is looser, and says where.
 export interface HeaderPolicy {
   /** Node origins the pages may call; `connect-src` is exactly these plus self and data:. */
   nodeOrigins: string[];
@@ -20,8 +20,7 @@ export function contentSecurityPolicy(p: HeaderPolicy): string {
     "worker-src 'self' blob:",
     `connect-src ${connect.join(' ')}`,
     "img-src 'self' data:",
-    // Radix and Sonner set inline styles and inject a <style> element; narrowing to
-    // style-src-attr would break them (audited on 5.2.0 / sonner 2).
+    // Radix and Sonner set inline styles and inject a <style> element: 'unsafe-inline' stays.
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self'",
     "frame-src 'none'",

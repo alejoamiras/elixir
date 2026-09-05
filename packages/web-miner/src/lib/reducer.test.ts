@@ -114,13 +114,22 @@ describe('miner reducer', () => {
     expect(s.minted).toBeNull();
   });
 
-  test('an expired claim keeps mining the same epoch under a fresh secret and says so', () => {
+  test('an expired claim goes idle with its card, which survives the restart that follows', () => {
     let [s] = reduce(initial, { type: 'start', epoch: epoch(3n) });
     [s] = reduce(s, { type: 'winner', epoch: 3n, secretId: 1 });
-    const [next, cmds] = reduce(s, { type: 'failed', error: 'Transaction 0x1 was dropped', kind: 'expired' });
-    expect(next).toMatchObject({ phase: 'mining', claim: null, secretId: 2, notice: { kind: 'expired' } });
-    expect(cmds).toEqual([{ type: 'mine', epoch: 3n, seed: 7n, target: 1n << 122n, secretId: 2 }]);
-    expect(next.ledger[0]).toMatchObject({ kind: 'failed', text: 'Transaction 0x1 was dropped' });
+    const [next, cmds] = reduce(s, {
+      type: 'failed',
+      error: 'Invalid expiration timestamp',
+      kind: 'expired',
+    });
+    expect(next).toMatchObject({ phase: 'idle', job: null, claim: null, notice: { kind: 'expired' } });
+    expect(cmds).toEqual([]);
+    expect(next.ledger[0]).toMatchObject({ kind: 'failed', text: 'Invalid expiration timestamp' });
+    // The controller restarts on the epoch open now (a newer one here), under a fresh secret.
+    const [again, restart] = reduce(next, { type: 'start', epoch: epoch(4n, 9n) });
+    expect(again).toMatchObject({ phase: 'mining', secretId: 2, notice: { kind: 'expired' } });
+    expect(restart).toEqual([{ type: 'mine', epoch: 4n, seed: 9n, target: 1n << 122n, secretId: 2 }]);
+    expect(reduce(again, { type: 'winner', epoch: 4n, secretId: 2 })[0].notice).toBeNull();
   });
 
   test('a reverted or blocked claim enters recovering; recovered returns to idle, paused waits', () => {

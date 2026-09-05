@@ -116,7 +116,15 @@ function CreateKey({ session, error }: { session: Session; error?: string }) {
           onClick={() => go(() => session.restoreWithPasskey())}
           data-testid="restore-passkey"
         >
-          I already have a key
+          I already have a passkey
+        </Button>
+        <Button
+          variant="link"
+          disabled={busy || !allowed}
+          onClick={() => setWords({ mode: 'restore' })}
+          data-testid="restore-words"
+        >
+          I have twelve words
         </Button>
       </div>
       <p className="text-xs text-ink-2">

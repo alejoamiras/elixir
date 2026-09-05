@@ -5,7 +5,12 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 import type { createStore } from 'jotai';
 import { masterFromPrf } from '../../miner-core/src/keys/derive.ts';
-import { generateWords, masterFromMnemonic, normaliseWords } from '../../miner-core/src/keys/mnemonic.ts';
+import {
+  entropyOf,
+  generateWords,
+  masterFromMnemonic,
+  normaliseWords,
+} from '../../miner-core/src/keys/mnemonic.ts';
 import { type Preflighted, preflight, startSession } from './boot';
 import { readPublicBalance, recipientKnown, sendWithdraw, type Withdrawal } from './chain';
 import type { Connection } from './config';
@@ -20,8 +25,9 @@ import {
   listRecords,
   type MasterRecord,
   openMaster,
+  openPhrase,
   putRecord,
-  sealMaster,
+  seal,
   setStayOpen,
 } from './keys/store';
 import { loadSettings, saveSettings } from './settings';
@@ -35,7 +41,7 @@ export class Session {
   private wallet: (() => EmbeddedWallet) | undefined;
   /** The open key's master, in memory for the tab's life (convenience mode switches need it). */
   private master: Uint8Array | undefined;
-  /** A words key's phrase, in memory only, for the backup screen. */
+  /** A words key's phrase, for the backup screen; sealed at rest, never in the store as text. */
   private words: string | undefined;
   record: MasterRecord | undefined;
 
@@ -81,7 +87,7 @@ export class Session {
     this.wallet = started.wallet;
   }
 
-  /** The ceremony is the first await after the click; the vault write follows a successful start. */
+  /** The record is written before the wallet opens: a boot failure must not lose a fresh passkey. */
   async createWithPasskey(): Promise<void> {
     try {
       this.guardHost();
@@ -104,7 +110,7 @@ export class Session {
         backedUp: false,
         account: { address: await addressOf(master, 0), index: 0 },
       };
-      if (!record.askEveryOpen) record.sealed = await sealMaster(master, record);
+      if (!record.askEveryOpen) record.sealed = await seal(master, record);
       await putRecord(record);
       await this.start(record, master);
     } catch (e) {
@@ -112,13 +118,14 @@ export class Session {
     }
   }
 
-  /** One touch on a known record (default mode), or none when the master is sealed on this device. */
+  /** One touch on a known record (default mode), or none when the secret is sealed on this device. */
   async open(record: MasterRecord): Promise<void> {
     try {
       const master = record.sealed
         ? await openMaster(record)
         : await openMaster(record, await this.masterFromCeremony(record));
-      await this.start(record, master);
+      const words = record.method === 'words' ? await openPhrase(record) : undefined;
+      await this.start(record, master, words);
     } catch (e) {
       await this.fail(e);
     }
@@ -162,7 +169,7 @@ export class Session {
     return generateWords();
   }
 
-  /** Words keys always seal the master: there is no PRF to re-derive it from. */
+  /** Words keys seal their entropy: nothing re-derives it, and a skipped backup can be shown later. */
   async createWithWords(phrase: string, backedUp: boolean): Promise<void> {
     try {
       this.guardHost();
@@ -176,7 +183,7 @@ export class Session {
         backedUp,
         account: { address: await addressOf(master, 0), index: 0 },
       };
-      record.sealed = await sealMaster(master, record);
+      record.sealed = await seal(entropyOf(phrase), record);
       await putRecord(record);
       await this.start(record, master, normaliseWords(phrase));
     } catch (e) {
@@ -230,14 +237,18 @@ export class Session {
     return recipientKnown(this.wallet(), this.pre.node, to);
   }
 
-  /** Mining pauses around the send so the prover and the transfer proof never fight for memory. */
+  /**
+   * Mining pauses around the send so the prover and the transfer proof never fight for memory.
+   * Resolves as soon as the transfer is in a block: a balance read failing afterwards must not
+   * read as a failed send, or the same transfer gets sent again.
+   */
   async withdraw(w: Withdrawal): Promise<number> {
     const c = this.controller;
     if (!c) throw new Error('no open key');
     c.pause('withdraw');
     try {
       const block = await sendWithdraw(c.deployment, c.address, c.feeSettings, w);
-      await c.refresh();
+      await c.refresh().catch((e: unknown) => c.log(`balance after withdraw: ${String(e)}`));
       return block;
     } finally {
       c.release('withdraw');

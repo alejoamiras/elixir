@@ -72,7 +72,7 @@ export function WordsBackup({
     return () => {
       clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisibility);
-      // Nothing of the phrase survives the screen.
+      // The quiz forgets its answers; the phrase itself lives on in the session for the backup screen.
       setQuiz(startQuiz(''));
     };
   }, []);

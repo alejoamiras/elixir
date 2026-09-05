@@ -96,3 +96,44 @@ describe('prover loop', () => {
     expect(f.mined).toEqual([{ startNonce: 1n, secret: '0x3' }]);
   });
 });
+
+describe('prover loop, rebuilds under contention', () => {
+  test('reconfigures during a rebuild coalesce into one more, at the latest count', async () => {
+    const f = fakeBackend();
+    const loop = createProverLoop(f.backend, () => {});
+    loop.handle({ type: 'init', threads: 4 });
+    loop.handle({ type: 'reconfigure', threads: 6 });
+    loop.handle({ type: 'reconfigure', threads: 2 });
+    loop.handle({ type: 'reconfigure', threads: 8 });
+    await tick();
+    expect(f.calls).toEqual(['init 4', 'destroy', 'init 6', 'destroy', 'init 8']);
+  });
+
+  test('a stop while a job waits for a rebuild wins: nothing mines, the stop is reported', async () => {
+    const f = fakeBackend();
+    const posted: FromWorker[] = [];
+    const loop = createProverLoop(f.backend, (m) => posted.push(m));
+    loop.handle({ type: 'init', threads: 4 });
+    loop.handle({ type: 'reconfigure', threads: 6 });
+    loop.handle({ type: 'mine', job: job(5n) });
+    loop.handle({ type: 'stop' });
+    await tick();
+    expect(f.mined).toEqual([]);
+    expect(posted).toEqual([{ type: 'stopped', epoch: 3n, secretId: 1, nextNonce: 5n }]);
+    // A later job starts normally: the stop does not outlive it.
+    loop.handle({ type: 'mine', job: job(9n) });
+    await tick();
+    expect(f.mined).toEqual([{ startNonce: 9n, secret: '0x3' }]);
+  });
+
+  test('two jobs arriving during a rebuild: only the last one mines', async () => {
+    const f = fakeBackend();
+    const loop = createProverLoop(f.backend, () => {});
+    loop.handle({ type: 'init', threads: 4 });
+    loop.handle({ type: 'reconfigure', threads: 6 });
+    loop.handle({ type: 'mine', job: { ...job(), secretId: 1 } });
+    loop.handle({ type: 'mine', job: { ...job(), secretId: 2 } });
+    await tick();
+    expect(f.mined).toHaveLength(1);
+  });
+});

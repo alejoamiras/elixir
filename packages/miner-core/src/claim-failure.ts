@@ -5,10 +5,12 @@
 // means nothing happened; anything else is shown as is.
 export type ClaimFailure = 'reverted' | 'expired' | 'delivery-blocked' | 'other';
 
-// aztec.js `waitForTx`: "Transaction 0x… was dropped. Reason: …" and
-// "Transaction 0x… reverted: app_logic_reverted. Reason: …"; the stuck delivery index surfaces as
-// a nullifier read failure at simulation.
-const EXPIRED = /\bwas dropped\b|\bexpired\b|\binclude_by_timestamp\b/i;
+// The node refuses or evicts an expired claim with the validator's "Invalid expiration timestamp"
+// (`@aztec/stdlib` error_texts); aztec.js `waitForTx` reports "Transaction 0x… was dropped.
+// Reason: …" and "Transaction 0x… reverted: app_logic_reverted. Reason: …". A drop for any other
+// reason (a duplicate nullifier, an invalid proof) is not an expiry. The stuck delivery index
+// surfaces as a nullifier read failure at simulation.
+const EXPIRED = /Invalid expiration timestamp|\bexpired\b|\binclude_by_timestamp\b/i;
 const REVERTED = /\breverted\b|_reverted\b/i;
 const DELIVERY_BLOCKED = /unknown nullifier|Nullifier read request/i;
 

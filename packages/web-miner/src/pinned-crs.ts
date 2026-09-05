@@ -60,8 +60,7 @@ globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
   return HOSTS.has(url.origin) ? serve(url, init) : originalFetch(input, init);
 };
 
-/** Verifies and caches every pinned file; call at boot so a bad asset fails before any proving. */
-/** Loads and verifies every pinned asset; reports the total size and the G1 pin for the preflight row. */
+/** Loads and verifies every pinned asset at boot, so a bad one fails before any proving. */
 export const preloadPinnedCrs = async (): Promise<{ bytes: number; sha256: string }> => {
   const loaded = await Promise.all(Object.keys(files).map(load));
   return {

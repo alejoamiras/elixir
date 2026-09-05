@@ -89,7 +89,12 @@ export async function createPasskey(
   return assertPasskey({ ...o, allow: [credentialId] });
 }
 
-/** One touch: evaluates PRF on an existing credential (`allow`), or a discoverable one when omitted. */
+/**
+ * One touch: evaluates PRF on an existing credential (`allow`), or a discoverable one when omitted.
+ * The RP ID is the trust boundary, not the hostname: any HTTPS page on the RP ID's subdomains may
+ * request this credential's PRF after user verification, so the hostname guard in the session
+ * only steers honest pages; sibling origins must be as trusted as this one.
+ */
 export async function assertPasskey(o: CeremonyOptions & { allow?: Uint8Array[] }): Promise<PasskeyResult> {
   const first = input();
   const credentials = o.credentials ?? navigator.credentials;

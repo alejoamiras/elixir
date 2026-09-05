@@ -139,7 +139,9 @@ const line = (state: MinerState, l: ProofLine): LedgerLine[] =>
 function startJob(state: MinerState, epoch: EpochInfo): [MinerState, Command[]] {
   const secretId = state.secretId + 1;
   const job = { epoch: epoch.epoch, seed: epoch.seed, target: epoch.target, secretId };
-  return [{ ...state, phase: 'mining', job, secretId, notice: null }, [{ type: 'mine', ...job }]];
+  // An expiry card outlives the automatic restart that follows it; the next winner clears it.
+  const notice = state.notice?.kind === 'expired' ? state.notice : null;
+  return [{ ...state, phase: 'mining', job, secretId, notice }, [{ type: 'mine', ...job }]];
 }
 
 function attempt(state: MinerState, e: Extract<Event, { type: 'attempt' }>): MinerState {
@@ -228,22 +230,18 @@ function claimed(state: MinerState, e: Extract<Event, { type: 'claimed' }>): Min
   };
 }
 
-/** The same epoch again with a fresh secret: an expired claim's ticket is spent nowhere. */
-function continueMining(state: MinerState): [MinerState, Command[]] {
-  if (!state.job) return [{ ...state, phase: 'idle' }, []];
-  const secretId = state.secretId + 1;
-  const job = { ...state.job, secretId };
-  return [{ ...state, phase: 'mining', job, secretId }, [{ type: 'mine', ...job }]];
-}
-
 function failed(state: MinerState, e: Extract<Event, { type: 'failed' }>): [MinerState, Command[]] {
   const base = {
     ...state,
     claim: null,
     ledger: line(state, { kind: 'failed', time: clock(e.at), text: e.error }),
   };
+  // Nothing was spent: the controller restarts on the epoch open now, pauses permitting.
   if (e.kind === 'expired')
-    return continueMining({ ...base, notice: { kind: 'expired', ...CLAIM_FAILURE_COPY.expired } });
+    return [
+      { ...base, phase: 'idle', job: null, notice: { kind: 'expired', ...CLAIM_FAILURE_COPY.expired } },
+      [],
+    ];
   if (e.kind === 'reverted' || e.kind === 'delivery-blocked')
     return [
       {
@@ -269,7 +267,7 @@ export function reduce(state: MinerState, event: Event): [MinerState, Command[]]
           phase: 'idle',
           job: null,
           claim: null,
-          notice: { kind: 'prover-dead', title: 'prover stopped', body: event.error },
+          notice: { kind: 'prover-dead', title: 'stopped · reload the page', body: event.error },
           proverDead: true,
         },
         [],

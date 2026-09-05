@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, test } from 'bun:test';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { createStore } from 'jotai';
 import type { Deployment, Fee } from '../src/chain.ts';
-import { MinerController } from '../src/controller.ts';
+import { MinerController, type Rebound } from '../src/controller.ts';
 import { balanceAtom, minerAtom } from '../src/state.ts';
 import type { FromWorker, ToWorker } from '../src/worker-protocol.ts';
 
@@ -77,10 +77,7 @@ describe('lost-race recovery', () => {
     worker = new FakeWorker();
   });
 
-  const boot = async (
-    deployment: Deployment,
-    recover: () => Promise<{ deployment: Deployment; fee: Fee }>,
-  ) => {
+  const boot = async (deployment: Deployment, recover: () => Promise<Rebound>) => {
     const controller = new MinerController({
       store,
       spawnWorker: () => worker as unknown as Worker,
@@ -106,7 +103,7 @@ describe('lost-race recovery', () => {
       fakeDeployment(5n, () => Promise.reject(REVERTED)),
       async () => {
         recovered++;
-        return { deployment: rebuilt, fee };
+        return { deployment: rebuilt, fee, rebuilt: true };
       },
     );
     expect(store.get(balanceAtom)).toBe(5n);
@@ -128,14 +125,49 @@ describe('lost-race recovery', () => {
     controller.dispose();
   });
 
-  test('a rebuild that fails falls back to the pause', async () => {
+  test('a drop that fails but reopens falls back to the pause on the reopened view', async () => {
+    const reopened = fakeDeployment(5n, () => Promise.reject(REVERTED));
+    const controller = await boot(
+      fakeDeployment(5n, () => Promise.reject(REVERTED)),
+      async () => ({
+        deployment: reopened,
+        fee,
+        rebuilt: false,
+      }),
+    );
+    worker.emit(winner);
+    await settle(() => store.get(minerAtom).notice?.kind === 'paused');
+    expect(store.get(minerAtom).notice?.body).toContain('about 38 min');
+    expect(controller.deployment).toBe(reopened);
+    controller.dispose();
+  });
+
+  test('no wallet at all after a failed rebuild is terminal: reload', async () => {
     const controller = await boot(
       fakeDeployment(5n, () => Promise.reject(REVERTED)),
       () => Promise.reject(new Error('another tab holds this key’s chain view open')),
     );
     worker.emit(winner);
-    await settle(() => store.get(minerAtom).notice?.kind === 'paused');
-    expect(store.get(minerAtom).notice?.body).toContain('about 38 min');
+    await settle(() => store.get(minerAtom).proverDead);
+    expect(store.get(minerAtom).notice?.kind).toBe('prover-dead');
+    expect(store.get(minerAtom).notice?.body).toContain('reload the page');
+    controller.dispose();
+  });
+
+  test('an expired claim restarts on the epoch open now; a pause during the claim defers it', async () => {
+    const controller = await boot(
+      fakeDeployment(5n, () => Promise.reject(new Error('Invalid tx: Invalid expiration timestamp'))),
+      () => Promise.reject(new Error('unused')),
+    );
+    worker.emit(winner);
+    expect(store.get(minerAtom).phase).toBe('claiming');
+    controller.pause('hidden');
+    await settle(() => store.get(minerAtom).notice?.kind === 'expired');
+    expect(store.get(minerAtom).phase).toBe('idle');
+    expect(worker.sent.filter((m) => m.type === 'mine')).toHaveLength(1);
+    controller.release('hidden');
+    await settle(() => worker.sent.filter((m) => m.type === 'mine').length === 2);
+    expect(store.get(minerAtom)).toMatchObject({ phase: 'mining', notice: { kind: 'expired' } });
     controller.dispose();
   });
 });

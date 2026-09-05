@@ -24,6 +24,8 @@ import type { FromWorker, MineJob, ToWorker } from './worker-protocol';
 type Store = ReturnType<typeof createStore>;
 
 const EPOCH_POLL_MS = 10_000;
+/** A read that takes longer than this counts as failed: the RPC client has no deadline of its own. */
+const READ_DEADLINE_MS = 30_000;
 /** Failed reads for this long mean the node is gone, not slow. */
 const OFFLINE_AFTER_MS = 60_000;
 const MAX_CRASHES = 3;
@@ -41,6 +43,8 @@ interface Prover {
 export interface Rebound {
   deployment: Deployment;
   fee: Fee;
+  /** False when the chain view could not be dropped and the old one was merely reopened. */
+  rebuilt: boolean;
 }
 
 export interface MinerOptions {
@@ -65,6 +69,12 @@ export interface LastClaim {
 }
 
 const short = (hex: string) => `${hex.slice(0, 8)}…${hex.slice(-4)}`;
+
+const deadline = <T>(p: Promise<T>, ms: number): Promise<T> =>
+  new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`no answer from the node in ${ms / 1000} s`)), ms);
+    p.then(resolve, reject).finally(() => clearTimeout(t));
+  });
 
 /**
  * The effect holds the tx-hash nullifier, the ticket's, the token's delivery nullifier and, on a
@@ -214,13 +224,20 @@ export class MinerController {
     this.timer = setInterval(() => void this.poll(), EPOCH_POLL_MS);
   }
 
+  /** Ends the timers and the Worker; the page (or a failed boot) owns nothing of this afterwards. */
   dispose() {
     if (this.timer) clearInterval(this.timer);
     if (this.pauseTimer) clearTimeout(this.pauseTimer);
+    this.generations++;
+    this.prover.worker.terminate();
   }
 
+  /** Under a page-side pause the intent is kept: mining starts when the last reason clears. */
   start() {
-    if (this.pausedBy.size) return;
+    if (this.pausedBy.size) {
+      this.resumeWhenClear = true;
+      return;
+    }
     const epoch = this.store.get(epochAtom);
     if (epoch) this.dispatch({ type: 'start', epoch });
   }
@@ -254,14 +271,17 @@ export class MinerController {
     return this.fee;
   }
 
-  /** A page-side pause (battery, hidden tab, …): stops now, restarts by itself once every reason clears. */
+  /**
+   * A page-side pause (battery, hidden tab, …): stops now, restarts by itself once every reason
+   * clears. A claim or a rebuild in flight is left to finish; the restart they would have made
+   * waits with the pause.
+   */
   pause(reason: PauseReason) {
-    const wasMining = this.store.get(minerAtom).phase === 'mining';
+    const phase = this.store.get(minerAtom).phase;
     this.pausedBy.add(reason);
-    if (wasMining) {
-      this.dispatch({ type: 'stop' });
-      this.resumeWhenClear = true;
-    }
+    if (phase === 'idle') return;
+    if (phase === 'mining') this.dispatch({ type: 'stop' });
+    this.resumeWhenClear = true;
   }
 
   release(reason: PauseReason) {
@@ -273,10 +293,11 @@ export class MinerController {
 
   /**
    * Re-reads the open epoch and the balance. Refreshes are serialised and an older epoch never
-   * overwrites a newer one, so a slow poll cannot restart mining on stale parameters.
+   * overwrites a newer one, so a slow poll cannot restart mining on stale parameters; a read past
+   * the deadline fails the refresh (the request itself may still land later, harmlessly).
    */
   refresh(): Promise<void> {
-    const run = this.refreshing.then(() => this.readChain());
+    const run = this.refreshing.then(() => deadline(this.readChain(), READ_DEADLINE_MS));
     this.refreshing = run.catch(() => {});
     return run;
   }
@@ -467,6 +488,8 @@ export class MinerController {
     const message = claimFailureMessage(e);
     this.log(`claim failed (${kind}): ${message}`);
     this.dispatch({ type: 'failed', error: message, kind, at: Date.now() });
+    // Nothing was spent by an expired claim: mining goes on, on whatever epoch is open now.
+    if (kind === 'expired') return this.start();
     if (kind !== 'reverted' && kind !== 'delivery-blocked') return;
     // A delivery still blocked after a rebuild is the PXE waiting for L1: only time helps.
     const rebuilt = this.rebuiltAt !== null && Date.now() - this.rebuiltAt < (await this.finalityMs());
@@ -474,24 +497,34 @@ export class MinerController {
     await this.rebuildChainView();
   }
 
+  /**
+   * Drops and rebuilds the chain view. If the drop fails but the view could be reopened, the
+   * account is still blocked and waits for finality on the reopened view; if nothing could be
+   * reopened, the page has no working wallet and only a reload helps.
+   */
   private async rebuildChainView() {
     this.log('lost a race: rebuilding this key’s chain view from the chain…');
+    let rebound: Rebound;
     try {
       if (!this.recover) throw new Error('no recovery available');
-      const { deployment, fee } = await this.recover();
-      this.d = deployment;
-      this.fee = fee;
-      this.rebuiltAt = Date.now();
-      // The first read syncs the fresh PXE: the notes come back before mining resumes.
-      await this.refresh();
-      this.lastRead = Date.now();
-      this.dispatch({ type: 'recovered', at: Date.now() });
-      this.log('chain view rebuilt; mining resumes');
-      this.start();
+      rebound = await this.recover();
     } catch (e) {
       this.log(`rebuild failed: ${claimFailureMessage(e)}`);
-      await this.pauseUntilFinal();
+      return this.abandonProver('the chain view could not be rebuilt or reopened; reload the page');
     }
+    this.d = rebound.deployment;
+    this.fee = rebound.fee;
+    if (!rebound.rebuilt) {
+      this.log('the chain view could not be dropped; reopened as it was');
+      return this.pauseUntilFinal();
+    }
+    this.rebuiltAt = Date.now();
+    // The first read syncs the fresh PXE: the notes come back before mining resumes.
+    await this.refresh().catch((e: unknown) => this.log(`first read after the rebuild: ${String(e)}`));
+    this.lastRead = Date.now();
+    this.dispatch({ type: 'recovered', at: Date.now() });
+    this.log('chain view rebuilt; mining resumes');
+    this.start();
   }
 
   private async finalityMs(): Promise<number> {

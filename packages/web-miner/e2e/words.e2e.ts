@@ -42,16 +42,7 @@ test('a words key: create, quiz, mine, forget, restore, same address', async ({ 
   // The session ends with a reload onto a device that knows no key.
   await expect(page.getByTestId('create-passkey')).toBeVisible({ timeout: BOOT_MS });
 
-  // Restore: hostname banner, paste allowed, same address.
-  await page.getByTestId('use-words').click();
-  await page.getByTestId('words-skip').click();
-  await page.getByRole('link', { name: 'Mine' }).click();
-  await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
-  expect(await page.getByTestId('account').getAttribute('title')).not.toBe(account);
-  await page.getByRole('link', { name: 'Wallet' }).click();
-  await expect(page.getByTestId('back-up-now')).toBeVisible();
-  await page.reload();
-  await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
+  // Restore on a device that knows no key: hostname banner, paste allowed, same address.
   await page.getByTestId('restore-words').click();
   await expect(page.getByTestId('host-banner')).toContainText('localhost');
   await page.getByTestId('words-input').fill(words.join(' '));
@@ -59,4 +50,30 @@ test('a words key: create, quiz, mine, forget, restore, same address', async ({ 
   await page.getByRole('link', { name: 'Mine' }).click();
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
   expect(await page.getByTestId('account').getAttribute('title')).toBe(account);
+
+  // A second words key, backup skipped: the wallet nudges, and after a reopen the same words can
+  // still be written down (the entropy is sealed on the device), which clears the nudge.
+  await page.reload();
+  await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
+  await page.getByTestId('create-new-key').click();
+  await page.getByTestId('use-words').click();
+  const second = await readWords(page);
+  await page.getByTestId('words-skip').click();
+  await page.getByRole('link', { name: 'Mine' }).click();
+  await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
+  const skipped = (await page.getByTestId('account').getAttribute('title')) ?? '';
+  expect(skipped).not.toBe(account);
+  await page.reload();
+  await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
+  const short = `${skipped.slice(0, 8)}…${skipped.slice(-4)}`;
+  await page.locator('[data-slot=tile]', { hasText: short }).getByTestId('open-key').click();
+  await page.getByRole('link', { name: 'Wallet' }).click();
+  await page.getByTestId('back-up-now').click();
+  expect(await readWords(page)).toEqual(second);
+  await page.getByTestId('written').check();
+  await page.getByTestId('quiz-3').fill(second[2] as string);
+  await page.getByTestId('quiz-7').fill(second[6] as string);
+  await page.getByTestId('quiz-11').fill(second[10] as string);
+  await page.getByTestId('words-done').click();
+  await expect(page.getByText('twelve words · backed up')).toBeVisible();
 });

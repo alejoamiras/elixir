@@ -175,3 +175,22 @@ notifications (block number only), the chime, Document PiP (`pip.ts`, the loop's
   E2E run is both gates.
 
 Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · web-miner `tsc -b` ✓ · `bun test` 105 ✓ (claim-failure 8, recovery 2) · `test:components` 30 + 27 ✓ (reducer 11) · E(web-miner) 11 passed (11.3 min; `states.e2e.ts`: offline 1.2 min, lost race 1.9 min; memory +219 MiB steady state) ✓.
+
+## Arc 2 codex loop (2026-09-05)
+
+**Round 1** (`/codex xhigh`, session `01a0739e-1754-7b70-ae03-50c89a4887f1`, `run-codex.sh` on the `arc1-ui..HEAD` diff with the arc map, the plan, the decision ledger and both rules). Verdict: "changes required"; twelve findings, all verified against the code and accepted, plus a six-item comment audit. Fixed in one commit:
+
+- **Withdraw could be sent twice** (`session.ts`): a balance refresh failing after inclusion rejected the whole call and re-enabled Send. The send now resolves once the transfer is in a block; the refresh failure is only logged.
+- **The vault's device key could fork** across two first-time tabs: `add` instead of `put`, the loser reads the winner's key (bun test: two concurrent seals both open). **Writes resolved before commit**: `withStore` now awaits `transaction.oncomplete` for readwrite.
+- **"Back up now" was dead after a reopen** of a skipped-backup words key (the phrase cannot be rebuilt from the HKDF master). Words keys now seal their 16 bytes of **bip39 entropy** instead of the master (`seal`/`openPhrase`; `openMaster` derives the master from the entropy; the AAD still binds method and id, so a words ciphertext cannot pose as a passkey master). The words E2E reopens a skipped key and writes it down later.
+- **A fresh device could not restore twelve words** (the create card only offered passkey restore): a third link, `restore-words`; the E2E restores onto an empty device.
+- **A failed drop left a stopped wallet in use**: `recover` reopens the namespace as it was when the drop fails (`Rebound.rebuilt: false` → the honest pause on the reopened view); nothing reopenable → terminal "reload the page" (`abandonProver`). **A failed start leaked its wallet and Worker**: `startSession` stops the wallet and disposes the controller (which now terminates its Worker) on any failure after `openWallet`.
+- **Expiry restarted a stale epoch and bypassed pauses**: the reducer goes idle with the card (which now survives the automatic `start`), the controller restarts on the epoch open now through `start()`, which records the resume intent when paused.
+- **The classifier missed the node's own text** (`Invalid expiration timestamp`, `@aztec/stdlib` `error_texts`) and read every drop as an expiry: drops for other reasons are `other` now; fixtures added.
+- **Rebuilds overlapped and a Stop could be lost** in the prover loop: rebuilds are serialised and coalesce to the latest count, a job waiting for one keeps ownership (a second job queues, a stop wins and is reported with the right nonce), `reconfigure` while a job waits coalesces instead of bypassing it. Three Vitest cases.
+- **A silent node never tripped the offline pause** (no client deadline): `refresh` fails after 30 s.
+- **A pause during a claim lost the auto-resume**: `pause` keeps the intent for `claiming`/`recovering`; `start()` under a pause records it.
+- Comments: the duplicated `pinned-crs` doc, the false ordering claims in `createWithPasskey`, `headers.ts` (dev is looser, and says so; no review provenance), `derive.ts` (the derivation contract, no future-plan reference), `WordsScreens` (the phrase does live on in the session), `passkey.ts` (the RP ID is the trust boundary: sibling HTTPS subdomains can request the PRF).
+
+Gate after the fixes: `bun run lint` ✓ · `typecheck` ✓ · web-miner `tsc -b` ✓ · `bun test` 115 ✓ (recovery 4, vault 5, classifier 12) · `test:components` 33 + 27 ✓ · E(web-miner) 11 passed (11.9 min) ✓.
+
