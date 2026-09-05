@@ -22,3 +22,19 @@ Kpi, Mark + `markSvg`/`faviconDataUrl` (SVG data URL, testable in jsdom; a canva
   `@tailwindcss/node` (checked once by hand; the P1.3 build is the standing check).
 
 Gate: `bun run lint` ✓ (0 warnings) · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · ui `typecheck` ✓ · `test:components` web-miner 12 + ui 15 ✓ · `bun test` 52 pass ✓.
+
+## P1.2 Signature components (2026-09-05)
+
+**Result:** ✓. `score-loop-model.ts` (pure: log axis 1–1000, 420 ms ease-out rise, 900 ms flash, span-trimmed sample
+buffer), `ScoreLoop` (canvas; reads `--uv`/`--ink`… from the computed style with `tokens.ts` as the jsdom fallback; rAF only
+while visible in a foreground tab; a still frame per data change under reduced motion), `ProofLedger`/`ProofLine`
+(★ ✓ ✗ ── grammar, 120 ms entry, 200-line window), `Stepper`, `Preflight` (evidence rows, failure error + action),
+`EpochRail` (segments with the key's own claims brighter, expected tick at 1/1.25 of the track, kv rows, "Close the epoch"
+when the hatch ≤ 0), `PowerSlider` (native range; eco/balanced/max = ⌈(cores−1)/4⌉ / ⌈(cores−1)/2⌉ / cores−1, clamp),
+`Marks`. Hooks `useReducedMotion` / `useDocumentHidden` on `useSyncExternalStore`.
+
+- Biome's cognitive-complexity cap (15) bit the ledger line's nested ternaries; split into a tone map plus two small
+  subcomponents rather than suppressing.
+- `toHaveTextContent` sees no spaces between flex-gapped spans; assert with regexes, not the visual string.
+
+Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · ui `typecheck` ✓ · `test:components` ui 25 + web-miner 12 ✓ · `bun test` 55 pass ✓.
