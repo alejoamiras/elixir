@@ -1,7 +1,6 @@
 import type * as React from 'react';
 import { cn } from '../lib/cn.ts';
 
-/** The panel every surface is built from: raised ground, hairline border, a mono label on top. */
 function Tile({ className, flat, ...props }: React.ComponentProps<'section'> & { flat?: boolean }) {
   return (
     <section
@@ -30,7 +29,7 @@ function TileHeader({
     >
       <span>{children}</span>
       {aside && (
-        <span className="ml-auto text-right font-normal tracking-[0.04em] text-ink-4 normal-case">
+        <span className="ml-auto text-right font-normal tracking-[0.04em] text-ink-2 normal-case">
           {aside}
         </span>
       )}
@@ -38,7 +37,6 @@ function TileHeader({
   );
 }
 
-/** A label/value row inside a tile. */
 function KvRow({
   label,
   value,

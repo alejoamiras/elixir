@@ -13,7 +13,7 @@ const buttonVariants = cva(
         uv: 'border-uv bg-uv text-uv-ink hover:bg-uv-2',
         ghost: 'border-transparent text-ink-2 hover:bg-panel hover:text-ink',
         danger: 'border-bad/50 bg-transparent text-bad hover:bg-bad/10',
-        link: 'h-auto border-transparent px-0 font-normal text-ink-3 underline underline-offset-3 hover:text-ink',
+        link: 'h-auto border-transparent px-0 font-normal text-ink-2 underline underline-offset-3 hover:text-ink',
       },
       size: {
         default: 'h-[38px] px-4 text-sm',

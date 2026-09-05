@@ -32,9 +32,9 @@ const seconds = (ms: number) => `${(ms / 1000).toFixed(2)} s`;
 function Attempt({ line }: { line: Extract<ProofLine, { n: number }> }) {
   return (
     <>
-      <span className="text-ink-3">#{line.n}</span>
+      <span className="text-ink-2">#{line.n}</span>
       <span className={line.kind === 'attempt' ? 'text-ink' : undefined}>score {line.score.toFixed(1)}</span>
-      <span className="text-ink-3">{seconds(line.proveMs)}</span>
+      <span className="text-ink-2">{seconds(line.proveMs)}</span>
       {line.kind === 'attempt' && line.best && <span className="text-uv-2">best this epoch</span>}
     </>
   );
@@ -44,7 +44,7 @@ function Event({ line }: { line: Extract<ProofLine, { text: string }> }) {
   return (
     <>
       <span>{line.text}</span>
-      {line.kind === 'minted' && line.chain && <span className="text-ink-4">{line.chain}</span>}
+      {line.kind === 'minted' && line.chain && <span className="text-ink-2">{line.chain}</span>}
       {line.kind === 'epoch' && <span aria-hidden>──</span>}
     </>
   );
@@ -60,8 +60,13 @@ function Line({ line }: { line: ProofLine }) {
         TONE[line.kind],
       )}
     >
-      <span className="text-ink-4">{line.time}</span>
-      {GLYPH[line.kind] && <span aria-hidden>{GLYPH[line.kind]}</span>}
+      <span className="text-ink-2">{line.time}</span>
+      {GLYPH[line.kind] && (
+        <span>
+          <span aria-hidden>{GLYPH[line.kind]}</span>
+          <span className="sr-only">{line.kind}</span>
+        </span>
+      )}
       {'n' in line ? <Attempt line={line} /> : <Event line={line} />}
     </li>
   );

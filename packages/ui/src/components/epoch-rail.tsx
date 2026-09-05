@@ -19,7 +19,6 @@ export interface EpochRailProps {
   className?: string;
 }
 
-/** Claims first, then time against expectation; the brighter segment is a claim of this key. */
 export function EpochRail({
   epoch,
   claims,

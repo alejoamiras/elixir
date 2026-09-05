@@ -54,9 +54,10 @@ export function Preflight({
               )}
             />
             <span className="min-w-0 flex-1">
+              <span className="sr-only">{r.state}: </span>
               <span className="text-ink">{r.label}</span>
               {r.evidence !== undefined && (
-                <span className="ml-2 font-mono text-xs text-ink-3">{r.evidence}</span>
+                <span className="ml-2 font-mono text-xs text-ink-2">{r.evidence}</span>
               )}
               {r.state === 'failed' && r.error !== undefined && (
                 <span data-slot="preflight-error" className="mt-1 block text-xs text-bad">
@@ -64,8 +65,8 @@ export function Preflight({
                 </span>
               )}
             </span>
-            {r.ms !== undefined && <span className="font-mono text-xs text-ink-3">{fmtSeconds(r.ms)}</span>}
-            {r.state === 'running' && <span className="font-mono text-xs text-ink-3">…</span>}
+            {r.ms !== undefined && <span className="font-mono text-xs text-ink-2">{fmtSeconds(r.ms)}</span>}
+            {r.state === 'running' && <span className="font-mono text-xs text-ink-2">…</span>}
           </li>
         ))}
       </ol>

@@ -151,10 +151,7 @@ function draw(canvas: HTMLCanvasElement, props: ScoreLoopProps, now: number, red
   drawLabels(f, right, props);
 }
 
-/**
- * The heartbeat: one dot per real proof on a log axis, the bar at the difficulty. Draws on
- * requestAnimationFrame only while visible in a foreground tab; a still frame under reduced motion.
- */
+/** Draws on requestAnimationFrame while visible in a foreground tab; a still frame under reduced motion. */
 export function ScoreLoop(props: ScoreLoopProps) {
   const ref = React.useRef<HTMLCanvasElement>(null);
   const reduced = useReducedMotion();
@@ -164,21 +161,29 @@ export function ScoreLoop(props: ScoreLoopProps) {
 
   React.useEffect(() => {
     const canvas = ref.current;
-    if (!canvas) return;
-    if (reduced || hidden) {
-      if (!hidden) draw(canvas, latest.current, performance.now(), true);
-      return;
-    }
-    let raf = 0;
-    const tick = (now: number) => {
-      draw(canvas, latest.current, now, false);
+    if (!canvas || hidden) return;
+    if (!reduced) {
+      let raf = 0;
+      const tick = (now: number) => {
+        draw(canvas, latest.current, now, false);
+        raf = requestAnimationFrame(tick);
+      };
       raf = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(raf);
+    }
+    // A still frame is only right for the size and palette it was drawn with.
+    const still = () => draw(canvas, latest.current, performance.now(), true);
+    still();
+    const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(still);
+    resize?.observe(canvas);
+    const theme = new MutationObserver(still);
+    theme.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => {
+      resize?.disconnect();
+      theme.disconnect();
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
   }, [reduced, hidden]);
 
-  // Reduced motion: redraw the still frame whenever the data changes.
   React.useEffect(() => {
     const canvas = ref.current;
     if (canvas && reduced && !hidden) draw(canvas, props, performance.now(), true);

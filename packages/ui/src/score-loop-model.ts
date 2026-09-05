@@ -22,11 +22,7 @@ export const rise = (now: number, t: number, reduced = false): number => {
 export const flash = (now: number, winAt: number | null): number =>
   winAt === null ? 0 : Math.max(0, 1 - (now - winAt) / FLASH_MS);
 
-/**
- * The sample buffer behind the loop: every attempt is one dot at its real time; the window keeps
- * `spanMs` of history plus a fading margin. The model is pure so it can be unit-tested; the
- * canvas only draws it.
- */
+/** Keeps the last `spanMs` of attempts; samples must be pushed oldest-first on one clock. */
 export class ScoreLoopModel {
   readonly samples: Sample[] = [];
   winAt: number | null = null;

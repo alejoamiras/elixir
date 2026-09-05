@@ -2,7 +2,6 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import type * as React from 'react';
 import { cn } from '../lib/cn.ts';
 
-/** Mono chips: addresses, hashes, the testnet label. */
 const badgeVariants = cva(
   'inline-flex w-fit shrink-0 items-center gap-1.5 rounded-sm border px-2 py-1 font-mono text-2xs whitespace-nowrap',
   {

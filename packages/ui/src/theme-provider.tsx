@@ -26,10 +26,7 @@ const readStored = (): Theme | undefined => {
 
 const systemTheme = (): Resolved => (window.matchMedia(LIGHT_QUERY).matches ? 'light' : 'dark');
 
-/**
- * Dark is the product's default; light is a setting. The resolved theme is a class on <html>
- * (`light` or `dark`, see theme.css) and a `data-theme` attribute for anything that reads it.
- */
+/** The resolved theme is the `light` / `dark` class on <html> that theme.css keys on. */
 export function ThemeProvider({
   children,
   defaultTheme = 'dark',

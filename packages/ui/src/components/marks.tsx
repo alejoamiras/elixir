@@ -30,14 +30,14 @@ export function Marks({
       )}
     >
       <span className={chip}>
-        <span className="text-ink-4">nullifier</span> {shortHash(nullifier)}
+        <span className="text-ink-2">nullifier</span> {shortHash(nullifier)}
       </span>
       <span className={chip}>
-        <span className="text-ink-4">note hash</span> {shortHash(noteHash)}
+        <span className="text-ink-2">note hash</span> {shortHash(noteHash)}
       </span>
       <span className={chip}>
-        <span className="text-ink-4">claims</span> {claims[0]} → {claims[1]}
-        {suffix !== undefined && <span className="text-ink-4"> · {suffix}</span>}
+        <span className="text-ink-2">claims</span> {claims[0]} → {claims[1]}
+        {suffix !== undefined && <span className="text-ink-2"> · {suffix}</span>}
       </span>
     </div>
   );

@@ -54,3 +54,24 @@ web-miner: geist, next-themes, shadcn, cva, clsx, tailwind-merge, radix-ui, luci
   eight E2E specs pass as they were.
 
 Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · ui + web-miner `typecheck` ✓ · `test:components` 25 + 12 ✓ · `bun test` 55 ✓ · E(web-miner) 8 passed (3.6 min) ✓.
+
+## Arc 1 codex loop (2026-09-05)
+
+**Round 1** — session `01a0729b-1a84-7b60-996a-5d00ced8ba67` (gpt-6-astra, xhigh, read-only; files in `~/.cache/tmp/codex-6R8bsYal`).
+Verdict: "Changes needed: material CI and accessibility issues; I found no new exploitable HTML-injection or secret-handling
+path." Eight findings, all verified and applied:
+1. `dorny/paths-filter` documents `pull-requests: read` for PR-triggered runs. Empirically the PR files API answered with
+   `contents: read` alone on this (public) repo — the previous runs' logs show only `Contents: read`, `Metadata: read` — but the
+   `changes` job of every filtered workflow now grants both read scopes; `miner-core.yml` has no filter.
+2. Reduced motion was only honoured by the pill: sheet/dialog overlays and content, switch, progress, the mark's dot and the
+   toaster's spinner now carry `motion-reduce:` variants.
+3. Step / preflight / ledger states were colour + `data-*` only: `sr-only` state text, `aria-current="step"` on the active
+   step, "win" read out for ★ lines; assertions added.
+4. Contrast: `label-mono` (11 px) and the timestamps/evidence/hash labels sat on `ink-3`/`ink-4` (3.5:1 and 1.9:1). Readable
+   small text is now `ink-2`; `ink-3`/`ink-4` remain for decoration. A deliberate departure from the binder's 40 % labels.
+5. The reduced-motion still frame ignored theme and size changes (codex probed it: no redraw on `.light`, a stale 400 px
+   bitmap after a resize). A `ResizeObserver` on the canvas and a `MutationObserver` on `<html class>` redraw it; test added.
+6. Power labels with equal thread counts (2–3 cores) overlapped; they merge ("eco / balanced · 1"); test added.
+7. Sonner never read `--font-family`; the wrapper sets `fontFamily` and the description colour through the ink token.
+8. Comments: the model's "fading margin" claim was false (it keeps exactly `spanMs`) and the mark's "shared geometry" is
+   duplicated (now says so); twelve narrating one-liners deleted.

@@ -46,6 +46,7 @@ describe('ProofLedger', () => {
     ]);
     expect(items[0]).toHaveTextContent(/#1302.*score 3\.9.*3\.26 s.*best this epoch/);
     expect(items[1]).toHaveTextContent('★');
+    expect(items[1].querySelector('.sr-only')).toHaveTextContent('win');
     expect(items[2]).toHaveTextContent('✓');
     expect(items[2]).toHaveTextContent('chain saw: nullifier');
     expect(items[3]).toHaveTextContent('✗');
@@ -74,7 +75,9 @@ describe('Preflight', () => {
     expect(screen.getByText('unreachable after 10 s')).toHaveAttribute('data-slot', 'preflight-error');
     expect(screen.getByText('v5.testnet.rpc.aztec-labs.com')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry now' })).toBeInTheDocument();
-    expect(screen.getByText('cross-origin isolated').closest('li')).toHaveAttribute('data-state', 'ok');
+    const ok = screen.getByText('cross-origin isolated').closest('li');
+    expect(ok).toHaveAttribute('data-state', 'ok');
+    expect(ok?.querySelector('.sr-only')).toHaveTextContent('ok');
   });
 });
 
@@ -95,7 +98,10 @@ describe('Stepper', () => {
       />,
     );
     expect(screen.getByText('21.4 s')).toBeInTheDocument();
-    expect(screen.getByText('sent').closest('li')).toHaveAttribute('data-state', 'active');
+    const active = screen.getByText('sent').closest('li');
+    expect(active).toHaveAttribute('data-state', 'active');
+    expect(active).toHaveAttribute('aria-current', 'step');
+    expect(active?.querySelector('.sr-only')).toHaveTextContent('active');
     expect(screen.getByText(/dropped in 9 min 38 s/)).toBeInTheDocument();
   });
 });
@@ -154,6 +160,12 @@ describe('PowerSlider', () => {
     expect(onChange).toHaveBeenCalledWith(3);
     expect(document.querySelector('[data-slot=power-label][data-on]')).toHaveTextContent('max · 11');
   });
+
+  test('labels with the same thread count merge instead of overlapping', () => {
+    render(<PowerSlider cores={3} threads={1} onChange={vi.fn()} />);
+    const labels = [...document.querySelectorAll('[data-slot=power-label]')].map((l) => l.textContent);
+    expect(labels).toEqual(['eco / balanced · 1', 'max · 2']);
+  });
 });
 
 describe('Marks', () => {
@@ -184,5 +196,17 @@ describe('ScoreLoop', () => {
     render(<ScoreLoop difficulty={33.1} samples={samples} />);
     expect(raf).toHaveBeenCalled();
     expect(screen.getByRole('img')).toHaveAccessibleName(/1 proofs in the last 60 seconds/);
+  });
+
+  test('the still frame is redrawn when the theme class changes', async () => {
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
+    mockMatchMedia(true);
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+    render(<ScoreLoop difficulty={33.1} samples={samples} />);
+    const before = getContext.mock.calls.length;
+    document.documentElement.classList.add('light');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(getContext.mock.calls.length).toBeGreaterThan(before);
+    document.documentElement.classList.remove('light');
   });
 });

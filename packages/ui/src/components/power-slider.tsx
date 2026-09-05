@@ -12,10 +12,18 @@ export const clampThreads = (threads: number, cores: number): number => {
   return Math.min(max, Math.max(min, Math.round(threads)));
 };
 
-/** The three labels: eco ≈ a quarter, balanced ≈ half, max = everything but one. */
+/** eco ≈ a quarter, balanced ≈ half, max = everything but one. */
 export const powerLabels = (cores: number): { eco: number; balanced: number; max: number } => {
   const { max } = powerRange(cores);
   return { eco: Math.max(1, Math.ceil(max / 4)), balanced: Math.max(1, Math.ceil(max / 2)), max };
+};
+
+/** On few cores two labels share a value; they share a position too, or they would overlap. */
+const mergedLabels = (labels: ReturnType<typeof powerLabels>): { names: string; threads: number }[] => {
+  const byThreads = new Map<number, string[]>();
+  for (const k of ['eco', 'balanced', 'max'] as const)
+    byThreads.set(labels[k], [...(byThreads.get(labels[k]) ?? []), k]);
+  return [...byThreads].map(([threads, names]) => ({ names: names.join(' / '), threads }));
 };
 
 export function PowerSlider({
@@ -45,7 +53,7 @@ export function PowerSlider({
         </label>
         <span className="font-mono text-xs text-ink-2">
           {value} {value === 1 ? 'thread' : 'threads'}
-          {readout !== undefined && <span className="text-ink-3"> · {readout}</span>}
+          {readout !== undefined && <span> · {readout}</span>}
         </span>
       </div>
       <input
@@ -59,19 +67,19 @@ export function PowerSlider({
         aria-valuetext={`${value} of ${max} threads`}
         className="w-full accent-uv"
       />
-      <div className="relative h-8 font-mono text-2xs text-ink-3" aria-hidden>
-        {(['eco', 'balanced', 'max'] as const).map((k) => (
+      <div className="relative h-8 font-mono text-2xs text-ink-2" aria-hidden>
+        {mergedLabels(labels).map(({ names, threads: t }) => (
           <span
-            key={k}
+            key={names}
             data-slot="power-label"
-            data-on={labels[k] === value ? '' : undefined}
+            data-on={t === value ? '' : undefined}
             className={cn(
               'absolute -translate-x-1/2 text-center whitespace-nowrap',
-              labels[k] === value && 'text-uv-2',
+              t === value && 'text-uv-2',
             )}
-            style={{ left: `${pct(labels[k])}%` }}
+            style={{ left: `${pct(t)}%` }}
           >
-            {k} · {labels[k]}
+            {names} · {t}
           </span>
         ))}
       </div>

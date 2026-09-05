@@ -14,7 +14,6 @@ export interface Step {
 export const fmtSeconds = (ms: number): string =>
   ms >= 60_000 ? `${(ms / 60_000).toFixed(1)} min` : `${(ms / 1000).toFixed(1)} s`;
 
-/** The beats of a claim with their real times; nothing spins. */
 export function Stepper({ steps, className }: { steps: readonly Step[]; className?: string }) {
   return (
     <ol data-slot="stepper" className={cn('m-0 flex list-none flex-col gap-1.5 p-0', className)}>
@@ -23,6 +22,7 @@ export function Stepper({ steps, className }: { steps: readonly Step[]; classNam
           key={step.id}
           data-slot="step"
           data-state={step.state}
+          aria-current={step.state === 'active' ? 'step' : undefined}
           className={cn(
             'flex items-baseline gap-3 text-sm',
             step.state === 'pending' && 'text-ink-4',
@@ -42,11 +42,12 @@ export function Stepper({ steps, className }: { steps: readonly Step[]; classNam
             )}
           />
           <span className="min-w-0 flex-1">
+            <span className="sr-only">{step.state}: </span>
             <span>{step.label}</span>
-            {step.detail !== undefined && <span className="block text-xs text-ink-3">{step.detail}</span>}
+            {step.detail !== undefined && <span className="block text-xs text-ink-2">{step.detail}</span>}
           </span>
           {step.ms !== undefined && (
-            <span className="font-mono text-xs text-ink-3">{fmtSeconds(step.ms)}</span>
+            <span className="font-mono text-xs text-ink-2">{fmtSeconds(step.ms)}</span>
           )}
         </li>
       ))}

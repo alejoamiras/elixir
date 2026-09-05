@@ -6,7 +6,6 @@ export interface SegmentedOption<T extends string> {
   label: string;
 }
 
-/** Single-choice control; the selected segment is ink on ground, as in the binder. */
 export function Segmented<T extends string>({
   value,
   onChange,

@@ -10,10 +10,7 @@ const DOT: Record<MarkState, string> = {
   paused: DARK.bad,
 };
 
-/**
- * The mark on a 32-unit canvas: a bar low in the frame, a dot resting on it, or risen above it
- * once a score cleared the bar. Geometry is shared with the <Mark> component.
- */
+/** Bar low in a 32-unit frame, the dot on it or risen above it; <Mark> duplicates this geometry and must stay in step. */
 export const markSvg = (state: MarkState, size = 32, bar = DARK.ink): string => {
   const cy = state === 'won' ? 8 : 15;
   return (

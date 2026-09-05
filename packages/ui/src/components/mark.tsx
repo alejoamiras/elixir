@@ -8,7 +8,7 @@ const DOT_CLASS: Record<MarkState, string> = {
   paused: 'fill-bad',
 };
 
-/** The mark inline, on the theme tokens; the dot rises on `won` (200 ms, none under reduced motion). */
+/** Same geometry as markSvg (keep them in step); classes instead of literal colours. */
 export function Mark({
   state = 'mining',
   size = 18,
@@ -33,7 +33,10 @@ export function Mark({
         cx="16"
         cy={state === 'won' ? 8 : 15}
         r="5"
-        className={cn('transition-[cy] duration-200 ease-out', DOT_CLASS[state])}
+        className={cn(
+          'transition-[cy] duration-200 ease-out motion-reduce:transition-none',
+          DOT_CLASS[state],
+        )}
       />
     </svg>
   );

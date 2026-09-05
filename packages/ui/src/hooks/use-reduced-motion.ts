@@ -15,7 +15,6 @@ export function useReducedMotion(): boolean {
   );
 }
 
-/** True while the document is hidden (background tab); canvases stop drawing then. */
 export function useDocumentHidden(): boolean {
   const subscribe = React.useCallback((cb: () => void) => {
     document.addEventListener('visibilitychange', cb);
