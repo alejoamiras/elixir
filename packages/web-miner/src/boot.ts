@@ -16,7 +16,13 @@ import { shortAddress } from './lib/format';
 import { preloadPinnedCrs, purgeCrsCache } from './pinned-crs';
 import { loadSettings } from './settings';
 import { bootAtom, rulesAtom } from './state';
-import { type OpenedWallet, openWallet, registerAccount, resetAccountView } from './wallet';
+import {
+  ChainViewHeldError,
+  type OpenedWallet,
+  openWallet,
+  registerAccount,
+  resetAccountView,
+} from './wallet';
 
 type Store = ReturnType<typeof createStore>;
 
@@ -29,6 +35,20 @@ export interface Preflighted {
 }
 
 const short = (hex: string) => `${hex.slice(0, 10)}…${hex.slice(-4)}`;
+
+/** A request to the node that gets no answer for this long is dead; the SDK sets no deadline. */
+const NODE_REQUEST_MS = 120_000;
+
+/** Bounds every request the page makes to the node, including the PXE's from inside the wallet. */
+function boundNodeRequests(nodeUrl: string): void {
+  const origin = new URL(nodeUrl).origin;
+  const fetch = globalThis.fetch.bind(globalThis);
+  globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    if (init?.signal || new URL(href, location.href).origin !== origin) return fetch(input, init);
+    return fetch(input, { ...init, signal: AbortSignal.timeout(NODE_REQUEST_MS) });
+  };
+}
 
 /** Runs the checks one by one, each row's evidence landing in the store as it completes. */
 export async function preflight(store: Store, connection: Connection): Promise<Preflighted> {
@@ -81,6 +101,7 @@ export async function preflight(store: Store, connection: Connection): Promise<P
       value: undefined,
     };
   });
+  boundNodeRequests(connection.nodeUrl);
   const node = createAztecNodeClient(connection.nodeUrl);
   const { chainId, rollupVersion, block } = await run('node', async () => {
     const [chain, info, tip] = await Promise.all([
@@ -145,12 +166,14 @@ export async function startSession(
     const deployment = await attach(opened);
     store.set(rulesAtom, await readEpochRules(deployment, account));
     // A drop that fails leaves the old wallet stopped: reopen the namespace as it is, so the page
-    // keeps a working wallet, and say so (`rebuilt: false`).
+    // keeps a working wallet, and say so (`rebuilt: false`). Not when another tab holds the
+    // namespace: a reopen would queue behind the pending delete, for good.
     const recover = async (): Promise<Rebound> => {
       let rebuilt = true;
       try {
         opened = await resetAccountView(opened, pre.node, pre.chainId, fields);
-      } catch {
+      } catch (e) {
+        if (e instanceof ChainViewHeldError) throw e;
         rebuilt = false;
         opened = await openWallet(pre.node, pre.chainId);
         await registerAccount(opened, fields);

@@ -236,7 +236,6 @@ function failed(state: MinerState, e: Extract<Event, { type: 'failed' }>): [Mine
     claim: null,
     ledger: line(state, { kind: 'failed', time: clock(e.at), text: e.error }),
   };
-  // Nothing was spent: the controller restarts on the epoch open now, pauses permitting.
   if (e.kind === 'expired')
     return [
       { ...base, phase: 'idle', job: null, notice: { kind: 'expired', ...CLAIM_FAILURE_COPY.expired } },

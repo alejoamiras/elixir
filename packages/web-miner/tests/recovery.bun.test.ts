@@ -26,7 +26,11 @@ class FakeWorker {
 const sim = (result: unknown) => ({ simulate: async () => ({ result }) });
 
 /** The reads the controller makes, a claim whose send is scripted, and a balance to tell views apart. */
-const fakeDeployment = (balance: bigint, send: () => Promise<unknown>): Deployment =>
+const fakeDeployment = (
+  balance: bigint | (() => Promise<bigint>),
+  send: () => Promise<unknown>,
+  epoch: () => Promise<bigint> = async () => 3n,
+): Deployment =>
   ({
     node: {
       getL1Constants: async () => ({ slotDuration: 36, epochDuration: 32, proofSubmissionEpochs: 1 }),
@@ -34,13 +38,19 @@ const fakeDeployment = (balance: bigint, send: () => Promise<unknown>): Deployme
     miner: {
       address: AztecAddress.fromBigIntUnsafe(7n),
       methods: {
-        open_epoch: () => sim(3n),
+        open_epoch: () => ({ simulate: async () => ({ result: await epoch() }) }),
         epoch_params: () => sim({ target: 1n << 122n, seed: 7n, opened_at: 0n }),
         claims_in: () => sim(1n),
         claim: () => ({ send }),
       },
     },
-    token: { methods: { balance_of_private: () => sim(balance) } },
+    token: {
+      methods: {
+        balance_of_private: () => ({
+          simulate: async () => ({ result: typeof balance === 'bigint' ? balance : await balance() }),
+        }),
+      },
+    },
     lastSent: () => undefined,
   }) as unknown as Deployment;
 
@@ -77,7 +87,7 @@ describe('lost-race recovery', () => {
     worker = new FakeWorker();
   });
 
-  const boot = async (deployment: Deployment, recover: () => Promise<Rebound>) => {
+  const boot = async (deployment: Deployment, recover: () => Promise<Rebound>, readDeadlineMs?: number) => {
     const controller = new MinerController({
       store,
       spawnWorker: () => worker as unknown as Worker,
@@ -88,6 +98,7 @@ describe('lost-race recovery', () => {
       chainId: 1n,
       rollupVersion: 1n,
       recover,
+      readDeadlineMs,
     });
     await controller.ready();
     await controller.begin();
@@ -168,6 +179,49 @@ describe('lost-race recovery', () => {
     controller.release('hidden');
     await settle(() => worker.sent.filter((m) => m.type === 'mine').length === 2);
     expect(store.get(minerAtom)).toMatchObject({ phase: 'mining', notice: { kind: 'expired' } });
+    controller.dispose();
+  });
+
+  test('a rebuilt view that cannot be read is not declared recovered', async () => {
+    const unreadable = fakeDeployment(
+      9n,
+      () => Promise.reject(BLOCKED),
+      () => Promise.reject(new Error('fetch failed')),
+    );
+    const controller = await boot(
+      fakeDeployment(5n, () => Promise.reject(REVERTED)),
+      async () => ({
+        deployment: unreadable,
+        fee,
+        rebuilt: true,
+      }),
+    );
+    worker.emit(winner);
+    await settle(() => store.get(minerAtom).notice?.kind === 'failed');
+    expect(store.get(minerAtom)).toMatchObject({ phase: 'idle' });
+    expect(store.get(minerAtom).notice?.body).toContain('press Start');
+    expect(store.get(balanceAtom)).toBe(5n);
+    controller.dispose();
+  });
+
+  test('a read that outlives its deadline writes nothing over a newer one', async () => {
+    let calls = 0;
+    // Read 0 (boot) answers at once; read 1 answers late with a stale balance; read 2 at once.
+    const balance = () =>
+      new Promise<bigint>((resolve) => {
+        const n = calls++;
+        setTimeout(() => resolve(n === 1 ? 1n : n === 2 ? 2n : 5n), n === 1 ? 150 : 0);
+      });
+    const controller = await boot(
+      fakeDeployment(balance, () => Promise.reject(REVERTED)),
+      () => Promise.reject(new Error('unused')),
+      50,
+    );
+    await expect(controller.refresh()).rejects.toThrow(/no answer/);
+    await controller.refresh();
+    expect(store.get(balanceAtom)).toBe(2n);
+    await new Promise((r) => setTimeout(r, 150));
+    expect(store.get(balanceAtom)).toBe(2n);
     controller.dispose();
   });
 });

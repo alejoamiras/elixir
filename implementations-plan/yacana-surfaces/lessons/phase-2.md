@@ -194,3 +194,13 @@ Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck
 
 Gate after the fixes: `bun run lint` ✓ · `typecheck` ✓ · web-miner `tsc -b` ✓ · `bun test` 115 ✓ (recovery 4, vault 5, classifier 12) · `test:components` 33 + 27 ✓ · E(web-miner) 11 passed (11.9 min) ✓.
 
+**Round 2** (resumed, the `18f51d3` diff). Verdict: "changes required"; four material findings (two round-1 items incomplete, two regressions from the fixes), all verified and accepted, plus four comment items:
+
+- **A blocked delete could never be recovered from**: rejecting after the 10 s grace leaves the browser's delete request queued, and a reopen of the same name queues behind it for good. `ChainViewHeldError` now goes straight to the terminal card ("close the other tab and reload"); only other drop failures fall back to reopening the namespace.
+- **`openWallet` could leave a half-open wallet**: a failure after `EmbeddedWallet.create` (FPC registration, gas limits) now stops the wallet, one before it closes the store; `resetAccountView` stops the fresh wallet when the account registration fails.
+- **A read past its deadline could overwrite newer state**: each refresh has a generation and a read only writes if no newer refresh began (bun test: a stale balance lands after a newer one and is dropped). Every request to the node from the page, the PXE's included, is now aborted after 120 s (`boundNodeRequests` in the preflight) so a hung transport cannot hold the PXE's queue.
+- **Recovery was declared before the rebuilt view was read**: a failed first read now ends in the "failed" card ("press Start to read it again"), never in `recovered` (bun test).
+- Comments: `derive.ts` (Fq for the signing key), `session.ts` (the withdraw contract), `controller.ts` ("harmlessly"), the expiry rationale kept in one place.
+
+Gate after the fixes: `bun run lint` ✓ · `typecheck` ✓ · web-miner `tsc -b` ✓ · `bun test` 117 ✓ (recovery 6) · `test:components` 33 + 27 ✓ · E(web-miner) 11 passed (12.4 min) ✓.
+

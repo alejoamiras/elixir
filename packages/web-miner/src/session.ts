@@ -239,8 +239,8 @@ export class Session {
 
   /**
    * Mining pauses around the send so the prover and the transfer proof never fight for memory.
-   * Resolves as soon as the transfer is in a block: a balance read failing afterwards must not
-   * read as a failed send, or the same transfer gets sent again.
+   * A balance read failing after the transfer is in a block cannot fail the call, or the same
+   * transfer would be sent again.
    */
   async withdraw(w: Withdrawal): Promise<number> {
     const c = this.controller;

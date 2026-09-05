@@ -51,6 +51,7 @@ const observeSends = (node: Node, onSend: (tx: Tx) => void): Node =>
     },
   });
 
+/** Nothing half-open survives a failure: a retry must find the namespace unheld. */
 export async function openWallet(node: Node, chainId: bigint): Promise<OpenedWallet> {
   const pxeDb = await pxeNamespace(node, chainId);
   const pxeStore = await AztecIndexedDBStore.open(createLogger('web-miner'), pxeDb, false);
@@ -58,19 +59,26 @@ export async function openWallet(node: Node, chainId: bigint): Promise<OpenedWal
   const observed = observeSends(node, (tx) => {
     sent = { txHash: tx.getTxHash().toString(), expiresAt: Number(tx.data.expirationTimestamp) };
   });
-  const wallet = await EmbeddedWallet.create(observed, {
-    pxe: { proverEnabled: true, store: pxeStore },
-    walletDb: { store: new MemoryKvStore() },
-  });
-  const fpc = await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
-    salt: new Fr(SPONSORED_FPC_SALT),
-  });
-  await wallet.registerContract(fpc, SponsoredFPCContract.artifact);
-  const fee: Fee = {
-    paymentMethod: new SponsoredFeePaymentMethod(fpc.address),
-    gasSettings: { gasLimits: await claimGasLimits(node) },
-  };
-  return { wallet, fee, pxeDb, lastSent: () => sent };
+  let wallet: EmbeddedWallet | undefined;
+  try {
+    wallet = await EmbeddedWallet.create(observed, {
+      pxe: { proverEnabled: true, store: pxeStore },
+      walletDb: { store: new MemoryKvStore() },
+    });
+    const fpc = await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
+      salt: new Fr(SPONSORED_FPC_SALT),
+    });
+    await wallet.registerContract(fpc, SponsoredFPCContract.artifact);
+    const fee: Fee = {
+      paymentMethod: new SponsoredFeePaymentMethod(fpc.address),
+      gasSettings: { gasLimits: await claimGasLimits(node) },
+    };
+    return { wallet, fee, pxeDb, lastSent: () => sent };
+  } catch (e) {
+    if (wallet) await wallet.stop().catch(() => {});
+    else await pxeStore.close().catch(() => {});
+    throw e;
+  }
 }
 
 /** Idempotent: the wallet checks the PXE for the instance before registering it again. */
@@ -78,6 +86,18 @@ export const registerAccount = async (w: OpenedWallet, fields: AccountFields): P
   (await w.wallet.createSchnorrInitializerlessAccount(fields.secret, fields.salt, fields.signingKey)).address;
 
 const DELETE_GRACE_MS = 10_000;
+
+/**
+ * A delete another connection is blocking. The request stays queued in the browser until that
+ * connection closes, and any open of the same name queues behind it, so nothing can be reopened
+ * on this page: the only way out is closing the other tab and reloading.
+ */
+export class ChainViewHeldError extends Error {
+  constructor() {
+    super('another tab holds this key’s chain view open; close it and reload this page');
+    this.name = 'ChainViewHeldError';
+  }
+}
 
 /** Waits for the old connection to let go; another tab holding the namespace open blocks it for good. */
 const deleteDatabase = (name: string): Promise<void> =>
@@ -90,10 +110,7 @@ const deleteDatabase = (name: string): Promise<void> =>
     };
     req.onerror = () => reject(req.error);
     req.onblocked = () => {
-      blocked = setTimeout(
-        () => reject(new Error('another tab holds this key’s chain view open; close it and retry')),
-        DELETE_GRACE_MS,
-      );
+      blocked = setTimeout(() => reject(new ChainViewHeldError()), DELETE_GRACE_MS);
     };
   });
 
@@ -112,6 +129,11 @@ export async function resetAccountView(
   await previous.wallet.stop();
   await deleteDatabase(previous.pxeDb);
   const opened = await openWallet(node, chainId);
-  await registerAccount(opened, fields);
+  try {
+    await registerAccount(opened, fields);
+  } catch (e) {
+    await opened.wallet.stop().catch(() => {});
+    throw e;
+  }
   return opened;
 }

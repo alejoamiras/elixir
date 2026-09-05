@@ -42,8 +42,9 @@ export async function masterFromSeed(seed: Uint8Array): Promise<Uint8Array> {
 
 /**
  * Account `index` of a master: per field, 64 HKDF bytes under a label that names the field and
- * the index, reduced into Fr (bias 2^-190, as in `secret.ts`). Changing a label or the reduction
- * changes every address ever derived.
+ * the index, reduced into the field the account contract expects (Fr, or Fq for the signing key;
+ * bias 2^-190, as in `secret.ts`). Changing a label or the reduction changes every address ever
+ * derived.
  */
 export async function deriveAccountFields(master: Uint8Array, index: number): Promise<AccountFields> {
   if (master.length !== 32) throw new Error(`master is ${master.length} bytes, expected 32`);

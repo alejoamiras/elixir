@@ -58,6 +58,7 @@ export interface MinerOptions {
   rollupVersion: bigint;
   /** Rebuilds the key's chain view (wallet, account, deployment) after a lost race. */
   recover?: () => Promise<Rebound>;
+  readDeadlineMs?: number;
 }
 
 /** What the E2E checks about the last minted claim: the effect as read, and the expected nullifier. */
@@ -109,6 +110,7 @@ export class MinerController {
   private readonly chainId: bigint;
   private readonly rollupVersion: bigint;
   private readonly recover: (() => Promise<Rebound>) | undefined;
+  private readonly readDeadlineMs: number;
 
   private secrets = new Map<number, string>();
   private nextNonce = new Map<string, bigint>();
@@ -127,6 +129,8 @@ export class MinerController {
   private generations = 0;
   private crashes = 0;
   private refreshing: Promise<void> = Promise.resolve();
+  /** Bumped per refresh; a read that outlived its deadline must not write over a newer one. */
+  private reads = 0;
   private lastRead = Date.now();
   private offline = false;
   /** When the chain view was last rebuilt; a block that survives a rebuild gets the pause instead. */
@@ -146,6 +150,7 @@ export class MinerController {
     this.chainId = o.chainId;
     this.rollupVersion = o.rollupVersion;
     this.recover = o.recover;
+    this.readDeadlineMs = o.readDeadlineMs ?? READ_DEADLINE_MS;
     this.prover = this.attach();
   }
 
@@ -293,11 +298,14 @@ export class MinerController {
 
   /**
    * Re-reads the open epoch and the balance. Refreshes are serialised and an older epoch never
-   * overwrites a newer one, so a slow poll cannot restart mining on stale parameters; a read past
-   * the deadline fails the refresh (the request itself may still land later, harmlessly).
+   * overwrites a newer one, so a slow poll cannot restart mining on stale parameters. A read past
+   * the deadline fails the refresh; if it lands after a newer refresh began, it writes nothing.
    */
   refresh(): Promise<void> {
-    const run = this.refreshing.then(() => deadline(this.readChain(), READ_DEADLINE_MS));
+    const run = this.refreshing.then(() => {
+      const gen = ++this.reads;
+      return deadline(this.readChain(gen), this.readDeadlineMs);
+    });
     this.refreshing = run.catch(() => {});
     return run;
   }
@@ -324,10 +332,10 @@ export class MinerController {
     }
   }
 
-  private async readChain() {
+  private async readChain(gen: number) {
     const epoch = await readEpoch(this.d, this.account);
     const previous = this.store.get(epochAtom);
-    if (previous && epoch.epoch < previous.epoch) return;
+    if (gen !== this.reads || (previous && epoch.epoch < previous.epoch)) return;
     this.store.set(epochAtom, epoch);
     if (previous && previous.epoch !== epoch.epoch) {
       this.log(`epoch ${epoch.epoch} opened (target ${epoch.target.toString(16)})`);
@@ -338,7 +346,8 @@ export class MinerController {
         at: Date.now(),
       });
     }
-    this.store.set(balanceAtom, await readBalance(this.d, this.account));
+    const balance = await readBalance(this.d, this.account);
+    if (gen === this.reads) this.store.set(balanceAtom, balance);
   }
 
   /** Anyone may close an epoch that stayed open for T_MAX; the miner does it so mining resumes. */
@@ -519,8 +528,18 @@ export class MinerController {
       return this.pauseUntilFinal();
     }
     this.rebuiltAt = Date.now();
-    // The first read syncs the fresh PXE: the notes come back before mining resumes.
-    await this.refresh().catch((e: unknown) => this.log(`first read after the rebuild: ${String(e)}`));
+    // The first read syncs the fresh PXE: the notes come back before mining resumes. Without it
+    // nothing is known to be recovered; the view stays, and Start reads again.
+    try {
+      await this.refresh();
+    } catch (e) {
+      this.log(`the rebuilt chain view could not be read: ${claimFailureMessage(e)}`);
+      return this.dispatch({
+        type: 'failed',
+        error: `the chain view was rebuilt but the node did not answer (${claimFailureMessage(e)}); press Start to read it again`,
+        at: Date.now(),
+      });
+    }
     this.lastRead = Date.now();
     this.dispatch({ type: 'recovered', at: Date.now() });
     this.log('chain view rebuilt; mining resumes');
