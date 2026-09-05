@@ -1,0 +1,133 @@
+<title>Yacana Surfaces Plan</title>
+<meta charset="utf-8">
+<style>
+:root{--bg:#0A0A0B;--bg-1:#111114;--bg-2:#17171B;--fg:#F2EFE9;--fg-2:rgba(242,239,233,.68);--fg-3:rgba(242,239,233,.45);--line:rgba(242,239,233,.12);--uv:#8C6BFF;--uv-2:#B39DFF;--uv-dim:rgba(140,107,255,.16);--ok:#58C98B;--warn:#E8B54D;--bad:#E5624F;color-scheme:dark}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#F5F3EE;--bg-1:#FFFFFF;--bg-2:#ECE8E0;--fg:#0A0A0B;--fg-2:rgba(10,10,11,.7);--fg-3:rgba(10,10,11,.5);--line:rgba(10,10,11,.12);--uv:#5B3FE0;--uv-2:#4A2FC9;--uv-dim:rgba(91,63,224,.12);color-scheme:light}}
+:root[data-theme="light"]{--bg:#F5F3EE;--bg-1:#FFFFFF;--bg-2:#ECE8E0;--fg:#0A0A0B;--fg-2:rgba(10,10,11,.7);--fg-3:rgba(10,10,11,.5);--line:rgba(10,10,11,.12);--uv:#5B3FE0;--uv-2:#4A2FC9;--uv-dim:rgba(91,63,224,.12);color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:760px;margin:0 auto;padding:48px 24px 120px}
+h1{font-size:34px;line-height:1.1;letter-spacing:-.02em;margin:0 0 12px;text-wrap:balance}
+h2{font-size:22px;line-height:1.2;letter-spacing:-.01em;margin:48px 0 14px}
+h3{font-size:16px;margin:0 0 4px}
+p{margin:0 0 12px}
+.eyebrow{font:500 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--uv-2);margin-bottom:14px}
+.lede{font-size:18px;color:var(--fg-2)}
+.muted{color:var(--fg-2)}
+.small{font-size:14px;color:var(--fg-3)}
+.phase{margin:14px 0;padding:14px 18px;border-left:3px solid var(--line);background:var(--bg-1);border-radius:0 8px 8px 0}
+.phase.arc{border-left-color:var(--uv);background:transparent;padding:6px 18px;margin-top:26px}
+.phase .gate{font-size:14px;color:var(--fg-3);margin:6px 0 0}
+.phase .gate b{color:var(--fg-2);font-weight:500}
+.approval{background:var(--uv-dim);border-left:3px solid var(--uv);padding:16px 20px;border-radius:0 8px 8px 0;margin:24px 0}
+.approval ul,.asks ol{margin:8px 0 0;padding-left:1.2em}
+.approval li,.asks li{margin:6px 0}
+.asks li b{color:var(--fg)}
+.asks li .d{color:var(--fg-3);font-size:14px}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:10px 0 18px}
+th,td{text-align:left;padding:8px 10px 8px 0;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--fg-2);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em}
+pre{background:var(--bg-2);border:1px solid var(--line);padding:14px 16px;border-radius:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.5}
+.seed{border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:14px 0}
+.seed.rec{border-color:var(--uv);background:var(--uv-dim)}
+.seed h3{display:flex;gap:10px;align-items:center}
+.pill{display:inline-block;font:500 11px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;padding:4px 8px;border-radius:5px;border:1px solid var(--uv);color:var(--uv-2)}
+.warning{color:var(--warn);font-weight:600;margin:12px 0}
+a{color:var(--uv-2)}
+hr{border:0;border-top:1px solid var(--line);margin:40px 0}
+</style>
+<main>
+<div class="eyebrow">Blueprint · deep · yacana-surfaces · approved 2026-09-05</div>
+<h1>Rename to Yacana and build the miner, the stats and the landing on one site</h1>
+<p class="lede">Five stacked pull requests. First the project changes its name everywhere, including inside the circuit, and gets a fresh testnet deployment. Then a shared design system, the new miner (passkeys, a key vault, private or public withdrawals, the power slider, every win and failure state), a stats page that reads the chain straight from your browser, the landing page with a real proof you can run, and the machinery that puts all three on <b>yacana.network</b>, built and previewed by Cloudflare from the repo.</p>
+
+<h2>Why the heaviest planning tier</h2>
+<p class="muted">Five of the six risk dimensions are high: <b>novelty</b> (passkeys and a key vault are new to this codebase), <b>blast radius</b> (every surface plus the contracts' name), <b>irreversibility</b> (a new deployment; a passkey is bound forever to the hostname it was created on), <b>external coupling</b> (Cloudflare, the Aztec node, browser passkey platforms) and <b>security sensitivity</b> (keys, money). So: three independent plans (this session, codex, a second Claude), a consolidation with a decision ledger, a contradiction check by both reviewers, a double audit, and a final fresh-eyes codex pass. The final pass returned <b>conditional approve</b>; its four conditions (safer previews, gap-free recovery, a tighter vault record, type-checking every gate) are applied in the plan. Recon used 2 agents; code-review is off, the codex fix loop is the review.</p>
+
+<h2>What was decided along the way</h2>
+<table>
+<tr><th>question</th><th>answer</th><th>why</th></tr>
+<tr><td>Where does the secret live?</td><td>Not on disk, by default. A passkey key is re-derived from the passkey every time you open the miner (one touch). Twelve-word keys are sealed with a device key, with the limit stated honestly.</td><td>The audit found the embedded wallet's own database writes the secret key in cleartext. So the wallet now runs in memory and the vault owns the secret.</td></tr>
+<tr><td>How do the stats read the chain without a server?</td><td>The browser reads public storage directly: the open epoch, the last 48 epochs, the total supply. A small build-time table replaces a 3 MB hashing library.</td><td>You said no indexer. The one thing lost is the exact "last claim N minutes ago"; it becomes "open epoch: 2 claims, opened 3 min ago".</td></tr>
+<tr><td>What if a claim loses a race?</td><td>The miner re-syncs that key's local view of the chain and carries on; nothing is lost. If that ever fails to unblock, it pauses and says when it can claim again.</td><td>Aztec's local client refuses to forget a lost send until L1 has finalized it (tens of minutes). You dropped the "second account" workaround; the re-sync is simpler and the plan verifies it end to end.</td></tr>
+<tr><td>How does the landing prove for real?</td><td>It borrows the miner's proving Worker, loaded only when you click "Prove one now". Desktop only.</td><td>Two of three planners preferred this over an iframe; it keeps one headers policy for the whole site.</td></tr>
+<tr><td>Who deploys?</td><td>Cloudflare itself: the repo is connected to the Pages project, <code>main</code> builds production, every other branch gets a preview link on its PR. No Cloudflare token exists in GitHub.</td><td>Your call. It also removes the token-handling problems two codex rounds found. The price: the compiled contract artifacts are committed so Cloudflare's builder needs only Bun, and CI checks they stay fresh.</td></tr>
+<tr><td>Can a link trick the miner?</td><td>No longer: production builds ignore <code>?miner=&amp;token=</code> in the address bar; only local test builds honour them.</td><td>Today any link can point the page at a fake deployment on the allowed node.</td></tr>
+</table>
+
+<h2>Phases</h2>
+<div class="phase arc"><h3>Arc 0 · the rename (one PR)</h3><p class="small">Everything Elixir becomes Yacana. The domain tags live inside the proving circuit, so the verifier key, the fixture proofs and the test vectors regenerate, and the contracts get a new testnet deployment.</p></div>
+<div class="phase"><h3>P0.1 Protocol rename</h3><p class="muted">Parameters, circuit names, contract names, artifact names; regenerate the proof, the verifier key and the vectors in the one safe order.</p><p class="gate"><b>Proves itself by:</b> the generated files diff clean, the contracts compile and their tests pass, every unit test passes on the new verifier key.</p></div>
+<div class="phase"><h3>P0.2 Names, environment, storage, CI, docs</h3><p class="muted">Package names, env vars, browser storage names, workflow filters, docs; the old testnet record is archived under a dated name.</p><p class="gate"><b>Proves itself by:</b> a guard test finds no live "elixir" outside history, plus lint, unit, component and the browser end-to-end suite.</p></div>
+<div class="phase"><h3>P0.3 Fresh testnet deployment</h3><p class="muted">Run by the agent with the deployer secret you supply through the environment (never printed); the record and the evidence are committed. The old Elixir site stays up until arc 4 replaces it.</p><p class="gate"><b>Proves itself by:</b> the epoch reader shows epoch 0 of the new deployment; the record matches the parameters.</p></div>
+
+<div class="phase arc"><h3>Arc 1 · the design system (one PR)</h3><p class="small">A shared package with the colours, the two fonts and the six signature pieces: the score loop, the epoch rail with the power slider, the marks, the proof ledger, the preflight checklist, the stepper.</p></div>
+<div class="phase"><h3>P1.1 Package, tokens, fonts, primitives</h3><p class="gate"><b>Proves itself by:</b> component specs for the status pill, the favicon states and the theme; a test that no component hard-codes a colour.</p></div>
+<div class="phase"><h3>P1.2 Signature components</h3><p class="gate"><b>Proves itself by:</b> one spec per component (dots per proof and the win flash, the four ledger line kinds, the "close the epoch" button at the deadline, the slider's limits, reduced motion).</p></div>
+<div class="phase"><h3>P1.3 The current miner on the new package</h3><p class="gate"><b>Proves itself by:</b> the existing miner still mines and claims end to end, now drawn from the shared package.</p></div>
+
+<div class="phase arc"><h3>Arc 2 · the miner (one PR, five phases)</h3><p class="small">The M1 cockpit, passkeys first with the twelve words behind a small link, the key vault, wallet and withdraw, and every state the binder drew.</p></div>
+<div class="phase"><h3>P2.1 Site tooling and the shell</h3><p class="muted">One configuration source for all three sites with <code>yacana.network</code> as the passkey hostname, one headers policy rendered per environment, the miner under <code>/mine</code>, the phone stop-screen, the host rules (the <code>pages.dev</code> alias redirects, previews show a banner and never create keys), the link-override guard.</p><p class="gate"><b>Proves itself by:</b> the headers test pins every directive; the end-to-end suite passes on <code>localhost</code> (passkeys refuse IP addresses).</p></div>
+<div class="phase"><h3>P2.2 Cockpit, power, settings</h3><p class="gate"><b>Proves itself by:</b> reducer and metric unit tests; an end-to-end run that changes the power three times while mining continues and memory does not grow.</p></div>
+<div class="phase"><h3>P2.3 Passkeys and the vault</h3><p class="muted">The riskiest phase: the passkey ceremony, the key derivation with pinned vectors, the in-memory wallet, the vault, the "ask every open" default.</p><p class="gate"><b>Proves itself by:</b> derivation vectors, vault tamper tests, and an end-to-end run with a virtual passkey that creates a key, mines, claims, reloads and comes back with one touch, with no secret found on disk.</p></div>
+<div class="phase"><h3>P2.4 Twelve words, wallet, withdraw</h3><p class="gate"><b>Proves itself by:</b> the write-down quiz and phrase validation tests; end-to-end: create with words, forget, restore to the same address; withdraw privately to a second key and publicly to an address.</p></div>
+<div class="phase"><h3>P2.5 The win beats and every failure</h3><p class="muted">The stepper with the real expiry countdown, the marks at the mint, the lost-race re-sync, expired claims, node unreachable, prover dead, notifications, the mini window; an upstream issue filed for the client behaviour.</p><p class="gate"><b>Proves itself by:</b> unit tests for every transition; end-to-end: the node drops and mining pauses then resumes; a real lost race is forced on the isolated network, the key re-syncs, the next claim mints and the balance survives.</p></div>
+
+<div class="phase arc"><h3>Arc 3 · the stats (one PR)</h3><p class="small">The Observatory with the epoch strip, four charts, the table with exports, the calculator, the "what is not here" block and the Verify page.</p></div>
+<div class="phase"><h3>P3.1 The reader, the slot table, the metrics</h3><p class="gate"><b>Proves itself by:</b> the slot table matches the hashing library; every metric and the epoch sentences are tested on recorded testnet data; a live read of epoch 0 on the isolated network.</p></div>
+<div class="phase"><h3>P3.2 The stats site</h3><p class="gate"><b>Proves itself by:</b> chart and strip specs on fixtures; end-to-end on recorded data and on the isolated network, including the Verify page matching the deployment.</p></div>
+
+<div class="phase arc"><h3>Arc 4 · the landing and the site (one PR)</h3><p class="small">The seven sections with the H3 hero, the money table, the real proof on click, launch mode behind a flag; then the assembler, the headers, the deploy workflow and previews.</p></div>
+<div class="phase"><h3>P4.1 Sections, demo, launch flag</h3><p class="gate"><b>Proves itself by:</b> section and demo-state specs; end-to-end: no proving code loads before the click, the proof returns a real score, a phone sees the share button and no demo.</p></div>
+<div class="phase"><h3>P4.2 Assembly, Cloudflare, domain, docs</h3><p class="muted">The assembler, the committed artifacts and their freshness check, the Pages project connected to the repo (your dashboard step), <code>yacana.network</code> attached with the <code>www</code> redirect, HSTS, CAA and DNSSEC. The first production build happens when the stack merges to <code>main</code>.</p><p class="gate"><b>Proves itself by:</b> the assembled site served the Cloudflare way: every route answers with the same headers, the build manifest says which mode it is, the demo proves.</p></div>
+
+<h2>Human context</h2>
+<p class="muted">Three things the reviewers pushed on hardest. <b>Passkeys have no backup by design</b>: you chose one method per key and no 24-word export, so if a passkey is lost or its provider does not sync the secret, the balance is stranded; accepted for testnet, the page says so and nudges people to move funds, and it is revisited before mainnet. <b>One origin means one policy</b>: the landing, the miner and the stats share headers, so a mistake in one bundle reaches all three; the headers are generated and pinned by a test. <b>Nothing deploys to the new domain until arc 4</b>: that removes every "migrate old data" problem, because the new site starts empty.</p>
+
+<h2>Decisions you made at approval</h2>
+<div class="asks"><ol>
+<li><b>Passkey backup:</b> none. Risk accepted for testnet with a warning and a move-funds nudge; revisit before mainnet.</li>
+<li><b>Rotation:</b> dropped. One account per key; a lost race is recovered by re-syncing the key from the chain.</li>
+<li><b>No interim deploy:</b> the first deploy is arc 4.</li>
+<li><b>Hostname:</b> <code>yacana.network</code>, bought, zone on Cloudflare. Source: <code>github.com/alejoamiras/elixir</code>, to be renamed <code>alejoamiras/yacana</code> (no org; GitHub redirects the old name). X handle: placeholder until you give it.</li>
+<li><b>Public node load:</b> accepted for testnet.</li>
+<li><b>The old Elixir site:</b> retired once the new domain is live.</li>
+<li><b>Previews:</b> yes, on every PR, built by Cloudflare's Git integration. No token in GitHub.</li>
+<li><b>The old deployment record</b> moves to a dated filename.</li>
+<li><b>Cloudflare:</b> you connect the repo to the Pages project; no token needed. The testnet deploy in arc 0 runs with your secret supplied through the environment.</li>
+</ol></div>
+
+<div class="approval">
+<h2 style="margin-top:0">Approved · 2026-09-05</h2>
+<ul>
+<li>Scope: the rename, the design system, the miner redesign, the stats, the landing and the site, as five stacked PRs; nothing else.</li>
+<li>Tier <code>deep</code>; code-review off (the codex fix loop per arc is the review).</li>
+<li>Validation: lint and typecheck on every phase; unit, component and isolated-network browser tests where each phase says; the testnet deploy is recorded evidence, not a CI gate.</li>
+<li>Delivery: arc 0 → 1 → 2 → 3 → 4, each its own PR; you merge; Cloudflare builds <code>main</code>.</li>
+<li>Later: <code>/harden security</code> before any mainnet deployment is recommended, not scheduled here.</li>
+</ul>
+</div>
+
+<h2>Implementation seeds (final)</h2>
+<p class="muted">Two ways to run the implementation session. <code>/goal</code> keeps working until a condition holds and survives <code>claude --resume</code>; <code>/loop</code> fires on an interval for up to 7 days. The session must run inside the plan's worktree (<code>agent-worktree resume yacana-surfaces</code>).</p>
+<p class="warning">Use exactly ONE per session. They don't compose — setting one replaces the other.</p>
+
+<div class="seed rec"><h3>Recommended for this plan: /goal <span class="pill">completion is transcript-observable</span></h3>
+<pre><code>/goal All phases marked ✓ in implementations-plan/yacana-surfaces/plan.md (the per-phase headers in the file — not the chat, not the task list), each ✓ backed by its phase's validation gate (as defined in plan.md) reported passing in the transcript; for each phase the agent has printed `LESSONS_FILE=implementations-plan/yacana-surfaces/lessons/phase-N.md` in the transcript; `/code-review` was NOT run (code_review is off); the codex fix loop converged for EVERY reviewed diff — each of the five arcs at its boundary plus the final cross-arc pass — each convergence evidenced by a resumed codex pass reporting no new material findings, quoted in the transcript; the Delivery section's PR topology exists on GitHub, created only AFTER all loops converged (`gh stack view` output in the transcript); `bun run lint` and `bun test` both report exit 0 in the transcript.</code></pre></div>
+
+<div class="seed"><h3>Alternative: /loop</h3>
+<pre><code>/loop 15m Drive implementations-plan/yacana-surfaces forward. Never idle waiting for my input. Each firing:
+1. **Reality check**: read implementations-plan/yacana-surfaces/plan.md and lessons/ (authoritative state — not the chat); native task list empty (fresh session)? rebuild it from plan.md, one task per remaining step; run `git status` and `git log --oneline -5`. If a PR exists, `gh stack view` (no --watch). Without a PR but with CI configured, `gh run list --branch $(git branch --show-current) --limit 1 --json status,databaseId`.
+2. **Waiting on CI is fine** — confirm it's actually progressing (`gh run watch &lt;run-id&gt;` up to 10 minutes; queued or stuck past that → inspect logs, log it as blocked in lessons). Use the wait productively: review the diff, prep the next phase, strengthen tests. Don't start work that would conflict with the in-flight change.
+3. **No task in hand?** Pick the next pending step from plan.md and start it. After each meaningful edit, run the fast validation layers (`bun run lint` + `bun test &lt;touched package&gt;` + the package's `typecheck`) — catch mistakes in-step, not phases later. Then commit → push (`gh stack push`; `gh stack sync` if trunk or a lower arc moved).
+4. **Stuck, or facing a decision you'd normally bring to me?** Don't wait. Call `/codex xhigh` with full context and go back and forth until you two reach a defensible decision, then act on it. Log every consult + verdict in lessons/phase-N.md. Exception — hard limits stay hard: never merge to main or release branches, never deploy to mainnet, never push to `main` (Cloudflare builds production from it), never print/persist secrets (P0.3's deploy runs with `YACANA_DEPLOYER_SECRET` from the environment I provide; the Cloudflare project connection and the domain settings are mine), never expand scope beyond plan.md; if the decision requires crossing one, surface it and hold.
+5. **Same step failed 5 times?** Stop retrying; reassess the approach with codex, then continue down the agreed path.
+6. **Phase green?** "Green" means THE PHASE'S VALIDATION GATE as written in plan.md passes (commands + pass criteria — not generic vibes). Run the full gate (long gates in tmux), paste the result, mark ✓ in plan.md, file the lessons entry, print `LESSONS_FILE=implementations-plan/yacana-surfaces/lessons/phase-N.md` in the transcript, `agent-worktree status yacana-surfaces "phase N green: &lt;next&gt;"`, advance to the next phase. Arc boundary crossed (per plan.md's Delivery section)? Run the arc's codex loop FIRST (NEW `/codex xhigh` session with the arc diff, the arc map, plan.md, the decision ledger and the plan's no-over-engineering + comment-quality rules; resume the same session with each fix diff until a round yields nothing material; 3 rounds still churning → surface and stop) — THEN `gh stack add &lt;next-arc-branch&gt;` before the next arc's work. `/code-review` is OFF for this plan: never run it.
+7. **All phases ✓ in plan.md?** Close out per plan.md's Post-implementation section: every arc already looped at its boundary — run only the final cross-arc integration pass: FRESH codex session over the net diff + cross-arc ask (seams between arcs, duplication across arcs, plan drift) + the no-over-engineering + comment-quality rules, same loop-until-clean. Then Delivery per plan.md — the FIRST time any PR is opened: `gh stack sync` then `gh stack submit --auto` + `gh pr edit` bodies, then `gh pr checks --watch`. Then write the wrap-up report: what shipped, every contentious decision codex and I debated — each with ELI5 context (what the question was, the options, why we picked ours) — and open items. Surface and stop.
+
+Keep the native task list current (`TaskUpdate` as steps start/finish; plan.md stays the source of truth). No task tools in this session → print the step checklist only when a step changes state.</code></pre></div>
+
+<hr>
+<p class="small">Full plan: <code>implementations-plan/yacana-surfaces/plan.md</code> in the repo (architecture, interfaces, gates, CI, security, assumptions, decision ledger). Recon: <code>recon.md</code>. Audits: <code>audit-codex.md</code>, <code>audit-fable.md</code>. Lessons will land in <code>lessons/phase-N.md</code>.</p>
+</main>
