@@ -3,9 +3,9 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const agentsDir = mkdtempSync(join(tmpdir(), 'elixir-registry-'));
+const agentsDir = mkdtempSync(join(tmpdir(), 'yacana-registry-'));
 beforeAll(() => {
-  process.env.ELIXIR_AGENTS_DIR = agentsDir;
+  process.env.YACANA_AGENTS_DIR = agentsDir;
 });
 afterAll(() => rmSync(agentsDir, { recursive: true, force: true }));
 

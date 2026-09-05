@@ -1,5 +1,5 @@
 {
-  "name": "@elixir/deploy",
+  "name": "@yacana/deploy",
   "version": "0.0.0",
   "private": true,
   "description": "Sandbox and testnet deployment, calibration, spike and epoch-stats scripts",

@@ -1,5 +1,5 @@
 {
-  "name": "@elixir/web-miner",
+  "name": "@yacana/web-miner",
   "version": "0.0.0",
   "private": true,
   "description": "Browser miner: embedded wallet, sponsored fees, W proved by bb.js in a Worker, claims proved in-page",

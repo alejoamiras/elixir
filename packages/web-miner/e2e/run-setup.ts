@@ -33,8 +33,8 @@ function buildForRun(log: number, miner: string, token: string): void {
     env: {
       ...process.env,
       VITE_AZTEC_NODE_URL: nodeUrl,
-      VITE_ELIXIR_MINER: miner,
-      VITE_ELIXIR_TOKEN: token,
+      VITE_YACANA_MINER: miner,
+      VITE_YACANA_TOKEN: token,
       VITE_ALLOWED_NODE_ORIGINS: `${new URL(nodeUrl as string).origin},${MOCK_NODE_ORIGIN}`,
     },
   });
@@ -71,7 +71,7 @@ const port = await claim({
   span: 8,
 });
 try {
-  const target = BigInt(process.env.ELIXIR_E2E_TARGET ?? String(1n << 127n));
+  const target = BigInt(process.env.YACANA_E2E_TARGET ?? String(1n << 127n));
   const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: target });
   const log = openSync(resolve(pkg, 'e2e/.vite.log'), 'w');
   if (server === 'preview') buildForRun(log, deployed.miner, deployed.token);

@@ -1,5 +1,5 @@
 {
-  "name": "@elixir/work-circuit",
+  "name": "@yacana/work-circuit",
   "version": "0.0.0",
   "private": true,
   "description": "The Noir work circuit W (Poseidon2 chain), its VK, VK hash, proof-layout manifest and fixture proofs",

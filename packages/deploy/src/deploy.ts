@@ -1,9 +1,9 @@
 // Deploys one profile of yacana.params.json: the token-less miner (its address depends only on
 // class, salt, deployer and its constructor args), the token with `minter` = that address, the
 // miner, then one bind_token. Fees go through the sponsored FPC; the deployer is an
-// initializerless Schnorr account derived from ELIXIR_DEPLOYER_SECRET (never logged).
-//   AZTEC_NODE_URL=… ELIXIR_DEPLOYER_SECRET=0x… [ELIXIR_LAUNCH_AT=<unix seconds>] [ELIXIR_DEPLOY_SALT=0x…] \
-//     [ELIXIR_DEPLOY_FORCE=1] bun packages/deploy/src/deploy.ts
+// initializerless Schnorr account derived from YACANA_DEPLOYER_SECRET (never logged).
+//   AZTEC_NODE_URL=… YACANA_DEPLOYER_SECRET=0x… [YACANA_LAUNCH_AT=<unix seconds>] [YACANA_DEPLOY_SALT=0x…] \
+//     [YACANA_DEPLOY_FORCE=1] bun packages/deploy/src/deploy.ts
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadContractArtifact } from '@aztec/aztec.js/abi';
@@ -179,22 +179,22 @@ export async function deployYacana(
 
 if (import.meta.main) {
   const nodeUrl = process.env.AZTEC_NODE_URL;
-  const secret = process.env.ELIXIR_DEPLOYER_SECRET;
-  if (!nodeUrl || !secret) throw new Error('AZTEC_NODE_URL and ELIXIR_DEPLOYER_SECRET are required');
+  const secret = process.env.YACANA_DEPLOYER_SECRET;
+  if (!nodeUrl || !secret) throw new Error('AZTEC_NODE_URL and YACANA_DEPLOYER_SECRET are required');
   // Validated and reduced here: the field constructors throw messages that echo their input, and
   // a 32-byte key can exceed the field modulus. Any 1–32-byte hex value maps to one deployer.
   if (!/^(0x)?[0-9a-fA-F]{1,64}$/.test(secret))
-    throw new Error('ELIXIR_DEPLOYER_SECRET must be hex, at most 32 bytes');
+    throw new Error('YACANA_DEPLOYER_SECRET must be hex, at most 32 bytes');
   const deployerSecret = Fr.fromBufferReduce(Buffer.from(secret.replace(/^0x/, '').padStart(64, '0'), 'hex'));
-  const salt = process.env.ELIXIR_DEPLOY_SALT ? Fr.fromString(process.env.ELIXIR_DEPLOY_SALT) : Fr.random();
+  const salt = process.env.YACANA_DEPLOY_SALT ? Fr.fromString(process.env.YACANA_DEPLOY_SALT) : Fr.random();
   const dir = resolve(repo, 'deployments');
   const file = resolve(dir, `${PROFILE}.json`);
-  if ((await Bun.file(file).exists()) && process.env.ELIXIR_DEPLOY_FORCE !== '1')
+  if ((await Bun.file(file).exists()) && process.env.YACANA_DEPLOY_FORCE !== '1')
     throw new Error(
-      `${file} already records a ${PROFILE} deployment; set ELIXIR_DEPLOY_FORCE=1 to replace it`,
+      `${file} already records a ${PROFILE} deployment; set YACANA_DEPLOY_FORCE=1 to replace it`,
     );
-  const launchAt = BigInt(process.env.ELIXIR_LAUNCH_AT ?? '0');
-  if (launchAt < 0n || launchAt >= 1n << 63n) throw new Error('ELIXIR_LAUNCH_AT must be unix seconds');
+  const launchAt = BigInt(process.env.YACANA_LAUNCH_AT ?? '0');
+  if (launchAt < 0n || launchAt >= 1n << 63n) throw new Error('YACANA_LAUNCH_AT must be unix seconds');
   const deployment = await deployYacana(nodeUrl, deployerSecret, salt, { launchAt });
   mkdirSync(dir, { recursive: true });
   await Bun.write(file, `${JSON.stringify(deployment, null, 2)}\n`);

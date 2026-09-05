@@ -1,5 +1,5 @@
 {
-  "name": "elixir",
+  "name": "yacana",
   "version": "0.0.0",
   "private": true,
   "description": "Privately mineable token on Aztec whose mining work is Barretenberg proving",

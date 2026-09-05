@@ -30,7 +30,7 @@ export interface IsolatedNode {
 export interface IsolatedNodeOptions {
   /** Extra env for the aztec process (e.g. sequencer/prover toggles). */
   env?: Record<string, string>;
-  /** Forward child stdout/stderr to ours (also ELIXIR_NODE_VERBOSE=1). */
+  /** Forward child stdout/stderr to ours (also YACANA_NODE_VERBOSE=1). */
   verbose?: boolean;
 }
 
@@ -164,9 +164,9 @@ function aztecArgs(ports: Ports, runRoot: string, l1RpcUrl: string): string[] {
 }
 
 export async function startIsolatedNode(opts: IsolatedNodeOptions = {}): Promise<IsolatedNode> {
-  const verbose = opts.verbose ?? process.env.ELIXIR_NODE_VERBOSE === '1';
+  const verbose = opts.verbose ?? process.env.YACANA_NODE_VERBOSE === '1';
   // Time + pid + random suffix: two starts in the same millisecond cannot share a runRoot.
-  const runId = `elixir-${new Date().toISOString().replace(/[:.]/g, '-')}-${process.pid}-${randomUUID().slice(0, 8)}`;
+  const runId = `yacana-${new Date().toISOString().replace(/[:.]/g, '-')}-${process.pid}-${randomUUID().slice(0, 8)}`;
   const ports = await claimPorts(runId);
   const runRoot = resolve(repoRoot, '.localnet', runId);
   mkdirSync(runRoot, { recursive: true });
@@ -232,7 +232,7 @@ async function runWithNode(cmd: string[]): Promise<number> {
         ...process.env,
         AZTEC_NODE_URL: node.nodeUrl,
         L1_RPC_URL: node.l1RpcUrl,
-        ELIXIR_RUN_ID: node.runId,
+        YACANA_RUN_ID: node.runId,
       },
     });
     return await new Promise<number>((res) => child.on('exit', (code) => res(code ?? 1)));

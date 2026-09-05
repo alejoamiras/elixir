@@ -24,7 +24,7 @@ jobs:
               - 'packages/web-miner/**'
               - '!packages/web-miner/**/*.md'
               - 'packages/miner-core/src/**'
-              - 'elixir.params.json'
+              - 'yacana.params.json'
               - 'scripts/params-codegen.ts'
               - 'biome.json'
               - 'bunfig.toml'

@@ -24,3 +24,18 @@ the fixture) → `determinism.ts --runs 3` (3/3 byte-identical, sha256 `57799830
 - Timings (homelab, Ryzen 5 5600X): work-circuit compile < 1 s; prove 2.6 s; contracts compile ≈ 4 min; `aztec test` 54 tests ≈ 3 min.
 
 Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · web-miner `typecheck` ✓ · `bun run codegen && git diff --exit-code` ✓ (after `git add -A`) · `contracts:compile` ✓ · `contracts:test` 54 passed ✓ · `bun test` 37 pass / 6 skip / 0 fail ✓.
+
+## P0.2 Workspace, env, storage, CI, docs (2026-09-05)
+
+**Result:** ✓. `@yacana/*` names (lockfile diff = the five workspace rows only), `YACANA_*` / `VITE_YACANA_*`, storage keys
+`yacana.connection` / `yacana-pxe-<ns>` / `yacana-wallet-<ns>`, `yacana-` run ids, wrangler `yacana-web-miner`, CI path
+filters, docs; `deployments/testnet.json` → `deployments/elixir-testnet-2026-09-04.json` (git mv, unchanged) with an
+"Archived" section in `docs/deployments.md`.
+
+- **The guard needs reference exemptions, not just path exemptions.** `CLAUDE.md`, `README.md` and `docs/roadmap.md`
+  legitimately point at `implementations-plan/elixir-core/…` and the archived record; the test strips those path
+  tokens from a line before the word-bounded match. `docs/deployments.md` is checked only above its `## Archived`
+  heading. A planted `tELX` in `README.md` was caught (negative check), then removed.
+- The web miner's `.env.production` keeps the old addresses under the new keys until P0.3 writes the Yacana ones.
+
+Gate: `bun install --frozen-lockfile` ✓ · `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · web-miner `typecheck` ✓ · `bun test` 39 pass / 6 skip / 0 fail ✓ · `test:components` 12 passed ✓ · E(web-miner) 8 passed (3.7 min) ✓.

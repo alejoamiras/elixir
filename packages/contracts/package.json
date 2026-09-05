@@ -1,8 +1,8 @@
 {
-  "name": "@elixir/contracts",
+  "name": "@yacana/contracts",
   "version": "0.0.0",
   "private": true,
-  "description": "Aztec contracts: elixir_miner plus the aztec-standards token as a git dependency",
+  "description": "Aztec contracts: yacana_miner plus the aztec-standards token as a git dependency",
   "type": "module",
   "scripts": {
     "compile": "aztec compile --workspace",

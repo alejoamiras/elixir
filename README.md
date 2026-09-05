@@ -1,4 +1,4 @@
-# elixir
+# yacana
 
 A privately mineable token on Aztec whose mining work is Barretenberg proving. A miner proves a fixed
 Noir circuit per nonce; the ticket is Poseidon2 over the whole UltraHonk proof; a ticket below the
@@ -17,7 +17,7 @@ time, clamped to [¼, 4] — Bitcoin-style difficulty without a native hash to g
 
 ## Layout
 
-`packages/work-circuit` (the Noir work circuit `W` and its VK), `packages/contracts` (`ElixirMiner` and the
+`packages/work-circuit` (the Noir work circuit `W` and its VK), `packages/contracts` (`YacanaMiner` and the
 aztec-standards token), `packages/miner-core` (platform-agnostic TypeScript: proof → ticket, retarget mirror,
 epoch reader, claim builder, mining loop), `packages/web-miner` (React page with an embedded wallet),
 `packages/deploy` (deploy, soak and epoch-stats scripts), `scripts/run` (run isolation for parallel local

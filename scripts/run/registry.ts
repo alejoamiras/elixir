@@ -5,12 +5,12 @@ import { existsSync, mkdirSync, readFileSync, rmSync, statSync, unlinkSync, writ
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-// ELIXIR_AGENTS_DIR overrides (tests use a throwaway dir); otherwise ~/.agents only when an
+// YACANA_AGENTS_DIR overrides (tests use a throwaway dir); otherwise ~/.agents only when an
 // operator already created it, else a gitignored dir inside the repo. A project command must
 // never seed shared state into a contributor's home uninvited.
 const repoLocalAgentsDir = join(import.meta.dir, '../..', '.localnet', 'agents');
 const dir = (): string => {
-  if (process.env.ELIXIR_AGENTS_DIR) return process.env.ELIXIR_AGENTS_DIR;
+  if (process.env.YACANA_AGENTS_DIR) return process.env.YACANA_AGENTS_DIR;
   const host = join(homedir(), '.agents');
   return existsSync(host) ? host : repoLocalAgentsDir;
 };

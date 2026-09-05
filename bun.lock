@@ -16,11 +16,11 @@
       },
     },
     "packages/contracts": {
-      "name": "@elixir/contracts",
+      "name": "@yacana/contracts",
       "version": "0.0.0",
     },
     "packages/deploy": {
-      "name": "@elixir/deploy",
+      "name": "@yacana/deploy",
       "version": "0.0.0",
       "dependencies": {
         "@aztec-foundation/aztec-standards": "5.2.0",
@@ -42,7 +42,7 @@
       },
     },
     "packages/miner-core": {
-      "name": "@elixir/miner-core",
+      "name": "@yacana/miner-core",
       "version": "0.0.0",
       "dependencies": {
         "@aztec-foundation/aztec-standards": "5.2.0",
@@ -57,7 +57,7 @@
       },
     },
     "packages/web-miner": {
-      "name": "@elixir/web-miner",
+      "name": "@yacana/web-miner",
       "version": "0.0.0",
       "dependencies": {
         "@aztec-foundation/aztec-standards": "5.2.0",
@@ -104,7 +104,7 @@
       },
     },
     "packages/work-circuit": {
-      "name": "@elixir/work-circuit",
+      "name": "@yacana/work-circuit",
       "version": "0.0.0",
       "dependencies": {
         "@aztec/bb.js": "5.2.0",
@@ -372,16 +372,6 @@
     "@dotenvx/dotenvx": ["@dotenvx/dotenvx@1.75.1", "", { "dependencies": { "@dotenvx/primitives": "^0.8.0", "commander": "^11.1.0", "conf": "^10.2.0", "dotenv": "^17.2.1", "enquirer": "^2.4.1", "env-paths": "^2.2.1", "execa": "^5.1.1", "fdir": "^6.2.0", "ignore": "^5.3.0", "object-treeify": "1.1.33", "open": "^8.4.2", "picomatch": "^4.0.4", "systeminformation": "^5.22.11", "undici": "^7.11.0", "which": "^4.0.0", "yocto-spinner": "^1.1.0" }, "bin": { "dotenvx": "src/cli/dotenvx.js" } }, "sha512-/BITOC9dmS/edY2zQwZNicQ059O6RKabtQfyEafV0nGtfYRNHYy1DIPiYVcov40+tob9hfmBnbR963dS+EQ1DQ=="],
 
     "@dotenvx/primitives": ["@dotenvx/primitives@0.8.0", "", {}, "sha512-VYJy0uhFm9zTJ1TxBaW/pA8bjbOM/OttaNMwZ1RHG4JKyRG7DhSdiqD1ipQoAyoD22olUtxbP78W9xY3Wd11bg=="],
-
-    "@elixir/contracts": ["@elixir/contracts@workspace:packages/contracts"],
-
-    "@elixir/deploy": ["@elixir/deploy@workspace:packages/deploy"],
-
-    "@elixir/miner-core": ["@elixir/miner-core@workspace:packages/miner-core"],
-
-    "@elixir/web-miner": ["@elixir/web-miner@workspace:packages/web-miner"],
-
-    "@elixir/work-circuit": ["@elixir/work-circuit@workspace:packages/work-circuit"],
 
     "@exodus/bytes": ["@exodus/bytes@1.15.1", "", { "peerDependencies": { "@noble/hashes": "^1.8.0 || ^2.0.0" }, "optionalPeers": ["@noble/hashes"] }, "sha512-S6mL0yNB/Abt9Ei4tq8gDhcczc4S3+vQ4ra7vxnAf+YHC02srtqxKKZghx2Dq6p0e66THKwR6r8N6P95wEty7Q=="],
 
@@ -794,6 +784,16 @@
     "@vitest/spy": ["@vitest/spy@4.1.11", "", {}, "sha512-apNa/prQy2qCeywhnixOHPRCgGNhvg7T4Dapfl1GahLp/R+uhBm5cPyFoNVyqsNd2h1nJxL6BqqdIjiABL60YA=="],
 
     "@vitest/utils": ["@vitest/utils@4.1.11", "", { "dependencies": { "@vitest/pretty-format": "4.1.11", "convert-source-map": "^2.0.0", "tinyrainbow": "^3.1.0" } }, "sha512-zTCVGpyFsGWBhllOyKlTw/vnr6D9qxsfSDyfbyZmTyjHw5N/VuvzHpHoQjm2ZJzn4RJgx5w4r7V0er69CmLgPQ=="],
+
+    "@yacana/contracts": ["@yacana/contracts@workspace:packages/contracts"],
+
+    "@yacana/deploy": ["@yacana/deploy@workspace:packages/deploy"],
+
+    "@yacana/miner-core": ["@yacana/miner-core@workspace:packages/miner-core"],
+
+    "@yacana/web-miner": ["@yacana/web-miner@workspace:packages/web-miner"],
+
+    "@yacana/work-circuit": ["@yacana/work-circuit@workspace:packages/work-circuit"],
 
     "abitype": ["abitype@1.1.0", "", { "peerDependencies": { "typescript": ">=5.0.4", "zod": "^3.22.0 || ^4.0.0" }, "optionalPeers": ["typescript", "zod"] }, "sha512-6Vh4HcRxNMLA0puzPjM5GBgT4aAcFGKZzSgAXvuZ27shJP6NEpielTuqbBmZILR5/xd0PizkBGy5hReKz9jl5A=="],
 

@@ -1,5 +1,5 @@
 {
-  "name": "@elixir/miner-core",
+  "name": "@yacana/miner-core",
   "version": "0.0.0",
   "private": true,
   "description": "Platform-agnostic mining core: proof to ticket digest, retarget mirror, epoch reader, claim builder",

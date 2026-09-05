@@ -21,7 +21,7 @@ export function App({
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-4 p-4 md:p-8">
       <header className="flex items-baseline justify-between">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">elixir miner</h1>
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">yacana miner</h1>
         <span className="text-muted-foreground text-sm">proof-of-proving on Aztec</span>
       </header>
       {boot.phase === 'error' && (

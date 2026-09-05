@@ -1,4 +1,4 @@
-# elixir
+# yacana
 
 Privately mineable token on Aztec whose mining work is Barretenberg proving: a miner proves a fixed Noir circuit per
 nonce, the ticket is Poseidon2 over the whole UltraHonk proof, a ticket below the target wins, and the winner claims
@@ -13,8 +13,8 @@ Phase 1 measurements: `implementations-plan/elixir-core/spike-results.md`.
 
 | Package | Owns |
 |---|---|
-| `packages/contracts` | Aztec contracts (Nargo workspace): the Phase 1 spike contract `elixir_spike`; `elixir_miner` arrives in Phase 2; aztec-standards token as a git dep (`v5.2.0`) |
-| `packages/work-circuit` | Noir work circuit `W` (`crates/lib` + `crates/elixir_work`), the VK-embedding verifier `crates/verify_w`, generated VK / proof-layout manifest, fixture proofs, spike scripts |
+| `packages/contracts` | Aztec contracts (Nargo workspace): `yacana_miner` and the Phase 1 spike contract `yacana_spike`; aztec-standards token as a git dep (`v5.2.0`) |
+| `packages/work-circuit` | Noir work circuit `W` (`crates/lib` + `crates/yacana_work`), the VK-embedding verifier `crates/verify_w`, generated VK / proof-layout manifest, fixture proofs, spike scripts |
 | `packages/miner-core` | Platform-agnostic TS: proof → fields → ticket digest, domain separators (retarget mirror, epoch reader, claim builder arrive in Phase 3) |
 | `packages/deploy` | Spike drivers (`spike-claim.ts`, `spike-browser.ts` + the Vite page under `browser/`); sandbox / testnet deploy in later phases |
 | `packages/web-miner` | React + Vite + Tailwind + shadcn miner: embedded wallet (IndexedDB), sponsored FPC, W proved by bb.js in a Worker, pinned CRS (`crs.lock.json`, served from `/crs`), Vitest specs, Playwright E2E on the isolated network, Cloudflare Pages config (`wrangler.jsonc`, `public/_headers`) |
@@ -43,7 +43,7 @@ bun run e2e:agent -- <cmd>   # run <cmd> against a fresh isolated local network 
 bun run e2e:agent -- bun test packages/miner-core                        # live miner-core suite
 bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e           # web miner in headless Chromium (production build; E2E_SERVER=dev for the dev server)
 bun run test:components        # web-miner Vitest specs
-AZTEC_NODE_URL=… ELIXIR_DEPLOYER_SECRET=… [ELIXIR_LAUNCH_AT=<unix s>] bun run deploy   # deploy the generated profile → deployments/<profile>.json (announce before launch_at)
+AZTEC_NODE_URL=… YACANA_DEPLOYER_SECRET=… [YACANA_LAUNCH_AT=<unix s>] bun run deploy   # deploy the generated profile → deployments/<profile>.json (announce before launch_at)
 AZTEC_NODE_URL=… bun run launch -- commit|reveal|open   # launch lottery of the recorded deployment (anyone; see docs/deployments.md)
 AZTEC_NODE_URL=… bun run soak -- --hours 2 --epochs 24     # headless soak miner with a hashrate schedule
 bun run epoch:stats            # epoch history of deployments/<profile>.json from public storage
