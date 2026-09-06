@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "build": "bun src/assemble.ts",
+    "deploy": "bun src/assemble.ts && wrangler deploy",
+    "preview": "wrangler dev",
     "test": "bun test",
     "test:e2e": "playwright test",
     "typecheck": "tsc -p tsconfig.json --noEmit"

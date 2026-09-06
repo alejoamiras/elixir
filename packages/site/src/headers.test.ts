@@ -25,6 +25,8 @@ describe('headers', () => {
     });
     const h = headerMap({ nodeOrigins: [node], mode: 'production' });
     expect(h['Cross-Origin-Opener-Policy']).toBe('same-origin');
+    expect(h['Strict-Transport-Security']).toBe('max-age=31536000; includeSubDomains');
+    expect(headerMap({ nodeOrigins: [node], mode: 'dev' })['Strict-Transport-Security']).toBeUndefined();
     expect(h['Cross-Origin-Embedder-Policy']).toBe('require-corp');
     expect(h['Cross-Origin-Resource-Policy']).toBe('same-origin');
     expect(h['Permissions-Policy']).toBe('camera=(), microphone=(), geolocation=(), payment=()');
@@ -52,7 +54,9 @@ describe('headers', () => {
 
   test('_headers is one block for every path with the same map', () => {
     const text = renderHeaders({ nodeOrigins: [node], mode: 'production' });
-    expect(text.startsWith('/*\n  Cross-Origin-Opener-Policy: same-origin\n')).toBe(true);
-    expect(text.split('\n').filter((l) => l.startsWith('  ')).length).toBe(7);
+    expect(text.startsWith('/*\n  Strict-Transport-Security: max-age=31536000; includeSubDomains\n')).toBe(
+      true,
+    );
+    expect(text.split('\n').filter((l) => l.startsWith('  ')).length).toBe(8);
   });
 });

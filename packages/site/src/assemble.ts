@@ -26,7 +26,7 @@ export const APPS = [
 ] as const;
 
 /**
- * The nested apps' deep links as exact 200 rewrites to each app's directory: Pages evaluates
+ * The nested apps' deep links as exact 200 rewrites to each app's directory: Cloudflare evaluates
  * `_redirects` before static assets (a wildcard would shadow the app's bundle) and turns an
  * `.html` target into a canonical 308.
  */

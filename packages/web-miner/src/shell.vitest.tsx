@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { aliasRedirect, hostKind, keysAllowed } from '../../site/src/browser/host.ts';
+import { hostKind, keysAllowed } from '../../site/src/browser/host.ts';
 import { queryOverridesAllowed } from './config';
 import { isDesktop } from './desktop';
 import { navigate, pathFor, routeFromPath, useRoute } from './routes';
@@ -59,20 +59,16 @@ describe('query overrides', () => {
 });
 
 describe('host rules', () => {
-  test('production, alias, preview, local', () => {
+  test('production, preview, local', () => {
     vi.stubEnv('VITE_RP_ID', 'yacana.network');
     vi.stubEnv('VITE_SITE_MODE', 'e2e');
     expect(hostKind('yacana.network')).toBe('production');
-    expect(hostKind('yacana.pages.dev')).toBe('alias');
+    expect(hostKind('abc12345-yacana.someone.workers.dev')).toBe('preview');
     expect(hostKind('abc123.yacana.pages.dev')).toBe('preview');
     expect(hostKind('localhost')).toBe('local');
     expect(hostKind('evil.example')).toBe('unknown');
-    expect(
-      aliasRedirect({ hostname: 'yacana.pages.dev', pathname: '/mine/wallet', search: '?a=1', hash: '' }),
-    ).toBe('https://yacana.network/mine/wallet?a=1');
-    expect(aliasRedirect({ hostname: 'yacana.network', pathname: '/', search: '', hash: '' })).toBeNull();
     expect(keysAllowed('yacana.network')).toBe(true);
-    expect(keysAllowed('abc123.yacana.pages.dev')).toBe(false);
+    expect(keysAllowed('abc12345-yacana.someone.workers.dev')).toBe(false);
     expect(keysAllowed('localhost')).toBe(true);
     vi.stubEnv('VITE_SITE_MODE', 'production');
     expect(keysAllowed('localhost')).toBe(false);

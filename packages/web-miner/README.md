@@ -50,8 +50,8 @@ E2E_SERVER=dev bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e   
 
 ## Deploy
 
-The miner ships at `/mine/` of the assembled site (`bun run site:build`, `packages/site`), built by
-Cloudflare Pages from `main`; `wrangler.jsonc` here is for local `wrangler pages dev dist` parity only.
+The miner ships at `/mine/` of the assembled site (`bun run site:build` then `wrangler deploy` in `packages/site`,
+a Worker serving static assets); `wrangler.jsonc` here is for local `wrangler dev` parity only.
 
 A hosted page can read this tab's secret, proofs and recipient choice — inherent to any hosted dApp; run
 your own build if that matters.
