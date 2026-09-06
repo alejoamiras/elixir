@@ -46,3 +46,6 @@ packages/site/e2e/.dist/
 packages/site/e2e/.wrangler.log
 .wrangler/
 packages/site/test-results/
+
+# Playwright MCP page snapshots (written into the cwd by the browser tool)
+.playwright-mcp/
