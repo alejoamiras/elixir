@@ -1,0 +1,11 @@
+{
+  // `www.yacana.network` → the apex. A separate Worker so the site stays assets-only; deployed
+  // with `bun run --cwd packages/site deploy:www`, which also creates the domain's DNS record.
+  "$schema": "https://json.schemastore.org/wrangler.json",
+  "name": "yacana-www",
+  "main": "./redirect.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "www.yacana.network", "custom_domain": true }]
+}

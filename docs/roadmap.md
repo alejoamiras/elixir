@@ -48,7 +48,6 @@ backlog that the plan defers.
   words-backed second factor.
 - Key rotation and account discovery: `deriveAccountFields` keeps its index parameter; the miner uses index 0 only.
 - External wallet connection for launch mode (`@aztec/wallet-sdk`): the landing links the CLI commit path.
-- Retiring `elixir-web-miner.pages.dev` once `yacana.network` serves the assembled site from `main`.
 - Testnet soak operations: the soak driver (`packages/deploy/scripts/soak.ts`) mines from one machine with a
   hashrate schedule; a second machine or a second deployment profile would exercise multi-miner races beyond the
   8-wallet local burst.
