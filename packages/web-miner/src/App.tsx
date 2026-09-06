@@ -53,7 +53,7 @@ function Shell({ children }: { children: ReactNode }) {
   const miner = useAtomValue(minerAtom);
   const notice = previewNotice(location.hostname);
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4 md:p-8">
+    <div className="mx-auto flex max-w-[1120px] flex-col gap-4 p-4 md:p-5">
       <header className="flex h-[52px] items-center gap-5 border-b border-line">
         <span className="flex items-center gap-2 font-semibold">
           <Mark state={miner.phase === 'idle' ? 'idle' : 'mining'} />

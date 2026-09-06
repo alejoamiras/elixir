@@ -22,12 +22,12 @@ export function Kpi({
       <span
         className={cn(
           'font-semibold tracking-[-0.02em]',
-          size === 'lg' ? 'text-3xl tracking-[-0.03em]' : 'text-xl',
+          size === 'lg' ? 'text-3xl tracking-[-0.03em]' : 'text-xl leading-[1.1]',
         )}
       >
         {value}
         {unit !== undefined && (
-          <span className="ml-1.5 text-[0.45em] font-medium tracking-normal text-ink-2">{unit}</span>
+          <span className="ml-1.5 text-[0.45em] font-medium tracking-normal text-ink-3">{unit}</span>
         )}
       </span>
       {sub !== undefined && <span className="text-xs text-ink-2">{sub}</span>}

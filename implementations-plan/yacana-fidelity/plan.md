@@ -200,7 +200,7 @@ Deleted: `web-stats/src/charts/frame.tsx`.
 
 ### Arc 1 · miner (`fidelity-miner`)
 
-**P1.1 Shell width, tile and token fidelity.** Goal: the three `App.tsx` shells at 1120 (outer) with the inset
+**P1.1 Shell width, tile and token fidelity.** ✓ Goal: the three `App.tsx` shells at 1120 (outer) with the inset
 applied once; `Tile` padding 16/18 and radius 8; `TileHeader` and `Kpi` labels in `ink-3` with `ink-4` asides, unit
 tone `ink-3`, `md` line-height 1.1; `eyebrow` 11.5/1. Tests: a ui Vitest spec asserts the tile classes; the miner shell
 spec asserts the 1120 max width. Because the shared primitives change, every surface is rendered at 1280 and 1440
