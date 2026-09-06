@@ -1,0 +1,83 @@
+[
+  {
+    "epoch": 0,
+    "target": "0x10000000000000000000000000000000",
+    "openedAt": 1788626340,
+    "claims": 0,
+    "duration": 26136,
+    "retarget": 4,
+    "closedBy": "roll"
+  },
+  {
+    "epoch": 1,
+    "target": "0x40000000000000000000000000000000",
+    "openedAt": 1788652476,
+    "claims": 4,
+    "duration": 144,
+    "retarget": 0.479999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 2,
+    "target": "0x1eb851eb851eb851eb851eb851eb851e",
+    "openedAt": 1788652620,
+    "claims": 4,
+    "duration": 288,
+    "retarget": 0.959999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 3,
+    "target": "0x1d7dbf487fcb923a29c779a6b50b0f27",
+    "openedAt": 1788652908,
+    "claims": 4,
+    "duration": 144,
+    "retarget": 0.479999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 4,
+    "target": "0xe27e0ef99806f262888b545c78a6dac",
+    "openedAt": 1788653052,
+    "claims": 4,
+    "duration": 432,
+    "retarget": 1.439999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 5,
+    "target": "0x146262a0b4151aef449be650009e607c",
+    "openedAt": 1788653484,
+    "claims": 4,
+    "duration": 216,
+    "retarget": 0.719999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 6,
+    "target": "0xead3cc5a0611da208703f6ccd3ed4d4",
+    "openedAt": 1788653700,
+    "claims": 4,
+    "duration": 288,
+    "retarget": 0.959999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 7,
+    "target": "0xe16f2a93dcddf01f39ef5353fea65ea",
+    "openedAt": 1788653988,
+    "claims": 4,
+    "duration": 216,
+    "retarget": 0.719999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 8,
+    "target": "0xa2500a2d056c9868672731c198a0bf0",
+    "openedAt": 1788654204,
+    "claims": 0,
+    "duration": null,
+    "retarget": null,
+    "closedBy": null
+  }
+]

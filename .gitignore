@@ -17,3 +17,6 @@ packages/web-miner/e2e/.run.json
 packages/web-miner/e2e/.dist/
 packages/web-miner/playwright-report/
 deployments/.launch-*.json
+
+# Build-time slot table (bun packages/miner-core/scripts/gen-slots.ts)
+packages/miner-core/generated/

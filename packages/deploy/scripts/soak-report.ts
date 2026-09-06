@@ -3,7 +3,9 @@
 //   AZTEC_NODE_URL=… bun packages/deploy/scripts/soak-report.ts packages/deploy/target/soak-*.jsonl
 import { resolve } from 'node:path';
 import { PARAMS, PROFILE } from '../../miner-core/src/generated/params.ts';
-import { type EpochRow, epochStats } from './epoch-stats.ts';
+import { difficulty } from '../../miner-core/src/metrics.ts';
+import type { EpochRow } from '../../miner-core/src/reader.ts';
+import { epochStats } from './epoch-stats.ts';
 
 interface Row {
   t: string;
@@ -81,7 +83,7 @@ const steps = rows
 const epochTable = epochs
   .map(
     (e: EpochRow & { claimsNote?: string }) =>
-      `| ${e.epoch} | ${new Date(e.openedAt * 1000).toISOString().slice(11, 19)} | ${e.claims}${e.claimsNote ?? ''} | ${e.duration === null ? 'open' : `${e.duration} s`} | ${e.retarget === null ? '–' : `×${e.retarget.toFixed(3)}`} | ${e.difficulty.toFixed(1)} |`,
+      `| ${e.epoch} | ${new Date(e.openedAt * 1000).toISOString().slice(11, 19)} | ${e.claims}${e.claimsNote ?? ''} | ${e.duration === null ? 'open' : `${e.duration} s`} | ${e.retarget === null ? '–' : `×${e.retarget.toFixed(3)}`} | ${difficulty(e.target).toFixed(1)} |`,
   )
   .join('\n');
 const perMiner = labels
