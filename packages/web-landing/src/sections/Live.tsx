@@ -1,5 +1,5 @@
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { difficulty, networkRate } from '../../../miner-core/src/metrics.ts';
+import { difficulty, networkRate, rateSample } from '../../../miner-core/src/metrics.ts';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';
 import { amount } from '../../../site/src/browser/format.ts';
 import { Kpi } from '../../../ui/src/index.ts';
@@ -37,8 +37,7 @@ export function Live({ status }: { status: LiveStatus }) {
   const rows = live?.rows ?? [];
   const open = rows[rows.length - 1];
   const rate = networkRate(rows, PARAMS.N);
-  // The median ignores epochs closed by roll(): count the ones it used.
-  const eligible = Math.min(6, rows.filter((r) => r.closedBy === 'claims').length);
+  const eligible = rateSample(rows).length;
   const unit = Number(PARAMS.REWARD / 10n ** BigInt(PARAMS.DECIMALS));
   return (
     <Section id="live" eyebrow="live" heading={copy.live.heading}>
@@ -68,7 +67,7 @@ export function Live({ status }: { status: LiveStatus }) {
           value={<span data-testid="live-network">{rate === null ? '—' : `≈ ${rate.toFixed(2)}`}</span>}
           unit="proofs/s"
           size="lg"
-          sub={rate === null ? copy.live.noHistory : `median of the last ${eligible} epochs closed by claims`}
+          sub={rate === null ? copy.live.noHistory : `median of ${eligible} epochs closed by claims`}
         />
       </div>
       <div className="flex flex-wrap items-center gap-4">

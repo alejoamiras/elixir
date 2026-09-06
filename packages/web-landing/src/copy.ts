@@ -9,7 +9,7 @@ const claimsPerHour = scheduledClaimsPerHour(RULES);
 const perHour = claimsPerHour * reward;
 const epochMinutes = Number(PARAMS.EXPECTED_EPOCH_SECONDS) / 60;
 const symbol = PARAMS.TOKEN_SYMBOL;
-/** Mainnet opens epoch 0 by the launch lottery; a zero reveal window means this network launched at once. */
+/** No reveal window, no launch lottery on this network (the testnet profile); mainnet's opens epoch 0 by lottery. */
 const lottery = PARAMS.REVEAL_WINDOW_SECONDS > 0n;
 
 export const REPO = 'https://github.com/alejoamiras/elixir';
@@ -112,7 +112,7 @@ export const copy = {
     },
   },
   chain: {
-    heading: 'Public: that a coin was mined. Private: everything else.',
+    heading: 'Public: that a coin was mined. Private: the notes and the transfers.',
     body: 'A claim writes a nullifier, a note hash and a counter; a key’s first claim adds Aztec’s delivery handshake, which someone who already knows that address can match. Not the recipient, not the secret, not how many proofs it took.',
     holding:
       'Holding and spending it: a private transfer is nullifiers and note hashes with the amounts hidden; a public withdraw shows its amount and address, which is why it is a choice. On testnet the sponsor pays the fee, so not even the payer is you; on mainnet a private fee path is the roadmap, and the page will say which it is.',
@@ -122,7 +122,6 @@ export const copy = {
         v: '1 nullifier · 1 note hash · claims + 1 · a handshake on a key’s first claim',
       },
       { k: 'a private transfer reveals', v: 'nullifiers · note hashes · no amount' },
-      { k: 'never', v: 'who mined it · how fast · what a key holds' },
     ],
   },
   how: {

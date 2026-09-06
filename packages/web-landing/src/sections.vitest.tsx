@@ -93,9 +93,9 @@ describe('the landing', () => {
         genesis: { target: 1n, seed: 0n, launchAt: 1_000_000 + 3661 },
         lottery: { mix: 7n, reveals: 14 },
       },
+      unreachable: false,
     };
     try {
-      // Before launch(): nothing live, the clock counts to the reveals.
       render(<App live={{ phase: 'unlaunched' }} launch={launch} miner="0x01" />);
       expect(screen.getByTestId('launch')).toBeTruthy();
       expect(screen.queryByTestId('demo')).toBeNull();
@@ -110,13 +110,16 @@ describe('the landing', () => {
       render(<App live={{ phase: 'ready', live, unreachable: false }} launch={launch} miner="0x01" />);
       expect(screen.getByTestId('launch-phase').textContent).toBe('epoch 0 is open');
       expect(screen.getByTestId('launch-countdown').textContent).toBe('epoch 1');
+      expect(screen.queryByTestId('launch-unreachable')).toBeNull();
+      cleanup();
+      render(<App live={{ phase: 'unlaunched' }} launch={{ ...launch, unreachable: true }} miner="0x01" />);
+      expect(screen.getByTestId('launch-unreachable')).toBeTruthy();
     } finally {
       vi.useRealTimers();
       vi.unstubAllEnvs();
     }
     expect(countdown(90_061)).toBe('1 d 01:01:01');
     expect(countdown(-5)).toBe('00:00:00');
-    // The contract's phases: commit until launch_at, reveal for the window, then launch() by anyone.
     expect(launchPhase(99, 100, 600, false)).toBe('commit');
     expect(launchPhase(100, 100, 600, false)).toBe('reveal');
     expect(launchPhase(699, 100, 600, false)).toBe('reveal');

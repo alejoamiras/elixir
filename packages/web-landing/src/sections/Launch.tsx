@@ -1,6 +1,4 @@
-// Mainnet's launch week: the hero is the lottery. The countdown follows the contract's phases
-// (commit until launch_at, reveal for REVEAL_WINDOW_SECONDS, then anyone's launch() opens epoch 0),
-// the reveals so far come from the lottery slots, one button links the commit command.
+// Mainnet's launch week: the hero is the lottery.
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { Button, Kpi, shortHash } from '../../../ui/src/index.ts';
 import { copy, LINKS } from '../copy';
@@ -86,6 +84,11 @@ export function Launch({ status, live }: { status: LaunchStatus; live: LiveStatu
           value={<span data-testid="launch-reveals">{launch ? launch.lottery.reveals : '—'}</span>}
           sub={launch ? `mix ${shortHash(`0x${launch.lottery.mix.toString(16)}`)}` : ''}
         />
+        {status.phase === 'ready' && status.unreachable && (
+          <p className="text-2xs text-warn" data-testid="launch-unreachable">
+            {copy.live.unreachable}
+          </p>
+        )}
       </div>
     </section>
   );

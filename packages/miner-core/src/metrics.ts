@@ -48,13 +48,12 @@ const NETWORK_EPOCHS = 6;
  * median of the last NETWORK_EPOCHS (one epoch swings ×3 on luck alone at N = 4); null before
  * any epoch closed by claims. Epochs closed by roll() say nothing about the rate.
  */
+/** The epochs the network rate is taken from: the last six closed by claims in a positive time. */
+export const rateSample = (rows: readonly EpochRow[]): EpochRow[] =>
+  rows.filter((r) => r.closedBy === 'claims' && r.duration !== null && r.duration > 0).slice(-NETWORK_EPOCHS);
+
 export const networkRate = (closed: readonly EpochRow[], n: number): number | null =>
-  median(
-    closed
-      .filter((r) => r.closedBy === 'claims' && r.duration !== null && r.duration > 0)
-      .slice(-NETWORK_EPOCHS)
-      .map((r) => (n * difficulty(r.target)) / (r.duration as number)),
-  );
+  median(rateSample(closed).map((r) => (n * difficulty(r.target)) / (r.duration as number)));
 
 /**
  * Claims in the last hour, an estimate: storage keeps counts per epoch, not claim times, so an

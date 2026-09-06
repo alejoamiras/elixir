@@ -105,3 +105,12 @@ LESSONS_FILE=implementations-plan/yacana-surfaces/lessons/phase-4.md
 - Comments: the narration in the demo Worker, the sparkline, the chip and the section slogan removed; the assembly, artifact and demo headers condensed; the build-order invariant and the relink note added.
 
 Gate after the fixes: `bun run lint` ✓ · web-landing `tsc -b` ✓ · `bun test` 151 ✓ · web-landing `test:components` 7 ✓ · E(web-landing) 3 passed (59 s) ✓ · E(site) 2 passed (1.1 min) ✓.
+
+**Round 2** (resumed, the round-1 fix commit under review). Verdict: "changes still required"; three findings, all reproduced and accepted, plus a comment audit; "no additional material findings in the reviewed fix diff":
+
+- **A failed poll before launch froze the lottery silently**: the failure path marked only a `ready` live status. `markUnreachable` marks the lottery too (`LaunchStatus.ready` carries `unreachable`), the hero shows the note, the next successful read clears it (Vitest: success → failure → recovery).
+- **"Never … who mined it · what a key holds"** still contradicted the first-claim linkage and public balances: the row is gone and the heading reads "Private: the notes and the transfers".
+- **The median caption counted rows the median excludes**: `rateSample` (exported from metrics) is the one predicate; the caption counts its length.
+- Comments: two test narrations and the Launch header trimmed; the lottery-flag comment corrected (a zero window means no lottery, not an immediate launch).
+
+Gate after the fixes: `bun run lint` ✓ · web-landing / web-stats `tsc -b` ✓ · `bun test` 152 ✓ · web-landing `test:components` 8 ✓ · web-stats 13 ✓ · E(web-landing) 3 passed (60 s) ✓ · E(site) 2 passed (1.1 min) ✓.

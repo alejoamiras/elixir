@@ -15,7 +15,7 @@ import { type LaunchStatus, type LiveStatus, launchMode } from './state';
 
 export interface ChainSink {
   live: (s: LiveStatus | ((prev: LiveStatus) => LiveStatus)) => void;
-  launch: (s: LaunchStatus) => void;
+  launch: (s: LaunchStatus | ((prev: LaunchStatus) => LaunchStatus)) => void;
 }
 
 export interface Reads {
@@ -28,6 +28,12 @@ const REAL: Reads = { live: readLive, launch: readLaunch, launched: readLaunched
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+/** A failed poll: what was read stays on the page, marked as stale. */
+export function markUnreachable(sink: ChainSink): void {
+  sink.live((s) => (s.phase === 'ready' ? { ...s, unreachable: true } : s));
+  sink.launch((s) => (s.phase === 'ready' ? { ...s, unreachable: true } : s));
+}
+
 /**
  * In launch mode the lottery is read first and on its own: before `launch()` epoch 0 does not
  * exist and the live read would refuse it.
@@ -39,7 +45,7 @@ export async function readAll(
   reads = REAL,
 ): Promise<void> {
   if (launch) {
-    sink.launch({ phase: 'ready', launch: await reads.launch(reader) });
+    sink.launch({ phase: 'ready', launch: await reads.launch(reader), unreachable: false });
     if (!(await reads.launched(reader))) {
       sink.live({ phase: 'unlaunched' });
       return;
@@ -63,7 +69,7 @@ export function watchChain(connection: Connection, sink: ChainSink): () => void 
     try {
       await readAll(reader, guarded);
     } catch {
-      guarded.live((s) => (s.phase === 'ready' ? { ...s, unreachable: true } : s));
+      markUnreachable(guarded);
     } finally {
       inFlight = false;
     }

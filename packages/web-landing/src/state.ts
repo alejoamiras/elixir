@@ -8,7 +8,10 @@ export type LiveStatus =
   /** `unreachable` after a poll fails: the numbers shown are `live`'s, the last read. */
   | { phase: 'ready'; live: Live; unreachable: boolean };
 
-export type LaunchStatus = { phase: 'loading' } | { phase: 'ready'; launch: Launch } | { phase: 'error' };
+export type LaunchStatus =
+  | { phase: 'loading' }
+  | { phase: 'ready'; launch: Launch; unreachable: boolean }
+  | { phase: 'error' };
 
 export const launchMode = (): boolean => import.meta.env.VITE_LAUNCH_MODE === '1';
 
