@@ -106,6 +106,10 @@ CAs (`letsencrypt.org`, `pki.goog`, `ssl.com`, `digicert.com`); Analytics & Logs
 off for the zone (the CSP blocks the injected beacon anyway). The previous `elixir-web-miner.pages.dev` project is
 gone.
 
+Zone state on 2026-09-06: Always Use HTTPS on; HSTS from `_headers`; CAA `issue` for the four CAs added (Cloudflare
+augments them with `issuewild` and its own entries); DNSSEC enabled, the DS at Cloudflare Registrar (key tag 2371), the
+TLD's publication pending; Web Analytics automatic setup off.
+
 ## Mainnet
 
 Not deployed. The `mainnet` profile (N = 24, 1 h epochs, target 2^122, `YACA`) exists in `yacana.params.json`;
