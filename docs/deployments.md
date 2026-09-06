@@ -88,6 +88,13 @@ variable `BUN_VERSION=1.4.0`) runs the same two steps on every push to `main`; n
 file carries the rest. `bun run e2e:agent -- bun run site:e2e` serves an e2e assembly with `wrangler dev` and asserts
 every path's app, identical headers, `build.json` and the landing's proof.
 
+First production deploy: 2026-09-06, Worker version `ea00520a-65bf-415a-b524-4235442159c6`, commit `aef4edd`
+(`build.json`), 624 assets; the custom domain, its DNS record and certificate were created by that deploy. Verified
+live: every path with identical policy headers, the landing's strip reading the testnet (epoch 8), a real proof
+through "Prove one now" (5.0 s), the stats' deep link, the miner's key screen with keys offered. Cloudflare
+injects its Web Analytics beacon into HTML by default; the CSP blocks it (one console error per page) and the
+promise is no trackers, so it is turned off in the Worker's Observability settings.
+
 Zone settings (owner, once): `www.yacana.network` as a proxied placeholder DNS record with a Redirect Rule to the
 apex (never a second host of the site: the apps treat any host other than `yacana.network` as a preview); HSTS on
 (include subdomains, preload once stable); DNSSEC on; after the certificate is active, CAA records for Cloudflare's

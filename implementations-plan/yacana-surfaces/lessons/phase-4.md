@@ -150,3 +150,10 @@ directory, SPA fallback, `preview_urls`), applied by `wrangler deploy`. Changes:
 files, `host.ts` without the pages.dev alias redirect (workers.dev and pages.dev names are previews), the site E2E
 under `wrangler dev --assets`, `site:deploy` / `preview` scripts, docs. No Cloudflare credential exists on the
 homelab: the deploy itself is the owner's (`wrangler login`, then `bun run site:deploy`).
+
+Deployed 2026-09-06 by the owner's `wrangler login` + `bun run site:deploy` from this worktree: version `ea00520a…`,
+`yacana.network` created with its certificate on the first run. Live verification through a browser: headers, the
+live strip on the public testnet, a real demo proof (5.0 s), the stats deep link, the miner's key screen. Two
+observations: Cloudflare injects a Web Analytics beacon into the HTML (blocked by the CSP; to be disabled in the
+Worker's settings), and `/stats?epoch=0` gets a 307 to `/stats/?epoch=0` from the assets service's trailing-slash
+canonicalisation (the query survives; the apps' own links already use the slash).
