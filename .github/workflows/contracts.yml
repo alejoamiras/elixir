@@ -9,47 +9,39 @@ permissions:
 
 jobs:
   changes:
-    name: Detect changes
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
+    uses: ./.github/workflows/_changes.yml
     permissions:
       contents: read
       pull-requests: read
-    outputs:
-      relevant: ${{ steps.override.outputs.relevant || steps.filter.outputs.relevant }}
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
-        id: filter
-        with:
-          predicate-quantifier: some-with-excludes
-          filters: |
-            relevant:
-              - 'packages/contracts/**'
-              - '!packages/contracts/**/*.md'
-              - 'packages/work-circuit/src/**'
-              - 'packages/work-circuit/crates/**'
-              - 'packages/work-circuit/fixtures/**'
-              - 'packages/miner-core/src/**'
-              - 'packages/miner-core/scripts/**'
-              - 'packages/miner-core/fixtures/**'
-              - 'packages/site/**'
-              - 'packages/ui/**'
-              - 'packages/web-miner/**'
-              - '!packages/web-miner/**/*.md'
-              - 'yacana.params.json'
-              - 'scripts/params-codegen.ts'
-              - '.aztecrc'
-              - 'toolchain.lock.json'
-              - 'scripts/run/toolchain.test.ts'
-              - 'package.json'
-              - 'bun.lock'
-              - '.github/workflows/contracts.yml'
-              - '.github/actions/**'
-      - name: Override for manual dispatch
-        if: github.event_name == 'workflow_dispatch'
-        id: override
-        run: echo "relevant=true" >> "$GITHUB_OUTPUT"
+    with:
+      filters: |
+        relevant:
+          - 'packages/contracts/**'
+          - '!packages/contracts/**/*.md'
+          - 'packages/work-circuit/src/**'
+          - 'packages/work-circuit/crates/**'
+          - 'packages/work-circuit/fixtures/**'
+          - 'packages/miner-core/src/**'
+          - 'packages/miner-core/scripts/**'
+          - 'packages/miner-core/fixtures/**'
+          - 'packages/contracts/artifacts/**'
+          - 'packages/work-circuit/artifacts/**'
+          - 'packages/site/**'
+          - 'packages/ui/**'
+          - 'packages/web-miner/**'
+          - 'packages/web-stats/**'
+          - 'packages/web-landing/**'
+          - '!packages/web-miner/**/*.md'
+          - 'yacana.params.json'
+          - 'scripts/params-codegen.ts'
+          - '.aztecrc'
+          - 'toolchain.lock.json'
+          - 'scripts/run/toolchain.test.ts'
+          - 'package.json'
+          - 'bun.lock'
+          - '.github/workflows/contracts.yml'
+          - '.github/actions/**'
+          - '.github/workflows/_changes.yml'
 
   test:
     name: Compile + test
@@ -70,5 +62,7 @@ jobs:
         env:
           YACANA_REQUIRE_TOOLCHAIN: '1'
       - run: bun run contracts:test
-      # The only job with the compiled artifacts: build the production web bundle here.
-      - run: bun run --cwd packages/web-miner build
+      # The pages fetch the committed artifacts (no toolchain on Cloudflare): they must match the build.
+      - run: bun run artifacts:commit && git diff --exit-code
+      # The production site as Cloudflare would build it, from the committed artifacts alone.
+      - run: bun run site:build

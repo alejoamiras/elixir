@@ -62,6 +62,7 @@
       "name": "@yacana/site",
       "version": "0.0.0",
       "devDependencies": {
+        "@playwright/test": "^1.62.1",
         "@tailwindcss/vite": "^4",
         "@vitejs/plugin-react": "^6",
         "typescript": "~6",

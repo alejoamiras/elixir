@@ -7,6 +7,7 @@
     "packages/*"
   ],
   "scripts": {
+    "artifacts:commit": "bun packages/site/scripts/commit-artifacts.ts",
     "codegen": "bun scripts/params-codegen.ts && bun run --cwd packages/work-circuit compile && bun run --cwd packages/work-circuit export-vk && bun run --cwd packages/work-circuit compile && bun run --cwd packages/work-circuit spike:manifest",
     "contracts:compile": "bun run --cwd packages/contracts compile",
     "contracts:test": "bun run --cwd packages/contracts test",
@@ -19,6 +20,8 @@
     "lint:fix": "biome check --write . && sort-package-json package.json 'packages/*/package.json'",
     "lint:shell": "shellcheck scripts/run/*.sh .husky/pre-commit .husky/commit-msg",
     "prepare": "husky",
+    "site:build": "bun packages/site/src/assemble.ts",
+    "site:e2e": "bun run --cwd packages/site test:e2e",
     "soak": "bun packages/deploy/scripts/soak.ts",
     "spike:browser": "bun run --cwd packages/deploy spike:browser",
     "spike:claim": "bun run --cwd packages/deploy spike:claim",

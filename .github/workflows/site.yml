@@ -1,4 +1,4 @@
-name: work-circuit
+name: site
 
 on:
   workflow_dispatch:
@@ -16,35 +16,33 @@ jobs:
     with:
       filters: |
         relevant:
-          - 'packages/work-circuit/**'
-          - '!packages/work-circuit/**/*.md'
-          - 'yacana.params.json'
-          - 'scripts/params-codegen.ts'
-          - '.aztecrc'
-          - 'toolchain.lock.json'
-          - 'scripts/run/toolchain.test.ts'
+          - 'packages/site/**'
+          - 'packages/ui/**'
+          - 'packages/web-landing/**'
+          - 'packages/web-miner/**'
+          - 'packages/web-stats/**'
+          - '!packages/**/*.md'
+          - 'deployments/**'
           - 'biome.json'
           - 'bunfig.toml'
           - 'tsconfig.json'
           - 'package.json'
           - 'bun.lock'
-          - '.github/workflows/work-circuit.yml'
+          - '.github/workflows/site.yml'
           - '.github/actions/**'
           - '.github/workflows/_changes.yml'
 
   test:
-    name: Compile + test
+    name: Lint + config tests + workflows
     needs: changes
     if: needs.changes.outputs.relevant == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-bun
-      - uses: ./.github/actions/setup-aztec
       - run: bun run lint
-      # The VK is the puzzle: every embedded copy and the layout manifest must match the commit.
-      - run: bun run codegen && git diff --exit-code
-      - run: bun test scripts/run/toolchain.test.ts packages/work-circuit
-        env:
-          YACANA_REQUIRE_TOOLCHAIN: '1'
+      - run: bun run --cwd packages/site typecheck
+      # The production guards, the headers, the assembly's record.
+      - run: bun test packages/site
+      - run: bun run lint:actions

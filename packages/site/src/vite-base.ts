@@ -100,6 +100,9 @@ export function siteVite(app: SiteAppOptions): (ctx: { command: 'build' | 'serve
       : {};
     return {
       base: app.base ?? '/',
+      // The assembly materialises the shared assets once at the origin's root; an app's own
+      // `public/` copies (CRS, artifacts, slots) must not land under its base as well.
+      ...(process.env.YACANA_ASSEMBLE === '1' && { publicDir: false }),
       define: viteDefine(config),
       plugins: [
         react(),
