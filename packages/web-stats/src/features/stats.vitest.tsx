@@ -4,6 +4,8 @@ import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { type EpochRow, rowsFromJson } from '../../../miner-core/src/reader.ts';
 import { Difficulty, Duration, Emission, Retarget } from '../charts/index.tsx';
 import { selectedFromSearch } from '../routes';
+import type { Chain } from '../state';
+import { Observatory } from './Observatory';
 import { Strip, step } from './Strip';
 
 const fixture = await import('../../../miner-core/fixtures/epochs.testnet.json?raw');
@@ -71,6 +73,29 @@ describe('the strip', () => {
     expect(onOlder).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(window, { key: 'ArrowRight' });
     expect(onSelect).toHaveBeenCalledWith(1);
+  });
+});
+
+describe('the observatory', () => {
+  const last = rows[rows.length - 1] as EpochRow;
+  const chain = (open: number): Chain => ({
+    rows,
+    open,
+    supply: 0n,
+    genesis: { target: 0n, seed: 0n, launchAt: 0 },
+    lottery: { mix: 0n, reveals: 0 },
+    block: { number: 1, timestamp: last.openedAt + 60 },
+    readAt: 0,
+  });
+
+  test('the open epoch tile shows the row of the open epoch, or a dash when a close outran the history', () => {
+    render(<Observatory chain={chain(last.epoch)} now={(last.openedAt + 60) * 1000} />);
+    expect(screen.getByTestId('open-claims').textContent).toBe(`${last.claims} of ${PARAMS.N}`);
+    cleanup();
+    render(<Observatory chain={chain(last.epoch + 1)} now={(last.openedAt + 60) * 1000} />);
+    expect(screen.getByTestId('open-claims').textContent).toBe(`— of ${PARAMS.N}`);
+    expect(screen.getByText(/this epoch not read yet/)).toBeTruthy();
+    expect((screen.getByTestId('calculator') as HTMLButtonElement).disabled).toBe(true);
   });
 });
 

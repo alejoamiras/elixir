@@ -122,6 +122,10 @@ describe('network metrics', () => {
     expect(calculator(0, 0.2, T, { ...rules, REWARD: 1n }).share).toBe(0);
     expect(calculator(6, 0, T, { ...rules, REWARD: 1n }).share).toBe(1);
     expect(calculator(600, 0.2, T, { ...rules, REWARD: 1n }).share).toBeLessThan(1);
+    // "1e309" in the field parses to Infinity; NaN in the share would throw inside BigInt().
+    for (const bad of [Number.POSITIVE_INFINITY, Number.NaN, -5])
+      expect(calculator(bad, 0.2, T, { ...rules, REWARD: 1n })).toMatchObject({ share: 0, perDay: 0n });
+    expect(calculator(6, Number.NaN, T, { ...rules, REWARD: 1n }).share).toBe(1);
   });
 
   test('one sentence per kind, from the numbers alone', () => {

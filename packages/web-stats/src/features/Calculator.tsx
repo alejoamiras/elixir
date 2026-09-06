@@ -31,7 +31,7 @@ export function Calculator({
   target: bigint;
 }) {
   const [text, setText] = useState('10');
-  const perMinute = Math.max(0, Number(text) || 0);
+  const perMinute = Number(text);
   const r = calculator(perMinute, network, target, RULES);
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

@@ -2,6 +2,7 @@
 // needs, the rows, then supply, genesis and lottery; all through miner-core's reader, no wallet.
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import { makeFetch } from '@aztec/foundation/json-rpc/client';
 import {
   assertDeployment,
   DEFAULT_LIMITS,
@@ -57,13 +58,12 @@ export const chunkLoader = (): SlotLoader => {
   };
 };
 
-/** A read the reader gave up on must not stay in flight behind it. */
-const NODE_REQUEST_MS = 30_000;
-
 /** The boot check, then the layouts the reads need. */
 export async function openReader(connection: Connection): Promise<Reader> {
-  boundNodeRequests(connection.nodeUrl, NODE_REQUEST_MS);
-  const node = createAztecNodeClient(connection.nodeUrl);
+  // A read the reader gave up on ends with it: one deadline per request, no transport retries
+  // (the SDK's default would keep an abandoned read alive through three more attempts).
+  boundNodeRequests(connection.nodeUrl, DEFAULT_LIMITS.timeoutMs);
+  const node = createAztecNodeClient(connection.nodeUrl, {}, makeFetch([], false));
   const layout = await layouts();
   const expected = expectedDeployment();
   await assertDeployment(

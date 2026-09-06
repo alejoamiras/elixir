@@ -25,6 +25,10 @@ describe('gen-slots', () => {
       const last = slotTableFromJson(await Bun.file(join(out, '511.json')).text(), 511);
       expect(last.first).toBe(TABLE_EPOCHS - CHUNK);
       expect(await slotsCurrent(out)).toBe(true);
+      // A chunk truncated after generation (a killed run, a full disk) must not be served.
+      const chunk = join(out, '7.json');
+      await Bun.write(chunk, (await Bun.file(chunk).text()).slice(0, 1000));
+      expect(await slotsCurrent(out)).toBe(false);
     } finally {
       rmSync(out, { recursive: true, force: true });
     }

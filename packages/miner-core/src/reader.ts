@@ -127,13 +127,14 @@ export const CHUNK = 512;
 export const TABLE_EPOCHS = 512 * CHUNK;
 export const DEFAULT_LIMITS: ReadLimits = { concurrency: 8, timeoutMs: 10_000, maxEpochs: 96 };
 
-const U64 = (1n << 64n) - 1n;
 const U128 = (1n << 128n) - 1n;
+/** The last unix second a `Date` can hold (8.64e15 ms); a u64 goes far past it. */
+const MAX_UNIX = 8_640_000_000_000n;
 
 /** What the contract can have written; anything else is a node lying or a wrong slot, not data. */
 function checkRow(e: number, target: bigint, openedAt: bigint, claims: bigint): void {
   if (target < 1n || target > U128) throw new Error(`epoch ${e}: target ${target} is not a u128 above zero`);
-  if (openedAt > U64) throw new Error(`epoch ${e}: opened_at ${openedAt} is not a u64`);
+  if (openedAt > MAX_UNIX) throw new Error(`epoch ${e}: opened_at ${openedAt} is not a timestamp`);
   if (claims > BigInt(PARAMS.N)) throw new Error(`epoch ${e}: ${claims} claims, more than N`);
 }
 
@@ -276,11 +277,9 @@ export async function readGenesis(
   const [target, seed, launchAt] = await Promise.all(
     [0n, 1n, 2n].map((i) => readSlot(node, miner, new Fr(base + i), limits)),
   );
-  return {
-    target: (target as Fr).toBigInt(),
-    seed: (seed as Fr).toBigInt(),
-    launchAt: Number((launchAt as Fr).toBigInt()),
-  };
+  const at = (launchAt as Fr).toBigInt();
+  if (at > MAX_UNIX) throw new Error(`genesis: launch_at ${at} is not a timestamp`);
+  return { target: (target as Fr).toBigInt(), seed: (seed as Fr).toBigInt(), launchAt: Number(at) };
 }
 
 export async function readLottery(

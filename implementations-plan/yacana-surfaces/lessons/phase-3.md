@@ -92,3 +92,16 @@ Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck
 
 Gate after the fixes: `bun run lint` ✓ · `lint:actions` ✓ · `typecheck` ✓ · web-stats and web-miner `tsc -b` ✓ · `bun test` 129 ✓ · `test:components` 9 + 33 + 27 ✓ · E(web-stats) 3 passed ✓ · E(web-miner) 11 passed (12.0 min) ✓.
 
+
+**Round 2** (resumed, the round-1 fix commit under review). Verdict: "changes requested"; seven findings, all reproduced and accepted, plus one comment correction:
+
+- **A u64 `opened_at` is not a timestamp**: `2^63` passed the round-1 bound and `new Date(...)` threw `RangeError` in the table. The reader bounds `opened_at` and `launch_at` by the last second a `Date` can hold (8.64e12); the reader test asserts the refusal.
+- **`1e309` in the calculator field**: `Number("1e309")` is Infinity, the share became NaN and `BigInt(NaN)` threw while rendering. `calculator` treats a rate that is not a finite positive number as zero (documented; bun test), and the sheet passes the raw parse.
+- **The serialisation defeated the "already loading" guard**: `older()` checked the flag after its turn came, by which time the previous read had cleared it, so a held ArrowLeft queued a window per repeat. The flag is taken before queueing; polls are coalesced (`serial.ts`: `serial` + `coalesced`, Vitest).
+- **A failed history read mislabeled the open epoch**: `pollChain` advanced `open` while keeping the old rows, and the Observatory took the last row as the open one, so "epoch 13" showed epoch 12's claims. The tiles use the row whose epoch is `chain.open`, or a dash and "this epoch not read yet" (Vitest).
+- **Abandoned reads stayed in flight**: the transport bound was 30 s against the reader's 10 s, and the SDK's default fetch retries three times with its own deadline each. The stats client uses `makeFetch([], false)` (no retries) and the bound equals `DEFAULT_LIMITS.timeoutMs`, so a read the reader gave up on is aborted with it.
+- **The layout freshness check ignored its inputs**: `contracts.yml` now watches `miner-core/scripts/**` and `miner-core/fixtures/**`.
+- **A truncated cached chunk was served**: the stamp (`.stamp.json`) carries the layout and a SHA-256 per chunk; `slotsCurrent` verifies every chunk (the gen-slots test truncates one).
+- Comment: "eased ×0.72" was an easing below one; the example is now "eased ×1.44" with the target fall stated for the harder case.
+
+Gate after the fixes: `bun run lint` ✓ · `lint:actions` ✓ · web-stats `tsc -b` ✓ · `bun test` 143 ✓ · web-stats `test:components` 12 ✓ · E(web-stats) 3 passed (43 s) ✓ (the miner does not import the changed modules; its E2E is unchanged from round 1).

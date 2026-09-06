@@ -15,19 +15,22 @@ import { Calculator } from './Calculator';
 
 const RULES = { N: PARAMS.N, EXPECTED_EPOCH_SECONDS: PARAMS.EXPECTED_EPOCH_SECONDS, T_MAX: PARAMS.T_MAX };
 
-/** The open epoch's lines, or the honest placeholders when the history could not be read. */
+/** The row of the open epoch; absent while a history read fails after a close. */
+const openRow = (chain: Chain) => chain.rows.find((r) => r.epoch === chain.open);
+
+/** The open epoch's lines, or the honest placeholders when its row could not be read. */
 function epochLines(chain: Chain, nowSec: number) {
   const rows = chain.rows;
-  const open = rows[rows.length - 1];
+  const open = openRow(chain);
   if (!open)
     return {
-      claimsSub: 'history unavailable',
+      claimsSub: rows.length ? 'this epoch not read yet' : 'history unavailable',
       difficulty: '—',
       difficultySub: 'no close yet',
       last: '—',
       lastSub: 'history unavailable',
     };
-  const lastClosed = rows.length >= 2 ? rows[rows.length - 2] : undefined;
+  const lastClosed = rows.find((r) => r.epoch === chain.open - 1);
   const elapsed = BigInt(Math.max(0, nowSec - open.openedAt));
   const hatch = Number(escapeHatchIn(BigInt(open.openedAt), PARAMS.T_MAX, BigInt(nowSec)));
   const claimsSeen = rows.reduce((n, r) => n + r.claims, 0);
@@ -48,7 +51,7 @@ function epochLines(chain: Chain, nowSec: number) {
 export function Observatory({ chain, now }: { chain: Chain; now: number }) {
   const [calc, setCalc] = useState(false);
   const rows = chain.rows;
-  const open = rows[rows.length - 1];
+  const open = openRow(chain);
   const nowSec = Math.max(chain.block.timestamp, Math.floor(now / 1000));
   const rate = networkRate(rows, PARAMS.N);
   const perHour = claimsPerHour(rows, nowSec);
@@ -70,7 +73,7 @@ export function Observatory({ chain, now }: { chain: Chain; now: number }) {
           label={`epoch ${chain.open}`}
           value={
             <span data-testid="open-claims">
-              {open?.claims ?? 0} of {PARAMS.N}
+              {open ? open.claims : '—'} of {PARAMS.N}
             </span>
           }
           unit="claims"

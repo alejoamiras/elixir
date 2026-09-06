@@ -123,6 +123,12 @@ describe('readEpochs', () => {
     await expect(readEpochs(fakeNode(broken).node, miner, { from: 0, to: 1 }, load)).rejects.toThrow(
       /target 0/,
     );
+    // A u64 that no Date can hold would crash every clock the pages render.
+    const late = new Map(values);
+    late.set(new Fr((table.epochs[1] as Fr).toBigInt() + 2n).toString(), 1n << 63n);
+    await expect(readEpochs(fakeNode(late).node, miner, { from: 0, to: 1 }, load)).rejects.toThrow(
+      /not a timestamp/,
+    );
     await expect(readEpochs(node, miner, { from: TABLE_EPOCHS - 1, to: TABLE_EPOCHS }, load)).rejects.toThrow(
       /beyond the slot table/,
     );

@@ -84,7 +84,8 @@ export const scheduledClaimsPerHour = (rules: EpochRules): number =>
 /**
  * What joining the network at `yourPerMinute` would earn: your share of the network once you are
  * part of it (yours over the measured rate plus yours, so never above 1), the expected wait for a
- * win at today's difficulty, and that share of the schedule per day.
+ * win at today's difficulty, and that share of the schedule per day. A rate that is not a finite
+ * positive number counts as zero: the inputs come from a text field.
  */
 export function calculator(
   yourPerMinute: number,
@@ -92,12 +93,13 @@ export function calculator(
   target: bigint,
   rules: EpochRules & { REWARD: bigint },
 ): { share: number; secondsToWin: number; perDay: bigint } {
-  const yours = yourPerMinute / 60;
-  const share = yours > 0 ? yours / (Math.max(0, networkPerSecond) + yours) : 0;
+  const finite = (n: number) => (Number.isFinite(n) && n > 0 ? n : 0);
+  const yours = finite(yourPerMinute) / 60;
+  const share = yours > 0 ? yours / (finite(networkPerSecond) + yours) : 0;
   const perDay = (BigInt(rules.N) * rules.REWARD * 86_400n) / rules.EXPECTED_EPOCH_SECONDS;
   return {
     share,
-    secondsToWin: nextWinSeconds(target, yourPerMinute),
+    secondsToWin: nextWinSeconds(target, finite(yourPerMinute)),
     perDay: (perDay * BigInt(Math.round(share * 1_000_000))) / 1_000_000n,
   };
 }
@@ -118,7 +120,8 @@ const clock = (unix: number): string => new Date(unix * 1000).toISOString().slic
 
 /**
  * One sentence per epoch, from its numbers; the templates are the whole vocabulary. The move is
- * always the observed one: "made ×1.44 harder" is the difficulty ratio, "eased ×0.72" the target ratio.
+ * always the observed one: "made ×1.44 harder" is the difficulty ratio (the target fell to ×0.69),
+ * "eased ×1.44" the target ratio.
  */
 export function sentence(row: EpochRow, rules: EpochRules): string {
   const expected = minutes(Number(rules.EXPECTED_EPOCH_SECONDS));
