@@ -430,14 +430,16 @@ this plan (the miner's other screens, the landing's copy, the reader).
 
 ELI5: https://claude.ai/code/artifact/f38d46fd-ce84-4852-8811-d926c1df2782 (source `eli5.html` in this directory).
 Codex plan audit: round 1 `reject` (eight findings, all adopted), round 2 **`conditional approve`** (seven
-conditions, all adopted): `audit-codex.md`. Owner's decision on the four Asks: pending at the gate.
+conditions, all adopted): `audit-codex.md`. **Approved by the owner on 2026-09-06**: Ask 1 accepted (Observable
+Plot on the wallet's origin with the supply-chain guards; a separate stats host before mainnet on the roadmap), Asks
+2–4 confirmed. The seeds below are final.
 
 ## Seeds
 
 Recommended: `/goal` (completion is transcript-observable).
 
 ```
-/goal All phases marked ✓ in implementations-plan/yacana-fidelity/plan.md (the per-phase headers in the file — not the chat, not the task list), each ✓ backed by its phase's validation gate (as defined in plan.md) reported passing in the transcript; for each phase the agent has printed `LESSONS_FILE=implementations-plan/yacana-fidelity/lessons/phase-N.md` in the transcript; `/code-review` was NOT run (code_review is off); the codex fix loop converged for EVERY reviewed diff — each of the three arcs at its boundary plus the final cross-arc pass — each convergence evidenced by a resumed codex pass reporting no new material findings, quoted in the transcript; the Delivery section's PR topology exists on GitHub, created only AFTER all loops converged (`gh stack view` output in the transcript), each PR body carrying the 1280/1440 screenshots beside the binder frame; `bun run lint` and `bun test` both report exit 0 in the transcript.
+/goal All phases marked ✓ in implementations-plan/yacana-fidelity/plan.md (the per-phase headers in the file — not the chat, not the task list), each ✓ backed by its phase's validation gate (as defined in plan.md) reported passing in the transcript; for each phase the agent has printed `LESSONS_FILE=implementations-plan/yacana-fidelity/lessons/phase-N.md` in the transcript; `/code-review` was NOT run (code_review is off); the codex fix loop converged for EVERY reviewed diff — each of the three arcs at its boundary plus the final cross-arc pass — each convergence evidenced by a resumed codex pass reporting no new material findings, quoted in the transcript; the Delivery section's PR topology exists on GitHub, created only AFTER all loops converged (`gh stack view` output in the transcript), each PR body linking the 1280/1440/1024/390 screenshots beside the binder frame; `bun run lint` and `bun test` both report exit 0 in the transcript.
 ```
 
 Alternative: `/loop 15m` (the standard drive prompt from the blueprint skill, with `bun run lint` / `bun test` as the
