@@ -1,0 +1,86 @@
+import { readFileSync } from 'node:fs';
+import { expect, type Page, test } from '@playwright/test';
+import { type E2eRun, RUN_FILE } from './run.ts';
+
+const run = (): E2eRun => JSON.parse(readFileSync(RUN_FILE, 'utf8')) as E2eRun;
+
+const pageUrl = (r: E2eRun) => {
+  const url = new URL(r.baseURL);
+  url.searchParams.set('node', r.nodeUrl);
+  url.searchParams.set('miner', r.miner);
+  url.searchParams.set('token', r.token);
+  return url.toString();
+};
+
+/** Every request the page makes, by origin; the prover's chunks and WASM flagged. */
+function watch(page: Page, r: E2eRun) {
+  const origins = new Set<string>();
+  const heavy: string[] = [];
+  page.on('request', (req) => {
+    origins.add(new URL(req.url()).origin);
+    if (/barretenberg|\.wasm(\?|$)/.test(req.url())) heavy.push(req.url());
+  });
+  const allowed = new Set([new URL(r.baseURL).origin, new URL(r.nodeUrl).origin]);
+  return { heavy, foreign: () => [...origins].filter((o) => !allowed.has(o)) };
+}
+
+test.beforeEach(({ page }) => {
+  page.on('pageerror', (e) => console.log(`[page error] ${e.message}`));
+  page.on('console', (m) => m.type() === 'error' && console.log(`[console] ${m.text().slice(0, 300)}`));
+});
+
+test('the argument in order, the live strip from the chain, nothing of the prover before the click', async ({
+  page,
+}) => {
+  const r = run();
+  const net = watch(page, r);
+  await page.goto(pageUrl(r));
+  const ids = await page.locator('main > section').evaluateAll((els) => els.map((e) => e.id));
+  expect(ids).toEqual(['hero', 'money', 'chain', 'how', 'live', 'verify', 'ask']);
+  await expect(page.getByTestId('live-minted')).toHaveText('0');
+  await expect(page.getByTestId('live-epoch')).toHaveText('0 of 4');
+  await expect(page.getByTestId('demo-caption')).toContainText('epoch 0');
+  await expect(page.getByTestId('footer-line')).toContainText(
+    'no trackers, no cookies, no requests except to the Aztec node you choose',
+  );
+  expect(page.url().startsWith(r.baseURL)).toBe(true);
+  expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
+  expect(net.heavy).toEqual([]);
+  expect(net.foreign()).toEqual([]);
+});
+
+test('"Prove one now" proves W against the open epoch: real step times, a score, no request elsewhere', async ({
+  page,
+}) => {
+  test.setTimeout(6 * 60_000);
+  const r = run();
+  const net = watch(page, r);
+  await page.goto(pageUrl(r));
+  const prove = page.getByTestId('prove');
+  await expect(prove).toBeEnabled();
+  await prove.click();
+  await expect(page.getByTestId('demo-steps')).toBeVisible();
+  await expect(page.getByTestId('demo-result')).toBeVisible({ timeout: 4 * 60_000 });
+  const steps = page.getByTestId('demo-steps').locator('li[data-done="1"]');
+  await expect(steps).toHaveCount(4);
+  const times = await steps.locator('span:last-child').allTextContents();
+  for (const t of times) expect(t).toMatch(/^\d+\.\d s$/);
+  // The proof itself is seconds, not milliseconds: a real UltraHonk proof of W was made.
+  const proofMs = Number((times[2] as string).replace(' s', '')) * 1000;
+  expect(proofMs).toBeGreaterThan(300);
+  const score = Number(await page.getByTestId('demo-score').textContent());
+  expect(score).toBeGreaterThanOrEqual(1);
+  expect(net.heavy.length).toBeGreaterThan(0);
+  expect(net.foreign()).toEqual([]);
+  await expect(prove).toHaveText('Prove another');
+});
+
+test('a phone reads, shares the miner link and mines nothing', async ({ page }) => {
+  const r = run();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(pageUrl(r));
+  await expect(page.getByTestId('share')).toBeVisible();
+  await expect(page.getByTestId('demo')).toHaveCount(0);
+  await expect(page.getByTestId('hero-prove')).toHaveCount(0);
+  await expect(page.getByTestId('live-epoch')).toHaveText('0 of 4');
+});

@@ -17,10 +17,11 @@ Phase 1 measurements: `implementations-plan/elixir-core/spike-results.md`.
 | `packages/work-circuit` | Noir work circuit `W` (`crates/lib` + `crates/yacana_work`), the VK-embedding verifier `crates/verify_w`, generated VK / proof-layout manifest, fixture proofs, spike scripts |
 | `packages/miner-core` | Platform-agnostic TS: proof → fields → ticket digest, domain separators, retarget mirror, claim builder, key derivation, `reader.ts` (node-only storage reads through the slot table), `metrics.ts`, `csv.ts`; `scripts/gen-slots.ts`; `fixtures/` (captured epoch histories) |
 | `packages/deploy` | Spike drivers (`spike-claim.ts`, `spike-browser.ts` + the Vite page under `browser/`); sandbox / testnet deploy in later phases |
-| `packages/site` | What the apps share below the components: `src/config.ts` (one env source of truth: `site.env` + `deployments/<profile>.json` → Vite `define`, the production guards), `src/headers.ts` (CSP/COOP/COEP per environment), `src/vite-base.ts` (`siteVite`), `src/browser/{connection,format}.ts` (the page-side connection config and formatting), `scripts/{fetch-crs,copy-artifacts}.ts`, `crs.lock.json` |
+| `packages/site` | What the apps share below the components: `src/config.ts` (one env source of truth: `site.env` + `deployments/<profile>.json` → Vite `define`, the production guards), `src/headers.ts` (CSP/COOP/COEP per environment), `src/vite-base.ts` (`siteVite`), `src/browser/{connection,format,node-deadline,slots}.ts` (the page-side connection config, formatting, the request deadline, the slot-table and layout fetches), `scripts/{fetch-crs,copy-artifacts,copy-slots}.ts`, `crs.lock.json` |
 | `packages/ui` | Design system shared by the surfaces: `theme.css` (tokens, dark default + `.light`, self-hosted Hanken Grotesk / JetBrains Mono), shadcn-style primitives, StatusPill, Kpi, Mark + `faviconDataUrl`, ScoreLoop, ProofLedger, Stepper, Preflight, EpochRail, PowerSlider, Marks, ThemeProvider; Vitest specs (`*.vitest.tsx`) |
 | `packages/web-miner` | React + Vite miner on `packages/ui`: embedded wallet (IndexedDB), sponsored FPC, W proved by bb.js in a Worker, pinned CRS (`crs.lock.json`, served from `/crs`), Vitest specs, Playwright E2E on the isolated network, Cloudflare Pages config (`wrangler.jsonc`, `public/_headers`) |
 | `packages/web-stats` | Observatory + Verify (`/stats`, `/stats/verify`): the epoch history from public storage through the slot table, four SVG charts, the strip, the table with CSV/JSON, the calculator, the deployment record; Vitest specs, Playwright E2E (a mocked node on the captured fixture + the live isolated deployment) |
+| `packages/web-landing` | The landing (`/`): seven sections from the copy deck (`src/copy.ts`), the live strip through the reader, the in-page demo proof (the miner's `src/demo/demo.worker.ts`, fetched on the click), `VITE_LAUNCH_MODE` hero, the OG card (`public/og.html` → `og.png` via `bun run og-card`); Vitest specs, Playwright E2E on the isolated network |
 | `scripts/run` | Run isolation: port registry, isolated local network, per-worktree runner |
 
 ## Toolchain
@@ -45,8 +46,9 @@ bun run contracts:compile / contracts:test
 bun run e2e:agent -- <cmd>   # run <cmd> against a fresh isolated local network (AZTEC_NODE_URL set)
 bun run e2e:agent -- bun test packages/miner-core                        # live miner-core suite
 bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e           # web miner in headless Chromium (production build; E2E_SERVER=dev for the dev server)
-bun run test:components        # every package's Vitest specs (ui, web-miner, web-stats)
+bun run test:components        # every package's Vitest specs (ui, web-miner, web-stats, web-landing)
 bun run e2e:agent -- bun run --cwd packages/web-stats test:e2e          # stats page in headless Chromium (production build)
+bun run e2e:agent -- bun run --cwd packages/web-landing test:e2e        # landing in headless Chromium: the demo proves W for real
 AZTEC_NODE_URL=… YACANA_DEPLOYER_SECRET=… [YACANA_LAUNCH_AT=<unix s>] bun run deploy   # deploy the generated profile → deployments/<profile>.json (announce before launch_at)
 AZTEC_NODE_URL=… bun run launch -- commit|reveal|open   # launch lottery of the recorded deployment (anyone; see docs/deployments.md)
 AZTEC_NODE_URL=… bun run soak -- --hours 2 --epochs 24     # headless soak miner with a hashrate schedule

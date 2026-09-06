@@ -21,6 +21,7 @@ describe('site config', () => {
     expect(c.miner).toBe(deployment.miner);
     expect(c.minerClassId).toBe(deployment.minerClassId);
     expect(c.queryOverrides).toBe(false);
+    expect(c.launchMode).toBe(false);
     expect(viteDefine(c)['import.meta.env.VITE_E2E_QUERY_OVERRIDES']).toBe('""');
   });
 
@@ -34,8 +35,10 @@ describe('site config', () => {
         VITE_RP_ID: 'localhost',
         VITE_YACANA_MINER: '0x01',
         VITE_E2E_QUERY_OVERRIDES: '1',
+        VITE_LAUNCH_MODE: '1',
       },
     });
+    expect(c.launchMode).toBe(true);
     expect(c.allowedNodeOrigins).toEqual(['http://localhost:8080', 'http://127.0.0.1:1']);
     expect(c.rpId).toBe('localhost');
     expect(c.miner).toBe('0x01');
