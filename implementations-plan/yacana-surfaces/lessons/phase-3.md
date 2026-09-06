@@ -113,3 +113,7 @@ Gate after the fixes: `bun run lint` ✓ · `lint:actions` ✓ · web-stats `tsc
 - **A stamp of `null` crashed the prebuild**: `slotsCurrent` refuses a stamp that is not an object (test).
 
 Gate after the fixes: `bun run lint` ✓ · `lint:actions` ✓ · web-stats `tsc -b` ✓ · `bun test` 144 ✓ · web-stats `test:components` 13 ✓ · E(web-stats) 3 passed (52 s) ✓.
+
+**Round 4** (resumed, the round-3 fix commit under review). Verdict, quoted: "No new material findings. The remaining reported issues are resolved (high confidence)." Codex re-checked the batch failure (no active requests after the rejection, no later reads, concurrency held across sequential calls), the unread-history rendering in badge, sentence, table and strip, and the cache recovery for `null`, primitive, incomplete and malformed stamps; "25 focused tests passed. No additional comment findings."
+
+Arc 3 loop: four rounds (the plan's "three rounds still churning" threshold was reached with round 3's three small findings; round 4 was the convergence check and found nothing, so no deviation to log beyond noting the count). Codex session `01a07441-18b7-71e2-ac9f-68490a5a3de9`, files in `~/.cache/tmp/codex-YwMjNba8` (`response.md`, `response-1.md` … `response-3.md`).
