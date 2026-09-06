@@ -35,7 +35,7 @@ export async function attachDeployment(
   addresses: { miner: string; token: string },
 ): Promise<Deployment> {
   const [minerArtifact, tokenArtifact] = await Promise.all([
-    artifact('elixir_miner-ElixirMiner'),
+    artifact('yacana_miner-YacanaMiner'),
     artifact('token_contract-Token'),
   ]);
   const contracts = [] as Contract[];

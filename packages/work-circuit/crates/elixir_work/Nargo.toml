@@ -1,7 +1,0 @@
-[package]
-name = "elixir_work"
-type = "bin"
-authors = [""]
-
-[dependencies]
-elixir_work_lib = { path = "../lib" }

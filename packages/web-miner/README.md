@@ -1,6 +1,6 @@
-# elixir web miner
+# yacana web miner
 
-A browser page that mines elixir: it owns an embedded Aztec wallet (account created on the first
+A browser page that mines yacana: it owns an embedded Aztec wallet (account created on the first
 visit, keys in IndexedDB), proves the work circuit with bb.js in a Worker, and when a ticket wins
 proves the private `claim` in-page and mints the reward to its own private balance. Fees go
 through the sponsored FPC.
@@ -13,7 +13,7 @@ bun run --cwd packages/web-miner build    # same, then tsc + vite build → dist
 ```
 
 The page needs the compiled contracts and work circuit (`bun run codegen && bun run contracts:compile`).
-Build-time defaults come from `VITE_AZTEC_NODE_URL`, `VITE_ELIXIR_MINER`, `VITE_ELIXIR_TOKEN`
+Build-time defaults come from `VITE_AZTEC_NODE_URL`, `VITE_YACANA_MINER`, `VITE_YACANA_TOKEN`
 (`.env.production` for the public testnet, see `docs/deployments.md`); the Network card edits are kept in
 `localStorage`; `?node=&miner=&token=` in the URL override both (that is how the E2E points a page at an
 isolated network).

@@ -26,7 +26,7 @@ const big = (h: string) => BigInt(h);
 describe('cross-language vectors', () => {
   test('the fixture proof hashes to the pinned digest and low128', async () => {
     const proof = new Uint8Array(
-      await Bun.file(resolve(import.meta.dir, '../../work-circuit/fixtures/elixir_work/proof')).arrayBuffer(),
+      await Bun.file(resolve(import.meta.dir, '../../work-circuit/fixtures/yacana_work/proof')).arrayBuffer(),
     );
     const fields = proofToFields(proof);
     expect(fields.map((f) => f.toString())).toEqual(vectors.fixtureProof.map((h) => fr(h).toString()));

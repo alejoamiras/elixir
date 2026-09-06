@@ -6,14 +6,17 @@ import { $ } from 'bun';
 import { W_VK, W_VK_HASH } from './generated/vk.ts';
 
 const root = resolve(import.meta.dir, '..');
+// nargo prints constants above p/2 as negatives.
+const P = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+const field = (s: string): bigint => ((BigInt(s) % P) + P) % P;
 
 describe('verify_w ACIR', () => {
   test('pins every VK field and the key hash as constants', async () => {
     const acir = (await $`aztec-nargo compile --package verify_w --print-acir`.cwd(root).text()).split('\n');
     const pinned = new Map<string, bigint>();
     for (const line of acir) {
-      const m = line.match(/^ASSERT (w\d+) = (\d+)$/);
-      if (m?.[1] && m[2]) pinned.set(m[1], BigInt(m[2]));
+      const m = line.match(/^ASSERT (w\d+) = (-?\d+)$/);
+      if (m?.[1] && m[2]) pinned.set(m[1], field(m[2]));
     }
     const agg = acir.filter((l) => l.startsWith('BLACKBOX::RECURSIVE_AGGREGATION'));
     expect(agg).toHaveLength(1);

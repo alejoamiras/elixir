@@ -3,6 +3,12 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
 import { type E2eRun, RUN_FILE } from './run.ts';
 
+declare global {
+  interface Window {
+    yacana?: { crashProver(): void };
+  }
+}
+
 const run = (): E2eRun => JSON.parse(readFileSync(RUN_FILE, 'utf8')) as E2eRun;
 const pageUrl = (r: E2eRun, extra: Record<string, string> = {}) =>
   `${r.baseURL}/?${new URLSearchParams({ node: r.nodeUrl, miner: r.miner, token: r.token, ...extra })}`;
@@ -57,13 +63,13 @@ test('first visit creates an account, mines at the easy target, claims and shows
   const memory = rssWatcher();
   await bootPage(page, pageUrl(r));
   expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
-  await expect(page.getByTestId('balance')).toHaveText(/^0 tELX$/);
+  await expect(page.getByTestId('balance')).toHaveText(/^0 tYACA$/);
   await page.getByTestId('start').click();
   await expect(page.getByTestId('phase')).toHaveText('mining');
   // The easy target wins every other proof; the claim is then proved in-page and mined.
   await expect(page.getByTestId('phase')).toHaveText('claiming', { timeout: 5 * 60_000 });
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
-  await expect(page.getByTestId('balance')).toHaveText(/^4 tELX$/);
+  await expect(page.getByTestId('balance')).toHaveText(/^4 tYACA$/);
   await expect(page.getByTestId('epoch-claims')).toHaveText('1 / 4');
   await expect(page.getByTestId('log')).toContainText('claim mined in block');
   // Mining resumes on its own after a claim; stop it cleanly.
@@ -75,10 +81,10 @@ test('first visit creates an account, mines at the easy target, claims and shows
   await page.reload();
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
   expect(await page.getByTestId('account').getAttribute('title')).toBe(account);
-  await expect(page.getByTestId('balance')).toHaveText(/^4 tELX$/);
+  await expect(page.getByTestId('balance')).toHaveText(/^4 tYACA$/);
   await page.getByTestId('start').click();
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
-  await expect(page.getByTestId('balance')).toHaveText(/^8 tELX$/);
+  await expect(page.getByTestId('balance')).toHaveText(/^8 tYACA$/);
   await page.getByTestId('stop').click();
   memory.stop();
   console.log(`peak browser process-tree RSS: ${memory.peakMiB()} MiB`);
@@ -165,7 +171,7 @@ test('a prover crash surfaces as an error and mining restarts on the next start'
   await bootPage(page, pageUrl(r));
   await page.getByTestId('start').click();
   await expect(page.getByTestId('phase')).toHaveText('mining');
-  await page.evaluate(() => window.elixir?.crashProver());
+  await page.evaluate(() => window.yacana?.crashProver());
   await expect(page.getByTestId('miner-error')).toContainText('worker');
   await expect(page.getByTestId('phase')).toHaveText('idle');
   await page.getByTestId('start').click();

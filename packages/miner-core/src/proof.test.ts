@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { computeDigest, isWinner, low128, proofToFields, secretCommitment } from './proof.ts';
 
-const fixture = resolve(import.meta.dir, '../../work-circuit/fixtures/elixir_work/proof');
+const fixture = resolve(import.meta.dir, '../../work-circuit/fixtures/yacana_work/proof');
 
 describe('proof → ticket', () => {
   test('splits the fixture proof into 410 big-endian fields and hashes it deterministically', async () => {

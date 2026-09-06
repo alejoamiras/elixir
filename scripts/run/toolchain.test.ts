@@ -12,7 +12,7 @@ const versionDir = join(homedir(), '.aztec', 'versions', pin);
 const sha256 = (path: string) => new Bun.CryptoHasher('sha256').update(readFileSync(path)).digest('hex');
 
 // Skipped where the toolchain is absent unless a workflow that installed it demands the check.
-describe.skipIf(!existsSync(versionDir) && !process.env.ELIXIR_REQUIRE_TOOLCHAIN)('pinned toolchain', () => {
+describe.skipIf(!existsSync(versionDir) && !process.env.YACANA_REQUIRE_TOOLCHAIN)('pinned toolchain', () => {
   test('.aztecrc and the lock agree', () => expect(pin).toBe(lock.aztec));
 
   test('native binaries match their hashes', () => {

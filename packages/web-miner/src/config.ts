@@ -9,13 +9,13 @@ export interface Connection {
   token: string;
 }
 
-const KEY = 'elixir.connection';
+const KEY = 'yacana.connection';
 
 const defaults: Connection = {
   nodeUrl: import.meta.env.VITE_AZTEC_NODE_URL ?? 'https://v5.testnet.rpc.aztec-labs.com',
   crossCheckUrl: import.meta.env.VITE_AZTEC_CROSS_CHECK_URL ?? '',
-  miner: import.meta.env.VITE_ELIXIR_MINER ?? '',
-  token: import.meta.env.VITE_ELIXIR_TOKEN ?? '',
+  miner: import.meta.env.VITE_YACANA_MINER ?? '',
+  token: import.meta.env.VITE_YACANA_TOKEN ?? '',
 };
 
 const fromQuery = (): Partial<Connection> => {

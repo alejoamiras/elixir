@@ -1,7 +1,7 @@
 {
   // Cloudflare Pages: `bun run build` then `wrangler pages deploy dist` — a manual owner action.
   "$schema": "https://json.schemastore.org/wrangler.json",
-  "name": "elixir-web-miner",
+  "name": "yacana-web-miner",
   "compatibility_date": "2026-09-01",
   "pages_build_output_dir": "dist"
 }

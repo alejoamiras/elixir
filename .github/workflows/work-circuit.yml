@@ -19,11 +19,12 @@ jobs:
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         with:
+          predicate-quantifier: some-with-excludes
           filters: |
             relevant:
               - 'packages/work-circuit/**'
               - '!packages/work-circuit/**/*.md'
-              - 'elixir.params.json'
+              - 'yacana.params.json'
               - 'scripts/params-codegen.ts'
               - '.aztecrc'
               - 'toolchain.lock.json'
@@ -55,4 +56,4 @@ jobs:
       - run: bun run codegen && git diff --exit-code
       - run: bun test scripts/run/toolchain.test.ts packages/work-circuit
         env:
-          ELIXIR_REQUIRE_TOOLCHAIN: '1'
+          YACANA_REQUIRE_TOOLCHAIN: '1'

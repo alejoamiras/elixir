@@ -9,6 +9,7 @@
 //   bun scripts/run/isolated-node.ts -- <cmd> [args…]   run <cmd> with AZTEC_NODE_URL / L1_RPC_URL set
 import { type ChildProcess, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import type { EventEmitter } from 'node:events';
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -29,7 +30,7 @@ export interface IsolatedNode {
 export interface IsolatedNodeOptions {
   /** Extra env for the aztec process (e.g. sequencer/prover toggles). */
   env?: Record<string, string>;
-  /** Forward child stdout/stderr to ours (also ELIXIR_NODE_VERBOSE=1). */
+  /** Forward child stdout/stderr to ours (also YACANA_NODE_VERBOSE=1). */
   verbose?: boolean;
 }
 
@@ -163,9 +164,9 @@ function aztecArgs(ports: Ports, runRoot: string, l1RpcUrl: string): string[] {
 }
 
 export async function startIsolatedNode(opts: IsolatedNodeOptions = {}): Promise<IsolatedNode> {
-  const verbose = opts.verbose ?? process.env.ELIXIR_NODE_VERBOSE === '1';
+  const verbose = opts.verbose ?? process.env.YACANA_NODE_VERBOSE === '1';
   // Time + pid + random suffix: two starts in the same millisecond cannot share a runRoot.
-  const runId = `elixir-${new Date().toISOString().replace(/[:.]/g, '-')}-${process.pid}-${randomUUID().slice(0, 8)}`;
+  const runId = `yacana-${new Date().toISOString().replace(/[:.]/g, '-')}-${process.pid}-${randomUUID().slice(0, 8)}`;
   const ports = await claimPorts(runId);
   const runRoot = resolve(repoRoot, '.localnet', runId);
   mkdirSync(runRoot, { recursive: true });
@@ -180,8 +181,9 @@ export async function startIsolatedNode(opts: IsolatedNodeOptions = {}): Promise
   const teardown = async (): Promise<void> => {
     if (torn) return;
     torn = true;
-    process.off('SIGINT', onSignal);
-    process.off('SIGTERM', onSignal);
+    // bun-types 1.4 narrows process.off to its 'memoryPressure' overload; the emitter view keeps the signal one.
+    (process as EventEmitter).off('SIGINT', onSignal);
+    (process as EventEmitter).off('SIGTERM', onSignal);
     for (const o of [...owned].reverse()) killOwned(o);
     await release(runId).catch(() => {});
     rmSync(runRoot, { recursive: true, force: true });
@@ -230,7 +232,7 @@ async function runWithNode(cmd: string[]): Promise<number> {
         ...process.env,
         AZTEC_NODE_URL: node.nodeUrl,
         L1_RPC_URL: node.l1RpcUrl,
-        ELIXIR_RUN_ID: node.runId,
+        YACANA_RUN_ID: node.runId,
       },
     });
     return await new Promise<number>((res) => child.on('exit', (code) => res(code ?? 1)));

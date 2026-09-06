@@ -5,7 +5,7 @@ import { DOMAINS } from './generated/params.ts';
 /** A non-ZK UltraHonk proof for the Noir recursive verifier: 410 fields, 32-byte big-endian each. */
 export const PROOF_FIELDS = 410;
 
-// Domain separators are generated from elixir.params.json, the same source as the Noir globals.
+// Domain separators are generated from yacana.params.json, the same source as the Noir globals.
 export const { DOM_DEPLOY, DOM_SECRET, DOM_WORK, DOM_TICKET, DOM_NULL, DOM_SEED, DOM_LAUNCH } = DOMAINS;
 
 /** Split bb's binary proof into its field elements. Throws on any length but 410 × 32 bytes. */
@@ -30,7 +30,6 @@ export const low128 = (digest: Fr): bigint => digest.toBigInt() & ((1n << 128n) 
 
 export const isWinner = (digest: Fr, target: bigint): boolean => low128(digest) < target;
 
-/** Poseidon2(DOM_SECRET, secret): the miner's commitment carried in the work circuit. */
 /** Poseidon2(DOM_SECRET, secret, recipient): a leaked (proof, secret) can only pay this recipient. */
 export const secretCommitment = (secret: Fr, recipient: Fr): Promise<Fr> =>
   poseidon2Hash([new Fr(DOM_SECRET), secret, recipient]);

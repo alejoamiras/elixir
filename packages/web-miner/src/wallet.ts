@@ -27,8 +27,8 @@ export async function openWallet(nodeUrl: string, node: Node, chainId: bigint): 
   const info = await node.getNodeInfo();
   const ns = `${chainId}-${info.rollupVersion}-${info.l1ContractAddresses.rollupAddress.toString()}`;
   const [pxeStore, walletStore] = await Promise.all([
-    AztecIndexedDBStore.open(log, `elixir-pxe-${ns}`, false),
-    AztecIndexedDBStore.open(log, `elixir-wallet-${ns}`, false),
+    AztecIndexedDBStore.open(log, `yacana-pxe-${ns}`, false),
+    AztecIndexedDBStore.open(log, `yacana-wallet-${ns}`, false),
   ]);
   const wallet = await EmbeddedWallet.create(nodeUrl, {
     pxe: { proverEnabled: true, store: pxeStore },

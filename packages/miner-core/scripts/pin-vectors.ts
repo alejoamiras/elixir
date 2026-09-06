@@ -17,7 +17,7 @@ import {
 import { nextSeed, nextTarget } from '../src/retarget.ts';
 
 const repo = resolve(import.meta.dir, '../../..');
-const fixture = resolve(repo, 'packages/work-circuit/fixtures/elixir_work/proof');
+const fixture = resolve(repo, 'packages/work-circuit/fixtures/yacana_work/proof');
 const fields = proofToFields(new Uint8Array(await Bun.file(fixture).arrayBuffer()));
 const digest = await computeDigest(fields);
 const hex = (v: Fr | bigint) => `0x${(typeof v === 'bigint' ? v : v.toBigInt()).toString(16)}`;

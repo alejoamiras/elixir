@@ -71,7 +71,7 @@ if (PAIRING_INPUTS_FIELDS !== 2 * FRS_PER_COMMITMENT)
 // Cross-check against the fixture: every limb slot must fit in 17 bytes. (Scalars may by chance be
 // small, so only the limb direction is asserted.)
 const proof = new Uint8Array(
-  await Bun.file(resolve(workCircuitRoot, 'fixtures', 'elixir_work', 'proof')).arrayBuffer(),
+  await Bun.file(resolve(workCircuitRoot, 'fixtures', 'yacana_work', 'proof')).arrayBuffer(),
 );
 if (proof.length !== 410 * 32) throw new Error(`fixture proof is ${proof.length} bytes`);
 for (const s of slots) {

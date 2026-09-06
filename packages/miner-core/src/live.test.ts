@@ -16,7 +16,7 @@ import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
 import type { PrivateCallExecutionResult, TxReceipt } from '@aztec/stdlib/tx';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { TokenContract } from '@aztec-foundation/aztec-standards/artifacts/src/artifacts/Token.js';
-import { type Deployment, deployElixir } from '../../deploy/src/deploy.ts';
+import { type Deployment, deployYacana } from '../../deploy/src/deploy.ts';
 import { loadMinerArtifact, loadWorkArtifact } from './artifacts.ts';
 import { buildClaim, claimGasLimits } from './claim.ts';
 import { readOpenEpoch, readRules } from './epoch.ts';
@@ -99,7 +99,7 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
     fee = { ...(await registerFpc(wallet)), gasSettings: { gasLimits: await claimGasLimits(node) } };
     const secret = Fr.random();
     from = await newAccount(wallet, secret);
-    deployment = await deployElixir(nodeUrl, secret, Fr.random(), { initialTarget: EASY_TARGET });
+    deployment = await deployYacana(nodeUrl, secret, Fr.random(), { initialTarget: EASY_TARGET });
     miner = await registerDeployment(deployment);
     chainId = BigInt(await node.getChainId());
     rollupVersion = BigInt((await node.getNodeInfo()).rollupVersion);
@@ -168,7 +168,7 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
     expect(balance).toBe(PARAMS.REWARD);
     expect((await readOpenEpoch(miner, from)).claims).toBe(1);
     // Public effects: the tx's effect on chain, as any observer sees it.
-    const receipt = (r as { receipt: { txHash: { toString(): string } } }).receipt;
+    const receipt = (r as unknown as { receipt: { txHash: { toString(): string } } }).receipt;
     const effect = await node.getTxEffect(receipt.txHash as never);
     expect(effect).toBeTruthy();
     const json = JSON.stringify(effect, (_, v) => (typeof v === 'bigint' ? v.toString() : v));
@@ -275,7 +275,7 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
   }, 900_000);
 
   test('a proof mined for one deployment does not claim on another', async () => {
-    const other = await deployElixir(nodeUrl, Fr.random(), Fr.random(), { initialTarget: EASY_TARGET });
+    const other = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: EASY_TARGET });
     const otherMiner = await registerDeployment(other);
     const { winner, secret } = await mine(miner); // domain of the FIRST deployment
     const r = await send(
@@ -343,7 +343,7 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
   };
 
   test(`a burst of winners against N = ${PARAMS.N}: exactly N accepted, the rest revert as stale`, async () => {
-    const burst = await deployElixir(nodeUrl, Fr.random(), Fr.random(), { initialTarget: EASY_TARGET });
+    const burst = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: EASY_TARGET });
     const m = await registerDeployment(burst);
     const rules = await readRules(m, from);
     // One wallet per winner: a PXE cannot simulate its own claims concurrently, and separate

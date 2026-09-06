@@ -13,3 +13,5 @@ for (let i = 0; i < n; i++) {
   out += (32 - lz).toString(36) + (i % 50 === 49 ? '\n' : '');
 }
 console.log(`${n} fields\n${out}`);
+
+export {};

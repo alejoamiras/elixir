@@ -8,7 +8,7 @@ import { BB } from '../../work-circuit/scripts/toolchain.ts';
 
 const root = resolve(import.meta.dir, '..');
 
-const artifact = await Bun.file(resolve(root, 'target', 'elixir_spike-ElixirSpike.json')).json();
+const artifact = await Bun.file(resolve(root, 'target', 'yacana_spike-YacanaSpike.json')).json();
 const wanted = process.argv.slice(2);
 const fns = artifact.functions.filter(
   (f: { name: string; custom_attributes?: string[] }) =>

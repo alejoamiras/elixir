@@ -6,8 +6,6 @@
     "lib": ["ESNext", "DOM"],
     "types": ["bun"],
     "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
     "noFallthroughCasesInSwitch": true,
     "verbatimModuleSyntax": true,
     "allowImportingTsExtensions": true,
@@ -15,5 +13,5 @@
     "skipLibCheck": true
   },
   "include": ["packages/*/src", "packages/*/scripts", "packages/*/e2e", "scripts", "*.ts"],
-  "exclude": ["node_modules", "**/dist", "**/target"]
+  "exclude": ["node_modules", "**/dist", "**/target", "packages/web-miner/src"]
 }

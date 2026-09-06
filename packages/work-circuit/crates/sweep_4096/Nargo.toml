@@ -4,4 +4,4 @@ type = "bin"
 authors = [""]
 
 [dependencies]
-elixir_work_lib = { path = "../lib" }
+yacana_work_lib = { path = "../lib" }

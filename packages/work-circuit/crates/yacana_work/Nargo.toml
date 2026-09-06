@@ -1,0 +1,7 @@
+[package]
+name = "yacana_work"
+type = "bin"
+authors = [""]
+
+[dependencies]
+yacana_work_lib = { path = "../lib" }

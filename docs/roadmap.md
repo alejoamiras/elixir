@@ -9,7 +9,7 @@ backlog that the plan defers.
 |---|---|---|
 | 0 | Scaffold + CI (Bun workspace, Biome budgets, hooks, run isolation, per-package PR gates) | done |
 | 1 | Feasibility spike: work circuit, proof-layout manifest, real claim tx, ticket-cost measurements → GO / NO-GO | GO (owner, 2026-09-03); `implementations-plan/elixir-core/spike-results.md` |
-| 2 | Contracts (`elixir_miner`, token binding, retarget, TXE tests, retarget simulator) | done |
+| 2 | Contracts (`yacana_miner`, token binding, retarget, TXE tests, retarget simulator) | done |
 | 3 | miner-core (proof → digest, retarget mirror, epoch reader, claim builder, live integration, concurrent burst) | done |
 | 4 | Web miner (React + Vite + shadcn, Worker-hosted bb.js, embedded wallet, sponsored FPC, pinned CRS, Playwright E2E) | done |
 | 5 | Testnet soak on the `testnet` profile (2 h, 21 epochs closed, `docs/soak-report.md`), docs, mainnet-readiness notes | done |
