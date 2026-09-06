@@ -90,3 +90,18 @@ Gate: `bun run lint` ✓ · `lint:actions` ✓ · site `tsc` ✓ · every packag
 (11.0 min, on the committed debug-emptied artifacts) ✓.
 
 LESSONS_FILE=implementations-plan/yacana-surfaces/lessons/phase-4.md
+
+## Arc 4 codex loop (2026-09-06)
+
+**Round 1** (`/codex xhigh`, session `01a07676-4a25-76a2-83ab-bd88286fa6a3`, `run-codex.sh` on the `arc3-stats..HEAD` diff with the arc map, the plan, the lessons and both rules; files in `~/.cache/tmp/codex-0gu0L4i6`). Verdict: "changes required"; ten findings (two P1), all verified and accepted, plus a comment audit. Fixed in one commit:
+
+- **Launch mode could not read an unlaunched deployment** (P1): epoch 0's target is zero before `launch()`, so the live read refused it and the lottery was never read. The reader gained `epochExists` (the target slot through the slot table, zero = not yet); in launch mode `readAll` reads the lottery first and on its own, and a missing epoch 0 is the `unlaunched` state (Vitest on `readAll`, the component test renders both states).
+- **The Cloudflare instructions used the wrong root** (P1): Wrangler reads its config from the build's root, so the Pages root directory is `packages/site` (a `build` script runs the assembly; `bun install` there installs the whole workspace) and `BUN_VERSION` is the one environment variable.
+- **An e2e build could land in the production directory**: `assemble` refuses a non-production mode into `packages/site/dist` or under `CF_PAGES` (bun test).
+- **The countdown named the wrong event**: `launch_at` opens the reveal window; epoch 0 opens with `launch()` after it. The hero follows the contract's phases (commit → reveal → launch → open), and "open" comes only from an existing epoch 0, never from the clock (tested).
+- **Privacy copy overstated**: the first-claim handshake, public withdrawals and amounts are now stated the way the threat model does; "never" is who mined it, how fast, what a key holds.
+- **Launch and hardware claims**: this testnet launched at once (the copy says so; mainnet's lottery is named) and "never an ASIC farm" became "no special hardware exists for it".
+- "Build it yourself" links `/stats/verify`; the cadence dots are labelled a cadence; odds are `≈ 1 in ⌈difficulty⌉`; the history read leaves a lane for the open epoch's read; "recent epochs" and the eligible-epoch count in the network sub.
+- Comments: the narration in the demo Worker, the sparkline, the chip and the section slogan removed; the assembly, artifact and demo headers condensed; the build-order invariant and the relink note added.
+
+Gate after the fixes: `bun run lint` ✓ · web-landing `tsc -b` ✓ · `bun test` 151 ✓ · web-landing `test:components` 7 ✓ · E(web-landing) 3 passed (59 s) ✓ · E(site) 2 passed (1.1 min) ✓.

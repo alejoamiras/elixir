@@ -68,7 +68,7 @@ function Result({ state, target }: { state: Extract<DemoState, { phase: 'done' }
         </div>
         <div>
           <p className="text-2xs text-ink-2">{copy.demo.odds}</p>
-          <p className="text-2xl">1 in {Math.round(bar)}</p>
+          <p className="text-2xl">≈ 1 in {Math.ceil(bar)}</p>
         </div>
       </div>
       <p className="text-sm text-ink-2">
@@ -101,7 +101,7 @@ export function Demo({
     <div className="flex flex-col gap-4 rounded-md border border-line bg-panel p-4" data-testid="demo">
       <p className="eyebrow" data-testid="demo-caption">
         {open
-          ? `epoch ${open.epoch} · difficulty ${bar.toFixed(1)} · live from the chain`
+          ? `epoch ${open.epoch} · difficulty ${bar.toFixed(1)} · the bar is live from the chain`
           : copy.live.loading}
       </p>
       <ScoreLoop difficulty={bar} samples={[...cadence, ...own]} spanMs={SPAN_MS} height={140} hero />

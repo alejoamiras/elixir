@@ -1,9 +1,11 @@
-// Mainnet's launch week: the hero is the lottery. Countdown to launch_at from genesis, the reveals
-// so far from the lottery slots, one button that links the commit command.
+// Mainnet's launch week: the hero is the lottery. The countdown follows the contract's phases
+// (commit until launch_at, reveal for REVEAL_WINDOW_SECONDS, then anyone's launch() opens epoch 0),
+// the reveals so far come from the lottery slots, one button links the commit command.
+import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { Button, Kpi, shortHash } from '../../../ui/src/index.ts';
 import { copy, LINKS } from '../copy';
 import { useNow } from '../hooks';
-import type { LaunchStatus } from '../state';
+import type { LaunchStatus, LiveStatus } from '../state';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -15,12 +17,38 @@ export const countdown = (seconds: number): string => {
   return days > 0 ? `${days} d ${rest}` : rest;
 };
 
-export function Launch({ status, open }: { status: LaunchStatus; open: number | undefined }) {
+export type LaunchPhase = 'commit' | 'reveal' | 'launch' | 'open';
+
+/** `open` only once epoch 0 exists on chain; the clock alone cannot tell that `launch()` ran. */
+export function launchPhase(
+  now: number,
+  launchAt: number,
+  windowSeconds: number,
+  launched: boolean,
+): LaunchPhase {
+  if (launched) return 'open';
+  if (now < launchAt) return 'commit';
+  if (now < launchAt + windowSeconds) return 'reveal';
+  return 'launch';
+}
+
+const utc = (unix: number) => `${new Date(unix * 1000).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+
+export function Launch({ status, live }: { status: LaunchStatus; live: LiveStatus }) {
   const now = useNow();
   const l = copy.launch;
   const launch = status.phase === 'ready' ? status.launch : undefined;
-  const until = launch ? launch.genesis.launchAt - now : null;
-  const opened = open !== undefined && open >= 0 && until !== null && until <= 0;
+  const window = Number(PARAMS.REVEAL_WINDOW_SECONDS);
+  const phase = launch
+    ? launchPhase(now, launch.genesis.launchAt, window, live.phase === 'ready')
+    : undefined;
+  const clock = (): string => {
+    if (!launch || !phase) return '—';
+    if (phase === 'commit') return countdown(launch.genesis.launchAt - now);
+    if (phase === 'reveal') return countdown(launch.genesis.launchAt + window - now);
+    if (phase === 'launch') return l.anyone;
+    return `epoch ${live.phase === 'ready' ? live.live.open : 0}`;
+  };
   return (
     <section
       id="hero"
@@ -44,17 +72,13 @@ export function Launch({ status, open }: { status: LaunchStatus; open: number | 
       </div>
       <div className="flex flex-col gap-4 rounded-md border border-line bg-panel p-4">
         <Kpi
-          label={opened ? l.open : l.opensIn}
-          value={
-            <span data-testid="launch-countdown">
-              {until === null ? '—' : opened ? `epoch ${open}` : countdown(until)}
-            </span>
-          }
+          label={<span data-testid="launch-phase">{phase ? l.phases[phase] : copy.live.loading}</span>}
+          value={<span data-testid="launch-countdown">{clock()}</span>}
           size="lg"
           sub={
             launch
-              ? `launch at ${new Date(launch.genesis.launchAt * 1000).toISOString().slice(0, 16).replace('T', ' ')} UTC`
-              : copy.live.loading
+              ? `reveals ${utc(launch.genesis.launchAt)} to ${utc(launch.genesis.launchAt + window)}`
+              : ''
           }
         />
         <Kpi

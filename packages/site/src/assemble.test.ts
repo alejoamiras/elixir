@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { buildRecord, REDIRECTS } from './assemble.ts';
+import { assemble, buildRecord, PRODUCTION_OUT, REDIRECTS } from './assemble.ts';
 import type { SiteConfig } from './config.ts';
 
 describe('assembly', () => {
@@ -11,6 +11,15 @@ describe('assembly', () => {
       '/verify /stats/ 200',
     ]);
     for (const rule of REDIRECTS) expect(rule).toMatch(/^\/[a-z/]+ \/(mine|stats)\/ 200$/);
+  });
+
+  test('an e2e build can land neither in the production directory nor on Cloudflare', async () => {
+    await expect(assemble(PRODUCTION_OUT, { YACANA_SITE_MODE: 'e2e' })).rejects.toThrow(
+      /production builds only/,
+    );
+    await expect(assemble('/tmp/never-written', { YACANA_SITE_MODE: 'e2e', CF_PAGES: '1' })).rejects.toThrow(
+      /production builds only/,
+    );
   });
 
   test('build.json says what was built and nothing more', () => {

@@ -1,8 +1,6 @@
-// The compiled artifacts the pages fetch, committed so a Cloudflare build needs only Bun:
-// packages/contracts/artifacts/yacana_miner-YacanaMiner.json and packages/work-circuit/artifacts/
-// yacana_work.json, read from the toolchain's `target/` output with the debug information dropped
-// (`file_map` carries absolute source paths, so it is neither reproducible nor fit to publish).
-//   bun run artifacts:commit        then `git diff --exit-code` in CI proves the commit is fresh
+// The artifacts the pages fetch, committed so a Cloudflare build needs only Bun: the `target/`
+// output with `file_map` and `debug_symbols` emptied (absolute source paths: neither reproducible
+// nor fit to publish). CI re-runs `bun run artifacts:commit` and diffs.
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 

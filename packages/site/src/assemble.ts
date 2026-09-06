@@ -1,8 +1,6 @@
-// One origin from three apps: the landing at `/`, the miner at `/mine/`, the stats at `/stats/`,
-// with the CRS, the artifacts, the slot table and the layouts materialised once at the root, the
-// rendered `_headers`, the `_redirects` of the nested SPAs and `build.json` saying what was built.
-//   bun run site:build                    → packages/site/dist (production: site.env + the record only)
-//   YACANA_SITE_MODE=e2e bun packages/site/src/assemble.ts <out dir>   (an e2e run's throwaway deployment)
+// Three apps into one origin (`/`, `/mine/`, `/stats/`), the shared assets once at the root,
+// `_headers`, `_redirects`, `build.json`. `bun run site:build` → packages/site/dist; an e2e run
+// passes its own out dir.
 import { execFileSync } from 'node:child_process';
 import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -18,8 +16,9 @@ import { siteConfig } from './vite-base.ts';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const repo = resolve(here, '../../..');
+export const PRODUCTION_OUT = resolve(here, '../dist');
 
-/** Where each app lands inside the origin; the order is build order. */
+/** Where each app lands; the landing goes first because emptying `/` would delete the nested apps. */
 export const APPS = [
   { name: 'web-landing', base: '/' },
   { name: 'web-miner', base: '/mine/' },
@@ -27,10 +26,9 @@ export const APPS = [
 ] as const;
 
 /**
- * The nested apps' deep links, each an exact 200 rewrite to the app's directory. Pages evaluates
- * `_redirects` before static assets, so a wildcard would shadow the app's own bundle, and a target
- * ending in `.html` turns into a canonical 308; exact sources with directory targets survive both
- * (verified under `wrangler pages dev`). The record types force every route to be listed.
+ * The nested apps' deep links as exact 200 rewrites to each app's directory: Pages evaluates
+ * `_redirects` before static assets (a wildcard would shadow the app's bundle) and turns an
+ * `.html` target into a canonical 308.
  */
 const MINER_LINKS: Record<Exclude<MinerRoute, 'mine'>, true> = { wallet: true, settings: true };
 const STATS_LINKS: Record<Exclude<StatsRoute, 'stats'>, true> = { verify: true };
@@ -66,6 +64,9 @@ function buildApp(name: string, base: string, outDir: string, env: NodeJS.Proces
 export async function assemble(out: string, env: NodeJS.ProcessEnv = process.env): Promise<BuildRecord> {
   // The config is loaded once here so a production build fails before any app is built.
   const config = siteConfig('build', env);
+  // What Cloudflare serves is `dist` of a Cloudflare build: neither may hold anything but production.
+  if (config.mode !== 'production' && (out === PRODUCTION_OUT || env.CF_PAGES))
+    throw new Error(`a ${config.mode} build may not land in ${out}: production builds only`);
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
   for (const app of APPS) buildApp(app.name, app.base, resolve(out, app.base.slice(1)), env);
@@ -84,7 +85,7 @@ export async function assemble(out: string, env: NodeJS.ProcessEnv = process.env
 }
 
 if (import.meta.main) {
-  const out = resolve(process.argv[2] ?? resolve(here, '../dist'));
+  const out = resolve(process.argv[2] ?? PRODUCTION_OUT);
   const record = await assemble(out);
   console.log(`site: ${record.mode} build of ${record.commit.slice(0, 7)} in ${out}`);
 }

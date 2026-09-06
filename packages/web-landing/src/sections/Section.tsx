@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import type { SectionId } from '../copy';
 
-/** One screen, one sentence: the eyebrow names it, the heading is the argument, the body the evidence. */
 export function Section({
   id,
   eyebrow,

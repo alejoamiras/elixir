@@ -191,6 +191,20 @@ const readSlot = (node: Node, contract: AztecAddress, slot: Fr, limits: ReadLimi
     `slot ${slot.toString().slice(0, 10)}`,
   );
 
+/** Whether `epoch` exists on chain: its target is written when it opens, zero before `launch()`. */
+export async function epochExists(
+  node: Node,
+  miner: AztecAddress,
+  epoch: number,
+  load: SlotLoader,
+  limits = DEFAULT_LIMITS,
+): Promise<boolean> {
+  const table = await load(Math.floor(epoch / CHUNK));
+  const slot = table.epochs[epoch - table.first];
+  if (!slot) throw new Error(`epoch ${epoch} is beyond the slot table`);
+  return (await readSlot(node, miner, slot, limits)).toBigInt() > 0n;
+}
+
 export const readOpenEpochNumber = async (
   node: Node,
   miner: AztecAddress,

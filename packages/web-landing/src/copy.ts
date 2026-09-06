@@ -9,6 +9,8 @@ const claimsPerHour = scheduledClaimsPerHour(RULES);
 const perHour = claimsPerHour * reward;
 const epochMinutes = Number(PARAMS.EXPECTED_EPOCH_SECONDS) / 60;
 const symbol = PARAMS.TOKEN_SYMBOL;
+/** Mainnet opens epoch 0 by the launch lottery; a zero reveal window means this network launched at once. */
+const lottery = PARAMS.REVEAL_WINDOW_SECONDS > 0n;
 
 export const REPO = 'https://github.com/alejoamiras/elixir';
 export const LINKS = {
@@ -54,10 +56,18 @@ export const copy = {
         v: `${reward} ${symbol} per accepted proof · ${PARAMS.N} per ${epochMinutes} minutes · about ${perHour} an hour, forever`,
       },
       { k: 'supply', v: 'no cap; constant issuance, so the inflation rate falls every year' },
-      { k: 'premine', v: 'none; epoch 0 was opened by a public lottery, not by us' },
+      {
+        k: 'premine',
+        v: lottery
+          ? 'none; epoch 0 was opened by a public lottery, not by us'
+          : 'none; this testnet launched at once (mainnet opens epoch 0 by a public lottery)',
+      },
       { k: 'admin', v: 'none; the contracts are immutable, there is no upgrade key' },
       { k: 'held as', v: 'private notes on Aztec; a public balance only if you choose it' },
-      { k: 'mined by', v: 'a desktop browser today, a native prover later, never an ASIC farm' },
+      {
+        k: 'mined by',
+        v: 'a browser or a native prover running Barretenberg; no special hardware exists for it',
+      },
     ],
     table: {
       columns: ['Bitcoin', 'Zcash', symbol],
@@ -72,7 +82,9 @@ export const copy = {
           cells: [
             'miners only',
             '20 % of rewards to founders, then a dev fund',
-            'miners only · public launch lottery',
+            lottery
+              ? 'miners only · public launch lottery'
+              : 'miners only (mainnet: a public launch lottery)',
           ],
           tone: ['green', 'red', 'green'],
         },
@@ -83,12 +95,12 @@ export const copy = {
         },
         {
           k: 'your balance',
-          cells: ['public', 'private if you shield', 'private, always'],
+          cells: ['public', 'private if you shield', 'private notes; public only if you withdraw in public'],
           tone: ['red', 'amber', 'green'],
         },
         {
           k: 'who mined a coin',
-          cells: ['an address, forever', 'an address, unless shielded', 'nobody'],
+          cells: ['an address, forever', 'an address, unless shielded', 'no address on the claim'],
           tone: ['red', 'amber', 'green'],
         },
         {
@@ -101,13 +113,16 @@ export const copy = {
   },
   chain: {
     heading: 'Public: that a coin was mined. Private: everything else.',
-    body: 'A claim writes a nullifier, a note hash and a counter. Not the recipient, not the secret, not how many proofs it took. Never who, how fast, how much.',
+    body: 'A claim writes a nullifier, a note hash and a counter; a key’s first claim adds Aztec’s delivery handshake, which someone who already knows that address can match. Not the recipient, not the secret, not how many proofs it took.',
     holding:
-      'The same is true of holding and spending it: a transfer is a nullifier and a note hash, nothing more. On testnet the sponsor pays the fee, so not even the payer is you; on mainnet a private fee path is the roadmap, and the page will say which it is.',
+      'Holding and spending it: a private transfer is nullifiers and note hashes with the amounts hidden; a public withdraw shows its amount and address, which is why it is a choice. On testnet the sponsor pays the fee, so not even the payer is you; on mainnet a private fee path is the roadmap, and the page will say which it is.',
     footprint: [
-      { k: 'a claim reveals', v: '1 nullifier · 1 note hash · claims + 1' },
-      { k: 'a transfer reveals', v: '1 nullifier · 1 note hash' },
-      { k: 'never', v: 'who · how fast · how much' },
+      {
+        k: 'a claim reveals',
+        v: '1 nullifier · 1 note hash · claims + 1 · a handshake on a key’s first claim',
+      },
+      { k: 'a private transfer reveals', v: 'nullifiers · note hashes · no amount' },
+      { k: 'never', v: 'who mined it · how fast · what a key holds' },
     ],
   },
   how: {
@@ -133,10 +148,11 @@ export const copy = {
   },
   live: {
     heading: 'Live',
-    sub: 'difficulty since launch · all stats →',
+    sub: 'difficulty, recent epochs · all stats →',
     unreachable: 'the node is not answering; these are the last numbers read',
     loading: 'reading the chain…',
     noHistory: 'no closed epoch yet',
+    unlaunched: 'epoch 0 has not opened yet',
   },
   verify: {
     heading: "Don't trust this page.",
@@ -159,7 +175,8 @@ export const copy = {
     ],
   },
   demo: {
-    before: 'Each dot is a proof scored against today’s bar. Press Prove one now to add your own.',
+    before:
+      'The bar is live from the chain; the dots are a cadence, not proofs. Press Prove one now to add a real one.',
     proving: 'proving on this machine',
     nothingSent: 'Nothing is sent anywhere. Your CPU, your proof.',
     steps: {
@@ -180,8 +197,13 @@ export const copy = {
   },
   launch: {
     eyebrow: 'Yacana mainnet · launch',
-    opensIn: 'epoch 0 opens in',
-    open: 'epoch 0 is open',
+    phases: {
+      commit: 'reveals begin in',
+      reveal: 'the reveal window closes in',
+      launch: 'epoch 0 opens with the next launch()',
+      open: 'epoch 0 is open',
+    },
+    anyone: 'anyone may call it',
     body: 'The first seed is drawn from everyone who commits before launch and reveals in the 10 minutes after. Commit a random number now; reveal it late. One late honest reveal is what keeps the seed unpredictable.',
     commit: 'Commit my entropy',
     commitSub: 'from any Aztec wallet · a public tx · the docs show the command',

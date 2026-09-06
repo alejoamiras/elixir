@@ -1,6 +1,5 @@
-// The landing's "Prove one now": one proof of W against the open epoch, scored and discarded, in
-// the miner's Worker pipeline (pinned CRS, bb.js). Only types and the Worker factory live here so
-// a page that imports it ships none of the prover until the Worker is created.
+// The landing's demo: one proof of W in the miner's Worker pipeline. Only types and the factory
+// live here, so importing this file ships none of the prover.
 
 export interface DemoJob {
   chainId: bigint;

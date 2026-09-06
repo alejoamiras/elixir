@@ -15,7 +15,6 @@ const launched = record.launchedAt
   ? `${new Date(Number(record.launchedAt) * 1000).toISOString().slice(0, 16).replace('T', ' ')} UTC`
   : '—';
 
-/** A value of the record; the click copies the whole of it. */
 function Chip({ k, v, full }: { k: string; v: string; full?: string }) {
   const [copied, setCopied] = useState(false);
   const text = full ?? v;
@@ -59,7 +58,7 @@ export function Verify() {
           <a href={LINKS.threatModel}>{v.threatModel}</a>
         </Button>
         <Button asChild>
-          <a href={`${appHref('stats')}#verify`}>{v.build}</a>
+          <a href={`${appHref('stats')}verify`}>{v.build}</a>
         </Button>
       </div>
     </Section>

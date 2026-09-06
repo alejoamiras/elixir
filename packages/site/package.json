@@ -5,6 +5,7 @@
   "description": "The deployable: one env source of truth, the shared Vite base, the rendered headers, assembly of the three apps",
   "type": "module",
   "scripts": {
+    "build": "bun src/assemble.ts",
     "test": "bun test",
     "test:e2e": "playwright test",
     "typecheck": "tsc -p tsconfig.json --noEmit"

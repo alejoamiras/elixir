@@ -8,6 +8,7 @@ import {
   assertDeployment,
   DEFAULT_LIMITS,
   type EpochRow,
+  epochExists,
   expectedFromStrings,
   linkRows,
   type Node,
@@ -86,6 +87,9 @@ const latestBlock = async (node: Node): Promise<Live['block']> => {
   };
 };
 
+/** The open epoch's read runs beside the history's lanes; together they stay within the default bound. */
+const HISTORY_LIMITS = { ...DEFAULT_LIMITS, concurrency: DEFAULT_LIMITS.concurrency - 1 };
+
 /** The seed is a fourth read; only the open epoch needs it, so the history goes without. */
 export async function readLive(r: Reader): Promise<Live> {
   const [open, block, supply] = await Promise.all([
@@ -95,9 +99,12 @@ export async function readLive(r: Reader): Promise<Live> {
   ]);
   const from = Math.max(0, open - HISTORY);
   const [history, current] = await Promise.all([
-    from < open ? readEpochs(r.node, r.miner, { from, to: open - 1 }, r.load) : Promise.resolve([]),
+    from < open
+      ? readEpochs(r.node, r.miner, { from, to: open - 1 }, r.load, { limits: HISTORY_LIMITS })
+      : Promise.resolve([]),
     readEpochs(r.node, r.miner, { from: open, to: open }, r.load, { withSeed: true }),
   ]);
+  // Linked as one list: the last history row closes against the open epoch.
   return { rows: linkRows([...history, ...current]), open, supply, block, readAt: Date.now() };
 }
 
@@ -108,3 +115,6 @@ export const readLaunch = async (r: Reader): Promise<Launch> => {
   ]);
   return { genesis, lottery };
 };
+
+/** Whether `launch()` has opened epoch 0. */
+export const readLaunched = (r: Reader): Promise<boolean> => epochExists(r.node, r.miner, 0, r.load);

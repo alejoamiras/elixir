@@ -66,7 +66,8 @@ at `/mine/`, the stats at `/stats/` (`/verify` rewrites to it), the CRS / artifa
 `_headers` (COOP, COEP, CORP, the CSP with `connect-src` = the node, `Permissions-Policy`, `nosniff`,
 `no-referrer`), `_redirects` (exact deep links → each app's directory) and `build.json` (mode, commit, node
 origins, RP ID). Production builds take nothing from the process environment: a build with the e2e flag, a local
-or plaintext node origin, or an RP ID other than `site.env`'s fails (`packages/site/src/config.ts`).
+or plaintext node origin, or an RP ID other than `site.env`'s fails (`packages/site/src/config.ts`), and a
+non-production mode can land neither in `packages/site/dist` nor in a Cloudflare build (`CF_PAGES`).
 
 Cloudflare Pages project (owner, in the dashboard; nothing here is secret):
 
@@ -74,9 +75,10 @@ Cloudflare Pages project (owner, in the dashboard; nothing here is secret):
 |---|---|
 | Project | `yacana` (`packages/site/wrangler.jsonc`: `pages_build_output_dir: dist`) |
 | Git integration | this repository, production branch `main`, preview deployments for every other branch (previews show a banner and refuse key creation) |
-| Build command | `bun run site:build` (root directory `/`; the toolchain is not needed: the pages fetch the committed artifacts) |
-| Build image | v3 with Bun pinned to the repo's version through the build system's version setting (`BUN_VERSION`, ≥ 1.4) |
-| Environment variables | none (the public configuration is `packages/site/site.env`; `CF_PAGES_COMMIT_SHA` is read for `build.json`) |
+| Root directory | `packages/site` (Wrangler reads `wrangler.jsonc` from the build's root; `bun install` there installs the whole workspace) |
+| Build command | `bun install --frozen-lockfile && bun run build` (= `bun src/assemble.ts`, which builds the three apps from the repository; the toolchain is not needed: the pages fetch the committed artifacts); output `dist` |
+| Build image | v3; Bun from `BUN_VERSION` (≥ 1.4) |
+| Environment variables | `BUN_VERSION` only (a version pin, not a secret). The public configuration is `packages/site/site.env`; `CF_PAGES_COMMIT_SHA` is read for `build.json` |
 | Custom domains | `yacana.network`, `www.yacana.network` → apex (Bulk Redirect or Pages redirect) |
 | Zone | HSTS on (include subdomains, preload once stable), CAA `0 issue "letsencrypt.org"` + `0 issue "pki.goog"` + `0 issue "digicert.com"` (Cloudflare's CAs), DNSSEC on |
 

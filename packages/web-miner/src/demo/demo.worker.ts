@@ -16,7 +16,6 @@ import type { DemoIn, DemoOut, DemoStepName } from './index';
 
 const post = (m: DemoOut) => self.postMessage(m);
 
-/** Runs `fn` and reports its wall time as one step of the panel. */
 async function step<T>(name: DemoStepName, fn: () => Promise<T>): Promise<T> {
   const t0 = performance.now();
   const out = await fn();

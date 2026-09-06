@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { App } from './App';
 import { copy, SECTIONS } from './copy';
 import type { Live } from './live';
-import { countdown } from './sections/Launch';
+import { countdown, launchPhase } from './sections/Launch';
 
 afterEach(cleanup);
 
@@ -87,30 +87,40 @@ describe('the landing', () => {
   test('launch mode: the hero is the lottery with the countdown and the reveals', () => {
     vi.stubEnv('VITE_LAUNCH_MODE', '1');
     vi.useFakeTimers({ now: 1_000_000 * 1000 });
+    const launch = {
+      phase: 'ready' as const,
+      launch: {
+        genesis: { target: 1n, seed: 0n, launchAt: 1_000_000 + 3661 },
+        lottery: { mix: 7n, reveals: 14 },
+      },
+    };
     try {
-      render(
-        <App
-          live={{ phase: 'ready', live, unreachable: false }}
-          launch={{
-            phase: 'ready',
-            launch: {
-              genesis: { target: 1n, seed: 0n, launchAt: 1_000_000 + 3661 },
-              lottery: { mix: 7n, reveals: 14 },
-            },
-          }}
-          miner="0x01"
-        />,
-      );
+      // Before launch(): nothing live, the clock counts to the reveals.
+      render(<App live={{ phase: 'unlaunched' }} launch={launch} miner="0x01" />);
       expect(screen.getByTestId('launch')).toBeTruthy();
       expect(screen.queryByTestId('demo')).toBeNull();
+      expect(screen.getByTestId('launch-phase').textContent).toBe('reveals begin in');
       expect(screen.getByTestId('launch-countdown').textContent).toBe('01:01:01');
       expect(screen.getByTestId('launch-reveals').textContent).toBe('14');
       expect(screen.getByTestId('launch-commit').getAttribute('href')).toContain('deployments.md');
+      expect(screen.getByTestId('live-epoch').textContent).toBe('—');
+      expect(screen.getByText(copy.live.unlaunched)).toBeTruthy();
+      cleanup();
+      // Epoch 0 exists: open, whatever the clock says.
+      render(<App live={{ phase: 'ready', live, unreachable: false }} launch={launch} miner="0x01" />);
+      expect(screen.getByTestId('launch-phase').textContent).toBe('epoch 0 is open');
+      expect(screen.getByTestId('launch-countdown').textContent).toBe('epoch 1');
     } finally {
       vi.useRealTimers();
       vi.unstubAllEnvs();
     }
     expect(countdown(90_061)).toBe('1 d 01:01:01');
     expect(countdown(-5)).toBe('00:00:00');
+    // The contract's phases: commit until launch_at, reveal for the window, then launch() by anyone.
+    expect(launchPhase(99, 100, 600, false)).toBe('commit');
+    expect(launchPhase(100, 100, 600, false)).toBe('reveal');
+    expect(launchPhase(699, 100, 600, false)).toBe('reveal');
+    expect(launchPhase(700, 100, 600, false)).toBe('launch');
+    expect(launchPhase(0, 100, 600, true)).toBe('open');
   });
 });

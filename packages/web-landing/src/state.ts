@@ -3,6 +3,8 @@ import type { Launch, Live } from './live';
 export type LiveStatus =
   | { phase: 'loading' }
   | { phase: 'error'; message: string }
+  /** Launch mode before `launch()`: epoch 0 does not exist yet, there is nothing live to read. */
+  | { phase: 'unlaunched' }
   /** `unreachable` after a poll fails: the numbers shown are `live`'s, the last read. */
   | { phase: 'ready'; live: Live; unreachable: boolean };
 

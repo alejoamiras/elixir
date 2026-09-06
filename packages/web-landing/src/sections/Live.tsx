@@ -7,7 +7,6 @@ import { copy } from '../copy';
 import { appHref, type LiveStatus } from '../state';
 import { Section } from './Section';
 
-/** Difficulty per epoch shown, one point each, log scale, a line through them. */
 function Sparkline({ rows }: { rows: EpochRow[] }) {
   const w = 240;
   const h = 48;
@@ -28,11 +27,18 @@ function Sparkline({ rows }: { rows: EpochRow[] }) {
   );
 }
 
+const mintedSub = (status: LiveStatus, unit: number): string => {
+  if (status.phase === 'ready') return `${amount(status.live.supply / PARAMS.REWARD, 0)} claims × ${unit}`;
+  return status.phase === 'unlaunched' ? copy.live.unlaunched : copy.live.loading;
+};
+
 export function Live({ status }: { status: LiveStatus }) {
   const live = status.phase === 'ready' ? status.live : undefined;
   const rows = live?.rows ?? [];
   const open = rows[rows.length - 1];
   const rate = networkRate(rows, PARAMS.N);
+  // The median ignores epochs closed by roll(): count the ones it used.
+  const eligible = Math.min(6, rows.filter((r) => r.closedBy === 'claims').length);
   const unit = Number(PARAMS.REWARD / 10n ** BigInt(PARAMS.DECIMALS));
   return (
     <Section id="live" eyebrow="live" heading={copy.live.heading}>
@@ -44,7 +50,7 @@ export function Live({ status }: { status: LiveStatus }) {
           }
           unit={PARAMS.TOKEN_SYMBOL}
           size="lg"
-          sub={live ? `${amount(live.supply / PARAMS.REWARD, 0)} claims × ${unit}` : copy.live.loading}
+          sub={mintedSub(status, unit)}
         />
         <Kpi
           label={`epoch ${live?.open ?? '—'}`}
@@ -62,11 +68,7 @@ export function Live({ status }: { status: LiveStatus }) {
           value={<span data-testid="live-network">{rate === null ? '—' : `≈ ${rate.toFixed(2)}`}</span>}
           unit="proofs/s"
           size="lg"
-          sub={
-            rate === null
-              ? copy.live.noHistory
-              : `median of the last ${Math.min(6, rows.length - 1)} closed epochs`
-          }
+          sub={rate === null ? copy.live.noHistory : `median of the last ${eligible} epochs closed by claims`}
         />
       </div>
       <div className="flex flex-wrap items-center gap-4">

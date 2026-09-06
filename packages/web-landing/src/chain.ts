@@ -1,7 +1,16 @@
 // The page's chain state over time: the boot read, then a poll a minute. A failed poll keeps the
 // last numbers and marks them unreachable; a failed boot is the error state.
 import type { Connection } from '../../site/src/browser/connection.ts';
-import { openReader, POLL_MS, type Reader, readLaunch, readLive } from './live';
+import {
+  type Launch,
+  type Live,
+  openReader,
+  POLL_MS,
+  type Reader,
+  readLaunch,
+  readLaunched,
+  readLive,
+} from './live';
 import { type LaunchStatus, type LiveStatus, launchMode } from './state';
 
 export interface ChainSink {
@@ -9,11 +18,34 @@ export interface ChainSink {
   launch: (s: LaunchStatus) => void;
 }
 
+export interface Reads {
+  live: (r: Reader) => Promise<Live>;
+  launch: (r: Reader) => Promise<Launch>;
+  launched: (r: Reader) => Promise<boolean>;
+}
+
+const REAL: Reads = { live: readLive, launch: readLaunch, launched: readLaunched };
+
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-async function readAll(reader: Reader, sink: ChainSink): Promise<void> {
-  sink.live({ phase: 'ready', live: await readLive(reader), unreachable: false });
-  if (launchMode()) sink.launch({ phase: 'ready', launch: await readLaunch(reader) });
+/**
+ * In launch mode the lottery is read first and on its own: before `launch()` epoch 0 does not
+ * exist and the live read would refuse it.
+ */
+export async function readAll(
+  reader: Reader,
+  sink: ChainSink,
+  launch = launchMode(),
+  reads = REAL,
+): Promise<void> {
+  if (launch) {
+    sink.launch({ phase: 'ready', launch: await reads.launch(reader) });
+    if (!(await reads.launched(reader))) {
+      sink.live({ phase: 'unlaunched' });
+      return;
+    }
+  }
+  sink.live({ phase: 'ready', live: await reads.live(reader), unreachable: false });
 }
 
 /** Starts the reads; the returned function stops them (nothing lands afterwards). */

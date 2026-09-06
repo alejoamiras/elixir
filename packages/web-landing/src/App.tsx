@@ -23,7 +23,7 @@ export function App({ live, launch, miner }: { live: LiveStatus; launch: LaunchS
       <Bar live={live.phase === 'ready' && !live.unreachable} />
       <main>
         {launchMode() ? (
-          <Launch status={launch} open={current?.open} />
+          <Launch status={launch} live={live} />
         ) : (
           <Hero live={current} job={job} demo={demo.state} onProve={onProve} />
         )}
