@@ -81,6 +81,7 @@ const port = await claim({
   base: lanePortBase(runPortWindowBase(runId), 6, 8),
   span: 8,
 });
+let spawned: ChildProcess | undefined;
 try {
   const target = BigInt(process.env.YACANA_E2E_TARGET ?? String(1n << 127n));
   const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: target });
@@ -88,7 +89,8 @@ try {
   const log = openSync(resolve(pkg, 'e2e/.vite.log'), 'w');
   const env = e2eEnv(deployed);
   if (server === 'preview') buildForRun(log, env);
-  const vite = startServer(log, port, env);
+  spawned = startServer(log, port, env);
+  const vite = spawned;
   const baseURL = `http://localhost:${port}`;
   if (!(await waitUntilUp(baseURL, vite)))
     throw new Error(`vite ${server} did not start on ${baseURL} (see e2e/.vite.log)`);
@@ -107,6 +109,14 @@ try {
   console.log(`e2e: ${baseURL} (${server}) miner ${deployed.miner} token ${deployed.token}`);
   process.exit(0);
 } catch (e) {
+  // The server is detached: nothing else would reap it once this script is gone.
+  if (spawned?.pid) {
+    try {
+      process.kill(-spawned.pid, 'SIGKILL');
+    } catch {
+      /* never started */
+    }
+  }
   await release(runId).catch(() => {});
   throw e;
 }

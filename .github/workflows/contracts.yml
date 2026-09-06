@@ -31,6 +31,8 @@ jobs:
               - 'packages/work-circuit/crates/**'
               - 'packages/work-circuit/fixtures/**'
               - 'packages/miner-core/src/**'
+              - 'packages/miner-core/scripts/**'
+              - 'packages/miner-core/fixtures/**'
               - 'packages/site/**'
               - 'packages/ui/**'
               - 'packages/web-miner/**'
@@ -62,6 +64,8 @@ jobs:
       # Generated Noir globals and VK copies must match yacana.params.json and the work circuit.
       - run: bun run codegen && git diff --exit-code
       - run: bun run contracts:compile
+      # The committed storage layouts (the read path's only view of the contracts) must match the build.
+      - run: bun packages/miner-core/scripts/export-layouts.ts && git diff --exit-code
       - run: bun test scripts/run/toolchain.test.ts
         env:
           YACANA_REQUIRE_TOOLCHAIN: '1'

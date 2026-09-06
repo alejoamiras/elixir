@@ -17,3 +17,15 @@ packages/web-miner/e2e/.run.json
 packages/web-miner/e2e/.dist/
 packages/web-miner/playwright-report/
 deployments/.launch-*.json
+
+# Build-time slot table (bun packages/miner-core/scripts/gen-slots.ts)
+packages/miner-core/generated/
+
+# web-stats prebuild outputs (slot chunks and the storage layouts)
+packages/web-stats/public/slots/
+packages/web-stats/public/layouts.json
+packages/web-stats/test-results/
+packages/web-stats/e2e/.run.json
+packages/web-stats/e2e/.mock.json
+packages/web-stats/e2e/.dist/
+packages/web-stats/e2e/.vite.log

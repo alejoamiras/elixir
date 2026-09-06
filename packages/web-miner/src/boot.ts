@@ -6,6 +6,7 @@ import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 import type { createStore } from 'jotai';
 import { deriveAccountFields } from '../../miner-core/src/keys/derive.ts';
 import { assertDeployment, expectedFromStrings } from '../../miner-core/src/reader.ts';
+import { boundNodeRequests } from '../../site/src/browser/node-deadline.ts';
 import type { PreflightRow } from '../../ui/src/index.ts';
 import { attachDeployment, loadArtifact, type Node, readEpochRules } from './chain';
 import { allowedNodeOrigins, type Connection, disallowedNodeUrl } from './config';
@@ -36,24 +37,8 @@ export interface Preflighted {
 
 const short = (hex: string) => `${hex.slice(0, 10)}…${hex.slice(-4)}`;
 
-/** A request to the node that gets no answer for this long is dead; the SDK sets no deadline. */
+/** A request to the node that gets no answer for this long is dead. */
 const NODE_REQUEST_MS = 120_000;
-
-/**
- * Bounds every request the page makes to the node, including the PXE's from inside the wallet;
- * a caller's own signal (in `init` or on a `Request`) keeps cancelling alongside the deadline.
- */
-function boundNodeRequests(nodeUrl: string): void {
-  const origin = new URL(nodeUrl).origin;
-  const fetch = globalThis.fetch.bind(globalThis);
-  globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-    const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    if (new URL(href, location.href).origin !== origin) return fetch(input, init);
-    const own = init?.signal ?? (input instanceof Request ? input.signal : null);
-    const deadline = AbortSignal.timeout(NODE_REQUEST_MS);
-    return fetch(input, { ...init, signal: own ? AbortSignal.any([own, deadline]) : deadline });
-  };
-}
 
 /** Runs the checks one by one, each row's evidence landing in the store as it completes. */
 export async function preflight(store: Store, connection: Connection): Promise<Preflighted> {
@@ -106,7 +91,7 @@ export async function preflight(store: Store, connection: Connection): Promise<P
       value: undefined,
     };
   });
-  boundNodeRequests(connection.nodeUrl);
+  boundNodeRequests(connection.nodeUrl, NODE_REQUEST_MS);
   const node = createAztecNodeClient(connection.nodeUrl);
   const { chainId, rollupVersion, block } = await run('node', async () => {
     const [chain, info, tip] = await Promise.all([
