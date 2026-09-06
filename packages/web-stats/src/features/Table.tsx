@@ -28,15 +28,16 @@ export function download(name: string, text: string, type: string): void {
 
 function Row({
   r,
+  open,
   selected,
   onSelect,
 }: {
   r: EpochRow;
+  open: boolean;
   selected: number | null;
   onSelect: (e: number | null) => void;
 }) {
   const expected = Number(PARAMS.EXPECTED_EPOCH_SECONDS);
-  const open = r.duration === null;
   const dur = r.duration ?? 0;
   return (
     <tr
@@ -50,9 +51,11 @@ function Row({
       <td className="py-1.5 pr-4">{r.epoch}</td>
       <td className="py-1.5 pr-4 text-ink-2">{clock(r.openedAt)}</td>
       <td className="py-1.5 pr-4">{open ? `${r.claims} of ${PARAMS.N}` : r.claims}</td>
-      <td className="py-1.5 pr-4">{open ? 'open' : `${dur} s`}</td>
+      <td className="py-1.5 pr-4">{open ? 'open' : r.duration === null ? 'not read yet' : `${dur} s`}</td>
       <td className="py-1.5 pr-4 text-ink-2">
-        {open ? '–' : `${(dur / expected).toFixed(2)}×${dur > Number(PARAMS.T_MAX) ? ' · capped' : ''}`}
+        {r.duration === null
+          ? '–'
+          : `${(dur / expected).toFixed(2)}×${dur > Number(PARAMS.T_MAX) ? ' · capped' : ''}`}
       </td>
       <td className="py-1.5 pr-4">{difficulty(r.target).toFixed(1)}</td>
       <td className="py-1.5 pr-4 text-ink-2">
@@ -67,12 +70,14 @@ function Row({
 
 export function Table({
   rows,
+  open,
   selected,
   onSelect,
   onOlder,
   loadingOlder,
 }: {
   rows: readonly EpochRow[];
+  open: number;
   selected: number | null;
   onSelect: (epoch: number | null) => void;
   onOlder: () => void;
@@ -116,7 +121,7 @@ export function Table({
           </thead>
           <tbody>
             {[...rows].reverse().map((r) => (
-              <Row key={r.epoch} r={r} selected={selected} onSelect={onSelect} />
+              <Row key={r.epoch} r={r} open={r.epoch === open} selected={selected} onSelect={onSelect} />
             ))}
           </tbody>
         </table>

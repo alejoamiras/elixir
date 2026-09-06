@@ -161,14 +161,26 @@ const withTimeout = <T>(p: Promise<T>, ms: number, what: string): Promise<T> =>
     p.then(resolve, reject).finally(() => clearTimeout(t));
   });
 
-/** `fn` over `items`, at most `concurrency` calls of it in flight, results in order. */
+/**
+ * `fn` over `items`, at most `concurrency` calls of it in flight, results in order. The first
+ * failure stops the hand-out; the calls in flight finish before it is thrown, so nothing of a
+ * failed batch is still running when the caller hears of it.
+ */
 async function pooled<T, R>(items: T[], concurrency: number, fn: (t: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
   let next = 0;
+  let failure: { error: unknown } | undefined;
   const lane = async () => {
-    for (let i = next++; i < items.length; i = next++) out[i] = await fn(items[i] as T);
+    for (let i = next++; i < items.length && !failure; i = next++) {
+      try {
+        out[i] = await fn(items[i] as T);
+      } catch (error) {
+        failure ??= { error };
+      }
+    }
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, lane));
+  if (failure) throw failure.error;
   return out;
 }
 

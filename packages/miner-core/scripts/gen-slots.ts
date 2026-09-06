@@ -22,6 +22,7 @@ export async function slotsCurrent(out = DEFAULT_OUT): Promise<boolean> {
   } catch {
     return false;
   }
+  if (typeof stamp !== 'object' || stamp === null) return false;
   if (stamp.layout !== (await Bun.file(LAYOUTS_PATH).text())) return false;
   if (!Array.isArray(stamp.sha256) || stamp.sha256.length !== CHUNKS) return false;
   for (let c = 0; c < CHUNKS; c++) {

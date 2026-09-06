@@ -138,6 +138,23 @@ describe('readEpochs', () => {
     ).rejects.toThrow(/no answer/);
     expect(await readGenesis(node, miner, layout)).toEqual({ target: 0n, seed: 0n, launchAt: 0 });
   });
+
+  test('a failed batch hands out no more epochs; its reads in flight end before it rejects', async () => {
+    const { values, load } = await chain(30);
+    const broken = new Map(values);
+    const table = await load();
+    broken.set((table.epochs[2] as Fr).toString(), 0n);
+    const fake = fakeNode(broken, 5);
+    const limits = { ...DEFAULT_LIMITS, concurrency: 3 };
+    await expect(readEpochs(fake.node, miner, { from: 0, to: 30 }, load, { limits })).rejects.toThrow(
+      /target 0/,
+    );
+    const afterRejection = fake.reads();
+    // Each lane finishes the epoch it holds and takes no other: two epochs of 3 reads per lane at most.
+    expect(afterRejection).toBeLessThanOrEqual(3 * 2 * 3);
+    await new Promise((r) => setTimeout(r, 60));
+    expect(fake.reads()).toBe(afterRejection);
+  });
 });
 
 describe('linkRows', () => {

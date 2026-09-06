@@ -51,9 +51,16 @@ export function Stats({ onOlder }: { onOlder: () => void }) {
             <p className="eyebrow mb-3">
               epochs since launch · width = duration · violet harder · grey easier · amber escape hatch
             </p>
-            <Strip rows={rows} selected={effective} onSelect={onSelect} now={nowSec} onOlder={onOlder} />
+            <Strip
+              rows={rows}
+              open={chain.open}
+              selected={effective}
+              onSelect={onSelect}
+              now={nowSec}
+              onOlder={onOlder}
+            />
           </div>
-          {current && <Detail row={current} next={next} now={nowSec} />}
+          {current && <Detail row={current} open={current.epoch === chain.open} next={next} now={nowSec} />}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-md border border-line bg-panel p-4">
               <Emission {...charts} />
@@ -70,6 +77,7 @@ export function Stats({ onOlder }: { onOlder: () => void }) {
           </div>
           <Table
             rows={rows}
+            open={chain.open}
             selected={effective}
             onSelect={onSelect}
             onOlder={onOlder}

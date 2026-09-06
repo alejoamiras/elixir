@@ -29,6 +29,8 @@ describe('gen-slots', () => {
       const chunk = join(out, '7.json');
       await Bun.write(chunk, (await Bun.file(chunk).text()).slice(0, 1000));
       expect(await slotsCurrent(out)).toBe(false);
+      await Bun.write(join(out, '.stamp.json'), 'null');
+      expect(await slotsCurrent(out)).toBe(false);
     } finally {
       rmSync(out, { recursive: true, force: true });
     }

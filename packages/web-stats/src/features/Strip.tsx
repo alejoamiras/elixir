@@ -6,6 +6,8 @@ import { cn } from '../../../ui/src/index.ts';
 
 export interface StripProps {
   rows: readonly EpochRow[];
+  /** The chain's open epoch; a row without closing facts that is not it is closed, unread. */
+  open: number;
   selected: number | null;
   onSelect: (epoch: number | null) => void;
   /** Unix seconds "now" for the open epoch's width (the last block's time). */
@@ -16,8 +18,9 @@ export interface StripProps {
 const MIN = 6;
 
 /** Colour by the next epoch: harder (retarget < 1) violet, easier grey, a roll amber. */
-export const tone = (r: EpochRow): string => {
-  if (r.duration === null) return 'bg-panel border border-uv/60';
+export const tone = (r: EpochRow, open: number): string => {
+  if (r.epoch === open) return 'bg-panel border border-uv/60';
+  if (r.duration === null) return 'bg-panel border border-dashed border-ink-3';
   if (r.closedBy === 'roll') return 'bg-warn/70';
   return (r.retarget ?? 1) < 1 ? 'bg-uv/70' : 'bg-ink-3';
 };
@@ -39,9 +42,8 @@ export function step(
 const typing = (t: EventTarget | null) =>
   t instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName);
 
-export function Strip({ rows, selected, onSelect, now, onOlder }: StripProps) {
-  const open = rows[rows.length - 1];
-  const current = selected ?? open?.epoch ?? null;
+export function Strip({ rows, open, selected, onSelect, now, onOlder }: StripProps) {
+  const current = selected ?? rows[rows.length - 1]?.epoch ?? null;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || typing(e.target)) return;
@@ -73,11 +75,11 @@ export function Strip({ rows, selected, onSelect, now, onOlder }: StripProps) {
             aria-selected={r.epoch === current}
             aria-label={`epoch ${r.epoch}`}
             data-epoch={r.epoch}
-            onClick={() => onSelect(r.duration === null ? null : r.epoch)}
+            onClick={() => onSelect(r.epoch === open ? null : r.epoch)}
             style={{ flexGrow: widths[i], flexBasis: 0 }}
             className={cn(
               'min-w-[6px] shrink-0 rounded-[2px] transition-[flex-grow] duration-200',
-              tone(r),
+              tone(r, open),
               r.epoch === current && 'ring-2 ring-ink',
               r === lastClosed &&
                 'motion-safe:animate-in motion-safe:slide-in-from-right-2 motion-safe:duration-[240ms]',

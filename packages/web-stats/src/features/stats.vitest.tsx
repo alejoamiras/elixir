@@ -5,6 +5,7 @@ import { type EpochRow, rowsFromJson } from '../../../miner-core/src/reader.ts';
 import { Difficulty, Duration, Emission, Retarget } from '../charts/index.tsx';
 import { selectedFromSearch } from '../routes';
 import type { Chain } from '../state';
+import { Detail } from './Detail';
 import { Observatory } from './Observatory';
 import { Strip, step } from './Strip';
 
@@ -49,7 +50,7 @@ describe('charts on the captured history', () => {
 describe('the strip', () => {
   test('one option per epoch, the open one on the right and selected by default; a click selects', () => {
     const onSelect = vi.fn();
-    render(<Strip rows={rows} selected={null} onSelect={onSelect} now={rows[8]?.openedAt ?? 0} />);
+    render(<Strip rows={rows} open={8} selected={null} onSelect={onSelect} now={rows[8]?.openedAt ?? 0} />);
     const options = screen.getAllByRole('option');
     expect(options).toHaveLength(9);
     expect(options[8]?.getAttribute('aria-selected')).toBe('true');
@@ -68,7 +69,7 @@ describe('the strip', () => {
     expect(step(rows, 0, -1)).toBe('older');
     const onSelect = vi.fn();
     const onOlder = vi.fn();
-    render(<Strip rows={rows} selected={0} onSelect={onSelect} onOlder={onOlder} now={0} />);
+    render(<Strip rows={rows} open={8} selected={0} onSelect={onSelect} onOlder={onOlder} now={0} />);
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
     expect(onOlder).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(window, { key: 'ArrowRight' });
@@ -96,6 +97,16 @@ describe('the observatory', () => {
     expect(screen.getByTestId('open-claims').textContent).toBe(`— of ${PARAMS.N}`);
     expect(screen.getByText(/this epoch not read yet/)).toBeTruthy();
     expect((screen.getByTestId('calculator') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  test('a row without closing facts is "open" only when it is the open epoch', () => {
+    render(<Detail row={last} open now={last.openedAt + 60} />);
+    expect(screen.getByTestId('detail-closed-by').textContent).toBe('open');
+    expect(screen.getByTestId('sentence').textContent).toMatch(/^Open with/);
+    cleanup();
+    render(<Detail row={last} open={false} now={last.openedAt + 60} />);
+    expect(screen.getByTestId('detail-closed-by').textContent).toBe('closed · not read yet');
+    expect(screen.getByTestId('sentence').textContent).toMatch(/not been read yet/);
   });
 });
 

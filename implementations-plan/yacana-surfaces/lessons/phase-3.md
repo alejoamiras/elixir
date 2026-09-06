@@ -105,3 +105,11 @@ Gate after the fixes: `bun run lint` ✓ · `lint:actions` ✓ · `typecheck` �
 - Comment: "eased ×0.72" was an easing below one; the example is now "eased ×1.44" with the target fall stated for the harder case.
 
 Gate after the fixes: `bun run lint` ✓ · `lint:actions` ✓ · web-stats `tsc -b` ✓ · `bun test` 143 ✓ · web-stats `test:components` 12 ✓ · E(web-stats) 3 passed (43 s) ✓ (the miner does not import the changed modules; its E2E is unchanged from round 1).
+
+**Round 3** (resumed, the round-2 fix commit under review). Verdict: "changes requested"; three findings, all reproduced and accepted, no comment findings:
+
+- **A failed batch kept reading**: `pooled` rejected on the first failure while the other lanes went on taking epochs. The first failure now stops the hand-out and the lanes in flight finish their epoch before it is thrown (reader test: no read lands after the rejection).
+- **Detail, Table and Strip inferred "open" from missing closing facts**: after a history read failed, the previous epoch still read "open". They take the chain's open epoch; a row without closing facts that is not it says "closed · not read yet" (Vitest on Detail).
+- **A stamp of `null` crashed the prebuild**: `slotsCurrent` refuses a stamp that is not an object (test).
+
+Gate after the fixes: `bun run lint` ✓ · `lint:actions` ✓ · web-stats `tsc -b` ✓ · `bun test` 144 ✓ · web-stats `test:components` 13 ✓ · E(web-stats) 3 passed (52 s) ✓.
