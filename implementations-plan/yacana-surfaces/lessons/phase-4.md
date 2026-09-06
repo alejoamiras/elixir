@@ -114,3 +114,7 @@ Gate after the fixes: `bun run lint` ✓ · web-landing `tsc -b` ✓ · `bun tes
 - Comments: two test narrations and the Launch header trimmed; the lottery-flag comment corrected (a zero window means no lottery, not an immediate launch).
 
 Gate after the fixes: `bun run lint` ✓ · web-landing / web-stats `tsc -b` ✓ · `bun test` 152 ✓ · web-landing `test:components` 8 ✓ · web-stats 13 ✓ · E(web-landing) 3 passed (60 s) ✓ · E(site) 2 passed (1.1 min) ✓.
+
+**Round 3** (resumed, the round-2 fix commit under review). Verdict, quoted: "No new material findings; the remaining round-1/2 material findings are resolved. Confidence: high." One comment-only correction (the `networkRate` docblock had stayed above the new `rateSample`; moved). Codex exercised the real `watchChain` failure path (false → true → false), `rateSample`'s membership against the caption, the privacy copy and the earlier fixes; "29 targeted tests passed".
+
+Arc 4 loop: three rounds (10 → 3 → 0 material findings). Session `01a07676-4a25-76a2-83ab-bd88286fa6a3`, files in `~/.cache/tmp/codex-0gu0L4i6`.

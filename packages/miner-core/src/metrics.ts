@@ -43,15 +43,15 @@ const median = (xs: number[]): number | null => {
 
 const NETWORK_EPOCHS = 6;
 
+/** The epochs the network rate is taken from: the last six closed by claims in a positive time. */
+export const rateSample = (rows: readonly EpochRow[]): EpochRow[] =>
+  rows.filter((r) => r.closedBy === 'claims' && r.duration !== null && r.duration > 0).slice(-NETWORK_EPOCHS);
+
 /**
  * The network's proof rate implied by the last closed epochs: n × difficulty / duration each,
  * median of the last NETWORK_EPOCHS (one epoch swings ×3 on luck alone at N = 4); null before
  * any epoch closed by claims. Epochs closed by roll() say nothing about the rate.
  */
-/** The epochs the network rate is taken from: the last six closed by claims in a positive time. */
-export const rateSample = (rows: readonly EpochRow[]): EpochRow[] =>
-  rows.filter((r) => r.closedBy === 'claims' && r.duration !== null && r.duration > 0).slice(-NETWORK_EPOCHS);
-
 export const networkRate = (closed: readonly EpochRow[], n: number): number | null =>
   median(rateSample(closed).map((r) => (n * difficulty(r.target)) / (r.duration as number)));
 
