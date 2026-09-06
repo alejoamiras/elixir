@@ -1,14 +1,14 @@
-// Everything the page reads, in the order the plan draws: the deployment check, the open epoch,
-// the slot chunks the window needs, the rows, then supply, genesis and lottery. Every read goes
-// through miner-core's reader; nothing here touches a wallet.
+// Everything the page reads: the deployment check, the open epoch, the slot chunks the window
+// needs, the rows, then supply, genesis and lottery; all through miner-core's reader, no wallet.
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import {
   assertDeployment,
   DEFAULT_LIMITS,
   type EpochRow,
   expectedFromStrings,
+  type Layouts,
+  layoutsFromJson,
   linkRows,
   type Node,
   readEpochs,
@@ -21,6 +21,7 @@ import {
   slotTableFromJson,
 } from '../../miner-core/src/reader.ts';
 import { type Connection, expectedDeployment } from '../../site/src/browser/connection.ts';
+import { boundNodeRequests } from '../../site/src/browser/node-deadline.ts';
 import type { Chain } from './state';
 
 /** Epochs per read: the first window and every "load older". */
@@ -35,16 +36,9 @@ export interface Reader {
   load: SlotLoader;
 }
 
-/** The storage layouts the prebuild extracted from the artifacts: all the page needs of them. */
-async function layouts(): Promise<{ miner: StorageLayout; token: StorageLayout }> {
-  const raw = (await (await fetch(`${import.meta.env.BASE_URL}layouts.json`)).json()) as Record<
-    'miner' | 'token',
-    Record<string, string>
-  >;
-  const toLayout = (o: Record<string, string>): StorageLayout =>
-    Object.fromEntries(Object.entries(o).map(([name, slot]) => [name, { slot: Fr.fromString(slot) }]));
-  return { miner: toLayout(raw.miner), token: toLayout(raw.token) };
-}
+/** The committed storage layouts, copied to `public/` by the prebuild. */
+const layouts = async (): Promise<Layouts> =>
+  layoutsFromJson(await (await fetch(`${import.meta.env.BASE_URL}layouts.json`)).text());
 
 /** One fetch per chunk, cached for the page's life; the chunk is checked before it is trusted. */
 export const chunkLoader = (): SlotLoader => {
@@ -63,8 +57,12 @@ export const chunkLoader = (): SlotLoader => {
   };
 };
 
-/** The boot check, then the artifacts the reads need. */
+/** A read the reader gave up on must not stay in flight behind it. */
+const NODE_REQUEST_MS = 30_000;
+
+/** The boot check, then the layouts the reads need. */
 export async function openReader(connection: Connection): Promise<Reader> {
+  boundNodeRequests(connection.nodeUrl, NODE_REQUEST_MS);
   const node = createAztecNodeClient(connection.nodeUrl);
   const layout = await layouts();
   const expected = expectedDeployment();
@@ -147,17 +145,25 @@ export async function readOlder(r: Reader, chain: Chain): Promise<Chain> {
 }
 
 /**
- * The poll: the open epoch, its row (and the previous one, which may just have closed), the
- * supply and the block. Closes since the last read come in as the new tail, up to WINDOW of them.
+ * The poll: the open epoch, the supply and the block, then the rows from the last one held (it
+ * may just have closed) to the open epoch. More closes than a window since the last read replace
+ * the history with the newest window instead of leaving a gap; a history read that fails keeps
+ * the rows held and still publishes the fixed slots.
  */
-export async function pollChain(r: Reader, chain: Chain): Promise<Chain> {
+export async function pollChain(r: Reader, chain: Chain): Promise<{ chain: Chain; historyError?: string }> {
   const [open, block, supply] = await Promise.all([
     readOpenEpochNumber(r.node, r.miner, r.minerLayout),
     latestBlock(r.node),
     readTotalSupply(r.node, r.token, r.tokenLayout),
   ]);
-  const from = Math.min(chain.open, open) - 1;
-  const fresh = await window(r, Math.max(0, from), open, open);
-  const kept = chain.rows.filter((row) => row.epoch < Math.max(0, from));
-  return { ...chain, rows: linkRows([...kept, ...fresh]), open, supply, block, readAt: Date.now() };
+  const next = { ...chain, open, supply, block, readAt: Date.now() };
+  const from = Math.max(0, Math.min(chain.open, open) - 1, open - WINDOW + 1);
+  try {
+    const fresh = await window(r, from, open, open);
+    const kept = chain.rows.filter((row) => row.epoch < from);
+    const contiguous = kept.length === 0 || (kept[kept.length - 1] as EpochRow).epoch === from - 1;
+    return { chain: { ...next, rows: linkRows(contiguous ? [...kept, ...fresh] : fresh) } };
+  } catch (e) {
+    return { chain: next, historyError: e instanceof Error ? e.message : String(e) };
+  }
 }

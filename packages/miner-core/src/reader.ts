@@ -11,6 +11,20 @@ import { PARAMS } from './generated/params.ts';
 export type Node = ReturnType<typeof createAztecNodeClient>;
 export type StorageLayout = ContractArtifact['storageLayout'];
 
+/** `{ name: slotHex }` (the committed `fixtures/storage-layout.json`, the page's `layouts.json`) → a layout. */
+export const layoutFromSlots = (slots: Record<string, string>): StorageLayout =>
+  Object.fromEntries(Object.entries(slots).map(([name, slot]) => [name, { slot: Fr.fromString(slot) }]));
+
+export interface Layouts {
+  miner: StorageLayout;
+  token: StorageLayout;
+}
+
+export const layoutsFromJson = (text: string): Layouts => {
+  const j = JSON.parse(text) as Record<'miner' | 'token', Record<string, string>>;
+  return { miner: layoutFromSlots(j.miner), token: layoutFromSlots(j.token) };
+};
+
 export interface ExpectedDeployment {
   chainId: bigint;
   rollupVersion: bigint;
@@ -113,6 +127,16 @@ export const CHUNK = 512;
 export const TABLE_EPOCHS = 512 * CHUNK;
 export const DEFAULT_LIMITS: ReadLimits = { concurrency: 8, timeoutMs: 10_000, maxEpochs: 96 };
 
+const U64 = (1n << 64n) - 1n;
+const U128 = (1n << 128n) - 1n;
+
+/** What the contract can have written; anything else is a node lying or a wrong slot, not data. */
+function checkRow(e: number, target: bigint, openedAt: bigint, claims: bigint): void {
+  if (target < 1n || target > U128) throw new Error(`epoch ${e}: target ${target} is not a u128 above zero`);
+  if (openedAt > U64) throw new Error(`epoch ${e}: opened_at ${openedAt} is not a u64`);
+  if (claims > BigInt(PARAMS.N)) throw new Error(`epoch ${e}: ${claims} claims, more than N`);
+}
+
 export const slotTableToJson = (t: SlotTable): string =>
   JSON.stringify({
     first: t.first,
@@ -136,7 +160,7 @@ const withTimeout = <T>(p: Promise<T>, ms: number, what: string): Promise<T> =>
     p.then(resolve, reject).finally(() => clearTimeout(t));
   });
 
-/** `fn` over `items`, at most `concurrency` in flight, results in order. */
+/** `fn` over `items`, at most `concurrency` calls of it in flight, results in order. */
 async function pooled<T, R>(items: T[], concurrency: number, fn: (t: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
   let next = 0;
@@ -177,9 +201,10 @@ async function slotsFor(
 
 /**
  * Epochs `[from, to]` (inclusive, ascending; capped at `limits.maxEpochs`), three reads each
- * (`target`, `opened_at`, `claims`), plus `seed` when asked. Rows are derived against their
- * successor, so the last row's `duration`, `retarget` and `closedBy` are null unless `to` is
- * followed by a row the caller already has.
+ * (`target`, `opened_at`, `claims`), plus `seed` when asked; the reads of one epoch go one at a
+ * time, so `concurrency` bounds the requests in flight. Each row's `duration`, `retarget` and
+ * `closedBy` come from its successor *in the result*: include one epoch past the range you need,
+ * or link the rows yourself (`linkRows`) once you hold the successor.
  */
 export async function readEpochs(
   node: Node,
@@ -196,22 +221,20 @@ export async function readEpochs(
   const epochs = Array.from({ length: to - from + 1 }, (_, i) => from + i);
   const rows = await pooled(epochs, limits.concurrency, async (e): Promise<EpochRow> => {
     const table = chunks.get(Math.floor(e / CHUNK)) as SlotTable;
-    const base = table.epochs[e - table.first] as Fr;
-    const claimsSlot = table.claims[e - table.first] as Fr;
-    const read = (slot: Fr) => readSlot(node, miner, slot, limits);
+    const base = (table.epochs[e - table.first] as Fr).toBigInt();
+    const read = async (slot: Fr) => (await readSlot(node, miner, slot, limits)).toBigInt();
     // EpochParams is packed as [target, seed, opened_at].
-    const [target, openedAt, claims, seed] = await Promise.all([
-      read(base),
-      read(new Fr(base.toBigInt() + 2n)),
-      read(claimsSlot),
-      opts.withSeed ? read(new Fr(base.toBigInt() + 1n)) : Promise.resolve(undefined),
-    ]);
+    const target = await read(new Fr(base));
+    const openedAt = await read(new Fr(base + 2n));
+    const claims = await read(table.claims[e - table.first] as Fr);
+    const seed = opts.withSeed ? await read(new Fr(base + 1n)) : undefined;
+    checkRow(e, target, openedAt, claims);
     return {
       epoch: e,
-      target: target.toBigInt(),
-      openedAt: Number(openedAt.toBigInt()),
-      claims: Number(claims.toBigInt()),
-      ...(seed && { seed: seed.toBigInt() }),
+      target,
+      openedAt: Number(openedAt),
+      claims: Number(claims),
+      ...(seed !== undefined && { seed }),
       duration: null,
       retarget: null,
       closedBy: null,

@@ -1,4 +1,3 @@
-// Your proofs per minute against the network's rate: share, expected wait, expected reward per day.
 import { useState } from 'react';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { calculator } from '../../../miner-core/src/metrics.ts';

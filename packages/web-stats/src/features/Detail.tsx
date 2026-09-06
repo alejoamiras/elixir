@@ -1,4 +1,3 @@
-// The selected epoch, in numbers and in one sentence.
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { difficulty, sentence } from '../../../miner-core/src/metrics.ts';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';

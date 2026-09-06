@@ -2,7 +2,6 @@ import { describe, expect, test } from 'bun:test';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { deriveStorageSlotInMap } from '@aztec/stdlib/hash';
-import { loadMinerArtifact } from './artifacts.ts';
 import {
   CHUNK,
   DEFAULT_LIMITS,
@@ -16,9 +15,9 @@ import {
   slotTableToJson,
   TABLE_EPOCHS,
 } from './reader.ts';
-import { deriveSlotTable } from './slots.ts';
+import { deriveSlotTable, loadLayouts } from './slots.ts';
 
-const layout = (await loadMinerArtifact()).storageLayout;
+const layout = (await loadLayouts()).miner;
 const miner = AztecAddress.fromBigIntUnsafe(7n);
 const slotOf = (name: string): Fr => {
   const slot = layout[name]?.slot;
@@ -92,7 +91,8 @@ describe('readEpochs', () => {
     });
     expect(rows.map((r) => r.epoch)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
     expect(reads()).toBe(1 + 30);
-    expect(peak()).toBeLessThanOrEqual(3 * 3);
+    // Reads in flight are bounded by `concurrency`, not by epochs × reads per epoch.
+    expect(peak()).toBeLessThanOrEqual(3);
     expect(rows[1]).toMatchObject({
       target: (1n << 122n) >> 1n,
       openedAt: 1_700_000_300,
@@ -113,9 +113,16 @@ describe('readEpochs', () => {
     expect(capped.map((r) => r.epoch)).toEqual([0, 1, 2, 3]);
   });
 
-  test('beyond the table the read refuses instead of guessing; a slow node fails the read', async () => {
+  test('beyond the table the read refuses instead of guessing; a slow node fails the read; nonsense is refused', async () => {
     const { values, load } = await chain(1);
     const { node } = fakeNode(values);
+    // A zero target (an empty slot, a lying node) is not a row: it would make every ratio infinite.
+    const table = await load();
+    const broken = new Map(values);
+    broken.set((table.epochs[1] as Fr).toString(), 0n);
+    await expect(readEpochs(fakeNode(broken).node, miner, { from: 0, to: 1 }, load)).rejects.toThrow(
+      /target 0/,
+    );
     await expect(readEpochs(node, miner, { from: TABLE_EPOCHS - 1, to: TABLE_EPOCHS }, load)).rejects.toThrow(
       /beyond the slot table/,
     );

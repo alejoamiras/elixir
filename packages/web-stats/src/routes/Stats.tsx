@@ -30,7 +30,10 @@ export function Stats({ onOlder }: { onOlder: () => void }) {
   if (!chain) return null;
   const rows = chain.rows;
   const nowSec = Math.max(chain.block.timestamp, Math.floor(now / 1000));
-  const current = rows.find((r) => r.epoch === selected) ?? rows[rows.length - 1];
+  // A `?epoch=` that is not loaded (older than the window, or a typo) follows the open epoch.
+  const loaded = rows.find((r) => r.epoch === selected);
+  const current = loaded ?? rows[rows.length - 1];
+  const effective = loaded ? selected : null;
   const next = current ? rows.find((r) => r.epoch === current.epoch + 1) : undefined;
   const charts = { rows, selected: current?.epoch ?? null, rules: RULES };
   return (
@@ -48,7 +51,7 @@ export function Stats({ onOlder }: { onOlder: () => void }) {
             <p className="eyebrow mb-3">
               epochs since launch · width = duration · violet harder · grey easier · amber escape hatch
             </p>
-            <Strip rows={rows} selected={selected} onSelect={onSelect} now={nowSec} onOlder={onOlder} />
+            <Strip rows={rows} selected={effective} onSelect={onSelect} now={nowSec} onOlder={onOlder} />
           </div>
           {current && <Detail row={current} next={next} now={nowSec} />}
           <div className="grid gap-4 md:grid-cols-2">
@@ -67,7 +70,7 @@ export function Stats({ onOlder }: { onOlder: () => void }) {
           </div>
           <Table
             rows={rows}
-            selected={selected}
+            selected={effective}
             onSelect={onSelect}
             onOlder={onOlder}
             loadingOlder={loadingOlder}

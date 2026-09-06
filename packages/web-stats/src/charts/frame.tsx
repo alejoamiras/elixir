@@ -27,8 +27,9 @@ export function scales(count: number, lo: number, hi: number, log = false): Scal
   };
 }
 
-/** Tick values: 2 to 4 round numbers inside `[lo, hi]`. */
+/** Tick values inside `[lo, hi]`: the powers of ten on a log scale, else a few round numbers. */
 export function ticks(lo: number, hi: number, log = false): number[] {
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return [];
   if (log) {
     const out: number[] = [];
     for (let p = Math.floor(Math.log10(Math.max(lo, 1e-9))); 10 ** p <= hi; p++) out.push(10 ** p);

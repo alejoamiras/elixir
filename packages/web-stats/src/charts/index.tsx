@@ -17,9 +17,10 @@ const bars = (
   rows: EpochRow[],
   value: (r: EpochRow) => number,
   cls: (r: EpochRow) => string,
+  atLeast = 1,
 ) => {
   const values = rows.map(value);
-  const hi = Math.max(1, ...values);
+  const hi = Math.max(atLeast, ...values);
   const s = scales(rows.length, 0, hi);
   return {
     s,
@@ -41,7 +42,7 @@ const bars = (
   };
 };
 
-/** Minted so far, epoch by epoch, against N × REWARD per expected epoch since launch. */
+/** Minted over the loaded epochs against N × REWARD per expected epoch, both from the first loaded row. */
 export function Emission(p: ChartProps) {
   const rows = closedRows(p.rows);
   const unit = Number(p.rules.REWARD / 10n ** BigInt(p.rules.DECIMALS));
@@ -105,13 +106,14 @@ export function Difficulty(p: ChartProps) {
 /** Epoch durations; the ones the escape hatch closed are amber. */
 export function Duration(p: ChartProps) {
   const rows = closedRows(p.rows);
+  const expected = Number(p.rules.EXPECTED_EPOCH_SECONDS);
   const b = bars(
     p,
     rows,
     (r) => r.duration ?? 0,
     (r) => (r.closedBy === 'roll' ? 'fill-warn' : 'fill-uv/70'),
+    expected,
   );
-  const expected = Number(p.rules.EXPECTED_EPOCH_SECONDS);
   return (
     <Frame
       title="epoch duration · amber = closed by the escape hatch"

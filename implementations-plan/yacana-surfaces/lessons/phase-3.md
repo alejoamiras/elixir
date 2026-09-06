@@ -70,3 +70,25 @@ commit, genesis/lottery as read, the constants, the reproduce commands), `web-st
 
 Gate: `bun run lint` ✓ · `lint:actions` ✓ · `lint:shell` ✓ · `typecheck` ✓ · web-stats `tsc -b` ✓ · web-miner `tsc -b` ✓ · `bun test` 129 ✓ · `test:components` 5 + 33 + 27 ✓ · E(web-stats) 3 passed (42 s) ✓ · E(web-miner) 11 passed (11.1 min, on the shared Vite base changes) ✓.
 
+## Arc 3 codex loop (2026-09-06)
+
+**Round 1** (`/codex xhigh`, session `01a07441-18b7-71e2-ac9f-68490a5a3de9`, `run-codex.sh` on the `arc2-miner..HEAD` diff with the arc map, the plan, the decision ledger and both rules). Verdict: "changes requested"; fifteen findings (two P1), all verified and accepted, plus a five-item comment audit. Fixed in one commit:
+
+- **A zero target froze the tab** (P1): `difficulty` → Infinity → the tick loop never ended. The reader now refuses rows outside what the contract can write (`target` a u128 ≥ 1, `opened_at` a u64, `claims` ≤ N) and `ticks` refuses non-finite bounds (bun test).
+- **CI on a clean checkout could not run the reader tests** (P1): they loaded the compiled miner artifact for its storage layout. The two layouts are now a committed fixture, `fixtures/storage-layout.json`, written by `scripts/export-layouts.ts` and checked fresh in `contracts.yml`; the reader tests, the generator, the CLI, the stats prebuild and the E2E setup read the fixture; the page fetches a copy of it. `slots.ts` owns the derivation and the fixture path.
+- **The poll left a permanent gap** after more than a window of closes: it now reads from `max(last held − 1, open − 47)` and replaces the history with the newest window when the two are not contiguous (Vitest). **A history read failing in the poll** used to read as "node unreachable" and discard the fixed-slot reads: the poll publishes supply/open/block and reports the history error as the "history unavailable" notice (Vitest).
+- **Poll and "load older" could overwrite each other**: chain reads are serialised in `main.tsx`.
+- **The request bound was overstated**: eight epochs in flight meant 24 requests; the reads of one epoch now go one at a time, so `concurrency` bounds requests (the test asserts a peak of 3 at concurrency 3). The stats page also aborts node requests after 30 s through the shared `boundNodeRequests` (moved to `site/src/browser/node-deadline.ts`; the miner keeps 120 s).
+- **The CLI's batch boundaries left epochs 95, 191, … looking open**: rows are linked once, whole.
+- **Calculator shares above 100 %**: the share is yours over the network plus yours (never above 1) and the per-day figure uses the same share; the sheet is disabled while the network rate is unknown instead of computing against zero.
+- **Claims/hour ignored the open epoch's claims**: it counts them (spread over the epoch's life so far) and the tile says it is an estimate, since storage keeps counts, not claim times.
+- **Sentences misstated retargets**: a roll always said "the maximum ×4 easing" (false at u128 saturation) and the normal template called ×0.96 a target increase; every template now states the observed move ("made ×1.44 harder" as a difficulty ratio, "eased ×0.72" as a target ratio).
+- **The prebuild trusted any directory with 512 files**: the generator stamps the layout it derived from next to the chunks and regenerates when the fixture differs.
+- **The strip overflowed** (percent bases plus minimum widths): widths are flex weights and the row scrolls horizontally.
+- **A failed E2E setup leaked its Vite server**: both `run-setup.ts` kill the server's process group before releasing the port.
+- **An unloaded `?epoch=` blocked the arrow keys**: the strip and the table get the loaded selection (or none).
+- **A fast window hid the expected-duration guide**: the duration scale includes the expected value.
+- Comments: the plan reference in `chain.ts`, four file summaries that repeated their component, the reader's successor contract, the emission caption, the ticks doc.
+
+Gate after the fixes: `bun run lint` ✓ · `lint:actions` ✓ · `typecheck` ✓ · web-stats and web-miner `tsc -b` ✓ · `bun test` 129 ✓ · `test:components` 9 + 33 + 27 ✓ · E(web-stats) 3 passed ✓ · E(web-miner) 11 passed (12.0 min) ✓.
+

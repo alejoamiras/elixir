@@ -9,10 +9,9 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { lanePortBase, runPortWindowBase } from '../../../scripts/run/port-window.ts';
 import { claim, release } from '../../../scripts/run/registry.ts';
 import { type Deployment, deployYacana } from '../../deploy/src/deploy.ts';
-import { loadMinerArtifact } from '../../miner-core/src/artifacts.ts';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { rowsFromJson } from '../../miner-core/src/reader.ts';
-import { deriveSlotTable } from '../../miner-core/src/slots.ts';
+import { deriveSlotTable, loadLayouts } from '../../miner-core/src/slots.ts';
 import { type E2eRun, MOCK_FILE, RUN_FILE } from './run.ts';
 
 const nodeUrl = process.env.AZTEC_NODE_URL;
@@ -40,7 +39,8 @@ const e2eEnv = (d: Deployment): NodeJS.ProcessEnv => ({
 
 /** Public storage, slot by slot, that reproduces the captured testnet history on this deployment. */
 async function mockStorage(d: Deployment): Promise<Record<string, Record<string, string>>> {
-  const layout = (await loadMinerArtifact()).storageLayout;
+  const layouts = await loadLayouts();
+  const layout = layouts.miner;
   const rows = rowsFromJson(
     await Bun.file(resolve(pkg, '../miner-core/fixtures/epochs.testnet.json')).text(),
   );
@@ -61,16 +61,9 @@ async function mockStorage(d: Deployment): Promise<Record<string, Record<string,
     miner[(table.claims[r.epoch] as Fr).toString()] = hex(BigInt(r.claims));
     claims += BigInt(r.claims);
   }
-  // The token's total_supply slot: the standard token's layout is stable across the deployments.
-  const tokenLayout = (
-    JSON.parse(await Bun.file(resolve(pkg, 'public/layouts.json')).text()) as {
-      token: Record<string, string>;
-    }
-  ).token;
-  return {
-    [d.miner]: miner,
-    [d.token]: { [tokenLayout.total_supply as string]: hex(claims * PARAMS.REWARD) },
-  };
+  const supplySlot = layouts.token.total_supply?.slot;
+  if (!supplySlot) throw new Error('the token layout has no total_supply');
+  return { [d.miner]: miner, [d.token]: { [supplySlot.toString()]: hex(claims * PARAMS.REWARD) } };
 }
 
 function buildForRun(log: number, env: NodeJS.ProcessEnv): void {
@@ -120,13 +113,15 @@ const port = await claim({
   base: lanePortBase(runPortWindowBase(runId), 4, 8),
   span: 8,
 });
+let spawned: ChildProcess | undefined;
 try {
   const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: 1n << 127n });
   await Bun.write(MOCK_FILE, JSON.stringify(await mockStorage(deployed)));
   const log = openSync(resolve(pkg, 'e2e/.vite.log'), 'w');
   const env = e2eEnv(deployed);
   buildForRun(log, env);
-  const vite = startServer(log, port, env);
+  spawned = startServer(log, port, env);
+  const vite = spawned;
   const baseURL = `http://localhost:${port}`;
   if (!(await waitUntilUp(baseURL, vite)))
     throw new Error(`vite preview did not start on ${baseURL} (see e2e/.vite.log)`);
@@ -146,6 +141,14 @@ try {
   console.log(`e2e: ${baseURL} miner ${deployed.miner} token ${deployed.token}`);
   process.exit(0);
 } catch (e) {
+  // The server is detached: nothing else would reap it once this script is gone.
+  if (spawned?.pid) {
+    try {
+      process.kill(-spawned.pid, 'SIGKILL');
+    } catch {
+      /* never started */
+    }
+  }
   await release(runId).catch(() => {});
   throw e;
 }

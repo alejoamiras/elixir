@@ -1,4 +1,3 @@
-// The six numbers, each with the one line under it that says where it comes from.
 import { useState } from 'react';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import {
@@ -93,7 +92,7 @@ export function Observatory({ chain, now }: { chain: Chain; now: number }) {
           value={<span data-testid="claims-per-hour">{perHour.toFixed(0)}</span>}
           unit={`of ${scheduledClaimsPerHour(RULES)}`}
           size="lg"
-          sub={`schedule: ${PARAMS.N} per ${PARAMS.EXPECTED_EPOCH_SECONDS} s`}
+          sub={`schedule: ${PARAMS.N} per ${PARAMS.EXPECTED_EPOCH_SECONDS} s · an estimate: storage keeps counts per epoch, not claim times`}
         />
       </Tile>
       <Tile>
@@ -108,12 +107,15 @@ export function Observatory({ chain, now }: { chain: Chain; now: number }) {
           size="sm"
           variant="link"
           className="mt-2 px-0"
+          disabled={rate === null || !open}
           onClick={() => setCalc(true)}
           data-testid="calculator"
         >
           what would my rate earn?
         </Button>
-        <Calculator open={calc} onOpenChange={setCalc} network={rate ?? 0} target={open?.target ?? 1n} />
+        {rate !== null && open && (
+          <Calculator open={calc} onOpenChange={setCalc} network={rate} target={open.target} />
+        )}
       </Tile>
       <Tile>
         <Kpi

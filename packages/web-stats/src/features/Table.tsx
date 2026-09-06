@@ -1,4 +1,3 @@
-// Epochs newest first, and the two downloads: the CSV of what is shown, the JSON of the rows.
 import { toCsv } from '../../../miner-core/src/csv.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { difficulty } from '../../../miner-core/src/metrics.ts';

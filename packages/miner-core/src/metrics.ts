@@ -56,17 +56,23 @@ export const networkRate = (closed: readonly EpochRow[], n: number): number | nu
       .map((r) => (n * difficulty(r.target)) / (r.duration as number)),
   );
 
-/** Claims that landed in the last hour, from the closed epochs' counts; the open one has no end. */
+/**
+ * Claims in the last hour, an estimate: storage keeps counts per epoch, not claim times, so an
+ * epoch's claims are spread evenly over its span (the open one's over its life so far) and the
+ * part inside the hour is counted.
+ */
 export const claimsPerHour = (rows: readonly EpochRow[], nowSec: number): number => {
   const since = nowSec - 3600;
   let claims = 0;
   for (const r of rows) {
-    if (r.duration === null) continue;
-    const end = r.openedAt + r.duration;
-    if (end <= since) continue;
-    // A closed epoch's claims are spread evenly over its span; count the part inside the hour.
-    const inside = Math.min(end, nowSec) - Math.max(r.openedAt, since);
-    claims += (r.claims * inside) / r.duration;
+    const end = r.duration === null ? nowSec : r.openedAt + r.duration;
+    const span = end - r.openedAt;
+    if (end <= since || r.claims === 0) continue;
+    if (span <= 0) {
+      claims += r.claims;
+      continue;
+    }
+    claims += (r.claims * (Math.min(end, nowSec) - Math.max(r.openedAt, since))) / span;
   }
   return claims;
 };
@@ -75,7 +81,11 @@ export const claimsPerHour = (rows: readonly EpochRow[], nowSec: number): number
 export const scheduledClaimsPerHour = (rules: EpochRules): number =>
   (rules.N * 3600) / Number(rules.EXPECTED_EPOCH_SECONDS);
 
-/** Your share of the network, the expected wait for a win, and the expected reward per day. */
+/**
+ * What joining the network at `yourPerMinute` would earn: your share of the network once you are
+ * part of it (yours over the measured rate plus yours, so never above 1), the expected wait for a
+ * win at today's difficulty, and that share of the schedule per day.
+ */
 export function calculator(
   yourPerMinute: number,
   networkPerSecond: number,
@@ -83,12 +93,12 @@ export function calculator(
   rules: EpochRules & { REWARD: bigint },
 ): { share: number; secondsToWin: number; perDay: bigint } {
   const yours = yourPerMinute / 60;
-  const share = networkPerSecond > 0 ? yours / networkPerSecond : yours > 0 ? 1 : 0;
+  const share = yours > 0 ? yours / (Math.max(0, networkPerSecond) + yours) : 0;
   const perDay = (BigInt(rules.N) * rules.REWARD * 86_400n) / rules.EXPECTED_EPOCH_SECONDS;
   return {
     share,
     secondsToWin: nextWinSeconds(target, yourPerMinute),
-    perDay: (perDay * BigInt(Math.round(Math.min(share, 1) * 1_000_000))) / 1_000_000n,
+    perDay: (perDay * BigInt(Math.round(share * 1_000_000))) / 1_000_000n,
   };
 }
 
@@ -106,27 +116,29 @@ export function sentenceKind(row: EpochRow): SentenceKind {
 const minutes = (s: number): string => (s >= 90 ? `${(s / 60).toFixed(s >= 600 ? 0 : 1)} min` : `${s} s`);
 const clock = (unix: number): string => new Date(unix * 1000).toISOString().slice(11, 19);
 
-/** One sentence per epoch, from its numbers; the templates are the whole vocabulary. */
+/**
+ * One sentence per epoch, from its numbers; the templates are the whole vocabulary. The move is
+ * always the observed one: "made ×1.44 harder" is the difficulty ratio, "eased ×0.72" the target ratio.
+ */
 export function sentence(row: EpochRow, rules: EpochRules): string {
   const expected = minutes(Number(rules.EXPECTED_EPOCH_SECONDS));
   const kind = sentenceKind(row);
   if (kind === 'open')
     return `Open with ${row.claims} of ${rules.N} claims; it closes at the ${ordinal(rules.N)} claim, expected about ${expected} after it opened.`;
   const dur = minutes(row.duration as number);
-  const harder = 1 / (row.retarget as number);
-  const move =
-    harder >= 1 ? `×${harder.toFixed(2)} harder` : `×${(row.retarget as number).toFixed(2)} easier`;
+  const retarget = row.retarget as number;
+  const move = retarget < 1 ? `made ×${(1 / retarget).toFixed(2)} harder` : `eased ×${retarget.toFixed(2)}`;
   switch (kind) {
     case 'rolled':
-      return `Hashrate fell away after ${row.claims} ${row.claims === 1 ? 'claim' : 'claims'}. The epoch sat open past T_MAX and anyone could close it; someone did at ${clock(row.openedAt + (row.duration as number))}, taking the maximum ×4 easing.`;
+      return `Hashrate fell away after ${row.claims} ${row.claims === 1 ? 'claim' : 'claims'}. The epoch sat open past T_MAX and anyone could close it; someone did at ${clock(row.openedAt + (row.duration as number))}, and the next epoch was ${move}.`;
     case 'launch':
-      return `Epoch 0 opened at launch at difficulty ${difficulty(row.target).toFixed(1)}; ${rules.N} claims closed it in ${dur} against ${expected} expected, and the first retarget made the next epoch ${move}.`;
+      return `Epoch 0 opened at launch at difficulty ${difficulty(row.target).toFixed(1)}; ${rules.N} claims closed it in ${dur} against ${expected} expected, and the first retarget ${move} the next epoch.`;
     case 'fast':
-      return `${rules.N} claims in ${dur} against ${expected} expected: the network was faster than the target assumed, so the next epoch was made ${move}.`;
+      return `${rules.N} claims in ${dur} against ${expected} expected: the network was faster than the target assumed, so the next epoch was ${move}.`;
     case 'slow':
-      return `${rules.N} claims took ${dur} against ${expected} expected: the next epoch was eased ${move.replace(' easier', '')}.`;
+      return `${rules.N} claims took ${dur} against ${expected} expected: the next epoch was ${move}.`;
     default:
-      return `${rules.N} claims in ${dur}, close to the ${expected} expected; the target moved ${move.replace(' harder', '').replace(' easier', '')}.`;
+      return `${rules.N} claims in ${dur}, close to the ${expected} expected; the next epoch was ${move}.`;
   }
 }
 

@@ -26,7 +26,7 @@ test('the captured history through a mocked node: deterministic numbers, selecti
   await expect(page).toHaveURL(/epoch=0/);
   await expect(page.getByTestId('detail')).toContainText('epoch 0');
   await expect(page.getByTestId('detail-closed-by')).toHaveText('closed by roll()');
-  await expect(page.getByTestId('sentence')).toContainText('taking the maximum ×4 easing');
+  await expect(page.getByTestId('sentence')).toContainText('the next epoch was eased ×4.00');
   await page.keyboard.press('ArrowRight');
   await expect(page).toHaveURL(/epoch=1/);
   await expect(page.getByTestId('sentence')).toContainText('4 claims in');

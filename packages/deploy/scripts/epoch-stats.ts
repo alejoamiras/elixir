@@ -5,17 +5,17 @@
 import { resolve } from 'node:path';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
-import { loadMinerArtifact } from '../../miner-core/src/artifacts.ts';
 import { PROFILE } from '../../miner-core/src/generated/params.ts';
 import { difficulty } from '../../miner-core/src/metrics.ts';
 import {
   DEFAULT_LIMITS,
   type EpochRow,
+  linkRows,
   readEpochs,
   readOpenEpochNumber,
   rowsToJson,
 } from '../../miner-core/src/reader.ts';
-import { deriveSlotTable } from '../../miner-core/src/slots.ts';
+import { deriveSlotTable, loadLayouts } from '../../miner-core/src/slots.ts';
 
 const repo = resolve(import.meta.dir, '../../..');
 
@@ -23,17 +23,14 @@ const repo = resolve(import.meta.dir, '../../..');
 export async function epochStats(nodeUrl: string, minerAddress: string): Promise<EpochRow[]> {
   const node = createAztecNodeClient(nodeUrl);
   const miner = AztecAddress.fromStringUnsafe(minerAddress);
-  const layout = (await loadMinerArtifact()).storageLayout;
+  const layout = (await loadLayouts()).miner;
   const open = await readOpenEpochNumber(node, miner, layout);
   const load = (chunk: number) => deriveSlotTable(layout, chunk);
   const rows: EpochRow[] = [];
-  for (let from = 0; from <= open; from += DEFAULT_LIMITS.maxEpochs) {
-    const to = Math.min(open, from + DEFAULT_LIMITS.maxEpochs - 1);
-    // The batches overlap by one row so every closed epoch sees its successor.
-    const batch = await readEpochs(node, miner, { from, to: Math.min(open, to + 1) }, load);
-    rows.push(...batch.slice(0, to - from + 1));
-  }
-  return rows;
+  for (let from = 0; from <= open; from += DEFAULT_LIMITS.maxEpochs)
+    rows.push(...(await readEpochs(node, miner, { from, to: open }, load)));
+  // Linked once whole: a batch boundary must not leave an epoch looking open.
+  return linkRows(rows);
 }
 
 if (import.meta.main) {
