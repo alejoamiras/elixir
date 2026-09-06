@@ -17,7 +17,8 @@ Phase 1 measurements: `implementations-plan/elixir-core/spike-results.md`.
 | `packages/work-circuit` | Noir work circuit `W` (`crates/lib` + `crates/yacana_work`), the VK-embedding verifier `crates/verify_w`, generated VK / proof-layout manifest, fixture proofs, spike scripts |
 | `packages/miner-core` | Platform-agnostic TS: proof → fields → ticket digest, domain separators (retarget mirror, epoch reader, claim builder arrive in Phase 3) |
 | `packages/deploy` | Spike drivers (`spike-claim.ts`, `spike-browser.ts` + the Vite page under `browser/`); sandbox / testnet deploy in later phases |
-| `packages/web-miner` | React + Vite + Tailwind + shadcn miner: embedded wallet (IndexedDB), sponsored FPC, W proved by bb.js in a Worker, pinned CRS (`crs.lock.json`, served from `/crs`), Vitest specs, Playwright E2E on the isolated network, Cloudflare Pages config (`wrangler.jsonc`, `public/_headers`) |
+| `packages/ui` | Design system shared by the surfaces: `theme.css` (tokens, dark default + `.light`, self-hosted Hanken Grotesk / JetBrains Mono), shadcn-style primitives, StatusPill, Kpi, Mark + `faviconDataUrl`, ScoreLoop, ProofLedger, Stepper, Preflight, EpochRail, PowerSlider, Marks, ThemeProvider; Vitest specs (`*.vitest.tsx`) |
+| `packages/web-miner` | React + Vite miner on `packages/ui`: embedded wallet (IndexedDB), sponsored FPC, W proved by bb.js in a Worker, pinned CRS (`crs.lock.json`, served from `/crs`), Vitest specs, Playwright E2E on the isolated network, Cloudflare Pages config (`wrangler.jsonc`, `public/_headers`) |
 | `scripts/run` | Run isolation: port registry, isolated local network, per-worktree runner |
 
 ## Toolchain

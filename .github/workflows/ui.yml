@@ -1,4 +1,4 @@
-name: web-miner
+name: ui
 
 on:
   workflow_dispatch:
@@ -25,18 +25,13 @@ jobs:
           predicate-quantifier: some-with-excludes
           filters: |
             relevant:
-              - 'packages/web-miner/**'
-              - '!packages/web-miner/**/*.md'
-              - 'packages/miner-core/src/**'
               - 'packages/ui/**'
-              - 'yacana.params.json'
-              - 'scripts/params-codegen.ts'
               - 'biome.json'
               - 'bunfig.toml'
               - 'tsconfig.json'
               - 'package.json'
               - 'bun.lock'
-              - '.github/workflows/web-miner.yml'
+              - '.github/workflows/ui.yml'
               - '.github/actions/**'
       - name: Override for manual dispatch
         if: github.event_name == 'workflow_dispatch'
@@ -48,12 +43,10 @@ jobs:
     needs: changes
     if: needs.changes.outputs.relevant == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-bun
       - run: bun run lint
-      - run: bun run --cwd packages/web-miner typecheck
-      - run: bun run test:components
-      # The pinned CRS must still be what the CDN serves.
-      - run: bun packages/web-miner/scripts/fetch-crs.ts
+      - run: bun run --cwd packages/ui typecheck
+      - run: bun run --cwd packages/ui test:components

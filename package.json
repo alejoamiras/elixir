@@ -25,7 +25,7 @@
     "spike:gates": "bun run --cwd packages/contracts spike:gates",
     "spike:work": "bun run --cwd packages/work-circuit spike:sweep && bun run --cwd packages/work-circuit spike:determinism && bun run --cwd packages/work-circuit spike:wasm && bun run --cwd packages/work-circuit spike:manifest && bun run --cwd packages/work-circuit spike:mutation && bun run --cwd packages/work-circuit spike:ticket-cost",
     "test": "bun test",
-    "test:components": "bun run --filter './packages/web-miner' test:components",
+    "test:components": "bun run --filter './packages/*' test:components",
     "test:e2e": "bun run --filter './packages/*' test:e2e",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

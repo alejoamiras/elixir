@@ -12,6 +12,9 @@ jobs:
     name: Detect changes
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       relevant: ${{ steps.override.outputs.relevant || steps.filter.outputs.relevant }}
     steps:
@@ -28,6 +31,7 @@ jobs:
               - 'packages/work-circuit/crates/**'
               - 'packages/work-circuit/fixtures/**'
               - 'packages/miner-core/src/**'
+              - 'packages/ui/**'
               - 'packages/web-miner/**'
               - '!packages/web-miner/**/*.md'
               - 'yacana.params.json'
