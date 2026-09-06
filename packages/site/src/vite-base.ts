@@ -104,7 +104,9 @@ export function siteVite(app: SiteAppOptions): (ctx: { command: 'build' | 'serve
       plugins: [
         react(),
         tailwindcss(),
-        ...(app.prover ? [nodePolyfills({ globals: { Buffer: true, global: true, process: true } })] : []),
+        // Every app imports aztec.js (fields, addresses, the node client), which reads Buffer and
+        // process at import time; only the provers need the bb.js Worker plumbing above.
+        nodePolyfills({ globals: { Buffer: true, global: true, process: true } }),
         emitHeaders(renderHeaders({ nodeOrigins: config.allowedNodeOrigins, mode: 'production' })),
       ],
       server: { headers: dev, fs: { allow: [repo] } },
@@ -117,7 +119,9 @@ export function siteVite(app: SiteAppOptions): (ctx: { command: 'build' | 'serve
           ...((proverConfig.resolve?.alias as []) ?? []),
         ],
       },
-      build: { target: 'esnext', sourcemap: false, chunkSizeWarningLimit: 4096 },
+      // No inlined assets: the CSP allows fonts (and everything else) from the origin only, and
+      // Vite would otherwise turn the small font subsets into data: URLs the policy blocks.
+      build: { target: 'esnext', sourcemap: false, chunkSizeWarningLimit: 4096, assetsInlineLimit: 0 },
     };
   };
 }

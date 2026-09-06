@@ -136,6 +136,33 @@
         "vitest": "^4",
       },
     },
+    "packages/web-stats": {
+      "name": "@yacana/web-stats",
+      "version": "0.0.0",
+      "dependencies": {
+        "@aztec/aztec.js": "5.2.0",
+        "@aztec/foundation": "5.2.0",
+        "@aztec/stdlib": "5.2.0",
+        "@tailwindcss/vite": "^4",
+        "jotai": "^2",
+        "react": "^19.2.6",
+        "react-dom": "^19.2.6",
+        "tailwindcss": "^4",
+      },
+      "devDependencies": {
+        "@playwright/test": "^1.62.1",
+        "@testing-library/jest-dom": "^6",
+        "@testing-library/react": "^16",
+        "@types/node": "^24",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "@vitejs/plugin-react": "^6",
+        "jsdom": "^28",
+        "typescript": "~6",
+        "vite": "^8",
+        "vitest": "^4",
+      },
+    },
     "packages/work-circuit": {
       "name": "@yacana/work-circuit",
       "version": "0.0.0",
@@ -887,6 +914,8 @@
     "@yacana/ui": ["@yacana/ui@workspace:packages/ui"],
 
     "@yacana/web-miner": ["@yacana/web-miner@workspace:packages/web-miner"],
+
+    "@yacana/web-stats": ["@yacana/web-stats@workspace:packages/web-stats"],
 
     "@yacana/work-circuit": ["@yacana/work-circuit@workspace:packages/work-circuit"],
 

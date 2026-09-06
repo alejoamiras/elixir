@@ -1,11 +1,11 @@
 // Node-only reads shared by every surface (no wallet, no PXE): the boot check that the node
 // serves the deployment the build was made for, and the epoch history straight from public
-// storage through a precomputed slot table.
+// storage through a precomputed slot table. No hashing here: a page must never pull bb.js in
+// through this module (the table is derived in slots.ts, Bun-side).
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { createAztecNodeClient } from '@aztec/aztec.js/node';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
-import { deriveStorageSlotInMap } from '@aztec/stdlib/hash';
 import { PARAMS } from './generated/params.ts';
 
 export type Node = ReturnType<typeof createAztecNodeClient>;
@@ -20,7 +20,7 @@ export interface ExpectedDeployment {
   tokenClassId: Fr;
 }
 
-const fixedSlot = (layout: StorageLayout, name: string): Fr => {
+export const fixedSlot = (layout: StorageLayout, name: string): Fr => {
   const slot = layout[name]?.slot;
   if (!slot) throw new Error(`storage layout lacks ${name}`);
   return slot;
@@ -112,19 +112,6 @@ export const CHUNK = 512;
 /** Epochs the generated slot table covers: 2.5 years of testnet epochs, 30 of mainnet's. */
 export const TABLE_EPOCHS = 512 * CHUNK;
 export const DEFAULT_LIMITS: ReadLimits = { concurrency: 8, timeoutMs: 10_000, maxEpochs: 96 };
-
-/** Poseidon2 through bb.js: the Bun-side loader and the generator; the browser fetches chunks instead. */
-export async function deriveSlotTable(layout: StorageLayout, chunk: number): Promise<SlotTable> {
-  const first = chunk * CHUNK;
-  const key = (e: number) => ({ toField: () => new Fr(e) });
-  const epochs: Fr[] = [];
-  const claims: Fr[] = [];
-  for (let e = first; e < first + CHUNK; e++) {
-    epochs.push(await deriveStorageSlotInMap(fixedSlot(layout, 'epochs'), key(e)));
-    claims.push(await deriveStorageSlotInMap(fixedSlot(layout, 'claims'), key(e)));
-  }
-  return { first, epochs, claims };
-}
 
 export const slotTableToJson = (t: SlotTable): string =>
   JSON.stringify({

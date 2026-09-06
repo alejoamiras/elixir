@@ -5,7 +5,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadMinerArtifact } from '../src/artifacts.ts';
-import { CHUNK, deriveSlotTable, slotTableToJson, TABLE_EPOCHS } from '../src/reader.ts';
+import { CHUNK, slotTableToJson, TABLE_EPOCHS } from '../src/reader.ts';
+import { deriveSlotTable } from '../src/slots.ts';
 
 export const DEFAULT_OUT = resolve(import.meta.dir, '../generated/slots');
 

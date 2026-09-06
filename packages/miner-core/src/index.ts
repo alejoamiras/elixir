@@ -10,4 +10,5 @@ export * from './proof.ts';
 export * from './reader.ts';
 export * from './retarget.ts';
 export * from './secret.ts';
+export * from './slots.ts';
 export * from './work.ts';

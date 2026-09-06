@@ -6,7 +6,6 @@ import { loadMinerArtifact } from './artifacts.ts';
 import {
   CHUNK,
   DEFAULT_LIMITS,
-  deriveSlotTable,
   type EpochRow,
   linkRows,
   type Node,
@@ -17,6 +16,7 @@ import {
   slotTableToJson,
   TABLE_EPOCHS,
 } from './reader.ts';
+import { deriveSlotTable } from './slots.ts';
 
 const layout = (await loadMinerArtifact()).storageLayout;
 const miner = AztecAddress.fromBigIntUnsafe(7n);

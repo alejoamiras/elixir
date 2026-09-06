@@ -18,6 +18,8 @@ export interface SiteConfig {
   tokenClassId: string;
   /** `?node=&miner=&token=` are honoured by the page; only e2e builds set it. */
   queryOverrides: boolean;
+  /** The whole deployment record, for the Verify page; its identity fields agree with the ones above. */
+  record: DeploymentRecord;
 }
 
 export interface DeploymentRecord {
@@ -27,6 +29,8 @@ export interface DeploymentRecord {
   token: string;
   minerClassId: string;
   tokenClassId: string;
+  /** The rest of `deployments/<profile>.json` (salts, deployer, params, launch times) travels as is. */
+  [extra: string]: unknown;
 }
 
 type Env = Record<string, string | undefined>;
@@ -92,6 +96,20 @@ export function loadSiteConfig(opts: {
     minerClassId: pick('VITE_YACANA_MINER_CLASS', deployment.minerClassId),
     tokenClassId: pick('VITE_YACANA_TOKEN_CLASS', deployment.tokenClassId),
     queryOverrides: mode === 'e2e' && env.VITE_E2E_QUERY_OVERRIDES === '1',
+    record: deployment,
+  };
+  // An e2e build carries its throwaway deployment's record, or at least its identity.
+  const overridden = env.VITE_DEPLOYMENT_RECORD
+    ? (JSON.parse(env.VITE_DEPLOYMENT_RECORD) as DeploymentRecord)
+    : null;
+  config.record = overridden ?? {
+    ...deployment,
+    chainId: config.chainId,
+    rollupVersion: config.rollupVersion,
+    miner: config.miner,
+    token: config.token,
+    minerClassId: config.minerClassId,
+    tokenClassId: config.tokenClassId,
   };
   if (mode === 'production') assertProductionConfig(config, siteEnv);
   return config;
@@ -129,5 +147,6 @@ export const viteDefine = (c: SiteConfig): Record<string, string> =>
       VITE_YACANA_MINER_CLASS: c.minerClassId,
       VITE_YACANA_TOKEN_CLASS: c.tokenClassId,
       VITE_E2E_QUERY_OVERRIDES: c.queryOverrides ? '1' : '',
+      VITE_DEPLOYMENT_RECORD: JSON.stringify(c.record),
     }).map(([k, v]) => [`import.meta.env.${k}`, JSON.stringify(v)]),
   );

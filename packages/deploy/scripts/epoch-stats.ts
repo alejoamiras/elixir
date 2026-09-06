@@ -10,12 +10,12 @@ import { PROFILE } from '../../miner-core/src/generated/params.ts';
 import { difficulty } from '../../miner-core/src/metrics.ts';
 import {
   DEFAULT_LIMITS,
-  deriveSlotTable,
   type EpochRow,
   readEpochs,
   readOpenEpochNumber,
   rowsToJson,
 } from '../../miner-core/src/reader.ts';
+import { deriveSlotTable } from '../../miner-core/src/slots.ts';
 
 const repo = resolve(import.meta.dir, '../../..');
 

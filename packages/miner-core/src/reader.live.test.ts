@@ -10,7 +10,6 @@ import { loadMinerArtifact } from './artifacts.ts';
 import { PARAMS } from './generated/params.ts';
 import {
   assertDeployment,
-  deriveSlotTable,
   expectedFromStrings,
   readEpochs,
   readGenesis,
@@ -18,6 +17,7 @@ import {
   readOpenEpochNumber,
   readTotalSupply,
 } from './reader.ts';
+import { deriveSlotTable } from './slots.ts';
 
 const nodeUrl = process.env.AZTEC_NODE_URL ?? '';
 
