@@ -12,7 +12,6 @@ const table: SlotTable = {
 };
 const layout: StorageLayout = { open_epoch: { slot: new Fr(15) }, total_supply: { slot: new Fr(8) } };
 
-/** A chain whose epoch `e` opened at `e × 300` with 4 claims (the open one 1), target 2^122, seed e + 1. */
 function fakeReader(open: number, opts: { failSlots?: boolean } = {}): Reader {
   const values = new Map<string, bigint>([
     [new Fr(15).toString(), BigInt(open)],

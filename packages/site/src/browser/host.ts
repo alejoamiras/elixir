@@ -19,7 +19,6 @@ export const aliasRedirect = (
     ? `https://${import.meta.env.VITE_RP_ID}${loc.pathname}${loc.search}${loc.hash}`
     : null;
 
-/** What a page that is not the production host says at the top; null where nothing needs saying. */
 export const previewNotice = (hostname: string): string | null => {
   const kind = hostKind(hostname);
   return kind === 'preview' || kind === 'unknown'
