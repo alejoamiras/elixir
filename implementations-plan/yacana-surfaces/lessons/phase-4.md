@@ -135,3 +135,7 @@ Arc 4 loop: three rounds (10 → 3 → 0 material findings). Session `01a07676-4
 - Comments: two narrating summaries deleted, the `prover` flag's doc, `forgetMaster`'s doc, the one-origin constraint at the top of `headers.ts`.
 
 Gate after the fixes: `bun run lint` ✓ · `lint:actions` ✓ · every package's typecheck and the root's ✓ · `bun test` 154 ✓ · Vitest ui 33 / web-miner 33 / web-stats 13 / web-landing 10 ✓ · E(web-landing) 3 passed (1.1 min) ✓ · E(web-stats) 3 passed (55 s) ✓ · E(site) 2 passed (1.2 min) ✓ · E(web-miner) 11 passed (12.1 min) ✓.
+
+**Round 2** (resumed, the fix commit `8f48bbb` under review). Verdict, quoted: "No new material findings; all nine round‑1 findings are resolved. Confidence: high." Three comment corrections applied (the `watchChain` note, `previewNotice`'s doc, a test fixture summary). Codex exercised the miner's `readOpenEpoch` at the bound, the three shells' host rules, the landing's failure → poll → recovery path and the CI change; "63 targeted tests passed".
+
+Cross-arc pass: two rounds (9 → 0). Every codex loop of the plan converged: arcs 0 (3 rounds), 1 (3), 2 (5, the protocol's three-round threshold exceeded and logged), 3 (4), 4 (3), cross-arc (2).

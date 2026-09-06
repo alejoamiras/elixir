@@ -78,8 +78,7 @@ export function watchChain(connection: Connection, sink: ChainSink): () => void 
     guarded.live({ phase: 'error', message: message(e) });
     guarded.launch({ phase: 'error' });
   };
-  // A failed first read is the error state until a poll succeeds; only a failed deployment check
-  // stops the reads for good.
+  // A failed initialisation stops the reads; a failed data read is retried by the polls.
   (async () => {
     let reader: Reader;
     try {
