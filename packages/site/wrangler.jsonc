@@ -1,7 +1,18 @@
 {
-  // The Cloudflare Pages project: its Git build runs `bun run site:build` and publishes `dist`.
+  // The deployable: a Worker that serves the assembled site as static assets, no script. `wrangler
+  // deploy` applies everything here, the custom domain (DNS record and certificate) included;
+  // `_headers` and `_redirects` inside `dist` are applied by the assets service.
   "$schema": "https://json.schemastore.org/wrangler.json",
   "name": "yacana",
   "compatibility_date": "2026-09-01",
-  "pages_build_output_dir": "dist"
+  // No workers.dev origin: a second production host would only confuse users and the host rules.
+  "workers_dev": false,
+  // Versions get `<id>-yacana.<account>.workers.dev` URLs, which the apps treat as previews.
+  "preview_urls": true,
+  "routes": [{ "pattern": "yacana.network", "custom_domain": true }],
+  "assets": {
+    "directory": "./dist",
+    // Unknown paths serve the landing; the nested apps' deep links are exact rewrites in `_redirects`.
+    "not_found_handling": "single-page-application"
+  }
 }

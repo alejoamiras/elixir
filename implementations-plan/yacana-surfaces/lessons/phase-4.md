@@ -139,3 +139,14 @@ Gate after the fixes: `bun run lint` ✓ · `lint:actions` ✓ · every package'
 **Round 2** (resumed, the fix commit `8f48bbb` under review). Verdict, quoted: "No new material findings; all nine round‑1 findings are resolved. Confidence: high." Three comment corrections applied (the `watchChain` note, `previewNotice`'s doc, a test fixture summary). Codex exercised the miner's `readOpenEpoch` at the bound, the three shells' host rules, the landing's failure → poll → recovery path and the CI change; "63 targeted tests passed".
 
 Cross-arc pass: two rounds (9 → 0). Every codex loop of the plan converged: arcs 0 (3 rounds), 1 (3), 2 (5, the protocol's three-round threshold exceeded and logged), 3 (4), 4 (3), cross-arc (2).
+
+## Post-delivery: Pages → Workers static assets (2026-09-06, owner's decision)
+
+The stack merged (`c59b5c4`, five squash commits). Asked why `wrangler.jsonc` could not carry the domain the way a
+Workers config does, the owner chose to host the site as a **Worker with static assets** instead of a Pages project:
+Pages keeps build settings and domains in the dashboard (its wrangler file only names the output directory) and is in
+maintenance mode; a Worker's `wrangler.jsonc` is the whole definition (`routes` with `custom_domain`, `assets`
+directory, SPA fallback, `preview_urls`), applied by `wrangler deploy`. Changes: the site's and the apps' wrangler
+files, `host.ts` without the pages.dev alias redirect (workers.dev and pages.dev names are previews), the site E2E
+under `wrangler dev --assets`, `site:deploy` / `preview` scripts, docs. No Cloudflare credential exists on the
+homelab: the deploy itself is the owner's (`wrangler login`, then `bun run site:deploy`).

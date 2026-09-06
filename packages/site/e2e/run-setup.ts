@@ -1,5 +1,5 @@
 // Bun-side E2E setup: a throwaway deployment on AZTEC_NODE_URL, the site assembled in e2e mode
-// into e2e/.dist, served by `wrangler pages dev` (the `_headers` and `_redirects` Cloudflare would
+// into e2e/.dist, served by `wrangler dev` as static assets (the `_headers` and `_redirects` Cloudflare would
 // apply) on a registry-claimed port (lane 7; owned by the Playwright process, which outlives this
 // script), and e2e/.run.json for the specs. The server binds `localhost`.
 import { type ChildProcess, spawn } from 'node:child_process';
@@ -35,7 +35,7 @@ const e2eEnv = (d: Deployment): NodeJS.ProcessEnv => ({
 });
 
 function startServer(log: number, port: number): ChildProcess {
-  const args = ['wrangler', 'pages', 'dev', OUT_DIR, '--port', String(port), '--ip', 'localhost'];
+  const args = ['wrangler', 'dev', '--assets', OUT_DIR, '--port', String(port), '--ip', 'localhost'];
   const child = spawn('bunx', args, {
     cwd: pkg,
     stdio: ['ignore', log, log],
@@ -77,7 +77,7 @@ try {
   spawned = startServer(log, port);
   const baseURL = `http://localhost:${port}`;
   if (!(await waitUntilUp(baseURL, spawned)))
-    throw new Error(`wrangler pages dev did not start on ${baseURL} (see e2e/.wrangler.log)`);
+    throw new Error(`wrangler dev did not start on ${baseURL} (see e2e/.wrangler.log)`);
   const run: E2eRun = {
     baseURL,
     nodeUrl,

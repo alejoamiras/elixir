@@ -3,16 +3,12 @@ import './index.css';
 import { createStore, Provider } from 'jotai';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { aliasRedirect } from '../../site/src/browser/host.ts';
 import { ThemeProvider } from '../../ui/src/index.ts';
 import { App } from './App';
 import { loadConnection } from './config';
 import type { MinerController } from './controller';
 import { Session } from './session';
 import { claimsAtom, nowAtom } from './state';
-
-const alias = aliasRedirect(location);
-if (alias) location.replace(alias);
 
 const store = createStore();
 const connection = loadConnection();

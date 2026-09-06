@@ -1,5 +1,5 @@
 // The one security policy of the origin: relaxing anything here for one app relaxes it for the
-// miner and its vault on the same origin. Cloudflare Pages applies the rendered `_headers` and the
+// miner and its vault on the same origin. Cloudflare applies the rendered `_headers` and the
 // preview server sends the same map; only `dev` (Vite's dev server) is looser, and says where.
 export interface HeaderPolicy {
   /** Node origins the pages may call; `connect-src` is exactly these plus self and data:. */
@@ -42,7 +42,7 @@ export const headerMap = (p: HeaderPolicy): Record<string, string> => ({
   'Referrer-Policy': 'no-referrer',
 });
 
-/** The `_headers` file Cloudflare Pages reads: one block for every path. */
+/** The `_headers` file Cloudflare reads: one block for every path. */
 export const renderHeaders = (p: HeaderPolicy): string =>
   `/*\n${Object.entries(headerMap(p))
     .map(([k, v]) => `  ${k}: ${v}`)

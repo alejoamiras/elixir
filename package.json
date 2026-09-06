@@ -21,6 +21,7 @@
     "lint:shell": "shellcheck scripts/run/*.sh .husky/pre-commit .husky/commit-msg",
     "prepare": "husky",
     "site:build": "bun packages/site/src/assemble.ts",
+    "site:deploy": "bun run --cwd packages/site deploy",
     "site:e2e": "bun run --cwd packages/site test:e2e",
     "soak": "bun packages/deploy/scripts/soak.ts",
     "spike:browser": "bun run --cwd packages/deploy spike:browser",
