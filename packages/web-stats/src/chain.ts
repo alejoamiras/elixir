@@ -8,8 +8,6 @@ import {
   DEFAULT_LIMITS,
   type EpochRow,
   expectedFromStrings,
-  type Layouts,
-  layoutsFromJson,
   linkRows,
   type Node,
   readEpochs,
@@ -19,10 +17,10 @@ import {
   readTotalSupply,
   type SlotLoader,
   type StorageLayout,
-  slotTableFromJson,
 } from '../../miner-core/src/reader.ts';
 import { type Connection, expectedDeployment } from '../../site/src/browser/connection.ts';
 import { boundNodeRequests } from '../../site/src/browser/node-deadline.ts';
+import { chunkLoader, fetchLayouts } from '../../site/src/browser/slots.ts';
 import type { Chain } from './state';
 
 /** Epochs per read: the first window and every "load older". */
@@ -37,34 +35,13 @@ export interface Reader {
   load: SlotLoader;
 }
 
-/** The committed storage layouts, copied to `public/` by the prebuild. */
-const layouts = async (): Promise<Layouts> =>
-  layoutsFromJson(await (await fetch(`${import.meta.env.BASE_URL}layouts.json`)).text());
-
-/** One fetch per chunk, cached for the page's life; the chunk is checked before it is trusted. */
-export const chunkLoader = (): SlotLoader => {
-  const cache = new Map<number, Promise<ReturnType<typeof slotTableFromJson>>>();
-  return (chunk) => {
-    let p = cache.get(chunk);
-    if (!p) {
-      p = fetch(`${import.meta.env.BASE_URL}slots/${chunk}.json`).then(async (r) => {
-        if (!r.ok) throw new Error(`slot chunk ${chunk}: ${r.status}`);
-        return slotTableFromJson(await r.text(), chunk);
-      });
-      cache.set(chunk, p);
-      p.catch(() => cache.delete(chunk));
-    }
-    return p;
-  };
-};
-
 /** The boot check, then the layouts the reads need. */
 export async function openReader(connection: Connection): Promise<Reader> {
   // A read the reader gave up on ends with it: one deadline per request, no transport retries
   // (the SDK's default would keep an abandoned read alive through three more attempts).
   boundNodeRequests(connection.nodeUrl, DEFAULT_LIMITS.timeoutMs);
   const node = createAztecNodeClient(connection.nodeUrl, {}, makeFetch([], false));
-  const layout = await layouts();
+  const layout = await fetchLayouts();
   const expected = expectedDeployment();
   await assertDeployment(
     node,

@@ -75,7 +75,7 @@ export const getRecord = (id: string): Promise<MasterRecord | undefined> =>
 export const putRecord = (r: MasterRecord): Promise<unknown> =>
   withStore(RECORDS, 'readwrite', (s) => s.put(r));
 
-/** Deletes the record; the PXE namespace is shared and goes only with "forget everything on this device". */
+/** Deletes the record only: the PXE namespace is shared by every key and keeps its notes and secrets. */
 export const forgetMaster = (id: string): Promise<unknown> =>
   withStore(RECORDS, 'readwrite', (s) => s.delete(id));
 

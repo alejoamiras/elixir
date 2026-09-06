@@ -1,0 +1,32 @@
+<!doctype html>
+<!-- The share card, 1200 × 630: rendered to og.png by `bun run og-card` (a Playwright screenshot of
+     this file; the fonts resolve from node_modules relative to it). -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      @font-face { font-family: "Hanken Grotesk"; font-weight: 100 900;
+        src: url("../../../node_modules/@fontsource-variable/hanken-grotesk/files/hanken-grotesk-latin-wght-normal.woff2") format("woff2"); }
+      @font-face { font-family: "JetBrains Mono"; font-weight: 100 800;
+        src: url("../../../node_modules/@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2") format("woff2"); }
+      html, body { margin: 0; width: 1200px; height: 630px; background: #0a0a0b; color: #f2efe9;
+        font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif; }
+      .card { box-sizing: border-box; width: 1200px; height: 630px; padding: 72px 80px; display: flex;
+        flex-direction: column; justify-content: space-between; }
+      .mono { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; }
+      .eyebrow { font-size: 22px; letter-spacing: .08em; text-transform: uppercase; color: rgba(242, 239, 233, .64);
+        display: flex; align-items: center; gap: 16px; }
+      .mark { width: 18px; height: 18px; background: #8c6bff; }
+      h1 { margin: 0; font-size: 66px; line-height: 1.1; font-weight: 600; letter-spacing: -.02em; max-width: 1040px; }
+      .sub { font-size: 19px; color: rgba(242, 239, 233, .64); display: flex; justify-content: space-between;
+        gap: 32px; white-space: nowrap; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="eyebrow mono"><span class="mark"></span> Yacana · testnet live</div>
+      <h1>Bitcoin made money need no bank. YACA makes it need no witness.</h1>
+      <div class="sub mono"><span>proof-of-work money on Aztec · mined in a browser · no premine · no admin</span><span>yacana.network</span></div>
+    </div>
+  </body>
+</html>

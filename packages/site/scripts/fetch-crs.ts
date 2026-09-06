@@ -6,11 +6,6 @@ import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import lock from '../crs.lock.json';
 
-const publicDir = process.argv[2];
-if (!publicDir) throw new Error('usage: fetch-crs.ts <public dir>');
-const out = resolve(publicDir, 'crs');
-mkdirSync(out, { recursive: true });
-
 const sha256 = (bytes: Uint8Array) => new Bun.CryptoHasher('sha256').update(bytes).digest('hex');
 
 async function download(name: string, bytes: number): Promise<Uint8Array> {
@@ -27,18 +22,28 @@ async function download(name: string, bytes: number): Promise<Uint8Array> {
   throw new Error(`could not download ${name}: ${String(lastError)}`);
 }
 
-for (const [name, pin] of Object.entries(lock.files)) {
-  const file = Bun.file(resolve(out, name));
-  if (await file.exists()) {
-    const cached = new Uint8Array(await file.arrayBuffer());
-    if (cached.length === pin.bytes && sha256(cached) === pin.sha256) continue;
+export async function fetchCrs(publicDir: string): Promise<void> {
+  const out = resolve(publicDir, 'crs');
+  mkdirSync(out, { recursive: true });
+  for (const [name, pin] of Object.entries(lock.files)) {
+    const file = Bun.file(resolve(out, name));
+    if (await file.exists()) {
+      const cached = new Uint8Array(await file.arrayBuffer());
+      if (cached.length === pin.bytes && sha256(cached) === pin.sha256) continue;
+    }
+    const data = await download(name, pin.bytes);
+    const digest = sha256(data);
+    if (data.length !== pin.bytes || digest !== pin.sha256)
+      throw new Error(
+        `${name}: got ${data.length} bytes, sha256 ${digest}; pinned ${pin.bytes} / ${pin.sha256}`,
+      );
+    await Bun.write(file, data);
+    console.log(`crs: ${name} ${pin.bytes} bytes ok`);
   }
-  const data = await download(name, pin.bytes);
-  const digest = sha256(data);
-  if (data.length !== pin.bytes || digest !== pin.sha256)
-    throw new Error(
-      `${name}: got ${data.length} bytes, sha256 ${digest}; pinned ${pin.bytes} / ${pin.sha256}`,
-    );
-  await Bun.write(file, data);
-  console.log(`crs: ${name} ${pin.bytes} bytes ok`);
+}
+
+if (import.meta.main) {
+  const publicDir = process.argv[2];
+  if (!publicDir) throw new Error('usage: fetch-crs.ts <public dir>');
+  await fetchCrs(resolve(publicDir));
 }

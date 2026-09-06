@@ -3,11 +3,15 @@ import { createStore, Provider } from 'jotai';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { loadConnection } from '../../site/src/browser/connection.ts';
+import { aliasRedirect } from '../../site/src/browser/host.ts';
 import { ThemeProvider } from '../../ui/src/index.ts';
 import { App } from './App';
 import { openReader, pollChain, type Reader, readChain, readOlder } from './chain';
 import { coalesced, serial } from './serial';
 import { type Chain, chainAtom, historyLimitAtom, loadingOlderAtom, nowAtom, statusAtom } from './state';
+
+const alias = aliasRedirect(location);
+if (alias) location.replace(alias);
 
 const POLL_MS = 30_000;
 

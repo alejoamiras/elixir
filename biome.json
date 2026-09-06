@@ -9,6 +9,8 @@
       "!**/.run-state",
       "!**/fixtures",
       "!**/generated",
+      "!packages/contracts/artifacts",
+      "!packages/work-circuit/artifacts",
       "!implementations-plan",
       "!docs/pitch",
       "!docs/**/*.html"

@@ -43,6 +43,12 @@ backlog that the plan defers.
   contract redesign without constrained delivery remains the other option: the standard token's
   `initialize_transfer_commitment(to, miner)` followed by a public `mint_to_commitment(commitment, reward)`; it needs
   a redeploy and a privacy-footprint review (the public-effects test would change).
+- Passkey backup before mainnet: a passkey key has no backup by design today (the page says so); a synced
+  passkey follows its platform account, a lost authenticator loses the key. Before mainnet: an export path or a
+  words-backed second factor.
+- Key rotation and account discovery: `deriveAccountFields` keeps its index parameter; the miner uses index 0 only.
+- External wallet connection for launch mode (`@aztec/wallet-sdk`): the landing links the CLI commit path.
+- Retiring `elixir-web-miner.pages.dev` once `yacana.network` serves the assembled site from `main`.
 - Testnet soak operations: the soak driver (`packages/deploy/scripts/soak.ts`) mines from one machine with a
   hashrate schedule; a second machine or a second deployment profile would exercise multi-miner races beyond the
   8-wallet local burst.

@@ -18,6 +18,8 @@ export interface SiteConfig {
   tokenClassId: string;
   /** `?node=&miner=&token=` are honoured by the page; only e2e builds set it. */
   queryOverrides: boolean;
+  /** The landing's hero is the launch lottery (mainnet's launch week); `VITE_LAUNCH_MODE=1`. */
+  launchMode: boolean;
   /** The whole deployment record, for the Verify page; its identity fields agree with the ones above. */
   record: DeploymentRecord;
 }
@@ -96,6 +98,7 @@ export function loadSiteConfig(opts: {
     minerClassId: pick('VITE_YACANA_MINER_CLASS', deployment.minerClassId),
     tokenClassId: pick('VITE_YACANA_TOKEN_CLASS', deployment.tokenClassId),
     queryOverrides: mode === 'e2e' && env.VITE_E2E_QUERY_OVERRIDES === '1',
+    launchMode: pick('VITE_LAUNCH_MODE', siteEnv.VITE_LAUNCH_MODE ?? '') === '1',
     record: deployment,
   };
   // An e2e build carries its throwaway deployment's record, or at least its identity.
@@ -147,6 +150,7 @@ export const viteDefine = (c: SiteConfig): Record<string, string> =>
       VITE_YACANA_MINER_CLASS: c.minerClassId,
       VITE_YACANA_TOKEN_CLASS: c.tokenClassId,
       VITE_E2E_QUERY_OVERRIDES: c.queryOverrides ? '1' : '',
+      VITE_LAUNCH_MODE: c.launchMode ? '1' : '',
       VITE_DEPLOYMENT_RECORD: JSON.stringify(c.record),
     }).map(([k, v]) => [`import.meta.env.${k}`, JSON.stringify(v)]),
   );

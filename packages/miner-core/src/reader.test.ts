@@ -3,9 +3,11 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { deriveStorageSlotInMap } from '@aztec/stdlib/hash';
 import {
+  assertTimestamp,
   CHUNK,
   DEFAULT_LIMITS,
   type EpochRow,
+  epochExists,
   linkRows,
   type Node,
   readEpochs,
@@ -137,6 +139,10 @@ describe('readEpochs', () => {
       readEpochs(slow, miner, { from: 0, to: 1 }, load, { limits: { ...DEFAULT_LIMITS, timeoutMs: 10 } }),
     ).rejects.toThrow(/no answer/);
     expect(await readGenesis(node, miner, layout)).toEqual({ target: 0n, seed: 0n, launchAt: 0 });
+    expect(await epochExists(node, miner, 0, load)).toBe(true);
+    expect(assertTimestamp('t', 8_640_000_000_000n)).toBe(8_640_000_000_000n);
+    expect(() => assertTimestamp('t', 8_640_000_000_001n)).toThrow(/not a timestamp/);
+    expect(await epochExists(fakeNode(new Map()).node, miner, 0, load)).toBe(false);
   });
 
   test('a failed batch hands out no more epochs; its reads in flight end before it rejects', async () => {

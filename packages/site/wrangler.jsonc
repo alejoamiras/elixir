@@ -1,0 +1,7 @@
+{
+  // The Cloudflare Pages project: its Git build runs `bun run site:build` and publishes `dist`.
+  "$schema": "https://json.schemastore.org/wrangler.json",
+  "name": "yacana",
+  "compatibility_date": "2026-09-01",
+  "pages_build_output_dir": "dist"
+}

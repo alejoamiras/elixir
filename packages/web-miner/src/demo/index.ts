@@ -1,0 +1,29 @@
+// The landing's demo: one proof of W in the miner's Worker pipeline. Only types and the factory
+// live here, so importing this file ships none of the prover.
+
+export interface DemoJob {
+  chainId: bigint;
+  rollupVersion: bigint;
+  /** The miner contract's address (hex); the Worker derives the deploy domain from it. */
+  miner: string;
+  version: bigint;
+  /** The open epoch's seed (hex) and number, and the target the score is measured against. */
+  seed: string;
+  epoch: bigint;
+  target: bigint;
+  /** bb.js threads, at least 1. */
+  threads: number;
+}
+
+export type DemoIn = { type: 'prove-once'; job: DemoJob };
+
+export type DemoStepName = 'crs' | 'prover' | 'proof' | 'score';
+
+export type DemoOut =
+  | { type: 'step'; name: DemoStepName; ms: number }
+  | { type: 'result'; score: number; proveMs: number }
+  | { type: 'error'; message: string };
+
+/** Creates the Worker; its chunk (bb.js and the WASM included) is fetched on this call, not before. */
+export const createDemoWorker = (): Worker =>
+  new Worker(new URL('./demo.worker.ts', import.meta.url), { type: 'module' });

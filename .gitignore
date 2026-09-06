@@ -29,3 +29,20 @@ packages/web-stats/e2e/.run.json
 packages/web-stats/e2e/.mock.json
 packages/web-stats/e2e/.dist/
 packages/web-stats/e2e/.vite.log
+
+# web-landing prebuild outputs (CRS, artifacts, slot chunks, layouts) and E2E state
+packages/web-landing/public/artifacts/
+packages/web-landing/public/crs/
+packages/web-landing/public/slots/
+packages/web-landing/public/layouts.json
+packages/web-landing/test-results/
+packages/web-landing/e2e/.run.json
+packages/web-landing/e2e/.dist/
+packages/web-landing/e2e/.vite.log
+
+# site assembly outputs and E2E state
+packages/site/e2e/.run.json
+packages/site/e2e/.dist/
+packages/site/e2e/.wrangler.log
+.wrangler/
+packages/site/test-results/

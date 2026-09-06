@@ -1,8 +1,8 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import { aliasRedirect, hostKind, keysAllowed } from '../../site/src/browser/host.ts';
 import { queryOverridesAllowed } from './config';
 import { isDesktop } from './desktop';
-import { aliasRedirect, hostKind, keysAllowed } from './host';
 import { navigate, pathFor, routeFromPath, useRoute } from './routes';
 import { tabTitle } from './tab-status';
 

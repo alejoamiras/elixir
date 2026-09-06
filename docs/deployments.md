@@ -56,8 +56,36 @@ Parameters (the `testnet` profile, also embedded in the contract as compile-time
 | `LAUNCH_NOTICE_SECONDS` / `REVEAL_WINDOW_SECONDS` | 0 / 0 (mainnet: 86400 / 600) |
 | Token | "Yacana Testnet" / `tYACA` |
 
-Web miner: `packages/web-miner/.env.production` carries these addresses; the page can be pointed elsewhere
-through its Network card or `?node=&miner=&token=`.
+The three pages read this record through `packages/site/site.env` + `deployments/testnet.json` (the miner can
+be pointed at another allowlisted node from its Settings; `?node=&miner=&token=` only in e2e builds).
+
+### The site (`yacana.network`, Cloudflare Pages)
+
+One origin, three apps, assembled by `bun run site:build` into `packages/site/dist`: the landing at `/`, the miner
+at `/mine/`, the stats at `/stats/` (`/verify` rewrites to it), the CRS / artifacts / slot table once at the root,
+`_headers` (COOP, COEP, CORP, the CSP with `connect-src` = the node, `Permissions-Policy`, `nosniff`,
+`no-referrer`), `_redirects` (exact deep links → each app's directory) and `build.json` (mode, commit, node
+origins, RP ID). Production builds take nothing from the process environment: a build with the e2e flag, a local
+or plaintext node origin, or an RP ID other than `site.env`'s fails (`packages/site/src/config.ts`), and a
+non-production mode can land neither in `packages/site/dist` nor in a Cloudflare build (`CF_PAGES`).
+
+Cloudflare Pages project (owner, in the dashboard; nothing here is secret):
+
+| setting | value |
+|---|---|
+| Project | `yacana` (`packages/site/wrangler.jsonc`: `pages_build_output_dir: dist`) |
+| Git integration | this repository, production branch `main`, preview deployments for every other branch (previews show a banner and refuse key creation) |
+| Root directory | `packages/site` (Wrangler reads `wrangler.jsonc` from the build's root; `bun install` there installs the whole workspace) |
+| Build command | `bun install --frozen-lockfile && bun run build` (= `bun src/assemble.ts`, which builds the three apps from the repository; the toolchain is not needed: the pages fetch the committed artifacts); output `dist` |
+| Build image | v3; Bun from `BUN_VERSION` (≥ 1.4) |
+| Environment variables | `BUN_VERSION` only (a version pin, not a secret). The public configuration is `packages/site/site.env`; `CF_PAGES_COMMIT_SHA` is read for `build.json` |
+| Custom domains | `yacana.network`, `www.yacana.network` → apex (Bulk Redirect or Pages redirect) |
+| Zone | HSTS on (include subdomains, preload once stable), CAA `0 issue "letsencrypt.org"` + `0 issue "pki.goog"` + `0 issue "digicert.com"` (Cloudflare's CAs), DNSSEC on |
+
+The first production deploy is Cloudflare's build of `main` once the stack is merged; the previous
+`elixir-web-miner.pages.dev` project stays until then (`docs/roadmap.md`). Local parity: `bun run e2e:agent -- bun run
+site:e2e` assembles an e2e build and serves it with `wrangler pages dev`, asserting every path's app, identical
+headers, `build.json`, and the landing's proof.
 
 Verify from public storage: `bun run epoch:stats` (reads `deployments/testnet.json`) prints every epoch's
 target, opening time, claim count, duration and retarget ratio; `packages/deploy/src/deployment-record.test.ts`

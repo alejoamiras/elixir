@@ -2,6 +2,7 @@
 // can only waste work here, never steal — claims are verified on-chain.
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { Contract } from '@aztec/aztec.js/contracts';
+import { assertTimestamp } from './reader.ts';
 
 export interface EpochParams {
   target: bigint;
@@ -43,7 +44,15 @@ export async function readOpenEpoch(miner: Contract, from: AztecAddress): Promis
     const claims = Number(await unwrap<bigint>(miner.methods.claims_in(epoch).simulate({ from })));
     const still = await unwrap<bigint>(miner.methods.open_epoch().simulate({ from }));
     if (still === epoch)
-      return { epoch, params: { target: raw.target, seed: raw.seed, openedAt: raw.opened_at }, claims };
+      return {
+        epoch,
+        params: {
+          target: raw.target,
+          seed: raw.seed,
+          openedAt: assertTimestamp(`epoch ${epoch}: opened_at`, raw.opened_at),
+        },
+        claims,
+      };
   }
   throw new Error('epoch kept changing while reading it');
 }

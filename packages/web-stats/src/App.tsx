@@ -2,6 +2,7 @@ import { useAtomValue } from 'jotai';
 import type { ReactNode } from 'react';
 import type { Connection } from '../../site/src/browser/connection.ts';
 import { duration } from '../../site/src/browser/format.ts';
+import { previewNotice } from '../../site/src/browser/host.ts';
 import { Alert, AlertDescription, AlertTitle, Badge, cn, Mark } from '../../ui/src/index.ts';
 import { navigate, type Route, useRoute } from './routes';
 import { Stats } from './routes/Stats';
@@ -33,7 +34,9 @@ function Freshness() {
 function Shell({ children, connection }: { children: ReactNode; connection: Connection }) {
   const route = useRoute();
   const status = useAtomValue(statusAtom);
-  const minerHref = `${import.meta.env.BASE_URL.replace(/\/stats\/?$/, '')}/mine/`;
+  // The miner is at the origin's root whatever this app's base is.
+  const minerHref = '/mine/';
+  const notice = previewNotice(location.hostname);
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4 p-4 md:p-8">
       <header className="flex h-[52px] items-center gap-5 border-b border-line">
@@ -68,6 +71,11 @@ function Shell({ children, connection }: { children: ReactNode; connection: Conn
           <Freshness />
         </span>
       </header>
+      {notice && (
+        <Alert variant="warn" data-testid="preview-banner">
+          <AlertDescription>{notice}</AlertDescription>
+        </Alert>
+      )}
       {status.phase === 'unreachable' && (
         <Alert variant="warn" data-testid="unreachable">
           <AlertTitle>node unreachable</AlertTitle>

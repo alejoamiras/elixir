@@ -27,6 +27,7 @@
     "packages/ui/src",
     "packages/web-miner/src",
     "packages/web-miner/tests",
-    "packages/web-stats/src"
+    "packages/web-stats/src",
+    "packages/web-landing/src"
   ]
 }
