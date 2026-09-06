@@ -8,6 +8,7 @@ const query = (r: E2eRun) =>
   `?${new URLSearchParams({ node: r.nodeUrl, miner: r.miner, token: r.token }).toString()}`;
 
 const POLICY = [
+  'strict-transport-security',
   'cross-origin-opener-policy',
   'cross-origin-embedder-policy',
   'cross-origin-resource-policy',

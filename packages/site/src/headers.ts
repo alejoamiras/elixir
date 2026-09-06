@@ -33,6 +33,9 @@ export function contentSecurityPolicy(p: HeaderPolicy): string {
 }
 
 export const headerMap = (p: HeaderPolicy): Record<string, string> => ({
+  // A plain-http load has no crypto.subtle and no COOP: after one https visit the browser never
+  // tries http again. The edge's Always-Use-HTTPS redirect covers the first visit.
+  ...(p.mode === 'production' && { 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' }),
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Embedder-Policy': 'require-corp',
   'Cross-Origin-Resource-Policy': 'same-origin',

@@ -96,8 +96,9 @@ injects its Web Analytics beacon into HTML by default; the CSP blocks it (one co
 promise is no trackers, so it is turned off in the Worker's Observability settings.
 
 Zone settings (owner, once): `www.yacana.network` as a proxied placeholder DNS record with a Redirect Rule to the
-apex (never a second host of the site: the apps treat any host other than `yacana.network` as a preview); HSTS on
-(include subdomains, preload once stable); DNSSEC on; after the certificate is active, CAA records for Cloudflare's
+apex (never a second host of the site: the apps treat any host other than `yacana.network` as a preview);
+**Always Use HTTPS on** (SSL/TLS → Edge Certificates: the edge redirects a plain-http first visit, which would
+otherwise load without `crypto.subtle` or COOP; the site itself sends HSTS in `_headers`); DNSSEC on; after the certificate is active, CAA records for Cloudflare's
 CAs (`letsencrypt.org`, `pki.goog`, `ssl.com`, `digicert.com`). The previous `elixir-web-miner.pages.dev` project
 stays until `yacana.network` serves (`docs/roadmap.md`).
 
