@@ -11,11 +11,11 @@ import {
   masterFromMnemonic,
   normaliseWords,
 } from '../../miner-core/src/keys/mnemonic.ts';
+import { keysAllowed } from '../../site/src/browser/host.ts';
 import { type Preflighted, preflight, startSession } from './boot';
 import { readPublicBalance, recipientKnown, sendWithdraw, type Withdrawal } from './chain';
 import type { Connection } from './config';
 import type { MinerController } from './controller';
-import { keysAllowed } from './host';
 import { assertPasskey, createPasskey } from './keys/passkey';
 import {
   addressOf,

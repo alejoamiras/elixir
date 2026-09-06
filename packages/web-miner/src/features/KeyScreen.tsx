@@ -1,7 +1,7 @@
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
+import { keysAllowed } from '../../../site/src/browser/host.ts';
 import { Alert, AlertDescription, AlertTitle, Button, Preflight, Tile } from '../../../ui/src/index.ts';
-import { keysAllowed } from '../host';
 import type { MasterRecord } from '../keys/store';
 import { shortAddress } from '../lib/format';
 import type { Session } from '../session';

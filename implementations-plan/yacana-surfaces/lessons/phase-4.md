@@ -118,3 +118,20 @@ Gate after the fixes: `bun run lint` ✓ · web-landing / web-stats `tsc -b` ✓
 **Round 3** (resumed, the round-2 fix commit under review). Verdict, quoted: "No new material findings; the remaining round-1/2 material findings are resolved. Confidence: high." One comment-only correction (the `networkRate` docblock had stayed above the new `rateSample`; moved). Codex exercised the real `watchChain` failure path (false → true → false), `rateSample`'s membership against the caption, the privacy copy and the earlier fixes; "29 targeted tests passed".
 
 Arc 4 loop: three rounds (10 → 3 → 0 material findings). Session `01a07676-4a25-76a2-83ab-bd88286fa6a3`, files in `~/.cache/tmp/codex-0gu0L4i6`.
+
+## Final cross-arc pass (2026-09-06)
+
+**Round 1** (`/codex xhigh`, a FRESH session `01a07695-238a-7e61-a220-c748b6189c31`, `run-codex.sh` on the net diff `f2bf7a6..HEAD` with the arc map, the plan, all five lessons files, the four explicit asks (seams, duplication, drift, the whole-origin posture) and both rules; files in `~/.cache/tmp/codex-4rhHqQk7`). Verdict: "changes required: one CI blocker and several integration gaps; no critical exploit identified"; nine findings, all verified and accepted, plus a comment audit. Fixed in one commit:
+
+- **`site.yml` ran `bun run lint:actions` on a runner without actionlint** (P1): the step is gone; `actionlint.yml` (Docker image) covers workflow changes.
+- **The miner bypassed the reader's timestamp bound**: `readOpenEpoch` (miner-core `epoch.ts`) passed `opened_at` unchecked and the rail's `toISOString` threw on 2^63. `assertTimestamp` is the one bound (reader rows, genesis, the miner's epoch view).
+- **The miner's bun suites had no CI consumer** (Vitest excludes `*.bun.test.ts`): `web-miner.yml` runs `bun test packages/web-miner`.
+- **The stats closing block kept the absolutes** the landing had dropped: qualified the same way (first-claim handshake, public withdraw).
+- **Host rules stopped at the miner**: `host.ts` moved to `packages/site/src/browser/`; the stats and landing entrypoints redirect the `pages.dev` alias and all three shells show the preview notice from one `previewNotice`.
+- **A failed slot fetch discarded the landing's fixed reads and the poll never started**: `readLive` keeps open / supply / block with a `historyError`; `watchChain` installs the poll after a failed first read (only a failed deployment check stops it). Vitest on `readLive`.
+- **The standalone stats linked `//mine/`** (another host): `/mine/`, the origin's root.
+- **A restored thread setting bypassed the slider's clamp**: `clampThreads` in `boot.ts`.
+- **The miner README and `CLAUDE.md` described the standalone deployment** (`.env.production`, `public/_headers`, `wrangler pages deploy`): rewritten for the assembled site.
+- Comments: two narrating summaries deleted, the `prover` flag's doc, `forgetMaster`'s doc, the one-origin constraint at the top of `headers.ts`.
+
+Gate after the fixes: `bun run lint` ✓ · `lint:actions` ✓ · every package's typecheck and the root's ✓ · `bun test` 154 ✓ · Vitest ui 33 / web-miner 33 / web-stats 13 / web-landing 10 ✓ · E(web-landing) 3 passed (1.1 min) ✓ · E(web-stats) 3 passed (55 s) ✓ · E(site) 2 passed (1.2 min) ✓ · E(web-miner) 11 passed (12.1 min) ✓.

@@ -38,8 +38,9 @@ export interface Reader {
 }
 
 export interface Live {
-  /** Ascending, contiguous, the open epoch last (with its seed). */
+  /** Ascending, contiguous, the open epoch last (with its seed); empty when `historyError` says why. */
   rows: EpochRow[];
+  historyError?: string;
   open: number;
   supply: bigint;
   block: { number: number; timestamp: number };
@@ -91,12 +92,7 @@ const latestBlock = async (node: Node): Promise<Live['block']> => {
 const HISTORY_LIMITS = { ...DEFAULT_LIMITS, concurrency: DEFAULT_LIMITS.concurrency - 1 };
 
 /** The seed is a fourth read; only the open epoch needs it, so the history goes without. */
-export async function readLive(r: Reader): Promise<Live> {
-  const [open, block, supply] = await Promise.all([
-    readOpenEpochNumber(r.node, r.miner, r.minerLayout),
-    latestBlock(r.node),
-    readTotalSupply(r.node, r.token, r.tokenLayout),
-  ]);
+async function readRows(r: Reader, open: number): Promise<EpochRow[]> {
   const from = Math.max(0, open - HISTORY);
   const [history, current] = await Promise.all([
     from < open
@@ -105,7 +101,22 @@ export async function readLive(r: Reader): Promise<Live> {
     readEpochs(r.node, r.miner, { from: open, to: open }, r.load, { withSeed: true }),
   ]);
   // Linked as one list: the last history row closes against the open epoch.
-  return { rows: linkRows([...history, ...current]), open, supply, block, readAt: Date.now() };
+  return linkRows([...history, ...current]);
+}
+
+/** The fixed slots publish even when the rows cannot be read (a chunk that did not load, a lying node). */
+export async function readLive(r: Reader): Promise<Live> {
+  const [open, block, supply] = await Promise.all([
+    readOpenEpochNumber(r.node, r.miner, r.minerLayout),
+    latestBlock(r.node),
+    readTotalSupply(r.node, r.token, r.tokenLayout),
+  ]);
+  const fixed = { open, supply, block, readAt: Date.now() };
+  try {
+    return { ...fixed, rows: await readRows(r, open) };
+  } catch (e) {
+    return { ...fixed, rows: [], historyError: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 export const readLaunch = async (r: Reader): Promise<Launch> => {

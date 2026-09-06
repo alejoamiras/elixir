@@ -9,7 +9,6 @@ import { bootAtom, claimsAtom, epochAtom, minerAtom, nowAtom, rulesAtom } from '
 
 const cores = () => navigator.hardwareConcurrency || 2;
 
-/** The epoch against expectation, and the one control that matters while mining. */
 export function RailTile({ controller }: { controller: () => MinerController | undefined }) {
   const epoch = useAtomValue(epochAtom);
   const rules = useAtomValue(rulesAtom);

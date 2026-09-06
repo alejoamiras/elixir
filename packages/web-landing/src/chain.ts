@@ -74,15 +74,26 @@ export function watchChain(connection: Connection, sink: ChainSink): () => void 
       inFlight = false;
     }
   };
+  const fail = (e: unknown) => {
+    guarded.live({ phase: 'error', message: message(e) });
+    guarded.launch({ phase: 'error' });
+  };
+  // A failed first read is the error state until a poll succeeds; only a failed deployment check
+  // stops the reads for good.
   (async () => {
+    let reader: Reader;
     try {
-      const reader = await openReader(connection);
-      await readAll(reader, guarded);
-      if (!stopped) timer = setInterval(() => void poll(reader), POLL_MS);
+      reader = await openReader(connection);
     } catch (e) {
-      guarded.live({ phase: 'error', message: message(e) });
-      guarded.launch({ phase: 'error' });
+      fail(e);
+      return;
     }
+    try {
+      await readAll(reader, guarded);
+    } catch (e) {
+      fail(e);
+    }
+    if (!stopped) timer = setInterval(() => void poll(reader), POLL_MS);
   })();
   return () => {
     stopped = true;

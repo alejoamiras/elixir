@@ -7,7 +7,7 @@ import type { createStore } from 'jotai';
 import { deriveAccountFields } from '../../miner-core/src/keys/derive.ts';
 import { assertDeployment, expectedFromStrings } from '../../miner-core/src/reader.ts';
 import { boundNodeRequests } from '../../site/src/browser/node-deadline.ts';
-import type { PreflightRow } from '../../ui/src/index.ts';
+import { clampThreads, type PreflightRow } from '../../ui/src/index.ts';
 import { attachDeployment, loadArtifact, type Node, readEpochRules } from './chain';
 import { allowedNodeOrigins, type Connection, disallowedNodeUrl } from './config';
 import { MinerController, type Rebound } from './controller';
@@ -171,7 +171,9 @@ export async function startSession(
       return { deployment: await attach(opened), fee: opened.fee, rebuilt };
     };
     step('starting the prover');
-    const threads = loadSettings().threads ?? Math.max(1, (navigator.hardwareConcurrency || 2) - 1);
+    const cores = navigator.hardwareConcurrency || 2;
+    // A setting saved on another machine may exceed this one's cores: the slider's clamp applies.
+    const threads = clampThreads(loadSettings().threads ?? Math.max(1, cores - 1), cores);
     const spawnWorker = () => new Worker(new URL('./prover.worker.ts', import.meta.url), { type: 'module' });
     controller = new MinerController({
       store,

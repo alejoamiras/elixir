@@ -44,5 +44,7 @@ jobs:
       - run: bun run lint
       - run: bun run --cwd packages/web-miner typecheck
       - run: bun run test:components
+      # The vault, the memory store, withdraw and the lost-race recovery run under bun, not Vitest.
+      - run: bun test packages/web-miner
       # The pinned CRS must still be what the CDN serves.
       - run: bun packages/site/scripts/fetch-crs.ts packages/web-miner/public

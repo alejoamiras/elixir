@@ -1,6 +1,7 @@
 import { useAtomValue } from 'jotai';
 import { type ReactNode, useCallback, useEffect } from 'react';
 import { proofsPerMinute } from '../../miner-core/src/metrics.ts';
+import { previewNotice } from '../../site/src/browser/host.ts';
 import {
   Alert,
   AlertDescription,
@@ -16,7 +17,6 @@ import type { Connection } from './config';
 import { isDesktop } from './desktop';
 import { KeyScreen } from './features/KeyScreen';
 import { useHotkeys, usePauses, useResumeOnOpen } from './features/use-page-behaviour';
-import { hostKind } from './host';
 import { pillStatus } from './lib/status';
 import { navigate, type Route, useRoute } from './routes';
 import { Mine } from './routes/Mine';
@@ -51,7 +51,7 @@ function useTabStatus(enabled: boolean) {
 function Shell({ children }: { children: ReactNode }) {
   const route = useRoute();
   const miner = useAtomValue(minerAtom);
-  const kind = hostKind(location.hostname);
+  const notice = previewNotice(location.hostname);
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4 md:p-8">
       <header className="flex h-[52px] items-center gap-5 border-b border-line">
@@ -83,12 +83,9 @@ function Shell({ children }: { children: ReactNode }) {
           <StatusPill status={pillStatus(miner)} data-testid="phase" />
         </span>
       </header>
-      {(kind === 'preview' || kind === 'unknown') && (
+      {notice && (
         <Alert variant="warn" data-testid="preview-banner">
-          <AlertTitle>Preview build</AlertTitle>
-          <AlertDescription>
-            This is not {import.meta.env.VITE_RP_ID}: keys cannot be created or restored here.
-          </AlertDescription>
+          <AlertDescription>{notice}</AlertDescription>
         </Alert>
       )}
       {children}

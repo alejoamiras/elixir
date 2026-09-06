@@ -19,6 +19,14 @@ export const aliasRedirect = (
     ? `https://${import.meta.env.VITE_RP_ID}${loc.pathname}${loc.search}${loc.hash}`
     : null;
 
+/** What a page that is not the production host says at the top; null where nothing needs saying. */
+export const previewNotice = (hostname: string): string | null => {
+  const kind = hostKind(hostname);
+  return kind === 'preview' || kind === 'unknown'
+    ? `Preview build: this is not ${import.meta.env.VITE_RP_ID}. Keys cannot be created or restored here.`
+    : null;
+};
+
 /** Passkeys and words may be created or restored on the production host, or on localhost outside production builds. */
 export const keysAllowed = (hostname: string): boolean => {
   const kind = hostKind(hostname);

@@ -25,7 +25,7 @@ const shims = resolve(repo, 'packages/web-miner/src/shims');
 export interface SiteAppOptions {
   /** The app's directory (its `src/` is the `@` alias). */
   root: string;
-  /** bb.js in the bundle: Node polyfills, WASM-safe pre-bundling, module Workers. */
+  /** bb.js in the bundle: WASM-safe pre-bundling and module Workers. */
   prover: boolean;
   /** Served path of the app inside the origin; `/` for standalone servers. */
   base?: string;

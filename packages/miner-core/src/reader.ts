@@ -131,10 +131,16 @@ const U128 = (1n << 128n) - 1n;
 /** The last unix second a `Date` can hold (8.64e15 ms); a u64 goes far past it. */
 const MAX_UNIX = 8_640_000_000_000n;
 
+/** A chain timestamp the pages will hand to `Date`: anything larger is a lying node, not a time. */
+export function assertTimestamp(what: string, value: bigint): bigint {
+  if (value > MAX_UNIX) throw new Error(`${what} ${value} is not a timestamp`);
+  return value;
+}
+
 /** What the contract can have written; anything else is a node lying or a wrong slot, not data. */
 function checkRow(e: number, target: bigint, openedAt: bigint, claims: bigint): void {
   if (target < 1n || target > U128) throw new Error(`epoch ${e}: target ${target} is not a u128 above zero`);
-  if (openedAt > MAX_UNIX) throw new Error(`epoch ${e}: opened_at ${openedAt} is not a timestamp`);
+  assertTimestamp(`epoch ${e}: opened_at`, openedAt);
   if (claims > BigInt(PARAMS.N)) throw new Error(`epoch ${e}: ${claims} claims, more than N`);
 }
 
@@ -303,8 +309,7 @@ export async function readGenesis(
   const [target, seed, launchAt] = await Promise.all(
     [0n, 1n, 2n].map((i) => readSlot(node, miner, new Fr(base + i), limits)),
   );
-  const at = (launchAt as Fr).toBigInt();
-  if (at > MAX_UNIX) throw new Error(`genesis: launch_at ${at} is not a timestamp`);
+  const at = assertTimestamp('genesis: launch_at', (launchAt as Fr).toBigInt());
   return { target: (target as Fr).toBigInt(), seed: (seed as Fr).toBigInt(), launchAt: Number(at) };
 }
 

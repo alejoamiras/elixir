@@ -3,6 +3,7 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { deriveStorageSlotInMap } from '@aztec/stdlib/hash';
 import {
+  assertTimestamp,
   CHUNK,
   DEFAULT_LIMITS,
   type EpochRow,
@@ -139,6 +140,8 @@ describe('readEpochs', () => {
     ).rejects.toThrow(/no answer/);
     expect(await readGenesis(node, miner, layout)).toEqual({ target: 0n, seed: 0n, launchAt: 0 });
     expect(await epochExists(node, miner, 0, load)).toBe(true);
+    expect(assertTimestamp('t', 8_640_000_000_000n)).toBe(8_640_000_000_000n);
+    expect(() => assertTimestamp('t', 8_640_000_000_001n)).toThrow(/not a timestamp/);
     expect(await epochExists(fakeNode(new Map()).node, miner, 0, load)).toBe(false);
   });
 

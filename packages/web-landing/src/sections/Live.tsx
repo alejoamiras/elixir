@@ -75,6 +75,11 @@ export function Live({ status }: { status: LiveStatus }) {
         <a href={appHref('stats')} className="text-sm text-ink-2 underline underline-offset-4 hover:text-ink">
           {copy.live.sub}
         </a>
+        {live?.historyError && (
+          <span className="text-2xs text-warn" data-testid="live-history-error">
+            history unavailable: {live.historyError}
+          </span>
+        )}
         {status.phase === 'ready' && status.unreachable && (
           <span className="text-2xs text-warn" data-testid="live-unreachable">
             {copy.live.unreachable}

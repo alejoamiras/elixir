@@ -12,17 +12,17 @@ bun run --cwd packages/web-miner dev      # fetches the pinned CRS, copies the a
 bun run --cwd packages/web-miner build    # same, then tsc + vite build → dist/
 ```
 
-The page needs the compiled contracts and work circuit (`bun run codegen && bun run contracts:compile`).
-Build-time defaults come from `VITE_AZTEC_NODE_URL`, `VITE_YACANA_MINER`, `VITE_YACANA_TOKEN`
-(`.env.production` for the public testnet, see `docs/deployments.md`); the Network card edits are kept in
-`localStorage`; `?node=&miner=&token=` in the URL override both (that is how the E2E points a page at an
-isolated network).
+The page fetches the committed contract and work-circuit artifacts (`bun run artifacts:commit` refreshes
+them from a compile). Its configuration is `packages/site/site.env` plus `deployments/<profile>.json`
+(`docs/deployments.md`); the node picked in Settings is kept in `localStorage`; `?node=&miner=&token=`
+overrides exist only in e2e builds on `localhost` (that is how the E2E points a page at an isolated network).
 
 ## What it does, in order
 
 1. Verifies the pinned CRS (`crs.lock.json`) and installs a `fetch` interceptor: bb.js's CRS downloads are
    answered from `/crs` on this origin, never from the CDN (the production CSP blocks it).
-2. Checks `crossOriginIsolated` (COOP/COEP: `public/_headers` in production, the Vite config in dev).
+2. Checks `crossOriginIsolated` (COOP/COEP from the one policy in `packages/site/src/headers.ts`, rendered
+   into `_headers` for production and sent by the dev and preview servers).
 3. Opens the wallet (a PXE store per rollup, an in-memory wallet DB; the key comes from a passkey's PRF or
    the twelve words, see the plan), registers the sponsored FPC, the miner and the token.
 4. Reads the open epoch every 10 s and the private balance. A node silent for a minute pauses mining; its
@@ -50,8 +50,8 @@ E2E_SERVER=dev bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e   
 
 ## Deploy
 
-Cloudflare Pages, manually: `bun run --cwd packages/web-miner build && wrangler pages deploy dist`
-(`wrangler.jsonc`). `public/_headers` carries COOP/COEP and the CSP.
+The miner ships at `/mine/` of the assembled site (`bun run site:build`, `packages/site`), built by
+Cloudflare Pages from `main`; `wrangler.jsonc` here is for local `wrangler pages dev dist` parity only.
 
 A hosted page can read this tab's secret, proofs and recipient choice — inherent to any hosted dApp; run
 your own build if that matters.

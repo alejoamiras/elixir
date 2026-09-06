@@ -1,4 +1,6 @@
 import { useCallback } from 'react';
+import { previewNotice } from '../../site/src/browser/host.ts';
+import { Alert, AlertDescription } from '../../ui/src/index.ts';
 import { demoJob, useDemo } from './demo/useDemo';
 import { Ask, Footer } from './sections/Ask';
 import { Bar } from './sections/Bar';
@@ -15,12 +17,18 @@ export function App({ live, launch, miner }: { live: LiveStatus; launch: LaunchS
   const open = current?.rows[current.rows.length - 1];
   const job = demoJob(open, miner);
   const demo = useDemo();
+  const notice = previewNotice(location.hostname);
   const onProve = useCallback(() => {
     if (job) void demo.start(job);
   }, [job, demo.start]);
   return (
     <div className="mx-auto flex max-w-5xl flex-col px-4 md:px-8">
       <Bar live={live.phase === 'ready' && !live.unreachable} />
+      {notice && (
+        <Alert variant="warn" className="mt-4" data-testid="preview-banner">
+          <AlertDescription>{notice}</AlertDescription>
+        </Alert>
+      )}
       <main>
         {launchMode() ? (
           <Launch status={launch} live={live} />
