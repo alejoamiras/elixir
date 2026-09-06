@@ -1,7 +1,0 @@
-- main [ref=f2e3]:
-  - heading "Yacana mines from a desktop browser." [level=1] [ref=f2e7]
-  - paragraph [ref=f2e8]: The prover needs more memory than a phone browser can give it. Open this link on a computer; the stats work anywhere.
-  - generic [ref=f2e9]:
-    - button "Copy the link" [ref=f2e10]
-    - link "Watch the stats" [ref=f2e11] [cursor=pointer]:
-      - /url: /stats
