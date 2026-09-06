@@ -85,7 +85,8 @@ LESSONS_FILE=implementations-plan/yacana-surfaces/lessons/phase-4.md
   `docs/deployments.md`, add the custom domains, HSTS / CAA / DNSSEC on the zone; the first production deploy is
   Cloudflare's build of `main` after the stack merges.
 
-Gate: `bun run lint` ✓ · `lint:actions` ✓ · site `tsc` ✓ · `bun run site:build` ✓ · `bun test packages/site` 10 ✓ ·
-`bun run e2e:agent -- bun run site:e2e` 2 passed (56 s) ✓.
+Gate: `bun run lint` ✓ · `lint:actions` ✓ · site `tsc` ✓ · every package's typecheck ✓ · `bun run site:build` ✓ ·
+`bun test` 149 (site 10) ✓ · `bun run e2e:agent -- bun run site:e2e` 2 passed (56 s) ✓ · E(web-miner) 11 passed
+(11.0 min, on the committed debug-emptied artifacts) ✓.
 
 LESSONS_FILE=implementations-plan/yacana-surfaces/lessons/phase-4.md
