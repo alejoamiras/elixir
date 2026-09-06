@@ -160,6 +160,10 @@ function aztecArgs(ports: Ports, runRoot: string, l1RpcUrl: string): string[] {
     String(ports.p2p),
     '--p2p.p2pBroadcastPort',
     String(ports.p2p),
+    // Blocks every slot, txs or not, as on the real networks: a claim anchors on the latest block and
+    // expires CLAIM_TTL_SECONDS after it, so an idle chain would reject every claim as already expired.
+    '--sequencer.minTxsPerBlock',
+    '0',
   ];
 }
 
@@ -235,18 +239,25 @@ async function runWithNode(cmd: string[]): Promise<number> {
         YACANA_RUN_ID: node.runId,
       },
     });
-    return await new Promise<number>((res) => child.on('exit', (code) => res(code ?? 1)));
+    return await new Promise<number>((res) => {
+      child.on('exit', (code) => res(code ?? 1));
+      // A command that cannot start (ENOENT) never exits; the node must still come down.
+      child.on('error', (e) => {
+        console.error(`cannot start ${bin}: ${e.message}`);
+        res(127);
+      });
+    });
   } finally {
     await node.teardown();
   }
 }
 
 if (import.meta.main) {
-  // `bun script.ts -- cmd` may or may not keep the `--` (bun consumes it); either way the rest is the command.
+  // `bun script.ts -- cmd` may or may not keep the leading `--` (bun consumes it); a later `--`
+  // belongs to the command itself (`… test:e2e -- words.e2e.ts`).
   const smoke = process.argv.includes('--smoke');
   const argv = process.argv.slice(2).filter((a) => a !== '--smoke');
-  const sep = argv.indexOf('--');
-  const cmd = sep >= 0 ? argv.slice(sep + 1) : argv;
+  const cmd = argv[0] === '--' ? argv.slice(1) : argv;
   if (!cmd.length && !smoke) throw new Error('usage: isolated-node.ts --smoke | -- <cmd> [args…]');
   if (smoke) {
     const node = await startIsolatedNode();

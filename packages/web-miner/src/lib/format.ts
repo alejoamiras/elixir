@@ -1,8 +1,3 @@
-const TWO_128 = 2 ** 128;
-
-/** Difficulty as Bitcoin states it: expected proofs per winning ticket, 2^128 / target. */
-export const difficulty = (target: bigint): number => TWO_128 / Number(target);
-
 /** Human scale for large counts: 1.2k, 3.4M, 5.6G. */
 export function compact(n: number): string {
   if (!Number.isFinite(n)) return '∞';
@@ -15,10 +10,6 @@ export function compact(n: number): string {
   }
   return `${v < 10 && i > 0 ? v.toFixed(1) : Math.round(v)}${units[i]}`;
 }
-
-/** Expected seconds to the next win at `proofsPerSecond`, or Infinity when idle. */
-export const expectedSecondsToWin = (target: bigint, proofsPerSecond: number): number =>
-  proofsPerSecond > 0 ? difficulty(target) / proofsPerSecond : Number.POSITIVE_INFINITY;
 
 export function duration(seconds: number): string {
   if (!Number.isFinite(seconds)) return '—';

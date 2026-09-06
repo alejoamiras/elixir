@@ -1,11 +1,14 @@
-// Materialises the pinned CRS into public/crs: the byte ranges bb.js 5.2.0 requests (2^19 BN254
+// Materialises the pinned CRS into <public>/crs: the byte ranges bb.js 5.2.0 requests (2^19 BN254
 // points compressed, the G2 point, 2^16 Grumpkin points), each verified against crs.lock.json
-// before it is written. A mismatch is a hard failure: the page must never serve an unpinned CRS.
+// before it is written. A mismatch is a hard failure: a page must never serve an unpinned CRS.
+//   bun packages/site/scripts/fetch-crs.ts <public dir>
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import lock from '../crs.lock.json';
 
-const out = resolve(import.meta.dir, '../public/crs');
+const publicDir = process.argv[2];
+if (!publicDir) throw new Error('usage: fetch-crs.ts <public dir>');
+const out = resolve(publicDir, 'crs');
 mkdirSync(out, { recursive: true });
 
 const sha256 = (bytes: Uint8Array) => new Bun.CryptoHasher('sha256').update(bytes).digest('hex');

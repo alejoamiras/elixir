@@ -1,0 +1,35 @@
+# Evidence, not a gate: the full web-miner E2E on an isolated local network takes about 40 minutes
+# and 3 GB on ubuntu-latest, so it runs on demand and its artifacts are the record. The local run
+# (`bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e`) stays mandatory before a PR.
+name: e2e
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web-miner:
+    name: web-miner on an isolated network
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup-bun
+      - uses: ./.github/actions/setup-aztec
+      - run: bun run codegen && git diff --exit-code
+      - run: bun run contracts:compile
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: web-miner-e2e
+          path: |
+            packages/web-miner/playwright-report
+            packages/web-miner/test-results
+            packages/web-miner/e2e/.vite.log
+          if-no-files-found: ignore
+          retention-days: 14

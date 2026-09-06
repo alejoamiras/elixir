@@ -1,5 +1,7 @@
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { siloNullifier } from '@aztec/stdlib/hash';
 import { DOMAINS } from './generated/params.ts';
 
 /** A non-ZK UltraHonk proof for the Noir recursive verifier: 410 fields, 32-byte big-endian each. */
@@ -45,3 +47,7 @@ export const deployDomain = (
   version: bigint,
 ): Promise<Fr> =>
   poseidon2Hash([new Fr(DOM_DEPLOY), new Fr(chainId), new Fr(rollupVersion), minerContract, new Fr(version)]);
+
+/** The nullifier a claim emits for its ticket, as the chain records it (siloed by the miner contract). */
+export const ticketNullifier = async (digest: Fr, miner: AztecAddress): Promise<Fr> =>
+  siloNullifier(miner, await poseidon2Hash([new Fr(DOM_NULL), digest]));

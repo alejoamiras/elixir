@@ -36,11 +36,13 @@ backlog that the plan defers.
 - **Claiming after a public revert** (Phase 5 finding): a stale claim that reverts in public leaves the miner's
   PXE with a pending note-delivery index for a nullifier that never landed; the next claim's constrained delivery
   asserts it and is refused until the reverted tx is FINALIZED on L1 (tens of minutes on the testnet). The web
-  miner reports this and stops; the soak driver rotates to a fresh account. Options to remove the wait: a PXE that
-  reconciles `executionResult: reverted` receipts before finalization (upstream; the PXE's tagging store must not be
-  mutated from outside — its finality guard exists for reorgs), or a contract redesign without constrained delivery:
-  the standard token's `initialize_transfer_commitment(to, miner)` followed by a public `mint_to_commitment(commitment,
-  reward)`. The latter needs a redeploy and a privacy-footprint review (the public-effects test would change).
+  miner recovers by rebuilding the key's chain view (`resetAccountView`: drop the PXE namespace, reopen, re-register,
+  re-sync; the reverted tx is absent from the chain's logs, so the fresh view never learns of the index), with an
+  honest pause until finality as the fallback; the soak driver rotates to a fresh account. Residual: one device per
+  key at a time (two PXEs on one account desync their delivery indexes). Upstream: [aztec-packages#25418](https://github.com/AztecProtocol/aztec-packages/issues/25418). A
+  contract redesign without constrained delivery remains the other option: the standard token's
+  `initialize_transfer_commitment(to, miner)` followed by a public `mint_to_commitment(commitment, reward)`; it needs
+  a redeploy and a privacy-footprint review (the public-effects test would change).
 - Testnet soak operations: the soak driver (`packages/deploy/scripts/soak.ts`) mines from one machine with a
   hashrate schedule; a second machine or a second deployment profile would exercise multi-miner races beyond the
   8-wallet local burst.

@@ -3,7 +3,7 @@
 // CDN hosts, so an unintercepted request fails loudly instead of trusting transport security.
 // Import first in every context that creates a Barretenberg instance (page and Worker).
 import { delMany } from 'idb-keyval';
-import lock from '../crs.lock.json';
+import lock from '../../site/crs.lock.json';
 
 const HOSTS = new Set(lock.hosts);
 const files = lock.files as Record<string, { bytes: number; sha256: string }>;
@@ -60,8 +60,14 @@ globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
   return HOSTS.has(url.origin) ? serve(url, init) : originalFetch(input, init);
 };
 
-/** Verifies and caches every pinned file; call at boot so a bad asset fails before any proving. */
-export const preloadPinnedCrs = (): Promise<Uint8Array[]> => Promise.all(Object.keys(files).map(load));
+/** Loads and verifies every pinned asset at boot, so a bad one fails before any proving. */
+export const preloadPinnedCrs = async (): Promise<{ bytes: number; sha256: string }> => {
+  const loaded = await Promise.all(Object.keys(files).map(load));
+  return {
+    bytes: loaded.reduce((n, b) => n + b.length, 0),
+    sha256: files['g1_compressed.dat']?.sha256 ?? '',
+  };
+};
 
 /**
  * bb.js serves the CRS from its own IndexedDB cache (idb-keyval keys) before it ever fetches, so

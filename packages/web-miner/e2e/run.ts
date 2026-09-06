@@ -7,6 +7,9 @@ export interface E2eRun {
   nodeUrl: string;
   miner: string;
   token: string;
+  /** A second deployment at an impossible target, for specs that must mine without ever winning. */
+  hardMiner: string;
+  hardToken: string;
   vitePid: number;
   runId: string;
   /** `preview` serves a production build made for this run; `dev` is Vite's dev server. */

@@ -1,31 +1,16 @@
 import { execSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
-import { type E2eRun, RUN_FILE } from './run.ts';
+import { BOOT_MS, bootPage, pageUrl, passKeyScreen, run } from './helpers.ts';
 
-declare global {
-  interface Window {
-    yacana?: { crashProver(): void };
-  }
-}
-
-const run = (): E2eRun => JSON.parse(readFileSync(RUN_FILE, 'utf8')) as E2eRun;
-const pageUrl = (r: E2eRun, extra: Record<string, string> = {}) =>
-  `${r.baseURL}/?${new URLSearchParams({ node: r.nodeUrl, miner: r.miner, token: r.token, ...extra })}`;
-
-const BOOT_MS = 8 * 60_000; // CRS verification, wallet + PXE boot, bb.js init
-
-async function bootPage(page: Page, url: string): Promise<void> {
-  page.on('pageerror', (e) => console.log(`[page error] ${e.message}`));
-  await page.goto(url);
-  await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
-}
-
-// Peak RSS of the browser's process tree, sampled from `ps`; Playwright's Chromium is the one whose
-// command line carries its temporary profile directory.
-function rssWatcher(): { peakMiB: () => number; stop: () => void } {
+// RSS of the browser's process tree, sampled from `ps`; Playwright's Chromium is the one whose
+// command line carries its temporary profile directory. `peakMiB` is the highest sample, `nowMiB`
+// the latest: a leak shows in the steady state, a peak also counts the old backend's memory before
+// the collector returns it.
+function rssWatcher(): { peakMiB: () => number; nowMiB: () => number; stop: () => void } {
   let peak = 0;
-  const timer = setInterval(() => {
+  let now = 0;
+  const sample = () => {
     try {
       const rows = execSync('ps -eo pid=,ppid=,rss=,args=', { encoding: 'utf8' }).split('\n');
       const roots = rows
@@ -48,12 +33,31 @@ function rssWatcher(): { peakMiB: () => number; stop: () => void } {
         total += rss.get(p) ?? 0;
         stack.push(...(byParent.get(p) ?? []));
       }
+      now = total;
       peak = Math.max(peak, total);
     } catch {
       /* ps hiccup */
     }
-  }, 500);
-  return { peakMiB: () => Math.round(peak / 1024), stop: () => clearInterval(timer) };
+  };
+  const timer = setInterval(sample, 500);
+  const mib = (kb: number) => Math.round(kb / 1024);
+  return {
+    peakMiB: () => mib(peak),
+    nowMiB: () => {
+      sample();
+      return mib(now);
+    },
+    stop: () => clearInterval(timer),
+  };
+}
+
+/** Collects garbage in the page and lets the process tree settle before a memory sample. */
+async function settled(page: Page, memory: { nowMiB: () => number }): Promise<number> {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('HeapProfiler.collectGarbage');
+  await cdp.detach();
+  await page.waitForTimeout(3000);
+  return memory.nowMiB();
 }
 
 test('first visit creates an account, mines at the easy target, claims and shows the balance', async ({
@@ -70,8 +74,8 @@ test('first visit creates an account, mines at the easy target, claims and shows
   await expect(page.getByTestId('phase')).toHaveText('claiming', { timeout: 5 * 60_000 });
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
   await expect(page.getByTestId('balance')).toHaveText(/^4 tYACA$/);
-  await expect(page.getByTestId('epoch-claims')).toHaveText('1 / 4');
-  await expect(page.getByTestId('log')).toContainText('claim mined in block');
+  await expect(page.getByTestId('epoch-claims')).toHaveText('1 of 4');
+  await expect(page.getByTestId('ledger')).toContainText('minted, privately');
   // Mining resumes on its own after a claim; stop it cleanly.
   await expect(page.getByTestId('phase')).toHaveText('mining');
   await page.getByTestId('stop').click();
@@ -79,6 +83,7 @@ test('first visit creates an account, mines at the easy target, claims and shows
   // Second visit: the persisted account signs again and its notes are still there.
   const account = await page.getByTestId('account').getAttribute('title');
   await page.reload();
+  await passKeyScreen(page);
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
   expect(await page.getByTestId('account').getAttribute('title')).toBe(account);
   await expect(page.getByTestId('balance')).toHaveText(/^4 tYACA$/);
@@ -116,54 +121,49 @@ test('a poisoned CRS cache is purged before proving', async ({ page }) => {
   await page.getByTestId('stop').click();
 });
 
-// The cross-check reads open_epoch, then the packed [target, seed, opened_at]; each case lies about
-// exactly one of them, so a comparison that skipped a field would let its case through.
-for (const [field, readIndex] of [
-  ['open_epoch', 1],
-  ['target', 2],
-  ['seed', 3],
-  ['opened_at', 4],
-] as const) {
-  test(`a cross-check node lying only about ${field} stops the miner before any work is wasted`, async ({
-    page,
-  }) => {
-    const r = run();
-    let storageReads = 0;
-    // A second "node" that proxies the real one and alters one public-storage answer (batched or not).
-    await page.route('http://127.0.0.1:1/**', async (route) => {
-      const upstream = await route.fetch({ url: r.nodeUrl });
-      const body = (await upstream.json()) as unknown;
-      const request = route.request().postDataJSON() as { method: string } | { method: string }[];
-      const lie = (res: { result?: unknown }, req: { method: string }) => {
-        if (!req.method.endsWith('getPublicStorageAt')) return res;
-        storageReads++;
-        return storageReads === readIndex
-          ? { ...res, result: `0x${'ff'.repeat(16).padStart(64, '0')}` }
-          : res;
-      };
-      const json = Array.isArray(body)
-        ? body.map((res, i) =>
-            lie(res as { result?: unknown }, (request as { method: string }[])[i] ?? { method: '' }),
-          )
-        : lie(body as { result?: unknown }, request as { method: string });
-      await route.fulfill({ json });
-    });
-    await page.goto(pageUrl(r, { crossCheck: 'http://127.0.0.1:1' }));
-    await expect(page.getByTestId('boot-error')).toContainText(`nodes disagree on ${field}`, {
-      timeout: BOOT_MS,
-    });
-    await expect(page.getByTestId('start')).toBeDisabled();
-  });
-}
-
+// The page is pointed at a mock origin (allowlisted by the e2e build) that answers nonsense.
 test('a malformed RPC payload is rejected, not acted on', async ({ page }) => {
   const r = run();
   await page.route('http://127.0.0.1:1/**', (route) =>
     route.fulfill({ json: { jsonrpc: '2.0', id: 1, result: { not: 'a field' } } }),
   );
-  await page.goto(pageUrl(r, { crossCheck: 'http://127.0.0.1:1' }));
+  await page.goto(pageUrl(r, { node: 'http://127.0.0.1:1' }));
   await expect(page.getByTestId('boot-error')).toBeVisible({ timeout: BOOT_MS });
-  await expect(page.getByTestId('start')).toBeDisabled();
+  await expect(page.getByTestId('key-screen')).toHaveCount(0);
+});
+
+// Power changes rebuild bb.js in place; the job resumes at its next nonce. The process tree must
+// not keep the old backends: growth above 300 MiB over three rebuilds means a leak (then the
+// fallback is a Worker respawn per change).
+test('three power changes keep mining, the ledger grows, memory stays bounded', async ({ page }) => {
+  const r = run();
+  // The hard deployment: no win, so no claim proof (≈ 2 GB on its own) muddies the measurement.
+  await bootPage(page, pageUrl(r, { miner: r.hardMiner, token: r.hardToken }));
+  const memory = rssWatcher();
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('phase')).toHaveText('mining');
+  const lines = () => page.getByTestId('ledger').locator('[data-slot=proof-line]');
+  await expect(lines()).not.toHaveCount(0, { timeout: 3 * 60_000 });
+  const baseline = await settled(page, memory);
+  const slider = page.getByRole('slider');
+  const max = Number(await slider.getAttribute('max'));
+  for (const threads of [Math.max(1, Math.ceil(max / 2)), 1, max]) {
+    const before = await lines().count();
+    await slider.fill(String(threads));
+    await expect(page.getByText(new RegExp(`^${threads} threads?`))).toBeVisible();
+    // Attempts keep landing on the rebuilt backend (a claim in between is fine: mining resumes).
+    await expect
+      .poll(async () => (await lines().count()) - before, { timeout: 5 * 60_000 })
+      .toBeGreaterThanOrEqual(2);
+  }
+  await expect(page.getByTestId('phase')).not.toHaveText('idle');
+  const after = await settled(page, memory);
+  await page.getByTestId('stop').click();
+  memory.stop();
+  console.log(
+    `RSS baseline ${baseline} MiB, after three rebuilds ${after} MiB (peak ${memory.peakMiB()} MiB)`,
+  );
+  expect(after - baseline).toBeLessThanOrEqual(300);
 });
 
 test('a prover crash surfaces as an error and mining restarts on the next start', async ({ page }) => {

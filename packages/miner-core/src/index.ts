@@ -1,5 +1,6 @@
 export * from './artifacts.ts';
 export * from './claim.ts';
+export * from './claim-failure.ts';
 export * from './epoch.ts';
 export * from './generated/params.ts';
 export * from './miner.ts';

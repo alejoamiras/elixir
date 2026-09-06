@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@aztec-foundation/aztec-standards": "5.2.0",
+    "@aztec/accounts": "5.2.0",
     "@aztec/aztec.js": "5.2.0",
     "@aztec/bb.js": "5.2.0",
     "@aztec/constants": "5.2.0",
@@ -17,6 +18,7 @@
     "@aztec/noir-contracts.js": "5.2.0",
     "@aztec/noir-noir_js": "5.2.0",
     "@aztec/stdlib": "5.2.0",
-    "@aztec/wallets": "5.2.0"
+    "@aztec/wallets": "5.2.0",
+    "@scure/bip39": "2.3.0"
   }
 }

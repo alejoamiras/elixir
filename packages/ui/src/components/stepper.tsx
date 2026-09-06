@@ -14,9 +14,13 @@ export interface Step {
 export const fmtSeconds = (ms: number): string =>
   ms >= 60_000 ? `${(ms / 60_000).toFixed(1)} min` : `${(ms / 1000).toFixed(1)} s`;
 
-export function Stepper({ steps, className }: { steps: readonly Step[]; className?: string }) {
+export function Stepper({
+  steps,
+  className,
+  ...props
+}: React.ComponentProps<'ol'> & { steps: readonly Step[] }) {
   return (
-    <ol data-slot="stepper" className={cn('m-0 flex list-none flex-col gap-1.5 p-0', className)}>
+    <ol data-slot="stepper" className={cn('m-0 flex list-none flex-col gap-1.5 p-0', className)} {...props}>
       {steps.map((step) => (
         <li
           key={step.id}

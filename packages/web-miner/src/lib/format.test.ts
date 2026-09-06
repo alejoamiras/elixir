@@ -1,19 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import { amount, compact, difficulty, duration, expectedSecondsToWin } from './format';
+import { amount, compact, duration } from './format';
 
 describe('format', () => {
-  test('difficulty is 2^128 / target', () => {
-    expect(difficulty(1n << 127n)).toBe(2);
-    expect(difficulty(1n << 122n)).toBe(64);
-    expect(difficulty(1n << 124n)).toBe(16);
-  });
-
-  test('expected time to win follows the hashrate', () => {
-    expect(expectedSecondsToWin(1n << 122n, 0.25)).toBe(256);
-    expect(expectedSecondsToWin(1n << 122n, 0)).toBe(Number.POSITIVE_INFINITY);
-    expect(duration(expectedSecondsToWin(1n << 122n, 0))).toBe('—');
-  });
-
   test('compact and duration read the way a dashboard needs', () => {
     expect(compact(950)).toBe('950');
     expect(compact(1234)).toBe('1.2k');
@@ -21,6 +9,7 @@ describe('format', () => {
     expect(duration(45)).toBe('45 s');
     expect(duration(300)).toBe('5 min');
     expect(duration(5400)).toBe('1.5 h');
+    expect(duration(Number.POSITIVE_INFINITY)).toBe('—');
   });
 
   test('token amounts trim trailing zeros and cap the fraction', () => {

@@ -31,6 +31,7 @@ jobs:
               - 'packages/work-circuit/crates/**'
               - 'packages/work-circuit/fixtures/**'
               - 'packages/miner-core/src/**'
+              - 'packages/site/**'
               - 'packages/ui/**'
               - 'packages/web-miner/**'
               - '!packages/web-miner/**/*.md'

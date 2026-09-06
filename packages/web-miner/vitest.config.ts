@@ -9,5 +9,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
     include: ['src/**/*.vitest.tsx', 'src/**/*.test.ts'],
+    // *.bun.test.ts needs bun:test (the kv-store suite uses jest globals); bun runs it, Vitest skips it.
+    exclude: ['**/*.bun.test.ts', '**/node_modules/**'],
   },
 });

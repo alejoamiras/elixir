@@ -1,10 +1,12 @@
-// The page fetches compiled artifacts (build outputs of the sibling packages) from /artifacts.
+// Copies the compiled artifacts a page fetches from /artifacts into <public>/artifacts.
+//   bun packages/site/scripts/copy-artifacts.ts <public dir>
 import { cpSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const pkg = resolve(import.meta.dir, '..');
-const repo = resolve(pkg, '../..');
-const out = resolve(pkg, 'public/artifacts');
+const publicDir = process.argv[2];
+if (!publicDir) throw new Error('usage: copy-artifacts.ts <public dir>');
+const repo = resolve(import.meta.dir, '../../..');
+const out = resolve(publicDir, 'artifacts');
 mkdirSync(out, { recursive: true });
 
 const sources: Record<string, string> = {
@@ -12,7 +14,7 @@ const sources: Record<string, string> = {
   'yacana_work.json': resolve(repo, 'packages/work-circuit/target/yacana_work.json'),
   'token_contract-Token.json': Bun.resolveSync(
     '@aztec-foundation/aztec-standards/artifacts/target/token_contract-Token.json',
-    pkg,
+    repo,
   ),
 };
 for (const [name, from] of Object.entries(sources)) {

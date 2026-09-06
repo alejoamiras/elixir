@@ -5,26 +5,51 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ThemeProvider } from '../../ui/src/index.ts';
 import { App } from './App';
-import { boot } from './boot';
 import { loadConnection } from './config';
 import type { MinerController } from './controller';
-import { bootAtom, nowAtom } from './state';
+import { aliasRedirect } from './host';
+import { Session } from './session';
+import { claimsAtom, nowAtom } from './state';
+
+const alias = aliasRedirect(location);
+if (alias) location.replace(alias);
 
 const store = createStore();
 const connection = loadConnection();
-let controller: MinerController | undefined;
-const controllerPromise = boot(store, connection).then(
-  (c) => (controller = c),
-  (e: unknown) =>
-    store.set(bootAtom, { phase: 'error', message: e instanceof Error ? e.message : String(e) }),
-);
+// Claims history stays on this device (localStorage), keyed by nothing: it names no key.
+const CLAIMS_KEY = 'yacana.claims';
+try {
+  const stored = JSON.parse(localStorage.getItem(CLAIMS_KEY) ?? '[]') as {
+    epoch: string;
+    block: number;
+    at: number;
+  }[];
+  store.set(
+    claimsAtom,
+    stored.map((c) => ({ ...c, epoch: BigInt(c.epoch) })),
+  );
+} catch {
+  /* foreign value: start empty */
+}
+store.sub(claimsAtom, () => {
+  try {
+    localStorage.setItem(
+      CLAIMS_KEY,
+      JSON.stringify(store.get(claimsAtom).map((c) => ({ ...c, epoch: c.epoch.toString() }))),
+    );
+  } catch {
+    /* private mode */
+  }
+});
+const session = new Session(store, connection);
 setInterval(() => store.set(nowAtom, Date.now()), 1000);
 
-// E2E hooks: the test drives the same controller the buttons use.
+// E2E hooks: the test drives the same session and controller the buttons use.
 declare global {
   interface Window {
     yacana?: {
       store: typeof store;
+      session: Session;
       controller: () => MinerController | undefined;
       ready: Promise<unknown>;
       crashProver: () => void;
@@ -33,9 +58,10 @@ declare global {
 }
 window.yacana = {
   store,
-  controller: () => controller,
-  ready: controllerPromise,
-  crashProver: () => controller?.crashProver(),
+  session,
+  controller: () => session.controller,
+  ready: session.ready,
+  crashProver: () => session.controller?.crashProver(),
 };
 
 const root = document.getElementById('root');
@@ -44,7 +70,7 @@ createRoot(root).render(
   <StrictMode>
     <ThemeProvider>
       <Provider store={store}>
-        <App connection={connection} controller={() => controller} />
+        <App connection={connection} session={session} />
       </Provider>
     </ThemeProvider>
   </StrictMode>,
