@@ -38,6 +38,15 @@ export { Toaster } from './components/toaster.tsx';
 export { useDocumentHidden, useReducedMotion } from './hooks/use-reduced-motion.ts';
 export { cn } from './lib/cn.ts';
 export { faviconDataUrl, type MarkState, markSvg } from './mark.ts';
-export { axis, FLASH_MS, flash, RISE_MS, rise, type Sample, ScoreLoopModel } from './score-loop-model.ts';
+export {
+  axis,
+  difficultyLabel,
+  FLASH_MS,
+  flash,
+  RISE_MS,
+  rise,
+  type Sample,
+  ScoreLoopModel,
+} from './score-loop-model.ts';
 export { type Theme, ThemeProvider, useTheme } from './theme-provider.tsx';
 export { DARK, ink } from './tokens.ts';

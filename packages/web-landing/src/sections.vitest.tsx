@@ -62,9 +62,17 @@ describe('the landing', () => {
       copy.ask.heading,
     ])
       expect(screen.getByRole('heading', { name: h })).toBeTruthy();
+    // The chain frame's three chips are an example, and say so.
+    const marks = screen.getByTestId('chain-marks');
+    expect(marks.querySelector('[data-slot=marks]')?.children).toHaveLength(3);
+    expect(marks.textContent).toContain('illustrative');
+    // The live strip: four numbers in one frame, the epoch's claims beside its number, the chain's clock.
+    expect(screen.getByTestId('live').querySelectorAll('[data-slot=kpi]')).toHaveLength(4);
     expect(screen.getByTestId('live-epoch').textContent).toBe('1 of 4');
+    expect(screen.getByText('open 1 min · expected 5 min')).toBeTruthy();
+    expect(screen.getByText('×1.00 at the last close')).toBeTruthy();
     expect(screen.getByTestId('live-minted').textContent).toBe('16');
-    expect(screen.getByTestId('demo-caption').textContent).toContain('epoch 1');
+    expect(screen.getByTestId('demo-caption').textContent).toContain('epoch 1 · 1 of 4');
     expect((screen.getByTestId('prove') as HTMLButtonElement).disabled).toBe(false);
     expect(screen.getByTestId('footer-line').textContent).toContain(copy.footer.line);
   });

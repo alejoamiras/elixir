@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useDocumentHidden, useReducedMotion } from '../hooks/use-reduced-motion.ts';
 import { cn } from '../lib/cn.ts';
-import { axis, flash, rise, type Sample } from '../score-loop-model.ts';
+import { axis, difficultyLabel, flash, rise, type Sample } from '../score-loop-model.ts';
 import { DARK, ink } from '../tokens.ts';
 
 export interface ScoreLoopProps {
@@ -79,7 +79,7 @@ function drawBar(f: Frame, right: number, difficulty: number, glow: number) {
   ctx.lineWidth = 1;
   ctx.fillStyle = f.p.uv2;
   ctx.textAlign = 'left';
-  ctx.fillText(`difficulty ${difficulty.toFixed(1)} · the bar`, f.left + 6, y - 10);
+  ctx.fillText(`difficulty ${difficultyLabel(difficulty)} · the bar`, f.left + 6, y - 10);
 }
 
 function drawDots(f: Frame, right: number, props: ScoreLoopProps, now: number, reduced: boolean) {
@@ -195,7 +195,7 @@ export function ScoreLoop(props: ScoreLoopProps) {
       data-slot="score-loop"
       data-reduced={reduced || undefined}
       role="img"
-      aria-label={`score loop: ${props.samples.length} proofs in the last ${Math.round((props.spanMs ?? 60_000) / 1000)} seconds, difficulty ${props.difficulty.toFixed(1)}`}
+      aria-label={`score loop: ${props.samples.length} proofs in the last ${Math.round((props.spanMs ?? 60_000) / 1000)} seconds, difficulty ${difficultyLabel(props.difficulty)}`}
       className={cn('block w-full', props.className)}
       style={{ height: props.height ?? 200 }}
     />

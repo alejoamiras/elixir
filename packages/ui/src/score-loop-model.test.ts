@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { axis, flash, rise, ScoreLoopModel } from './score-loop-model.ts';
+import { axis, difficultyLabel, flash, rise, ScoreLoopModel } from './score-loop-model.ts';
 
 describe('ScoreLoopModel', () => {
   test('one dot per attempt at its real time; the window drops what is older than the span', () => {
@@ -28,6 +28,8 @@ describe('ScoreLoopModel', () => {
     expect(axis(10)).toBeCloseTo(1 / 3);
     expect(axis(1000)).toBe(1);
     expect(axis(5000)).toBe(1);
+    expect(difficultyLabel(33.14)).toBe('33.1');
+    expect(difficultyLabel(2 ** 128)).toBe('3.4e38');
     expect(axis(0.5)).toBe(0);
     expect(rise(0, 0)).toBe(0);
     expect(rise(420, 0)).toBe(1);

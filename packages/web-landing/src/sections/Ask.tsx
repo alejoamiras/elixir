@@ -2,19 +2,18 @@ import { Button } from '../../../ui/src/index.ts';
 import { copy } from '../copy';
 import { useMobile } from '../hooks';
 import { appHref } from '../state';
+import { Section } from './Section';
 
 export function Ask() {
   const mobile = useMobile();
   return (
-    <section
-      id="ask"
-      className="flex flex-col items-start gap-6 border-t border-line py-20"
-      data-testid="ask"
-    >
-      <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">{copy.ask.heading}</h2>
-      <div className="flex flex-wrap gap-3">
+    <Section id="ask" className="flex flex-col items-center gap-3.5 px-4 py-11 text-center md:px-9">
+      <h2 className="text-balance text-[36px] font-semibold leading-[1.02] tracking-[-0.03em]">
+        {copy.ask.heading}
+      </h2>
+      <div className="flex flex-wrap justify-center gap-2.5">
         {!mobile && (
-          <Button variant="primary" size="lg" asChild>
+          <Button variant="uv" size="lg" asChild>
             <a href={appHref('mine')}>{copy.bar.mine}</a>
           </Button>
         )}
@@ -22,16 +21,16 @@ export function Ask() {
           <a href={appHref('stats')}>{copy.ask.watch}</a>
         </Button>
       </div>
-    </section>
+    </Section>
   );
 }
 
 export function Footer() {
   const f = copy.footer;
   return (
-    <footer className="flex flex-col gap-3 border-t border-line py-8 text-xs text-ink-2 md:flex-row md:items-center md:justify-between">
+    <footer className="flex flex-wrap items-center gap-x-[22px] gap-y-2 border-t border-line px-4 py-[18px] text-xs text-ink-3 md:px-5">
       <p data-testid="footer-line">© Yacana · {f.line}</p>
-      <nav className="flex flex-wrap gap-4" aria-label="footer">
+      <nav className="ml-auto flex flex-wrap gap-x-[22px]" aria-label="footer">
         {f.links.map((l) => (
           <a key={l.label} href={l.href === 'stats' ? appHref('stats') : l.href} className="hover:text-ink">
             {l.label}

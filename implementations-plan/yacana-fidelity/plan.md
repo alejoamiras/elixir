@@ -222,7 +222,7 @@ ids are the E2E's handles). Layers: lint · component · e2e-isolated.
 
 ### Arc 2 · landing (`fidelity-landing`)
 
-**P2.1 The seven frames.** Goal: `Section` as the thin frame wrapper; hero, money, chain (with the chips, labelled
+**P2.1 The seven frames.** ✓ Goal: `Section` as the thin frame wrapper; hero, money, chain (with the chips, labelled
 illustrative), how, live (one row, no heading, 44-px sparkline, "recent epochs" wording), verify, ask (centred) and
 the footer to the binder's paddings and ratios; `uv` primary buttons; `ScoreLoop height={250} hero` in the hero; below
 `md` the frames stack, never seven viewport-height screens. Tests: `sections.vitest.tsx` asserts the section order

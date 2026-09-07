@@ -24,6 +24,12 @@ function watch(page: Page, r: E2eRun) {
   return { heavy, foreign: () => [...origins].filter((o) => !allowed.has(o)) };
 }
 
+/** The frame's grid tracks, in px. */
+const tracks = (page: Page, id: string) =>
+  page
+    .locator(`#${id}`)
+    .evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').map(parseFloat));
+
 test.beforeEach(({ page }) => {
   page.on('pageerror', (e) => console.log(`[page error] ${e.message}`));
   page.on('console', (m) => m.type() === 'error' && console.log(`[console] ${m.text().slice(0, 300)}`));
@@ -43,6 +49,24 @@ test('the argument in order, the live strip from the chain, nothing of the prove
   await expect(page.getByTestId('footer-line')).toContainText(
     'no trackers, no cookies, no requests except to the Aztec node you choose',
   );
+  // The L2 frames at 1280 and 1440: the hero's 1fr 1.1fr, the live strip's four numbers and the
+  // 1.4fr sparkline column in one row, the ask centred in its frame.
+  for (const width of [1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const hero = await tracks(page, 'hero');
+    expect(hero).toHaveLength(2);
+    expect((hero[1] as number) / (hero[0] as number)).toBeCloseTo(1.1, 2);
+    const live = await tracks(page, 'live');
+    expect(live).toHaveLength(5);
+    expect((live[4] as number) / (live[0] as number)).toBeCloseTo(1.4, 2);
+    expect(
+      await page.locator('#ask h2').evaluate((h) => {
+        const frame = (h.closest('section') as Element).getBoundingClientRect();
+        const box = h.getBoundingClientRect();
+        return Math.abs((box.left + box.right) / 2 - (frame.left + frame.right) / 2) <= 1;
+      }),
+    ).toBe(true);
+  }
   expect(page.url().startsWith(r.baseURL)).toBe(true);
   expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
   expect(net.heavy).toEqual([]);

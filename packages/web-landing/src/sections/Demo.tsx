@@ -1,10 +1,11 @@
 // The hero's right side: the score loop with the chain's real difficulty (a cadence of dots until
 // the visitor's own proof joins), then the three states of "Prove one now".
 import { useEffect, useMemo, useState } from 'react';
+import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { difficulty, nextWinSeconds } from '../../../miner-core/src/metrics.ts';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';
 import { duration } from '../../../site/src/browser/format.ts';
-import { Button, type Sample, ScoreLoop } from '../../../ui/src/index.ts';
+import { Button, difficultyLabel, type Sample, ScoreLoop, StatusPill, Tile } from '../../../ui/src/index.ts';
 import type { DemoJob } from '../../../web-miner/src/demo/index.ts';
 import { copy } from '../copy';
 import type { DemoState } from '../demo/machine';
@@ -64,7 +65,7 @@ function Result({ state, target }: { state: Extract<DemoState, { phase: 'done' }
         </div>
         <div>
           <p className="text-2xs text-ink-2">{copy.demo.bar}</p>
-          <p className="text-2xl">{bar.toFixed(1)}</p>
+          <p className="text-2xl">{difficultyLabel(bar)}</p>
         </div>
         <div>
           <p className="text-2xs text-ink-2">{copy.demo.odds}</p>
@@ -98,13 +99,16 @@ export function Demo({
   const bar = open ? difficulty(open.target) : 1;
   const busy = state.phase === 'proving';
   return (
-    <div className="flex flex-col gap-4 rounded-md border border-line bg-panel p-4" data-testid="demo">
-      <p className="eyebrow" data-testid="demo-caption">
-        {open
-          ? `epoch ${open.epoch} · difficulty ${bar.toFixed(1)} · the bar is live from the chain`
-          : copy.live.loading}
-      </p>
-      <ScoreLoop difficulty={bar} samples={[...cadence, ...own]} spanMs={SPAN_MS} height={140} hero />
+    <Tile className="flex flex-col gap-3 px-4 py-3.5" data-testid="demo">
+      <div className="flex items-center justify-between gap-3">
+        <StatusPill status={open ? 'mining' : 'idle'} data-testid="demo-caption">
+          {open
+            ? `epoch ${open.epoch} · ${open.claims} of ${PARAMS.N} · difficulty ${difficultyLabel(bar)}`
+            : copy.live.loading}
+        </StatusPill>
+        <span className="text-xs text-ink-3">{copy.demo.live}</span>
+      </div>
+      <ScoreLoop difficulty={bar} samples={[...cadence, ...own]} spanMs={SPAN_MS} height={250} hero />
       {state.phase === 'before' ? (
         <p className="text-sm text-ink-2">{copy.demo.before}</p>
       ) : (
@@ -132,6 +136,6 @@ export function Demo({
         )}
         <span className="text-2xs text-ink-2">{job ? copy.demo.nothingSent : copy.demo.needsChain}</span>
       </div>
-    </div>
+    </Tile>
   );
 }
