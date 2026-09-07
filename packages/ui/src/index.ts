@@ -1,6 +1,7 @@
 export { Alert, AlertDescription, AlertTitle } from './components/alert.tsx';
 export { Badge, badgeVariants } from './components/badge.tsx';
 export { Button, buttonVariants } from './components/button.tsx';
+export { Chip } from './components/chip.tsx';
 export {
   Dialog,
   DialogClose,

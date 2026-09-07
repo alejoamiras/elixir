@@ -5,6 +5,7 @@ import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { makeFetch } from '@aztec/foundation/json-rpc/client';
 import {
   assertDeployment,
+  assertTimestamp,
   DEFAULT_LIMITS,
   type EpochRow,
   expectedFromStrings,
@@ -70,7 +71,7 @@ const latestBlock = async (node: Node): Promise<Chain['block']> => {
   if (!data) throw new Error('the node has no latest block');
   return {
     number: Number(data.header.globalVariables.blockNumber),
-    timestamp: Number(data.header.globalVariables.timestamp),
+    timestamp: Number(assertTimestamp('the latest block', BigInt(data.header.globalVariables.timestamp))),
   };
 };
 

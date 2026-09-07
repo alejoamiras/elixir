@@ -1,13 +1,14 @@
 import { useAtomValue } from 'jotai';
-import { useCallback } from 'react';
+import { type ReactNode, useCallback } from 'react';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { Alert, AlertDescription, AlertTitle } from '../../../ui/src/index.ts';
+import { Alert, AlertDescription, AlertTitle, Tile, TileHeader } from '../../../ui/src/index.ts';
 import { Difficulty, Duration, Emission, Retarget } from '../charts/index.tsx';
 import { Detail } from '../features/Detail';
 import { NotHere } from '../features/NotHere';
 import { Observatory } from '../features/Observatory';
 import { Strip } from '../features/Strip';
 import { Table } from '../features/Table';
+import { VerifyTile } from '../features/VerifyTile';
 import { select, useSelected } from '../routes';
 import { chainAtom, historyLimitAtom, loadingOlderAtom, nowAtom } from '../state';
 
@@ -20,7 +21,17 @@ const RULES = {
   TOKEN_SYMBOL: PARAMS.TOKEN_SYMBOL,
 };
 
-export function Stats({ onOlder }: { onOlder: () => void }) {
+function ChartTile({ title, aside, children }: { title: string; aside: string; children: ReactNode }) {
+  return (
+    <Tile className="md:col-span-3">
+      <TileHeader aside={aside}>{title}</TileHeader>
+      {children}
+    </Tile>
+  );
+}
+
+/** The A1 frame: six columns from `md`, the binder's spans from `xl`; one column on a phone. */
+export function Stats({ onOlder, nodeUrl }: { onOlder: () => void; nodeUrl: string }) {
   const chain = useAtomValue(chainAtom);
   const limit = useAtomValue(historyLimitAtom);
   const loadingOlder = useAtomValue(loadingOlderAtom);
@@ -37,20 +48,20 @@ export function Stats({ onOlder }: { onOlder: () => void }) {
   const next = current ? rows.find((r) => r.epoch === current.epoch + 1) : undefined;
   const charts = { rows, selected: current?.epoch ?? null, rules: RULES };
   return (
-    <div className="flex flex-col gap-4">
+    <div className="grid gap-[14px] md:grid-cols-6" data-testid="stats">
       <Observatory chain={chain} now={now} />
       {limit && (
-        <Alert variant="warn" data-testid="history-limit">
+        <Alert variant="warn" className="md:col-span-6" data-testid="history-limit">
           <AlertTitle>history unavailable beyond epoch {limit.beyond}</AlertTitle>
           <AlertDescription>{limit.reason}</AlertDescription>
         </Alert>
       )}
-      {rows.length > 0 && (
+      {current && (
         <>
-          <div className="rounded-md border border-line bg-panel p-4">
-            <p className="eyebrow mb-3">
-              epochs since launch · width = duration · violet harder · grey easier · amber escape hatch
-            </p>
+          <Tile className="md:col-span-6 xl:col-span-4">
+            <TileHeader aside="width = duration · violet harder · grey easier · amber escape hatch">
+              epochs since launch
+            </TileHeader>
             <Strip
               rows={rows}
               open={chain.open}
@@ -59,23 +70,31 @@ export function Stats({ onOlder }: { onOlder: () => void }) {
               now={nowSec}
               onOlder={onOlder}
             />
-          </div>
-          {current && <Detail row={current} open={current.epoch === chain.open} next={next} now={nowSec} />}
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-md border border-line bg-panel p-4">
-              <Emission {...charts} />
-            </div>
-            <div className="rounded-md border border-line bg-panel p-4">
-              <Difficulty {...charts} />
-            </div>
-            <div className="rounded-md border border-line bg-panel p-4">
-              <Duration {...charts} />
-            </div>
-            <div className="rounded-md border border-line bg-panel p-4">
-              <Retarget {...charts} />
-            </div>
-          </div>
+          </Tile>
+          <Detail
+            className="md:col-span-6 xl:col-span-2"
+            row={current}
+            open={current.epoch === chain.open}
+            next={next}
+            now={nowSec}
+          />
+          <ChartTile
+            title="emission"
+            aside={`cumulative from epoch ${rows[0]?.epoch ?? 0}, against the schedule`}
+          >
+            <Emission {...charts} />
+          </ChartTile>
+          <ChartTile title="difficulty" aside="per epoch, log scale">
+            <Difficulty {...charts} />
+          </ChartTile>
+          <ChartTile title="epoch duration" aside="bars; amber = closed by the escape hatch">
+            <Duration {...charts} />
+          </ChartTile>
+          <ChartTile title="retarget at each close" aside="violet harder · grey easier">
+            <Retarget {...charts} />
+          </ChartTile>
           <Table
+            className="md:col-span-6"
             rows={rows}
             open={chain.open}
             selected={effective}
@@ -85,7 +104,8 @@ export function Stats({ onOlder }: { onOlder: () => void }) {
           />
         </>
       )}
-      <NotHere />
+      <NotHere className="md:col-span-3" />
+      <VerifyTile className="md:col-span-3" nodeUrl={nodeUrl} />
     </div>
   );
 }

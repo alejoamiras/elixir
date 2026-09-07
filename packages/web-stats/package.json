@@ -10,12 +10,14 @@
     "preview": "vite preview",
     "test:components": "vitest run",
     "test:e2e": "bun scripts/prebuild.ts && playwright test",
+    "test:visual": "bun e2e/visual.ts",
     "typecheck": "tsc -b"
   },
   "dependencies": {
     "@aztec/aztec.js": "5.2.0",
     "@aztec/foundation": "5.2.0",
     "@aztec/stdlib": "5.2.0",
+    "@observablehq/plot": "0.6.17",
     "@tailwindcss/vite": "^4",
     "jotai": "^2",
     "react": "^19.2.6",

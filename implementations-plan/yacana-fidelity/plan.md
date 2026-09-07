@@ -236,13 +236,13 @@ component · e2e-isolated.
 
 ### Arc 3 · stats (`fidelity-stats`)
 
-**P3.1 The A1 grid.** Goal: `Stats.tsx` on `repeat(6, 1fr) / 14px` with the binder's spans from `xl`, two rows of
+**P3.1 The A1 grid.** ✓ Goal: `Stats.tsx` on `repeat(6, 1fr) / 14px` with the binder's spans from `xl`, two rows of
 three KPIs below it; the strip beside the detail (three inline KPIs); the table; `NotHere` beside the new `VerifyTile`
 (the Verify route's formatting reused). Charts still the SVG ones. Tests: `stats.vitest.tsx` asserts the span
 classes; `stats.e2e.ts` gains the grid-template assertion at 1280 and 1440; existing assertions unchanged.
 Gate: `bun run lint` · web-stats `tsc -b` · `bun run --cwd packages/web-stats test:components`. Layers: lint · component.
 
-**P3.2 Charts on Observable Plot.** Goal: `@observablehq/plot@0.6.17` in `web-stats`; `charts/plot.tsx` (`useChart`:
+**P3.2 Charts on Observable Plot.** ✓ Goal: `@observablehq/plot@0.6.17` in `web-stats`; `charts/plot.tsx` (`useChart`:
 container, resize, replace, cleanup, the whole-figure cross-fade on row-set changes, reduced motion) and
 `charts/specs.ts` (the four specs with the semantics above: log durations with `T_MAX` and `expected` rules, elapsed-time
 emission, step-line difficulty with roll annotations, retarget from a baseline of 1; domain guards); `charts/index.tsx`
@@ -256,7 +256,7 @@ bun run --cwd packages/web-stats test:e2e` · `bun run site:build` (the Plot chu
 landing's bundle unchanged: asserted by `ls dist/assets` sizes in the lessons). Layers: lint · component ·
 e2e-isolated.
 
-**P3.3 The screenshot gate.** Goal: the fixture-only runner (`playwright.visual.config.ts`, `visual-setup.ts`
+**P3.3 The screenshot gate.** ✓ Goal: the fixture-only runner (`playwright.visual.config.ts`, `visual-setup.ts`
 with the stats-only e2e build, the recorded RPC answers, the owned port and teardown), `visual.e2e.ts` (fixed clock,
 fixed record and commit, fonts awaited, animations off, full page at 1280 / 1440 / 1024 / 390, zero tolerance,
 unexpected requests fail), the `test:visual` script running inside the pinned Playwright image; baselines committed;
@@ -367,6 +367,7 @@ behaviour. The screenshot gate is part of the e2e-isolated layer.
 | the dim inks (`fg-3` .40, `fg-4` .22 over the tiles: 3.5:1 and 1.9:1) | `ink-3` is raised to .50 (light .60) so the binder's dim labels, hints and units meet 4.5:1; tile-header asides take `ink-3`, not `fg-4`; `ink-4` stays for pending steps and word indices only (arc-1 review) |
 | the cockpit tile's state pill | the loop tile's header is the plain M1 label ("live · one dot per proof", or the phase); the state pill lives in the bar; a page-side pause keeps its red pill in the tile (arc-1 review) |
 | the elapsed strip under the epoch segments | removed: M1 has the segments and six rows; "open for" and "expected close" carry the time (arc-1 review) |
+| the epoch numbers on A1's strip blocks in `INK(.85)` (2.6:1 on amber, 2.9:1 on grey) | on a small `ground` backing at 75 %: legible on every tone and in both themes (arc-3 review) |
 
 ## Delivery
 

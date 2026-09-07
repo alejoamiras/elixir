@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { amount, compact, duration } from './format';
+import { amount, compact, duration, durationParts } from './format';
 
 describe('format', () => {
   test('compact and duration read the way a dashboard needs', () => {
@@ -10,6 +10,8 @@ describe('format', () => {
     expect(duration(300)).toBe('5 min');
     expect(duration(5400)).toBe('1.5 h');
     expect(duration(Number.POSITIVE_INFINITY)).toBe('—');
+    expect(durationParts(1296)).toEqual(['22', 'min']);
+    expect(durationParts(Number.POSITIVE_INFINITY)).toEqual(['—', '']);
   });
 
   test('token amounts trim trailing zeros and cap the fraction', () => {
