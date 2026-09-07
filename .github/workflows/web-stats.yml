@@ -69,6 +69,8 @@ jobs:
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: web-stats-visual
-          path: packages/web-stats/test-results
+          path: |
+            packages/web-stats/test-results
+            packages/web-stats/e2e/.visual.log
           if-no-files-found: ignore
           retention-days: 14

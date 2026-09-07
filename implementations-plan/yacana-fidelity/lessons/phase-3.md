@@ -209,3 +209,15 @@ out. A fourth resumed pass confirms convergence; the rounds past the plan's thir
 tooling line in `render-surfaces.ts`, not churn in the product, and are surfaced to the owner in the report.
 
 **Round 4** (resumed, over `bf2b7f7..2135c06`): "no new material findings". The cross-arc pass converged.
+
+## Delivery (2026-09-07)
+
+Stack #17: PRs #14 (`fidelity-miner` → `main`), #15 (`fidelity-landing`), #16 (`fidelity-stats`), created with
+`gh stack submit --auto --open` after every loop converged; the bodies carry the gates, the rounds and the shots
+by raw URL on each branch. Every check passed except the new screenshot-gate job on #16: "vite preview did not
+start". Reproduced in the pinned image without host networking: the preview bound `localhost` on one loopback
+family and Bun's readiness fetch resolved `localhost` to the other, so the server was up and the probe never
+saw it (the E2E setups share the probe but had only ever run on the host). Binding `127.0.0.1` instead made the
+page a "preview build" (the banner is by hostname) and moved every baseline by 55 px; the fix is the probe: it
+tries `127.0.0.1` and `[::1]`, the page keeps its `localhost` URL, and the job keeps `e2e/.visual.log` as an
+artifact. The reproduction and the local gate pass on the fix.

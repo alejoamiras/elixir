@@ -72,13 +72,21 @@ export function startPreview(
   return child;
 }
 
+/**
+ * `localhost` can bind one loopback family while this process resolves the other (a container):
+ * the probe tries both addresses; the page's own `localhost` URL reaches whichever is bound.
+ */
 export async function waitUntilUp(baseURL: string, child: ChildProcess): Promise<boolean> {
-  for (let i = 0; i < 120 && child.exitCode === null; i++) {
-    const ok = await fetch(`${baseURL}/`).then(
+  const { hostname, port } = new URL(baseURL);
+  const probes =
+    hostname === 'localhost' ? [`http://127.0.0.1:${port}/`, `http://[::1]:${port}/`] : [`${baseURL}/`];
+  const up = (url: string) =>
+    fetch(url).then(
       (r) => r.ok,
       () => false,
     );
-    if (ok) return true;
+  for (let i = 0; i < 120 && child.exitCode === null; i++) {
+    for (const probe of probes) if (await up(probe)) return true;
     await delay(500);
   }
   return false;
