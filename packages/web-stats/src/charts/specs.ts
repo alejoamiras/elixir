@@ -59,6 +59,40 @@ const haloBand = (rows: EpochRow[], selected: number | null, y1: number, y2: num
   );
 
 const epochTick = (e: number) => (Number.isInteger(e) ? `${e}` : '');
+
+interface RollLabel {
+  r: EpochRow;
+  anchor: 'start' | 'end';
+  row: number;
+  text: string;
+}
+
+/**
+ * A roll's label at its close, reading rightward, or inward when it would run past the frame;
+ * two rows for neighbours, and none when neither row has room (the tip carries the annotation).
+ * Text is measured at the mono face's 6 px per glyph.
+ */
+const placeRollLabels = (rolls: EpochRow[], x0: number, x1: number, width: number): RollLabel[] => {
+  const left = 52;
+  const right = width - 8;
+  const px = (e: number) => left + ((e - x0) / Math.max(1, x1 - x0)) * (right - left);
+  const edges = [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY];
+  const out: RollLabel[] = [];
+  for (const r of rolls) {
+    const ratio = `÷${(r.retarget as number).toFixed(2)}`;
+    const text = width < 480 ? `${ratio} · epoch ${r.epoch}` : `${ratio} escape hatch · epoch ${r.epoch}`;
+    const w = text.length * 6 + 8;
+    const x = px(r.epoch + 1);
+    const anchor = x + w <= right ? 'start' : x - w >= left ? 'end' : null;
+    if (!anchor) continue;
+    const [a, b] = anchor === 'start' ? [x, x + w] : [x - w, x];
+    const row = edges.findIndex((edge) => a > edge);
+    if (row < 0) continue;
+    edges[row] = b;
+    out.push({ r, anchor, row, text });
+  }
+  return out;
+};
 /** Every k-th epoch, the newest always among them, so the labels stay about 28 px apart. */
 const epochTicks = (epochs: number[], width: number): number[] => {
   const room = Math.max(1, Math.floor((width - 60) / 28));
@@ -151,21 +185,22 @@ export const difficultyChart: Spec = ({ rows, selected, width }) => {
   const hi = Math.max(...values, 2) * 2;
   const rolls = rows.filter((r) => r.closedBy === 'roll' && r.retarget !== null);
   const mid = (s: Step) => s.epoch + 0.5;
-  // A roll's label reads inward past 60 % of the axis; neighbours alternate between two heights.
-  const x0 = steps[0]?.epoch ?? 0;
-  const late = (r: EpochRow) => (r.epoch + 1 - x0) / Math.max(1, (last?.epoch ?? 0) + 1 - x0) > 0.6;
-  const rollLabels = (data: EpochRow[], anchor: 'start' | 'end') =>
-    Plot.text(data, {
-      x: (r: EpochRow) => r.epoch + 1,
-      y: (_r: EpochRow, i: number) => (i % 2 ? hi / 2.2 : hi),
-      text: (r: EpochRow) => `÷${(r.retarget as number).toFixed(2)} escape hatch · epoch ${r.epoch}`,
-      fill: WARN,
-      ...HALO,
-      textAnchor: anchor,
-      lineAnchor: 'top',
-      dx: anchor === 'start' ? 4 : -4,
-      dy: 2,
-    });
+  const placed = placeRollLabels(rolls, steps[0]?.epoch ?? 0, (last?.epoch ?? 0) + 1, width);
+  const rollLabels = (anchor: 'start' | 'end') =>
+    Plot.text(
+      placed.filter((p) => p.anchor === anchor),
+      {
+        x: (p: RollLabel) => p.r.epoch + 1,
+        y: (p: RollLabel) => (p.row ? hi / 2.2 : hi),
+        text: (p: RollLabel) => p.text,
+        fill: WARN,
+        ...HALO,
+        textAnchor: anchor,
+        lineAnchor: 'top',
+        dx: anchor === 'start' ? 4 : -4,
+        dy: 2,
+      },
+    );
   return base(width, {
     x: {
       label: null,
@@ -212,11 +247,8 @@ export const difficultyChart: Spec = ({ rows, selected, width }) => {
         strokeDasharray: '3 3',
         className: 'roll',
       }),
-      rollLabels(
-        rolls.filter((r) => !late(r)),
-        'start',
-      ),
-      rollLabels(rolls.filter(late), 'end'),
+      rollLabels('start'),
+      rollLabels('end'),
       Plot.crosshairX(steps, { x: mid, y: 'd' }),
       Plot.tip(
         steps,
@@ -224,7 +256,7 @@ export const difficultyChart: Spec = ({ rows, selected, width }) => {
           x: mid,
           y: 'd',
           title: (s: Step) =>
-            `epoch ${s.epoch}\ndifficulty ${difficultyLabel(s.d)}\n${s.row.claims} claims · ${s.row.duration === null ? 'open' : `${s.row.duration} s`}`,
+            `epoch ${s.epoch}\ndifficulty ${difficultyLabel(s.d)}\n${s.row.claims} claims · ${s.row.duration === null ? 'open' : `${s.row.duration} s`}${s.row.closedBy === 'roll' ? `\nclosed by roll() · ÷${(s.row.retarget as number).toFixed(2)} at the close` : ''}`,
         }),
       ),
     ],

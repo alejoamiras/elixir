@@ -79,14 +79,16 @@ export function Strip({ rows, open, selected, onSelect, now, onOlder }: StripPro
             onClick={() => onSelect(r.epoch === open ? null : r.epoch)}
             style={{ flexGrow: widths[i], flexBasis: 0 }}
             className={cn(
-              '@container min-w-[6px] shrink-0 overflow-hidden rounded-[2px] px-1 text-left font-mono text-2xs text-ink/85 transition-[flex-grow] duration-200',
+              '@container min-w-[6px] shrink-0 overflow-hidden rounded-[2px] px-1 text-left font-mono text-2xs transition-[flex-grow] duration-200',
               tone(r, open),
               r.epoch === current && 'ring-2 ring-ink',
               r === lastClosed &&
                 'motion-safe:animate-in motion-safe:slide-in-from-right-2 motion-safe:duration-[240ms]',
             )}
           >
-            <span className="hidden @min-[24px]:inline">{r.epoch}</span>
+            <span className="hidden rounded-[2px] bg-ground/75 px-[3px] text-ink @min-[24px]:inline">
+              {r.epoch}
+            </span>
           </button>
         ))}
       </div>

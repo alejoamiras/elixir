@@ -136,3 +136,18 @@ The baselines were re-recorded (`--update-snapshots`) for the strip and the capt
 must be: in the PR, reviewed. Gates after round 1: `bun run lint` ✓ · `bun run lint:actions` ✓ · `tsc` ✓ ·
 Vitest web-stats 14 ✓ · the stats E2E 3 passed with the stronger assertions ✓ · `test:visual` 4 passed on the
 new baselines ✓.
+
+**Round 2** (resumed, over `1ba4666..5e1d5c1`): two should-fixes; codex confirmed the sampled ticks (eight labels
+about 30 px apart at 48 epochs), the strip, the emission origin, the post-capture check, the filter, the per-chart
+halos, the geometry / fill check and the named hover.
+1. *Should-fix, accepted.* The roll labels still clipped (a roll at epoch 4 in a 312-px chart) and overlapped (the
+   two anchor groups restarted their alternation). `placeRollLabels` measures each label (6 px a glyph, a short
+   form under 480 px), reads rightward or inward as the frame allows, takes the first of two rows with room, and
+   drops the label when neither has any; the difficulty tip now carries "closed by roll() · ÷N at the close",
+   so a dropped label loses nothing.
+2. *Should-fix, accepted with a different fix.* The strip's numbers in the binder's `INK(.85)` composite to
+   2.6:1 on amber and 2.9:1 on grey. Codex offered per-tone foregrounds or a backing; the numbers sit on a
+   small `ground` backing at 75 % (`text-ink`), legible on every tone and in both themes without touching the
+   tokens. Recorded in the fidelity decisions.
+   Gates after round 2: `bun run lint` ✓ · `tsc` ✓ · Vitest web-stats 14 ✓ · the stats E2E 3 passed ✓ · the
+   baselines re-recorded and `test:visual` 4 passed ✓.
