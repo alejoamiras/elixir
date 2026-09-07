@@ -223,3 +223,11 @@ tries `127.0.0.1` and `[::1]`, the page keeps its `localhost` URL, and the job k
 artifact. The reproduction and the local gate pass on the fix.
 On the pushed fix the screenshot gate passed in CI inside the pinned image in 1 min 17 s (the same-image check
 of the baselines; the job's budget is 15 minutes); every check on #14, #15 and #16 is green.
+
+## Merge and deploy (2026-09-07)
+
+Stack #17 squash-merged into `main` as `4846519` (#14, #15, #16 in one atomic merge) on the owner's word; the
+merged tree diffed empty against the tested branch tip; `bun run site:deploy` from it uploaded 11 changed assets
+and published Worker version `c18941c9`. Verified live: `/`, `/mine/`, `/stats/` and `/build.json` answer 200,
+the build's commit is `4846519`, and a Playwright pass at 1280 shows the landing's strip reading the chain and
+the observatory on 26 real epochs (`.run-state/live/`).
