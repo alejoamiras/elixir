@@ -202,3 +202,8 @@ round-tripping `&` and quotes), the baselines byte-identical to the shots.
    the demo copy it waited for is desktop-only and absent from the launch-week hero. The readiness is the live
    strip's epoch number, or the launch hero's phase, at every width; a run at 390 and 1280 against the public
    testnet rendered both.
+
+**Round 3** (resumed, over `64e2b14..bf2b7f7`): one should-fix on the same line: `launch-phase` exists at once
+with "reading the chain…", so a launch-mode capture could pass while loading. The readiness filters that text
+out. A fourth resumed pass confirms convergence; the rounds past the plan's third were each a narrowing of one
+tooling line in `render-surfaces.ts`, not churn in the product, and are surfaced to the owner in the report.
