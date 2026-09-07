@@ -110,6 +110,19 @@ test('the captured history through a mocked node: deterministic numbers, selecti
     );
     expect(tracks).toHaveLength(6);
     expect(Math.max(...tracks) - Math.min(...tracks)).toBeLessThanOrEqual(0.5);
+    // Every chart is drawn at its container's width, never at the unmeasured fallback.
+    await expect
+      .poll(() =>
+        grid.evaluate((el) =>
+          Array.from(el.querySelectorAll('[data-slot=chart]')).map((c) => {
+            const svg = c.querySelector('svg');
+            return svg
+              ? Math.round(svg.getBoundingClientRect().width - c.getBoundingClientRect().width)
+              : null;
+          }),
+        ),
+      )
+      .toEqual([0, 0, 0, 0]);
     expect(
       await grid.evaluate((el) => {
         const strip = (el.querySelector('[data-testid=strip]') as Element).closest(

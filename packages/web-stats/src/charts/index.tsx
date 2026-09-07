@@ -18,6 +18,7 @@ export interface ChartProps {
   rows: readonly EpochRow[];
   selected: number | null;
   rules: ChartRules;
+  open: number;
 }
 
 const closed = (rows: readonly EpochRow[]) => rows.filter((r) => r.duration !== null).length;

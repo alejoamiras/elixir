@@ -21,7 +21,6 @@ function ChartTile({
   );
 }
 
-/** The lead chart on its own row, then the three small multiples side by side. */
 export function ChartRows(charts: ChartProps) {
   return (
     <>

@@ -6,7 +6,7 @@ import type { ChartInput, Spec } from './specs';
 const FADE_MS = 240;
 type Figure = HTMLElement | SVGSVGElement;
 
-/** The container's width through a ResizeObserver; 640 where there is none (jsdom) or nothing is laid out yet. */
+/** The container's width through a ResizeObserver: 0 until measured; 640 where there is no observer (jsdom). */
 function useWidth(ref: RefObject<HTMLDivElement | null>): number {
   const [width, setWidth] = useState(0);
   useLayoutEffect(() => {
@@ -17,7 +17,7 @@ function useWidth(ref: RefObject<HTMLDivElement | null>): number {
     observer.observe(el);
     return () => observer.disconnect();
   }, [ref]);
-  return width || 640;
+  return typeof ResizeObserver === 'undefined' ? 640 : width;
 }
 
 /** The outgoing figures fade under the incoming one, inert and hidden from assistive tech, then go. */
@@ -59,11 +59,11 @@ export function Chart({
   const reduced = useReducedMotion();
   const epochs = input.rows.map((r) => r.epoch).join(',');
   const drawn = useRef<string | null>(null);
-  const { rows, selected, rules } = input;
+  const { rows, selected, rules, open } = input;
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
-    const figure = Plot.plot(spec({ rows, selected, rules, width, height }));
+    if (!el || !width) return;
+    const figure = Plot.plot(spec({ rows, selected, rules, open, width, height }));
     figure.style.position = 'absolute';
     figure.style.inset = '0';
     const previous = Array.from(el.children) as Figure[];
@@ -75,7 +75,7 @@ export function Chart({
       return;
     }
     return crossFade(figure, previous);
-  }, [spec, rows, selected, rules, width, height, epochs, reduced]);
+  }, [spec, rows, selected, rules, open, width, height, epochs, reduced]);
   return (
     <div
       ref={ref}

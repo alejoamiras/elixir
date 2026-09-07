@@ -58,3 +58,21 @@ after one `--update-snapshots` run) ✓ · `bun run e2e:agent -- bun run --cwd p
   met the dialog that now reopens after the backup it asked for (`72f279a`). The re-run is in `phase-1.md`.
 
 LESSONS_FILE=implementations-plan/yacana-second-pass/lessons/phase-2.md
+
+## Arc 2 codex loop · round 1 (2026-09-07)
+
+New session `01a07e40-c02c-7fb1-b19d-89d863349ed1` (Astra, high; `codex exec -i` with the 1440 / 1280 renders and
+the artboard, the arc diff, the plan, recon, the arc map, both rules). Five findings, all verified and adopted:
+
+| sev | finding | fix |
+|---|---|---|
+| P2 | The 1440 render drew every chart at the 640 px fallback (the lead chart short, the small multiples scaled down): the first draw happens before the container is measured and, under load (the miner E2E was proving alongside), the observer's redraw lagged past the capture. | `useWidth` returns 0 until measured (640 only where there is no `ResizeObserver`), and `Chart` draws nothing at 0, so no frame ever exists at a guessed width. The live E2E asserts every chart's SVG width equals its container at 1280 and 1440; `render-e2e.ts` waits for the same before the capture. |
+| P2 | Emission's x ticks rounded fractional hours: a short history read "+0 h" four times. | Integers stay integers, fractions keep one decimal; a spec renders the first five epochs and asserts distinct labels. |
+| P2 | "N · open" was the last loaded row's, but `pollChain` keeps the old rows when a history read fails after a close, so a stale tail would be called open. | `ChartInput.open` carries the chain's open epoch; the suffix appears only when the newest row is it. A spec passes `open = last + 1` and reads "30". |
+| P2 | "since you opened" would print "+-1 claims" if the supply read lower than at the first read (a reorg, a stale answer, a lying node). | A negative delta shows "—" with "the supply read lower than at the first read"; tested. |
+| P3 | Three narrating comments (`ChartRows`, `SinceOpened`, `LEAD_HEIGHT`). | Removed; the log-axis and separate-borders comments stay. |
+
+Codex also noted the since-opened spec never saw the tween settle: it now `waitFor`s the unsettled set to empty
+under jsdom's real rAF and reads "+3". Gates after the round: web-stats components 19 ✓ · `test:visual` 4 passed,
+no diff (the final frame is unchanged) ✓ · the stats E2E 3 passed (1.2 m) with the width assertion ✓ · lint ✓ ·
+typecheck ✓. The renders in `shots/arc-2/` are re-taken.

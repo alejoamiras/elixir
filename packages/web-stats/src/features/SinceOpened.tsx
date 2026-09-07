@@ -5,10 +5,18 @@ import { Kpi } from '../../../ui/src/index.ts';
 import { type Chain, sinceOpenedAtom } from '../state';
 import { Tweened } from './Tweened';
 
-/** What the chain minted since this tab's first read: the claims, the amount, the minutes. */
 export function SinceOpened({ chain, now }: { chain: Chain; now: number }) {
   const since = useAtomValue(sinceOpenedAtom);
   const minted = since ? chain.supply - since.supply : 0n;
+  // A supply below the first read (a reorg, a stale answer, a lying node) is said, not shown as a negative count.
+  if (minted < 0n)
+    return (
+      <Kpi
+        label="since you opened"
+        value={<span data-testid="since-opened">—</span>}
+        sub="the supply read lower than at the first read"
+      />
+    );
   const claims = Number(minted / PARAMS.REWARD);
   return (
     <Kpi

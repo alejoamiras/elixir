@@ -37,7 +37,7 @@ export function Stats({ onOlder, nodeUrl }: { onOlder: () => void; nodeUrl: stri
   const current = loaded ?? rows[rows.length - 1];
   const effective = loaded ? selected : null;
   const next = current ? rows.find((r) => r.epoch === current.epoch + 1) : undefined;
-  const charts = { rows, selected: current?.epoch ?? null, rules: RULES };
+  const charts = { rows, selected: current?.epoch ?? null, rules: RULES, open: chain.open };
   return (
     <div className="grid gap-[14px] md:grid-cols-6" data-testid="stats">
       <Observatory chain={chain} now={now} />

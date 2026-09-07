@@ -14,13 +14,14 @@ export interface ChartInput {
   rows: readonly EpochRow[];
   selected: number | null;
   rules: ChartRules;
+  /** The chain's open epoch; the last loaded row is older when a history read failed after a close. */
+  open: number;
   width: number;
   height: number;
 }
 
 export type Spec = (input: ChartInput) => Plot.PlotOptions;
 
-/** The lead chart's height and the small multiples'. */
 export const LEAD_HEIGHT = 200;
 export const SMALL_HEIGHT = 110;
 const LEFT = 52;
@@ -168,7 +169,7 @@ export const emission: Spec = ({ rows, selected, rules, width, height }) => {
   ];
   const at = (p: Point) => `+${p.hours.toFixed(1)} h`;
   return base(width, height, {
-    x: { label: null, ticks: 4, tickFormat: (h: number) => `+${Math.round(h)} h` },
+    x: { label: null, ticks: 4, tickFormat: (h: number) => `+${Number.isInteger(h) ? h : h.toFixed(1)} h` },
     y: {
       label: null,
       grid: true,
@@ -219,7 +220,7 @@ export const emission: Spec = ({ rows, selected, rules, width, height }) => {
 };
 
 /** Difficulty per epoch as a step line, the open epoch included, log base 2; a roll annotated at its close. */
-export const difficultyChart: Spec = ({ rows, selected, width, height }) => {
+export const difficultyChart: Spec = ({ rows, selected, open, width, height }) => {
   const steps = rows.map((r) => ({ epoch: r.epoch, d: difficulty(r.target), row: r }));
   type Step = (typeof steps)[number];
   const last = steps[steps.length - 1];
@@ -232,20 +233,20 @@ export const difficultyChart: Spec = ({ rows, selected, width, height }) => {
   const mid = (s: Step) => s.epoch + 0.5;
   const placed = placeRollLabels(rolls, steps[0]?.epoch ?? 0, (last?.epoch ?? 0) + 1, width);
   const x0 = steps[0]?.epoch ?? 0;
-  const open = last?.epoch ?? 0;
-  const x1 = open + 1;
+  const newest = last?.epoch ?? 0;
+  const x1 = newest + 1;
   return base(width, height, {
     x: {
       label: null,
       domain: [x0, x1],
       ticks: leadTicks(
         steps.map((s) => s.epoch),
-        open,
+        newest,
         x0,
         x1,
         width,
       ),
-      tickFormat: (e: number) => (e === open ? `${e} · open` : epochTick(e)),
+      tickFormat: (e: number) => (e === newest && e === open ? `${e} · open` : epochTick(e)),
     },
     y: {
       type: 'log',

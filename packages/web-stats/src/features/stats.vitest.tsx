@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createStore, Provider } from 'jotai';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
@@ -31,7 +31,7 @@ const texts = (root: ParentNode, selector: string) =>
 
 describe('charts on the captured history', () => {
   test('duration: one bar per closed epoch from the 10 s floor, the escape-hatch closes amber, the selection haloed', () => {
-    const { container } = render(<Duration rows={rows} selected={3} rules={RULES} />);
+    const { container } = render(<Duration rows={rows} selected={3} rules={RULES} open={OPEN} />);
     expect(container.querySelectorAll('g.claims rect[aria-label]')).toHaveLength(27);
     const roll = container.querySelectorAll('g.roll rect[aria-label]');
     expect(roll).toHaveLength(3);
@@ -48,12 +48,12 @@ describe('charts on the captured history', () => {
     expect(screen.getByRole('figure', { name: /30 closed epochs/ })).toBeTruthy();
     cleanup();
     // The open epoch has no duration: nothing to halo on a closed-only chart.
-    const open = render(<Duration rows={rows} selected={OPEN} rules={RULES} />).container;
+    const open = render(<Duration rows={rows} selected={OPEN} rules={RULES} open={OPEN} />).container;
     expect(open.querySelectorAll('g.halo rect')).toHaveLength(0);
   });
 
   test('retarget bars grow from 1, violet harder and grey easier; emission and difficulty count their marks', () => {
-    const { container } = render(<Retarget rows={rows} selected={null} rules={RULES} />);
+    const { container } = render(<Retarget rows={rows} selected={null} rules={RULES} open={OPEN} />);
     const easier = container.querySelectorAll('g.easier rect[aria-label]');
     const harder = container.querySelectorAll('g.harder rect[aria-label]');
     expect(easier.length + harder.length).toBe(30);
@@ -63,17 +63,17 @@ describe('charts on the captured history', () => {
     expect(texts(container, '[aria-label="y-axis tick label"] text')).toEqual(['×0.25', '×1', '×4']);
     // A ratio outside the contract's clamp is a node lying or a wrong slot: marked at the baseline, never a bar.
     const bad = [...rows.slice(0, 2).map((r, i) => ({ ...r, retarget: i ? 100 : 0 })), ...rows.slice(2)];
-    const guarded = render(<Retarget rows={bad} selected={null} rules={RULES} />).container;
+    const guarded = render(<Retarget rows={bad} selected={null} rules={RULES} open={OPEN} />).container;
     expect(guarded.querySelectorAll('g.invalid circle[aria-label]')).toHaveLength(2);
     expect(guarded.querySelectorAll('g.harder rect, g.easier rect')).toHaveLength(28);
-    const emission = render(<Emission rows={rows} selected={null} rules={RULES} />).container;
+    const emission = render(<Emission rows={rows} selected={null} rules={RULES} open={OPEN} />).container;
     expect(emission.querySelectorAll('g.point circle[aria-label]')).toHaveLength(30);
     expect(emission.querySelectorAll('g.minted path')).toHaveLength(1);
     expect(emission.querySelector('[data-testid=chart-emission]')).toBeTruthy();
   });
 
   test('the lead chart: log-2 ticks, every third epoch and "N · open", the escape-hatch closes labelled by name', () => {
-    const { container } = render(<Difficulty rows={rows} selected={OPEN} rules={RULES} />);
+    const { container } = render(<Difficulty rows={rows} selected={OPEN} rules={RULES} open={OPEN} />);
     expect(container.querySelectorAll('g.point circle[aria-label]')).toHaveLength(31);
     expect(container.querySelectorAll('g.halo rect')).toHaveLength(1);
     expect(container.querySelectorAll('g.roll line')).toHaveLength(3);
@@ -91,6 +91,17 @@ describe('charts on the captured history', () => {
       t.textContent?.startsWith('escape hatch closed epoch 29'),
     );
     expect(late?.parentElement?.getAttribute('text-anchor')).toBe('end');
+    cleanup();
+    // A history that stopped before the chain's open epoch: its last row is not called open.
+    const stale = render(<Difficulty rows={rows} selected={null} rules={RULES} open={OPEN + 1} />).container;
+    expect(texts(stale, '[aria-label="x-axis tick label"] text').at(-1)).toBe('30');
+  });
+
+  test('emission over a short history keeps its fractional hours', () => {
+    const { container } = render(<Emission rows={rows.slice(0, 5)} selected={null} rules={RULES} open={4} />);
+    const x = texts(container, '[aria-label="x-axis tick label"] text');
+    expect(new Set(x).size).toBe(x.length);
+    expect(x.every((t) => /^\+\d+(\.\d)? h$/.test(t ?? ''))).toBe(true);
   });
 });
 
@@ -156,7 +167,7 @@ describe('the observatory', () => {
     expect((screen.getByTestId('calculator') as HTMLButtonElement).disabled).toBe(true);
   });
 
-  test('since you opened counts from the first read: a second poll with more supply shows the delta', () => {
+  test('since you opened counts from the first read: a second poll with more supply shows the delta', async () => {
     const store = createStore();
     const first = chain(last.epoch);
     store.set(sinceOpenedAtom, { supply: first.supply, at: last.openedAt * 1000 });
@@ -171,9 +182,19 @@ describe('the observatory', () => {
         <Observatory chain={{ ...first, supply: 3n * PARAMS.REWARD }} now={(last.openedAt + 420) * 1000} />
       </Provider>,
     );
-    // The number glides there: the page reports itself unsettled until the tween lands.
+    // The number glides there: the page reports itself unsettled until the tween lands, then settled.
     expect(store.get(unsettledAtom).has('since-opened')).toBe(true);
     expect(screen.getByText('12 tYACA minted · 7 min')).toBeTruthy();
+    await waitFor(() => expect(store.get(unsettledAtom).size).toBe(0));
+    expect(screen.getByTestId('since-opened').textContent).toBe('+3');
+    // A supply below the first read is said, never a negative count.
+    view.rerender(
+      <Provider store={store}>
+        <Observatory chain={{ ...first, supply: -PARAMS.REWARD }} now={(last.openedAt + 420) * 1000} />
+      </Provider>,
+    );
+    expect(screen.getByTestId('since-opened').textContent).toBe('—');
+    expect(screen.getByText('the supply read lower than at the first read')).toBeTruthy();
   });
 });
 
