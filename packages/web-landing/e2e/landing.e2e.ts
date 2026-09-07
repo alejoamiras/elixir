@@ -30,6 +30,39 @@ const tracks = (page: Page, id: string) =>
     .locator(`#${id}`)
     .evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').map(parseFloat));
 
+const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+
+/**
+ * The L2 frames at a desktop width: the 1120 canvas, the hero's `1fr 1.1fr` and the live strip's
+ * `repeat(4, 1fr) 1.4fr` filling it inside the binder's gaps and paddings, the ask centred as text
+ * and as a button row.
+ */
+async function expectFrames(page: Page) {
+  expect(await page.locator('#hero').evaluate((el) => el.getBoundingClientRect().width)).toBe(1120);
+  const hero = await tracks(page, 'hero');
+  expect(hero).toHaveLength(2);
+  expect((hero[1] as number) / (hero[0] as number)).toBeCloseTo(1.1, 2);
+  expect(sum(hero)).toBeCloseTo(1120 - 2 * 36 - 30, 0);
+  const live = await tracks(page, 'live');
+  expect(live).toHaveLength(5);
+  expect(new Set(live.slice(0, 4).map((t) => t.toFixed(1))).size).toBe(1);
+  expect((live[4] as number) / (live[0] as number)).toBeCloseTo(1.4, 2);
+  expect(sum(live)).toBeCloseTo(1120 - 2 * 36 - 4 * 16, 0);
+  const ask = await page.locator('#ask').evaluate((el) => {
+    const heading = el.querySelector('h2') as HTMLElement;
+    const row = heading.nextElementSibling as HTMLElement;
+    const frame = el.getBoundingClientRect();
+    const first = (row.firstElementChild as Element).getBoundingClientRect();
+    const last = (row.lastElementChild as Element).getBoundingClientRect();
+    return {
+      align: getComputedStyle(heading).textAlign,
+      slack: Math.abs(first.left - frame.left - (frame.right - last.right)),
+    };
+  });
+  expect(ask.align).toBe('center');
+  expect(ask.slack).toBeLessThanOrEqual(1);
+}
+
 test.beforeEach(({ page }) => {
   page.on('pageerror', (e) => console.log(`[page error] ${e.message}`));
   page.on('console', (m) => m.type() === 'error' && console.log(`[console] ${m.text().slice(0, 300)}`));
@@ -49,23 +82,9 @@ test('the argument in order, the live strip from the chain, nothing of the prove
   await expect(page.getByTestId('footer-line')).toContainText(
     'no trackers, no cookies, no requests except to the Aztec node you choose',
   );
-  // The L2 frames at 1280 and 1440: the hero's 1fr 1.1fr, the live strip's four numbers and the
-  // 1.4fr sparkline column in one row, the ask centred in its frame.
   for (const width of [1280, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    const hero = await tracks(page, 'hero');
-    expect(hero).toHaveLength(2);
-    expect((hero[1] as number) / (hero[0] as number)).toBeCloseTo(1.1, 2);
-    const live = await tracks(page, 'live');
-    expect(live).toHaveLength(5);
-    expect((live[4] as number) / (live[0] as number)).toBeCloseTo(1.4, 2);
-    expect(
-      await page.locator('#ask h2').evaluate((h) => {
-        const frame = (h.closest('section') as Element).getBoundingClientRect();
-        const box = h.getBoundingClientRect();
-        return Math.abs((box.left + box.right) / 2 - (frame.left + frame.right) / 2) <= 1;
-      }),
-    ).toBe(true);
+    await expectFrames(page);
   }
   expect(page.url().startsWith(r.baseURL)).toBe(true);
   expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);

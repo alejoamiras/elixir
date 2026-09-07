@@ -3,7 +3,7 @@ import { copy, symbol } from '../copy';
 import { Section, SectionHeading, SectionLabel } from './Section';
 
 const TONE: Record<string, string> = { green: 'text-ok', amber: 'text-warn', red: 'text-bad' };
-const CELL = 'border-t border-line py-2 pr-2.5';
+const CELL = 'border-b border-line py-2 pr-2.5';
 
 export function Money() {
   const { heading, rules, table } = copy.money;
@@ -27,7 +27,7 @@ export function Money() {
         </dl>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full table-fixed border-collapse text-xs" data-testid="money-table">
+        <table className="w-full table-fixed border-collapse text-xs md:h-full" data-testid="money-table">
           <colgroup>
             <col style={{ width: '25.6%' }} />
             <col style={{ width: '23.2%' }} />
@@ -40,7 +40,7 @@ export function Money() {
                 <th
                   key={c}
                   className={cn(
-                    'label-mono pb-2.5 pr-2.5 text-left font-medium',
+                    'label-mono border-b border-line pt-2 pb-2.5 pr-2.5 text-left font-medium',
                     c === symbol && 'normal-case',
                   )}
                 >

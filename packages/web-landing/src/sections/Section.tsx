@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import { cn } from '../../../ui/src/index.ts';
 import type { SectionId } from '../copy';
 
-/** One frame of the page: the id is the anchor and the test id; the frame owns its padding and grid. */
+/** A frame owns its padding and grid; the wrapper adds the rule and the scroll offset for the bar. */
 export function Section({
   id,
   className,
@@ -24,13 +24,16 @@ export function SectionLabel({
   className,
   ...props
 }: ComponentProps<'p'> & { as?: 'p' | 'h2' }) {
-  return <Tag className={cn('label-mono', className)} {...props} />;
+  return <Tag className={cn('label-mono leading-none', className)} {...props} />;
 }
 
 export function SectionHeading({ className, ...props }: ComponentProps<'h2'>) {
   return (
     <h2
-      className={cn('mt-2.5 mb-3.5 text-balance text-2xl font-semibold tracking-[-0.03em]', className)}
+      className={cn(
+        'mt-2.5 mb-3.5 text-balance text-2xl font-semibold leading-[1.02] tracking-[-0.03em]',
+        className,
+      )}
       {...props}
     />
   );

@@ -10,8 +10,20 @@ import { Demo } from './Demo';
 
 /** The hero frame's grid and paddings; the launch-week hero shares them. */
 export const HERO_FRAME = 'grid gap-[30px] px-4 py-10 md:grid-cols-[1fr_1.1fr] md:px-9 md:pt-14 md:pb-11';
-export const HERO_HEADING =
-  'text-balance text-3xl font-semibold leading-[1.02] tracking-[-0.03em] md:text-[50px]';
+
+/** The binder breaks the headline after its first sentence: each sentence is a block from `md`. */
+export function Headline({ text }: { text: string }) {
+  return (
+    <h1 className="text-balance text-3xl font-semibold leading-[1.02] tracking-[-0.03em] md:text-[50px]">
+      {text.split(/(?<=\.)\s+/).map((sentence, i) => (
+        <span key={sentence} className="md:block">
+          {i > 0 && ' '}
+          {sentence}
+        </span>
+      ))}
+    </h1>
+  );
+}
 
 /** The share sheet with the miner's link, or the clipboard where there is none. */
 async function share(url: string): Promise<'shared' | 'copied' | 'failed'> {
@@ -66,7 +78,7 @@ export function Hero({
   return (
     <section id="hero" className={HERO_FRAME} data-testid="hero">
       <div className="flex flex-col justify-center gap-5">
-        <h1 className={HERO_HEADING}>{copy.hero.headline}</h1>
+        <Headline text={copy.hero.headline} />
         <p className="max-w-[46ch] text-pretty text-lg leading-[1.45] text-ink-2">{copy.hero.subhead}</p>
         {mobile ? (
           <Mobile />

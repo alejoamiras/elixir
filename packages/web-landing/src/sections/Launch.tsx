@@ -4,7 +4,7 @@ import { Button, Kpi, shortHash, Tile } from '../../../ui/src/index.ts';
 import { copy, LINKS } from '../copy';
 import { useNow } from '../hooks';
 import type { LaunchStatus, LiveStatus } from '../state';
-import { HERO_FRAME, HERO_HEADING } from './Hero';
+import { HERO_FRAME, Headline } from './Hero';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -52,7 +52,7 @@ export function Launch({ status, live }: { status: LaunchStatus; live: LiveStatu
     <section id="hero" className={HERO_FRAME} data-testid="launch">
       <div className="flex flex-col justify-center gap-5">
         <p className="eyebrow">{l.eyebrow}</p>
-        <h1 className={HERO_HEADING}>{copy.hero.headline}</h1>
+        <Headline text={copy.hero.headline} />
         <p className="max-w-[46ch] text-pretty text-lg leading-[1.45] text-ink-2">{l.body}</p>
         <div className="flex flex-col gap-1">
           <Button variant="uv" size="lg" className="self-start" asChild>

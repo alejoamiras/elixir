@@ -26,7 +26,8 @@ const live: Live = {
       openedAt: 1000,
       claims: 4,
       duration: 300,
-      retarget: 1,
+      // The target fell to a quarter at the close: the difficulty went ×4.
+      retarget: 0.25,
       closedBy: 'claims',
     },
     {
@@ -62,19 +63,33 @@ describe('the landing', () => {
       copy.ask.heading,
     ])
       expect(screen.getByRole('heading', { name: h })).toBeTruthy();
-    // The chain frame's three chips are an example, and say so.
     const marks = screen.getByTestId('chain-marks');
     expect(marks.querySelector('[data-slot=marks]')?.children).toHaveLength(3);
     expect(marks.textContent).toContain('illustrative');
-    // The live strip: four numbers in one frame, the epoch's claims beside its number, the chain's clock.
     expect(screen.getByTestId('live').querySelectorAll('[data-slot=kpi]')).toHaveLength(4);
+    expect(screen.getByTestId('live-open').textContent).toBe('1');
     expect(screen.getByTestId('live-epoch').textContent).toBe('1 of 4');
     expect(screen.getByText('open 1 min · expected 5 min')).toBeTruthy();
-    expect(screen.getByText('×1.00 at the last close')).toBeTruthy();
+    expect(screen.getByText('×4.00 at the last close')).toBeTruthy();
     expect(screen.getByTestId('live-minted').textContent).toBe('16');
     expect(screen.getByTestId('demo-caption').textContent).toContain('epoch 1 · 1 of 4');
     expect((screen.getByTestId('prove') as HTMLButtonElement).disabled).toBe(false);
     expect(screen.getByTestId('footer-line').textContent).toContain(copy.footer.line);
+  });
+
+  test('a failed history read keeps the open epoch and says why; the demo waits for the open row', () => {
+    const partial: Live = { ...live, rows: [], historyError: 'chunk 3 did not load' };
+    render(
+      <App
+        live={{ phase: 'ready', live: partial, unreachable: false }}
+        launch={{ phase: 'loading' }}
+        miner="0x01"
+      />,
+    );
+    expect(screen.getByTestId('live-open').textContent).toBe('1');
+    expect(screen.queryByTestId('live-epoch')).toBeNull();
+    expect(screen.getByTestId('live-history-error').textContent).toContain('chunk 3 did not load');
+    expect((screen.getByTestId('prove') as HTMLButtonElement).disabled).toBe(true);
   });
 
   test('without the chain the demo waits; on a phone there is no demo, only the share button', () => {
@@ -91,7 +106,9 @@ describe('the landing', () => {
     expect(screen.getByTestId('share')).toBeTruthy();
     mobile = false;
   });
+});
 
+describe('the launch week', () => {
   test('launch mode: the hero is the lottery with the countdown and the reveals', () => {
     vi.stubEnv('VITE_LAUNCH_MODE', '1');
     vi.useFakeTimers({ now: 1_000_000 * 1000 });
@@ -111,7 +128,8 @@ describe('the landing', () => {
       expect(screen.getByTestId('launch-countdown').textContent).toBe('01:01:01');
       expect(screen.getByTestId('launch-reveals').textContent).toBe('14');
       expect(screen.getByTestId('launch-commit').getAttribute('href')).toContain('deployments.md');
-      expect(screen.getByTestId('live-epoch').textContent).toBe('—');
+      expect(screen.getByTestId('live-open').textContent).toBe('—');
+      expect(screen.queryByTestId('live-epoch')).toBeNull();
       expect(screen.getByText(copy.live.unlaunched)).toBeTruthy();
       cleanup();
       // Epoch 0 exists: open, whatever the clock says.

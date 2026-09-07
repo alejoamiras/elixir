@@ -8,6 +8,7 @@ import type { Live as LiveRead } from '../live';
 import { appHref, type LiveStatus } from '../state';
 import { Section } from './Section';
 
+/** 44 px tall at whatever width the column has; the stroke keeps its width under the stretch. */
 function Sparkline({ rows }: { rows: EpochRow[] }) {
   const w = 240;
   const h = 44;
@@ -22,8 +23,20 @@ function Sparkline({ rows }: { rows: EpochRow[] }) {
     )
     .join(' ');
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="h-11 w-60 text-uv" role="img" aria-label="difficulty per epoch">
-      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.5" />
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      preserveAspectRatio="none"
+      className="h-11 w-full text-uv"
+      role="img"
+      aria-label="difficulty per epoch"
+    >
+      <polyline
+        points={points}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        vectorEffect="non-scaling-stroke"
+      />
     </svg>
   );
 }
@@ -37,9 +50,10 @@ const mintedSub = (status: LiveStatus, unit: number): string => {
 const epochSub = (open: EpochRow, blockTime: number): string =>
   `open ${duration(Math.max(0, blockTime - open.openedAt))} · expected ${duration(Number(PARAMS.EXPECTED_EPOCH_SECONDS))}`;
 
+/** `retarget` is the target's ratio at the close; the difficulty moved by its inverse. */
 const difficultySub = (rows: EpochRow[]): string => {
   const closed = rows[rows.length - 2];
-  return closed?.retarget == null ? copy.live.noHistory : `×${closed.retarget.toFixed(2)} at the last close`;
+  return closed?.retarget ? `×${(1 / closed.retarget).toFixed(2)} at the last close` : copy.live.noHistory;
 };
 
 function Notices({ status, live }: { status: LiveStatus; live: LiveRead | undefined }) {
@@ -72,9 +86,10 @@ export function Live({ status }: { status: LiveStatus }) {
   const eligible = rateSample(rows).length;
   const unit = Number(PARAMS.REWARD / 10n ** BigInt(PARAMS.DECIMALS));
   return (
+    // Every sub is two lines tall from md, so the row's end alignment lines the numbers up.
     <Section
       id="live"
-      className="grid gap-4 px-4 py-7 md:grid-cols-[repeat(4,1fr)_1.4fr] md:items-end md:px-9"
+      className="grid gap-4 px-4 py-7 md:grid-cols-[repeat(4,1fr)_1.4fr] md:items-end md:px-9 md:[&_[data-slot=kpi]>span:last-child]:min-h-[2lh]"
     >
       <Kpi
         size="lg"
@@ -86,7 +101,7 @@ export function Live({ status }: { status: LiveStatus }) {
       <Kpi
         size="lg"
         label="epoch"
-        value={open && live ? live.open : <span data-testid="live-epoch">—</span>}
+        value={<span data-testid="live-open">{live ? live.open : '—'}</span>}
         unit={
           open && (
             <span data-testid="live-epoch">
@@ -111,7 +126,7 @@ export function Live({ status }: { status: LiveStatus }) {
         unit="proofs/s"
         sub={rate === null ? copy.live.noHistory : `median of ${eligible} epochs closed by claims`}
       />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         {rows.length > 1 ? <Sparkline rows={rows} /> : <div className="h-11" aria-hidden />}
         <a href={appHref('stats')} className="text-xs text-ink-3 hover:text-ink">
           {copy.live.sub}

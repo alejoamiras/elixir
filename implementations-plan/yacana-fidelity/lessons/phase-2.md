@@ -34,3 +34,39 @@ packages/web-landing test:e2e` 3 passed (52.7 s) on the final tree ✓ · the re
 reviewed against the L2 frames (`shots/arc2/`).
 
 LESSONS_FILE=implementations-plan/yacana-fidelity/lessons/phase-2.md
+
+## Arc 2 codex loop (2026-09-07)
+
+Session `01a0797a-64f7-77d1-9ec1-98b4b1f18d7f` (`/codex xhigh`, read-only, a new session over `1b4328a..fd792a3`
+with the plan, the recon, this file, the arc map and the four renders beside the L2 frames).
+
+**Round 1** — nine findings, all verified against the code before acting:
+
+1. *Should-fix, accepted (a real bug).* The difficulty sub printed `retarget` itself; `retarget` is the target's
+   ratio at the close and the difficulty moves by its inverse (the stats page already prints `1 / retarget`).
+   Fixed; the fixture's closing epoch now carries `0.25` so the test reads "×4.00 at the last close".
+2. *Should-fix, accepted.* A failed history read keeps `live.open` but the epoch KPI showed "—". The number
+   (`live-open`) now renders from `live` alone; the claims unit from the open row; a partial-failure test.
+3. *Should-fix, accepted.* The sparkline was 240 px fixed in a ~230-px column at 1024; now `w-full` with
+   `preserveAspectRatio="none"` and a non-scaling stroke. Subs of different heights under `items-end` misaligned
+   the numbers: every sub is two lines tall from `md` (`min-h-[2lh]` through an arbitrary variant on the frame).
+4. *Should-fix, accepted.* The binder breaks the headline after "bank."; `text-balance` on the whole string
+   balanced both sentences together. `Headline` renders each sentence as a block from `md` (the copy and the
+   `h1`'s text are unchanged); the launch hero uses it too.
+5. *Should-fix, accepted.* The how-tile titles inherited the theme's 22-px `h3`; the binder's are bold 14-px
+   body text. Sized locally, still `h3`.
+6. *Should-fix, accepted.* The comparison table stopped short of the rules column; the binder's grid fills the
+   row. `md:h-full` on the table (a stretched grid item distributes the height over its rows); the heads' 8-px
+   top padding and the bottom rule on every cell restored.
+7. *Should-fix, accepted.* The layout assertions accepted a narrower shell (ratios only) and a left-aligned
+   heading (a block's box is always centred). Now: the frame is 1120, the hero tracks sum to the frame minus
+   paddings and gap, the four KPI tracks are equal and the five sum likewise, the ask's `text-align` is
+   `center` and its button row sits with equal slack on both sides; `live-open` asserted in Vitest.
+   Not done: a populated history at 1024 in the E2E — the isolated deployment's target of 1 closes no epoch, and
+   waiting for T_MAX (1200 s) is not a gate; the sparkline's width is by construction (`w-full`) instead.
+8. *Nit, accepted.* `SectionLabel` `leading-none` (the binder's `.sec` 1), `SectionHeading` `leading-[1.02]`.
+9. *Nit, accepted.* The `difficultyLabel` comment states the constraint and the domain; the narrating comments in
+   the Vitest spec, the E2E and `Section.tsx` are gone.
+
+Gates after round 1: `bun run lint` ✓ · `tsc` web-landing / ui ✓ · Vitest web-landing 11 ✓ · the landing E2E 3 passed
+(53.3 s) ✓ · the renders redone into `shots/arc2/`.
