@@ -242,7 +242,7 @@ three KPIs below it; the strip beside the detail (three inline KPIs); the table;
 classes; `stats.e2e.ts` gains the grid-template assertion at 1280 and 1440; existing assertions unchanged.
 Gate: `bun run lint` · web-stats `tsc -b` · `bun run --cwd packages/web-stats test:components`. Layers: lint · component.
 
-**P3.2 Charts on Observable Plot.** Goal: `@observablehq/plot@0.6.17` in `web-stats`; `charts/plot.tsx` (`useChart`:
+**P3.2 Charts on Observable Plot.** ✓ Goal: `@observablehq/plot@0.6.17` in `web-stats`; `charts/plot.tsx` (`useChart`:
 container, resize, replace, cleanup, the whole-figure cross-fade on row-set changes, reduced motion) and
 `charts/specs.ts` (the four specs with the semantics above: log durations with `T_MAX` and `expected` rules, elapsed-time
 emission, step-line difficulty with roll annotations, retarget from a baseline of 1; domain guards); `charts/index.tsx`

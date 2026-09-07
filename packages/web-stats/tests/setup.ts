@@ -13,3 +13,9 @@ const record = {
 vi.stubEnv('VITE_SITE_MODE', 'e2e');
 vi.stubEnv('VITE_SOURCE_COMMIT', 'abcdef0123456789');
 vi.stubEnv('VITE_DEPLOYMENT_RECORD', JSON.stringify(record));
+// jsdom has no matchMedia; the charts' reduced-motion hook reads it.
+vi.stubGlobal('matchMedia', () => ({
+  matches: false,
+  addEventListener: () => {},
+  removeEventListener: () => {},
+}));

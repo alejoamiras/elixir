@@ -31,3 +31,36 @@ web-miner 34 / web-landing 11 / web-stats 14 ✓ · `bun test packages/web-miner
 E2E 3 passed (45 s) with the grid assertion ✓ · the renders at 1280 / 1440 / 1024 / 390 reviewed against A1.
 
 LESSONS_FILE=implementations-plan/yacana-fidelity/lessons/phase-3.md
+
+## P3.2 Charts on Observable Plot (2026-09-07)
+
+- `@observablehq/plot@0.6.17` (published 2025-02-14, far past the 7-day gate) in `web-stats` only: the site build's
+  root bundle (the landing) has no Plot marker and the same size as the landing package's own build
+  (954 601 bytes for its index chunk before, `index-iMH-uV3P.js` 961 383 in the assembled site, the difference
+  being the assembled base path); the stats index chunk carries Plot (1 284 452 bytes, six `--plot-background`
+  hits).
+- `charts/specs.ts` owns data, scales and marks; `charts/plot.tsx` owns the DOM: a fixed 170-px container, a
+  fresh `Plot.plot()` on every change of rows / selection / width (a `ResizeObserver`; 640 in jsdom), a 240-ms
+  cross-fade of the outgoing figure only when the set of epochs changed (a close or an open), instant under
+  reduced motion, the outgoing figure `aria-hidden` and inert meanwhile. `frame.tsx` is gone.
+- Colours are the theme's variables in the marks (`fill="var(--warn)"`): a Chromium probe confirmed `var()`
+  resolves in SVG presentation attributes, and the E2E asserts the roll bar's computed fill equals the computed
+  `--warn`. Plot puts a constant fill on the mark's `<g>`, not each shape (the tests read it there). The
+  figure's font, colour and `--plot-background` (the tip's fill) go through Plot's `style` option as one string.
+- Semantics from the plan: the duration bars start at a 10 s floor (`y1`) on a log axis whose ticks reach
+  10 000 s so epoch 0's 26 136 s is a true bar, `T_MAX` a rule with "anyone may roll" and `expected` a dashed
+  one; the emission's x is hours since the oldest loaded row with the schedule from the same origin; the
+  difficulty is a step line (the open epoch's step spans its width through a synthetic end point), log base 2,
+  a roll annotated at the successor's boundary with the observed easing ("÷4.00 escape hatch · epoch 0"); the
+  retarget bars grow from 1 on a log-2 axis, violet harder, grey easier. Tips through `pointerX` on every
+  chart, a crosshair on the difficulty line, the selection as a translucent band (a dot on the emission).
+- First render's faults, fixed before the gate: a 44-px left margin clipped "10000 s"; the amber `T_MAX`
+  label vanished over the amber bar (labels now carry a halo in the tile's background); the difficulty ticks
+  printed "16.0". Nine epochs put every epoch on the x axis; past twelve, eight ticks.
+
+Gate: `bun run lint` ✓ · web-stats `tsc -b` ✓ · `bun run --cwd packages/web-stats test:components` 14 ✓ · the stats
+E2E 3 passed (45 s: eight bars, four halos, the true 26 136 s bar with "10000 s" on the axis, the warn fill resolved
+from the variable, the difficulty tip on hover) ✓ · `bun run site:build` ✓ with Plot only under `/stats/` (above) ·
+the renders at 1280 / 1440 / 1024 / 390 reviewed against A1.
+
+LESSONS_FILE=implementations-plan/yacana-fidelity/lessons/phase-3.md

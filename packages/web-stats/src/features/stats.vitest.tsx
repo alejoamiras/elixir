@@ -25,27 +25,40 @@ const RULES = {
 afterEach(cleanup);
 
 describe('charts on the captured history', () => {
-  test('duration bars: one per closed epoch, the roll amber, the selection haloed', () => {
+  test('duration: one bar per closed epoch from the 10 s floor, the roll amber and apart, the selection haloed', () => {
     const { container } = render(<Duration rows={rows} selected={3} rules={RULES} />);
-    const bars = container.querySelectorAll('[data-slot=bar]');
-    expect(bars).toHaveLength(8);
-    expect(bars[0]?.getAttribute('class')).toContain('fill-warn');
-    expect(bars[1]?.getAttribute('class')).not.toContain('fill-warn');
-    expect(container.querySelectorAll('[data-slot=halo]')).toHaveLength(1);
-    expect(screen.getByRole('img', { name: /8 closed epochs/ })).toBeTruthy();
+    expect(container.querySelectorAll('g.claims rect[aria-label]')).toHaveLength(7);
+    const roll = container.querySelectorAll('g.roll rect[aria-label]');
+    expect(roll).toHaveLength(1);
+    expect(roll[0]?.getAttribute('aria-label')).toBe('epoch 0: 26136 s, closed by roll()');
+    // A constant fill sits on the mark's group; the theme's variable reaches every rect from there.
+    expect(container.querySelector('g.roll')?.getAttribute('fill')).toBe('var(--warn)');
+    expect(container.querySelectorAll('g.halo rect')).toHaveLength(1);
+    expect(container.querySelectorAll('g.rule line')).toHaveLength(2);
+    expect(screen.getByRole('figure', { name: /8 closed epochs/ })).toBeTruthy();
+    cleanup();
+    // The open epoch has no duration: nothing to halo on a closed-only chart.
+    const open = render(<Duration rows={rows} selected={8} rules={RULES} />).container;
+    expect(open.querySelectorAll('g.halo rect')).toHaveLength(0);
   });
 
-  test('retarget bars: violet below 1, grey above; emission and difficulty draw one line each', () => {
+  test('retarget bars grow from 1, violet harder and grey easier; emission and difficulty count their marks', () => {
     const { container } = render(<Retarget rows={rows} selected={null} rules={RULES} />);
-    const bars = Array.from(container.querySelectorAll('[data-slot=bar]'));
-    expect(bars[0]?.getAttribute('class')).toContain('fill-ink-3'); // ×4 easier
-    expect(bars[1]?.getAttribute('class')).toContain('fill-uv'); // ×0.48 harder
+    const easier = container.querySelectorAll('g.easier rect[aria-label]');
+    const harder = container.querySelectorAll('g.harder rect[aria-label]');
+    expect(easier.length + harder.length).toBe(8);
+    expect(easier[0]?.getAttribute('aria-label')).toBe('epoch 0: retarget ×4.00');
+    expect(container.querySelector('g.easier')?.getAttribute('fill')).toBe('var(--ink-3)');
+    expect(container.querySelector('g.harder')?.getAttribute('fill')).toBe('var(--uv)');
     const emission = render(<Emission rows={rows} selected={null} rules={RULES} />).container;
-    expect(emission.querySelectorAll('[data-slot=line]')).toHaveLength(1);
-    expect(emission.querySelector('svg')?.getAttribute('data-testid')).toBe('chart-emission');
+    expect(emission.querySelectorAll('g.point circle[aria-label]')).toHaveLength(8);
+    expect(emission.querySelectorAll('g.minted path')).toHaveLength(1);
+    expect(emission.querySelector('[data-testid=chart-emission]')).toBeTruthy();
     const difficulty = render(<Difficulty rows={rows} selected={8} rules={RULES} />).container;
-    expect(difficulty.querySelectorAll('[data-slot=point]')).toHaveLength(9);
-    expect(difficulty.querySelectorAll('[data-slot=halo]')).toHaveLength(1);
+    expect(difficulty.querySelectorAll('g.point circle[aria-label]')).toHaveLength(9);
+    expect(difficulty.querySelectorAll('g.halo rect')).toHaveLength(1);
+    // Epoch 0 closed by roll(): one annotation at its close.
+    expect(difficulty.querySelectorAll('g.roll line')).toHaveLength(1);
   });
 });
 

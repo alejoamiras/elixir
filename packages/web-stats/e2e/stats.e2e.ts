@@ -30,9 +30,37 @@ test('the captured history through a mocked node: deterministic numbers, selecti
   await page.keyboard.press('ArrowRight');
   await expect(page).toHaveURL(/epoch=1/);
   await expect(page.getByTestId('sentence')).toContainText('4 claims in');
-  await expect(page.getByTestId('chart-duration').locator('[data-slot=bar]')).toHaveCount(8);
-  // Every chart carries the selection.
-  await expect(page.locator('[data-slot=halo]')).toHaveCount(4);
+  const durationChart = page.getByTestId('chart-duration');
+  await expect(durationChart.locator('g.claims rect, g.roll rect')).toHaveCount(8);
+  // Every chart carries the selection (epoch 1 is closed): one halo shape each.
+  await expect(page.locator('g.halo rect, g.halo circle')).toHaveCount(4);
+  // Epoch 0's 26 136 s is a true bar on a log axis whose ticks reach 10 000 s, painted with the
+  // theme's warn colour: the variables reach the marks.
+  await expect(durationChart.locator('g.roll rect')).toHaveAttribute(
+    'aria-label',
+    'epoch 0: 26136 s, closed by roll()',
+  );
+  await expect(durationChart.locator('[aria-label="y-axis tick label"]')).toContainText('10000 s');
+  expect(
+    await durationChart.locator('g.roll rect').evaluate((el) => {
+      const probe = document.createElement('i');
+      probe.style.color = 'var(--warn)';
+      document.body.append(probe);
+      const warn = getComputedStyle(probe).color;
+      probe.remove();
+      return getComputedStyle(el).fill === warn;
+    }),
+  ).toBe(true);
+  // Hovering the difficulty line shows the epoch under the pointer.
+  const difficultyChart = page.getByTestId('chart-difficulty');
+  const box = (await difficultyChart.boundingBox()) as {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(difficultyChart.locator('[aria-label="tip"]')).toContainText('difficulty');
   // The A1 frame at 1280 (the default viewport) and 1440: 1080 wide, six equal tracks, the strip
   // beside the detail.
   for (const width of [1280, 1440]) {

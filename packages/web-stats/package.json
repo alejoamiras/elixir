@@ -16,6 +16,7 @@
     "@aztec/aztec.js": "5.2.0",
     "@aztec/foundation": "5.2.0",
     "@aztec/stdlib": "5.2.0",
+    "@observablehq/plot": "0.6.17",
     "@tailwindcss/vite": "^4",
     "jotai": "^2",
     "react": "^19.2.6",
