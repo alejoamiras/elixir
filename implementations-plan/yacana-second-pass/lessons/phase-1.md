@@ -149,3 +149,19 @@ Resumed over `2b7d00b`: **"No material findings."** Five rounds in one session (
 tree below; the E2E gate is re-run on it too, since the fidelity round changed the ledger line and the slot.
 
 LESSONS_FILE=implementations-plan/yacana-second-pass/lessons/phase-1.md
+
+## The E2E gate on the converged tree (2026-09-07)
+
+Three specs broke on the fidelity round's tree and were retargeted (the product behaviour was the reviewed one):
+`states` matched the marks the slot no longer shows (→ the ✓ line's linked block; a later assertion on the epoch
+tile's count was wrong too, since the race spec's second miner claims in the same epoch — removed); `miner` waited
+for the slot to return to idle within 15 s while mining had resumed at the easy target and a second win filled it
+(→ Stop first, then the ✓ leaves within its ten seconds); `words` clicked Sign out after the backup, but the dialog
+now reopens by itself (→ assert the dialog and go straight to the click path). Runs, on the stacked tree (arc 2's
+web-stats changes do not touch the miner):
+
+- run 2 (before the retargets): 9 passed, 3 failed (the three above), 30.5 min under a loaded machine.
+- run 3: **11 passed, 1 failed** (`states`, the wrong epoch-count assertion), 12.0 min.
+- run 4, `states.e2e.ts` alone after the fix: **2 passed**, 5.9 min.
+
+Together: every miner spec has passed on the converged tree. `shots/arc-1/` holds the renders from it.
