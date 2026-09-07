@@ -59,7 +59,8 @@ export function BalanceCard({ className }: { className?: string }) {
               </ExternalLink>
             </span>
             <span>
-              <span data-testid="claims">{claims.length}</span> claims this session
+              <span data-testid="claims">{claims.length}</span> {claims.length === 1 ? 'claim' : 'claims'}{' '}
+              this session
             </span>
           </div>
         )}

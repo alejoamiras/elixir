@@ -68,7 +68,7 @@ function EpochTile({ controller }: { controller: () => MinerController | undefin
               ),
             },
             { label: 'difficulty', value: difficulty(epoch.target).toFixed(1) },
-            { label: 'open for', value: duration(Number(nowSec - epoch.openedAt)) },
+            { label: 'open for', value: duration(Math.max(0, Number(nowSec - epoch.openedAt))) },
             { label: 'expected close', value: duration(Number(rules.EXPECTED_EPOCH_SECONDS)) },
             {
               label: 'if it closed now',

@@ -89,7 +89,9 @@ function AccountTile({
               </>
             )}
             {record.method === 'words' && record.backedUp && <span className="text-ok">backed up</span>}
-            {record.askEveryOpen ? null : <span>· stays open on this device</span>}
+            {record.askEveryOpen ? null : (
+              <span className="whitespace-nowrap">· stays open on this device</span>
+            )}
           </div>
         </div>
         <Button size="sm" onClick={onSignOut} data-testid="sign-out">
