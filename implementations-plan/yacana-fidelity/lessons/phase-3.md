@@ -221,3 +221,5 @@ saw it (the E2E setups share the probe but had only ever run on the host). Bindi
 page a "preview build" (the banner is by hostname) and moved every baseline by 55 px; the fix is the probe: it
 tries `127.0.0.1` and `[::1]`, the page keeps its `localhost` URL, and the job keeps `e2e/.visual.log` as an
 artifact. The reproduction and the local gate pass on the fix.
+On the pushed fix the screenshot gate passed in CI inside the pinned image in 1 min 17 s (the same-image check
+of the baselines; the job's budget is 15 minutes); every check on #14, #15 and #16 is green.
