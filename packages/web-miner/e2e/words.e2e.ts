@@ -92,10 +92,10 @@ test('a words account: create, quiz, mine, sign out, restore, same address', asy
   await page.getByTestId('quiz-7').fill(second[6] as string);
   await page.getByTestId('quiz-11').fill(second[10] as string);
   await page.getByTestId('words-done').click();
-  await expect(page.getByText('backed up')).toBeVisible();
-  // Now eligible: the click path signs out too, and with another account still on the device the
-  // reload lands on Welcome back, not on the sign-up screen.
-  await page.getByTestId('sign-out').click();
+  // The backup started from the dialog returns to it, now eligible: the click path signs out too, and
+  // with another account still on the device the reload lands on Welcome back, not on the sign-up screen.
+  await expect(page.getByTestId('sign-out-dialog')).toBeVisible();
+  await expect(page.getByTestId('sign-out-hold')).toBeVisible();
   await page.getByTestId('sign-out-plain').click();
   await page.getByTestId('sign-out-click').click();
   await expect(page.getByRole('heading', { name: 'Welcome back.' })).toBeVisible({ timeout: BOOT_MS });
