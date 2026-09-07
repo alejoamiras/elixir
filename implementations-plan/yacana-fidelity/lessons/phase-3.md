@@ -194,3 +194,11 @@ duplication, drift from the plan and the whole-site adversarial view.
    Gates after the round: `bun run lint` ✓ · `tsc` ✓ · Vitest web-stats 15 ✓ · `bun test` (the reproduce test) ✓ ·
    the stats E2E 3 passed ✓ · the baselines re-recorded (the quoted command) and `test:visual` 4 passed without an
    update ✓.
+
+**Round 2** (resumed, over `6cd4540..64e2b14`): one should-fix; the other seven dispositions confirmed by probes
+(the oversized timestamp rejected, two markers and six bars, the floor marker, compact ticks, the quoted command
+round-tripping `&` and quotes), the baselines byte-identical to the shots.
+1. *Accepted.* Failing the render on a missed readiness (round 1) broke the landing at 390 and in launch mode:
+   the demo copy it waited for is desktop-only and absent from the launch-week hero. The readiness is the live
+   strip's epoch number, or the launch hero's phase, at every width; a run at 390 and 1280 against the public
+   testnet rendered both.

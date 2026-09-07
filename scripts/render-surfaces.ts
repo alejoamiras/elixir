@@ -56,7 +56,13 @@ try {
     const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
     const page = await context.newPage();
     await page.goto(`http://localhost:${servers.landing.port}/`);
-    await settle(page, 'the bar is live from the chain');
+    // The live strip's epoch number, at every width; the launch-week hero has no strip to fill.
+    await page
+      .getByTestId('live-open')
+      .filter({ hasNotText: '—' })
+      .or(page.getByTestId('launch-phase'))
+      .first()
+      .waitFor({ timeout: 60_000 });
     await shot(page, 'landing', width);
     await page.goto(`http://localhost:${servers.stats.port}/`);
     await page.getByTestId('table').locator('tbody tr').first().waitFor({ timeout: 60_000 });
