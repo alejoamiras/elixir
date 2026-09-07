@@ -86,3 +86,6 @@ kept epoch number, the KPI variant, the SVG sizing, the table, the how titles an
    Gates after round 2: `bun run lint` ✓ · `tsc` web-landing ✓ · Vitest web-landing 11 ✓ · the landing E2E 3 passed
    (52.7 s) ✓ · the renders redone (the first render attempt timed out waiting for the live strip, a transient node
    read; `render-e2e.ts` now keeps a `<app>-failed-<width>.png` when a wait runs out).
+
+**Round 3** (resumed, over `a5dc1a1..943e08d`): "no new material findings". The arc-2 loop converged in three
+rounds; the shots beside the L2 frames are `shots/arc2/` (1440 / 1280 / 1024 / 390 on the isolated deployment).
