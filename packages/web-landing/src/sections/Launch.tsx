@@ -1,9 +1,10 @@
 // Mainnet's launch week: the hero is the lottery.
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { Button, Kpi, shortHash } from '../../../ui/src/index.ts';
+import { Button, Kpi, shortHash, Tile } from '../../../ui/src/index.ts';
 import { copy, LINKS } from '../copy';
 import { useNow } from '../hooks';
 import type { LaunchStatus, LiveStatus } from '../state';
+import { HERO_FRAME, Headline } from './Hero';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -48,17 +49,11 @@ export function Launch({ status, live }: { status: LaunchStatus; live: LiveStatu
     return `epoch ${live.phase === 'ready' ? live.live.open : 0}`;
   };
   return (
-    <section
-      id="hero"
-      className="grid gap-8 py-12 md:grid-cols-2 md:items-center md:py-20"
-      data-testid="launch"
-    >
-      <div className="flex flex-col gap-5">
+    <section id="hero" className={HERO_FRAME} data-testid="launch">
+      <div className="flex flex-col justify-center gap-5">
         <p className="eyebrow">{l.eyebrow}</p>
-        <h1 className="text-balance text-4xl font-semibold leading-tight tracking-tight md:text-5xl">
-          {copy.hero.headline}
-        </h1>
-        <p className="text-pretty text-lg text-ink-2">{l.body}</p>
+        <Headline text={copy.hero.headline} />
+        <p className="max-w-[46ch] text-pretty text-lg leading-[1.45] text-ink-2">{l.body}</p>
         <div className="flex flex-col gap-1">
           <Button variant="uv" size="lg" className="self-start" asChild>
             <a href={LINKS.launchDocs} data-testid="launch-commit">
@@ -68,7 +63,7 @@ export function Launch({ status, live }: { status: LaunchStatus; live: LiveStatu
           <span className="text-2xs text-ink-2">{l.commitSub}</span>
         </div>
       </div>
-      <div className="flex flex-col gap-4 rounded-md border border-line bg-panel p-4">
+      <Tile className="flex flex-col gap-4">
         <Kpi
           label={<span data-testid="launch-phase">{phase ? l.phases[phase] : copy.live.loading}</span>}
           value={<span data-testid="launch-countdown">{clock()}</span>}
@@ -89,7 +84,7 @@ export function Launch({ status, live }: { status: LaunchStatus; live: LiveStatu
             {copy.live.unreachable}
           </p>
         )}
-      </div>
+      </Tile>
     </section>
   );
 }

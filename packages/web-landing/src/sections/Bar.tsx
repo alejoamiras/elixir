@@ -4,7 +4,7 @@ import { appHref } from '../state';
 
 export function Bar({ live }: { live: boolean }) {
   return (
-    <header className="sticky top-0 z-10 flex h-[52px] items-center gap-5 border-b border-line bg-ground/90 backdrop-blur">
+    <header className="sticky top-0 z-10 flex h-[52px] items-center gap-5 border-b border-line bg-ground/90 px-4 backdrop-blur md:px-5">
       <a href="#hero" className="flex items-center gap-2 font-semibold">
         <Mark state={live ? 'mining' : 'idle'} />
         Yacana
@@ -21,7 +21,7 @@ export function Bar({ live }: { live: boolean }) {
         <a href={appHref('stats')} className="text-sm text-ink-2 hover:text-ink">
           {copy.bar.stats}
         </a>
-        <Button size="sm" className="hidden md:inline-flex" data-testid="bar-mine" asChild>
+        <Button variant="uv" size="sm" className="hidden md:inline-flex" data-testid="bar-mine" asChild>
           <a href={appHref('mine')}>{copy.bar.mine}</a>
         </Button>
       </span>

@@ -1,9 +1,16 @@
+import { Slot } from 'radix-ui';
 import type * as React from 'react';
 import { cn } from '../lib/cn.ts';
 
-function Tile({ className, flat, ...props }: React.ComponentProps<'section'> & { flat?: boolean }) {
+function Tile({
+  className,
+  flat,
+  asChild = false,
+  ...props
+}: React.ComponentProps<'section'> & { flat?: boolean; asChild?: boolean }) {
+  const Comp = asChild ? Slot.Root : 'section';
   return (
-    <section
+    <Comp
       data-slot="tile"
       className={cn(
         'min-w-0 rounded-[8px] border border-line px-[18px] py-4',

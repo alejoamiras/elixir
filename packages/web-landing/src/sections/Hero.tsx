@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Button } from '../../../ui/src/index.ts';
 import type { DemoJob } from '../../../web-miner/src/demo/index.ts';
 import { copy } from '../copy';
@@ -7,6 +7,24 @@ import { useMobile } from '../hooks';
 import type { Live } from '../live';
 import { appHref } from '../state';
 import { Demo } from './Demo';
+
+/** The hero frame's grid and paddings; the launch-week hero shares them. */
+export const HERO_FRAME = 'grid gap-[30px] px-4 py-10 md:grid-cols-[1fr_1.1fr] md:px-9 md:pt-14 md:pb-11';
+
+/** The binder forces a break after the first sentence and balances the whole; below `md` it flows. */
+export function Headline({ text }: { text: string }) {
+  return (
+    <h1 className="text-balance text-3xl font-semibold leading-[1.02] tracking-[-0.03em] md:text-[50px]">
+      {text.split(/(?<=\.)\s+/).map((sentence, i) => (
+        <Fragment key={sentence}>
+          {i > 0 && <br className="hidden md:inline" />}
+          {i > 0 && ' '}
+          {sentence}
+        </Fragment>
+      ))}
+    </h1>
+  );
+}
 
 /** The share sheet with the miner's link, or the clipboard where there is none. */
 async function share(url: string): Promise<'shared' | 'copied' | 'failed'> {
@@ -28,7 +46,7 @@ function Mobile() {
   return (
     <div className="flex flex-col gap-3" data-testid="hero-mobile">
       <p className="text-sm text-ink-2">{copy.hero.mobile}</p>
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-2.5">
         <Button
           variant="uv"
           data-testid="share"
@@ -59,21 +77,15 @@ export function Hero({
   const mobile = useMobile();
   const open = live?.rows[live.rows.length - 1];
   return (
-    <section
-      id="hero"
-      className="grid gap-8 py-12 md:grid-cols-2 md:items-center md:py-20"
-      data-testid="hero"
-    >
-      <div className="flex flex-col gap-5">
-        <h1 className="text-balance text-4xl font-semibold leading-tight tracking-tight md:text-5xl">
-          {copy.hero.headline}
-        </h1>
-        <p className="text-pretty text-lg text-ink-2">{copy.hero.subhead}</p>
+    <section id="hero" className={HERO_FRAME} data-testid="hero">
+      <div className="flex flex-col justify-center gap-5">
+        <Headline text={copy.hero.headline} />
+        <p className="max-w-[46ch] text-pretty text-lg leading-[1.45] text-ink-2">{copy.hero.subhead}</p>
         {mobile ? (
           <Mobile />
         ) : (
-          <div className="flex flex-wrap gap-3">
-            <Button variant="primary" size="lg" asChild>
+          <div className="flex flex-wrap gap-2.5">
+            <Button variant="uv" size="lg" asChild>
               <a href={appHref('mine')} data-testid="hero-mine">
                 {copy.bar.mine}
               </a>
@@ -88,7 +100,7 @@ export function Hero({
             </Button>
           </div>
         )}
-        <p className="text-sm text-ink-3">{copy.hero.reassurance}</p>
+        <p className="text-xs text-ink-3">{copy.hero.reassurance}</p>
       </div>
       {!mobile && <Demo open={open} job={job} state={demo} onProve={onProve} />}
     </section>

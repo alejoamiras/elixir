@@ -22,10 +22,10 @@ export function App({ live, launch, miner }: { live: LiveStatus; launch: LaunchS
     if (job) void demo.start(job);
   }, [job, demo.start]);
   return (
-    <div className="mx-auto flex max-w-[1120px] flex-col px-4 md:px-5">
+    <div className="mx-auto flex max-w-[1120px] flex-col">
       <Bar live={live.phase === 'ready' && !live.unreachable} />
       {notice && (
-        <Alert variant="warn" className="mt-4" data-testid="preview-banner">
+        <Alert variant="warn" className="mx-4 mt-4 md:mx-5" data-testid="preview-banner">
           <AlertDescription>{notice}</AlertDescription>
         </Alert>
       )}

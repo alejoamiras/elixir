@@ -177,6 +177,7 @@ export const copy = {
     before:
       'The bar is live from the chain; the dots are a cadence, not proofs. Press Prove one now to add a real one.',
     proving: 'proving on this machine',
+    live: 'live from the chain',
     nothingSent: 'Nothing is sent anywhere. Your CPU, your proof.',
     steps: {
       crs: 'proving keys · 20 MB · sha256 ✓',
