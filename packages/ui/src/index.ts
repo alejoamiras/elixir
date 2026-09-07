@@ -12,6 +12,8 @@ export {
   DialogTrigger,
 } from './components/dialog.tsx';
 export { EpochRail, type EpochRailProps } from './components/epoch-rail.tsx';
+export { ExternalLink } from './components/external-link.tsx';
+export { HoldButton } from './components/hold-button.tsx';
 export { Input, Textarea } from './components/input.tsx';
 export { Kpi } from './components/kpi.tsx';
 export { Label } from './components/label.tsx';
@@ -21,6 +23,7 @@ export { clampThreads, PowerSlider, powerLabels, powerRange } from './components
 export { Preflight, type PreflightRow } from './components/preflight.tsx';
 export { Progress } from './components/progress.tsx';
 export { LEDGER_WINDOW, ProofLedger, type ProofLine } from './components/proof-line.tsx';
+export { type RadioCardOption, RadioCards } from './components/radio-cards.tsx';
 export { ScoreLoop, type ScoreLoopProps } from './components/score-loop.tsx';
 export { Segmented, type SegmentedOption } from './components/segmented.tsx';
 export {
@@ -37,6 +40,7 @@ export { Switch } from './components/switch.tsx';
 export { KvRow, Tile, TileHeader } from './components/tile.tsx';
 export { Toaster } from './components/toaster.tsx';
 export { useDocumentHidden, useReducedMotion } from './hooks/use-reduced-motion.ts';
+export { useTweenedNumber } from './hooks/use-tweened-number.ts';
 export { cn } from './lib/cn.ts';
 export { faviconDataUrl, type MarkState, markSvg } from './mark.ts';
 export {

@@ -11,6 +11,20 @@ export const FLASH_MS = 900;
 /** Log axis 1–1000: 0 at the floor, 1 at the ceiling; clamped. */
 export const axis = (score: number): number => Math.min(LOG_MAX, Math.max(0, Math.log10(score))) / LOG_MAX;
 
+/**
+ * The calm axis's ceiling: high enough that the bar sits low-middle and the best score in view still fits,
+ * never below 2.5× the bar so an empty window still shows room above it.
+ */
+export const axisTop = (difficulty: number, samples: readonly Sample[]): number => {
+  let best = 0;
+  for (const s of samples) if (s.score > best) best = s.score;
+  return Math.max(2.5 * difficulty, 1.25 * best, 2);
+};
+
+/** Log axis 1–`top`: 0 at the floor, 1 at the ceiling; clamped. */
+export const axisTo = (score: number, top: number): number =>
+  Math.min(1, Math.max(0, Math.log(Math.max(1, score)) / Math.log(top)));
+
 /** Finite positive inputs: one decimal below 1e6, the compact exponent (3.4e38) above it. */
 export const difficultyLabel = (d: number): string =>
   d >= 1e6 ? d.toExponential(1).replace('+', '') : d.toFixed(1);

@@ -353,7 +353,7 @@ first arc that needs it.
 `TC1 = bun run --cwd packages/ui typecheck && bun run --cwd packages/web-miner typecheck && bun run --cwd packages/web-stats typecheck && bun run --cwd packages/web-landing typecheck && bun run --cwd packages/site typecheck && bun run typecheck`
 (the root `typecheck` excludes the app and ui sources, `tsconfig.json:21-26`; the per-package scripts are what CI runs).
 
-**P1.1 Explorer links, favicon, tween, hold, radio cards (packages/site + packages/ui).** `explorer.ts` (validation,
+**P1.1 ✓ Explorer links, favicon, tween, hold, radio cards (packages/site + packages/ui).** `explorer.ts` (validation,
 encoding, `off`) + `bun test`; `explorer.tsx` `ExplorerLink`; `site.env` / `config.ts` (`explorerUrl`, the production
 https check in `assertProductionConfig`) / `vite-base.ts` (`VITE_EXPLORER_URL`, the icon injection); `useTweenedNumber`
 (+ a Vitest spec with fake rAF: tweens to the target, returns the target under reduced motion, cancels on unmount);

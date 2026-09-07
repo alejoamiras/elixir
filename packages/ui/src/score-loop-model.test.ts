@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { axis, difficultyLabel, flash, rise, ScoreLoopModel } from './score-loop-model.ts';
+import { axis, axisTo, axisTop, difficultyLabel, flash, rise, ScoreLoopModel } from './score-loop-model.ts';
 
 describe('ScoreLoopModel', () => {
   test('one dot per attempt at its real time; the window drops what is older than the span', () => {
@@ -36,4 +36,15 @@ describe('ScoreLoopModel', () => {
     expect(rise(210, 0)).toBeCloseTo(0.875);
     expect(rise(0, 0, true)).toBe(1);
   });
+});
+
+test('the calm ceiling follows the bar and the best score in view, and an empty window still has room', () => {
+  expect(axisTop(3.3, [])).toBeCloseTo(8.25);
+  expect(axisTop(3.3, [{ t: 0, score: 5.2 }])).toBeCloseTo(8.25);
+  expect(axisTop(3.3, [{ t: 0, score: 12 }])).toBeCloseTo(15);
+  expect(axisTop(0.5, [])).toBe(2);
+  expect(axisTo(1, 8)).toBe(0);
+  expect(axisTo(8, 8)).toBe(1);
+  expect(axisTo(0.2, 8)).toBe(0);
+  expect(axisTo(64, 8)).toBe(1);
 });

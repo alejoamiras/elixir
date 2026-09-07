@@ -20,6 +20,8 @@ export interface SiteConfig {
   queryOverrides: boolean;
   /** The landing's hero is the launch lottery (mainnet's launch week); `VITE_LAUNCH_MODE=1`. */
   launchMode: boolean;
+  /** The block explorer's origin, or `off`: every address, block and transaction the pages show links there. */
+  explorerUrl: string;
   /** The whole deployment record, for the Verify page; its identity fields agree with the ones above. */
   record: DeploymentRecord;
 }
@@ -99,6 +101,7 @@ export function loadSiteConfig(opts: {
     tokenClassId: pick('VITE_YACANA_TOKEN_CLASS', deployment.tokenClassId),
     queryOverrides: mode === 'e2e' && env.VITE_E2E_QUERY_OVERRIDES === '1',
     launchMode: pick('VITE_LAUNCH_MODE', siteEnv.VITE_LAUNCH_MODE ?? '') === '1',
+    explorerUrl: pick('VITE_EXPLORER_URL', siteEnv.VITE_EXPLORER_URL ?? 'off'),
     record: deployment,
   };
   // An e2e build carries its throwaway deployment's record, or at least its identity.
@@ -129,6 +132,8 @@ export function assertProductionConfig(c: SiteConfig, siteEnv: Record<string, st
     if (IP_OR_LOCAL.test(u.hostname)) throw new Error(`production node origin ${o} is local`);
   }
   if (c.rpId !== siteEnv.VITE_RP_ID) throw new Error(`RP ID ${c.rpId} differs from site.env`);
+  if (c.explorerUrl !== 'off' && new URL(c.explorerUrl).protocol !== 'https:')
+    throw new Error(`production explorer ${c.explorerUrl} is not https`);
   if (IP_OR_LOCAL.test(c.rpId) || !c.rpId.includes('.'))
     throw new Error(`RP ID ${c.rpId} is not a production hostname`);
 }
@@ -151,6 +156,7 @@ export const viteDefine = (c: SiteConfig): Record<string, string> =>
       VITE_YACANA_TOKEN_CLASS: c.tokenClassId,
       VITE_E2E_QUERY_OVERRIDES: c.queryOverrides ? '1' : '',
       VITE_LAUNCH_MODE: c.launchMode ? '1' : '',
+      VITE_EXPLORER_URL: c.explorerUrl,
       VITE_DEPLOYMENT_RECORD: JSON.stringify(c.record),
     }).map(([k, v]) => [`import.meta.env.${k}`, JSON.stringify(v)]),
   );

@@ -8,6 +8,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import type { Plugin, UserConfig } from 'vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import { faviconDataUrl } from '../../ui/src/mark.ts';
 import {
   type DeploymentRecord,
   loadSiteConfig,
@@ -58,6 +59,16 @@ export function siteConfig(command: 'build' | 'serve', env: NodeJS.ProcessEnv = 
     ).version,
   });
 }
+
+/** The mark as every app's icon; the miner swaps in its status light at runtime, the others keep this one. */
+const favicon = (): Plugin => ({
+  name: 'yacana-favicon',
+  transformIndexHtml: (html) =>
+    html.replace(
+      '<head>',
+      `<head>\n    <link rel="icon" type="image/svg+xml" href="${faviconDataUrl('idle')}" />`,
+    ),
+});
 
 /** Writes `_headers` next to the bundle so `wrangler pages dev dist` serves the shipped policy. */
 const emitHeaders = (text: string): Plugin => ({
@@ -113,6 +124,7 @@ export function siteVite(app: SiteAppOptions): (ctx: { command: 'build' | 'serve
         // process at import time; only the provers need the bb.js Worker plumbing above.
         nodePolyfills({ globals: { Buffer: true, global: true, process: true } }),
         emitHeaders(renderHeaders({ nodeOrigins: config.allowedNodeOrigins, mode: 'production' })),
+        favicon(),
       ],
       server: { headers: dev, fs: { allow: [repo] } },
       preview: { headers: production },
