@@ -1,7 +1,11 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { createStore, Provider } from 'jotai';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { HoldButton } from '../../../ui/src/index.ts';
+import type { MinerController } from '../controller';
 import type { MasterRecord } from '../keys/store';
 import { canSignOut, SignOutDialog } from './SignOutDialog';
+import { useHotkeys } from './use-page-behaviour';
 
 const record = (patch: Partial<MasterRecord>): MasterRecord =>
   ({
@@ -72,5 +76,33 @@ describe('sign out', () => {
     expect(screen.getByText('Make sure your twelve words are saved.')).toBeDefined();
     expect(screen.getByTestId('sign-out-hold')).toBeDefined();
     expect(screen.getByText(/48 tYACA stays on the chain/)).toBeDefined();
+  });
+});
+
+describe('the Space shortcut beside the hold', () => {
+  test('holding Space on the hold button never starts the miner; a plain Space still does, once per press', () => {
+    const start = vi.fn();
+    const controller = () => ({ start, stop: vi.fn() }) as unknown as MinerController;
+    function Page() {
+      useHotkeys(controller);
+      return (
+        <HoldButton onConfirm={() => {}} data-testid="hold">
+          Hold
+        </HoldButton>
+      );
+    }
+    render(
+      <Provider store={createStore()}>
+        <Page />
+      </Provider>,
+    );
+    const hold = screen.getByTestId('hold');
+    fireEvent.keyDown(hold, { key: ' ' });
+    fireEvent.keyDown(hold, { key: ' ', repeat: true });
+    fireEvent.keyUp(hold, { key: ' ' });
+    expect(start).not.toHaveBeenCalled();
+    fireEvent.keyDown(document.body, { key: ' ' });
+    fireEvent.keyDown(document.body, { key: ' ', repeat: true });
+    expect(start).toHaveBeenCalledTimes(1);
   });
 });

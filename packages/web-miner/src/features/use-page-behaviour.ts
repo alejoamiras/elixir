@@ -20,7 +20,7 @@ export function useHotkeys(controller: () => MinerController | undefined) {
   const store = useStore();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || editable(e.target)) return;
+      if (e.defaultPrevented || e.repeat || e.metaKey || e.ctrlKey || e.altKey || editable(e.target)) return;
       const c = controller();
       const miner = store.get(minerAtom);
       const settings = store.get(settingsAtom);

@@ -9,7 +9,8 @@ export type LedgerLinks = (links: { block: number; tx: string }) => { block?: st
 export type ProofLine =
   | { kind: 'attempt'; time: string; n: number; score: number; proveMs: number; best?: boolean }
   | { kind: 'win'; time: string; n: number; score: number; proveMs: number }
-  | { kind: 'minted'; time: string; text: string; chain?: string; links?: { block: number; tx: string } }
+  /** `text` follows the block phrase, which the renderer builds from `links.block` (linked when it can). */
+  | { kind: 'minted'; time: string; text: string; links?: { block: number; tx: string } }
   | { kind: 'failed'; time: string; text: string }
   | { kind: 'epoch'; time: string; text: string };
 
@@ -44,22 +45,40 @@ function Attempt({ line }: { line: Extract<ProofLine, { n: number }> }) {
   );
 }
 
+function Minted({ line, linkFor }: { line: Extract<ProofLine, { kind: 'minted' }>; linkFor?: LedgerLinks }) {
+  if (!line.links) return <span>{line.text}</span>;
+  const urls = linkFor?.(line.links);
+  const block = `block ${line.links.block.toLocaleString('en-US')}`;
+  return (
+    <>
+      <span>
+        claim in{' '}
+        {urls?.block ? (
+          <ExternalLink href={urls.block} full={String(line.links.block)}>
+            {block}
+          </ExternalLink>
+        ) : (
+          block
+        )}{' '}
+        · {line.text}
+      </span>
+      {urls?.tx && (
+        <span>
+          ·{' '}
+          <ExternalLink href={urls.tx} full={line.links.tx}>
+            effects
+          </ExternalLink>
+        </span>
+      )}
+    </>
+  );
+}
+
 function Event({ line, linkFor }: { line: Extract<ProofLine, { text: string }>; linkFor?: LedgerLinks }) {
-  const links = line.kind === 'minted' && line.links && linkFor ? linkFor(line.links) : undefined;
+  if (line.kind === 'minted') return <Minted line={line} linkFor={linkFor} />;
   return (
     <>
       <span>{line.text}</span>
-      {line.kind === 'minted' && line.chain && <span className="text-ink-2">{line.chain}</span>}
-      {links?.block && (
-        <ExternalLink href={links.block} full={String(line.kind === 'minted' && line.links?.block)}>
-          block
-        </ExternalLink>
-      )}
-      {links?.tx && (
-        <ExternalLink href={links.tx} full={line.kind === 'minted' ? line.links?.tx : undefined}>
-          effects
-        </ExternalLink>
-      )}
       {line.kind === 'epoch' && <span aria-hidden>──</span>}
     </>
   );

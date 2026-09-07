@@ -68,6 +68,8 @@ function Shell({ children }: { children: ReactNode }) {
               <a
                 key={n.href}
                 href={n.href}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="py-1 text-ink-2 hover:text-ink"
                 data-testid="nav-stats"
               >

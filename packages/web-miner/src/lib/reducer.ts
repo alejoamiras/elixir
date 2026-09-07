@@ -234,7 +234,7 @@ function claimed(state: MinerState, e: Extract<Event, { type: 'claimed' }>): Min
     ledger: line(state, {
       kind: 'minted',
       time: clock(at),
-      text: `claim in block ${e.block.toLocaleString('en-US')} · ${reward} minted, privately`,
+      text: `${reward} minted, privately`,
       links: { block: e.block, tx: e.txHash },
     }),
   };

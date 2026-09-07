@@ -64,7 +64,8 @@ describe('miner reducer', () => {
     [s] = reduce(s, { type: 'claimed', block: 184209, reward: '4 tYACA', ...MINTED });
     expect(s.ledger[0]).toMatchObject({
       kind: 'minted',
-      text: 'claim in block 184,209 · 4 tYACA minted, privately',
+      text: '4 tYACA minted, privately',
+      links: { block: 184209, tx: MINTED.txHash },
     });
     expect(s.wins).toBe(1);
     [s] = reduce(s, { type: 'start', epoch: epoch(3n) });

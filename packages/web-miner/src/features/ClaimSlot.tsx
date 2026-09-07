@@ -3,11 +3,11 @@
 // height, so the loop beside it never moves.
 import { useAtomValue } from 'jotai';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { ExternalLink, Marks, Tile, TileHeader } from '../../../ui/src/index.ts';
+import { ExternalLink, Tile, TileHeader } from '../../../ui/src/index.ts';
 import { links } from '../explorer';
 import { amount } from '../lib/format';
 import { type MinerState, type Minted, mintedFresh, type Notice } from '../lib/reducer';
-import { minerAtom, nowAtom, rulesAtom } from '../state';
+import { minerAtom, nowAtom } from '../state';
 import { ClaimStepper, NoticeCard } from './ClaimStatus';
 
 const CLAIM_NOTICES: Notice['kind'][] = ['reverted', 'expired', 'failed'];
@@ -21,24 +21,13 @@ export const slotState = (m: MinerState, nowMs: number): 'notice' | 'claim' | 'm
 };
 
 function Acknowledged({ minted }: { minted: Minted }) {
-  const rules = useAtomValue(rulesAtom);
-  const closed = rules && minted.claims[1] >= rules.N;
   return (
-    <div data-testid="minted" className="flex flex-col gap-2">
-      <p className="text-sm text-ok">
-        ✓ {amount(PARAMS.REWARD, PARAMS.DECIMALS)} {PARAMS.TOKEN_SYMBOL} minted, privately ·{' '}
-        <ExternalLink href={links.block(minted.block)} full={String(minted.block)}>
-          block {minted.block.toLocaleString('en-US')}
-        </ExternalLink>
-      </p>
-      <Marks
-        nullifier={minted.nullifier}
-        noteHash={minted.noteHash}
-        moreNotes={minted.noteHashes - 1}
-        claims={minted.claims}
-        suffix={closed ? 'epoch closed' : undefined}
-      />
-    </div>
+    <p data-testid="minted" className="text-sm text-ok">
+      ✓ {amount(PARAMS.REWARD, PARAMS.DECIMALS)} {PARAMS.TOKEN_SYMBOL} minted, privately ·{' '}
+      <ExternalLink href={links.block(minted.block)} full={String(minted.block)}>
+        block {minted.block.toLocaleString('en-US')}
+      </ExternalLink>
+    </p>
   );
 }
 
