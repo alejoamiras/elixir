@@ -60,7 +60,7 @@ try {
     await page
       .getByTestId('live-open')
       .filter({ hasNotText: '—' })
-      .or(page.getByTestId('launch-phase'))
+      .or(page.getByTestId('launch-phase').filter({ hasNotText: 'reading the chain' }))
       .first()
       .waitFor({ timeout: 60_000 });
     await shot(page, 'landing', width);
