@@ -31,4 +31,30 @@ packages/web-stats packages/site` 70 pass ✓ · `bun run --cwd packages/web-sta
   tile (`SinceOpened`), the ring (`EpochRing`) and the chart rows (`ChartRows`) out; `specs.ts`'s label placer
   split its anchor rule (`labelAnchor`) and its four text marks (`rollLabelMarks`) out for the cognitive budget.
 
+
+## P2.2 · the screenshot gate and the E2E (2026-09-07) ✓
+
+Gate: `bun run --cwd packages/web-stats test:visual` **4 passed, no diff** (in `mcr.microsoft.com/playwright:v1.62.1-noble`,
+after one `--update-snapshots` run) ✓ · `bun run e2e:agent -- bun run --cwd packages/web-stats test:e2e` **3 passed
+(58.8 s)** ✓.
+
+- The recording (`visual-setup.ts record` under `e2e:agent`) over the 31-epoch fixture: 106 answers (was 40).
+  Chunk 0 of the slot table covers 512 epochs, so nothing about the fixture-only build changed.
+- The visual spec waits for `main[data-settled="1"]` before the capture: the fixed clock freezes `Date`, not
+  rAF, so the tweens still run under it and finish within 300 ms; the recorded block's slot time drives every
+  age (the epoch tile reads "open 134:12", amber, because the fixture's open epoch had sat two hours by the time
+  the record ran — deterministic per recording).
+- The first baseline exposed "key" wording in the stats page's own copy (`NotHere`: "Which key claimed which
+  epoch"): reworded to "account", and the rename guard's roots now include `packages/web-stats/src`. The landing's
+  copy has the same words; arc 3 rewrites `copy.ts` and extends the guard there.
+- The live E2E asserts the freshness pill's block link, both titles, the table's scroll under a header whose
+  `boundingBox().y` does not move, the three "the escape hatch" rows, the chart heights `[200, 110, 110, 110]`,
+  and the Verify chips' explorer hrefs on the isolated deployment's own addresses. The 26 136 s bar is now judged
+  against the 20-minute rule's y (the 10 000 s tick is gone with the three-tick axis) — the same claim, "a cap
+  at T_MAX would leave it on the rule".
+- The miner E2E (arc 1) had to move with the fidelity round: the acknowledgement no longer carries the marks
+  the `states` spec matched, and the `miner` spec's "no claim in flight within 15 s" raced a second win at the
+  easy target (at 12 passed the first time by luck). Both assertions were retargeted (`319f57c`); the words spec
+  met the dialog that now reopens after the backup it asked for (`72f279a`). The re-run is in `phase-1.md`.
+
 LESSONS_FILE=implementations-plan/yacana-second-pass/lessons/phase-2.md
