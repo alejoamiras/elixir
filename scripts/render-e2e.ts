@@ -1,13 +1,16 @@
 // Renders a surface from its running e2e server (an e2e run in progress, or a server left up) at the
-// widths the binder is judged at: the landing on the isolated network's numbers; the miner's keyed
-// screens (cockpit, wallet, settings), which a production build refuses off the production host.
-//   bun scripts/render-e2e.ts landing|miner <out dir> [widths, default 1280,1440,1024]
+// widths the binder is judged at: the landing on the isolated network's numbers; the stats on the
+// captured history through the E2E's mocked node; the miner's keyed screens (cockpit, wallet,
+// settings), which a production build refuses off the production host.
+//   bun scripts/render-e2e.ts landing|stats|miner <out dir> [widths, default 1280,1440,1024]
 import { mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium, type Page } from '@playwright/test';
+import { MOCK_NODE_ORIGIN, mockNode, pageUrl } from '../packages/web-stats/e2e/helpers.ts';
 
 const repo = resolve(import.meta.dir, '..');
-const app = process.argv[2] === 'landing' ? 'landing' : 'miner';
+const APPS = ['landing', 'stats', 'miner'] as const;
+const app = APPS.find((a) => a === process.argv[2]) ?? 'miner';
 const out = resolve(process.argv[3] ?? resolve(repo, '.run-state/renders'));
 const widths = (process.argv[4] ?? '1280,1440,1024').split(',').map(Number);
 mkdirSync(out, { recursive: true });
@@ -17,6 +20,12 @@ const run = JSON.parse(readFileSync(resolve(repo, `packages/web-${app}/e2e/.run.
   nodeUrl: string;
   miner: string;
   token: string;
+  minerClassId: string;
+  tokenClassId: string;
+  chainId: string;
+  rollupVersion: string;
+  vitePid: number;
+  runId: string;
 };
 const url = new URL(run.baseURL);
 url.searchParams.set('node', run.nodeUrl);
@@ -31,6 +40,14 @@ async function landing(page: Page, width: number) {
   // A few cadence dots on the loop.
   await page.waitForTimeout(6000);
   await shot(page, 'landing', width);
+}
+
+async function stats(page: Page, width: number) {
+  await mockNode(page, run);
+  await page.goto(pageUrl(run, '', { node: MOCK_NODE_ORIGIN }));
+  await page.getByTestId('table').locator('tbody tr').nth(8).waitFor({ timeout: 60_000 });
+  await page.waitForTimeout(1000);
+  await shot(page, 'stats', width);
 }
 
 async function miner(page: Page, width: number) {
@@ -58,9 +75,9 @@ try {
   for (const width of widths) {
     const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
     const page = await context.newPage();
-    await page.goto(url.toString());
+    if (app !== 'stats') await page.goto(url.toString());
     try {
-      await (app === 'landing' ? landing : miner)(page, width);
+      await { landing, stats, miner }[app](page, width);
     } catch (e) {
       // What the page showed when the wait ran out, next to the renders.
       await shot(page, `${app}-failed`, width);

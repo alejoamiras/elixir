@@ -75,7 +75,9 @@ export function Table({
   onSelect,
   onOlder,
   loadingOlder,
+  className,
 }: {
+  className?: string;
   rows: readonly EpochRow[];
   open: number;
   selected: number | null;
@@ -85,19 +87,25 @@ export function Table({
 }) {
   const oldest = rows[0]?.epoch ?? 0;
   return (
-    <Tile>
+    <Tile className={className}>
       <TileHeader
         aside={
-          <span className="flex gap-2">
+          <span className="flex items-baseline gap-2">
+            newest first ·
             <Button
               size="sm"
+              variant="link"
+              className="h-auto font-mono text-2xs"
               onClick={() => download('yacana-epochs.csv', toCsv(rows), 'text/csv')}
               data-testid="download-csv"
             >
               CSV
             </Button>
+            ·
             <Button
               size="sm"
+              variant="link"
+              className="h-auto font-mono text-2xs"
               onClick={() => download('yacana-epochs.json', rowsToJson(rows), 'application/json')}
               data-testid="download-json"
             >
@@ -106,7 +114,7 @@ export function Table({
           </span>
         }
       >
-        epochs, newest first
+        epochs
       </TileHeader>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse font-mono text-xs" data-testid="table">

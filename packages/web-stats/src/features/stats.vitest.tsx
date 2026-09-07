@@ -1,10 +1,12 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { createStore, Provider } from 'jotai';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { type EpochRow, rowsFromJson } from '../../../miner-core/src/reader.ts';
 import { Difficulty, Duration, Emission, Retarget } from '../charts/index.tsx';
 import { selectedFromSearch } from '../routes';
-import type { Chain } from '../state';
+import { Stats } from '../routes/Stats';
+import { type Chain, chainAtom } from '../state';
 import { Detail } from './Detail';
 import { Observatory } from './Observatory';
 import { Strip, step } from './Strip';
@@ -91,12 +93,39 @@ describe('the observatory', () => {
 
   test('the open epoch tile shows the row of the open epoch, or a dash when a close outran the history', () => {
     render(<Observatory chain={chain(last.epoch)} now={(last.openedAt + 60) * 1000} />);
-    expect(screen.getByTestId('open-claims').textContent).toBe(`${last.claims} of ${PARAMS.N}`);
+    expect(screen.getByTestId('open-claims').textContent).toBe(String(last.claims));
     cleanup();
     render(<Observatory chain={chain(last.epoch + 1)} now={(last.openedAt + 60) * 1000} />);
-    expect(screen.getByTestId('open-claims').textContent).toBe(`— of ${PARAMS.N}`);
+    expect(screen.getByTestId('open-claims').textContent).toBe('—');
     expect(screen.getByText(/this epoch not read yet/)).toBeTruthy();
     expect((screen.getByTestId('calculator') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  test('the A1 grid: six KPI cells, the strip beside the detail, four chart tiles, the table, not-here beside verify', () => {
+    const store = createStore();
+    store.set(chainAtom, chain(last.epoch));
+    const { container } = render(
+      <Provider store={store}>
+        <Stats onOlder={() => {}} nodeUrl="http://node.test" />
+      </Provider>,
+    );
+    const grid = container.querySelector('[data-testid=stats]') as HTMLElement;
+    expect(grid.className).toContain('md:grid-cols-6');
+    const cells = Array.from(
+      grid.querySelectorAll(
+        ':scope > [data-slot=tile], :scope > [data-testid=observatory] > [data-slot=tile]',
+      ),
+    );
+    const spans = cells.map((c) => c.className.match(/(?:md|xl):col-span-\d/g)?.join(' '));
+    expect(spans.slice(0, 6).every((s) => s === 'md:col-span-2 xl:col-span-1')).toBe(true);
+    expect(spans[6]).toBe('md:col-span-6 xl:col-span-4');
+    expect(spans[7]).toBe('md:col-span-6 xl:col-span-2');
+    expect(spans.slice(8, 12).every((s) => s === 'md:col-span-3')).toBe(true);
+    expect(spans[12]).toBe('md:col-span-6');
+    expect(spans.slice(13)).toEqual(['md:col-span-3', 'md:col-span-3']);
+    expect(grid.querySelectorAll('[data-slot=chart]')).toHaveLength(4);
+    expect(screen.getByTestId('strip-selected').textContent).toBe(`epoch ${last.epoch}`);
+    expect(screen.getByTestId('reproduce-command').textContent).toContain('AZTEC_NODE_URL=http://node.test');
   });
 
   test('a row without closing facts is "open" only when it is the open epoch', () => {

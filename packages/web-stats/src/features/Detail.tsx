@@ -1,8 +1,8 @@
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { difficulty, sentence } from '../../../miner-core/src/metrics.ts';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';
-import { amount, duration } from '../../../site/src/browser/format.ts';
-import { Badge, KvRow, Tile, TileHeader } from '../../../ui/src/index.ts';
+import { amount, durationParts } from '../../../site/src/browser/format.ts';
+import { Badge, difficultyLabel, Kpi, Tile, TileHeader } from '../../../ui/src/index.ts';
 
 const RULES = { N: PARAMS.N, EXPECTED_EPOCH_SECONDS: PARAMS.EXPECTED_EPOCH_SECONDS, T_MAX: PARAMS.T_MAX };
 const clock = (unix: number) => new Date(unix * 1000).toISOString().slice(11, 19);
@@ -25,51 +25,57 @@ export function Detail({
   open,
   next,
   now,
+  className,
 }: {
   row: EpochRow;
   /** Whether `row` is the chain's open epoch; without closing facts otherwise it is closed, unread. */
   open: boolean;
   next?: EpochRow;
   now: number;
+  className?: string;
 }) {
   const state = stateOf(row, open);
-  const closed = row.duration !== null;
-  const closedAt = closed ? row.openedAt + (row.duration as number) : null;
-  const openFor = state === 'open' ? duration(Math.max(0, now - row.openedAt)) : '—';
+  const closedAt = row.duration === null ? null : row.openedAt + row.duration;
+  const span = `${clock(row.openedAt)} → ${closedAt ? clock(closedAt) : state === 'open' ? 'open' : '…'}`;
+  const [dur, durUnit] =
+    row.duration !== null
+      ? durationParts(row.duration)
+      : state === 'open'
+        ? durationParts(Math.max(0, now - row.openedAt))
+        : ['—', ''];
   return (
-    <Tile data-testid="detail">
-      <TileHeader
-        aside={
-          <Badge variant={BADGE[state].variant} data-testid="detail-closed-by">
-            {BADGE[state].text}
-          </Badge>
-        }
-      >
-        epoch {row.epoch}
-      </TileHeader>
-      <div className="grid gap-x-6 md:grid-cols-2">
-        <KvRow label="opened" value={clock(row.openedAt)} />
-        <KvRow label={closed ? 'closed' : 'open for'} value={closedAt ? clock(closedAt) : openFor} />
-        <KvRow label="claims" value={`${row.claims} of ${PARAMS.N}`} />
-        <KvRow label="duration" value={closed ? duration(row.duration as number) : '—'} />
-        <KvRow
-          label="difficulty"
-          value={
-            next
-              ? `${difficulty(row.target).toFixed(1)} → ${difficulty(next.target).toFixed(1)}`
-              : difficulty(row.target).toFixed(1)
-          }
+    <Tile className={className} data-testid="detail">
+      <TileHeader aside={span}>epoch {row.epoch}</TileHeader>
+      <div className="mb-2 flex flex-wrap gap-4">
+        <Kpi
+          label="claims"
+          value={<span className={state === 'roll' ? 'text-warn' : undefined}>{row.claims}</span>}
+          unit={`of ${PARAMS.N}`}
         />
-        <KvRow
-          label="minted"
-          value={`${amount(BigInt(row.claims) * PARAMS.REWARD, PARAMS.DECIMALS, 0)} ${PARAMS.TOKEN_SYMBOL}`}
+        <Kpi
+          label={row.duration === null ? 'open for' : 'duration'}
+          value={dur}
+          unit={durUnit || undefined}
+        />
+        <Kpi
+          label="difficulty"
+          value={difficultyLabel(difficulty(row.target))}
+          unit={next ? `→ ${difficultyLabel(difficulty(next.target))}` : undefined}
         />
       </div>
-      <p className="mt-3 text-pretty text-sm text-ink" data-testid="sentence">
+      <p className="text-pretty text-xs text-ink-3" data-testid="sentence">
         {state === 'unread'
           ? 'Closed since; its duration and retarget have not been read yet.'
           : sentence(row, RULES)}
       </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Badge variant={BADGE[state].variant} data-testid="detail-closed-by">
+          {BADGE[state].text}
+        </Badge>
+        <Badge>
+          {amount(BigInt(row.claims) * PARAMS.REWARD, PARAMS.DECIMALS, 0)} {PARAMS.TOKEN_SYMBOL} minted
+        </Badge>
+      </div>
     </Tile>
   );
 }

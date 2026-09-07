@@ -58,7 +58,6 @@ export function Emission(p: ChartProps) {
   const path = (v: number[]) => v.map((y, i) => `${i ? 'L' : 'M'}${s.x(i) + s.band / 2},${s.y(y)}`).join(' ');
   return (
     <Frame
-      title="emission"
       label={`emission: ${minted} ${p.rules.TOKEN_SYMBOL} minted over ${rows.length} closed epochs, against the schedule`}
       yTicks={ticks(0, hi).map((t) => ({ value: t, y: s.y(t) }))}
       tick={(v) => `${Math.round(v)}`}
@@ -81,7 +80,6 @@ export function Difficulty(p: ChartProps) {
   const d = values.map((v, i) => `${i ? 'L' : 'M'}${s.x(i) + s.band / 2},${s.y(v)}`).join(' ');
   return (
     <Frame
-      title="difficulty per epoch, log scale"
       label={`difficulty: ${values.at(-1)?.toFixed(1)} now, ${rows.length} epochs shown`}
       yTicks={ticks(lo, hi, true).map((t) => ({ value: t, y: s.y(t) }))}
       tick={(v) => (v >= 1 ? `${v}` : v.toFixed(1))}
@@ -116,7 +114,6 @@ export function Duration(p: ChartProps) {
   );
   return (
     <Frame
-      title="epoch duration · amber = closed by the escape hatch"
       label={`duration of ${rows.length} closed epochs against ${expected} s expected`}
       yTicks={b.ticks}
       tick={(v) => `${Math.round(v)} s`}
@@ -146,7 +143,6 @@ export function Retarget(p: ChartProps) {
   );
   return (
     <Frame
-      title="retarget at each close · violet harder · grey easier"
       label={`retarget ratios of ${rows.length} closed epochs`}
       yTicks={b.ticks}
       tick={(v) => `×${v}`}

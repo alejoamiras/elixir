@@ -236,7 +236,7 @@ component · e2e-isolated.
 
 ### Arc 3 · stats (`fidelity-stats`)
 
-**P3.1 The A1 grid.** Goal: `Stats.tsx` on `repeat(6, 1fr) / 14px` with the binder's spans from `xl`, two rows of
+**P3.1 The A1 grid.** ✓ Goal: `Stats.tsx` on `repeat(6, 1fr) / 14px` with the binder's spans from `xl`, two rows of
 three KPIs below it; the strip beside the detail (three inline KPIs); the table; `NotHere` beside the new `VerifyTile`
 (the Verify route's formatting reused). Charts still the SVG ones. Tests: `stats.vitest.tsx` asserts the span
 classes; `stats.e2e.ts` gains the grid-template assertion at 1280 and 1440; existing assertions unchanged.

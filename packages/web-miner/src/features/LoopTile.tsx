@@ -5,7 +5,7 @@ import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { difficulty, nextWinSeconds, proofsPerMinute } from '../../../miner-core/src/metrics.ts';
 import { Button, cn, Kpi, ScoreLoop, StatusPill, Tile, TileHeader } from '../../../ui/src/index.ts';
 import type { MinerController } from '../controller';
-import { amount, compact, duration } from '../lib/format';
+import { amount, compact, durationParts } from '../lib/format';
 import { pillStatus } from '../lib/status';
 import { openPip, pipSupported } from '../pip';
 import { useSettings } from '../settings';
@@ -140,9 +140,8 @@ export function LoopTile({
 
 const nextWin = (target: bigint, perMinute: number): [string, string] | null => {
   if (perMinute <= 0) return null;
-  const text = duration(nextWinSeconds(target, perMinute));
-  const i = text.lastIndexOf(' ');
-  return i < 0 ? null : [`~${text.slice(0, i)}`, text.slice(i + 1)];
+  const [value, unit] = durationParts(nextWinSeconds(target, perMinute));
+  return unit ? [`~${value}`, unit] : null;
 };
 
 export function KpiTiles({ className }: { className?: string }) {

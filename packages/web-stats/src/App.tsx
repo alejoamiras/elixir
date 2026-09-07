@@ -107,7 +107,7 @@ export function App({ connection, onOlder }: { connection: Connection; onOlder: 
   const route = useRoute();
   return (
     <Shell connection={connection}>
-      {route === 'stats' && <Stats onOlder={onOlder} />}
+      {route === 'stats' && <Stats onOlder={onOlder} nodeUrl={connection.nodeUrl} />}
       {route === 'verify' && <Verify nodeUrl={connection.nodeUrl} />}
     </Shell>
   );

@@ -11,6 +11,13 @@ export function compact(n: number): string {
   return `${v < 10 && i > 0 ? v.toFixed(1) : Math.round(v)}${units[i]}`;
 }
 
+/** `duration` as a KPI's value and unit: ["21", "min"]; ["—", ""] when there is none. */
+export function durationParts(seconds: number): [string, string] {
+  const text = duration(seconds);
+  const i = text.lastIndexOf(' ');
+  return i < 0 ? [text, ''] : [text.slice(0, i), text.slice(i + 1)];
+}
+
 export function duration(seconds: number): string {
   if (!Number.isFinite(seconds)) return '—';
   if (seconds < 60) return `${Math.round(seconds)} s`;

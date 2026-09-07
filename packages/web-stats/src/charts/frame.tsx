@@ -42,14 +42,12 @@ export function ticks(lo: number, hi: number, log = false): number[] {
 }
 
 export function Frame({
-  title,
   label,
   children,
   yTicks,
   tick,
   ...rest
 }: {
-  title: string;
   label: string;
   children: React.ReactNode;
   yTicks: { value: number; y: number }[];
@@ -58,7 +56,6 @@ export function Frame({
 } & Omit<React.SVGProps<SVGSVGElement>, 'children'>) {
   return (
     <figure className="m-0" data-slot="chart">
-      <figcaption className="eyebrow mb-2">{title}</figcaption>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} className="block h-auto w-full" {...rest}>
         {yTicks.map((t) => (
           <g key={t.value}>

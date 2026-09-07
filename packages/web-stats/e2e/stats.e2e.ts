@@ -15,7 +15,7 @@ test('the captured history through a mocked node: deterministic numbers, selecti
   await expect(page.getByTestId('freshness')).toContainText('block');
   // 28 claims × 4 over the fixture's eight closed epochs; epoch 8 open with 0 claims.
   await expect(page.getByTestId('minted')).toHaveText('112');
-  await expect(page.getByTestId('open-claims')).toHaveText('0 of 4');
+  await expect(page.getByTestId('open-claims')).toHaveText('0');
   await expect(page.getByTestId('difficulty')).toHaveText('25.2');
   await expect(page.getByTestId('network-rate')).toContainText('≈');
   await expect(page.getByTestId('strip').getByRole('option')).toHaveCount(9);
@@ -33,6 +33,28 @@ test('the captured history through a mocked node: deterministic numbers, selecti
   await expect(page.getByTestId('chart-duration').locator('[data-slot=bar]')).toHaveCount(8);
   // Every chart carries the selection.
   await expect(page.locator('[data-slot=halo]')).toHaveCount(4);
+  // The A1 frame at 1280 (the default viewport) and 1440: 1080 wide, six equal tracks, the strip
+  // beside the detail.
+  for (const width of [1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const grid = page.getByTestId('stats');
+    expect(await grid.evaluate((el) => el.getBoundingClientRect().width)).toBe(1080);
+    const tracks = await grid.evaluate((el) =>
+      getComputedStyle(el).gridTemplateColumns.split(' ').map(parseFloat),
+    );
+    expect(tracks).toHaveLength(6);
+    expect(Math.max(...tracks) - Math.min(...tracks)).toBeLessThanOrEqual(0.5);
+    expect(
+      await grid.evaluate((el) => {
+        const strip = (el.querySelector('[data-testid=strip]') as Element).closest(
+          '[data-slot=tile]',
+        ) as Element;
+        const detail = el.querySelector('[data-testid=detail]') as Element;
+        const [s, d] = [strip.getBoundingClientRect(), detail.getBoundingClientRect()];
+        return s.right <= d.left && Math.abs(s.top - d.top) <= 1;
+      }),
+    ).toBe(true);
+  }
   // The CSV download is the table.
   const [download] = await Promise.all([
     page.waitForEvent('download'),
@@ -75,7 +97,7 @@ test('live on the isolated deployment: epoch 0 renders, ?epoch=0 selects it, Ver
   await page.goto(pageUrl(r));
   await expect(page.getByTestId('freshness')).toContainText('block');
   await expect(page.getByTestId('minted')).toHaveText('0');
-  await expect(page.getByTestId('open-claims')).toHaveText('0 of 4');
+  await expect(page.getByTestId('open-claims')).toHaveText('0');
   await expect(page.getByTestId('strip').getByRole('option')).toHaveCount(1);
   await expect(page.getByTestId('detail')).toContainText('epoch 0');
   await expect(page.getByTestId('detail-closed-by')).toHaveText('open');

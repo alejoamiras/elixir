@@ -2,7 +2,7 @@
 // visible. The open epoch is always on the right; a click selects, ← → step, the URL follows.
 import { useEffect } from 'react';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';
-import { cn } from '../../../ui/src/index.ts';
+import { Badge, cn } from '../../../ui/src/index.ts';
 
 export interface StripProps {
   rows: readonly EpochRow[];
@@ -63,7 +63,7 @@ export function Strip({ rows, open, selected, onSelect, now, onOlder }: StripPro
   return (
     <div data-testid="strip" className="flex flex-col gap-2">
       <div
-        className="flex h-9 items-stretch gap-px overflow-x-auto"
+        className="flex h-16 items-stretch gap-px overflow-x-auto"
         role="listbox"
         aria-label="epochs, oldest to newest"
       >
@@ -87,9 +87,16 @@ export function Strip({ rows, open, selected, onSelect, now, onOlder }: StripPro
           />
         ))}
       </div>
-      <p className="text-2xs text-ink-2">
-        click an epoch · ← → to step · the open one is always on the right · the URL follows
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-ink-3">
+          click an epoch · ← → to step · the open one is always on the right · the URL follows
+        </p>
+        {current !== null && (
+          <Badge variant="uv" data-testid="strip-selected">
+            epoch {current}
+          </Badge>
+        )}
+      </div>
     </div>
   );
 }
