@@ -12,16 +12,18 @@ describe('diagnostics export', () => {
       'node https://user:secret@node.example/rpc?token=abc failed',
       'node HTTPS://user:secret@node.example/rpc?token=abc failed',
       'node https://user:secret@[::1]:8080/rpc?token=abc failed',
+      'wrapped [https://user:secret@node.example/x?token=abc] and ([https://user:secret@[::1]/y?token=abc])',
       `long ${'x'.repeat(1000)}`,
     ];
     const out = diagnostics(lines);
     const rows = out.split('\n');
     expect(rows).toHaveLength(200);
-    expect(rows[0]).toBe('line 55');
+    expect(rows[0]).toBe('line 56');
     expect(out).toContain('claim 0xabab…abab sent');
     expect(out).not.toContain(hash);
     expect(out).toContain('node https://node.example/rpc failed');
     expect(out).toContain('node https://[::1]:8080/rpc failed');
+    expect(out).toContain('wrapped [https://node.example/x] and ([https://[::1]/y])');
     expect(out).not.toContain('secret');
     expect(out).not.toContain('token=abc');
     expect(bytes(rows[rows.length - 1] ?? '')).toBeLessThanOrEqual(400);

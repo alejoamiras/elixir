@@ -149,7 +149,7 @@ describe('account, not key', () => {
     // The persistent and protocol strings live in exempt files; the guard must never flag them anywhere.
     // Hyphen- or colon-joined tokens are identifiers, not the word "key": the persistent and protocol strings
     // (the vault's DB name and AAD prefix, WebAuthn's credential type) are never flagged, exempt file or not.
-    for (const literal of ["'yacana-keys'", '`yacana-key:${r.v}`', "'public-key'"])
+    for (const literal of ["'yacana-keys'", '`yacana-key:$' + '{r.v}`', "'public-key'"])
       expect(texts(`const x = ${literal};`).some((t) => ACCOUNT_KEY.test(t.replace(KEY_COMPOUNDS, '')))).toBe(
         false,
       );

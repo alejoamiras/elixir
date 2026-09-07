@@ -5,8 +5,9 @@ const MAX_LINES = 200;
 const MAX_LINE = 400;
 const MAX_BYTES = 16_384;
 const LONG_HEX = /0x[0-9a-fA-F]{40,}/g;
-// A bracketed IPv6 host is kept whole; the match ends at whitespace or a closing quote/bracket.
-const URL_LIKE = /https?:\/\/(?:\[[^\]\s]*\]|[^\s'"`)\]])[^\s'"`)]*/gi;
+// A URL runs to whitespace, a quote or a closing paren; a bracketed IPv6 host (`user:x@[::1]:8080`) is
+// kept whole, but a `]` that closes nothing is a wrapper's and ends the match, so `[https://…]` still parses.
+const URL_LIKE = /https?:\/\/(?:[^\s'"`()[\]]|\[[0-9a-f:.]+\])+/gi;
 
 const shortHex = (h: string): string => `${h.slice(0, 6)}…${h.slice(-4)}`;
 

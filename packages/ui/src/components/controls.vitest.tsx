@@ -55,37 +55,75 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('HoldButton', () => {
+/** A mounted HoldButton with a 100×40 box; jsdom has neither pointer capture nor layout. */
+const mountHold = () => {
+  const frames = fakeFrames();
+  const onConfirm = vi.fn();
+  const view = render(<HoldButton onConfirm={onConfirm}>Hold</HoldButton>);
+  const button = screen.getByRole('button', { name: /hold/i });
+  (button as HTMLButtonElement & { setPointerCapture: () => void }).setPointerCapture = () => {};
+  const box = {
+    left: 0,
+    top: 0,
+    right: 100,
+    bottom: 40,
+    width: 100,
+    height: 40,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  };
+  button.getBoundingClientRect = () => box;
+  const progress = () => screen.getByRole('progressbar').getAttribute('aria-valuenow');
+  return { ...view, frames, onConfirm, button, progress };
+};
+
+describe('HoldButton pointer path', () => {
   test('nothing at timer expiry while held; exactly one confirm on the release after a completed fill', () => {
-    const frames = fakeFrames();
-    const onConfirm = vi.fn();
-    render(<HoldButton onConfirm={onConfirm}>Hold to sign out</HoldButton>);
-    const button = screen.getByRole('button', { name: /hold to sign out/i });
-    (button as HTMLButtonElement & { setPointerCapture: () => void }).setPointerCapture = () => {};
-    fireEvent.pointerDown(button, { pointerId: 1, clientX: 0, clientY: 0 });
+    const { frames, onConfirm, button, progress } = mountHold();
+    fireEvent.pointerDown(button, { pointerId: 1, clientX: 50, clientY: 20 });
     frames.tick(600);
-    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('50');
+    expect(progress()).toBe('50');
     frames.tick(700);
-    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('100');
+    expect(progress()).toBe('100');
     expect(onConfirm).not.toHaveBeenCalled();
-    fireEvent.pointerUp(button, { pointerId: 1 });
+    fireEvent.pointerUp(button, { pointerId: 1, clientX: 50, clientY: 20 });
     expect(onConfirm).toHaveBeenCalledTimes(1);
-    fireEvent.pointerUp(button, { pointerId: 1 });
+    fireEvent.pointerUp(button, { pointerId: 1, clientX: 50, clientY: 20 });
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
-  test('an early release, a leave, a blur or a disabled change cancels; key repeat is ignored', () => {
-    const frames = fakeFrames();
-    const onConfirm = vi.fn();
-    const { rerender } = render(<HoldButton onConfirm={onConfirm}>Hold</HoldButton>);
-    const button = screen.getByRole('button', { name: /hold/i });
-    (button as HTMLButtonElement & { setPointerCapture: () => void }).setPointerCapture = () => {};
-    fireEvent.pointerDown(button, { pointerId: 1 });
+  test('an early release cancels', () => {
+    const { frames, onConfirm, button, progress } = mountHold();
+    fireEvent.pointerDown(button, { pointerId: 1, clientX: 50, clientY: 20 });
     frames.tick(500);
-    fireEvent.pointerUp(button, { pointerId: 1 });
+    fireEvent.pointerUp(button, { pointerId: 1, clientX: 50, clientY: 20 });
     expect(onConfirm).not.toHaveBeenCalled();
-    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('0');
+    expect(progress()).toBe('0');
+  });
 
+  test('a captured pointer that drags off the button cancels; a release off the button never confirms', () => {
+    const { frames, onConfirm, button, progress } = mountHold();
+    fireEvent.pointerDown(button, { pointerId: 1, clientX: 50, clientY: 20 });
+    frames.tick(1300);
+    expect(progress()).toBe('100');
+    fireEvent.pointerMove(button, { pointerId: 1, clientX: 300, clientY: 20 });
+    expect(progress()).toBe('0');
+    fireEvent.pointerUp(button, { pointerId: 1, clientX: 300, clientY: 20 });
+    expect(onConfirm).not.toHaveBeenCalled();
+    // A second pointer cannot release a hold the first began.
+    fireEvent.pointerDown(button, { pointerId: 1, clientX: 50, clientY: 20 });
+    frames.tick(1300);
+    fireEvent.pointerUp(button, { pointerId: 2, clientX: 50, clientY: 20 });
+    expect(onConfirm).not.toHaveBeenCalled();
+    fireEvent.pointerUp(button, { pointerId: 1, clientX: 50, clientY: 20 });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('HoldButton keyboard path', () => {
+  test('a blur or a disabled change cancels; key repeat is ignored', () => {
+    const { frames, onConfirm, button, rerender } = mountHold();
     fireEvent.keyDown(button, { key: ' ' });
     frames.tick(1300);
     fireEvent.keyDown(button, { key: ' ', repeat: true });
@@ -104,47 +142,19 @@ describe('HoldButton', () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
-  test('a captured pointer that drags off the button cancels; a release off the button never confirms', () => {
-    const frames = fakeFrames();
-    const onConfirm = vi.fn();
-    render(<HoldButton onConfirm={onConfirm}>Hold</HoldButton>);
-    const button = screen.getByRole('button', { name: /hold/i });
-    button.getBoundingClientRect = () => ({
-      left: 0,
-      top: 0,
-      right: 100,
-      bottom: 40,
-      width: 100,
-      height: 40,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    });
-    fireEvent.pointerDown(button, { pointerId: 1, clientX: 50, clientY: 20 });
+  test('commits on keyup of the same key after the fill; another key cannot release it', () => {
+    const { frames, onConfirm, button } = mountHold();
+    fireEvent.keyDown(button, { key: ' ' });
     frames.tick(1300);
-    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('100');
-    fireEvent.pointerMove(button, { pointerId: 1, clientX: 300, clientY: 20 });
-    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('0');
-    fireEvent.pointerUp(button, { pointerId: 1, clientX: 300, clientY: 20 });
+    fireEvent.keyDown(button, { key: 'Enter' });
+    fireEvent.keyUp(button, { key: 'Enter' });
     expect(onConfirm).not.toHaveBeenCalled();
-    // A second pointer cannot release a hold the first began.
-    fireEvent.pointerDown(button, { pointerId: 1, clientX: 50, clientY: 20 });
-    frames.tick(1300);
-    fireEvent.pointerUp(button, { pointerId: 2, clientX: 50, clientY: 20 });
-    expect(onConfirm).not.toHaveBeenCalled();
-    fireEvent.pointerUp(button, { pointerId: 1, clientX: 50, clientY: 20 });
+    fireEvent.keyUp(button, { key: ' ' });
     expect(onConfirm).toHaveBeenCalledTimes(1);
-  });
-
-  test('the keyboard path commits on keyup after the fill', () => {
-    const frames = fakeFrames();
-    const onConfirm = vi.fn();
-    render(<HoldButton onConfirm={onConfirm}>Hold</HoldButton>);
-    const button = screen.getByRole('button', { name: /hold/i });
     fireEvent.keyDown(button, { key: 'Enter' });
     frames.tick(1300);
     fireEvent.keyUp(button, { key: 'Enter' });
-    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onConfirm).toHaveBeenCalledTimes(2);
     expect(button.getAttribute('aria-describedby')).toBeTruthy();
   });
 });

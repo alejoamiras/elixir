@@ -4,7 +4,8 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { cn } from '../lib/cn.ts';
 import { Button, type buttonVariants } from './button.tsx';
 
-type Owner = number | 'key';
+/** The pointer id, or the key, that began the hold; only the same one may release it. */
+type Owner = number | 'Space' | 'Enter';
 
 /**
  * The hold gesture: the fill runs for `holdMs` on the frame clock while held; `onConfirm` fires once, on the
@@ -78,7 +79,8 @@ const inside = (e: React.PointerEvent<HTMLButtonElement>): boolean => {
   return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
 };
 
-const isKey = (e: React.KeyboardEvent) => e.key === ' ' || e.key === 'Enter';
+const keyOwner = (e: React.KeyboardEvent): 'Space' | 'Enter' | null =>
+  e.key === ' ' ? 'Space' : e.key === 'Enter' ? 'Enter' : null;
 
 /**
  * A destructive action confirmed by a completed gesture the user can still abort. The gesture is never the
@@ -111,11 +113,15 @@ export function HoldButton({
       onPointerLeave={hold.cancel}
       onBlur={hold.cancel}
       onKeyDown={(e) => {
-        if (!isKey(e) || e.repeat) return;
+        const by = keyOwner(e);
+        if (!by || e.repeat) return;
         e.preventDefault();
-        hold.begin('key');
+        hold.begin(by);
       }}
-      onKeyUp={(e) => isKey(e) && hold.release('key')}
+      onKeyUp={(e) => {
+        const by = keyOwner(e);
+        if (by) hold.release(by);
+      }}
       {...props}
     >
       <span
