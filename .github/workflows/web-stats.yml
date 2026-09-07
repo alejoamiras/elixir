@@ -23,6 +23,7 @@ jobs:
           - 'packages/miner-core/src/**'
           - 'packages/miner-core/scripts/**'
           - 'packages/miner-core/fixtures/**'
+          - 'packages/work-circuit/src/generated/vk.ts'
           - 'biome.json'
           - 'bunfig.toml'
           - 'tsconfig.json'

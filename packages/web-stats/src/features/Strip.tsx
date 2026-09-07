@@ -16,6 +16,7 @@ export interface StripProps {
 }
 
 const MIN = 6;
+const clock = (unix: number) => new Date(unix * 1000).toISOString().slice(11, 19);
 
 /** Colour by the next epoch: harder (retarget < 1) violet, easier grey, a roll amber. */
 export const tone = (r: EpochRow, open: number): string => {
@@ -63,7 +64,7 @@ export function Strip({ rows, open, selected, onSelect, now, onOlder }: StripPro
   return (
     <div data-testid="strip" className="flex flex-col gap-2">
       <div
-        className="flex h-16 items-stretch gap-px overflow-x-auto"
+        className="flex h-7 items-stretch gap-px overflow-x-auto"
         role="listbox"
         aria-label="epochs, oldest to newest"
       >
@@ -78,14 +79,25 @@ export function Strip({ rows, open, selected, onSelect, now, onOlder }: StripPro
             onClick={() => onSelect(r.epoch === open ? null : r.epoch)}
             style={{ flexGrow: widths[i], flexBasis: 0 }}
             className={cn(
-              'min-w-[6px] shrink-0 rounded-[2px] transition-[flex-grow] duration-200',
+              '@container min-w-[6px] shrink-0 overflow-hidden rounded-[2px] px-1 text-left font-mono text-2xs text-ink/85 transition-[flex-grow] duration-200',
               tone(r, open),
               r.epoch === current && 'ring-2 ring-ink',
               r === lastClosed &&
                 'motion-safe:animate-in motion-safe:slide-in-from-right-2 motion-safe:duration-[240ms]',
             )}
-          />
+          >
+            <span className="hidden @min-[24px]:inline">{r.epoch}</span>
+          </button>
         ))}
+      </div>
+      <div className="flex justify-between gap-3 font-mono text-2xs text-ink-3">
+        <span>
+          {rows[0]?.epoch === 0 ? 'launch' : `epoch ${rows[0]?.epoch ?? '—'}`}{' '}
+          {rows[0] ? clock(rows[0].openedAt) : ''}
+        </span>
+        <span>
+          {clock(now)} · epoch {open} open
+        </span>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-ink-3">

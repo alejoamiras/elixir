@@ -32,35 +32,43 @@ test('the captured history through a mocked node: deterministic numbers, selecti
   await expect(page.getByTestId('sentence')).toContainText('4 claims in');
   const durationChart = page.getByTestId('chart-duration');
   await expect(durationChart.locator('g.claims rect, g.roll rect')).toHaveCount(8);
-  // Every chart carries the selection (epoch 1 is closed): one halo shape each.
-  await expect(page.locator('g.halo rect, g.halo circle')).toHaveCount(4);
-  // Epoch 0's 26 136 s is a true bar on a log axis whose ticks reach 10 000 s, painted with the
-  // theme's warn colour: the variables reach the marks.
+  // Every chart carries the selection (epoch 1 is closed): one halo shape in each.
+  for (const chart of ['chart-emission', 'chart-difficulty', 'chart-duration', 'chart-retarget'])
+    await expect(page.getByTestId(chart).locator('g.halo rect, g.halo circle')).toHaveCount(1);
+  // Epoch 0's 26 136 s is a true bar: its top sits above the 10 000 s gridline of the log axis
+  // (a cap at T_MAX would leave it below), painted with the theme's warn colour, so the variables
+  // reach the marks.
   await expect(durationChart.locator('g.roll rect')).toHaveAttribute(
     'aria-label',
     'epoch 0: 26136 s, closed by roll()',
   );
-  await expect(durationChart.locator('[aria-label="y-axis tick label"]')).toContainText('10000 s');
   expect(
-    await durationChart.locator('g.roll rect').evaluate((el) => {
+    await durationChart.evaluate((el) => {
+      const bar = el.querySelector('g.roll rect') as SVGRectElement;
+      const ticks = Array.from(el.querySelectorAll('[aria-label="y-axis tick label"] text'));
+      const tick = ticks.find((t) => t.textContent === '10000 s');
+      if (!tick) return 'no 10000 s tick';
       const probe = document.createElement('i');
       probe.style.color = 'var(--warn)';
       document.body.append(probe);
       const warn = getComputedStyle(probe).color;
       probe.remove();
-      return getComputedStyle(el).fill === warn;
+      return {
+        above: bar.getBoundingClientRect().top < tick.getBoundingClientRect().top,
+        warn: getComputedStyle(bar).fill === warn,
+      };
     }),
-  ).toBe(true);
-  // Hovering the difficulty line shows the epoch under the pointer.
+  ).toEqual({ above: true, warn: true });
+  // Hovering a known point of the difficulty line names its epoch in the tip.
   const difficultyChart = page.getByTestId('chart-difficulty');
-  const box = (await difficultyChart.boundingBox()) as {
+  const dot = (await difficultyChart.locator('g.point circle[aria-label^="epoch 4:"]').boundingBox()) as {
     x: number;
     y: number;
     width: number;
     height: number;
   };
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await expect(difficultyChart.locator('[aria-label="tip"]')).toContainText('difficulty');
+  await page.mouse.move(dot.x + dot.width / 2, dot.y + dot.height / 2);
+  await expect(difficultyChart.locator('[aria-label="tip"]')).toContainText('epoch 4');
   // The A1 frame at 1280 (the default viewport) and 1440: 1080 wide, six equal tracks, the strip
   // beside the detail.
   for (const width of [1280, 1440]) {

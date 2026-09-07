@@ -20,7 +20,7 @@ function useWidth(ref: RefObject<HTMLDivElement | null>): number {
   return width || 640;
 }
 
-/** The outgoing figure fades under the incoming one, then goes; both stay inert while it lasts. */
+/** The outgoing figures fade under the incoming one, inert and hidden from assistive tech, then go. */
 function crossFade(next: Figure, previous: Figure[]): () => void {
   next.style.opacity = '0';
   next.style.transition = `opacity ${FADE_MS}ms ease`;
@@ -44,9 +44,8 @@ function crossFade(next: Figure, previous: Figure[]): () => void {
 }
 
 /**
- * Draws `spec` into a fixed-height container: a fresh figure on every change of rows, selection
- * or width (Plot re-creates its nodes; there is nothing to tween), cross-faded only when the set
- * of epochs changed (a close or an open, not a claim count), instantly under reduced motion.
+ * Plot re-creates its nodes: a fresh figure on every change of rows, selection or width, a
+ * cross-fade only when the set of epochs changed (a close or an open), instant under reduced motion.
  */
 export function Chart({
   spec,

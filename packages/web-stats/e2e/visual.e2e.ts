@@ -58,5 +58,7 @@ for (const width of WIDTHS) {
     await page.evaluate(() => document.fonts.ready);
     expect(net.unexpected).toEqual([]);
     await expect(page).toHaveScreenshot(`stats-${width}.png`, { fullPage: true });
+    // A request the capture itself provoked lands here.
+    expect(net.unexpected).toEqual([]);
   });
 }

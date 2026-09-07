@@ -100,3 +100,39 @@ passed twice without `--update-snapshots` (7 s, 8 s) · `bun run lint` ✓ · `b
 E2E 3 passed ✓.
 
 LESSONS_FILE=implementations-plan/yacana-fidelity/lessons/phase-3.md
+
+## Arc 3 codex loop (2026-09-07)
+
+Session `01a079b9-b822-7d83-a154-658635c46c9e` (`/codex xhigh`, read-only, a new session over `56cd7d3..1ba4666`
+with the plan, the recon, this file, the arc map, the A1 frame and the four baselines).
+
+**Round 1** — eight findings, all verified before acting:
+
+1. *Should-fix, accepted.* The duration and retarget band axes labelled every epoch: with the normal 48-epoch
+   window the labels were 5 px apart at phone width. `epochTicks` samples every k-th epoch for the width at
+   hand, the newest always among them; the difficulty axis uses it too (its `≤ 12` rule is gone).
+2. *Should-fix, accepted.* A roll label always ran rightward at one height: a late roll ran off the chart and
+   neighbours overlapped. Past 60 % of the axis the label reads inward; consecutive rolls alternate between
+   two heights; the tip keeps the full text.
+3. *Should-fix, accepted.* A1's strip is a thin band with epoch numbers where the block is wide enough and the
+   launch / now labels under it; ours was a 64-px band of unlabelled colour. The band is 28 px, each block a
+   container query that shows its number from 24 px, and "launch HH:MM:SS … HH:MM:SS · epoch N open" sits
+   beneath.
+4. *Should-fix, accepted.* The emission's origin (the oldest loaded row) was nowhere: "cumulative from epoch N"
+   in the tile's aside and the figure's label.
+5. *Should-fix, accepted.* The visual spec checked for unexpected requests only before the capture; a request
+   the capture provoked could not fail it. Checked again after.
+6. *Should-fix, accepted.* The Verify chip shows `W_VK_HASH` from `packages/work-circuit/src/generated/vk.ts`,
+   which the workflow's path filter did not name: a change there alone would skip the gate and fail a later
+   unrelated PR on the stale baseline. Added.
+7. *Nit, accepted.* The E2E's chart claims exceeded their assertions (a bar capped at T_MAX would still pass
+   the count, the label and the axis text; four halos anywhere; "difficulty" in any tip). Now the roll bar's
+   top must sit above the 10 000 s gridline, each chart must hold exactly one halo, and hovering epoch 4's
+   point must name epoch 4.
+8. *Nit, accepted.* `crossFade`'s comment claimed both figures inert (only the outgoing lose pointer events);
+   the `Chart` doc is one sentence.
+
+The baselines were re-recorded (`--update-snapshots`) for the strip and the caption, as the README says they
+must be: in the PR, reviewed. Gates after round 1: `bun run lint` ✓ · `bun run lint:actions` ✓ · `tsc` ✓ ·
+Vitest web-stats 14 ✓ · the stats E2E 3 passed with the stronger assertions ✓ · `test:visual` 4 passed on the
+new baselines ✓.

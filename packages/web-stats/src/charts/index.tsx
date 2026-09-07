@@ -19,7 +19,7 @@ export function Emission(p: ChartProps) {
       spec={emission}
       input={p}
       role="figure"
-      aria-label={`emission: ${p.rules.TOKEN_SYMBOL} minted over ${closed(p.rows)} closed epochs, against the schedule`}
+      aria-label={`emission: ${p.rules.TOKEN_SYMBOL} minted over ${closed(p.rows)} closed epochs from epoch ${p.rows[0]?.epoch ?? 0}, against the schedule`}
       data-testid="chart-emission"
     />
   );

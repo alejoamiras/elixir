@@ -78,7 +78,10 @@ export function Stats({ onOlder, nodeUrl }: { onOlder: () => void; nodeUrl: stri
             next={next}
             now={nowSec}
           />
-          <ChartTile title="emission" aside="cumulative, against the schedule">
+          <ChartTile
+            title="emission"
+            aside={`cumulative from epoch ${rows[0]?.epoch ?? 0}, against the schedule`}
+          >
             <Emission {...charts} />
           </ChartTile>
           <ChartTile title="difficulty" aside="per epoch, log scale">

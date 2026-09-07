@@ -59,6 +59,12 @@ const haloBand = (rows: EpochRow[], selected: number | null, y1: number, y2: num
   );
 
 const epochTick = (e: number) => (Number.isInteger(e) ? `${e}` : '');
+/** Every k-th epoch, the newest always among them, so the labels stay about 28 px apart. */
+const epochTicks = (epochs: number[], width: number): number[] => {
+  const room = Math.max(1, Math.floor((width - 60) / 28));
+  const k = Math.max(1, Math.ceil(epochs.length / room));
+  return epochs.filter((_, i) => (epochs.length - 1 - i) % k === 0);
+};
 /** Tick labels stay readable over bars: the tile's background as a halo behind the glyphs. */
 const HALO = { stroke: 'var(--raised)', strokeWidth: 3 } as const;
 const wholeOrLabel = (v: number) => (v >= 1 && Number.isInteger(v) ? `${v}` : difficultyLabel(v));
@@ -145,11 +151,29 @@ export const difficultyChart: Spec = ({ rows, selected, width }) => {
   const hi = Math.max(...values, 2) * 2;
   const rolls = rows.filter((r) => r.closedBy === 'roll' && r.retarget !== null);
   const mid = (s: Step) => s.epoch + 0.5;
+  // A roll's label reads inward past 60 % of the axis; neighbours alternate between two heights.
+  const x0 = steps[0]?.epoch ?? 0;
+  const late = (r: EpochRow) => (r.epoch + 1 - x0) / Math.max(1, (last?.epoch ?? 0) + 1 - x0) > 0.6;
+  const rollLabels = (data: EpochRow[], anchor: 'start' | 'end') =>
+    Plot.text(data, {
+      x: (r: EpochRow) => r.epoch + 1,
+      y: (_r: EpochRow, i: number) => (i % 2 ? hi / 2.2 : hi),
+      text: (r: EpochRow) => `÷${(r.retarget as number).toFixed(2)} escape hatch · epoch ${r.epoch}`,
+      fill: WARN,
+      ...HALO,
+      textAnchor: anchor,
+      lineAnchor: 'top',
+      dx: anchor === 'start' ? 4 : -4,
+      dy: 2,
+    });
   return base(width, {
     x: {
       label: null,
       domain: [steps[0]?.epoch ?? 0, (last?.epoch ?? 0) + 1],
-      ticks: steps.length <= 12 ? steps.map((s) => s.epoch) : 8,
+      ticks: epochTicks(
+        steps.map((s) => s.epoch),
+        width,
+      ),
       tickFormat: epochTick,
     },
     y: { type: 'log', base: 2, label: null, grid: true, domain: [lo, hi], tickFormat: wholeOrLabel },
@@ -188,17 +212,11 @@ export const difficultyChart: Spec = ({ rows, selected, width }) => {
         strokeDasharray: '3 3',
         className: 'roll',
       }),
-      Plot.text(rolls, {
-        x: (r: EpochRow) => r.epoch + 1,
-        y: hi,
-        text: (r: EpochRow) => `÷${(r.retarget as number).toFixed(2)} escape hatch · epoch ${r.epoch}`,
-        fill: WARN,
-        ...HALO,
-        textAnchor: 'start',
-        lineAnchor: 'top',
-        dx: 4,
-        dy: 2,
-      }),
+      rollLabels(
+        rolls.filter((r) => !late(r)),
+        'start',
+      ),
+      rollLabels(rolls.filter(late), 'end'),
       Plot.crosshairX(steps, { x: mid, y: 'd' }),
       Plot.tip(
         steps,
@@ -238,7 +256,14 @@ export const duration: Spec = ({ rows, selected, rules, width }) => {
     }),
   ];
   return base(width, {
-    x: { label: null, tickFormat: epochTick },
+    x: {
+      label: null,
+      ticks: epochTicks(
+        closed.map((r) => r.epoch),
+        width,
+      ),
+      tickFormat: epochTick,
+    },
     y: {
       type: 'log',
       label: null,
@@ -297,7 +322,14 @@ export const retarget: Spec = ({ rows, selected, width }) => {
       ariaLabel: (r: EpochRow) => `epoch ${r.epoch}: retarget ×${ratio(r).toFixed(2)}`,
     });
   return base(width, {
-    x: { label: null, tickFormat: epochTick },
+    x: {
+      label: null,
+      ticks: epochTicks(
+        closed.map((r) => r.epoch),
+        width,
+      ),
+      tickFormat: epochTick,
+    },
     y: {
       type: 'log',
       base: 2,
