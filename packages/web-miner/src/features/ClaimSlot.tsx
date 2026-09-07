@@ -7,7 +7,7 @@ import { ExternalLink, Marks, Tile, TileHeader } from '../../../ui/src/index.ts'
 import { links } from '../explorer';
 import { amount } from '../lib/format';
 import { type MinerState, type Minted, mintedFresh, type Notice } from '../lib/reducer';
-import { epochAtom, minerAtom, nowAtom, rulesAtom } from '../state';
+import { minerAtom, nowAtom, rulesAtom } from '../state';
 import { ClaimStepper, NoticeCard } from './ClaimStatus';
 
 const CLAIM_NOTICES: Notice['kind'][] = ['reverted', 'expired', 'failed'];
@@ -44,9 +44,11 @@ function Acknowledged({ minted }: { minted: Minted }) {
 
 export function ClaimSlot({ className }: { className?: string }) {
   const miner = useAtomValue(minerAtom);
-  const epoch = useAtomValue(epochAtom);
   const now = useAtomValue(nowAtom);
   const state = slotState(miner, now);
+  // `since` moves at each step; the win's moment is the current step's start minus the finished steps.
+  const wonAt = miner.claim ? miner.claim.since - miner.claim.done.reduce((a, b) => a + b, 0) : 0;
+  const claimEpoch = miner.job?.epoch;
   if (state === 'idle')
     return (
       <Tile
@@ -68,13 +70,11 @@ export function ClaimSlot({ className }: { className?: string }) {
     <Tile className={`min-h-[72px] border-uv ${className ?? ''}`} data-testid="claim-slot" data-state={state}>
       <TileHeader
         className="mb-2 text-uv-2"
-        aside={
-          state === 'claim' && miner.claim
-            ? `won ${new Date(miner.claim.since).toISOString().slice(11, 19)}`
-            : undefined
-        }
+        aside={state === 'claim' ? `won ${new Date(wonAt).toISOString().slice(11, 19)}` : undefined}
       >
-        {state === 'claim' ? `claim · epoch ${epoch?.epoch.toString() ?? ''}` : 'minted'}
+        {state === 'claim'
+          ? `claim${claimEpoch === undefined ? '' : ` · epoch ${claimEpoch.toString()}`}`
+          : 'minted'}
       </TileHeader>
       {state === 'claim' && miner.claim ? <ClaimStepper claim={miner.claim} /> : null}
       {state === 'minted' && miner.minted ? <Acknowledged minted={miner.minted} /> : null}

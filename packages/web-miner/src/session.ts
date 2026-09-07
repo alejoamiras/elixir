@@ -219,7 +219,7 @@ export class Session {
     if (boot.phase === 'ready') this.store.set(bootAtom, { ...boot, record: this.record });
   }
 
-  /** Removes a record (the typed confirmation happens in the screen); an open key's session ends. */
+  /** Removes a record; the sign-out dialog gates the call. An open account's session ends. */
   async forget(record: MasterRecord): Promise<void> {
     await forgetMaster(record.id);
     if (this.record?.id === record.id) location.reload();

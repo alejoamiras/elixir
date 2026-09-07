@@ -74,7 +74,7 @@ export function SignOutDialog({
         onOpenChange(o);
       }}
     >
-      <DialogContent data-testid="sign-out-dialog">
+      <DialogContent className="sm:max-w-[480px]" data-testid="sign-out-dialog">
         <DialogTitle>Sign out of this account?</DialogTitle>
         <DialogDescription>
           <span className="font-mono" title={record.account.address}>

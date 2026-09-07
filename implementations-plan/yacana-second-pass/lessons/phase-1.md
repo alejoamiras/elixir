@@ -63,3 +63,39 @@ Gate: lint clean; the six typechecks exit 0; `bun test packages/web-miner packag
   `withdraw-review`, `withdraw-send`, `withdraw-sent`, `public-warning`, `unknown-recipient`) so P1.4 changes
   assertions, not selectors; new ids: `withdraw-max`, `sent-block`, `sent-tx`, `sign-out`, `sign-out-hold`,
   `sign-out-plain`, `sign-out-click`, `back-up-first`, `wallet-account`, `claims-history`, `copy-diagnostics`.
+
+## P1.4 · the miner E2E on the isolated network (2026-09-07) ✓
+
+Gate: `bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e`, production build: **12 passed in 11.8 min,
+exit 0** (miner ×6 incl. the new pop-out test, passkey ×2, states ×2, withdraw, words).
+
+- A fresh worktree has no compiled contracts (`packages/contracts/target/` is gitignored) and the E2E deploys the
+  miner onto the isolated network from them; the first run died in `deployYacana` with ENOENT. `bun run
+  contracts:compile` (aztec 5.2.0, ~1 min) plus copying `packages/work-circuit/target/yacana_work.{json,gz}`
+  from the canonical clone fixed it. Worth doing right after `bun install` in any new worktree that runs E2E.
+- **The pop-out fonts**: the `<link>` re-link (the plan's first candidate) is the fix. The E2E opens the
+  Document Picture-in-Picture window in headless Chromium, and a `Hanken Grotesk Variable` face reports
+  `status === 'loaded'` with no failed `.woff2` request. No `<base>` needed (the CSP forbids one anyway).
+- The hold gesture works under real pointer events: an early release (600 ms) leaves the dialog open; a
+  1.4 s hold and release signs out; the "Can't hold?" click path signs out too; with another account on the
+  device the reload lands on Welcome back, with none on the sign-up screen.
+
+## Arc 1 codex loop · round 1 (2026-09-07)
+
+Session `codex-hdIJKyZm` (Astra, high). Eleven findings, all verified against the code, all adopted:
+
+| sev | finding | fix |
+|---|---|---|
+| Med | Pointer capture suppresses `pointerleave`: dragging off the hold button and releasing could sign out. | `useHold`: the captured pointer's position is checked on every move and on release; `lostpointercapture` cancels; only the pointer or key that began the hold may release it. A jsdom spec drives drag-out and a foreign pointer. |
+| Med | The pop-out's rAF timestamps run on the pop-out's time origin while the samples carry the opener's. | Frames are scheduled on the host window but every age is measured on the page's `performance.now()`; future-dated samples are excluded from `axisTop` too. |
+| Med | The cockpit's Send only navigated to the wallet; the sheet initialised closed. | `navigate('wallet', 'send')` carries an intent in history state; `Wallet` opens the sheet on arrival and `takeIntent` clears it so back and reload do not reopen. |
+| Med | URL redaction missed `HTTPS://` and truncated `[::1]` hosts before parsing. | Case-insensitive matcher that keeps bracketed hosts whole; tests for both. |
+| Low | The caps overshot: 401 chars per line, 16 KB measured in UTF-16 units. | Cuts in UTF-8 bytes with the ellipsis inside the budget; a CJK test. |
+| Med | `ExternalLink`'s copy swallowed a rejected clipboard and said "copied". | `ok` / `failed` states; "copy failed" shown. |
+| Low | The claim slot's "won HH:MM:SS" advanced with each step and used the live epoch. | `since − Σ done` for the win's moment; the job's epoch. |
+| Low | A backup opened from the sign-out dialog returned to the wallet, not to the dialog. | `backup` remembers where it came from; the dialog reopens after the words are confirmed. |
+| Low | The rename guard missed multiline JSX and `data-testid` lines. | The scanner works on the whole file: JSX text across lines (excluding generics and arrows), test ids removed rather than their lines; the word regex treats `yacana-keys`, `yacana-key:` and `public-key` as joined tokens. |
+| Low | Sizes: the amount at 30 px not 36, the dialog at 448 not 480, pop-out proofs as strokes not 2.5 px dots. | `text-[36px]`, `sm:max-w-[480px]`, dots when the canvas is short. |
+| Low | Comments: `ExternalLink`'s intro, `tick`/`layout` narration, `session.forget`'s obsolete "typed confirmation". | Condensed, removed, updated; one comment added on the cross-window clock. |
+
+`HoldButton` crossed the 80-line budget with the pointer checks; the gesture moved into `useHold`.

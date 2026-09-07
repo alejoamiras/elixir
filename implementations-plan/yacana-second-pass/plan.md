@@ -400,7 +400,7 @@ Validation gate: `bun run lint && TC1 && bun test packages/web-miner packages/mi
 packages/web-miner test:components` exit 0 (the guard is part of `bun test scripts`). Layers: lint/typecheck · unit ·
 component.
 
-**P1.4 Miner E2E on the isolated network.** `withdraw.e2e.ts` drives the three-step Send (private to a registered
+**P1.4 ✓ Miner E2E on the isolated network.** `withdraw.e2e.ts` drives the three-step Send (private to a registered
 sender, then public with the amber card), keeps the recipient's private-balance and public-balance assertions, asserts
 the sent step's tx link href; `words.e2e.ts` replaces "forget" with the sign-out dialog (hold via `mouse.down` +
 `waitForTimeout(1300)` + `mouse.up`; a second case releases at 600 ms and asserts nothing happened; a third uses the

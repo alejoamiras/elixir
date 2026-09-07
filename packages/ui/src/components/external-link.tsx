@@ -3,10 +3,8 @@ import { useState } from 'react';
 import { cn } from '../lib/cn.ts';
 
 /**
- * An outbound link for a chain value: opens in a new tab, never hands the target a window handle or a
- * referrer, shows the short form and carries the full value in `title`. Without `href` it is plain text,
- * so a value whose link could not be built still renders. `copy` adds a small sibling button for the full
- * value, kept separate from the anchor so a click never means two things.
+ * An outbound link for a chain value: new tab, no opener, no referrer, the full value in `title`. Without
+ * `href` it renders as plain text. `copy` adds a sibling button for the full value, separate from the anchor.
  */
 export function ExternalLink({
   href,
@@ -16,7 +14,7 @@ export function ExternalLink({
   children,
   ...props
 }: Omit<React.ComponentProps<'a'>, 'href'> & { href?: string; full?: string; copy?: boolean }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'ok' | 'failed' | null>(null);
   const text = full ?? (typeof children === 'string' ? children : undefined);
   const body = href ? (
     <a
@@ -46,13 +44,15 @@ export function ExternalLink({
         type="button"
         className="font-mono text-2xs text-ink-3 hover:text-ink"
         aria-label={`copy ${text}`}
-        onClick={async () => {
-          await navigator.clipboard.writeText(text).catch(() => {});
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1200);
-        }}
+        onClick={() =>
+          navigator.clipboard
+            .writeText(text)
+            .then(() => setCopied('ok'))
+            .catch(() => setCopied('failed'))
+            .finally(() => setTimeout(() => setCopied(null), 1600))
+        }
       >
-        {copied ? 'copied' : 'copy'}
+        {copied === 'ok' ? 'copied' : copied === 'failed' ? 'copy failed' : 'copy'}
       </button>
     </span>
   );

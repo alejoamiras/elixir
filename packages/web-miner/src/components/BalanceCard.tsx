@@ -36,7 +36,7 @@ export function BalanceCard({ className }: { className?: string }) {
             variant="primary"
             size="sm"
             disabled={!ready}
-            onClick={() => navigate('wallet')}
+            onClick={() => navigate('wallet', 'send')}
             data-testid="send"
           >
             Send

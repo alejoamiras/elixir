@@ -168,7 +168,6 @@ function drawCalmLines(f: Frame, right: number, difficulty: number, glow: number
   if (f.h > 80) ctx.fillText('the bar · clear it to win', right, y - f.fontPx);
 }
 
-/** A vertical stroke from the baseline to `y`. */
 function tick(f: Frame, x: number, y: number, color: string, width: number, alpha = 1) {
   const { ctx } = f;
   ctx.strokeStyle = color;
@@ -214,7 +213,13 @@ function drawCalmDots(f: Frame, right: number, props: ScoreLoopProps, now: numbe
     const x = right - age * (right - f.left);
     const y = base - (base - yOf(f, f.scale(s.score))) * rise(now, s.t, reduced);
     if (s.score >= props.difficulty) drawCalmWin(f, right, x, y, s.score);
-    else tick(f, x, y, f.p.ink3, 2, 0.55);
+    else if (f.h > 80) tick(f, x, y, f.p.ink3, 2, 0.55);
+    else {
+      ctx.fillStyle = f.p.uv;
+      ctx.beginPath();
+      ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
   if (f.h <= 80) return;
   ctx.fillStyle = f.p.ink3;
@@ -224,7 +229,6 @@ function drawCalmDots(f: Frame, right: number, props: ScoreLoopProps, now: numbe
   ctx.fillText('now', right, f.h - f.fontPx / 2 - 2);
 }
 
-/** The layout constants a rendering mode implies, unless the caller supplied its own geometry. */
 function layout(props: ScoreLoopProps): { pad: number; fontPx: number; left: number } {
   if (props.geometry) return { ...props.geometry, left: 28 };
   return props.hero ? { pad: 30, fontPx: 12, left: 58 } : { pad: 24, fontPx: 11, left: 48 };
@@ -237,7 +241,7 @@ function scaleFor(props: ScoreLoopProps, now: number): (score: number) => number
   // The ceiling is computed from what this window shows, not from everything the store retains.
   const top = axisTop(
     props.difficulty,
-    props.samples.filter((s) => now - s.t <= span),
+    props.samples.filter((s) => now - s.t <= span && now - s.t >= 0),
   );
   return (score) => axisTo(score, top);
 }
@@ -310,17 +314,20 @@ export function ScoreLoop(props: ScoreLoopProps) {
     const canvas = ref.current;
     if (!canvas || hidden) return;
     const w = win ?? window;
+    // Samples carry the opener's performance.now(); a pop-out's rAF timestamps run on its own, later
+    // time origin, so frames are scheduled on `w` but every age is measured on the page's clock.
+    const clock = () => performance.now();
     if (!reduced) {
       let raf = 0;
-      const tick = (now: number) => {
-        draw(canvas, latest.current, now, false);
+      const tick = () => {
+        draw(canvas, latest.current, clock(), false);
         raf = w.requestAnimationFrame(tick);
       };
       raf = w.requestAnimationFrame(tick);
       return () => w.cancelAnimationFrame(raf);
     }
     // A still frame is only right for the size and palette it was drawn with.
-    const still = () => draw(canvas, latest.current, w.performance.now(), true);
+    const still = () => draw(canvas, latest.current, clock(), true);
     still();
     const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(still);
     resize?.observe(canvas);

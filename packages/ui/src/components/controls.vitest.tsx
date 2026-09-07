@@ -62,7 +62,7 @@ describe('HoldButton', () => {
     render(<HoldButton onConfirm={onConfirm}>Hold to sign out</HoldButton>);
     const button = screen.getByRole('button', { name: /hold to sign out/i });
     (button as HTMLButtonElement & { setPointerCapture: () => void }).setPointerCapture = () => {};
-    fireEvent.pointerDown(button, { pointerId: 1 });
+    fireEvent.pointerDown(button, { pointerId: 1, clientX: 0, clientY: 0 });
     frames.tick(600);
     expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('50');
     frames.tick(700);
@@ -102,6 +102,38 @@ describe('HoldButton', () => {
     );
     fireEvent.keyUp(button, { key: 'Enter' });
     expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  test('a captured pointer that drags off the button cancels; a release off the button never confirms', () => {
+    const frames = fakeFrames();
+    const onConfirm = vi.fn();
+    render(<HoldButton onConfirm={onConfirm}>Hold</HoldButton>);
+    const button = screen.getByRole('button', { name: /hold/i });
+    button.getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      right: 100,
+      bottom: 40,
+      width: 100,
+      height: 40,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    fireEvent.pointerDown(button, { pointerId: 1, clientX: 50, clientY: 20 });
+    frames.tick(1300);
+    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('100');
+    fireEvent.pointerMove(button, { pointerId: 1, clientX: 300, clientY: 20 });
+    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('0');
+    fireEvent.pointerUp(button, { pointerId: 1, clientX: 300, clientY: 20 });
+    expect(onConfirm).not.toHaveBeenCalled();
+    // A second pointer cannot release a hold the first began.
+    fireEvent.pointerDown(button, { pointerId: 1, clientX: 50, clientY: 20 });
+    frames.tick(1300);
+    fireEvent.pointerUp(button, { pointerId: 2, clientX: 50, clientY: 20 });
+    expect(onConfirm).not.toHaveBeenCalled();
+    fireEvent.pointerUp(button, { pointerId: 1, clientX: 50, clientY: 20 });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
   test('the keyboard path commits on keyup after the fill', () => {

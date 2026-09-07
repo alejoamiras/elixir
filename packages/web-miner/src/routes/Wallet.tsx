@@ -8,6 +8,7 @@ import { SignOutDialog } from '../features/SignOutDialog';
 import { WordsBackup } from '../features/WordsScreens';
 import type { MasterRecord } from '../keys/store';
 import { amount, shortAddress } from '../lib/format';
+import { takeIntent } from '../routes';
 import type { Session } from '../session';
 import { balanceAtom, bootAtom, claimsAtom } from '../state';
 
@@ -180,9 +181,10 @@ export function Wallet({ session }: { session: Session }) {
   const boot = useAtomValue(bootAtom);
   const balance = useAtomValue(balanceAtom);
   const claims = useAtomValue(claimsAtom);
-  const [send, setSend] = useState(false);
+  const [send, setSend] = useState(() => takeIntent() === 'send');
   const [signOut, setSignOut] = useState(false);
-  const [backup, setBackup] = useState(false);
+  // A backup opened from the sign-out dialog returns to the dialog once the words are confirmed.
+  const [backup, setBackup] = useState<false | 'account' | 'sign-out'>(false);
   if (boot.phase !== 'ready') return null;
   const account = boot.account;
   const words = session.openWords;
@@ -193,6 +195,7 @@ export function Wallet({ session }: { session: Session }) {
           phrase={words}
           onDone={async () => {
             await session.markBackedUp();
+            setSignOut(backup === 'sign-out');
             setBackup(false);
           }}
         />
@@ -201,7 +204,11 @@ export function Wallet({ session }: { session: Session }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <BalanceTile account={account} balance={balance} claims={claims.length} onSend={() => setSend(true)} />
-      <AccountTile record={boot.record} onSignOut={() => setSignOut(true)} onBackUp={() => setBackup(true)} />
+      <AccountTile
+        record={boot.record}
+        onSignOut={() => setSignOut(true)}
+        onBackUp={() => setBackup('account')}
+      />
       <Senders session={session} />
       <ClaimsHistory claims={claims} />
       <SendSheet
@@ -219,7 +226,7 @@ export function Wallet({ session }: { session: Session }) {
         onSignOut={() => session.forget(boot.record)}
         onBackUp={() => {
           setSignOut(false);
-          setBackup(true);
+          setBackup('sign-out');
         }}
       />
     </div>

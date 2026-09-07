@@ -65,7 +65,7 @@ function Form({
             onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
             inputMode="decimal"
             placeholder="0.00"
-            className="h-auto flex-1 border-0 bg-transparent p-0 font-mono text-2xl font-semibold tracking-[-0.02em] focus-visible:ring-0"
+            className="h-auto flex-1 border-0 bg-transparent p-0 font-mono text-[36px] leading-none font-semibold tracking-[-0.02em] focus-visible:ring-0"
             data-testid="withdraw-amount"
           />
           <span className="font-mono text-xs text-ink-3">{PARAMS.TOKEN_SYMBOL}</span>

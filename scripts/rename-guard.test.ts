@@ -90,18 +90,34 @@ const COPY_EXEMPT_FILES = [
 /** Compounds where "key" is the cryptographic object, not the account. */
 const KEY_COMPOUNDS =
   /\b(passkeys?|proving keys?|verifier key|device key|admin key|spend key|public-key|secret key|signing key|private key|key material|api key)\b/gi;
-const ACCOUNT_KEY = /\bkeys?\b/i;
+/** The word on its own; `yacana-keys`, `yacana-key:` and `public-key` are joined tokens, not the word. */
+const ACCOUNT_KEY = /(?<![\w:-])keys?(?![\w:-])/i;
 /**
- * A line's copy: JSX text between tags, and string literals; imports, paths, test ids, comments and code
- * identifiers are not copy. The boot phase named 'key' (the sign-in screen's state) is an identifier.
+ * A file's copy: JSX text between tags (across lines) and string literals; imports, paths, test ids, comments
+ * and code identifiers are not copy. The boot phase named 'key' (the sign-in screen's state) is an identifier.
  */
-const copyOf = (line: string): string => {
-  if (/^\s*(import|export|\/\/|\/?\*)/.test(line) || /data-testid=|from '|require\(/.test(line)) return '';
-  const strings = [...line.matchAll(/(['"`])((?:\\.|(?!\1).)*)\1/g)]
-    .map((m) => m[2] ?? '')
-    .filter((str) => !/^key$/.test(str));
-  const jsx = [...line.matchAll(/>([^<>{}]+)</g)].map((m) => m[1] ?? '');
-  return [...strings, ...jsx].join(' ');
+const copyOf = (source: string): { text: string; line: number }[] => {
+  const out: { text: string; line: number }[] = [];
+  const lineAt = (offset: number) => source.slice(0, offset).split('\n').length;
+  // JSX text: between a closing `>` and the next `<`, spanning lines. Generics and arrows also put text
+  // between angle brackets, so a span with code punctuation or no letters is not copy.
+  for (const m of source.matchAll(/>([^<>{}]+)</g)) {
+    const text = (m[1] ?? '').trim();
+    if (!text || /[;=()`]|=>/.test(text) || !/[a-z]{3,}/i.test(text)) continue;
+    out.push({ text, line: lineAt((m.index ?? 0) + 1 + (m[1]?.search(/\S/) ?? 0)) });
+  }
+  const code = source
+    .split('\n')
+    .map((line) => (/^\s*(import|export|\/\/|\/?\*)/.test(line) || /from '|require\(/.test(line) ? '' : line))
+    .join('\n')
+    // A test id is an identifier, not copy; the rest of its line is still scanned.
+    .replace(/data-testid="[^"]*"/g, '')
+    .replace(/data-testid=\{[^}]*\}/g, '');
+  for (const m of code.matchAll(/(['"`])((?:\\.|(?!\1).)*)\1/g)) {
+    const text = m[2] ?? '';
+    if (text && text !== 'key') out.push({ text, line: lineAt(m.index ?? 0) });
+  }
+  return out;
 };
 
 describe('account, not key', () => {
@@ -110,23 +126,33 @@ describe('account, not key', () => {
       (f) => COPY_ROOTS.some((r) => f.startsWith(r)) && !COPY_EXEMPT_FILES.some((re) => re.test(f)),
     );
     const hits = files.flatMap((f) =>
-      readFileSync(resolve(repo, f), 'utf8')
-        .split('\n')
-        .map((line, i) => ({ text: copyOf(line).replace(KEY_COMPOUNDS, ''), i }))
-        .filter(({ text }) => ACCOUNT_KEY.test(text))
-        .map(({ i }) => `${f}:${i + 1}`),
+      copyOf(readFileSync(resolve(repo, f), 'utf8'))
+        .filter(({ text }) => ACCOUNT_KEY.test(text.replace(KEY_COMPOUNDS, '')))
+        .map(({ line }) => `${f}:${line}`),
     );
     expect(hits).toEqual([]);
   });
 
   test('the copy scanner sees sentences, not identifiers, and lets the compounds through', () => {
-    expect(copyOf('<p>Your key is derived from the passkey.</p>')).toContain('Your key');
-    expect(copyOf("throw new Error('no open key')")).toContain('no open key');
-    expect(copyOf("import { keysAllowed } from './keys/allowed';")).toBe('');
-    expect(copyOf('<div data-testid="key-screen">')).toBe('');
-    expect(copyOf('const key = record.key;')).toBe('');
-    expect(copyOf("if (boot.phase !== 'key') return null;")).toBe('');
-    expect(copyOf('  /** "I already have a key": a discoverable request. */')).toBe('');
+    const texts = (src: string) => copyOf(src).map((c) => c.text);
+    expect(texts('<p>Your key is derived from the passkey.</p>')).toContain(
+      'Your key is derived from the passkey.',
+    );
+    expect(texts('<p>\n  Your key is\n  ready.\n</p>')).toContain('Your key is\n  ready.');
+    expect(texts('<p data-testid="greeting">Your key is ready.</p>')).toContain('Your key is ready.');
+    expect(texts("throw new Error('no open key')")).toContain('no open key');
+    expect(texts("import { keysAllowed } from './keys/allowed';")).toEqual([]);
+    expect(texts('<div data-testid="key-screen">')).toEqual([]);
+    expect(texts('const key = record.key;')).toEqual([]);
+    expect(texts("if (boot.phase !== 'key') return null;")).toEqual([]);
+    expect(texts('  /** "I already have a key": a discoverable request. */')).toEqual([]);
+    // The persistent and protocol strings live in exempt files; the guard must never flag them anywhere.
+    // Hyphen- or colon-joined tokens are identifiers, not the word "key": the persistent and protocol strings
+    // (the vault's DB name and AAD prefix, WebAuthn's credential type) are never flagged, exempt file or not.
+    for (const literal of ["'yacana-keys'", '`yacana-key:${r.v}`', "'public-key'"])
+      expect(texts(`const x = ${literal};`).some((t) => ACCOUNT_KEY.test(t.replace(KEY_COMPOUNDS, '')))).toBe(
+        false,
+      );
     expect(ACCOUNT_KEY.test('Sign up with a passkey.'.replace(KEY_COMPOUNDS, ''))).toBe(false);
     expect(ACCOUNT_KEY.test('20 MB of proving keys'.replace(KEY_COMPOUNDS, ''))).toBe(false);
     expect(ACCOUNT_KEY.test('the account is sealed under a device key'.replace(KEY_COMPOUNDS, ''))).toBe(
