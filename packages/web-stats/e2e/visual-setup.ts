@@ -9,7 +9,7 @@ import type { ChildProcess } from 'node:child_process';
 import { cpSync, mkdirSync, openSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Fr } from '@aztec/aztec.js/fields';
-import { chromium, type Route } from '@playwright/test';
+import { type Browser, chromium, type Route } from '@playwright/test';
 import { release } from '../../../scripts/run/registry.ts';
 import { deployYacana } from '../../deploy/src/deploy.ts';
 import { slotTableToJson } from '../../miner-core/src/reader.ts';
@@ -135,8 +135,9 @@ async function record(nodeUrl: string): Promise<void> {
   const storage = await mockStorage(deployed);
   const answers: Record<string, unknown> = {};
   const run = await serve(d, process.pid);
-  const browser = await chromium.launch();
+  let browser: Browser | undefined;
   try {
+    browser = await chromium.launch();
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     await page.route(
       (url) => url.origin === MOCK_NODE_ORIGIN,
@@ -164,7 +165,7 @@ async function record(nodeUrl: string): Promise<void> {
     await page.getByTestId('table').locator('tbody tr').nth(8).waitFor({ timeout: 60_000 });
     await page.getByTestId('freshness').filter({ hasText: 'block' }).waitFor({ timeout: 60_000 });
   } finally {
-    await browser.close();
+    await browser?.close();
     await teardown();
   }
   const sorted = Object.fromEntries(

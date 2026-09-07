@@ -1,6 +1,7 @@
 import type { DeploymentRecord } from '../../../site/src/config.ts';
 import { Chip, shortHash, Tile, TileHeader } from '../../../ui/src/index.ts';
 import { W_VK_HASH } from '../../../work-circuit/src/generated/vk.ts';
+import { reproduceCommand } from '../lib/reproduce.ts';
 import { navigate, pathFor } from '../routes';
 
 const record = JSON.parse(import.meta.env.VITE_DEPLOYMENT_RECORD) as DeploymentRecord;
@@ -37,7 +38,7 @@ export function VerifyTile({ nodeUrl, className }: { nodeUrl: string; className?
         className="mt-2.5 overflow-x-auto rounded-sm bg-ground px-2.5 py-2 font-mono text-[11.5px] text-ink-2"
         data-testid="reproduce-command"
       >
-        {`AZTEC_NODE_URL=${nodeUrl} bun run epoch:stats`}
+        {reproduceCommand(nodeUrl)}
       </pre>
     </Tile>
   );

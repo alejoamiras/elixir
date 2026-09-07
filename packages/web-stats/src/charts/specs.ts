@@ -101,7 +101,7 @@ const epochTicks = (epochs: number[], width: number): number[] => {
 };
 /** Tick labels stay readable over bars: the tile's background as a halo behind the glyphs. */
 const HALO = { stroke: 'var(--raised)', strokeWidth: 3 } as const;
-const wholeOrLabel = (v: number) => (v >= 1 && Number.isInteger(v) ? `${v}` : difficultyLabel(v));
+const wholeOrLabel = (v: number) => (v >= 1 && v < 1e6 && Number.isInteger(v) ? `${v}` : difficultyLabel(v));
 
 /** Minted over elapsed time from the oldest loaded row, against N × REWARD per expected epoch. */
 export const emission: Spec = ({ rows, selected, rules, width }) => {
@@ -272,7 +272,7 @@ export const duration: Spec = ({ rows, selected, rules, width }) => {
   const expected = Number(rules.EXPECTED_EPOCH_SECONDS);
   const tMax = Number(rules.T_MAX);
   const hi = Math.max(tMax * 1.5, ...closed.map((r) => (r.duration as number) * 1.3));
-  const drawn = closed.filter((r) => Number.isFinite(r.duration) && (r.duration as number) >= FLOOR);
+  const drawn = closed.filter((r) => Number.isFinite(r.duration) && (r.duration as number) > FLOOR);
   const floored = closed.filter((r) => !drawn.includes(r));
   const label = (r: EpochRow) =>
     `epoch ${r.epoch}: ${r.duration} s${r.closedBy === 'roll' ? ', closed by roll()' : ''}`;
@@ -326,7 +326,7 @@ export const duration: Spec = ({ rows, selected, rules, width }) => {
         fill: 'none',
         stroke: INK3,
         className: 'floored',
-        ariaLabel: (r: EpochRow) => `epoch ${r.epoch}: ${r.duration} s, below the ${FLOOR} s floor`,
+        ariaLabel: (r: EpochRow) => `epoch ${r.epoch}: ${r.duration} s, at or below the ${FLOOR} s floor`,
       }),
       ...rule(expected, `expected ${expected} s`, INK2, 'right', '4 3'),
       ...rule(tMax, `T_MAX ${tMax} s · anyone may roll`, WARN, 'left'),
@@ -347,6 +347,9 @@ export const duration: Spec = ({ rows, selected, rules, width }) => {
 export const retarget: Spec = ({ rows, selected, width }) => {
   const closed = closedRows(rows).filter((r) => r.retarget !== null);
   const ratio = (r: EpochRow) => r.retarget as number;
+  // The contract clamps a retarget to [¼, 4]; anything else is a node lying or a wrong slot, marked, not drawn.
+  const within = (r: EpochRow) => Number.isFinite(ratio(r)) && ratio(r) >= 0.25 && ratio(r) <= 4;
+  const valid = closed.filter(within);
   const bars = (data: EpochRow[], className: string, fill: string) =>
     Plot.barY(data, {
       x: 'epoch',
@@ -377,14 +380,26 @@ export const retarget: Spec = ({ rows, selected, width }) => {
     marks: [
       haloBand(closed, selected, 0.25, 4),
       bars(
-        closed.filter((r) => ratio(r) < 1),
+        valid.filter((r) => ratio(r) < 1),
         'harder',
         UV,
       ),
       bars(
-        closed.filter((r) => ratio(r) >= 1),
+        valid.filter((r) => ratio(r) >= 1),
         'easier',
         INK3,
+      ),
+      Plot.dot(
+        closed.filter((r) => !within(r)),
+        {
+          x: 'epoch',
+          y: 1,
+          r: 3,
+          fill: 'none',
+          stroke: WARN,
+          className: 'invalid',
+          ariaLabel: (r: EpochRow) => `epoch ${r.epoch}: retarget ×${ratio(r)}, outside ¼…4`,
+        },
       ),
       Plot.ruleY([1], { stroke: INK2, className: 'baseline' }),
       Plot.tip(

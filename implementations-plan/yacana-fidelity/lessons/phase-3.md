@@ -163,3 +163,34 @@ annotation, the strip numbers' contrast (over 12:1 on every tone in both themes)
 
 **Round 4** (resumed, over `315c788..3880f90`): "no new material findings". The arc-3 loop converged in four rounds;
 the shots beside the A1 frame are `shots/arc3/`, identical to the committed baselines.
+
+## Final cross-arc pass (2026-09-07)
+
+Session `01a079d0-0f98-7531-b672-d80d6a95b84b` (`/codex xhigh`, read-only, a fresh session over the net diff
+`9197fee..6cd4540` with the plan, the three lessons files and every shot), asked for seams between the arcs,
+duplication, drift from the plan and the whole-site adversarial view.
+
+**Round 1** — seven should-fixes and a nit, all verified before acting:
+
+1. *Accepted.* `clock(now)` on the strip could throw `RangeError: Invalid Date`: `now` is the node's block
+   timestamp, which no guard covered (the epochs' timestamps have `assertTimestamp`). The latest block goes
+   through the same guard in `chain.ts`.
+2. *Accepted.* The plan promised domain guards for the retarget chart; a ratio of 0 was dropped silently and 100
+   drew outside the frame. Ratios outside the contract's [¼, 4] clamp are hollow markers at the baseline with a
+   label saying so, never bars; a Vitest case renders a malformed history.
+3. *Accepted.* The verify tile copied the Verify route's `AZTEC_NODE_URL=${url} bun run epoch:stats`; a URL with
+   `&` backgrounds the assignment in a shell. One `reproduceCommand` (`lib/reproduce.ts`) single-quotes the URL,
+   a quote inside included; both views use it; a unit test covers the three shapes.
+4. *Accepted.* The difficulty axis printed every integer in full, up to sixteen digits: whole numbers below 1e6
+   only, the compact form above.
+5. *Accepted.* A duration exactly at the 10 s floor became a zero-height bar with no marker: bars need `> FLOOR`,
+   the marker says "at or below".
+6. *Accepted.* `render-surfaces.ts` still waited for "epochs, newest first" (gone since P3.1) and swallowed the
+   timeout: it waits for a table row now and fails when the page never comes.
+7. *Accepted.* The recorder launched Chromium outside its cleanup scope; a launch failure would have left the
+   preview and the port reservation behind. The launch is inside `try`, the teardown always runs.
+8. *Nit, accepted.* The visual config's header narrated its settings and the render script's header referenced
+   reviews; both trimmed.
+   Gates after the round: `bun run lint` ✓ · `tsc` ✓ · Vitest web-stats 15 ✓ · `bun test` (the reproduce test) ✓ ·
+   the stats E2E 3 passed ✓ · the baselines re-recorded (the quoted command) and `test:visual` 4 passed without an
+   update ✓.

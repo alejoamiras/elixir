@@ -5,6 +5,7 @@ import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import type { DeploymentRecord } from '../../../site/src/config.ts';
 import { KvRow, Tile, TileHeader } from '../../../ui/src/index.ts';
 import { W_VK_HASH } from '../../../work-circuit/src/generated/vk.ts';
+import { reproduceCommand } from '../lib/reproduce.ts';
 import { chainAtom } from '../state';
 
 const record = JSON.parse(import.meta.env.VITE_DEPLOYMENT_RECORD) as DeploymentRecord & {
@@ -103,7 +104,7 @@ export function Verify({ nodeUrl }: { nodeUrl: string }) {
           className="overflow-x-auto rounded-sm border border-line bg-raised p-3 font-mono text-xs"
           data-testid="reproduce"
         >
-          {`AZTEC_NODE_URL=${nodeUrl} bun run epoch:stats\n# the artifacts and the verifier key: git checkout ${commit.slice(0, 12)} && bun run codegen && bun run contracts:compile`}
+          {`${reproduceCommand(nodeUrl)}\n# the artifacts and the verifier key: git checkout ${commit.slice(0, 12)} && bun run codegen && bun run contracts:compile`}
         </pre>
       </Tile>
     </div>

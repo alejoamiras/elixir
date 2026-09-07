@@ -1,5 +1,5 @@
-// Renders the three apps' standalone builds at the widths the binder is judged at, for the fidelity
-// reviews: serves each `dist` on an OS-assigned localhost port, screenshots every surface, exits.
+// Renders the three apps' standalone builds at the widths the binder is judged at: serves each
+// `dist` on an OS-assigned localhost port, screenshots every surface, exits.
 //   bun scripts/render-surfaces.ts <out dir> [widths, default 1280,1440,1024,390] [--keys]
 // The pages read the public testnet through their own config. A production build refuses keys off
 // the production host, so the miner's cockpit, wallet and settings render only with `--keys`
@@ -56,10 +56,10 @@ try {
     const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
     const page = await context.newPage();
     await page.goto(`http://localhost:${servers.landing.port}/`);
-    await settle(page, 'the bar is live from the chain').catch(() => {});
+    await settle(page, 'the bar is live from the chain');
     await shot(page, 'landing', width);
     await page.goto(`http://localhost:${servers.stats.port}/`);
-    await settle(page, 'epochs, newest first').catch(() => {});
+    await page.getByTestId('table').locator('tbody tr').first().waitFor({ timeout: 60_000 });
     await shot(page, 'stats', width);
     await page.goto(`http://localhost:${servers.miner.port}/`);
     if (width < 900) {

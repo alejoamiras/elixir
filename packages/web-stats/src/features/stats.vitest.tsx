@@ -50,6 +50,11 @@ describe('charts on the captured history', () => {
     expect(easier[0]?.getAttribute('aria-label')).toBe('epoch 0: retarget ×4.00');
     expect(container.querySelector('g.easier')?.getAttribute('fill')).toBe('var(--ink-3)');
     expect(container.querySelector('g.harder')?.getAttribute('fill')).toBe('var(--uv)');
+    // A ratio outside the contract's clamp is a node lying or a wrong slot: marked at the baseline, never a bar.
+    const bad = [...rows.slice(0, 2).map((r, i) => ({ ...r, retarget: i ? 100 : 0 })), ...rows.slice(2)];
+    const guarded = render(<Retarget rows={bad} selected={null} rules={RULES} />).container;
+    expect(guarded.querySelectorAll('g.invalid circle[aria-label]')).toHaveLength(2);
+    expect(guarded.querySelectorAll('g.harder rect, g.easier rect')).toHaveLength(6);
     const emission = render(<Emission rows={rows} selected={null} rules={RULES} />).container;
     expect(emission.querySelectorAll('g.point circle[aria-label]')).toHaveLength(8);
     expect(emission.querySelectorAll('g.minted path')).toHaveLength(1);
@@ -138,7 +143,9 @@ describe('the observatory', () => {
     expect(spans.slice(13)).toEqual(['md:col-span-3', 'md:col-span-3']);
     expect(grid.querySelectorAll('[data-slot=chart]')).toHaveLength(4);
     expect(screen.getByTestId('strip-selected').textContent).toBe(`epoch ${last.epoch}`);
-    expect(screen.getByTestId('reproduce-command').textContent).toContain('AZTEC_NODE_URL=http://node.test');
+    expect(screen.getByTestId('reproduce-command').textContent).toContain(
+      "AZTEC_NODE_URL='http://node.test'",
+    );
   });
 
   test('a row without closing facts is "open" only when it is the open epoch', () => {

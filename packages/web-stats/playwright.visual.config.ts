@@ -1,9 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
-// The fixture-only screenshot gate: no node, no global setup; the bundle and its server come from
-// e2e/visual-setup.ts, the RPC answers from e2e/visual-rpc.json, the baselines from
-// e2e/__screenshots__. Zero tolerance: a token's colour or a tile's padding shows. Recorded and
-// checked inside the pinned Playwright image only (`bun run test:visual`); a missing baseline fails.
+// Zero-tolerance captures are only comparable inside the pinned Playwright image (`bun run
+// test:visual`): Chromium and the text stack are half of every baseline. A missing baseline fails.
 export default defineConfig({
   testDir: './e2e',
   testMatch: /visual\.e2e\.ts$/,
