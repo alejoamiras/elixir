@@ -63,7 +63,8 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
   expect(first?.nullifiers).toContain(first?.ticketNullifier);
   expect(first?.nullifiers).toHaveLength(4);
   expect(first?.noteHashes).toHaveLength(2);
-  await expect(page.getByTestId('minted')).toContainText(/claims \d+ → \d+/);
+  await expect(page.getByTestId('minted')).toContainText(/minted, privately · block \d+/);
+  await expect(page.getByTestId('epoch-claims')).toHaveText('1 of 4');
 
   // The next claim's send is held at the wire until another miner has closed its epoch, so the
   // transaction is real and reverts in public ("stale claim") when it finally lands.

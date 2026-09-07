@@ -144,11 +144,11 @@ test('first visit creates an account, mines at the easy target, claims and shows
     'href',
     /\/tx-effects\/0x[0-9a-f]{64}$/,
   );
-  // Mining resumes on its own after a claim; stop it cleanly.
-  await expect(page.getByTestId('phase')).toHaveText('mining');
-  await expect(page.getByTestId('claim-slot')).toContainText('no claim in flight', { timeout: 15_000 });
-  await page.getByTestId('stop').click();
+  // Mining resumes on its own after a claim; stop it cleanly (at this easy target the next win can be in
+  // flight already: Stop returns once that claim has minted). The ✓ outlives the stop by its ten seconds.
+  await page.getByTestId('stop').click({ timeout: 5 * 60_000 });
   await expect(page.getByTestId('phase')).toHaveText('idle');
+  await expect(page.getByTestId('claim-slot')).toContainText('no claim in flight', { timeout: 15_000 });
   // The nav reaches the stats app on the same origin.
   await expect(page.getByTestId('nav-stats')).toHaveAttribute('href', /\/stats\/$/);
   // Second visit: the persisted account signs again and its notes are still there.
