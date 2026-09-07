@@ -106,3 +106,7 @@ the six-row rail, the unit slot, the fail-closed parse and the mining-state capt
    deleted.
    The canvas's `--ink-3` fallback in `score-loop.tsx` follows the token (.5). Gates after round 2: `bun run lint` ✓ ·
    `tsc` web-miner ✓ · ui Vitest 29 ✓ · the miner E2E 11 passed (11.2 m, baseline 1284 → 1444 MiB) ✓.
+
+**Round 3** (resumed, over `dd96169..8612ac3`): "no new material findings". The arc-1 loop converged in three
+rounds; the shots beside the frame are `shots/arc1/` (1440 / 1280 / 1024 mining after the first mint; 390 the
+desktop-only guard).
