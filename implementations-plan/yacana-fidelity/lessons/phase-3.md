@@ -160,3 +160,6 @@ annotation, the strip numbers' contrast (over 12:1 on every tone in both themes)
    baselines are unchanged (`test:visual` 4 passed without an update).
    A fourth round confirms convergence: the plan's three-round hard stop is a scope smell for churn, and this
    was a 12-line follow-up of one item, not churn; surfaced to the owner in the final report all the same.
+
+**Round 4** (resumed, over `315c788..3880f90`): "no new material findings". The arc-3 loop converged in four rounds;
+the shots beside the A1 frame are `shots/arc3/`, identical to the committed baselines.
