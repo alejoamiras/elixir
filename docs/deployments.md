@@ -82,12 +82,16 @@ never in the repo):
 bun run site:deploy        # = bun run --cwd packages/site deploy: assemble the production site, then wrangler deploy
 ```
 
-Git-triggered deploys: Workers Builds (dashboard: connect the repository, root directory `packages/site`, build
-command `bun install --frozen-lockfile && bun run build`, deploy command `bunx wrangler deploy`, variable
-`BUN_VERSION=1.4.0`) runs the same two steps on every push to `main` and, for every other branch, uploads a version
-instead of deploying it and posts its `workers.dev` preview URL on the pull request (the apps show the preview
-banner there and offer no keys). Connected on 2026-09-07; nothing else is configured there, the file carries the
-rest. `bun run e2e:agent -- bun run site:e2e` serves an e2e assembly with `wrangler dev` and asserts
+Git-triggered deploys: Workers Builds (dashboard: connect the repository) keeps two build triggers for the Worker,
+and the build settings page edits only the production one, so set both: root directory `packages/site`, build
+command `bun install --frozen-lockfile && bun run build`, deploy command `npx wrangler deploy` on the `main` trigger
+and `npx wrangler versions upload` on the "Deploy non-production branches" trigger (`*` minus `main`; the API
+`PATCH /accounts/{account}/builds/triggers/{trigger}` with a token holding Workers Builds Configuration edits it
+without the dashboard). Bun 1.4.0 comes from the root `packageManager`, no variable needed. Every push to `main`
+assembles and deploys; every other branch gets a version with a `workers.dev` preview URL and a branch alias
+(`<branch>-yacana.<subdomain>.workers.dev`), both in the build log the commit's check run links to; the apps show
+the preview banner there and offer no keys. Connected on 2026-09-07; nothing else is configured there, the file
+carries the rest. `bun run e2e:agent -- bun run site:e2e` serves an e2e assembly with `wrangler dev` and asserts
 every path's app, identical headers, `build.json` and the landing's proof.
 
 First production deploy: 2026-09-06, Worker version `ea00520a-65bf-415a-b524-4235442159c6`, commit `aef4edd`
