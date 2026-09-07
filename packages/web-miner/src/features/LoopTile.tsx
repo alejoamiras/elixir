@@ -79,7 +79,6 @@ function PopOut({ controller }: { controller: () => MinerController | undefined 
   );
 }
 
-/** The heartbeat: the binder's loop tile with its header row. */
 export function LoopTile({
   controller,
   className,
@@ -94,6 +93,7 @@ export function LoopTile({
   const last = miner.recent[miner.recent.length - 1];
   const ready = boot.phase === 'ready';
   const bar = epoch ? difficulty(epoch.target) : 1;
+  const status = pillStatus(miner);
   return (
     <Tile className={cn('flex flex-col gap-4', className)}>
       <TileHeader
@@ -101,7 +101,7 @@ export function LoopTile({
         aside={
           <span className="flex items-center gap-3">
             {last !== undefined && miner.phase !== 'idle' && (
-              <span className="font-mono text-xs text-ink-2">{(last / 1000).toFixed(2)} s per proof</span>
+              <span>{(last / 1000).toFixed(2)} s per proof</span>
             )}
             {settings.pip && pipSupported() && <PopOut controller={controller} />}
             {miner.phase === 'mining' ? (
@@ -122,9 +122,13 @@ export function LoopTile({
           </span>
         }
       >
-        <StatusPill status={pillStatus(miner)} className="normal-case tracking-normal">
-          {miner.phase === 'mining' ? 'live · one dot per proof' : undefined}
-        </StatusPill>
+        {status === 'paused' ? (
+          <StatusPill status="paused" />
+        ) : status === 'mining' ? (
+          'live · one dot per proof'
+        ) : (
+          status
+        )}
       </TileHeader>
       {miner.claim && <ClaimStepper claim={miner.claim} />}
       <ScoreLoop difficulty={bar} samples={miner.samples} winAt={miner.winAt} height={230} />
@@ -134,12 +138,20 @@ export function LoopTile({
   );
 }
 
-/** The three numbers under the loop, one tile each: the binder's KPI row. */
+/** "~1.8" and "min": a duration split for a KPI's value and unit slots. */
+const nextWin = (target: bigint, perMinute: number): [string, string] | null => {
+  if (perMinute <= 0) return null;
+  const text = duration(nextWinSeconds(target, perMinute));
+  const i = text.lastIndexOf(' ');
+  return i < 0 ? null : [`~${text.slice(0, i)}`, text.slice(i + 1)];
+};
+
 export function KpiTiles({ className }: { className?: string }) {
   const miner = useAtomValue(minerAtom);
   const epoch = useAtomValue(epochAtom);
   const perMinute = proofsPerMinute(miner.recent);
   const bar = epoch ? difficulty(epoch.target) : 1;
+  const next = epoch ? nextWin(epoch.target, perMinute) : null;
   return (
     <div className={cn('grid grid-cols-3 gap-[14px]', className)} data-testid="kpi-tiles">
       <Tile>
@@ -159,7 +171,8 @@ export function KpiTiles({ className }: { className?: string }) {
         <Kpi
           size="lg"
           label="next win, at this rate"
-          value={epoch && perMinute > 0 ? `~${duration(nextWinSeconds(epoch.target, perMinute))}` : '—'}
+          value={next ? next[0] : '—'}
+          unit={next?.[1]}
           sub="could be now, could be 3× longer"
         />
       </Tile>

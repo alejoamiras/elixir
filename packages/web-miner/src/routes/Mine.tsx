@@ -5,11 +5,8 @@ import { KpiTiles, LoopTile } from '../features/LoopTile';
 import { RailTile } from '../features/RailTile';
 
 /**
- * Everything a miner needs while mining, on one screen; wallet and settings are routes. From `xl`
- * the M1 frame: three columns and a 300-px rail, the loop over the three, the rail spanning the
- * loop and the KPI row, the ledger over the three, the key tile under the rail. Between `md` and
- * `xl` the rail drops under the numbers: loop and KPIs first, then the rail beside the ledger and
- * the key tile stacked. Tiles size to their content (`items-start`): the ledger is a log, not a panel.
+ * The ledger and the key tile share a wrapper so that between `md` and `xl` they stack beside the
+ * rail; at `xl` it dissolves (`contents`) and the grid places them itself.
  */
 export function Mine({ controller }: { controller: () => MinerController | undefined }) {
   return (

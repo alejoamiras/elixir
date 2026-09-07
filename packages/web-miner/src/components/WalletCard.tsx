@@ -5,7 +5,6 @@ import { amount, shortAddress } from '../lib/format';
 import { navigate } from '../routes';
 import { balanceAtom, bootAtom, claimsAtom } from '../state';
 
-/** The key tile: the private balance first, the two wallet actions, the address and the key's kind. */
 export function WalletCard({ className }: { className?: string }) {
   const boot = useAtomValue(bootAtom);
   const balance = useAtomValue(balanceAtom);

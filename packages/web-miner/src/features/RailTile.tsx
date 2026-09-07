@@ -38,7 +38,7 @@ export function RailTile({
           claims={epoch.claims}
           n={rules.N}
           mine={claims.filter((c) => c.epoch === epoch.epoch).map((_, i) => i)}
-          progress={Number(nowSec - epoch.openedAt) / Number(rules.EXPECTED_EPOCH_SECONDS)}
+          aside={`opened ${new Date(Number(epoch.openedAt) * 1000).toISOString().slice(11, 19)}`}
           hatchSeconds={Number(escapeHatchIn(epoch.openedAt, rules.T_MAX, nowSec))}
           closing={closing}
           onClose={() => {
@@ -48,7 +48,6 @@ export function RailTile({
               .finally(() => setClosing(false));
           }}
           rows={[
-            { label: 'opened', value: new Date(Number(epoch.openedAt) * 1000).toISOString().slice(11, 19) },
             {
               label: 'claims',
               value: (

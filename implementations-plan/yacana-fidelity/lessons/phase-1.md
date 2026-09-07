@@ -49,3 +49,48 @@ final tree, after the stale-regex fix ✓ · the cockpit renders at 1440 / 1280 
 is the desktop-only guard the miner shows on phones, by design).
 
 LESSONS_FILE=implementations-plan/yacana-fidelity/lessons/phase-1.md
+
+## Arc 1 codex loop (2026-09-07)
+
+Session `01a07935-a7c8-75b0-aae1-6eeb4a793181` (`/codex xhigh`, read-only, a new session over `git diff
+9197fee..HEAD` with the plan, the recon, the arc map and the four renders beside the binder frame).
+
+**Round 1** — nine findings, all verified against the code before acting:
+
+1. *Blocking, accepted.* `scripts/render-surfaces.ts`: `decodeURIComponent` before `resolve(dist, …)` let
+   `/..%2f..%2fREADME.md` escape `dist` (a localhost render server, but still). The resolved path must stay
+   under `dist`; malformed encoding is a 400.
+2. *Should-fix, accepted with a different fix.* The binder's `fg-3` (.40) and `fg-4` (.22) over the tiles are
+   3.5:1 and 1.9:1; the labels, units and hints went from `ink-2` (7.2:1) to them, an AA regression every
+   surface inherits. Codex proposed keeping `ink-2` for essential small text; that gives up the binder's
+   hierarchy, the owner's complaint. Instead `ink-3` goes to .50 (light .60): 4.9:1 on the tiles with the same
+   ordering (ink > ink-2 .64 > ink-3 .50 > ink-4 .22); header asides take `ink-3`; `ink-4` stays only for
+   pending steps and word indices. The KPI sub takes the hint tone (`ink-3`) as the binder draws it.
+3. *Should-fix, accepted for the miner and the stats.* The shells carried `p-4 md:p-5`, so the 52-px bar sat
+   20 px down with its rule inset. Now the bar is the frame's top row (`px-4 md:px-5`, full-width rule) and a
+   body div carries the inset once. The landing keeps its `px` until P2.1 moves the inset into the bar and the
+   frames' own paddings (the frames are that phase).
+4. *Should-fix, accepted.* The loop tile's header was the bordered status pill; M1's is the plain mono label.
+   Now "live · one dot per proof" while mining, the phase name otherwise, the red pill only for a page-side
+   pause; the "s per proof" readout inherits the aside tone.
+5. *Should-fix, accepted.* The rail: M1's header is "epoch N" with "opened HH:MM:SS" opposite, then six rows;
+   ours had a sans header, a separate "opened" row (seven) and an elapsed strip M1 does not draw. `EpochRail`
+   takes an `aside`, loses `progress` and the strip; the power readout takes the aside tone.
+6. *Should-fix, accepted.* "~7 s" put the unit in the 40-px value; split into value and `unit` (`nextWin`).
+7. *Should-fix, accepted.* The E2E asserted "four tracks, ≤ 1080 wide" then nothing after the switch back to
+   1440. Now: the exact tracks `246px 246px 246px 300px` and width 1080 at 1280 and 1440; two equal columns at
+   1024 with the rail beside the ledger / key stack (bounding boxes). `render-cockpit.ts` waits for the mining
+   state after the first mint instead of a fixed delay (the previous renders all showed "claiming").
+8. *Should-fix, accepted.* `states.e2e.ts`'s balance parse failed open: a non-matching second read gave
+   `NaN === NaN`. The match is now required; `miner.e2e.ts` asserts the unit beside the balance.
+9. *Nit, accepted.* Narrating comments dropped (`Mine.tsx`, `LoopTile.tsx` ×2, `WalletCard.tsx`,
+   `tile.vitest.tsx`); the `text-label` comment no longer claims tile labels are 11.5 px.
+
+Fast gates after the round: `bun run lint` ✓ · `tsc` ui / web-miner / web-stats ✓ · `test:components` ui 29 /
+web-miner 34 / web-landing 10 / web-stats 13 ✓ · `bun test packages/web-miner` 54 ✓.
+
+E2E after round 1: the first run failed only the memory spec ("baseline 2255 MiB, after three rebuilds 3295") — the
+cockpit renders were being taken from the same E2E server at that moment, and the spec's RSS watcher roots its process
+tree on every `playwright_chromiumdev_profile` on the host, so the render browser (mining and proving a claim) was
+summed in. A clean rerun with nothing beside it: 11 passed (11.2 m), baseline 1284 MiB → 1438 after three rebuilds.
+Rule for the arc boundaries: render first or after, never during the memory spec.

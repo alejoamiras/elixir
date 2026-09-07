@@ -23,10 +23,16 @@ function serve(name: keyof typeof APPS) {
     hostname: 'localhost',
     port: 0,
     async fetch(req) {
-      const path = decodeURIComponent(new URL(req.url).pathname);
-      const file = Bun.file(resolve(dist, `.${path}`));
-      const body =
-        (await file.exists()) && !path.endsWith('/') ? file : Bun.file(resolve(dist, 'index.html'));
+      let path: string;
+      try {
+        path = decodeURIComponent(new URL(req.url).pathname);
+      } catch {
+        return new Response('bad path', { status: 400 });
+      }
+      const target = resolve(dist, `.${path}`);
+      const file = Bun.file(target);
+      const served = target.startsWith(`${dist}/`) && !path.endsWith('/') && (await file.exists());
+      const body = served ? file : Bun.file(resolve(dist, 'index.html'));
       return new Response(body, {
         headers: {
           'Cross-Origin-Opener-Policy': 'same-origin',

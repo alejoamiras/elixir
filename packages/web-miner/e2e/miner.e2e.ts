@@ -68,16 +68,26 @@ test('first visit creates an account, mines at the easy target, claims and shows
   await bootPage(page, pageUrl(r));
   expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
   await expect(page.getByTestId('balance')).toHaveText('0');
-  // The M1 frame from xl: three columns and a 300-px rail; two columns between md and xl.
-  const columns = () =>
-    page.getByTestId('cockpit').evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
-  expect(await columns()).toBe(4);
-  expect(
-    await page.getByTestId('cockpit').evaluate((el) => el.getBoundingClientRect().width),
-  ).toBeLessThanOrEqual(1080);
+  await expect(page.getByTestId('balance').locator('xpath=..')).toHaveText(/^0\s*tYACA$/);
+  // The M1 frame at 1280 (the default viewport) and 1440: 1080 wide, three equal tracks and the
+  // 300-px rail; between md and xl two equal columns, the rail beside the stacked ledger and key tile.
+  const cockpit = page.getByTestId('cockpit');
+  const tracks = () => cockpit.evaluate((el) => getComputedStyle(el).gridTemplateColumns);
+  const width = () => cockpit.evaluate((el) => el.getBoundingClientRect().width);
+  expect(await tracks()).toBe('246px 246px 246px 300px');
+  expect(await width()).toBe(1080);
   await page.setViewportSize({ width: 1024, height: 900 });
-  expect(await columns()).toBe(2);
+  const half = `${(((await width()) - 14) / 2).toString()}px`;
+  expect(await tracks()).toBe(`${half} ${half}`);
+  expect(
+    await cockpit.evaluate((el) => {
+      const [, rail, , stack] = Array.from(el.children).map((c) => c.getBoundingClientRect());
+      return rail && stack && rail.top === stack.top && rail.right <= stack.left;
+    }),
+  ).toBe(true);
   await page.setViewportSize({ width: 1440, height: 900 });
+  expect(await tracks()).toBe('246px 246px 246px 300px');
+  expect(await width()).toBe(1080);
   await page.getByTestId('start').click();
   await expect(page.getByTestId('phase')).toHaveText('mining');
   // The easy target wins every other proof; the claim is then proved in-page and mined.

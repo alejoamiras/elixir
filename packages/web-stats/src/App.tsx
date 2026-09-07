@@ -38,8 +38,8 @@ function Shell({ children, connection }: { children: ReactNode; connection: Conn
   const minerHref = '/mine/';
   const notice = previewNotice(location.hostname);
   return (
-    <div className="mx-auto flex max-w-[1120px] flex-col gap-4 p-4 md:p-5">
-      <header className="flex h-[52px] items-center gap-5 border-b border-line">
+    <div className="mx-auto flex max-w-[1120px] flex-col">
+      <header className="flex h-[52px] items-center gap-5 border-b border-line px-4 md:px-5">
         <span className="flex items-center gap-2 font-semibold">
           <Mark state={status.phase === 'ready' ? 'mining' : 'idle'} />
           Yacana
@@ -71,32 +71,34 @@ function Shell({ children, connection }: { children: ReactNode; connection: Conn
           <Freshness />
         </span>
       </header>
-      {notice && (
-        <Alert variant="warn" data-testid="preview-banner">
-          <AlertDescription>{notice}</AlertDescription>
-        </Alert>
-      )}
-      {status.phase === 'unreachable' && (
-        <Alert variant="warn" data-testid="unreachable">
-          <AlertTitle>node unreachable</AlertTitle>
-          <AlertDescription>
-            No answer from {new URL(connection.nodeUrl).host} since{' '}
-            {new Date(status.since).toISOString().slice(11, 19)}; the numbers below are from the last read.
-          </AlertDescription>
-        </Alert>
-      )}
-      {status.phase === 'error' && (
-        <Alert variant="bad" data-testid="boot-error">
-          <AlertTitle>Cannot read this deployment</AlertTitle>
-          <AlertDescription>{status.message}</AlertDescription>
-        </Alert>
-      )}
-      {children}
-      <footer className="flex flex-wrap gap-x-4 gap-y-1 border-t border-line pt-3 text-2xs text-ink-2">
-        <span>© Yacana · read from public storage · no trackers</span>
-        <span data-testid="node">node {new URL(connection.nodeUrl).host}</span>
-        <span className="font-mono">source {import.meta.env.VITE_SOURCE_COMMIT.slice(0, 12)}</span>
-      </footer>
+      <div className="flex flex-col gap-4 p-4 md:p-5">
+        {notice && (
+          <Alert variant="warn" data-testid="preview-banner">
+            <AlertDescription>{notice}</AlertDescription>
+          </Alert>
+        )}
+        {status.phase === 'unreachable' && (
+          <Alert variant="warn" data-testid="unreachable">
+            <AlertTitle>node unreachable</AlertTitle>
+            <AlertDescription>
+              No answer from {new URL(connection.nodeUrl).host} since{' '}
+              {new Date(status.since).toISOString().slice(11, 19)}; the numbers below are from the last read.
+            </AlertDescription>
+          </Alert>
+        )}
+        {status.phase === 'error' && (
+          <Alert variant="bad" data-testid="boot-error">
+            <AlertTitle>Cannot read this deployment</AlertTitle>
+            <AlertDescription>{status.message}</AlertDescription>
+          </Alert>
+        )}
+        {children}
+        <footer className="flex flex-wrap gap-x-4 gap-y-1 border-t border-line pt-3 text-2xs text-ink-2">
+          <span>© Yacana · read from public storage · no trackers</span>
+          <span data-testid="node">node {new URL(connection.nodeUrl).host}</span>
+          <span className="font-mono">source {import.meta.env.VITE_SOURCE_COMMIT.slice(0, 12)}</span>
+        </footer>
+      </div>
     </div>
   );
 }

@@ -35,9 +35,11 @@ try {
     await page.getByTestId('words-skip').click();
     await page.getByTestId('start').waitFor({ state: 'visible', timeout: 8 * 60_000 });
     await page.getByTestId('start').click();
-    await page.getByTestId('phase').filter({ hasText: 'mining' }).waitFor({ timeout: 60_000 });
-    // A few proofs so the loop, the rate and the ledger carry real numbers.
-    await page.waitForTimeout(25_000);
+    const phase = page.getByTestId('phase');
+    await phase.filter({ hasText: /^mining$/ }).waitFor({ timeout: 60_000 });
+    // Mining again after the first mint: the loop, the rate and the ledger carry real numbers.
+    await phase.filter({ hasText: 'claiming' }).waitFor({ timeout: 5 * 60_000 });
+    await phase.filter({ hasText: /^mining$/ }).waitFor({ timeout: 10 * 60_000 });
     await shot(page, 'miner-cockpit', width);
     await page.getByTestId('stop').click();
     await page.getByRole('link', { name: 'Wallet' }).click();

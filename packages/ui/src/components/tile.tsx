@@ -29,7 +29,7 @@ function TileHeader({
     >
       <span>{children}</span>
       {aside && (
-        <span className="ml-auto text-right font-normal tracking-[0.04em] text-ink-4 normal-case">
+        <span className="ml-auto text-right font-normal tracking-[0.04em] text-ink-3 normal-case">
           {aside}
         </span>
       )}

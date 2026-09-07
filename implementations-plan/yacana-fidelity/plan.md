@@ -364,6 +364,9 @@ behaviour. The screenshot gate is part of the e2e-isolated layer.
 | six stats KPIs in one row | from `xl`; two rows of three below |
 | the demo panel's proving / error states | preserved exactly (the binder draws only the happy path) |
 | quiet refresh motion | the binder asks for it: cross-fade on new epochs, nothing continuous |
+| the dim inks (`fg-3` .40, `fg-4` .22 over the tiles: 3.5:1 and 1.9:1) | `ink-3` is raised to .50 (light .60) so the binder's dim labels, hints and units meet 4.5:1; tile-header asides take `ink-3`, not `fg-4`; `ink-4` stays for pending steps and word indices only (arc-1 review) |
+| the cockpit tile's state pill | the loop tile's header is the plain M1 label ("live · one dot per proof", or the phase); the state pill lives in the bar; a page-side pause keeps its red pill in the tile (arc-1 review) |
+| the elapsed strip under the epoch segments | removed: M1 has the segments and six rows; "open for" and "expected close" carry the time (arc-1 review) |
 
 ## Delivery
 

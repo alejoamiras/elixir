@@ -53,8 +53,8 @@ function Shell({ children }: { children: ReactNode }) {
   const miner = useAtomValue(minerAtom);
   const notice = previewNotice(location.hostname);
   return (
-    <div className="mx-auto flex max-w-[1120px] flex-col gap-4 p-4 md:p-5">
-      <header className="flex h-[52px] items-center gap-5 border-b border-line">
+    <div className="mx-auto flex max-w-[1120px] flex-col">
+      <header className="flex h-[52px] items-center gap-5 border-b border-line px-4 md:px-5">
         <span className="flex items-center gap-2 font-semibold">
           <Mark state={miner.phase === 'idle' ? 'idle' : 'mining'} />
           Yacana
@@ -83,12 +83,14 @@ function Shell({ children }: { children: ReactNode }) {
           <StatusPill status={pillStatus(miner)} data-testid="phase" />
         </span>
       </header>
-      {notice && (
-        <Alert variant="warn" data-testid="preview-banner">
-          <AlertDescription>{notice}</AlertDescription>
-        </Alert>
-      )}
-      {children}
+      <div className="flex flex-col gap-4 p-4 md:p-5">
+        {notice && (
+          <Alert variant="warn" data-testid="preview-banner">
+            <AlertDescription>{notice}</AlertDescription>
+          </Alert>
+        )}
+        {children}
+      </div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import type * as React from 'react';
 import { cn } from '../lib/cn.ts';
 import { Button } from './button.tsx';
-import { KvRow } from './tile.tsx';
+import { KvRow, TileHeader } from './tile.tsx';
 
 export interface EpochRailProps {
   epoch: number;
@@ -9,8 +9,8 @@ export interface EpochRailProps {
   claims: number;
   n: number;
   mine?: readonly number[];
-  /** Elapsed / expected, uncapped; the tick sits at 1. */
-  progress: number;
+  /** The header's right side, e.g. "opened 03:31:12". */
+  aside?: React.ReactNode;
   rows: readonly { label: React.ReactNode; value: React.ReactNode }[];
   /** Seconds until the escape hatch opens; ≤ 0 shows "Close the epoch". */
   hatchSeconds: number;
@@ -24,22 +24,18 @@ export function EpochRail({
   claims,
   n,
   mine = [],
-  progress,
+  aside,
   rows,
   hatchSeconds,
   onClose,
   closing,
   className,
 }: EpochRailProps) {
-  const timeline = Math.min(1, progress / 1.25);
   return (
     <div data-slot="epoch-rail" className={cn('flex flex-col gap-3', className)}>
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="text-sm font-semibold">epoch {epoch}</span>
-        <span className="font-mono text-xs text-ink-2">
-          {claims} of {n} claims
-        </span>
-      </div>
+      <TileHeader className="mb-0" aside={aside}>
+        epoch {epoch}
+      </TileHeader>
       <div className="flex gap-1" role="img" aria-label={`${claims} of ${n} claims`}>
         {Array.from({ length: n }, (_, i) => (
           <span
@@ -53,19 +49,6 @@ export function EpochRail({
             )}
           />
         ))}
-      </div>
-      <div className="relative h-1 rounded-full bg-panel-2" aria-hidden>
-        <span
-          data-slot="elapsed"
-          className={cn('absolute inset-y-0 left-0 rounded-full', progress > 1 ? 'bg-warn' : 'bg-ink-3')}
-          style={{ width: `${timeline * 100}%` }}
-        />
-        <span
-          data-slot="expected-tick"
-          className="absolute -top-0.5 h-2 w-px bg-ink"
-          style={{ left: `${(1 / 1.25) * 100}%` }}
-          title="expected close"
-        />
       </div>
       <div>
         {rows.map((r, i) => (
