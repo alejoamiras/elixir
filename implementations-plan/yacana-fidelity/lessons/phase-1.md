@@ -94,3 +94,15 @@ cockpit renders were being taken from the same E2E server at that moment, and th
 tree on every `playwright_chromiumdev_profile` on the host, so the render browser (mining and proving a claim) was
 summed in. A clean rerun with nothing beside it: 11 passed (11.2 m), baseline 1284 MiB → 1438 after three rebuilds.
 Rule for the arc boundaries: render first or after, never during the memory spec.
+
+**Round 2** (resumed, over `ed2da7e..dd96169`): one should-fix, one nit. Codex confirmed the contrast numbers
+(dark raised / panel 4.79:1 / 4.73:1; light 4.89:1 / 4.75:1), the traversal fix, the insets, the plain loop header,
+the six-row rail, the unit slot, the fail-closed parse and the mining-state captures.
+1. *Should-fix, accepted.* The desktop assertions proved the tracks and the width but not the placement: dropping
+   the rail's `xl:order-none` would have moved it under the other tiles with every assertion still green. Now
+   `placed()` checks the boxes at 1280 and 1440: the rail right of the loop on the same top, the KPI row and the
+   ledger under the loop and as wide, the key tile under the rail on its left edge.
+2. *Nit, accepted.* The `nextWin` comment gave an impossible example ("~1.8 min": `duration` rounds minutes);
+   deleted.
+   The canvas's `--ink-3` fallback in `score-loop.tsx` follows the token (.5). Gates after round 2: `bun run lint` ✓ ·
+   `tsc` web-miner ✓ · ui Vitest 29 ✓ · the miner E2E 11 passed (11.2 m, baseline 1284 → 1444 MiB) ✓.

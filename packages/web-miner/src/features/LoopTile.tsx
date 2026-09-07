@@ -138,7 +138,6 @@ export function LoopTile({
   );
 }
 
-/** "~1.8" and "min": a duration split for a KPI's value and unit slots. */
 const nextWin = (target: bigint, perMinute: number): [string, string] | null => {
   if (perMinute <= 0) return null;
   const text = duration(nextWinSeconds(target, perMinute));
