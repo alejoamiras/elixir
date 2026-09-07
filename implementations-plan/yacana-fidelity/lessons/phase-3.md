@@ -151,3 +151,12 @@ halos, the geometry / fill check and the named hover.
    tokens. Recorded in the fidelity decisions.
    Gates after round 2: `bun run lint` ✓ · `tsc` ✓ · Vitest web-stats 14 ✓ · the stats E2E 3 passed ✓ · the
    baselines re-recorded and `test:visual` 4 passed ✓.
+
+**Round 3** (resumed, over `5e1d5c1..315c788`): one should-fix; codex confirmed the horizontal placement, the tip's
+annotation, the strip numbers' contrast (over 12:1 on every tone in both themes) and the baselines.
+1. *Should-fix, accepted.* The two label rows were `hi` and `hi / 2.2` on the log scale, so their pixel gap shrank
+   with the domain (7 px apart at difficulty 2^20). One text mark per anchor and row, all at `y: hi`, the second
+   row `dy` 14 px lower: a fixed gap whatever the domain. The fixture's single roll sits in row 0, so the
+   baselines are unchanged (`test:visual` 4 passed without an update).
+   A fourth round confirms convergence: the plan's three-round hard stop is a scope smell for churn, and this
+   was a 12-line follow-up of one item, not churn; surfaced to the owner in the final report all the same.

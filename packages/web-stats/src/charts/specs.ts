@@ -186,19 +186,20 @@ export const difficultyChart: Spec = ({ rows, selected, width }) => {
   const rolls = rows.filter((r) => r.closedBy === 'roll' && r.retarget !== null);
   const mid = (s: Step) => s.epoch + 0.5;
   const placed = placeRollLabels(rolls, steps[0]?.epoch ?? 0, (last?.epoch ?? 0) + 1, width);
-  const rollLabels = (anchor: 'start' | 'end') =>
+  // One mark per anchor and row: the rows sit 14 px apart in pixels, whatever the log domain spans.
+  const rollLabels = (anchor: 'start' | 'end', row: number) =>
     Plot.text(
-      placed.filter((p) => p.anchor === anchor),
+      placed.filter((p) => p.anchor === anchor && p.row === row),
       {
         x: (p: RollLabel) => p.r.epoch + 1,
-        y: (p: RollLabel) => (p.row ? hi / 2.2 : hi),
+        y: hi,
         text: (p: RollLabel) => p.text,
         fill: WARN,
         ...HALO,
         textAnchor: anchor,
         lineAnchor: 'top',
         dx: anchor === 'start' ? 4 : -4,
-        dy: 2,
+        dy: 2 + row * 14,
       },
     );
   return base(width, {
@@ -247,8 +248,10 @@ export const difficultyChart: Spec = ({ rows, selected, width }) => {
         strokeDasharray: '3 3',
         className: 'roll',
       }),
-      rollLabels('start'),
-      rollLabels('end'),
+      rollLabels('start', 0),
+      rollLabels('start', 1),
+      rollLabels('end', 0),
+      rollLabels('end', 1),
       Plot.crosshairX(steps, { x: mid, y: 'd' }),
       Plot.tip(
         steps,
