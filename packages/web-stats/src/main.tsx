@@ -7,7 +7,15 @@ import { ThemeProvider } from '../../ui/src/index.ts';
 import { App } from './App';
 import { openReader, pollChain, type Reader, readChain, readOlder } from './chain';
 import { coalesced, serial } from './serial';
-import { type Chain, chainAtom, historyLimitAtom, loadingOlderAtom, nowAtom, statusAtom } from './state';
+import {
+  type Chain,
+  chainAtom,
+  historyLimitAtom,
+  loadingOlderAtom,
+  nowAtom,
+  sinceOpenedAtom,
+  statusAtom,
+} from './state';
 
 const POLL_MS = 30_000;
 
@@ -46,6 +54,7 @@ async function boot() {
       store.set(statusAtom, { phase: 'loading', step }),
     );
     store.set(chainAtom, chain);
+    store.set(sinceOpenedAtom, { supply: chain.supply, at: Date.now() });
     if (historyError) historyLimit(chain, historyError);
     store.set(statusAtom, { phase: 'ready' });
     setInterval(() => void poll(), POLL_MS);

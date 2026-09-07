@@ -1,20 +1,25 @@
 import { useAtomValue } from 'jotai';
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import type { Connection } from '../../site/src/browser/connection.ts';
 import { duration } from '../../site/src/browser/format.ts';
 import { previewNotice } from '../../site/src/browser/host.ts';
-import { Alert, AlertDescription, AlertTitle, Badge, cn, Mark } from '../../ui/src/index.ts';
+import { Alert, AlertDescription, AlertTitle, Badge, cn, ExternalLink, Mark } from '../../ui/src/index.ts';
+import { links } from './explorer';
 import { navigate, type Route, useRoute } from './routes';
 import { Stats } from './routes/Stats';
 import { Verify } from './routes/Verify';
-import { chainAtom, nowAtom, statusAtom } from './state';
+import { chainAtom, nowAtom, statusAtom, unsettledAtom } from './state';
 
 const NAV: { route: Route; label: string }[] = [
   { route: 'stats', label: 'Stats' },
   { route: 'verify', label: 'Verify' },
 ];
+const TITLE: Record<Route, string> = { stats: 'Yacana · Stats', verify: 'Yacana · Verify' };
 
-/** "block 184,221 · 12 s ago": the last block the node showed and the age of its slot time. */
+/**
+ * "● block 184,221 · 12 s ago": the last block the node showed, linked, and the age of its slot time.
+ * The dot is keyed by the block number, so a new block replays its 240 ms pulse.
+ */
 function Freshness() {
   const chain = useAtomValue(chainAtom);
   const status = useAtomValue(statusAtom);
@@ -24,9 +29,24 @@ function Freshness() {
       <span className="font-mono text-2xs text-ink-2">{status.phase === 'loading' ? status.step : ''}</span>
     );
   const age = Math.max(0, Math.floor(now / 1000) - chain.block.timestamp);
+  const n = chain.block.number;
   return (
-    <span className="font-mono text-2xs text-ink-2" data-testid="freshness">
-      block {chain.block.number.toLocaleString('en-US')} · {duration(age)} ago
+    <span className="inline-flex items-center gap-1.5 font-mono text-2xs text-ink-2" data-testid="freshness">
+      <span
+        key={n}
+        aria-hidden
+        data-block={n}
+        className="size-1.5 rounded-full bg-uv-2 animate-in zoom-in-50 fade-in duration-[240ms] motion-reduce:animate-none"
+      />
+      <ExternalLink
+        href={links.block(n)}
+        full={String(n)}
+        className="text-ink-2"
+        data-testid="freshness-block"
+      >
+        block {n.toLocaleString('en-US')}
+      </ExternalLink>
+      <span>· {duration(age)} ago</span>
     </span>
   );
 }
@@ -34,6 +54,10 @@ function Freshness() {
 function Shell({ children, connection }: { children: ReactNode; connection: Connection }) {
   const route = useRoute();
   const status = useAtomValue(statusAtom);
+  const unsettled = useAtomValue(unsettledAtom);
+  useEffect(() => {
+    document.title = TITLE[route];
+  }, [route]);
   // The miner is at the origin's root whatever this app's base is.
   const minerHref = '/mine/';
   const notice = previewNotice(location.hostname);
@@ -71,7 +95,7 @@ function Shell({ children, connection }: { children: ReactNode; connection: Conn
           <Freshness />
         </span>
       </header>
-      <div className="flex flex-col gap-4 p-4 md:p-5">
+      <main className="flex flex-col gap-4 p-4 md:p-5" data-settled={unsettled.size === 0 ? '1' : '0'}>
         {notice && (
           <Alert variant="warn" data-testid="preview-banner">
             <AlertDescription>{notice}</AlertDescription>
@@ -98,7 +122,7 @@ function Shell({ children, connection }: { children: ReactNode; connection: Conn
           <span data-testid="node">node {new URL(connection.nodeUrl).host}</span>
           <span className="font-mono">source {import.meta.env.VITE_SOURCE_COMMIT.slice(0, 12)}</span>
         </footer>
-      </div>
+      </main>
     </div>
   );
 }

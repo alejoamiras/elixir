@@ -27,3 +27,7 @@ export const statusAtom = atom<Status>({ phase: 'loading', step: 'connecting' })
 export const historyLimitAtom = atom<{ beyond: number; reason: string } | null>(null);
 export const loadingOlderAtom = atom(false);
 export const nowAtom = atom(Date.now());
+/** The supply at this tab's first successful read and when it happened; a reload starts over. */
+export const sinceOpenedAtom = atom<{ supply: bigint; at: number } | null>(null);
+/** Display numbers still gliding to their value, by id; the visual gate waits for the set to empty. */
+export const unsettledAtom = atom<ReadonlySet<string>>(new Set<string>());

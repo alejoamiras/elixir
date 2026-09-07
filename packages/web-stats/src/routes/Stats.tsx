@@ -1,8 +1,8 @@
 import { useAtomValue } from 'jotai';
-import { type ReactNode, useCallback } from 'react';
+import { useCallback } from 'react';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { Alert, AlertDescription, AlertTitle, Tile, TileHeader } from '../../../ui/src/index.ts';
-import { Difficulty, Duration, Emission, Retarget } from '../charts/index.tsx';
+import { ChartRows } from '../features/ChartRows';
 import { Detail } from '../features/Detail';
 import { NotHere } from '../features/NotHere';
 import { Observatory } from '../features/Observatory';
@@ -21,16 +21,7 @@ const RULES = {
   TOKEN_SYMBOL: PARAMS.TOKEN_SYMBOL,
 };
 
-function ChartTile({ title, aside, children }: { title: string; aside: string; children: ReactNode }) {
-  return (
-    <Tile className="md:col-span-3">
-      <TileHeader aside={aside}>{title}</TileHeader>
-      {children}
-    </Tile>
-  );
-}
-
-/** The A1 frame: six columns from `md`, the binder's spans from `xl`; one column on a phone. */
+/** The A frame: six columns from `md`, the binder's spans from `xl`; one column on a phone. */
 export function Stats({ onOlder, nodeUrl }: { onOlder: () => void; nodeUrl: string }) {
   const chain = useAtomValue(chainAtom);
   const limit = useAtomValue(historyLimitAtom);
@@ -78,21 +69,7 @@ export function Stats({ onOlder, nodeUrl }: { onOlder: () => void; nodeUrl: stri
             next={next}
             now={nowSec}
           />
-          <ChartTile
-            title="emission"
-            aside={`cumulative from epoch ${rows[0]?.epoch ?? 0}, against the schedule`}
-          >
-            <Emission {...charts} />
-          </ChartTile>
-          <ChartTile title="difficulty" aside="per epoch, log scale">
-            <Difficulty {...charts} />
-          </ChartTile>
-          <ChartTile title="epoch duration" aside="bars; amber = closed by the escape hatch">
-            <Duration {...charts} />
-          </ChartTile>
-          <ChartTile title="retarget at each close" aside="violet harder · grey easier">
-            <Retarget {...charts} />
-          </ChartTile>
+          <ChartRows {...charts} />
           <Table
             className="md:col-span-6"
             rows={rows}

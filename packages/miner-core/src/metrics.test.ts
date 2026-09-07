@@ -142,7 +142,7 @@ describe('network metrics', () => {
       expect(sentence(row, rules).length).toBeGreaterThan(40);
     }
     expect(sentence(rows.rolled, rules)).toContain(
-      'anyone could close it; someone did at 00:21:36, and the next epoch was eased ×4.00',
+      'past the 20-minute mark, when anyone may close it through the escape hatch; someone did at 00:21:36, and the next epoch was eased ×4.00',
     );
     expect(sentence(rows.fast, rules)).toContain('made ×2.00 harder');
     expect(sentence(rows.slow, rules)).toContain('eased ×2.00');
@@ -156,15 +156,17 @@ describe('the captured testnet history', () => {
     const rows = rowsFromJson(
       await Bun.file(new URL('../fixtures/epochs.testnet.json', import.meta.url)).text(),
     );
-    expect(rows.length).toBeGreaterThanOrEqual(9);
+    expect(rows.length).toBeGreaterThanOrEqual(20);
     expect(rows[0]).toMatchObject({ epoch: 0, claims: 0, closedBy: 'roll', retarget: 4 });
+    expect(rows.filter((r) => r.closedBy === 'roll').length).toBeGreaterThanOrEqual(2);
     const kinds = new Set(rows.map(sentenceKind));
     for (const k of ['rolled', 'fast', 'slow', 'normal', 'open']) expect(kinds.has(k as never)).toBe(true);
-    const last = rows[rows.length - 1] as EpochRow;
-    // Epochs 1–7: 28 claims in the 29 minutes before epoch 8 opened, against 48 per hour on schedule.
-    expect(claimsPerHour(rows, last.openedAt)).toBeCloseTo(28, 6);
+    // The hour before epoch 24 opened: epochs 13–23 whole (44 claims) and the third of epoch 12's span inside
+    // it (4 × 144 / 432); epoch 24's own claims lie after that instant.
+    const e24 = rows[24] as EpochRow;
+    expect(claimsPerHour(rows.slice(0, 25), e24.openedAt)).toBeCloseTo(44 + 4 / 3, 6);
     const rate = networkRate(rows, rules.N);
-    expect(rate).toBeGreaterThan(0.05);
+    expect(rate).toBeGreaterThanOrEqual(0.05);
     expect(rate).toBeLessThan(1);
     for (const r of rows) expect(sentence(r, rules)).not.toContain('NaN');
   });

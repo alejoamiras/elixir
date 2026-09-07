@@ -15,6 +15,9 @@ const HEAD = [
   'closed by',
   'next',
 ];
+/** Rows beyond this scroll inside the tile; the header stays. */
+const BODY_MAX = 'max-h-[460px]';
+const CELL = 'border-b border-line py-1.5 pr-4';
 
 /** A download the CSP allows: a blob URL on an anchor, revoked once clicked. */
 export function download(name: string, text: string, type: string): void {
@@ -43,25 +46,22 @@ function Row({
     <tr
       data-epoch={r.epoch}
       onClick={() => onSelect(open ? null : r.epoch)}
-      className={cn(
-        'cursor-pointer border-b border-line hover:bg-raised',
-        r.epoch === selected && 'bg-uv-dim',
-      )}
+      className={cn('cursor-pointer hover:bg-panel', r.epoch === selected && 'bg-uv-dim')}
     >
-      <td className="py-1.5 pr-4">{r.epoch}</td>
-      <td className="py-1.5 pr-4 text-ink-2">{clock(r.openedAt)}</td>
-      <td className="py-1.5 pr-4">{open ? `${r.claims} of ${PARAMS.N}` : r.claims}</td>
-      <td className="py-1.5 pr-4">{open ? 'open' : r.duration === null ? 'not read yet' : `${dur} s`}</td>
-      <td className="py-1.5 pr-4 text-ink-2">
+      <td className={CELL}>{r.epoch}</td>
+      <td className={cn(CELL, 'text-ink-2')}>{clock(r.openedAt)}</td>
+      <td className={CELL}>{open ? `${r.claims} of ${PARAMS.N}` : r.claims}</td>
+      <td className={CELL}>{open ? 'open' : r.duration === null ? 'not read yet' : `${dur} s`}</td>
+      <td className={cn(CELL, 'text-ink-2')}>
         {r.duration === null
           ? '–'
           : `${(dur / expected).toFixed(2)}×${dur > Number(PARAMS.T_MAX) ? ' · capped' : ''}`}
       </td>
-      <td className="py-1.5 pr-4">{difficulty(r.target).toFixed(1)}</td>
-      <td className="py-1.5 pr-4 text-ink-2">
-        {r.closedBy === 'roll' ? 'roll()' : r.closedBy ? `${PARAMS.N}th claim` : '–'}
+      <td className={CELL}>{difficulty(r.target).toFixed(1)}</td>
+      <td className={cn(CELL, 'text-ink-2')}>
+        {r.closedBy === 'roll' ? 'the escape hatch' : r.closedBy ? `${PARAMS.N}th claim` : '–'}
       </td>
-      <td className="py-1.5 pr-4 text-ink-2">
+      <td className={cn(CELL, 'text-ink-2')}>
         {r.retarget === null ? '–' : `×${(1 / r.retarget).toFixed(2)}`}
       </td>
     </tr>
@@ -86,16 +86,20 @@ export function Table({
   loadingOlder: boolean;
 }) {
   const oldest = rows[0]?.epoch ?? 0;
+  const link = 'h-auto font-mono text-2xs';
   return (
     <Tile className={className}>
       <TileHeader
         aside={
           <span className="flex items-baseline gap-2">
-            newest first ·
+            <span data-testid="table-count">
+              {rows.length} of {open + 1}
+            </span>
+            · newest first ·
             <Button
               size="sm"
               variant="link"
-              className="h-auto font-mono text-2xs"
+              className={link}
               onClick={() => download('yacana-epochs.csv', toCsv(rows), 'text/csv')}
               data-testid="download-csv"
             >
@@ -105,7 +109,7 @@ export function Table({
             <Button
               size="sm"
               variant="link"
-              className="h-auto font-mono text-2xs"
+              className={link}
               onClick={() => download('yacana-epochs.json', rowsToJson(rows), 'application/json')}
               data-testid="download-json"
             >
@@ -116,12 +120,13 @@ export function Table({
       >
         epochs
       </TileHeader>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse font-mono text-xs" data-testid="table">
-          <thead>
+      {/* One scrollport: the sticky head needs separate borders (collapsed ones stay with the rows). */}
+      <div className={cn('overflow-auto', BODY_MAX)} data-testid="table-scroll">
+        <table className="w-full border-separate border-spacing-0 font-mono text-xs" data-testid="table">
+          <thead className="sticky top-0 z-10 bg-raised">
             <tr className="text-left text-ink-2">
               {HEAD.map((h) => (
-                <th key={h} className="border-b border-line py-1.5 pr-4 font-medium">
+                <th key={h} className={cn(CELL, 'font-medium')}>
                   {h}
                 </th>
               ))}
@@ -133,19 +138,22 @@ export function Table({
             ))}
           </tbody>
         </table>
+        {oldest > 0 && (
+          <Button
+            size="sm"
+            variant="link"
+            className="mt-2 px-0"
+            disabled={loadingOlder}
+            onClick={onOlder}
+            data-testid="load-older"
+          >
+            {loadingOlder ? 'loading…' : `load older (before epoch ${oldest})`}
+          </Button>
+        )}
       </div>
-      {oldest > 0 && (
-        <Button
-          size="sm"
-          variant="link"
-          className="mt-3 px-0"
-          disabled={loadingOlder}
-          onClick={onOlder}
-          data-testid="load-older"
-        >
-          {loadingOlder ? 'loading…' : `load older (before epoch ${oldest})`}
-        </Button>
-      )}
+      <p className="mt-2 font-mono text-2xs text-ink-3">
+        ↕ scrolls · header stays · load older at the bottom
+      </p>
     </Tile>
   );
 }

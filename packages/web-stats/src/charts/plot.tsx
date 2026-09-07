@@ -1,7 +1,7 @@
 import * as Plot from '@observablehq/plot';
 import { type ComponentProps, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { cn, useReducedMotion } from '../../../ui/src/index.ts';
-import { type ChartInput, HEIGHT, type Spec } from './specs';
+import type { ChartInput, Spec } from './specs';
 
 const FADE_MS = 240;
 type Figure = HTMLElement | SVGSVGElement;
@@ -50,9 +50,10 @@ function crossFade(next: Figure, previous: Figure[]): () => void {
 export function Chart({
   spec,
   input,
+  height,
   className,
   ...props
-}: { spec: Spec; input: Omit<ChartInput, 'width'> } & ComponentProps<'div'>) {
+}: { spec: Spec; input: Omit<ChartInput, 'width' | 'height'>; height: number } & ComponentProps<'div'>) {
   const ref = useRef<HTMLDivElement>(null);
   const width = useWidth(ref);
   const reduced = useReducedMotion();
@@ -62,7 +63,7 @@ export function Chart({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const figure = Plot.plot(spec({ rows, selected, rules, width }));
+    const figure = Plot.plot(spec({ rows, selected, rules, width, height }));
     figure.style.position = 'absolute';
     figure.style.inset = '0';
     const previous = Array.from(el.children) as Figure[];
@@ -74,12 +75,12 @@ export function Chart({
       return;
     }
     return crossFade(figure, previous);
-  }, [spec, rows, selected, rules, width, epochs, reduced]);
+  }, [spec, rows, selected, rules, width, height, epochs, reduced]);
   return (
     <div
       ref={ref}
       className={cn('relative w-full', className)}
-      style={{ height: HEIGHT }}
+      style={{ height }}
       data-slot="chart"
       {...props}
     />

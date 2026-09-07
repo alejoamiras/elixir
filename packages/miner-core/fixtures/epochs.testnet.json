@@ -75,7 +75,205 @@
     "epoch": 8,
     "target": "0xa2500a2d056c9868672731c198a0bf0",
     "openedAt": 1788654204,
-    "claims": 0,
+    "claims": 4,
+    "duration": 71784,
+    "retarget": 4,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 9,
+    "target": "0x2894028b415b261a19c9cc7066282fc0",
+    "openedAt": 1788725988,
+    "claims": 4,
+    "duration": 72,
+    "retarget": 0.25,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 10,
+    "target": "0xa2500a2d056c9868672731c198a0bf0",
+    "openedAt": 1788726060,
+    "claims": 4,
+    "duration": 288,
+    "retarget": 0.959999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 11,
+    "target": "0x9bd1f549f0ba2be958c977722c1f6fa",
+    "openedAt": 1788726348,
+    "claims": 4,
+    "duration": 144,
+    "retarget": 0.479999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 12,
+    "target": "0x4acb2e0f02e8b8eae2f0105fc3424a0",
+    "openedAt": 1788726492,
+    "claims": 4,
+    "duration": 432,
+    "retarget": 1.439999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 13,
+    "target": "0x6bb3f067894f1ec2e063ee9e60da561",
+    "openedAt": 1788726924,
+    "claims": 4,
+    "duration": 288,
+    "retarget": 0.959999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 14,
+    "target": "0x67650fbf8e0e83ee480e03cb3e423e2",
+    "openedAt": 1788727212,
+    "claims": 4,
+    "duration": 144,
+    "retarget": 0.479999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 15,
+    "target": "0x31a126477763209b55c9498046d81dd",
+    "openedAt": 1788727356,
+    "claims": 4,
+    "duration": 504,
+    "retarget": 1.679999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 16,
+    "target": "0x5360a6b580e3f956e20a7b7b584c5b0",
+    "openedAt": 1788727860,
+    "claims": 4,
+    "duration": 360,
+    "retarget": 1.199999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 17,
+    "target": "0x640d94d9cdde5e684272fa94038ed39",
+    "openedAt": 1788728220,
+    "claims": 4,
+    "duration": 288,
+    "retarget": 0.959999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 18,
+    "target": "0x600d09c6da1d276e54456b6f5f935a7",
+    "openedAt": 1788728508,
+    "claims": 4,
+    "duration": 432,
+    "retarget": 1.439999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 19,
+    "target": "0x8a503709ddec8ab35aa16781a8594f0",
+    "openedAt": 1788728940,
+    "claims": 4,
+    "duration": 216,
+    "retarget": 0.719999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 20,
+    "target": "0x6395ea30106cdebe932c87f6f417579",
+    "openedAt": 1788729156,
+    "claims": 4,
+    "duration": 360,
+    "retarget": 1.199999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 21,
+    "target": "0x7780b2a013b5d817e3cf098ebe82691",
+    "openedAt": 1788729516,
+    "claims": 4,
+    "duration": 360,
+    "retarget": 1.2,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 22,
+    "target": "0x8f673cc017a7034fde2ba511b1694ae",
+    "openedAt": 1788729876,
+    "claims": 4,
+    "duration": 288,
+    "retarget": 0.959999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 23,
+    "target": "0x89aac9ae2b2fb1426ee23810fc3c1ee",
+    "openedAt": 1788730164,
+    "claims": 4,
+    "duration": 216,
+    "retarget": 0.719999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 24,
+    "target": "0x631ecea65c88bd111ca2e0b011c4e30",
+    "openedAt": 1788730380,
+    "claims": 4,
+    "duration": 8208,
+    "retarget": 4,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 25,
+    "target": "0x18c7b3a997222f444728b82c047138c0",
+    "openedAt": 1788738588,
+    "claims": 1,
+    "duration": 36720,
+    "retarget": 4,
+    "closedBy": "roll"
+  },
+  {
+    "epoch": 26,
+    "target": "0x631ecea65c88bd111ca2e0b011c4e300",
+    "openedAt": 1788775308,
+    "claims": 4,
+    "duration": 30744,
+    "retarget": 2.582719,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 27,
+    "target": "0xffffffffffffffffffffffffffffffff",
+    "openedAt": 1788806052,
+    "claims": 4,
+    "duration": 72,
+    "retarget": 0.25,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 28,
+    "target": "0x40000000000000000000000000000000",
+    "openedAt": 1788806124,
+    "claims": 4,
+    "duration": 360,
+    "retarget": 1.199999,
+    "closedBy": "claims"
+  },
+  {
+    "epoch": 29,
+    "target": "0x4ccccccccccccccccccccccccccccccc",
+    "openedAt": 1788806484,
+    "claims": 2,
+    "duration": 10296,
+    "retarget": 3.333333,
+    "closedBy": "roll"
+  },
+  {
+    "epoch": 30,
+    "target": "0xffffffffffffffffffffffffffffffff",
+    "openedAt": 1788816780,
+    "claims": 1,
     "duration": null,
     "retarget": null,
     "closedBy": null

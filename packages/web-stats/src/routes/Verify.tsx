@@ -3,8 +3,9 @@
 import { useAtomValue } from 'jotai';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import type { DeploymentRecord } from '../../../site/src/config.ts';
-import { KvRow, Tile, TileHeader } from '../../../ui/src/index.ts';
+import { ExternalLink, KvRow, Tile, TileHeader } from '../../../ui/src/index.ts';
 import { W_VK_HASH } from '../../../work-circuit/src/generated/vk.ts';
+import { links } from '../explorer';
 import { reproduceCommand } from '../lib/reproduce.ts';
 import { chainAtom } from '../state';
 
@@ -20,11 +21,21 @@ const record = JSON.parse(import.meta.env.VITE_DEPLOYMENT_RECORD) as DeploymentR
   params?: Record<string, string | number>;
 };
 
-const Hex = ({ value, testId }: { value: string; testId?: string }) => (
-  <code className="break-all font-mono text-xs" data-testid={testId}>
-    {value}
-  </code>
-);
+/** A value in full; with `href`, the explorer's page for it one click away (the code stays the exact text). */
+const Hex = ({ value, testId, href }: { value: string; testId?: string; href?: string }) => {
+  const code = (
+    <code className="break-all font-mono text-xs" data-testid={testId}>
+      {value}
+    </code>
+  );
+  return href ? (
+    <ExternalLink href={href} full={value} className="text-ink">
+      {code}
+    </ExternalLink>
+  ) : (
+    code
+  );
+};
 
 const stamp = (unix?: string) => (unix ? `${new Date(Number(unix) * 1000).toISOString()} (${unix})` : '—');
 
@@ -37,15 +48,33 @@ export function Verify({ nodeUrl }: { nodeUrl: string }) {
         <TileHeader>the deployment this page was built for</TileHeader>
         <KvRow label="profile" value={record.profile ?? import.meta.env.VITE_SITE_MODE} />
         <KvRow label="chain id · rollup version" value={`${record.chainId} · ${record.rollupVersion}`} />
-        <KvRow label="miner" value={<Hex value={record.miner} testId="verify-miner" />} />
+        <KvRow
+          label="miner"
+          value={<Hex value={record.miner} testId="verify-miner" href={links.instance(record.miner)} />}
+        />
         <KvRow
           label="miner class id"
-          value={<Hex value={record.minerClassId} testId="verify-miner-class" />}
+          value={
+            <Hex
+              value={record.minerClassId}
+              testId="verify-miner-class"
+              href={links.classVersion(record.minerClassId)}
+            />
+          }
         />
-        <KvRow label="token" value={<Hex value={record.token} testId="verify-token" />} />
+        <KvRow
+          label="token"
+          value={<Hex value={record.token} testId="verify-token" href={links.instance(record.token)} />}
+        />
         <KvRow
           label="token class id"
-          value={<Hex value={record.tokenClassId} testId="verify-token-class" />}
+          value={
+            <Hex
+              value={record.tokenClassId}
+              testId="verify-token-class"
+              href={links.classVersion(record.tokenClassId)}
+            />
+          }
         />
         <KvRow
           label="deployer (no privilege after bind_token)"
