@@ -70,11 +70,11 @@ test('first visit creates an account, mines at the easy target, claims and shows
   await expect(page.getByTestId('balance')).toHaveText('0');
   await expect(page.getByTestId('balance').locator('xpath=..')).toHaveText(/^0\s*tYACA$/);
   // The M1 frame at 1280 (the default viewport) and 1440: 1080 wide, three equal tracks and the
-  // 300-px rail; between md and xl two equal columns, the rail beside the stacked ledger and key tile.
+  // 300-px rail; between md and xl two equal columns, the rail beside the stacked ledger and balance tile.
   const cockpit = page.getByTestId('cockpit');
   const tracks = () => cockpit.evaluate((el) => getComputedStyle(el).gridTemplateColumns);
   const width = () => cockpit.evaluate((el) => el.getBoundingClientRect().width);
-  // The rail right of the loop and above the key tile; the KPIs and the ledger under the loop, as wide.
+  // The rail right of the loop and above the balance tile; the KPIs and the ledger under the loop, as wide.
   const placed = () =>
     cockpit.evaluate((el) => {
       const [loop, rail, kpis, stack] = Array.from(el.children) as HTMLElement[];
@@ -115,18 +115,42 @@ test('first visit creates an account, mines at the easy target, claims and shows
   expect(await tracks()).toBe('246px 246px 246px 300px');
   expect(await width()).toBe(1080);
   expect(await placed()).toBe(true);
+  // The loop tile's height is fixed: the claim lives in the rail's slot, which is dashed until a win.
+  const loopHeight = () =>
+    cockpit.evaluate((el) => (el.firstElementChild as HTMLElement).getBoundingClientRect().height);
+  const idleHeight = await loopHeight();
+  await expect(page.getByTestId('claim-slot')).toContainText('no claim in flight');
   await page.getByTestId('start').click();
   await expect(page.getByTestId('phase')).toHaveText('mining');
   // The easy target wins every other proof; the claim is then proved in-page and mined.
   await expect(page.getByTestId('phase')).toHaveText('claiming', { timeout: 5 * 60_000 });
+  await expect(page.getByTestId('claim-slot')).toHaveAttribute('data-state', 'claim');
+  await expect(page.getByTestId('claim-stepper')).toBeVisible();
+  expect(await loopHeight()).toBe(idleHeight);
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
   await expect(page.getByTestId('balance')).toHaveText('4');
   await expect(page.getByTestId('epoch-claims')).toHaveText('1 of 4');
-  await expect(page.getByTestId('ledger')).toContainText('minted, privately');
+  // The acknowledgement sits in the slot for ten seconds while mining has already resumed.
+  await expect(page.getByTestId('claim-slot')).toHaveAttribute('data-state', 'minted');
+  await expect(page.getByTestId('minted').getByRole('link', { name: /block/ })).toHaveAttribute(
+    'href',
+    /\/blocks\/\d+$/,
+  );
+  expect(await loopHeight()).toBe(idleHeight);
+  const ledger = page.getByTestId('ledger');
+  await expect(ledger).toContainText('minted, privately');
+  await expect(ledger.getByRole('link', { name: /block/ })).toHaveAttribute('href', /\/blocks\/\d+$/);
+  await expect(ledger.getByRole('link', { name: /effects/ })).toHaveAttribute(
+    'href',
+    /\/tx-effects\/0x[0-9a-f]{64}$/,
+  );
   // Mining resumes on its own after a claim; stop it cleanly.
   await expect(page.getByTestId('phase')).toHaveText('mining');
+  await expect(page.getByTestId('claim-slot')).toContainText('no claim in flight', { timeout: 15_000 });
   await page.getByTestId('stop').click();
   await expect(page.getByTestId('phase')).toHaveText('idle');
+  // The nav reaches the stats app on the same origin.
+  await expect(page.getByTestId('nav-stats')).toHaveAttribute('href', /\/stats\/$/);
   // Second visit: the persisted account signs again and its notes are still there.
   const account = await page.getByTestId('account').getAttribute('title');
   await page.reload();
@@ -225,4 +249,33 @@ test('a prover crash surfaces as an error and mining restarts on the next start'
   await expect(page.getByTestId('phase')).toHaveText('mining');
   await expect(page.getByTestId('tickets')).not.toHaveText('0', { timeout: 2 * 60_000 });
   await page.getByTestId('stop').click();
+});
+
+test('the pop-out draws with the page fonts and its own loop', async ({ page, context }) => {
+  const r = run();
+  await bootPage(page, pageUrl(r));
+  const supported = await page.evaluate(() => 'documentPictureInPicture' in window);
+  test.skip(!supported, 'Document Picture-in-Picture is not available in this browser build');
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('switch', { name: 'Mini window' }).click();
+  await page.getByRole('link', { name: 'Mine' }).click();
+  const popped = context.waitForEvent('page');
+  await page.getByTestId('pop-out').click();
+  const pip = await popped;
+  await pip.waitForLoadState();
+  await expect(pip.locator('[data-slot=score-loop][data-calm]')).toBeVisible();
+  // A loaded face, not `fonts.check`, which is true for a face that never loaded; and no failed font request.
+  const fonts = await pip.evaluate(async () => {
+    await document.fonts.ready;
+    const loaded = Array.from(document.fonts).filter(
+      (f) => f.family.includes('Hanken Grotesk') && f.status === 'loaded',
+    ).length;
+    const failed = performance
+      .getEntriesByType('resource')
+      .filter((e) => /\.woff2?(\?|$)/.test(e.name) && (e as PerformanceResourceTiming).responseStatus >= 400);
+    return { loaded, failed: failed.map((e) => e.name) };
+  });
+  expect(fonts.failed).toEqual([]);
+  expect(fonts.loaded).toBeGreaterThan(0);
+  await pip.close();
 });
