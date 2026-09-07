@@ -1,0 +1,122 @@
+<title>Yacana Second Pass</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #f2efe9; --panel: #e8e4dc; --panel-2: #dfdad1;
+    --ink: #0a0a0b; --ink-2: rgba(10,10,11,.68); --ink-3: rgba(10,10,11,.46);
+    --line: rgba(10,10,11,.12); --uv: #5b3fe0; --uv-dim: rgba(91,63,224,.12);
+    --ok: #1f8a4c; --warn: #9a6b00;
+    --sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0a0a0b; --panel: #17171b; --panel-2: #1e1e24;
+      --ink: #f2efe9; --ink-2: rgba(242,239,233,.64); --ink-3: rgba(242,239,233,.4);
+      --line: rgba(242,239,233,.1); --uv: #8c6bff; --uv-dim: rgba(140,107,255,.18);
+      --ok: #58c98b; --warn: #e8b54d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0a0a0b; --panel: #17171b; --panel-2: #1e1e24;
+    --ink: #f2efe9; --ink-2: rgba(242,239,233,.64); --ink-3: rgba(242,239,233,.4);
+    --line: rgba(242,239,233,.1); --uv: #8c6bff; --uv-dim: rgba(140,107,255,.18);
+    --ok: #58c98b; --warn: #e8b54d;
+  }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 400 16px/1.55 var(--sans); }
+  main { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; }
+  h1, h2, h3 { font-weight: 600; letter-spacing: -.02em; text-wrap: balance; margin: 0; }
+  h1 { font-size: 34px; line-height: 1.1; }
+  h2 { font-size: 22px; margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--line); }
+  h3 { font-size: 17px; margin-top: 20px; }
+  p { margin: 12px 0; max-width: 65ch; }
+  .eyebrow { font: 500 11.5px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--uv); margin-bottom: 14px; }
+  .lede { font-size: 18px; color: var(--ink-2); }
+  code { font-family: var(--mono); font-size: .9em; }
+  pre { font: 400 12.5px/1.5 var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; overflow-x: auto; white-space: pre-wrap; margin: 12px 0; }
+  .phase { margin: 16px 0; padding: 14px 18px; border-left: 2px solid var(--line); }
+  .phase h3 { margin-top: 0; }
+  .gate { font: 400 13px/1.5 var(--mono); color: var(--ink-3); margin: 8px 0 0; }
+  .arc { font: 500 11.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); margin-top: 28px; }
+  ul { padding-left: 20px; } li { margin: 6px 0; max-width: 65ch; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 12px 0; }
+  th, td { text-align: left; padding: 7px 10px 7px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 500 11px/1.3 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  .approval { background: var(--uv-dim); border-left: 2px solid var(--uv); padding: 14px 18px; margin: 24px 0; }
+  .approval h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 18px; }
+  .rec { border-color: var(--uv); background: var(--panel); }
+  .warn { color: var(--warn); font-weight: 500; }
+  .muted { color: var(--ink-3); font-size: 14px; }
+  .kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 16px; font-size: 14px; margin: 10px 0; }
+  .kv dt { font: 500 11px/1.6 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  .kv dd { margin: 0; }
+  a { color: var(--uv); }
+</style>
+
+<main>
+  <p class="eyebrow">Plan · mid tier · yacana-second-pass</p>
+  <h1>Make the three pages read the way you picked them</h1>
+  <p class="lede">You chose the screens on the design canvas. This plan turns those picks into three pull requests: a shorter landing whose only chart sits in the hero, a stats page with one lead chart and a table that scrolls, and a calmer miner whose claim lives in the side rail, with one Send sheet, a proper Sign out, and every address linked to the explorer. Two independent reviewers audited it, then a fresh third pass; every finding is folded in.</p>
+
+  <h2>What changes, in one breath</h2>
+  <ul>
+    <li><strong>Landing.</strong> Six sections instead of seven, about half the words. The hero's right side becomes a small live tile: four numbers and, under them, the bar's last six epochs with a dot per accepted claim. The in-page demo and "Prove one now" are gone, and with them the 20 MB download the landing used to make. "Don't trust this page" becomes "See for yourself." with one button.</li>
+    <li><strong>Stats.</strong> The difficulty chart becomes the full-width lead; the other three become a row of small charts; the epochs table caps its height and keeps its header while you scroll. The page shows time passing: the open epoch counts up each second with a small ring, the block dot pulses, numbers glide when they change, and a new "since you opened" tile counts what happened while you watched. Labels say "the escape hatch" and "20 min" instead of code names. The tab reads "Yacana · Stats" and all three apps get the mark as their icon.</li>
+    <li><strong>Miner.</strong> The loop chart calms down: the bar is the only line, proofs are dim ticks under it, a win is drawn bright with its score, nothing is written inside the chart. A claim in flight lives in a reserved slot at the top of the right rail, so the chart never jumps. "Your key" becomes "balance" with Send; Receive is gone; the account is called an account everywhere. Send is one sheet: amount first, then Privately or Publicly as two cards that say what each means, a review step, and a receipt that links the transaction. "Forget" becomes Sign out: a dialog whose button you hold for a second and then release (letting go early cancels), with a "Can't hold? Sign out with a click" link always present, and a "back up first" path for a words account that never confirmed its words. The pop-out window is redrawn and its broken fonts fixed. Settings loses the diagnostics dump; a "Copy diagnostics" button replaces it.</li>
+    <li><strong>Everywhere.</strong> Every address, class id, block and transaction opens on aztecscan in a new tab.</li>
+  </ul>
+
+  <h2>Two things the reviews changed from the canvas</h2>
+  <ul>
+    <li><strong>The "expecting a private transfer?" box stays</strong>, smaller and reworded. On Aztec the recipient's wallet only finds a new sender's notes after it has been told about that sender. Removing the box would silently break receiving from another Yacana account. Receive itself is still removed.</li>
+    <li><strong>The landing's ledger shows one recorded claim, labelled as such.</strong> The chain's public storage keeps counts, not the hashes, and nothing in deployment ever makes a claim. So the ledger's example comes from a small file you produce once by running a script with the hash of a real testnet claim; the script checks, from the transaction itself, that it really was a claim on this deployment and what the counter went from and to. Until that file exists the ledger shows dashes, which the automated test also checks.</li>
+  </ul>
+
+  <h2>Why this tier</h2>
+  <p><strong>Mid.</strong> Of the six risk dimensions (novelty, blast radius, irreversibility, migration cost, external coupling, security sensitivity) one is high: blast radius, because every page changes at once. Nothing is novel, nothing migrates, nothing is irreversible, the only external coupling is a link to an explorer, and the one security-flavoured change (sign out) is guarded. One plan, a competing outline, two independent audits, a fresh final pass.</p>
+
+  <h2>Phases</h2>
+  <p class="arc">Arc 1 · design system + miner · first pull request</p>
+  <div class="phase"><h3>1.1 The shared pieces</h3><p>The explorer link builder (it checks every address it is given), the icon injection, a number that glides, a hold-to-confirm button, the two-card chooser, and the calm mode of the loop chart. Nothing the stats page renders today is touched, so its pixel test keeps passing on this pull request.</p><p class="gate">Proves itself by: lint, every package's typecheck, the unit tests, the component tests for each new piece.</p></div>
+  <div class="phase"><h3>1.2 The cockpit</h3><p>The calm loop, the claim slot in the rail (with the small state changes that keep the "minted" line alive for ten seconds even though mining restarts at once, and keep three minutes of proofs), the balance card, the Stats link, the gliding readouts, the redrawn pop-out with its fonts diagnosed in both builds before they are fixed.</p><p class="gate">Proves itself by: lint, typecheck, unit tests for the state changes, the cockpit component tests.</p></div>
+  <div class="phase"><h3>1.3 Send, Sign out, the wallet page, the words</h3><p>The three-step Send, the sign-out dialog with its plain-button and back-up-first paths, the wallet page with one account, the sign-up copy, "key" to "account" everywhere with a test that keeps it that way (and leaves the storage and sign-in internals alone), the shortened diagnostics button.</p><p class="gate">Proves itself by: lint, typecheck, unit and component tests, and the vocabulary guard test.</p></div>
+  <div class="phase"><h3>1.4 The miner in a real browser</h3><p>The end-to-end suite on the isolated local network drives Send both ways, signs out a words account only after it backs up, and checks that the chart's height never changes during a claim and that the pop-out's fonts load.</p><p class="gate">Proves itself by: the miner's Playwright suite, green, on a production build.</p></div>
+
+  <p class="arc">Arc 2 · stats · second pull request</p>
+  <div class="phase"><h3>2.1 The observatory</h3><p>The lead chart, the small charts, the capped table with its sticky header, the plain-words labels, the live cues, the titles. Three small files are split out so no component grows past the project's size budget.</p><p class="gate">Proves itself by: lint, typecheck, unit and component tests.</p></div>
+  <div class="phase"><h3>2.2 The pixel test</h3><p>The reference screenshots are regenerated once inside the pinned browser image and committed with the code; the live suite checks the linked block and that the table really scrolls under its header.</p><p class="gate">Proves itself by: the screenshot comparison with zero difference, and the stats Playwright suite.</p></div>
+
+  <p class="arc">Arc 3 · landing + site · third pull request</p>
+  <div class="phase"><h3>3.1 The landing</h3><p>The hero tile with its small chart, the six sections, the ledger from the recorded claim, "See for yourself.", and the removal of the demo: two directories, two dependencies, the download steps, the workflow filters, one line of docs.</p><p class="gate">Proves itself by: lint, typecheck, unit and component tests, a frozen install (the lockfile shrank cleanly), and a check that the built landing contains no prover.</p></div>
+  <div class="phase"><h3>3.2 The landing in a real browser</h3><p>Six sections in order, the hero reading the chain, no prover download at any point, the ledger in both its states, the explorer links. The assembled site still serves the prover files for the miner.</p><p class="gate">Proves itself by: the landing's Playwright suite and the assembled-site suite.</p></div>
+
+  <h2>After the phases</h2>
+  <p>At the end of each arc a fresh Codex session reviews that arc's diff against the canvas and the plan; fixes land, it re-reviews, until a round finds nothing material. After all three arcs one more fresh session reviews the whole change for seams between arcs. Only then are the three pull requests opened, stacked, with 1280 and 1440 renders beside the canvas boards. Merging and deploying stay yours.</p>
+
+  <h2>Open question</h2>
+  <ul>
+    <li><strong>Ask 1.</strong> The transaction hash of one accepted testnet claim, for the landing's recorded example. Any claim from the soak will do; the script reads the rest from the node. Without it the arc still ships, the ledger just shows dashes on testnet.</li>
+  </ul>
+
+  <div class="approval">
+    <h2>What you are approving</h2>
+    <ul>
+      <li>The scope above, including the two review-driven deviations from the canvas (the senders box stays; the ledger shows a labelled example).</li>
+      <li>The mid tier, no code-review pass (the Codex loop is the review), the validation layers (unit and component tests on every phase, the browser suites at each arc's end, the stats pixel test).</li>
+      <li>Three stacked pull requests: design system + miner, then stats, then landing + site.</li>
+      <li>No hardening pass scheduled.</li>
+    </ul>
+    <p class="muted">Reply <code>approve</code>, <code>conditional approve (with conditions: …)</code>, or <code>reject (with blocking findings: …)</code>.</p>
+  </div>
+
+  <h2>Implementation seeds (draft until approval)</h2>
+  <p>Paste exactly one of these into a session sitting in the plan's worktree (<code>agent-worktree resume yacana-second-pass</code>). They do not compose.</p>
+  <div class="phase rec">
+    <h3>Recommended: /goal</h3>
+    <pre>/goal All phases marked ✓ in implementations-plan/yacana-second-pass/plan.md (the per-phase headers in the file — not the chat, not the task list), each ✓ backed by its phase's validation gate (as defined in plan.md) reported passing in the transcript; for each phase the agent has printed `LESSONS_FILE=implementations-plan/yacana-second-pass/lessons/phase-N.md` in the transcript; `/code-review` was NOT run (code_review is off); the codex fix loop converged for EVERY reviewed diff — each of the three arcs at its boundary plus the final cross-arc pass — each convergence evidenced by a resumed codex pass reporting no new material findings, quoted in the transcript; the Delivery section's PR topology exists on GitHub, created only AFTER all loops converged (`gh stack view` output in the transcript), each PR body linking the 1280/1440 renders beside the canvas artboard; `bun run lint` and `bun test` both report exit 0 in the transcript.</pre>
+  </div>
+  <h3>Alternative: /loop 15m</h3>
+  <pre>/loop 15m Drive implementations-plan/yacana-second-pass forward. Never idle waiting for my input. Each firing: (1) read plan.md and lessons/ (authoritative state), rebuild the task list from plan.md if empty, `git status`, `git log --oneline -5`, and `gh stack view` if a stack exists; (2) waiting on CI is fine if it is progressing (`gh run watch` up to 10 min), use the wait to prep the next phase; (3) no task in hand → take the next pending phase, after each meaningful edit run `bun run lint` and the touched packages' tests and `typecheck`, commit, `gh stack rebase` → fast gates → `gh stack push`; (4) stuck or facing a decision → `/codex high` with full context, decide, act, log the consult in lessons/phase-N.md; hard limits stay hard (never merge, deploy, push to main, or expand scope beyond plan.md); (5) same step failed 5 times → stop and reassess with codex; (6) phase green means its validation gate in plan.md passes: run it, paste the result, mark ✓, print `LESSONS_FILE=…`, `agent-worktree status yacana-second-pass "phase N green: <next>"`; arc boundary → the codex loop with the arc map and the plan's two rules until a round yields nothing material, then `gh stack add <next-arc-branch>`; (7) all phases ✓ → the final cross-arc codex pass (fresh session, net diff from 85cb3fe), then Delivery per plan.md (`gh stack submit --auto --open`, `gh pr edit` bodies, `gh pr checks --watch`), then the wrap-up report; surface and stop.</pre>
+  <p class="warn">Use exactly one per session. Start the session in the permission mode you intend; a loop stalls silently on a permission prompt.</p>
+  <p class="muted">Full plan: <code>implementations-plan/yacana-second-pass/plan.md</code> in the repo · audits: <code>audit-codex.md</code>, <code>audit-fable.md</code> · recon: <code>recon.md</code>.</p>
+</main>
