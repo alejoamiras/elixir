@@ -86,7 +86,7 @@ export function WordsBackup({
       <div>
         <h1 className="text-2xl">Your twelve words</h1>
         <p className="mt-2 text-ink-2">
-          Write them down, in order, somewhere offline. They are the only way back into this key and its
+          Write them down, in order, somewhere offline. They are the only way back into this account and its
           balance.
         </p>
       </div>
@@ -128,7 +128,7 @@ export function WordsBackup({
         </Button>
         {onSkip && (
           <Button variant="link" disabled={busy} onClick={() => go(onSkip)} data-testid="words-skip">
-            Skip for now (the key stays "not backed up")
+            Skip for now (the account stays "not backed up")
           </Button>
         )}
       </div>
@@ -189,7 +189,7 @@ export function WordsRestore({
           }}
           data-testid="words-open"
         >
-          {busy ? 'Opening…' : 'Open key'}
+          {busy ? 'Opening…' : 'Open account'}
         </Button>
         <Button variant="link" disabled={busy} onClick={onBack}>
           Back

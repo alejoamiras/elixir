@@ -316,7 +316,7 @@ export function reduce(state: MinerState, event: Event): [MinerState, Command[]]
       const notice: Notice = {
         kind: 'paused',
         title: 'claims paused',
-        body: `The reset did not unblock this key. It can claim again once the reverted claim finalizes on L1, in about ${minutes} min. Mining resumes by itself.`,
+        body: `The reset did not unblock this account. It can claim again once the reverted claim finalizes on L1, in about ${minutes} min. Mining resumes by itself.`,
         until: event.until,
       };
       return [{ ...state, phase: 'idle', notice }, []];

@@ -381,7 +381,7 @@ dual-runner rule, so the spec passes `now` in).
 Validation gate: `bun run lint && TC1 && bun run --cwd packages/web-miner test:components && bun test
 packages/web-miner` exit 0. Layers: lint/typecheck · unit · component.
 
-**P1.3 Send, Sign out, the wallet page, sign-up copy, the rename, Settings.** `SendSheet` (three steps, `RadioCards`,
+**P1.3 ✓ Send, Sign out, the wallet page, sign-up copy, the rename, Settings.** `SendSheet` (three steps, `RadioCards`,
 `max` at full precision, the snapshot through the sent step, `withdraw` returns `{block, txHash}`); `SignOutDialog` +
 `HoldButton` + the plain confirm + the "Back up the twelve words" path; Wallet route (`BalanceTile`, `AccountTile` with
 "Back up now", the compact `Senders` row, capped linked `ClaimsHistory`; delete Receive, `KeysOnDevice`, the recovery

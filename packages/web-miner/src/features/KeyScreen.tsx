@@ -54,10 +54,10 @@ function CreateKey({ session, error }: { session: Session; error?: string }) {
   return (
     <div className="flex max-w-[640px] flex-col gap-5" data-testid="key-screen">
       <div>
-        <h1 className="text-2xl">Create your key.</h1>
+        <h1 className="text-2xl">Sign up with a passkey.</h1>
         <p className="mt-2 text-ink-2">
-          A passkey signs you in with Face ID, Touch ID, Windows Hello or your device PIN. There's nothing to
-          write down.
+          Your account lives in a passkey on this device, synced where your platform syncs passkeys. Face ID,
+          Touch ID, Windows Hello or your device PIN signs you in; nothing is written down.
         </p>
       </div>
       {error && (
@@ -72,8 +72,8 @@ function CreateKey({ session, error }: { session: Session; error?: string }) {
           <div>
             <h3 className="text-lg">Passkey</h3>
             <p className="text-sm text-ink-2">
-              Your key is derived from the passkey and never leaves this device. It follows your passkeys to
-              your other devices.
+              The account is derived from the passkey and never leaves this device. It follows your passkeys
+              to your other devices.
             </p>
           </div>
         </div>
@@ -85,7 +85,7 @@ function CreateKey({ session, error }: { session: Session; error?: string }) {
             data-testid="consent"
             className="mt-1 accent-uv"
           />
-          I understand my passkey is the only way back into this key. There is no backup of a passkey key.
+          I understand my passkey is the only way back into this account. There is no backup of a passkey.
         </label>
         <Button
           variant="uv"
@@ -94,11 +94,11 @@ function CreateKey({ session, error }: { session: Session; error?: string }) {
           onClick={() => go(() => session.createWithPasskey())}
           data-testid="create-passkey"
         >
-          {busy ? 'Waiting for your device…' : 'Create with passkey'}
+          {busy ? 'Waiting for your device…' : 'Sign up with a passkey'}
         </Button>
         <p className="text-xs text-warn">
-          Keep the passkey synced. If it isn't synced and you lose this device, the key and its balance can't
-          be recovered.
+          Keep the passkey synced. Lose every copy of the passkey and the account and its balance are lost
+          with it.
         </p>
       </div>
       <div className="flex gap-5 text-sm">
@@ -128,7 +128,7 @@ function CreateKey({ session, error }: { session: Session; error?: string }) {
         </Button>
       </div>
       <p className="text-xs text-ink-2">
-        This key is not an address to share: whoever knows it can link its first claim to it.
+        This account is not an address to share: whoever knows it can link its first claim to it.
       </p>
     </div>
   );
@@ -186,7 +186,7 @@ function WelcomeBack({
     <div className="flex max-w-[640px] flex-col gap-5" data-testid="key-screen">
       <div>
         <h1 className="text-2xl">Welcome back.</h1>
-        <p className="mt-2 text-ink-2">Your balance follows the key, not the browser.</p>
+        <p className="mt-2 text-ink-2">Your balance follows the account, not the browser.</p>
       </div>
       {error && (
         <Alert variant="bad" data-testid="key-error">
@@ -205,7 +205,7 @@ function WelcomeBack({
           Enter twelve words instead
         </Button>
         <Button variant="link" disabled={busy} onClick={() => setCreate(true)} data-testid="create-new-key">
-          Create a new key
+          Create a new account
         </Button>
       </div>
     </div>

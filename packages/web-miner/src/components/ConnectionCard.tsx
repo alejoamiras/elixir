@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Input, Label, Tile, TileHeader } from '../../../ui/src/index.ts';
 import { allowedNodeOrigins, type Connection, isPinnedByQuery, saveConnection } from '../config';
+import { diagnostics } from '../lib/diagnostics';
 
 const fields: { key: keyof Connection; label: string; placeholder: string }[] = [
   { key: 'nodeUrl', label: 'Node URL', placeholder: 'https://…' },
@@ -8,8 +9,9 @@ const fields: { key: keyof Connection; label: string; placeholder: string }[] = 
   { key: 'token', label: 'Token contract', placeholder: '0x…' },
 ];
 
-export function ConnectionCard({ connection }: { connection: Connection }) {
+export function ConnectionCard({ connection, log }: { connection: Connection; log: readonly string[] }) {
   const [draft, setDraft] = useState(connection);
+  const [copied, setCopied] = useState<'ok' | 'failed' | null>(null);
   const pinned = isPinnedByQuery();
   const dirty = JSON.stringify(draft) !== JSON.stringify(connection);
   return (
@@ -46,6 +48,25 @@ export function ConnectionCard({ connection }: { connection: Connection }) {
           This build's security policy allows nodes at {allowedNodeOrigins().join(', ')}
           {import.meta.env.DEV ? ' and local nodes' : ''}; other origins need a rebuild.
         </p>
+        <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
+          <Button
+            size="sm"
+            onClick={() =>
+              navigator.clipboard
+                .writeText(diagnostics(log))
+                .then(() => setCopied('ok'))
+                .catch(() => setCopied('failed'))
+            }
+            data-testid="copy-diagnostics"
+          >
+            {copied === 'ok' ? 'Copied' : 'Copy diagnostics (shortened)'}
+          </Button>
+          <span className="text-ink-3 text-xs">
+            {copied === 'failed'
+              ? 'The clipboard refused; the log is also in the browser console.'
+              : "The last 200 lines, addresses shortened. It names this account's claims and the node."}
+          </span>
+        </div>
       </div>
     </Tile>
   );

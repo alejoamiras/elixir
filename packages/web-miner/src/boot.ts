@@ -145,7 +145,7 @@ export async function startSession(
   let opened = await openWallet(pre.node, pre.chainId);
   let controller: MinerController | undefined;
   try {
-    step(`registering your key ${shortAddress(record.account.address)}`);
+    step(`registering your account ${shortAddress(record.account.address)}`);
     const fields = await deriveAccountFields(master, record.account.index);
     const account = await registerAccount(opened, fields);
     if (account.toString() !== record.account.address)

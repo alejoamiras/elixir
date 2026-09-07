@@ -13,7 +13,7 @@ import {
 } from '../../miner-core/src/keys/mnemonic.ts';
 import { keysAllowed } from '../../site/src/browser/host.ts';
 import { type Preflighted, preflight, startSession } from './boot';
-import { readPublicBalance, recipientKnown, sendWithdraw, type Withdrawal } from './chain';
+import { readPublicBalance, recipientKnown, type Sent, sendWithdraw, type Withdrawal } from './chain';
 import type { Connection } from './config';
 import type { MinerController } from './controller';
 import { assertPasskey, createPasskey } from './keys/passkey';
@@ -66,7 +66,7 @@ export class Session {
 
   private guardHost(): void {
     if (!keysAllowed(location.hostname))
-      throw new Error(`keys can only be created or restored on ${this.rpId}`);
+      throw new Error(`accounts can only be created or restored on ${this.rpId}`);
   }
 
   private async fail(e: unknown): Promise<void> {
@@ -96,7 +96,7 @@ export class Session {
       );
       const { credentialId, prf } = await createPasskey({
         rpId: this.rpId,
-        userName: 'Yacana key',
+        userName: 'Yacana account',
         exclude: known,
       });
       const master = await masterFromPrf(prf);
@@ -133,7 +133,7 @@ export class Session {
 
   private async masterFromCeremony(record: MasterRecord): Promise<Uint8Array> {
     if (record.method !== 'passkey' || !record.credentialId)
-      throw new Error('this key needs its twelve words to open');
+      throw new Error('this account needs its twelve words to open');
     const { prf } = await assertPasskey({ rpId: this.rpId, allow: [fromBase64url(record.credentialId)] });
     return masterFromPrf(prf);
   }
@@ -227,13 +227,13 @@ export class Session {
 
   /** Someone expects to send us notes: the PXE needs the sender to find them. */
   async addSender(address: string): Promise<void> {
-    if (!this.wallet) throw new Error('no open key');
+    if (!this.wallet) throw new Error('no open account');
     await this.wallet().registerSender(AztecAddress.fromStringUnsafe(address), '');
   }
 
   /** Whether anything on the chain or in the wallet knows the recipient as a contract. */
   async recipientKnown(to: AztecAddress): Promise<boolean> {
-    if (!this.pre || !this.wallet) throw new Error('no open key');
+    if (!this.pre || !this.wallet) throw new Error('no open account');
     return recipientKnown(this.wallet(), this.pre.node, to);
   }
 
@@ -242,14 +242,14 @@ export class Session {
    * A balance read failing after the transfer is in a block cannot fail the call, or the same
    * transfer would be sent again.
    */
-  async withdraw(w: Withdrawal): Promise<number> {
+  async withdraw(w: Withdrawal): Promise<Sent> {
     const c = this.controller;
-    if (!c) throw new Error('no open key');
+    if (!c) throw new Error('no open account');
     c.pause('withdraw');
     try {
-      const block = await sendWithdraw(c.deployment, c.address, c.feeSettings, w);
+      const sent = await sendWithdraw(c.deployment, c.address, c.feeSettings, w);
       await c.refresh().catch((e: unknown) => c.log(`balance after withdraw: ${String(e)}`));
-      return block;
+      return sent;
     } finally {
       c.release('withdraw');
     }
@@ -257,7 +257,7 @@ export class Session {
 
   publicBalance(owner: string): Promise<bigint> {
     const c = this.controller;
-    if (!c) throw new Error('no open key');
+    if (!c) throw new Error('no open account');
     return readPublicBalance(c.deployment, c.address, AztecAddress.fromStringUnsafe(owner));
   }
 

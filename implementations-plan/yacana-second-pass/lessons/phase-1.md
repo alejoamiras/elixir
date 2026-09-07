@@ -39,3 +39,27 @@ Gate: lint clean; the six typechecks exit 0; `bun test packages/web-miner` 54 pa
   copies inline `<style>` elements as text, and is 360 × 190 with the 48 px calm strip drawn on its own window
   (`ScoreLoop win`). Whether the fonts load is asserted in P1.4's E2E, not assumed here.
 - The miner's tests tsconfig has no jest-dom matcher types; the cockpit spec uses `queryBy… not.toBeNull()`.
+
+## P1.3 · Send, Sign out, the wallet page, the rename, Settings (2026-09-07) ✓
+
+Gate: lint clean; the six typechecks exit 0; `bun test packages/web-miner packages/miner-core scripts` 112 pass
+(8 live tests skipped); `test:components` 40 pass; the rename guard passes.
+
+- **The rename is a script of exact pairs** (kept in the session scratchpad, not the repo): 30 strings across
+  eleven files. Four were missed on the first pass because the source uses curly apostrophes (`key’s`) and one
+  sentence wraps across lines; grep for the exact bytes before assuming a string is absent.
+- **The guard scans copy, not code**: string literals and JSX text, minus imports, test ids, comments and the
+  boot phase literal `'key'` (an identifier). It exempts `keys/store.ts` (`yacana-keys`, the AAD prefix) and
+  `keys/passkey.ts` (`'public-key'`) by file, with the reason beside each. Compounds (`passkey`, `proving
+  keys`, `device key`, …) are removed before the match.
+- **The passkey's WebAuthn `userName`** changed from "Yacana key" to "Yacana account": it is the label the OS
+  shows in its passkey picker. Existing credentials keep their stored label; only new ones get the new one.
+  Nothing about sign-in depends on it.
+- **The vault store's three internal errors** (`this key is not stored on this device`, `not a words key`, `a
+  words key is always sealed`) stay: they are invariants for developers, never shown, and the file is exempt.
+- **Diagnostics** are a pure function (`lib/diagnostics.ts`) with a unit test: last 200 lines, 400 characters
+  each, 16 KB total, long hex shortened, URL credentials and queries stripped. The button says what it copies.
+- `SendSheet` keeps every `data-testid` the E2E uses (`withdraw`, `withdraw-to`, `withdraw-amount`,
+  `withdraw-review`, `withdraw-send`, `withdraw-sent`, `public-warning`, `unknown-recipient`) so P1.4 changes
+  assertions, not selectors; new ids: `withdraw-max`, `sent-block`, `sent-tx`, `sign-out`, `sign-out-hold`,
+  `sign-out-plain`, `sign-out-click`, `back-up-first`, `wallet-account`, `claims-history`, `copy-diagnostics`.

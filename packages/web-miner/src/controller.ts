@@ -491,7 +491,7 @@ export class MinerController {
     if (settings.sound) chime();
     if (settings.notify && typeof Notification !== 'undefined' && Notification.permission === 'granted')
       new Notification('Yacana · claim minted', {
-        body: `A claim from this key landed in block ${block.toLocaleString('en-US')}.`,
+        body: `A claim from this account landed in block ${block.toLocaleString('en-US')}.`,
         tag: 'yacana-claim',
       });
   }
@@ -516,7 +516,7 @@ export class MinerController {
    * reopened, the page has no working wallet and only a reload helps.
    */
   private async rebuildChainView() {
-    this.log('lost a race: rebuilding this key’s chain view from the chain…');
+    this.log('lost a race: rebuilding this account’s chain view from the chain…');
     let rebound: Rebound;
     try {
       if (!this.recover) throw new Error('no recovery available');

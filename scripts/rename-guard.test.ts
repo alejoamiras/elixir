@@ -75,3 +75,62 @@ describe('rename guard', () => {
     for (const n of names) expect(n === 'yacana' || n.startsWith('@yacana/')).toBe(true);
   });
 });
+
+// The person's account is an "account" in every sentence the miner shows; "key" is for cryptography.
+// Only copy is scanned (JSX text and the string literals of user-facing messages); persistent and
+// protocol strings must never change, since renaming them would strand accounts or break sign-in.
+const COPY_ROOTS = ['packages/web-miner/src', 'packages/miner-core/src/claim-failure.ts'];
+const COPY_EXEMPT_FILES = [
+  /\.test\.tsx?$/,
+  /\.vitest\.tsx$/,
+  /\/keys\/store\.ts$/, // DB_NAME 'yacana-keys', the AAD prefix 'yacana-key:', the vault's own invariants
+  /\/keys\/passkey\.ts$/, // WebAuthn's literal 'public-key'
+  /\/shims\//,
+];
+/** Compounds where "key" is the cryptographic object, not the account. */
+const KEY_COMPOUNDS =
+  /\b(passkeys?|proving keys?|verifier key|device key|admin key|spend key|public-key|secret key|signing key|private key|key material|api key)\b/gi;
+const ACCOUNT_KEY = /\bkeys?\b/i;
+/**
+ * A line's copy: JSX text between tags, and string literals; imports, paths, test ids, comments and code
+ * identifiers are not copy. The boot phase named 'key' (the sign-in screen's state) is an identifier.
+ */
+const copyOf = (line: string): string => {
+  if (/^\s*(import|export|\/\/|\/?\*)/.test(line) || /data-testid=|from '|require\(/.test(line)) return '';
+  const strings = [...line.matchAll(/(['"`])((?:\\.|(?!\1).)*)\1/g)]
+    .map((m) => m[2] ?? '')
+    .filter((str) => !/^key$/.test(str));
+  const jsx = [...line.matchAll(/>([^<>{}]+)</g)].map((m) => m[1] ?? '');
+  return [...strings, ...jsx].join(' ');
+};
+
+describe('account, not key', () => {
+  test('no user-facing copy in the miner calls the account a key', () => {
+    const files = tracked.filter(
+      (f) => COPY_ROOTS.some((r) => f.startsWith(r)) && !COPY_EXEMPT_FILES.some((re) => re.test(f)),
+    );
+    const hits = files.flatMap((f) =>
+      readFileSync(resolve(repo, f), 'utf8')
+        .split('\n')
+        .map((line, i) => ({ text: copyOf(line).replace(KEY_COMPOUNDS, ''), i }))
+        .filter(({ text }) => ACCOUNT_KEY.test(text))
+        .map(({ i }) => `${f}:${i + 1}`),
+    );
+    expect(hits).toEqual([]);
+  });
+
+  test('the copy scanner sees sentences, not identifiers, and lets the compounds through', () => {
+    expect(copyOf('<p>Your key is derived from the passkey.</p>')).toContain('Your key');
+    expect(copyOf("throw new Error('no open key')")).toContain('no open key');
+    expect(copyOf("import { keysAllowed } from './keys/allowed';")).toBe('');
+    expect(copyOf('<div data-testid="key-screen">')).toBe('');
+    expect(copyOf('const key = record.key;')).toBe('');
+    expect(copyOf("if (boot.phase !== 'key') return null;")).toBe('');
+    expect(copyOf('  /** "I already have a key": a discoverable request. */')).toBe('');
+    expect(ACCOUNT_KEY.test('Sign up with a passkey.'.replace(KEY_COMPOUNDS, ''))).toBe(false);
+    expect(ACCOUNT_KEY.test('20 MB of proving keys'.replace(KEY_COMPOUNDS, ''))).toBe(false);
+    expect(ACCOUNT_KEY.test('the account is sealed under a device key'.replace(KEY_COMPOUNDS, ''))).toBe(
+      false,
+    );
+  });
+});

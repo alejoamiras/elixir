@@ -125,23 +125,23 @@ export function Settings({
         )}
       </Tile>
       <Tile>
-        <TileHeader>Key</TileHeader>
+        <TileHeader>Account</TileHeader>
         {boot.phase === 'ready' && boot.record.method === 'passkey' ? (
           <>
             <Toggle
               id="stay-open"
               label="Stay open on this device"
-              hint="off (default): one touch per open, no spend secret at rest · on: the key is sealed under a device key in this browser's storage (plaintext-equivalent against a stolen unencrypted disk)"
+              hint="off (default): one touch per open, no spend secret at rest · on: the account is sealed under a device key in this browser's storage (plaintext-equivalent against a stolen unencrypted disk)"
               value={!boot.record.askEveryOpen}
               onChange={(v) => void session.setStayOpen(v)}
             />
             <p className="mt-3 text-xs text-warn">
-              A passkey key has no backup: if the passkey is lost and was not synced, so is the balance. Move
-              funds off a key that holds more than a session's worth.
+              A passkey account has no backup: if the passkey is lost and was not synced, so is the balance.
+              Move funds off an account that holds more than a session's worth.
             </p>
           </>
         ) : (
-          <p className="text-xs text-ink-2">Open a key to see its options.</p>
+          <p className="text-xs text-ink-2">Open an account to see its options.</p>
         )}
       </Tile>
       <Tile>
@@ -154,15 +154,9 @@ export function Settings({
         <KvRow label="build" value={import.meta.env.VITE_SITE_MODE} />
         <KvRow label="bb.js" value={import.meta.env.VITE_BB_VERSION} />
         <KvRow label="relying party" value={import.meta.env.VITE_RP_ID} />
-        <details className="mt-3 text-xs">
-          <summary className="cursor-pointer text-ink-2">diagnostics</summary>
-          <pre className="mt-2 max-h-48 overflow-auto font-mono text-2xs text-ink-2" data-testid="log">
-            {log.length ? log.join('\n') : 'nothing yet'}
-          </pre>
-        </details>
       </Tile>
       <div className="md:col-span-2">
-        <ConnectionCard connection={connection} />
+        <ConnectionCard connection={connection} log={log} />
       </div>
     </div>
   );
