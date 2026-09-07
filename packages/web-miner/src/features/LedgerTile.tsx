@@ -1,5 +1,6 @@
 import { useAtomValue } from 'jotai';
 import { ProofLedger, Tile, TileHeader } from '../../../ui/src/index.ts';
+import { ledgerLinks } from '../explorer';
 import { minerAtom } from '../state';
 
 export function LedgerTile({ className }: { className?: string }) {
@@ -8,7 +9,12 @@ export function LedgerTile({ className }: { className?: string }) {
     <Tile className={className}>
       <TileHeader aside="★ win · ✓ minted · ✗ failed · ── epoch">proofs, newest first</TileHeader>
       {miner.ledger.length ? (
-        <ProofLedger lines={miner.ledger} className="max-h-80 overflow-y-auto" data-testid="ledger" />
+        <ProofLedger
+          lines={miner.ledger}
+          linkFor={ledgerLinks}
+          className="max-h-80 overflow-y-auto"
+          data-testid="ledger"
+        />
       ) : (
         <p className="text-xs text-ink-2">nothing yet</p>
       )}

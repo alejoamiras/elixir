@@ -366,7 +366,7 @@ Validation gate: `bun run lint && TC1 && bun test packages/site packages/ui && b
 test:components` exit 0; `git diff --stat main -- packages/ui/src/components/chip.tsx packages/ui/src/components/segmented.tsx`
 empty (the stats visual job runs on this PR against the old baselines). Layers: lint/typecheck · unit · component.
 
-**P1.2 The cockpit: calm loop, claim slot, balance card, nav, tweens, pop-out.** Reducer: `Minted.at`, `attempt` and `startJob` keep
+**P1.2 ✓ The cockpit: calm loop, claim slot, balance card, nav, tweens, pop-out.** Reducer: `Minted.at`, `attempt` and `startJob` keep
 `minted`, `winner` clears it, `SAMPLE_SPAN_MS = 180_000`, `pillStatus` takes `now` and the ten-second freshness
 (+ `bun test` cases: claimed → start → attempt keeps `minted`; claimed → winner replaces it; the pill is `minted` at
 5 s and `idle` at 11 s after a stop; samples older than 180 s drop; `axisTop` on an empty window); `LoopTile` status row + `calm` (non-claim notices stay under the loop); `ClaimSlot`

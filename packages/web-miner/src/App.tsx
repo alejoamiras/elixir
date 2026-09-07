@@ -32,6 +32,8 @@ const NAV: { route: Route; label: string }[] = [
   { route: 'wallet', label: 'Wallet' },
   { route: 'settings', label: 'Settings' },
 ];
+/** The stats app lives beside this one on the same origin; standalone builds point at the assembled path. */
+const statsHref = `${(import.meta.env.BASE_URL ?? '/').replace(/\/mine\/?$/, '/')}stats/`;
 
 function useTabStatus(enabled: boolean) {
   const miner = useAtomValue(minerAtom);
@@ -77,6 +79,9 @@ function Shell({ children }: { children: ReactNode }) {
               {n.label}
             </a>
           ))}
+          <a href={statsHref} className="py-1 text-ink-2 hover:text-ink" data-testid="nav-stats">
+            Stats ↗
+          </a>
         </nav>
         <span className="ml-auto flex items-center gap-3">
           <Badge variant="warn">testnet · fees sponsored</Badge>

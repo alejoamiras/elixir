@@ -29,7 +29,7 @@ export interface ClaimProgress {
   expiresAt?: number;
 }
 
-/** What the chain saw of the last claim; shown until the next attempt. */
+/** What the chain saw of the last claim; kept until the next claim, shown fresh for MINTED_FRESH_MS. */
 export interface Minted {
   block: number;
   txHash: string;
@@ -39,7 +39,14 @@ export interface Minted {
   noteHashes: number;
   /** The epoch's claim count before and after. */
   claims: [number, number];
+  /** Wall clock (ms) of the mint; the acknowledgement's freshness runs from here. */
+  at: number;
 }
+
+/** How long a mint counts as fresh: the slot shows its ✓ and the pill says minted for this long. */
+export const MINTED_FRESH_MS = 10_000;
+export const mintedFresh = (m: Minted | null, nowMs: number): boolean =>
+  m !== null && nowMs - m.at < MINTED_FRESH_MS;
 
 export type NoticeKind = 'reverted' | 'expired' | 'failed' | 'prover-dead' | 'offline' | 'paused';
 
@@ -110,7 +117,7 @@ export type Event =
   | { type: 'winner'; epoch: bigint; secretId: number; at?: number }
   | { type: 'sent'; txHash: string; expiresAt?: number; at?: number }
   | { type: 'included'; block: number; at?: number }
-  | ({ type: 'claimed'; reward: string } & Minted & Partial<Clock>)
+  | ({ type: 'claimed'; reward: string } & Omit<Minted, 'at'> & Partial<Clock>)
   | ({ type: 'failed'; error: string; kind?: ClaimFailure } & Partial<Clock>)
   | { type: 'recovered'; at?: number }
   /** The honest pause after a recovery that did not unblock the key. */
@@ -127,7 +134,8 @@ export type Command =
 
 const RECENT = 20;
 const LEDGER = 200;
-const SAMPLE_SPAN_MS = 60_000;
+/** Three minutes of proofs: the calm loop's window, about thirty samples at six seconds a proof. */
+export const SAMPLE_SPAN_MS = 180_000;
 
 const clock = (at?: number): string => new Date(at ?? Date.now()).toISOString().slice(11, 19);
 const now = (at?: number): number => at ?? Date.now();
@@ -166,7 +174,6 @@ function attempt(state: MinerState, e: Extract<Event, { type: 'attempt' }>): Min
     best,
     samples,
     winAt: e.win ? e.t : state.winAt,
-    minted: null,
     ledger: line(state, l),
   };
 }
@@ -196,8 +203,9 @@ function winner(state: MinerState, e: Extract<Event, { type: 'winner' }>): [Mine
   if (state.phase !== 'mining' || !state.job) return [state, []];
   if (e.epoch !== state.job.epoch || e.secretId !== state.job.secretId)
     return [state, [{ type: 'discard', reason: 'won against a closed epoch' }]];
+  // A new claim in flight replaces the last mint's acknowledgement.
   const claim: ClaimProgress = { step: 'proving', since: now(e.at), done: [] };
-  return [{ ...state, phase: 'claiming', claim, notice: null }, [{ type: 'submit' }]];
+  return [{ ...state, phase: 'claiming', claim, minted: null, notice: null }, [{ type: 'submit' }]];
 }
 
 /** Moves the claim to its next step, closing the elapsed time of the current one. */
@@ -214,7 +222,8 @@ function advance(
 }
 
 function claimed(state: MinerState, e: Extract<Event, { type: 'claimed' }>): MinerState {
-  const { type: _, reward, at, t: __, ...minted } = e;
+  const { type: _, reward, at, t: __, ...rest } = e;
+  const minted: Minted = { ...rest, at: now(at) };
   return {
     ...state,
     phase: 'idle',
@@ -226,6 +235,7 @@ function claimed(state: MinerState, e: Extract<Event, { type: 'claimed' }>): Min
       kind: 'minted',
       time: clock(at),
       text: `claim in block ${e.block.toLocaleString('en-US')} · ${reward} minted, privately`,
+      links: { block: e.block, tx: e.txHash },
     }),
   };
 }

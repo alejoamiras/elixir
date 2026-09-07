@@ -20,3 +20,22 @@ Decisions made while building:
 - **`ScoreLoop` split**: `drawCalmWin`, `tick`, `layout`, `scaleFor`, `frame` keep every function under Biome's
   cognitive budget of 15 (`draw` and `drawCalmDots` had reached 20).
 - The tween's settled signal for the stats visual fixture lands in P2.1, where the fixture is.
+
+## P1.2 · the cockpit (2026-09-07) ✓
+
+Gate: lint clean; the six typechecks exit 0; `bun test packages/web-miner` 54 pass; `test:components` 36 pass.
+
+- **The reducer's mint lifetime**: `attempt` and `startJob` no longer clear `minted`; `winner` does (a new claim
+  in flight), and `claimed` replaces it. Freshness (`MINTED_FRESH_MS`, `mintedFresh`) is the display's business:
+  the slot and `pillStatus(m, now)` share it, so a stop long after a claim shows idle, not a stale minted.
+- **`SAMPLE_SPAN_MS` is 180 s** and exported; the reducer test drives eighty proofs to prove the trim.
+- **Ledger links are resolved by the app**: the reducer records `links: {block, tx}` as values (pure, no config),
+  `ProofLedger` takes a `linkFor` resolver, and `web-miner/src/explorer.ts` builds it from the site's explorer
+  module. `Marks`' chips stay copy-only; the ✓ line's "block" and "effects" anchors carry the links.
+- **Vitest needs the explorer env stubbed** (`tests/setup.ts`, `vi.stubEnv('VITE_EXPLORER_URL', …)`), the
+  same pattern web-stats uses for the deployment record; without it the links render as plain text, which is
+  the production behaviour when the base is `off`.
+- **The pop-out** now re-links stylesheets by URL instead of copying `cssText` (the plan's first candidate),
+  copies inline `<style>` elements as text, and is 360 × 190 with the 48 px calm strip drawn on its own window
+  (`ScoreLoop win`). Whether the fonts load is asserted in P1.4's E2E, not assumed here.
+- The miner's tests tsconfig has no jest-dom matcher types; the cockpit spec uses `queryBy… not.toBeNull()`.

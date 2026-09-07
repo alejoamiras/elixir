@@ -1,11 +1,11 @@
-import { WalletCard } from '../components/WalletCard';
+import { BalanceCard } from '../components/BalanceCard';
 import type { MinerController } from '../controller';
 import { LedgerTile } from '../features/LedgerTile';
 import { KpiTiles, LoopTile } from '../features/LoopTile';
 import { RailTile } from '../features/RailTile';
 
 /**
- * The ledger and the key tile share a wrapper so that between `md` and `xl` they stack beside the
+ * The ledger and the balance tile share a wrapper so that between `md` and `xl` they stack beside the
  * rail; at `xl` it dissolves (`contents`) and the grid places them itself.
  */
 export function Mine({ controller }: { controller: () => MinerController | undefined }) {
@@ -19,7 +19,7 @@ export function Mine({ controller }: { controller: () => MinerController | undef
       <KpiTiles className="md:col-span-2 xl:col-span-3" />
       <div className="contents md:order-4 md:flex md:flex-col md:gap-[14px] xl:contents">
         <LedgerTile className="xl:col-span-3" />
-        <WalletCard />
+        <BalanceCard />
       </div>
     </div>
   );

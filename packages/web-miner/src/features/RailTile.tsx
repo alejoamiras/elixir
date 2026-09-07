@@ -6,9 +6,11 @@ import type { MinerController } from '../controller';
 import { duration } from '../lib/format';
 import { useSettings } from '../settings';
 import { bootAtom, claimsAtom, epochAtom, minerAtom, nowAtom, rulesAtom } from '../state';
+import { ClaimSlot } from './ClaimSlot';
 
 const cores = () => navigator.hardwareConcurrency || 2;
 
+/** The rail column: the claim slot on top, then the epoch tile with the power slider. */
 export function RailTile({
   controller,
   className,
@@ -16,6 +18,15 @@ export function RailTile({
   controller: () => MinerController | undefined;
   className?: string;
 }) {
+  return (
+    <div className={cn('flex flex-col gap-[14px]', className)} data-testid="rail">
+      <ClaimSlot />
+      <EpochTile controller={controller} />
+    </div>
+  );
+}
+
+function EpochTile({ controller }: { controller: () => MinerController | undefined }) {
   const epoch = useAtomValue(epochAtom);
   const rules = useAtomValue(rulesAtom);
   const now = useAtomValue(nowAtom);
@@ -31,7 +42,7 @@ export function RailTile({
   };
   const nowSec = BigInt(Math.floor(now / 1000));
   return (
-    <Tile className={cn('flex flex-col gap-5', className)}>
+    <Tile className="flex flex-col gap-5">
       {epoch && rules ? (
         <EpochRail
           epoch={Number(epoch.epoch)}

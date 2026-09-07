@@ -16,6 +16,7 @@ interface ImportMetaEnv {
   readonly VITE_YACANA_TOKEN_CLASS: string;
   readonly VITE_E2E_QUERY_OVERRIDES: string;
   readonly VITE_LAUNCH_MODE: string;
+  readonly VITE_EXPLORER_URL: string;
   /** JSON of the deployment record the build was made for. */
   readonly VITE_DEPLOYMENT_RECORD: string;
 }
