@@ -207,3 +207,5 @@ round-tripping `&` and quotes), the baselines byte-identical to the shots.
 with "reading the chain…", so a launch-mode capture could pass while loading. The readiness filters that text
 out. A fourth resumed pass confirms convergence; the rounds past the plan's third were each a narrowing of one
 tooling line in `render-surfaces.ts`, not churn in the product, and are surfaced to the owner in the report.
+
+**Round 4** (resumed, over `bf2b7f7..2135c06`): "no new material findings". The cross-arc pass converged.
