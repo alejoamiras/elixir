@@ -82,10 +82,12 @@ never in the repo):
 bun run site:deploy        # = bun run --cwd packages/site deploy: assemble the production site, then wrangler deploy
 ```
 
-Git-triggered deploys are optional: Workers Builds (dashboard: connect the repository, root directory
-`packages/site`, build command `bun install --frozen-lockfile && bun run build`, deploy command `bunx wrangler deploy`,
-variable `BUN_VERSION=1.4.0`) runs the same two steps on every push to `main`; nothing else is configured there, the
-file carries the rest. `bun run e2e:agent -- bun run site:e2e` serves an e2e assembly with `wrangler dev` and asserts
+Git-triggered deploys: Workers Builds (dashboard: connect the repository, root directory `packages/site`, build
+command `bun install --frozen-lockfile && bun run build`, deploy command `bunx wrangler deploy`, variable
+`BUN_VERSION=1.4.0`) runs the same two steps on every push to `main` and, for every other branch, uploads a version
+instead of deploying it and posts its `workers.dev` preview URL on the pull request (the apps show the preview
+banner there and offer no keys). Connected on 2026-09-07; nothing else is configured there, the file carries the
+rest. `bun run e2e:agent -- bun run site:e2e` serves an e2e assembly with `wrangler dev` and asserts
 every path's app, identical headers, `build.json` and the landing's proof.
 
 First production deploy: 2026-09-06, Worker version `ea00520a-65bf-415a-b524-4235442159c6`, commit `aef4edd`
