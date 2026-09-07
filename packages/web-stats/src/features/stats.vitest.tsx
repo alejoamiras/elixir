@@ -4,6 +4,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { type EpochRow, rowsFromJson } from '../../../miner-core/src/reader.ts';
 import { Difficulty, Duration, Emission, Retarget } from '../charts/index.tsx';
+import { span } from '../charts/specs';
 import { selectedFromSearch } from '../routes';
 import { Stats } from '../routes/Stats';
 import { type Chain, chainAtom, sinceOpenedAtom, unsettledAtom } from '../state';
@@ -92,16 +93,29 @@ describe('charts on the captured history', () => {
     );
     expect(late?.parentElement?.getAttribute('text-anchor')).toBe('end');
     cleanup();
-    // A history that stopped before the chain's open epoch: its last row is not called open.
+    // A history that stopped before the chain's open epoch: its last row is not called open, on the axis or in the tip.
     const stale = render(<Difficulty rows={rows} selected={null} rules={RULES} open={OPEN + 1} />).container;
     expect(texts(stale, '[aria-label="x-axis tick label"] text').at(-1)).toBe('30');
+    const openRow = rows[OPEN] as EpochRow;
+    expect(span(openRow, OPEN)).toBe('open');
+    expect(span(openRow, OPEN + 1)).toBe('closed · not read yet');
+    expect(span(rows[3] as EpochRow, OPEN)).toBe('144 s');
   });
 
-  test('emission over a short history keeps its fractional hours', () => {
-    const { container } = render(<Emission rows={rows.slice(0, 5)} selected={null} rules={RULES} open={4} />);
-    const x = texts(container, '[aria-label="x-axis tick label"] text');
+  test('emission over a short history reads in minutes, over a long one in hours', () => {
+    // Epochs 1–4: eleven minutes end to end (epoch 0's day-long roll is left out).
+    const short = render(
+      <Emission rows={rows.slice(1, 5)} selected={null} rules={RULES} open={4} />,
+    ).container;
+    const x = texts(short, '[aria-label="x-axis tick label"] text');
+    expect(x.length).toBeGreaterThan(1);
     expect(new Set(x).size).toBe(x.length);
-    expect(x.every((t) => /^\+\d+(\.\d)? h$/.test(t ?? ''))).toBe(true);
+    expect(x.every((t) => /^\+\d+ min$/.test(t ?? ''))).toBe(true);
+    cleanup();
+    const long = render(<Emission rows={rows} selected={null} rules={RULES} open={OPEN} />).container;
+    expect(texts(long, '[aria-label="x-axis tick label"] text').every((t) => /^\+\d+ h$/.test(t ?? ''))).toBe(
+      true,
+    );
   });
 });
 

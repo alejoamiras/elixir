@@ -168,8 +168,15 @@ export const emission: Spec = ({ rows, selected, rules, width, height }) => {
     { hours: end, minted: end * perHour },
   ];
   const at = (p: Point) => `+${p.hours.toFixed(1)} h`;
+  // Under an hour the axis reads in minutes: hour ticks a tenth apart would print the same label twice.
+  const minutes = end < 1;
   return base(width, height, {
-    x: { label: null, ticks: 4, tickFormat: (h: number) => `+${Number.isInteger(h) ? h : h.toFixed(1)} h` },
+    x: {
+      label: null,
+      ticks: 4,
+      tickFormat: (h: number) =>
+        minutes ? `+${Math.round(h * 60)} min` : `+${Number.isInteger(h) ? h : h.toFixed(1)} h`,
+    },
     y: {
       label: null,
       grid: true,
@@ -218,6 +225,10 @@ export const emission: Spec = ({ rows, selected, rules, width, height }) => {
     ],
   });
 };
+
+/** A row's length in words: closed rows their seconds, the chain's open epoch "open", a stale unread tail says so. */
+export const span = (r: EpochRow, open: number): string =>
+  r.duration !== null ? `${r.duration} s` : r.epoch === open ? 'open' : 'closed · not read yet';
 
 /** Difficulty per epoch as a step line, the open epoch included, log base 2; a roll annotated at its close. */
 export const difficultyChart: Spec = ({ rows, selected, open, width, height }) => {
@@ -300,7 +311,7 @@ export const difficultyChart: Spec = ({ rows, selected, open, width, height }) =
           x: mid,
           y: 'd',
           title: (s: Step) =>
-            `epoch ${s.epoch}\ndifficulty ${difficultyLabel(s.d)}\n${s.row.claims} claims · ${s.row.duration === null ? 'open' : `${s.row.duration} s`}${s.row.closedBy === 'roll' ? `\nclosed through the escape hatch · ${ratioLabel(s.row.retarget as number)} at the close` : ''}`,
+            `epoch ${s.epoch}\ndifficulty ${difficultyLabel(s.d)}\n${s.row.claims} claims · ${span(s.row, open)}${s.row.closedBy === 'roll' ? `\nclosed through the escape hatch · ${ratioLabel(s.row.retarget as number)} at the close` : ''}`,
         }),
       ),
     ],

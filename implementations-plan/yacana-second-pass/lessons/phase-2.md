@@ -76,3 +76,14 @@ Codex also noted the since-opened spec never saw the tween settle: it now `waitF
 under jsdom's real rAF and reads "+3". Gates after the round: web-stats components 19 ✓ · `test:visual` 4 passed,
 no diff (the final frame is unchanged) ✓ · the stats E2E 3 passed (1.2 m) with the width assertion ✓ · lint ✓ ·
 typecheck ✓. The renders in `shots/arc-2/` are re-taken.
+
+## Arc 2 codex loop · round 2 (2026-09-07)
+
+Resumed over `e3f27d5`: two remaining findings, both verified and adopted:
+
+| sev | finding | fix |
+|---|---|---|
+| P2 | One decimal of an hour is six minutes: an eleven-minute history still printed "+0.1 h" three times, and the round-1 spec had epoch 0's day-long roll in its slice, so it never saw fractional ticks. | Under an hour the axis reads in minutes (`+3 min`); the spec slices epochs 1–4 and asserts distinct `+N min` labels, and the full history's `+N h`. |
+| P2 | The lead chart's tip still said "open" from `duration === null`, contradicting the corrected axis on a stale tail. | `span(row, open)` words a row's length for the tip: seconds, "open" only for the chain's open epoch, "closed · not read yet" otherwise; unit-tested directly (Plot's pointer needs layout jsdom has not). |
+
+Gates: web-stats components 19 ✓ · `test:visual` 4 passed, no diff ✓ · lint ✓ · typecheck ✓.
