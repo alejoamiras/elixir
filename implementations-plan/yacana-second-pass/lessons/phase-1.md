@@ -99,3 +99,53 @@ Session `codex-hdIJKyZm` (Astra, high). Eleven findings, all verified against th
 | Low | Comments: `ExternalLink`'s intro, `tick`/`layout` narration, `session.forget`'s obsolete "typed confirmation". | Condensed, removed, updated; one comment added on the cross-window clock. |
 
 `HoldButton` crossed the 80-line budget with the pointer checks; the gesture moved into `useHold`.
+
+## Arc 1 codex loop · round 2 (2026-09-07)
+
+Resumed session; two material findings, both verified and adopted (`82f58ba`):
+
+| sev | finding | fix |
+|---|---|---|
+| Med | Space and Enter shared the owner `'key'`: holding Space to fill and tapping Enter confirmed. | Owners `'Space'` and `'Enter'` are distinct; the spec holds Space, taps Enter (no confirm), releases Space (one confirm). |
+| Med | `[https://user:pw@host/…]` was left intact: the matcher's bracket branch consumed the wrapper's `]` and the URL failed to parse, so the credentials survived. | The bracket branch only accepts an IPv6-shaped `[…]`; a stray `]` ends the match. Tests for `[…]`, `(…)`, and `[::1]`. |
+
+The `HoldButton` describe crossed the 80-line budget with the added cases; a `mountHold` helper and a split
+into pointer / keyboard describes brought it back.
+
+## Arc 1 codex loop · round 3 (2026-09-07)
+
+Resumed over `82f58ba`: **"No material findings."** The code review converged; the boundary's fidelity pass
+(below) had not run yet, because round 1 went out without the renders the plan asks for.
+
+## Arc 1 renders and the fidelity pass (2026-09-07)
+
+`shots/arc-1/`: the cockpit, wallet and settings at 1280 / 1440 from the isolated E2E server (`render-e2e.ts
+miner`, run inside `e2e:agent` with the miner's `run-setup.ts` / `run-teardown.ts` around it), beside the canvas
+artboards exported to PNG (`artboard-*.png`, the `.dc.html` sources rendered in Chromium with the `<x-dc>` /
+`<helmet>` wrapper stripped). A first pass by eye, fixed in `a1a3262`: the nav order (Stats ↗ before Settings, as
+drawn), the wallet account row stranding "·" on its own line when the not-backed-up badge wraps, "1 claims this
+session", and a negative "open for" (the isolated network's anvil runs ahead of the browser's clock; the display
+floors at zero, the retarget preview already clamped).
+
+Codex, resumed with the six images attached (`codex exec resume -i …`; the skill's `resume-codex.sh` has no image
+flag, so the call was mirrored by hand into the same session dir): five findings, all verified against the plan and
+adopted (`2b7d00b`):
+
+| sev | finding | fix |
+|---|---|---|
+| Med | The minted slot carried the three marks (≈172 px): the plan specifies one ✓ line. | `Acknowledged` is the line with the linked block; the marks stay behind the ledger's effects link. |
+| Med | The page's Space shortcut fired `start()` while Space was held on the sign-out button (no `defaultPrevented`, no repeat check). | The shortcut yields to a handled key and ignores repeats; a spec mounts `useHotkeys` beside a `HoldButton`. |
+| Med | Stats ↗ navigated the tab away, unloading the prover mid-proof. | `target="_blank" rel="noopener noreferrer"`. |
+| Low | The ledger read "claim in block 14 … block ↗ effects ↗". | The "block N" phrase is the link; the reducer's text is the reward half; the dead `chain` field is gone. |
+| Low | The account tile's address was plain text; the artboard links it. | `ExternalLink` to `/address/<addr>`. |
+
+Judged justified by codex: the senders card (note discovery needs registered senders), the words-account recovery
+row, the history's date format, the footer copy, the larger KPI numerals ("KPI row unchanged" in the plan).
+
+## Arc 1 codex loop · convergence (2026-09-07)
+
+Resumed over `2b7d00b`: **"No material findings."** Five rounds in one session (`01a07def-3b04-7bc0-b1bd-1b6b72dcfbe1`):
+11 → 2 → 0 on the code, then 5 → 0 on the renders. The renders in `shots/arc-1/` are re-taken from the converged
+tree below; the E2E gate is re-run on it too, since the fidelity round changed the ledger line and the slot.
+
+LESSONS_FILE=implementations-plan/yacana-second-pass/lessons/phase-1.md
