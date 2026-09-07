@@ -256,7 +256,7 @@ bun run --cwd packages/web-stats test:e2e` · `bun run site:build` (the Plot chu
 landing's bundle unchanged: asserted by `ls dist/assets` sizes in the lessons). Layers: lint · component ·
 e2e-isolated.
 
-**P3.3 The screenshot gate.** Goal: the fixture-only runner (`playwright.visual.config.ts`, `visual-setup.ts`
+**P3.3 The screenshot gate.** ✓ Goal: the fixture-only runner (`playwright.visual.config.ts`, `visual-setup.ts`
 with the stats-only e2e build, the recorded RPC answers, the owned port and teardown), `visual.e2e.ts` (fixed clock,
 fixed record and commit, fonts awaited, animations off, full page at 1280 / 1440 / 1024 / 390, zero tolerance,
 unexpected requests fail), the `test:visual` script running inside the pinned Playwright image; baselines committed;

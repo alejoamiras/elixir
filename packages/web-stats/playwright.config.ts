@@ -6,6 +6,8 @@ export default defineConfig({
   testDir: './e2e',
   // Not *.spec.ts / *.test.ts: the root `bun test` would pick those up.
   testMatch: /.*\.e2e\.ts$/,
+  // The screenshot gate has its own config, server and image (playwright.visual.config.ts).
+  testIgnore: /visual\.e2e\.ts$/,
   globalSetup: './e2e/global-setup.ts',
   globalTeardown: './e2e/global-teardown.ts',
   timeout: 5 * 60_000,

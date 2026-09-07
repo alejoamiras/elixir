@@ -29,6 +29,9 @@ packages/web-stats/e2e/.run.json
 packages/web-stats/e2e/.mock.json
 packages/web-stats/e2e/.dist/
 packages/web-stats/e2e/.vite.log
+packages/web-stats/e2e/.visual.json
+packages/web-stats/e2e/.visual-dist/
+packages/web-stats/e2e/.visual.log
 
 # web-landing prebuild outputs (CRS, artifacts, slot chunks, layouts) and E2E state
 packages/web-landing/public/artifacts/

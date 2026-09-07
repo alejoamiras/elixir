@@ -64,3 +64,39 @@ from the variable, the difficulty tip on hover) ✓ · `bun run site:build` ✓ 
 the renders at 1280 / 1440 / 1024 / 390 reviewed against A1.
 
 LESSONS_FILE=implementations-plan/yacana-fidelity/lessons/phase-3.md
+
+## P3.3 The screenshot gate (2026-09-07)
+
+- The runner is fixture-only: `visual-setup.ts serve` builds `e2e/.visual-dist` from the recorded deployment
+  (`visual-deployment.json`) with the mock origin as the node, a fixed source commit (the site config honours
+  `VITE_SOURCE_COMMIT` in e2e mode), only chunk 0 of the slot table (derived on the spot, no 512-chunk
+  generation) and the layouts, then serves it on a registry-claimed port; `visual.e2e.ts` answers every
+  JSON-RPC call from `visual-rpc.json` (40 answers: chain id, node info, two contracts, the latest block, 35
+  storage reads) and aborts anything else, which fails the test; the clock is fixed before the recorded block,
+  so the page's `nowSec` is the block's time and the freshness reads "0 s ago". Four full-page captures at
+  1280 / 1440 / 1024 / 390 against `e2e/__screenshots__/`, `threshold: 0`, `maxDiffPixels: 0`, animations off.
+- The recording (`visual-setup.ts record`, under `e2e:agent`) drives the built page once against a fresh
+  deployment with the fixture's storage overlaid and the rest forwarded, and keeps every answer under its
+  method and params. Both setups share `serve.ts` (the fixture storage, the build, the preview, the port).
+- `test:visual` (`visual.ts`) runs the spec inside `mcr.microsoft.com/playwright:v1.62.1-noble` through
+  Docker, or directly when `PLAYWRIGHT_VISUAL_IN_IMAGE=1` (the CI job runs in that container, with `unzip` for
+  setup-bun). The homelab's Docker is rootless: the host user is the container's root, so a numeric `--user`
+  would land on a subordinate uid with no access to the mount (the first run failed on `test-results`);
+  `--user` is passed only under rootful Docker, where it keeps the baselines from coming back as root's.
+- Proof the gate bites, before the baselines were committed: (a) the tile padding at 20 px instead of 18 — all
+  four captures fail (59 208 pixels at 1280); (b) the KPI unit tone `ink-3` → `ink-2` — all four fail (598
+  pixels); (c) the roll bars' colour `--warn` → `--uv` — all four fail (7 266 pixels). Then two clean passes
+  (4 passed, 7 s and 8 s wall-clock each, build included). CI's number comes from the arc-3 PR (the same-image
+  check); the job's budget is 15 minutes, its work is a checkout, `bun install`, one Vite build and four
+  captures.
+- The baselines are the arc-3 review's object: whether the first one is faithful is codex's call against A1;
+  the gate then holds that state.
+- The regular `playwright.config.ts` matched `*.e2e.ts` and so picked up the visual spec, which reads its run
+  file at load: `testIgnore` keeps it out; the stats E2E passed again (3, 45 s).
+
+Gate: three deliberate regressions each failed the spec (above) · `bun run --cwd packages/web-stats test:visual`
+passed twice without `--update-snapshots` (7 s, 8 s) · `bun run lint` ✓ · `bun run lint:actions` ✓ ·
+`bun run lint:shell` ✓ · `bun test` 147 pass / 8 skip ✓ · `bun run test:components` 29 / 34 / 11 / 14 ✓ · the stats
+E2E 3 passed ✓.
+
+LESSONS_FILE=implementations-plan/yacana-fidelity/lessons/phase-3.md

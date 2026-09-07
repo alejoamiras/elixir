@@ -46,3 +46,28 @@ jobs:
       - run: bun run --cwd packages/web-stats test:components
       # The slot table pinned against deriveStorageSlotInMap, and the CSV / metrics on the fixture.
       - run: bun test packages/miner-core/src/reader.test.ts packages/miner-core/src/metrics.test.ts packages/miner-core/src/csv.test.ts
+
+  visual:
+    name: Screenshot gate (pinned Playwright image)
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # The baselines were recorded inside this image; Chromium and the text stack are half of them.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    env:
+      PLAYWRIGHT_VISUAL_IN_IMAGE: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends unzip
+      - uses: ./.github/actions/setup-bun
+      - run: bun run --cwd packages/web-stats test:visual
+      - name: Keep the expected, actual and diff images
+        if: failure()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: web-stats-visual
+          path: packages/web-stats/test-results
+          if-no-files-found: ignore
+          retention-days: 14

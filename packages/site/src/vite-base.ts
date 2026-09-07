@@ -31,10 +31,12 @@ export interface SiteAppOptions {
   base?: string;
 }
 
+/** An e2e build may fix the commit it shows: a screenshot baseline must not move with every commit. */
 const sourceCommit = (env: NodeJS.ProcessEnv): string =>
-  env.CF_PAGES_COMMIT_SHA ??
-  env.GITHUB_SHA ??
-  execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
+  (env.YACANA_SITE_MODE === 'e2e' && env.VITE_SOURCE_COMMIT) ||
+  (env.CF_PAGES_COMMIT_SHA ??
+    env.GITHUB_SHA ??
+    execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim());
 
 /** Loads the config for the build at hand; `YACANA_SITE_MODE` picks e2e, otherwise the Vite command decides. */
 export function siteConfig(command: 'build' | 'serve', env: NodeJS.ProcessEnv = process.env): SiteConfig {

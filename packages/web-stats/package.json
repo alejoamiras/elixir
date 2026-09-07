@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test:components": "vitest run",
     "test:e2e": "bun scripts/prebuild.ts && playwright test",
+    "test:visual": "bun e2e/visual.ts",
     "typecheck": "tsc -b"
   },
   "dependencies": {
