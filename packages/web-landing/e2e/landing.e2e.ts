@@ -32,11 +32,6 @@ const tracks = (page: Page, id: string) =>
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
-/**
- * The L2 frames at a desktop width: the 1120 canvas, the hero's `1fr 1.1fr` and the live strip's
- * `repeat(4, 1fr) 1.4fr` filling it inside the binder's gaps and paddings, the ask centred as text
- * and as a button row.
- */
 async function expectFrames(page: Page) {
   expect(await page.locator('#hero').evaluate((el) => el.getBoundingClientRect().width)).toBe(1120);
   const hero = await tracks(page, 'hero');
@@ -54,12 +49,15 @@ async function expectFrames(page: Page) {
     const frame = el.getBoundingClientRect();
     const first = (row.firstElementChild as Element).getBoundingClientRect();
     const last = (row.lastElementChild as Element).getBoundingClientRect();
+    const box = heading.getBoundingClientRect();
     return {
       align: getComputedStyle(heading).textAlign,
+      offset: Math.abs((box.left + box.right) / 2 - (frame.left + frame.right) / 2),
       slack: Math.abs(first.left - frame.left - (frame.right - last.right)),
     };
   });
   expect(ask.align).toBe('center');
+  expect(ask.offset).toBeLessThanOrEqual(1);
   expect(ask.slack).toBeLessThanOrEqual(1);
 }
 

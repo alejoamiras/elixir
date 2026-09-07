@@ -11,7 +11,7 @@ export const FLASH_MS = 900;
 /** Log axis 1–1000: 0 at the floor, 1 at the ceiling; clamped. */
 export const axis = (score: number): number => Math.min(LOG_MAX, Math.max(0, Math.log10(score))) / LOG_MAX;
 
-/** One decimal below 1e6, the compact exponent above it, so a label never widens past its slot (a target of 1 reads 3.4e38). Finite positive inputs. */
+/** Finite positive inputs: one decimal below 1e6, the compact exponent (3.4e38) above it. */
 export const difficultyLabel = (d: number): string =>
   d >= 1e6 ? d.toExponential(1).replace('+', '') : d.toFixed(1);
 

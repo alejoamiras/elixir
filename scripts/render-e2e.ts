@@ -59,7 +59,13 @@ try {
     const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
     const page = await context.newPage();
     await page.goto(url.toString());
-    await (app === 'landing' ? landing : miner)(page, width);
+    try {
+      await (app === 'landing' ? landing : miner)(page, width);
+    } catch (e) {
+      // What the page showed when the wait ran out, next to the renders.
+      await shot(page, `${app}-failed`, width);
+      throw e;
+    }
     await context.close();
     console.log(`rendered ${width}`);
   }

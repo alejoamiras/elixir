@@ -70,3 +70,19 @@ with the plan, the recon, this file, the arc map and the four renders beside the
 
 Gates after round 1: `bun run lint` ✓ · `tsc` web-landing / ui ✓ · Vitest web-landing 11 ✓ · the landing E2E 3 passed
 (53.3 s) ✓ · the renders redone into `shots/arc2/`.
+
+**Round 2** (resumed, over `fd792a3..a5dc1a1`): two should-fix, two nits; codex confirmed the ×4.00 caption, the
+kept epoch number, the KPI variant, the SVG sizing, the table, the how titles and the mobile composition.
+1. *Should-fix, accepted.* Block sentences balance independently: the second sentence broke "YACA makes it /
+   need no witness." where the binder has "YACA makes it need / no witness.". `Headline` now keeps the sentences
+   inline with a `<br>` shown from `md`, so the whole headline balances around the forced break, as the binder's
+   `hero-h` does.
+2. *Should-fix, accepted.* The ask check lost the heading's centre (a translated heading would have passed on
+   `text-align` alone); the bounding-box centre comparison is back beside the alignment and button-row checks.
+3. *Nit, accepted.* The fixture's second target is `1n << 120n`, a quarter of the first, consistent with its
+   `retarget: 0.25`.
+4. *Nit, accepted.* The `expectFrames` narration and the over-promising half of the `difficultyLabel` comment
+   are gone.
+   Gates after round 2: `bun run lint` ✓ · `tsc` web-landing ✓ · Vitest web-landing 11 ✓ · the landing E2E 3 passed
+   (52.7 s) ✓ · the renders redone (the first render attempt timed out waiting for the live strip, a transient node
+   read; `render-e2e.ts` now keeps a `<app>-failed-<width>.png` when a wait runs out).

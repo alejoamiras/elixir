@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Button } from '../../../ui/src/index.ts';
 import type { DemoJob } from '../../../web-miner/src/demo/index.ts';
 import { copy } from '../copy';
@@ -11,15 +11,16 @@ import { Demo } from './Demo';
 /** The hero frame's grid and paddings; the launch-week hero shares them. */
 export const HERO_FRAME = 'grid gap-[30px] px-4 py-10 md:grid-cols-[1fr_1.1fr] md:px-9 md:pt-14 md:pb-11';
 
-/** The binder breaks the headline after its first sentence: each sentence is a block from `md`. */
+/** The binder forces a break after the first sentence and balances the whole; below `md` it flows. */
 export function Headline({ text }: { text: string }) {
   return (
     <h1 className="text-balance text-3xl font-semibold leading-[1.02] tracking-[-0.03em] md:text-[50px]">
       {text.split(/(?<=\.)\s+/).map((sentence, i) => (
-        <span key={sentence} className="md:block">
+        <Fragment key={sentence}>
+          {i > 0 && <br className="hidden md:inline" />}
           {i > 0 && ' '}
           {sentence}
-        </span>
+        </Fragment>
       ))}
     </h1>
   );

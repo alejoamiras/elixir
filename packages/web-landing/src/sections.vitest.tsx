@@ -32,7 +32,7 @@ const live: Live = {
     },
     {
       epoch: 1,
-      target: 1n << 122n,
+      target: 1n << 120n,
       openedAt: 1300,
       claims: 1,
       seed: 5n,
