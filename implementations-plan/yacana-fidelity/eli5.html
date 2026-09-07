@@ -1,0 +1,163 @@
+<title>Yacana Fidelity Pass</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #f2efe9; --panel: #e8e4dc; --panel-2: #dfdad1;
+    --ink: #0a0a0b; --ink-2: rgba(10,10,11,.68); --ink-3: rgba(10,10,11,.46);
+    --line: rgba(10,10,11,.12); --uv: #5b3fe0; --uv-dim: rgba(91,63,224,.12);
+    --ok: #1f8a4c; --warn: #9a6b00;
+    --sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0a0a0b; --panel: #17171b; --panel-2: #1e1e24;
+      --ink: #f2efe9; --ink-2: rgba(242,239,233,.64); --ink-3: rgba(242,239,233,.4);
+      --line: rgba(242,239,233,.1); --uv: #8c6bff; --uv-dim: rgba(140,107,255,.18);
+      --ok: #58c98b; --warn: #e8b54d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0a0a0b; --panel: #17171b; --panel-2: #1e1e24;
+    --ink: #f2efe9; --ink-2: rgba(242,239,233,.64); --ink-3: rgba(242,239,233,.4);
+    --line: rgba(242,239,233,.1); --uv: #8c6bff; --uv-dim: rgba(140,107,255,.18);
+    --ok: #58c98b; --warn: #e8b54d;
+  }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 400 16px/1.55 var(--sans); }
+  main { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; }
+  h1, h2, h3 { font-weight: 600; letter-spacing: -.02em; text-wrap: balance; margin: 0; }
+  h1 { font-size: 34px; line-height: 1.1; }
+  h2 { font-size: 22px; margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--line); }
+  h3 { font-size: 17px; margin-top: 20px; }
+  p { margin: 12px 0; max-width: 65ch; }
+  .eyebrow { font: 500 11.5px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--uv); margin-bottom: 14px; }
+  .lede { font-size: 18px; color: var(--ink-2); }
+  code { font-family: var(--mono); font-size: .9em; }
+  pre { font: 400 12.5px/1.5 var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; overflow-x: auto; white-space: pre-wrap; margin: 12px 0; }
+  .phase { margin: 16px 0; padding: 14px 18px; border-left: 2px solid var(--line); }
+  .phase h3 { margin-top: 0; }
+  .gate { font: 400 13px/1.5 var(--mono); color: var(--ink-3); margin: 8px 0 0; }
+  .arc { font: 500 11.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); margin-top: 28px; }
+  ul { padding-left: 20px; } li { margin: 6px 0; max-width: 65ch; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 12px 0; }
+  th, td { text-align: left; padding: 7px 10px 7px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 500 11px/1.3 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .approval { background: var(--uv-dim); border-left: 2px solid var(--uv); padding: 14px 18px; margin: 24px 0; }
+  .approval h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 18px; }
+  .rec { border-color: var(--uv); background: var(--panel); }
+  .warn { color: var(--warn); font-weight: 500; }
+  .muted { color: var(--ink-3); font-size: 14px; }
+  .kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 16px; font-size: 14px; margin: 10px 0; }
+  .kv dt { font: 500 11px/1.6 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  .kv dd { margin: 0; }
+  a { color: var(--uv); }
+</style>
+
+<main>
+  <p class="eyebrow">Plan · light tier · yacana-fidelity</p>
+  <h1>Bring the three pages to the design binder's frames</h1>
+  <p class="lede">The miner, the stats and the landing shipped with the binder's colours and components but not its page layouts. This plan makes the binder's frames the spec, rebuilds the stats charts on Observable Plot with hover tooltips and animated updates, and adds a screenshot test so the pages cannot drift again.</p>
+
+  <h2>What went wrong, in numbers</h2>
+  <p>The binder draws every page on an 1120-pixel canvas. The live pages were built narrower and stacked instead of gridded, which is why everything reads as cramped. The measurements below are copied from the binder's own stylesheet and are the plan's spec.</p>
+  <table>
+    <thead><tr><th>page</th><th>binder frame</th><th>live today</th></tr></thead>
+    <tbody>
+      <tr><td>miner cockpit</td><td class="num">1120 px · 4 columns: 1fr 1fr 1fr 300px</td><td class="num">768 px · 2 columns, 320 px rail</td></tr>
+      <tr><td>stats observatory</td><td class="num">1120 px · 6 columns, one KPI row</td><td class="num">1024 px · stacked, 3 × 2 KPI grid</td></tr>
+      <tr><td>landing</td><td class="num">7 frames, 1120 px, one screen each</td><td class="num">1024 px · sections with double padding</td></tr>
+      <tr><td>score loop height</td><td class="num">230 (cockpit) · 250 (hero)</td><td class="num">180 · not in the hero</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Your answers that shaped it</h2>
+  <dl class="kv">
+    <dt>charts</dt><dd>Observable Plot (built on D3): tooltips, a crosshair, annotations such as the escape-hatch line, 240 ms transitions when the poll brings a new epoch. About 150 KB more on the stats page only; the landing keeps its tiny sparkline.</dd>
+    <dt>fidelity</dt><dd>The frames are the spec. Where a frame is unachievable or would hurt at other widths, the deviation is discussed with the reviewer and logged.</dd>
+    <dt>miner scope</dt><dd>The cockpit: loop, rail, KPIs, ledger, key tile. The key screen, the twelve-words flow, the wallet and settings keep their layouts for now.</dd>
+    <dt>code_review</dt><dd>Off. The reviewer loop (Codex, every arc) is the review.</dd>
+  </dl>
+
+  <h2>Why the light tier</h2>
+  <p>Six risk dimensions, one high: external coupling (a new chart library). Novelty, blast radius, irreversibility, migration cost and security sensitivity are all low: the pages hold no keys during these layouts, nothing touches the chain or the reader, and every change is a revert away. A bounded, well-specified UI change is what the light tier is for.</p>
+
+  <h2>The phases</h2>
+  <p class="arc">Arc 1 · miner · one PR</p>
+  <div class="phase">
+    <h3>P1.1 Shell width, tiles and tokens</h3>
+    <p>Widen all three pages to the binder's 1120 pixels, give tiles the binder's padding, and correct two small token drifts (the eyebrow's size, the tile labels' tone). Every page inherits this.</p>
+    <p class="gate">proves itself by: lint · typecheck · every package's component tests green</p>
+  </div>
+  <div class="phase">
+    <h3>P1.2 The cockpit grid</h3>
+    <p>Lay the miner out exactly as the M1 frame: the loop across three columns with the epoch and power rail beside it, three KPI tiles under the loop, the proof ledger and the key tile in the last row. Between 900 and 1280 pixels the rail drops under the numbers, as the binder's own note says.</p>
+    <p class="gate">proves itself by: lint · typecheck · component tests · the 11 miner end-to-end specs on the isolated network</p>
+  </div>
+
+  <p class="arc">Arc 2 · landing · one PR</p>
+  <div class="phase">
+    <h3>P2.1 The seven frames</h3>
+    <p>Each section becomes its frame: the hero with the purple primary button and the wider headline column, the money rules beside the comparison table, the chain section with its three chips, the "how" cards, the live numbers in one row with the sparkline, the verify chips, the centred close.</p>
+    <p class="gate">proves itself by: lint · typecheck · component tests · the 3 landing end-to-end specs (including "nothing heavy loads before the click")</p>
+  </div>
+
+  <p class="arc">Arc 3 · stats · one PR</p>
+  <div class="phase">
+    <h3>P3.1 The observatory grid</h3>
+    <p>Six KPI tiles in one row, the epoch strip beside the epoch detail, four charts in a two-by-two block, the table, and the closing pair ("what is not here" beside a compact verify tile).</p>
+    <p class="gate">proves itself by: lint · typecheck · component tests</p>
+  </div>
+  <div class="phase">
+    <h3>P3.2 Charts on Observable Plot</h3>
+    <p>The four charts are rebuilt on Plot: hover any epoch for its numbers, a crosshair on the difficulty line, labelled lines for the expected duration and the escape hatch, the selected epoch highlighted, and a short animation when a new epoch arrives. Reduced-motion settings are respected.</p>
+    <p class="gate">proves itself by: lint · typecheck · rewritten component tests · the stats end-to-end specs · a production build showing Plot only under /stats/</p>
+  </div>
+  <div class="phase">
+    <h3>P3.3 The screenshot gate</h3>
+    <p>A test renders the stats page at 1280 and 1440 pixels against a frozen clock and compares it with committed reference images. A layout regression fails the test; an intended change updates the images in the same PR, reviewed like code.</p>
+    <p class="gate">proves itself by: the stats end-to-end run passing twice on the committed images · lint</p>
+  </div>
+
+  <h2>How it ships</h2>
+  <p>Three stacked PRs, one per page, opened only after each one's reviewer loop converged: Codex reviews every arc against the frame with the live and binder screenshots side by side, the fixes go back for re-review until a round finds nothing material, and a final fresh review looks across all three for seams. Each PR body carries the page at 1280 and 1440 beside the binder frame. You merge and deploy (<code>bun run site:deploy</code>); the agent never does.</p>
+
+  <h2>What the reviewer found</h2>
+  <p>Codex audited the plan twice. Round one rejected it (eight findings, all adopted); round two conditionally approved it (seven conditions, all adopted). The two that matter to you:</p>
+  <ul>
+    <li><strong>The stats page shares the miner's origin.</strong> A chart library is not "just a chart": a compromised release of Observable Plot would run with the same access as the miner, including the vault where a twelve-words key is sealed. The plan now says this plainly, keeps every supply-chain guard (seven-day minimum age, frozen lockfile, audit in CI, the lock diff reviewed), and puts "move stats and landing to their own host before mainnet" on the roadmap. You are asked to accept that risk knowingly, or to drop Plot and upgrade the hand-rolled charts instead.</li>
+    <li><strong>The screenshot gate is now real.</strong> It runs on every stats PR without a node, inside the same pinned browser image locally and in CI, with zero tolerance, and the plan proves it bites by making three deliberate regressions fail before the first reference images are recorded.</li>
+  </ul>
+
+  <h2>Decisions you are asked to make</h2>
+  <ul>
+    <li><strong>1 · The wallet-origin risk.</strong> Accept Observable Plot on the stats page with the guards above, or choose the no-dependency route.</li>
+    <li><strong>2 · What "dynamic" means.</strong> Tooltips, a crosshair, labelled reference lines, the selected epoch highlighted, and a short cross-fade when a new epoch arrives. No continuous motion. Confirm this reading.</li>
+    <li><strong>3 · The in-between and phone layouts.</strong> The binder draws only the 1120-pixel frames. Below that the pages use the agent's judgment (the miner's rail drops under the numbers; the stats KPIs go two-by-three, then one column on phones; the landing frames stack), reviewed by Codex on screenshots. You see them in every PR at 1280, 1440, 1024 and 390 pixels.</li>
+    <li><strong>4 · Who owns the reference images.</strong> Whoever changes the page updates them in the same PR; the first set is judged against the binder in the stats review.</li>
+  </ul>
+
+  <div class="approval">
+    <h2>Approval decision needed from you</h2>
+    <ul>
+      <li>Confirm the scope: the three pages as listed, the miner's cockpit only, no copy changes.</li>
+      <li>Confirm the tier: light.</li>
+      <li>Confirm the validation plan: lint and typecheck on every phase, component tests on every phase, the isolated-network end-to-end runs where the page's behaviour is touched, the screenshot gate on the stats page.</li>
+      <li>Confirm the delivery: three stacked PRs, miner first, merged and deployed by you.</li>
+      <li>Answer the four decisions above (the first one is the only one with a real trade-off).</li>
+      <li>No hardening pass scheduled (nothing new touches keys, secrets or CI permissions; the origin question is on the roadmap).</li>
+      <li>Approve, conditionally approve (with conditions), or reject (with blocking findings).</li>
+    </ul>
+  </div>
+
+  <h2>Implementation seeds (final: approved 2026-09-06, all four decisions confirmed)</h2>
+  <p>Paste exactly one into the implementing session, inside the plan's worktree. <span class="warn">They do not compose: setting one replaces the other.</span></p>
+  <div class="phase rec">
+    <h3>Recommended: /goal</h3>
+    <pre><code>/goal All phases marked ✓ in implementations-plan/yacana-fidelity/plan.md (the per-phase headers in the file — not the chat, not the task list), each ✓ backed by its phase's validation gate (as defined in plan.md) reported passing in the transcript; for each phase the agent has printed `LESSONS_FILE=implementations-plan/yacana-fidelity/lessons/phase-N.md` in the transcript; `/code-review` was NOT run (code_review is off); the codex fix loop converged for EVERY reviewed diff — each of the three arcs at its boundary plus the final cross-arc pass — each convergence evidenced by a resumed codex pass reporting no new material findings, quoted in the transcript; the Delivery section's PR topology exists on GitHub, created only AFTER all loops converged (`gh stack view` output in the transcript), each PR body linking the 1280/1440/1024/390 screenshots beside the binder frame; `bun run lint` and `bun test` both report exit 0 in the transcript.</code></pre>
+  </div>
+  <h3>Alternative: /loop 15m</h3>
+  <pre><code>/loop 15m Drive implementations-plan/yacana-fidelity forward. Never idle waiting for my input. Each firing: read plan.md and lessons/ (authoritative state, not the chat); rebuild the task list from plan.md if empty; git status and git log --oneline -5; gh stack view if PRs exist. No task in hand? Take the next pending phase. After each meaningful edit run bun run lint and bun test for the touched packages, commit, gh stack push. Stuck or facing a decision I'd normally get? Call /codex xhigh with full context, reach a defensible decision, act, log the consult in lessons/. Same step failed 5 times? Reassess with codex. Phase green means ITS VALIDATION GATE in plan.md passes: run it, paste the result, mark ✓, file the lessons entry, print LESSONS_FILE=implementations-plan/yacana-fidelity/lessons/phase-N.md. Arc boundary? Render the surface at 1280/1440 beside the binder frame, run the arc's codex loop (new session, arc map, fidelity ask, the plan's two rules verbatim) until a round yields nothing material, then gh stack add the next arc. All phases ✓? The final cross-arc pass (fresh session, net diff from 9197fee), then Delivery per plan.md: gh stack sync, gh stack submit --auto --open, gh pr edit bodies with screenshots, gh pr checks --watch, update implementations-plan/index.md, the wrap-up report. Never merge, never deploy, never push to main, never expand scope.</code></pre>
+  </div>
+  <p class="muted">Full plan: <code>implementations-plan/yacana-fidelity/plan.md</code> · recon: <code>recon.md</code> · lessons: <code>lessons/</code>.</p>
+</main>

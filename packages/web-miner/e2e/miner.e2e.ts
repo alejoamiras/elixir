@@ -67,13 +67,60 @@ test('first visit creates an account, mines at the easy target, claims and shows
   const memory = rssWatcher();
   await bootPage(page, pageUrl(r));
   expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
-  await expect(page.getByTestId('balance')).toHaveText(/^0 tYACA$/);
+  await expect(page.getByTestId('balance')).toHaveText('0');
+  await expect(page.getByTestId('balance').locator('xpath=..')).toHaveText(/^0\s*tYACA$/);
+  // The M1 frame at 1280 (the default viewport) and 1440: 1080 wide, three equal tracks and the
+  // 300-px rail; between md and xl two equal columns, the rail beside the stacked ledger and key tile.
+  const cockpit = page.getByTestId('cockpit');
+  const tracks = () => cockpit.evaluate((el) => getComputedStyle(el).gridTemplateColumns);
+  const width = () => cockpit.evaluate((el) => el.getBoundingClientRect().width);
+  // The rail right of the loop and above the key tile; the KPIs and the ledger under the loop, as wide.
+  const placed = () =>
+    cockpit.evaluate((el) => {
+      const [loop, rail, kpis, stack] = Array.from(el.children) as HTMLElement[];
+      const box = (n: Element | null | undefined) => (n as Element).getBoundingClientRect();
+      const [l, r, k, ledger, key] = [
+        loop,
+        rail,
+        kpis,
+        stack?.firstElementChild,
+        stack?.lastElementChild,
+      ].map(box);
+      const near = (a: number, b: number) => Math.abs(a - b) <= 1;
+      return (
+        r.left > l.right &&
+        near(r.top, l.top) &&
+        k.top > l.bottom &&
+        near(k.left, l.left) &&
+        near(k.right, l.right) &&
+        ledger.top > k.bottom &&
+        near(ledger.right, l.right) &&
+        near(key.left, r.left) &&
+        key.top > r.bottom
+      );
+    });
+  expect(await tracks()).toBe('246px 246px 246px 300px');
+  expect(await width()).toBe(1080);
+  expect(await placed()).toBe(true);
+  await page.setViewportSize({ width: 1024, height: 900 });
+  const half = `${(((await width()) - 14) / 2).toString()}px`;
+  expect(await tracks()).toBe(`${half} ${half}`);
+  expect(
+    await cockpit.evaluate((el) => {
+      const [, rail, , stack] = Array.from(el.children).map((c) => c.getBoundingClientRect());
+      return rail && stack && rail.top === stack.top && rail.right <= stack.left;
+    }),
+  ).toBe(true);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  expect(await tracks()).toBe('246px 246px 246px 300px');
+  expect(await width()).toBe(1080);
+  expect(await placed()).toBe(true);
   await page.getByTestId('start').click();
   await expect(page.getByTestId('phase')).toHaveText('mining');
   // The easy target wins every other proof; the claim is then proved in-page and mined.
   await expect(page.getByTestId('phase')).toHaveText('claiming', { timeout: 5 * 60_000 });
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
-  await expect(page.getByTestId('balance')).toHaveText(/^4 tYACA$/);
+  await expect(page.getByTestId('balance')).toHaveText('4');
   await expect(page.getByTestId('epoch-claims')).toHaveText('1 of 4');
   await expect(page.getByTestId('ledger')).toContainText('minted, privately');
   // Mining resumes on its own after a claim; stop it cleanly.
@@ -86,10 +133,10 @@ test('first visit creates an account, mines at the easy target, claims and shows
   await passKeyScreen(page);
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
   expect(await page.getByTestId('account').getAttribute('title')).toBe(account);
-  await expect(page.getByTestId('balance')).toHaveText(/^4 tYACA$/);
+  await expect(page.getByTestId('balance')).toHaveText('4');
   await page.getByTestId('start').click();
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
-  await expect(page.getByTestId('balance')).toHaveText(/^8 tYACA$/);
+  await expect(page.getByTestId('balance')).toHaveText('8');
   await page.getByTestId('stop').click();
   memory.stop();
   console.log(`peak browser process-tree RSS: ${memory.peakMiB()} MiB`);

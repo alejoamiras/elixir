@@ -59,7 +59,7 @@ test('a passkey key: create, mine, claim, reload with one touch, the balance fol
 
   await page.getByTestId('start').click();
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
-  await expect(page.getByTestId('balance')).toHaveText(/^4 tYACA$/);
+  await expect(page.getByTestId('balance')).toHaveText('4');
   await page.getByTestId('stop').click();
 
   // Second visit: Welcome back, one touch, same key, same balance.
@@ -69,7 +69,7 @@ test('a passkey key: create, mine, claim, reload with one touch, the balance fol
   await page.getByTestId('open-key').click();
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
   expect(await page.getByTestId('account').getAttribute('title')).toBe(account);
-  await expect(page.getByTestId('balance')).toHaveText(/^4 tYACA$/);
+  await expect(page.getByTestId('balance')).toHaveText('4');
 
   // Convenience mode: the sealed master opens without any authenticator; switching back drops it.
   await page.getByRole('link', { name: 'Settings' }).click();

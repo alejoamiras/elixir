@@ -51,7 +51,7 @@ export function PowerSlider({
         <label htmlFor={id} className="label-mono">
           power
         </label>
-        <span className="font-mono text-xs text-ink-2">
+        <span className="font-mono text-2xs tracking-[0.04em] text-ink-3">
           {value} {value === 1 ? 'thread' : 'threads'}
           {readout !== undefined && <span> · {readout}</span>}
         </span>

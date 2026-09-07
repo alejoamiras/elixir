@@ -6,7 +6,7 @@ function Tile({ className, flat, ...props }: React.ComponentProps<'section'> & {
     <section
       data-slot="tile"
       className={cn(
-        'min-w-0 rounded-lg border border-line p-4',
+        'min-w-0 rounded-[8px] border border-line px-[18px] py-4',
         flat ? 'bg-transparent' : 'bg-raised',
         className,
       )}
@@ -24,12 +24,12 @@ function TileHeader({
   return (
     <h2
       data-slot="tile-header"
-      className={cn('label-mono mb-3 flex items-baseline justify-between gap-3 text-2xs', className)}
+      className={cn('label-mono mb-3 flex items-baseline justify-between gap-3', className)}
       {...props}
     >
       <span>{children}</span>
       {aside && (
-        <span className="ml-auto text-right font-normal tracking-[0.04em] text-ink-2 normal-case">
+        <span className="ml-auto text-right font-normal tracking-[0.04em] text-ink-3 normal-case">
           {aside}
         </span>
       )}

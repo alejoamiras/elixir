@@ -33,7 +33,7 @@ const palette = (el: HTMLElement): Palette => {
     uv: v('--uv', DARK.uv),
     uv2: v('--uv-2', DARK.uv2),
     ink: v('--ink', DARK.ink),
-    ink3: v('--ink-3', ink(0.4)),
+    ink3: v('--ink-3', ink(0.5)),
     line: v('--line', ink(0.1)),
   };
 };

@@ -1,7 +1,7 @@
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import { closePreview, difficulty, escapeHatchIn, proofsPerMinute } from '../../../miner-core/src/metrics.ts';
-import { EpochRail, PowerSlider, Tile, TileHeader } from '../../../ui/src/index.ts';
+import { cn, EpochRail, PowerSlider, Tile, TileHeader } from '../../../ui/src/index.ts';
 import type { MinerController } from '../controller';
 import { duration } from '../lib/format';
 import { useSettings } from '../settings';
@@ -9,7 +9,13 @@ import { bootAtom, claimsAtom, epochAtom, minerAtom, nowAtom, rulesAtom } from '
 
 const cores = () => navigator.hardwareConcurrency || 2;
 
-export function RailTile({ controller }: { controller: () => MinerController | undefined }) {
+export function RailTile({
+  controller,
+  className,
+}: {
+  controller: () => MinerController | undefined;
+  className?: string;
+}) {
   const epoch = useAtomValue(epochAtom);
   const rules = useAtomValue(rulesAtom);
   const now = useAtomValue(nowAtom);
@@ -25,14 +31,14 @@ export function RailTile({ controller }: { controller: () => MinerController | u
   };
   const nowSec = BigInt(Math.floor(now / 1000));
   return (
-    <Tile className="flex flex-col gap-5">
+    <Tile className={cn('flex flex-col gap-5', className)}>
       {epoch && rules ? (
         <EpochRail
           epoch={Number(epoch.epoch)}
           claims={epoch.claims}
           n={rules.N}
           mine={claims.filter((c) => c.epoch === epoch.epoch).map((_, i) => i)}
-          progress={Number(nowSec - epoch.openedAt) / Number(rules.EXPECTED_EPOCH_SECONDS)}
+          aside={`opened ${new Date(Number(epoch.openedAt) * 1000).toISOString().slice(11, 19)}`}
           hatchSeconds={Number(escapeHatchIn(epoch.openedAt, rules.T_MAX, nowSec))}
           closing={closing}
           onClose={() => {
@@ -42,7 +48,6 @@ export function RailTile({ controller }: { controller: () => MinerController | u
               .finally(() => setClosing(false));
           }}
           rows={[
-            { label: 'opened', value: new Date(Number(epoch.openedAt) * 1000).toISOString().slice(11, 19) },
             {
               label: 'claims',
               value: (
