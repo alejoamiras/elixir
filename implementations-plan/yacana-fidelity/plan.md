@@ -208,7 +208,7 @@ spec asserts the 1120 max width. Because the shared primitives change, every sur
 Gate: `bun run lint` · `bun run --cwd packages/ui typecheck` · `bun run test:components` (ui, web-miner, web-stats,
 web-landing all green: the token change reaches every surface) · the six renders reviewed. Layers: lint · component.
 
-**P1.2 The M1 cockpit grid.** Goal: `Mine.tsx` on `1fr 1fr 1fr 300px / 14px` from `xl` with the binder's spans and the
+**P1.2 The M1 cockpit grid.** ✓ Goal: `Mine.tsx` on `1fr 1fr 1fr 300px / 14px` from `xl` with the binder's spans and the
 two-column block below it; the loop tile with the binder's header and `height={230}`; the three `lg` KPI tiles; the rail
 `row-span-2`; the ledger and key tile (Withdraw / Receive → the wallet route) in row 3. Tests: `shell.vitest.tsx`
 asserts each tile's span classes; `miner.e2e.ts` gains a layout assertion (computed `grid-template-columns` of the

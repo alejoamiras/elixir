@@ -52,7 +52,7 @@ function CreateKey({ session, error }: { session: Session; error?: string }) {
       />
     );
   return (
-    <div className="flex flex-col gap-5" data-testid="key-screen">
+    <div className="flex max-w-[640px] flex-col gap-5" data-testid="key-screen">
       <div>
         <h1 className="text-2xl">Create your key.</h1>
         <p className="mt-2 text-ink-2">
@@ -183,7 +183,7 @@ function WelcomeBack({
       />
     );
   return (
-    <div className="flex flex-col gap-5" data-testid="key-screen">
+    <div className="flex max-w-[640px] flex-col gap-5" data-testid="key-screen">
       <div>
         <h1 className="text-2xl">Welcome back.</h1>
         <p className="mt-2 text-ink-2">Your balance follows the key, not the browser.</p>

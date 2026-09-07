@@ -67,13 +67,23 @@ test('first visit creates an account, mines at the easy target, claims and shows
   const memory = rssWatcher();
   await bootPage(page, pageUrl(r));
   expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
-  await expect(page.getByTestId('balance')).toHaveText(/^0 tYACA$/);
+  await expect(page.getByTestId('balance')).toHaveText('0');
+  // The M1 frame from xl: three columns and a 300-px rail; two columns between md and xl.
+  const columns = () =>
+    page.getByTestId('cockpit').evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+  expect(await columns()).toBe(4);
+  expect(
+    await page.getByTestId('cockpit').evaluate((el) => el.getBoundingClientRect().width),
+  ).toBeLessThanOrEqual(1080);
+  await page.setViewportSize({ width: 1024, height: 900 });
+  expect(await columns()).toBe(2);
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByTestId('start').click();
   await expect(page.getByTestId('phase')).toHaveText('mining');
   // The easy target wins every other proof; the claim is then proved in-page and mined.
   await expect(page.getByTestId('phase')).toHaveText('claiming', { timeout: 5 * 60_000 });
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
-  await expect(page.getByTestId('balance')).toHaveText(/^4 tYACA$/);
+  await expect(page.getByTestId('balance')).toHaveText('4');
   await expect(page.getByTestId('epoch-claims')).toHaveText('1 of 4');
   await expect(page.getByTestId('ledger')).toContainText('minted, privately');
   // Mining resumes on its own after a claim; stop it cleanly.
@@ -86,10 +96,10 @@ test('first visit creates an account, mines at the easy target, claims and shows
   await passKeyScreen(page);
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
   expect(await page.getByTestId('account').getAttribute('title')).toBe(account);
-  await expect(page.getByTestId('balance')).toHaveText(/^4 tYACA$/);
+  await expect(page.getByTestId('balance')).toHaveText('4');
   await page.getByTestId('start').click();
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
-  await expect(page.getByTestId('balance')).toHaveText(/^8 tYACA$/);
+  await expect(page.getByTestId('balance')).toHaveText('8');
   await page.getByTestId('stop').click();
   memory.stop();
   console.log(`peak browser process-tree RSS: ${memory.peakMiB()} MiB`);

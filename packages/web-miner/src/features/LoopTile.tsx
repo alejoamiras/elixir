@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { difficulty, nextWinSeconds, proofsPerMinute } from '../../../miner-core/src/metrics.ts';
-import { Button, Kpi, ScoreLoop, StatusPill, Tile, TileHeader } from '../../../ui/src/index.ts';
+import { Button, cn, Kpi, ScoreLoop, StatusPill, Tile, TileHeader } from '../../../ui/src/index.ts';
 import type { MinerController } from '../controller';
 import { amount, compact, duration } from '../lib/format';
 import { pillStatus } from '../lib/status';
@@ -79,18 +79,23 @@ function PopOut({ controller }: { controller: () => MinerController | undefined 
   );
 }
 
-/** The heartbeat and the three numbers under it. */
-export function LoopTile({ controller }: { controller: () => MinerController | undefined }) {
+/** The heartbeat: the binder's loop tile with its header row. */
+export function LoopTile({
+  controller,
+  className,
+}: {
+  controller: () => MinerController | undefined;
+  className?: string;
+}) {
   const boot = useAtomValue(bootAtom);
   const miner = useAtomValue(minerAtom);
   const epoch = useAtomValue(epochAtom);
   const [settings] = useSettings();
-  const perMinute = proofsPerMinute(miner.recent);
   const last = miner.recent[miner.recent.length - 1];
   const ready = boot.phase === 'ready';
   const bar = epoch ? difficulty(epoch.target) : 1;
   return (
-    <Tile className="flex flex-col gap-4">
+    <Tile className={cn('flex flex-col gap-4', className)}>
       <TileHeader
         className="mb-0"
         aside={
@@ -122,11 +127,24 @@ export function LoopTile({ controller }: { controller: () => MinerController | u
         </StatusPill>
       </TileHeader>
       {miner.claim && <ClaimStepper claim={miner.claim} />}
-      <ScoreLoop difficulty={bar} samples={miner.samples} winAt={miner.winAt} height={180} />
+      <ScoreLoop difficulty={bar} samples={miner.samples} winAt={miner.winAt} height={230} />
       {miner.minted && <MintedMarks minted={miner.minted} />}
       {miner.notice && <NoticeCard notice={miner.notice} recovering={miner.phase === 'recovering'} />}
-      <div className="grid grid-cols-3 gap-4 border-t border-line pt-4">
+    </Tile>
+  );
+}
+
+/** The three numbers under the loop, one tile each: the binder's KPI row. */
+export function KpiTiles({ className }: { className?: string }) {
+  const miner = useAtomValue(minerAtom);
+  const epoch = useAtomValue(epochAtom);
+  const perMinute = proofsPerMinute(miner.recent);
+  const bar = epoch ? difficulty(epoch.target) : 1;
+  return (
+    <div className={cn('grid grid-cols-3 gap-[14px]', className)} data-testid="kpi-tiles">
+      <Tile>
         <Kpi
+          size="lg"
           label="rate"
           value={<span data-testid="rate">{perMinute.toFixed(1)}</span>}
           unit="proofs/min"
@@ -136,18 +154,24 @@ export function LoopTile({ controller }: { controller: () => MinerController | u
             </>
           }
         />
+      </Tile>
+      <Tile>
         <Kpi
+          size="lg"
           label="next win, at this rate"
           value={epoch && perMinute > 0 ? `~${duration(nextWinSeconds(epoch.target, perMinute))}` : '—'}
           sub="could be now, could be 3× longer"
         />
+      </Tile>
+      <Tile>
         <Kpi
+          size="lg"
           label="best this epoch"
           value={miner.best === null ? '—' : miner.best.toFixed(1)}
           unit={epoch ? `of ${bar.toFixed(1)}` : undefined}
           sub={`${miner.wins} ${miner.wins === 1 ? 'win' : 'wins'} · ${amount(PARAMS.REWARD * BigInt(miner.wins), PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL} this session`}
         />
-      </div>
-    </Tile>
+      </Tile>
+    </div>
   );
 }

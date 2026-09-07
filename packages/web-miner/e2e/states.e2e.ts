@@ -56,7 +56,7 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
   await bootPage(page, pageUrl(r));
   await page.getByTestId('start').click();
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
-  await expect(page.getByTestId('balance')).toHaveText(/^4 tYACA$/);
+  await expect(page.getByTestId('balance')).toHaveText('4');
   // A first contact: tx hash, ticket, delivery and handshake nullifiers; the mint's and the handshake's notes.
   const first = await lastClaim(page);
   console.log(`[effects] first claim: ${JSON.stringify(first)}`);
@@ -90,8 +90,8 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
   // At the easy target the next claims come fast: the balance is checked against the claim count,
   // which only holds if the note minted before the reset came back with the rebuilt view.
   await expect(page.getByTestId('claims')).not.toHaveText(/^[01]$/, { timeout: 10 * 60_000 });
-  await expect.poll(() => balanceForClaims(page), { timeout: 60_000 }).toMatch(/^\d+ tYACA for \d+ claims$/);
-  const [, balance, claims] = /^(\d+) tYACA for (\d+) claims$/.exec(await balanceForClaims(page)) ?? [];
+  await expect.poll(() => balanceForClaims(page), { timeout: 60_000 }).toMatch(/^\d+ for \d+ claims$/);
+  const [, balance, claims] = /^(\d+) for (\d+) claims$/.exec(await balanceForClaims(page)) ?? [];
   expect(Number(balance)).toBe(4 * Number(claims));
   // No handshake this time: the rebuilt view still knows the recipient; one note, the mint's.
   const later = await lastClaim(page);
