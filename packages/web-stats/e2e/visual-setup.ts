@@ -65,7 +65,7 @@ const visualEnv = (d: VisualDeployment): NodeJS.ProcessEnv => ({
   VITE_DEPLOYMENT_RECORD: JSON.stringify(d),
 });
 
-/** The build, then only chunk 0 of the slot table (the fixture's nine epochs live there) and the layouts. */
+/** The build, then only chunk 0 of the slot table (the fixture's 31 epochs live there) and the layouts. */
 async function build(d: VisualDeployment, log: number): Promise<void> {
   buildApp(OUT_DIR, log, visualEnv(d));
   const dist = resolve(pkg, OUT_DIR);
@@ -162,7 +162,7 @@ async function record(nodeUrl: string): Promise<void> {
       },
     );
     await page.goto(`${run.baseURL}/`);
-    await page.getByTestId('table').locator('tbody tr').nth(8).waitFor({ timeout: 60_000 });
+    await page.getByTestId('table').locator('tbody tr').nth(30).waitFor({ timeout: 60_000 });
     await page.getByTestId('freshness').filter({ hasText: 'block' }).waitFor({ timeout: 60_000 });
   } finally {
     await browser?.close();

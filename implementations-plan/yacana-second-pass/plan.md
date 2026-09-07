@@ -415,7 +415,7 @@ second-pass-stats`.
 
 ### Arc 2 · stats (`second-pass-stats`)
 
-**P2.1 The observatory: lead chart, small multiples, table, words, live cues, titles.** `Stats.tsx` rows via
+**P2.1 ✓ The observatory: lead chart, small multiples, table, words, live cues, titles.** `Stats.tsx` rows via
 `ChartRows.tsx`; `plot.tsx` height prop; `specs.ts` labels and ticks; `Table.tsx` scroll + sticky (`border-separate`) +
 wording; `Observatory.tsx` subs, `EpochRing.tsx`, `SinceOpened.tsx`; `Detail.tsx` `m:ss`; `metrics.ts` sentence;
 `Freshness` link + pulse; the tweens; titles; `stats.vitest.tsx` updated (the grid test: the difficulty tile alone in

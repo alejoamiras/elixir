@@ -53,8 +53,10 @@ for (const width of WIDTHS) {
     await page.clock.setFixedTime(FIXED_TIME);
     await page.setViewportSize({ width, height: 900 });
     await page.goto(`${run.baseURL}/`);
-    await expect(page.getByTestId('table').locator('tbody tr')).toHaveCount(9);
+    await expect(page.getByTestId('table').locator('tbody tr')).toHaveCount(31);
     await expect(page.getByTestId('freshness')).toContainText('0 s ago');
+    // The fixed clock freezes wall time, not rAF: the numbers' tweens still run, and the page says when they rest.
+    await expect(page.locator('main')).toHaveAttribute('data-settled', '1');
     await page.evaluate(() => document.fonts.ready);
     expect(net.unexpected).toEqual([]);
     await expect(page).toHaveScreenshot(`stats-${width}.png`, { fullPage: true });
