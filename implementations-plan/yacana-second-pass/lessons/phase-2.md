@@ -87,3 +87,15 @@ Resumed over `e3f27d5`: two remaining findings, both verified and adopted:
 | P2 | The lead chart's tip still said "open" from `duration === null`, contradicting the corrected axis on a stale tail. | `span(row, open)` words a row's length for the tip: seconds, "open" only for the chain's open epoch, "closed · not read yet" otherwise; unit-tested directly (Plot's pointer needs layout jsdom has not). |
 
 Gates: web-stats components 19 ✓ · `test:visual` 4 passed, no diff ✓ · lint ✓ · typecheck ✓.
+
+## Arc 2 codex loop · round 3 (2026-09-07)
+
+Resumed over `1c9c653`: one residual on the emission axis (a 72-second history still read "+0 min, +0 min, +1 min…":
+rounding to whole minutes with sub-minute ticks). Adopted, and the format-only approach dropped for the general
+one: `elapsedTicks(spanS)` picks a clock-shaped step (1 s … 1 d, the first that gives at most five ticks), lays the
+ticks itself, and labels in the step's own unit (`+15 s`, `+3 min`, `+10 h`), so every label is a whole number of
+its unit and no two can coincide. The spec drives three spans: one 72-second epoch plus an open row (seconds),
+epochs 1–4 (minutes), the whole history (hours), asserting distinct labels each time. The stale-tip fix was
+confirmed correct. Gates: web-stats components 19 ✓ · `test:visual` 4 passed, no diff ✓ · lint ✓ · typecheck ✓.
+This is the third round; the remaining item was a narrowing of one finding, not new ground, so one confirming
+resume follows rather than a stop.

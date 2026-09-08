@@ -102,20 +102,21 @@ describe('charts on the captured history', () => {
     expect(span(rows[3] as EpochRow, OPEN)).toBe('144 s');
   });
 
-  test('emission over a short history reads in minutes, over a long one in hours', () => {
-    // Epochs 1–4: eleven minutes end to end (epoch 0's day-long roll is left out).
-    const short = render(
-      <Emission rows={rows.slice(1, 5)} selected={null} rules={RULES} open={4} />,
-    ).container;
-    const x = texts(short, '[aria-label="x-axis tick label"] text');
-    expect(x.length).toBeGreaterThan(1);
-    expect(new Set(x).size).toBe(x.length);
-    expect(x.every((t) => /^\+\d+ min$/.test(t ?? ''))).toBe(true);
-    cleanup();
-    const long = render(<Emission rows={rows} selected={null} rules={RULES} open={OPEN} />).container;
-    expect(texts(long, '[aria-label="x-axis tick label"] text').every((t) => /^\+\d+ h$/.test(t ?? ''))).toBe(
-      true,
-    );
+  test('emission ticks read in the unit of their step: seconds, minutes or hours, never twice alike', () => {
+    const labels = (subset: EpochRow[]) => {
+      const c = render(<Emission rows={subset} selected={null} rules={RULES} open={OPEN} />).container;
+      const x = texts(c, '[aria-label="x-axis tick label"] text');
+      cleanup();
+      expect(x.length).toBeGreaterThan(1);
+      expect(new Set(x).size).toBe(x.length);
+      return x;
+    };
+    // One 72-second epoch and the open one; epochs 1–4, eleven minutes; the whole history, two days.
+    const e27 = rows[27] as EpochRow;
+    const opened = { ...(rows[28] as EpochRow), duration: null, closedBy: null, retarget: null };
+    expect(labels([e27, opened]).every((t) => /^\+\d+ s$/.test(t ?? ''))).toBe(true);
+    expect(labels(rows.slice(1, 5)).every((t) => /^\+\d+ min$/.test(t ?? ''))).toBe(true);
+    expect(labels(rows).every((t) => /^\+\d+ h$/.test(t ?? ''))).toBe(true);
   });
 });
 

@@ -149,6 +149,20 @@ const leadTicks = (epochs: number[], open: number, x0: number, x1: number, width
 const HALO = { stroke: 'var(--raised)', strokeWidth: 3 } as const;
 const wholeOrLabel = (v: number) => (v >= 1 && v < 1e6 && Number.isInteger(v) ? `${v}` : difficultyLabel(v));
 
+/** Clock-shaped tick steps, in seconds; the first that gives at most five ticks over the span is the step. */
+const STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10_800, 21_600, 43_200, 86_400];
+/**
+ * Elapsed-time ticks whose unit is the step's, so every label is a whole number of seconds, minutes or hours
+ * and no two ticks read alike (fractional hours to one decimal repeated on a short history).
+ */
+const elapsedTicks = (spanS: number): { ticks: number[]; label: (s: number) => string } => {
+  const step = STEPS.find((c) => spanS / c <= 5) ?? STEPS[STEPS.length - 1] * Math.ceil(spanS / 5 / 86_400);
+  const ticks: number[] = [];
+  for (let t = 0; t <= spanS + 1e-6; t += step) ticks.push(t);
+  const unit: [number, string] = step >= 3600 ? [3600, 'h'] : step >= 60 ? [60, 'min'] : [1, 's'];
+  return { ticks, label: (s) => `+${Math.round(s / unit[0])} ${unit[1]}` };
+};
+
 /** Minted over elapsed time from the oldest loaded row, against N × REWARD per expected epoch. */
 export const emission: Spec = ({ rows, selected, rules, width, height }) => {
   const closed = closedRows(rows);
@@ -168,14 +182,12 @@ export const emission: Spec = ({ rows, selected, rules, width, height }) => {
     { hours: end, minted: end * perHour },
   ];
   const at = (p: Point) => `+${p.hours.toFixed(1)} h`;
-  // Under an hour the axis reads in minutes: hour ticks a tenth apart would print the same label twice.
-  const minutes = end < 1;
+  const axis = elapsedTicks(end * 3600);
   return base(width, height, {
     x: {
       label: null,
-      ticks: 4,
-      tickFormat: (h: number) =>
-        minutes ? `+${Math.round(h * 60)} min` : `+${Number.isInteger(h) ? h : h.toFixed(1)} h`,
+      ticks: axis.ticks.map((t) => t / 3600),
+      tickFormat: (h: number) => axis.label(h * 3600),
     },
     y: {
       label: null,
