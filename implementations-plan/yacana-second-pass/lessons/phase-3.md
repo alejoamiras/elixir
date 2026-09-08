@@ -97,3 +97,21 @@ bounded scan against the committed fixture, ~20 s). Three rounds in one session 
 6 → 2 → 0. `shots/arc-3/` holds the renders after round 1; rounds 2 changed nothing visible.
 
 LESSONS_FILE=implementations-plan/yacana-second-pass/lessons/phase-3.md
+
+## The final cross-arc pass (2026-09-08)
+
+Fresh session `01a07ed3-e2b4-7ce3-8cb2-1262b07b3913` (Astra, high) over `git diff 85cb3fe..HEAD` — 31 commits,
+174 files — asked for seams, duplication, drift and the whole-site adversarial view. Six findings, all verified
+and adopted, each committed on the arc it belongs to and the stack rebased (`gh stack rebase`, never `sync`):
+
+| sev | finding | fix (branch) |
+|---|---|---|
+| P2 | The page's Space shortcut exempted editable targets only: Space on a focused button (Send, the plain sign-out) called `start()` and cancelled the button's own click. | `interactive(target)` covers buttons, links, inputs and `role=button`; the shortcut spec mounts a plain button (arc 1). |
+| P2 | The header's pill called `pillStatus(miner)` without the clock: a mint's ten seconds expired in the rail but not in the header until something else re-rendered. | `Shell` reads `nowAtom` and passes it (arc 1). |
+| P3 | Explorer coverage: the sign-in screen's known accounts, the Send destination in review and receipt, the stats' deployer were plain text. | `ExternalLink` at each (arcs 1 and 2). |
+| P3 | "opens a different key" from the vault reached the sign-in screen through `Session.fail`; the guard's blanket exemption of `keys/store.ts` hid it. | Five vault messages say account; the exemption is gone and `copyOf` skips the JSX-text pass for `.ts` files, where angle brackets are generics, so the vault's literals are scanned and its persistent identifiers stay joined tokens (arc 1). |
+| P3 | `ExternalLink` announced "opens the explorer" on the landing's GitHub chip too. | "opens in a new tab" (arc 1). |
+| P3 | Narrating comments in `BalanceCard`, `RailTile`, `BarChart`; `score-loop`'s `win` doc said the pop-out's clock drives the loop. | Removed / corrected (arcs 1 and 3); a second resume caught one more narrating comment and the `ScoreLoop` doc saying the same wrong thing — both fixed. |
+
+Third resume: **"No material findings. High confidence."** Gates on the tip after the fixes: `bun run lint` exit 0
+· `bun test` 157 pass / 9 skip, exit 0 · Vitest 38 / 42 / 10 / 19 · every typecheck clean.
