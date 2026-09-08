@@ -89,3 +89,11 @@ Resumed over `7cc96a5`: two findings, both verified and adopted:
 The re-run of the miner-core live suite on the isolated network: **4 pass** (LIVE_EXIT=0; a first attempt was killed by
 the machine's memory pressure from other sessions, not by the test, and left no orphan). Offline: `bun test
 packages/deploy` 4 pass, 1 skipped (the testnet reread) ✓ · lint ✓ · typecheck ✓.
+
+## Arc 3 codex loop · convergence (2026-09-08)
+
+Resumed over `a6cbe90`: **"No material findings."** (high confidence; codex ran the seven offline tests and the full
+bounded scan against the committed fixture, ~20 s). Three rounds in one session (`01a07e75-f834-7610-995e-eaca63b69990`):
+6 → 2 → 0. `shots/arc-3/` holds the renders after round 1; rounds 2 changed nothing visible.
+
+LESSONS_FILE=implementations-plan/yacana-second-pass/lessons/phase-3.md
