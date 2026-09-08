@@ -91,10 +91,12 @@ export class Session {
 
   private async fail(e: unknown): Promise<void> {
     this.store.set(bootAtom, {
-      phase: 'key',
+      phase: 'signedOut',
       records: await listRecords(),
       error: e instanceof Error ? e.message : String(e),
     });
+    // No account came up: the public epoch feeds the cockpit again.
+    this.pre?.publicEpoch.start();
   }
 
   private async start(record: MasterRecord, master: Uint8Array, words?: string): Promise<void> {

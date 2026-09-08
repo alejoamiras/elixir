@@ -5,7 +5,7 @@ import { ClaimSlot, slotState } from './features/ClaimSlot';
 import { initial, type MinerState } from './lib/reducer';
 import { pillStatus } from './lib/status';
 import { Mine } from './routes/Mine';
-import { minerAtom, nowAtom } from './state';
+import { epochAtom, minerAtom, nowAtom, rulesAtom } from './state';
 
 afterEach(cleanup);
 // jsdom has no matchMedia; the score loop's reduced-motion hook reads it.
@@ -43,6 +43,32 @@ describe('the cockpit grid', () => {
     expect(tiles[3]?.firstElementChild?.className).toContain('xl:col-span-3');
     expect(tiles[3]?.lastElementChild?.textContent).toContain('balance');
     expect(tiles[3]?.lastElementChild?.textContent).not.toContain('key');
+  });
+
+  test('renders the chain before any account: the epoch tile from the atoms alone, no session', () => {
+    const store = createStore();
+    const nowSec = Math.floor(Date.now() / 1000);
+    store.set(epochAtom, {
+      epoch: 38n,
+      seed: 7n,
+      target: 1n << 122n,
+      openedAt: BigInt(nowSec - 120),
+      claims: 3,
+    });
+    store.set(rulesAtom, {
+      N: 4,
+      EXPECTED_EPOCH_SECONDS: 300n,
+      T_MAX: 1200n,
+      REWARD: 4_000_000_000_000_000_000n,
+    });
+    store.set(nowAtom, Date.now());
+    const { getByTestId } = render(
+      <Provider store={store}>
+        <Mine controller={() => undefined} />
+      </Provider>,
+    );
+    expect(getByTestId('epoch').textContent).toBe('38');
+    expect(getByTestId('epoch-claims').textContent).toContain('3 of 4');
   });
 });
 

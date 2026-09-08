@@ -616,7 +616,7 @@ site:e2e` · renders at 1280/1440 of Settings and the banner beside `NodeSetting
 
 ### Arc 2 · mine loading (`third-pass-mine`, stacks on arc 1)
 
-**P2.1 · The chain before the account** — the preflight without the CRS; `startCrs` streamed with bytes; readiness
+**P2.1 · The chain before the account** ✓ (2026-09-08, `P21HASH`) — the preflight without the CRS; `startCrs` streamed with bytes; readiness
 awaited by the wallet's and the prover's start; the public epoch poll and its handover; `rulesAtom` from `PARAMS`;
 `copySlots` in the miner's prebuild; the `Boot` shape.
 Gate: lint · typecheck · `bun test packages/web-miner` (`pinned-crs.test.ts`: progress totals equal the pinned sizes,

@@ -247,7 +247,7 @@ export function KeyScreen({ session }: { session: Session }) {
         </p>
       </Tile>
     );
-  if (boot.phase !== 'key') return null;
+  if (boot.phase !== 'signedOut') return null;
   return boot.records.length ? (
     <WelcomeBack session={session} records={boot.records} error={boot.error} />
   ) : (

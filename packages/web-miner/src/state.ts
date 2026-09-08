@@ -3,12 +3,13 @@ import type { PreflightRow } from '../../ui/src/index.ts';
 import type { MasterRecord } from './keys/store';
 import type { EpochInfo, MinerState } from './lib/reducer';
 import { initial } from './lib/reducer';
+import type { CrsProgress } from './pinned-crs';
 
 export type Boot =
   /** Isolation, CRS, node, deployment: each row with its evidence. */
   | { phase: 'preflight'; rows: PreflightRow[] }
-  /** Preflight passed; the key screen decides how to open. */
-  | { phase: 'key'; records: MasterRecord[]; error?: string }
+  /** Preflight passed, no account open: the chain shows, the key screen decides how to open. */
+  | { phase: 'signedOut'; records: MasterRecord[]; error?: string }
   /** The ceremony passed; wallet, account and prover are coming up. */
   | { phase: 'opening'; step: string }
   | { phase: 'ready'; account: string; threads: number; record: MasterRecord }
@@ -28,4 +29,6 @@ export const rulesAtom = atom<Rules | null>(null);
 export const balanceAtom = atom<bigint | null>(null);
 export const claimsAtom = atom<{ epoch: bigint; block: number; at: number }[]>([]);
 export const logAtom = atom<string[]>([]);
+/** The proving keys' download, from page load; the wallet's and the prover's start wait for `done`. */
+export const crsAtom = atom<CrsProgress>({ loaded: 0, total: 0, done: false });
 export const nowAtom = atom(Date.now());

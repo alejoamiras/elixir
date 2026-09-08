@@ -1,8 +1,10 @@
 // Boot in three parts: the preflight (isolation, CRS, node, deployment, each with its evidence),
 // the key screen (a passkey or the words → a master), then wallet, account, rules and prover.
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 import type { createStore } from 'jotai';
+import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { deriveAccountFields } from '../../miner-core/src/keys/derive.ts';
 import { type ExpectedDeployment, expectedFromStrings } from '../../miner-core/src/reader.ts';
 import { probeNode, type SwitchableNode, switchableNode } from '../../site/src/browser/node.ts';
@@ -15,9 +17,10 @@ import { MinerController, type Rebound } from './controller';
 import { preparePasskeys } from './keys/passkey';
 import { assertNoLegacyWalletDb, listRecords, type MasterRecord } from './keys/store';
 import { shortAddress } from './lib/format';
-import { preloadPinnedCrs, purgeCrsCache } from './pinned-crs';
+import { crsReady } from './pinned-crs';
+import { type PublicEpochPoll, publicEpochReader, startPublicEpoch } from './public-epoch';
 import { loadSettings } from './settings';
-import { bootAtom, rulesAtom } from './state';
+import { bootAtom, logAtom, rulesAtom } from './state';
 import {
   ChainViewHeldError,
   type OpenedWallet,
@@ -37,6 +40,8 @@ export interface Preflighted {
   rollupVersion: bigint;
   minerArtifact: ContractArtifact;
   block: number;
+  /** The open epoch from public storage while no account is open; stopped at the controller's first read. */
+  publicEpoch: PublicEpochPoll;
 }
 
 /** The build's deployment identity, as the boot and every node check compare it. */
@@ -77,7 +82,6 @@ export const NODE_REQUEST_MS = 120_000;
 export async function preflight(store: Store, connection: Connection): Promise<Preflighted> {
   const rows: PreflightRow[] = [
     { id: 'isolation', label: 'cross-origin isolated', state: 'pending' },
-    { id: 'crs', label: 'pinned CRS', state: 'pending' },
     { id: 'node', label: 'node', state: 'pending' },
     { id: 'deployment', label: 'deployment', state: 'pending' },
   ];
@@ -110,14 +114,6 @@ export async function preflight(store: Store, connection: Connection): Promise<P
       );
     await assertNoLegacyWalletDb();
     return { evidence: `${navigator.hardwareConcurrency || 2} threads available`, value: undefined };
-  });
-  await run('crs', async () => {
-    await purgeCrsCache();
-    const { bytes, sha256 } = await preloadPinnedCrs();
-    return {
-      evidence: `${Math.round(bytes / 2 ** 20)} MiB · sha256 ${sha256.slice(0, 4)}…${sha256.slice(-4)}`,
-      value: undefined,
-    };
   });
   setNodeEndpoint(connection.nodeUrl, NODE_REQUEST_MS);
   startNodeHealth();
@@ -153,8 +149,36 @@ export async function preflight(store: Store, connection: Connection): Promise<P
     };
   });
   await preparePasskeys();
-  store.set(bootAtom, { phase: 'key', records: await listRecords() });
-  return { node, switchable, expected, chainId, rollupVersion, minerArtifact, block };
+  const publicEpoch = startPublicChain(store, connection, node, minerArtifact);
+  store.set(bootAtom, { phase: 'signedOut', records: await listRecords() });
+  return { node, switchable, expected, chainId, rollupVersion, minerArtifact, block, publicEpoch };
+}
+
+/**
+ * The chain before the account: the rules from the build's parameters (the contract's replace them
+ * after sign-in) and the open epoch from public storage, polled until the controller's first read.
+ */
+function startPublicChain(
+  store: Store,
+  connection: Connection,
+  node: Node,
+  minerArtifact: ContractArtifact,
+): PublicEpochPoll {
+  store.set(rulesAtom, {
+    N: PARAMS.N,
+    EXPECTED_EPOCH_SECONDS: PARAMS.EXPECTED_EPOCH_SECONDS,
+    T_MAX: PARAMS.T_MAX,
+    REWARD: PARAMS.REWARD,
+  });
+  const log = (line: string) =>
+    store.set(logAtom, (l) => [...l.slice(-199), `${new Date().toISOString().slice(11, 19)} ${line}`]);
+  const poll = startPublicEpoch(
+    store,
+    publicEpochReader(node, AztecAddress.fromStringUnsafe(connection.miner), minerArtifact.storageLayout),
+    { log },
+  );
+  poll.start();
+  return poll;
 }
 
 /**
@@ -195,6 +219,9 @@ export async function startSession(
   master: Uint8Array,
 ): Promise<{ controller: MinerController; wallet: () => EmbeddedWallet }> {
   const step = (s: string) => store.set(bootAtom, { phase: 'opening', step: s });
+  // The keys download from page load; the wallet (its first proof) and the prover both need them.
+  step('the proving keys');
+  await crsReady();
   step('opening the wallet');
   let opened = await openWallet(pre.node, pre.chainId);
   let controller: MinerController | undefined;
@@ -254,6 +281,8 @@ export async function startSession(
       recover,
     });
     await controller.ready();
+    // The controller's first read owns the epoch from here; a public read still out lands nowhere.
+    pre.publicEpoch.stop();
     await controller.begin();
     store.set(bootAtom, { phase: 'ready', account: account.toString(), threads, record });
     return { controller, wallet: () => opened.wallet };

@@ -11,6 +11,8 @@ target/
 packages/deploy/browser/public/artifacts/
 packages/web-miner/public/artifacts/
 packages/web-miner/public/crs/
+packages/web-miner/public/slots/
+packages/web-miner/public/layouts.json
 packages/web-miner/test-results/
 packages/web-miner/e2e/.peak-rss.json
 packages/web-miner/e2e/.run.json
