@@ -541,7 +541,7 @@ stay under Biome's budgets (cognitive ≤ 15, ≤ 80 non-blank lines): the decom
 
 ### Arc 1 · miner + site (`worktree-yacana-third-pass`)
 
-**P1.1 · The node is a setting** — `connect-src https:` with the `e2e` / `dev` localhost forms; the allowlist and its
+**P1.1 · The node is a setting** ✓ (2026-09-08, `794e6d7`) — `connect-src https:` with the `e2e` / `dev` localhost forms; the allowlist and its
 checks removed; `parseNodeUrl`; `probeNode` (with the rollup address); the fail-closed **guard** in the page and the
 prover Worker, imported before `pinned-crs` (a static import-order test); the miner's node client without transport
 retries and `redirect: 'error'` on guarded requests; `webrtc 'block'` (best effort); the miner's boot on them; the
