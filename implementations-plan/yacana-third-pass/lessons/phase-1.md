@@ -36,3 +36,33 @@ What the phase found:
   `import.meta.env` through `boot.ts` needs the declaration included.
 - The live switch's E2E (two forwarding proxies, a claim after the switch, a stalled B) is P1.4's; P1.1 proves the
   order on the recovery harness with a held-open read.
+
+## P1.2 · Node health and the banner ✓ (2026-09-08, `f99a0a5`)
+
+Gate, as run: lint exit 0 · every typecheck ok · `bun test` 202 pass, 0 fail (`node-health.test.ts`: `Retry-After` as
+seconds, an HTTP-date, garbage, the past, none; the 429 backoff 15 → 30 → 60 s and the [5 s, 120 s] clamp; silence
+20 → 40 → 60 s keeping its first moment; classify; three opaque failures in a window → throttled, a success resets
+the count; `markRead` independent of the transport; a stale endpoint's outcome dropped; the gate's synthetic 429 with
+no network call, `makeFetch([], false)` rejecting `NoRetryError` once, a synthetic answer not moving the deadline;
+a success that started before the cooldown ignored, a later one clearing it; at the deadline one of three concurrent
+callers reaches the network; `waitTurn` at the deadline and through a recovery in flight; silence gating with a 503;
+`bannerState`; the guard test grew the body-time outcomes, the stalled body as one timeout, and the header) · Vitest
+ui 42 (the banner's three texts, the countdown, the way out, hidden when healthy), web-miner 54 (the shell shows the
+banner from a throttled store and links Settings), web-stats 19, web-landing 10 · `test:visual` 4 passed, no diff.
+
+What the phase found:
+
+- **Outcomes at body time need a relay stream.** Reporting on `fetch` resolving would have cleared a cooldown on
+  headers alone; the guard now returns the Response with its body piped through a `TransformStream` whose flush is the
+  outcome and a relay whose read error is the death. The guard's own tests had to read bodies to see outcomes.
+- **Re-arming the guard must not stack it.** A second `installNodeGuard()` (a test over a fake) now re-points the one
+  guard's `original` instead of wrapping a second guard whose inner state still had no endpoint.
+- **Suites share the realm in one bun run.** The health store's gate and its transport state outlived the health test
+  file and gated the guard test's requests with synthetic 503s; the guard test clears the gate, the health test resets
+  the store after itself. The fake network must decode `data:` URLs itself rather than call "the real fetch", which by
+  then can be another suite's guard over this suite's fake (a recursion the stack overflowed on).
+- **The endpoint's identity includes the query**, so a test that varies `?delay=` must set the endpoint with it.
+- **The stats page's "node unreachable" alert is gone**: the banner covers throttled, silent and stale from the one
+  store; the `unreachable` status stays for the poll's own bookkeeping.
+- `packages/site` has no React: the store exposes `subscribeNodeHealth` and each shell calls `useSyncExternalStore`
+  itself; the banner's props are plain values, so `ui` imports nothing from `site`.

@@ -572,7 +572,7 @@ message and does not switch, the tile renders in `signedOut` and `error`) · `bu
 site:e2e` (the `_headers` line carries `https:` and `webrtc 'block'`, and under the e2e mode the localhost forms).
 Layers: lint/typecheck · unit · component · e2e (assembled site).
 
-**P1.2 · Node health and the banner** — the store (transport + freshness), `parseRetryAfter`, `waitTurn`,
+**P1.2 · Node health and the banner** ✓ (2026-09-08, `f99a0a5`) — the store (transport + freshness), `parseRetryAfter`, `waitTurn`,
 `markRead`; `NodeBanner`; the three shells mount it; the pollers wait their turn and mark reads; the boots retry on
 the cooldown; the visual recording extended if the probe adds a call.
 Gate: lint · typecheck (site, ui, the three apps) · `bun test packages/site` (`node-health.test.ts`: a 429 with a
