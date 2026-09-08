@@ -17,6 +17,7 @@ import type { PrivateCallExecutionResult, TxReceipt } from '@aztec/stdlib/tx';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { TokenContract } from '@aztec-foundation/aztec-standards/artifacts/src/artifacts/Token.js';
 import { type Deployment, deployYacana } from '../../deploy/src/deploy.ts';
+import { effectView, exampleClaimFromEffect, sponsorFeeLeaf } from '../../deploy/src/example-claim.ts';
 import { loadMinerArtifact, loadWorkArtifact } from './artifacts.ts';
 import { buildClaim, claimGasLimits } from './claim.ts';
 import { readOpenEpoch, readRules } from './epoch.ts';
@@ -230,6 +231,33 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
     ]);
     const writes = new Map(data.publicDataWrites.map((w) => [w.leafSlot.toBigInt(), w.value.toBigInt()]));
     for (const [slot, value] of expected) expect(writes.get(slot)).toBe(value);
+    // The landing's ledger example is read from an effect like this one, but not this one: a first claim
+    // carries the handshake's note beside the minted one, and the extractor records plain claims only.
+    const view = effectView(effect);
+    const identity = {
+      miner: deployment.miner,
+      chainId: chainId.toString(),
+      rollupVersion: rollupVersion.toString(),
+    };
+    const sponsorLeaf = await sponsorFeeLeaf();
+    await expect(
+      exampleClaimFromEffect(view, identity, miner.artifact.storageLayout, 0, sponsorLeaf),
+    ).rejects.toThrow(/2 note hashes: not one plain claim/);
+    // With one note set aside, the same effect is the claim: the same leaves, the same ticket, the same fee.
+    const example = await exampleClaimFromEffect(
+      { ...view, noteHashes: view.noteHashes.slice(0, 1) },
+      identity,
+      miner.artifact.storageLayout,
+      0,
+      sponsorLeaf,
+    );
+    expect(example).toMatchObject({
+      txHash: receipt.txHash.toString(),
+      epoch: 0,
+      claims: [0, 1],
+      nullifier: siloedTicket.toString(),
+      noteHash: view.noteHashes[0],
+    });
     // The only other write is the fee-juice deduction: the same leaf slot the baseline wrote.
     expect([...writes.keys()].filter((s) => !expected.has(s))).toEqual(
       base.publicDataWrites.map((w) => w.leafSlot.toBigInt()),

@@ -1,6 +1,66 @@
-import { KvRow, Marks, Tile } from '../../../ui/src/index.ts';
-import { copy, LINKS } from '../copy';
+import type { ExampleClaim } from '../../../site/src/config.ts';
+import { ExternalLink, KvRow, shortHash, Tile, TileHeader } from '../../../ui/src/index.ts';
+import { copy } from '../copy';
+import { links } from '../explorer';
 import { Section, SectionHeading, SectionLabel } from './Section';
+
+/** The recorded claim this build ships, or null: the public tile then shows its labels with dashes. */
+export const example: ExampleClaim | null = import.meta.env.VITE_EXAMPLE_CLAIM
+  ? (JSON.parse(import.meta.env.VITE_EXAMPLE_CLAIM) as ExampleClaim)
+  : null;
+
+const l = copy.chain.ledger;
+const DASH = '—';
+
+/** A hash of the example, linked to its transaction's effects on the explorer. */
+const Hash = ({ value, tx, testId }: { value: string; tx: string; testId: string }) => (
+  <ExternalLink href={links.tx(tx)} full={value} className="text-ink" data-testid={testId}>
+    {shortHash(value)}
+  </ExternalLink>
+);
+
+export function LedgerPublic({ x }: { x: ExampleClaim | null }) {
+  return (
+    <Tile flat className="border-line-2" data-testid="ledger-public">
+      <TileHeader
+        aside={
+          x && (
+            <ExternalLink href={links.block(x.block)} full={String(x.block)} data-testid="ledger-block">
+              block {x.block.toLocaleString('en-US')}
+            </ExternalLink>
+          )
+        }
+      >
+        {l.public}
+      </TileHeader>
+      <KvRow
+        label={l.nullifier}
+        value={x ? <Hash value={x.nullifier} tx={x.txHash} testId="ledger-nullifier" /> : DASH}
+      />
+      <KvRow
+        label={l.noteHash}
+        value={x ? <Hash value={x.noteHash} tx={x.txHash} testId="ledger-note-hash" /> : DASH}
+      />
+      <KvRow
+        label={x ? l.claims(x.epoch) : 'claims in the epoch'}
+        value={x ? <span data-testid="ledger-claims">{`${x.claims[0]} → ${x.claims[1]}`}</span> : DASH}
+      />
+      <KvRow label={l.fee} value={x ? l.sponsor : DASH} />
+    </Tile>
+  );
+}
+
+function Private() {
+  return (
+    <Tile flat className="border-dashed" data-testid="ledger-private">
+      <TileHeader>{l.private}</TileHeader>
+      {l.rows.map((row) => (
+        <KvRow key={row} label={row} value={DASH} />
+      ))}
+      <p className="mt-2 text-2xs text-ink-3">{l.handshake}</p>
+    </Tile>
+  );
+}
 
 export function Chain() {
   const c = copy.chain;
@@ -10,17 +70,10 @@ export function Chain() {
         <SectionLabel>what the chain sees</SectionLabel>
         <SectionHeading>{c.heading}</SectionHeading>
         <p className="text-pretty text-ink-2">{c.body}</p>
-        <div className="mt-3.5" data-testid="chain-marks">
-          <Marks nullifier="0x2f9a…c41e" noteHash="0x77b0…19d2" claims={[3, 4]} suffix="illustrative" />
-        </div>
       </div>
-      <div>
-        <p className="mb-3 text-pretty text-ink-2">{c.holding}</p>
-        <div data-testid="chain-footprint">
-          {c.footprint.map((f) => (
-            <KvRow key={f.k} label={f.k} value={f.v} className="[&>:last-child]:text-right" />
-          ))}
-        </div>
+      <div className="grid gap-3.5 sm:grid-cols-2" data-testid="ledger">
+        <LedgerPublic x={example} />
+        <Private />
       </div>
     </Section>
   );
@@ -30,9 +83,8 @@ export function How() {
   const h = copy.how;
   return (
     <Section id="how" className="px-4 py-8 md:px-9">
-      <SectionLabel as="h2" className="mb-3.5">
-        {h.heading}
-      </SectionLabel>
+      <SectionLabel>{h.label}</SectionLabel>
+      <SectionHeading>{h.heading}</SectionHeading>
       <ol className="grid gap-4 md:grid-cols-3" data-testid="how-steps">
         {h.steps.map((s, i) => (
           <Tile key={s.n} asChild>
@@ -46,9 +98,6 @@ export function How() {
           </Tile>
         ))}
       </ol>
-      <a href={LINKS.docs} className="mt-3.5 inline-block text-xs text-ink-3 hover:text-ink">
-        {h.more}
-      </a>
     </Section>
   );
 }

@@ -1,6 +1,6 @@
-// The live strip's reads: the open epoch with its seed (the demo proves against it), the twelve
-// epochs before it, the supply and the block; genesis and the lottery in launch mode. One deadline
-// per request and no transport retries, like the stats page; a failure keeps the last numbers.
+// The hero tile's reads: the open epoch, the twelve epochs before it, the supply and the block;
+// genesis and the lottery in launch mode. One deadline per request and no transport retries, like
+// the stats page; a failure keeps the last numbers.
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { makeFetch } from '@aztec/foundation/json-rpc/client';
@@ -38,7 +38,7 @@ export interface Reader {
 }
 
 export interface Live {
-  /** Ascending, contiguous, the open epoch last (with its seed); empty when `historyError` says why. */
+  /** Ascending, contiguous, the open epoch last; empty when `historyError` says why. */
   rows: EpochRow[];
   historyError?: string;
   open: number;
@@ -91,14 +91,13 @@ const latestBlock = async (node: Node): Promise<Live['block']> => {
 /** The open epoch's read runs beside the history's lanes; together they stay within the default bound. */
 const HISTORY_LIMITS = { ...DEFAULT_LIMITS, concurrency: DEFAULT_LIMITS.concurrency - 1 };
 
-/** The seed is a fourth read; only the open epoch needs it, so the history goes without. */
 async function readRows(r: Reader, open: number): Promise<EpochRow[]> {
   const from = Math.max(0, open - HISTORY);
   const [history, current] = await Promise.all([
     from < open
       ? readEpochs(r.node, r.miner, { from, to: open - 1 }, r.load, { limits: HISTORY_LIMITS })
       : Promise.resolve([]),
-    readEpochs(r.node, r.miner, { from: open, to: open }, r.load, { withSeed: true }),
+    readEpochs(r.node, r.miner, { from: open, to: open }, r.load),
   ]);
   // Linked as one list: the last history row closes against the open epoch.
   return linkRows([...history, ...current]);

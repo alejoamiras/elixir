@@ -1,12 +1,9 @@
 import { Fragment, useState } from 'react';
 import { Button } from '../../../ui/src/index.ts';
-import type { DemoJob } from '../../../web-miner/src/demo/index.ts';
 import { copy } from '../copy';
-import type { DemoState } from '../demo/machine';
 import { useMobile } from '../hooks';
-import type { Live } from '../live';
-import { appHref } from '../state';
-import { Demo } from './Demo';
+import { appHref, type LiveStatus } from '../state';
+import { HeroLive } from './HeroLive';
 
 /** The hero frame's grid and paddings; the launch-week hero shares them. */
 export const HERO_FRAME = 'grid gap-[30px] px-4 py-10 md:grid-cols-[1fr_1.1fr] md:px-9 md:pt-14 md:pb-11';
@@ -63,21 +60,10 @@ function Mobile() {
   );
 }
 
-export function Hero({
-  live,
-  job,
-  demo,
-  onProve,
-}: {
-  live: Live | undefined;
-  job: DemoJob | null;
-  demo: DemoState;
-  onProve: () => void;
-}) {
+export function Hero({ status }: { status: LiveStatus }) {
   const mobile = useMobile();
-  const open = live?.rows[live.rows.length - 1];
   return (
-    <section id="hero" className={HERO_FRAME} data-testid="hero">
+    <section id="hero" className={`${HERO_FRAME} md:items-center`} data-testid="hero">
       <div className="flex flex-col justify-center gap-5">
         <Headline text={copy.hero.headline} />
         <p className="max-w-[46ch] text-pretty text-lg leading-[1.45] text-ink-2">{copy.hero.subhead}</p>
@@ -90,19 +76,16 @@ export function Hero({
                 {copy.bar.mine}
               </a>
             </Button>
-            <Button
-              size="lg"
-              onClick={onProve}
-              disabled={!job || demo.phase === 'proving'}
-              data-testid="hero-prove"
-            >
-              {copy.hero.prove}
+            <Button size="lg" asChild>
+              <a href={appHref('stats')} data-testid="hero-stats">
+                {copy.hero.watch}
+              </a>
             </Button>
           </div>
         )}
         <p className="text-xs text-ink-3">{copy.hero.reassurance}</p>
       </div>
-      {!mobile && <Demo open={open} job={job} state={demo} onProve={onProve} />}
+      {!mobile && <HeroLive status={status} />}
     </section>
   );
 }

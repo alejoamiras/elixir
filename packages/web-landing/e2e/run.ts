@@ -2,10 +2,12 @@
 // free of imports so Playwright's loader never touches the repo's ESM modules.
 export interface E2eRun {
   baseURL: string;
+  /** A second build of the same deployment with the fixture claim bound to it: the ledger's populated state. */
+  claimURL: string;
   nodeUrl: string;
   miner: string;
   token: string;
-  vitePid: number;
+  vitePids: number[];
   runId: string;
 }
 

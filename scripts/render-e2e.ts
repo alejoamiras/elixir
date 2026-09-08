@@ -17,6 +17,8 @@ mkdirSync(out, { recursive: true });
 
 const run = JSON.parse(readFileSync(resolve(repo, `packages/web-${app}/e2e/.run.json`), 'utf8')) as {
   baseURL: string;
+  /** The landing's second build, with the fixture claim: the ledger's populated state is the one to show. */
+  claimURL?: string;
   nodeUrl: string;
   miner: string;
   token: string;
@@ -24,10 +26,11 @@ const run = JSON.parse(readFileSync(resolve(repo, `packages/web-${app}/e2e/.run.
   tokenClassId: string;
   chainId: string;
   rollupVersion: string;
-  vitePid: number;
+  vitePid?: number;
+  vitePids?: number[];
   runId: string;
 };
-const url = new URL(run.baseURL);
+const url = new URL(app === 'landing' && run.claimURL ? run.claimURL : run.baseURL);
 url.searchParams.set('node', run.nodeUrl);
 url.searchParams.set('miner', run.miner);
 url.searchParams.set('token', run.token);
@@ -37,14 +40,15 @@ const shot = (page: Page, name: string, width: number) =>
 
 async function landing(page: Page, width: number) {
   await page.getByTestId('live-epoch').filter({ hasText: ' of ' }).waitFor({ timeout: 60_000 });
-  // A few cadence dots on the loop.
-  await page.waitForTimeout(6000);
+  await page.getByTestId('hero-chart').waitFor({ timeout: 10_000 });
+  await page.waitForTimeout(500);
   await shot(page, 'landing', width);
 }
 
 async function stats(page: Page, width: number) {
-  await mockNode(page, run);
-  await page.goto(pageUrl(run, '', { node: MOCK_NODE_ORIGIN }));
+  const statsRun = { ...run, vitePid: run.vitePid ?? 0 };
+  await mockNode(page, statsRun);
+  await page.goto(pageUrl(statsRun, '', { node: MOCK_NODE_ORIGIN }));
   await page.getByTestId('table').locator('tbody tr').nth(30).waitFor({ timeout: 60_000 });
   await page.locator('main[data-settled="1"]').waitFor({ timeout: 10_000 });
   // Every chart drawn at its container's width (the observer's measurement can lag under load).

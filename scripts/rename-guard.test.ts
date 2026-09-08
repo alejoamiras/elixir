@@ -82,6 +82,7 @@ describe('rename guard', () => {
 const COPY_ROOTS = [
   'packages/web-miner/src',
   'packages/web-stats/src',
+  'packages/web-landing/src',
   'packages/miner-core/src/claim-failure.ts',
 ];
 const COPY_EXEMPT_FILES = [

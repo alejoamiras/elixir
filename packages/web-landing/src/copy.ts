@@ -11,6 +11,8 @@ const epochMinutes = Number(PARAMS.EXPECTED_EPOCH_SECONDS) / 60;
 const symbol = PARAMS.TOKEN_SYMBOL;
 /** No reveal window, no launch lottery on this network (the testnet profile); mainnet's opens epoch 0 by lottery. */
 const lottery = PARAMS.REVEAL_WINDOW_SECONDS > 0n;
+const MINUTES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+const minutesWord = MINUTES[epochMinutes] ?? String(epochMinutes);
 
 export const REPO = 'https://github.com/alejoamiras/elixir';
 export const LINKS = {
@@ -19,9 +21,10 @@ export const LINKS = {
   threatModel: `${REPO}/blob/main/docs/threat-model.md`,
   launchDocs: `${REPO}/blob/main/docs/deployments.md`,
 };
+export const commitUrl = (sha: string): string => `${REPO}/commit/${sha}`;
 
 /** Section ids, in page order; the bar's anchors and the tests' expectations. */
-export const SECTIONS = ['hero', 'money', 'chain', 'how', 'live', 'verify', 'ask'] as const;
+export const SECTIONS = ['hero', 'money', 'chain', 'how', 'verify', 'ask'] as const;
 export type SectionId = (typeof SECTIONS)[number];
 
 export const copy = {
@@ -30,7 +33,6 @@ export const copy = {
       { id: 'money', label: 'Money' },
       { id: 'chain', label: 'Chain' },
       { id: 'how', label: 'How' },
-      { id: 'live', label: 'Live' },
       { id: 'verify', label: 'Verify' },
     ] satisfies { id: SectionId; label: string }[],
     mine: 'Mine on testnet',
@@ -38,94 +40,74 @@ export const copy = {
   },
   hero: {
     headline: 'Bitcoin made money need no bank. YACA makes it need no witness.',
-    subhead:
-      'Proof-of-work money on Aztec, mined in your browser: earned by anyone, private to everyone. Your browser proves work; the chain learns no worker.',
-    prove: 'Prove one now',
+    subhead: 'Proof-of-work money on Aztec, mined in your browser: earned by anyone, private to everyone.',
     reassurance:
       'An Aztec-standards token: private notes, private transfers, no gas on testnet. Mining needs a desktop browser; 20 MB once.',
     mobile: 'Mining needs a desktop browser. Send yourself the link, or watch the network from here.',
     share: 'Send me the link',
     copied: 'link copied',
     watch: 'Watch the stats',
+    live: 'live from the chain',
+    unreachable: 'the node is not answering; these are the last numbers read',
+    loading: 'reading the chain…',
+    noHistory: 'no closed epoch yet',
+    unlaunched: 'epoch 0 has not opened yet',
+    mintedSub: 'by browsers',
+    barSub: 'what a proof has to clear',
+    caption: 'the bar over the last six epochs · a dot per accepted claim, spread across its epoch',
+    captionShort: 'the bar over every epoch so far · a dot per accepted claim, spread across its epoch',
+    rule: `${PARAMS.N} claims close an epoch, then the bar moves`,
+    allStats: 'all stats →',
   },
   money: {
-    heading: 'Nobody prints it. Nobody holds a key to it. Nobody sees who has it.',
-    rules: [
-      {
-        k: 'issued',
-        v: `${reward} ${symbol} per accepted proof · ${PARAMS.N} per ${epochMinutes} minutes · about ${perHour} an hour, forever`,
-      },
-      { k: 'supply', v: 'no cap; constant issuance, so the inflation rate falls every year' },
-      {
-        k: 'premine',
-        v: lottery
-          ? 'none; epoch 0 was opened by a public lottery, not by us'
-          : 'none; this testnet launched at once (mainnet opens epoch 0 by a public lottery)',
-      },
-      { k: 'admin', v: 'none; the contracts are immutable, there is no upgrade key' },
-      { k: 'held as', v: 'private notes on Aztec; a public balance only if you choose it' },
-      {
-        k: 'mined by',
-        v: 'a browser or a native prover running Barretenberg; no special hardware exists for it',
-      },
-    ],
+    heading: 'Nobody prints it. Nobody sees who has it.',
+    lede: `${reward} ${symbol} per accepted proof, ${PARAMS.N} claims every ${minutesWord} minutes, forever. No premine, no admin key, no special hardware.`,
     table: {
       columns: ['Bitcoin', 'Zcash', symbol],
       rows: [
-        {
-          k: 'issuance',
-          cells: ['21 M, halvings', '21 M, halvings', `${perHour} / hour, constant`],
-          tone: ['amber', 'amber', 'green'],
-        },
+        { k: 'issuance', cells: ['21 M, halvings', '21 M, halvings', `${perHour} an hour, constant`] },
         {
           k: 'who got coins first',
           cells: [
             'miners only',
-            '20 % of rewards to founders, then a dev fund',
+            '20 % to founders, then a dev fund',
             lottery
-              ? 'miners only · public launch lottery'
+              ? 'miners only · a public launch lottery'
               : 'miners only (mainnet: a public launch lottery)',
           ],
-          tone: ['green', 'red', 'green'],
         },
-        {
-          k: 'who can mine',
-          cells: ['ASIC farms', 'ASIC farms', 'any desktop browser'],
-          tone: ['red', 'red', 'green'],
-        },
-        {
-          k: 'your balance',
-          cells: ['public', 'private if you shield', 'private notes; public only if you withdraw in public'],
-          tone: ['red', 'amber', 'green'],
-        },
+        { k: 'who can mine', cells: ['ASIC farms', 'ASIC farms', 'any desktop browser'] },
+        { k: 'your balance', cells: ['public', 'private if you shield', 'private notes'] },
         {
           k: 'who mined a coin',
           cells: ['an address, forever', 'an address, unless shielded', 'no address on the claim'],
-          tone: ['red', 'amber', 'green'],
         },
         {
           k: 'rules can change',
           cells: ['by network consensus', 'by network upgrades', 'never · immutable'],
-          tone: ['amber', 'amber', 'green'],
         },
       ],
     },
   },
   chain: {
     heading: 'Public: that a coin was mined. Private: the notes and the transfers.',
-    body: 'A claim writes a nullifier, a note hash and a counter; a key’s first claim adds Aztec’s delivery handshake, which someone who already knows that address can match. Not the recipient, not the secret, not how many proofs it took.',
-    holding:
-      'Holding and spending it: a private transfer is nullifiers and note hashes with the amounts hidden; a public withdraw shows its amount and address, which is why it is a choice. On testnet the sponsor pays the fee, so not even the payer is you; on mainnet a private fee path is the roadmap, and the page will say which it is.',
-    footprint: [
-      {
-        k: 'a claim reveals',
-        v: '1 nullifier · 1 note hash · claims + 1 · a handshake on a key’s first claim',
-      },
-      { k: 'a private transfer reveals', v: 'nullifiers · note hashes · no amount' },
-    ],
+    body: 'A claim writes a nullifier, a note hash and a counter. Not the recipient, not the secret, not how many proofs it took. A public withdraw shows its amount and address, which is why it is a choice.',
+    ledger: {
+      public: 'public · one claim, as recorded',
+      nullifier: 'a nullifier',
+      noteHash: 'a note hash',
+      claims: (epoch: number) => `claims in epoch ${epoch}`,
+      fee: 'fee paid by',
+      sponsor: 'the sponsor',
+      private: 'private · never on the chain',
+      rows: ['who claimed', 'how much they hold', 'how many proofs it took', 'who they pay, and how much'],
+      handshake:
+        'a first claim carries Aztec’s delivery handshake, which someone who already knows that address can match',
+    },
   },
   how: {
-    heading: 'How it works',
+    label: 'how it works',
+    heading: 'Prove. Score. Claim.',
     steps: [
       {
         n: 'prove',
@@ -140,25 +122,14 @@ export const copy = {
       {
         n: 'claim',
         title: 'A private transaction verifies it and mints',
-        body: `The claim checks the proof inside a private Aztec function and mints ${reward} ${symbol} to a key only you hold. A nullifier makes sure it can be claimed once.`,
+        body: `The claim checks the proof inside a private Aztec function and mints ${reward} ${symbol} to an account only you hold. A nullifier makes sure it can be claimed once.`,
       },
     ],
-    more: 'Read the mechanism in full: the docs and the threat model →',
-  },
-  live: {
-    heading: 'Live',
-    sub: 'difficulty, recent epochs · all stats →',
-    unreachable: 'the node is not answering; these are the last numbers read',
-    loading: 'reading the chain…',
-    noHistory: 'no closed epoch yet',
-    unlaunched: 'epoch 0 has not opened yet',
   },
   verify: {
-    heading: "Don't trust this page.",
-    body: 'The contracts are immutable, the verifier key is pinned inside the claim circuit, the proving keys are hash-checked before use, and the miner makes no request except to the node you choose.',
+    heading: 'See for yourself.',
+    body: 'The contracts are immutable, the verifier key is pinned inside the claim circuit, and every number on this page is read or derived from public storage. Each address below opens on the explorer.',
     source: 'Read the source',
-    threatModel: 'Threat model',
-    build: 'Build it yourself',
   },
   ask: {
     heading: 'A tab is enough.',
@@ -172,28 +143,6 @@ export const copy = {
       { label: 'Stats', href: 'stats' },
       { label: 'Threat model', href: LINKS.threatModel },
     ],
-  },
-  demo: {
-    before:
-      'The bar is live from the chain; the dots are a cadence, not proofs. Press Prove one now to add a real one.',
-    proving: 'proving on this machine',
-    live: 'live from the chain',
-    nothingSent: 'Nothing is sent anywhere. Your CPU, your proof.',
-    steps: {
-      crs: 'proving keys · 20 MB · sha256 ✓',
-      prover: 'prover ready',
-      proof: 'proof · 410 fields',
-      score: 'score · Poseidon2 over the proof',
-    },
-    proved: 'proved on this machine',
-    yourScore: 'your score',
-    bar: 'the bar',
-    odds: 'odds per proof',
-    again: 'Prove another',
-    keepGoing: 'Keep going: mine on testnet',
-    failed: 'the proof did not finish',
-    timeout: 'no proof in 90 s: this machine may be too slow for the demo, or the tab was in the background',
-    needsChain: 'the demo needs the open epoch from the chain',
   },
   launch: {
     eyebrow: 'Yacana mainnet · launch',

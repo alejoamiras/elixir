@@ -440,7 +440,7 @@ codex loop, then `gh stack add second-pass-landing`.
 
 ### Arc 3 · landing + site (`second-pass-landing`)
 
-**P3.1 The landing: hero tile with the bar chart, the diet, the ledger, Verify, the demo removed.** `copy.ts`;
+**P3.1 ✓ The landing: hero tile with the bar chart, the diet, the ledger, Verify, the demo removed.** `copy.ts`;
 `HeroLive` + `BarChart`; `Money` two tones; `Chain` ledger from `VITE_EXAMPLE_CLAIM` (present → the recorded claim
 with its links; absent → "—"); `packages/deploy/scripts/record-example-claim.ts` (+ a unit test on a committed captured effect, and a
 `describe.skipIf(!AZTEC_NODE_URL)` test on a real testnet claim); the owner runs the script once with a soak claim's tx hash to produce
@@ -455,7 +455,7 @@ packages/deploy && bun run --cwd packages/web-landing test:components && bun ins
 (the built landing carries no prover; the lockfile diff reviewed for unrelated version moves and recorded in
 `lessons/phase-3.md`). Layers: lint/typecheck · unit · component.
 
-**P3.2 Landing E2E and the assembled site.** `landing.e2e.ts`: the section order (six), the hero tile reading the
+**P3.2 ✓ Landing E2E and the assembled site.** `landing.e2e.ts`: the section order (six), the hero tile reading the
 chain (`live-*` ids move into the tile), no bb.js, WASM or CRS request at any point (`net.heavy` empty for the whole
 visit), the ledger's "—" state (the isolated deployment has no claim), then a second e2e build and server with
 `VITE_EXAMPLE_CLAIM` pointed at `e2e/fixtures/example-claim.json` (bound to the e2e deployment's identity by the
@@ -676,6 +676,8 @@ contracts, the reader's storage layout, the launch mode, the OG card).
 ## Approval
 
 ELI5: https://claude.ai/code/artifact/be2699e5-2b43-47b8-90e1-e4f9849d5aa5 (source `eli5.html` in this directory). Codex final verdict: `conditional approve` (all conditions adopted). Fable: `conditional approve` (all conditions adopted). **Approved by the owner on 2026-09-07** (the `/goal` was set on the plan as written; Ask 1 answered "find it": the agent locates a testnet claim's tx hash and records the example claim itself). The seeds below are final.
+
+**Delivered 2026-09-08**: every phase ✓ with its gate in `lessons/phase-{1,2,3}.md`; the three arcs' codex loops and the final cross-arc pass converged; the stack on GitHub is #20 (`worktree-yacana-second-pass`) → #21 (`second-pass-stats`) → #22 (`second-pass-landing`), stack #23. The owner merges (`gh stack merge`) and deploys (`bun run site:deploy`).
 
 ## Seeds
 

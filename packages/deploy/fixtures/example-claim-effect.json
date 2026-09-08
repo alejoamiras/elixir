@@ -1,0 +1,46 @@
+{
+  "identity": {
+    "miner": "0x2091605cff5bb6658821ef6df7a268e7b499ff326cafba8a5696102212565e3e",
+    "chainId": "11155111",
+    "rollupVersion": "1821665230",
+    "epoch": 29,
+    "claims": [
+      1,
+      2
+    ],
+    "block": 73162,
+    "txHash": "0x0cc85e677c17cf0d99c45beb71b84f820813db102ed0b0529c1a0203aae1cad5",
+    "nullifier": "0x29b9adff02de2cfe6795d4aa007723143971ad2d6f751393a39e25209864b62f",
+    "noteHash": "0x1f31034eae0014e5522480a61cacb755abb67dd367e3a00db723e8580dcdc410"
+  },
+  "effect": {
+    "txHash": "0x0cc85e677c17cf0d99c45beb71b84f820813db102ed0b0529c1a0203aae1cad5",
+    "l2BlockNumber": 73162,
+    "nullifiers": [
+      "0x1a008ecf66921874a517d002ee30224d66219943688a6dfcbc71eee8d87b1e63",
+      "0x29b9adff02de2cfe6795d4aa007723143971ad2d6f751393a39e25209864b62f",
+      "0x26d9948288867267c2ddf16d29e5b7d84de5123dd284507c8e4ab1e079a60675"
+    ],
+    "noteHashes": [
+      "0x1f31034eae0014e5522480a61cacb755abb67dd367e3a00db723e8580dcdc410"
+    ],
+    "publicDataWrites": [
+      {
+        "leafSlot": "0x28416c765f6a5a2a56aef59a62b0a21def587588f13f5908819b051eebe97072",
+        "value": "0x0000000000000000000000000000000000000000000000000000000000000002"
+      },
+      {
+        "leafSlot": "0x1b1efa8729f12302cd919a07e267cbe5cbd6cd52435d59012e2c97776d2d2ee2",
+        "value": "0x0ba1bdf1e57244d39ded5f8ae87128a046a22fe254b85a3ce28b46cd70ae1e3c"
+      },
+      {
+        "leafSlot": "0x2dfeb633dcbbd068d0083e816f3f169b84b09ffa800bfb2d5a02e2e8d677d511",
+        "value": "0x00000000000000000000000000000000000000000000001811bcdf9651700000"
+      },
+      {
+        "leafSlot": "0x1638870fdf456be4b73a09e84b7fc0d44ac06d7b3ed05481df0d920fc2efa83c",
+        "value": "0x0000000000000000000000000000000000000000000000173bd06c09dd85f26c"
+      }
+    ]
+  }
+}

@@ -1,9 +1,8 @@
-import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import type { DeploymentRecord } from '../../../site/src/config.ts';
-import { Button, Chip, shortHash } from '../../../ui/src/index.ts';
+import { Button, Chip, ChipLink, shortHash } from '../../../ui/src/index.ts';
 import { W_VK_HASH } from '../../../work-circuit/src/generated/vk.ts';
-import { copy, LINKS, REPO } from '../copy';
-import { appHref } from '../state';
+import { commitUrl, copy, REPO } from '../copy';
+import { links } from '../explorer';
 import { Section, SectionHeading, SectionLabel } from './Section';
 
 const record = JSON.parse(import.meta.env.VITE_DEPLOYMENT_RECORD) as DeploymentRecord & {
@@ -18,7 +17,7 @@ export function Verify() {
   const v = copy.verify;
   const commit = import.meta.env.VITE_SOURCE_COMMIT;
   return (
-    <Section id="verify" className="grid gap-10 px-4 py-8 md:grid-cols-2 md:px-9">
+    <Section id="verify" className="grid gap-10 px-4 py-8 md:grid-cols-[1fr_1.25fr] md:px-9">
       <div>
         <SectionLabel>verify</SectionLabel>
         <SectionHeading>{v.heading}</SectionHeading>
@@ -26,23 +25,39 @@ export function Verify() {
       </div>
       <div>
         <div className="flex flex-wrap gap-2" data-testid="verify-chips">
-          <Chip label="miner" value={shortHash(record.miner)} full={record.miner} />
-          <Chip label="token" value={shortHash(record.token)} full={record.token} />
-          <Chip label="class" value={shortHash(record.minerClassId)} full={record.minerClassId} />
+          <ChipLink
+            label="miner"
+            value={record.miner}
+            href={links.instance(record.miner)}
+            testId="chip-miner"
+          />
+          <ChipLink
+            label="token"
+            value={record.token}
+            href={links.instance(record.token)}
+            testId="chip-token"
+          />
+          <ChipLink
+            label="class"
+            value={record.minerClassId}
+            href={links.classVersion(record.minerClassId)}
+            testId="chip-class"
+          />
           <Chip label="W vk" value={shortHash(W_VK_HASH)} full={W_VK_HASH} />
-          <Chip label="source" value={commit.slice(0, 7)} full={commit} />
+          <ChipLink
+            label="source"
+            value={commit}
+            href={/^[0-9a-f]{40}$/.test(commit) ? commitUrl(commit) : undefined}
+            short={(c) => c.slice(0, 7)}
+            testId="chip-source"
+          />
           <Chip label="launched" value={launched} />
-          <Chip label="rules" value={`N ${PARAMS.N} · ${PARAMS.EXPECTED_EPOCH_SECONDS} s · ×¼…4`} />
         </div>
-        <div className="mt-3.5 flex flex-wrap gap-2.5">
-          <Button size="sm" asChild>
-            <a href={REPO}>{v.source}</a>
-          </Button>
-          <Button size="sm" variant="ghost" asChild>
-            <a href={LINKS.threatModel}>{v.threatModel}</a>
-          </Button>
-          <Button size="sm" variant="ghost" asChild>
-            <a href={`${appHref('stats')}verify`}>{v.build}</a>
+        <div className="mt-3.5">
+          <Button size="sm" variant="primary" asChild>
+            <a href={REPO} data-testid="verify-source">
+              {v.source}
+            </a>
           </Button>
         </div>
       </div>

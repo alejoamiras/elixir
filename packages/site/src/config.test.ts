@@ -1,7 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { type DeploymentRecord, loadSiteConfig, parseEnvFile, viteDefine } from './config.ts';
+import {
+  type DeploymentRecord,
+  type ExampleClaim,
+  loadSiteConfig,
+  parseEnvFile,
+  viteDefine,
+} from './config.ts';
 
 const siteEnv = parseEnvFile(readFileSync(resolve(import.meta.dir, '../site.env'), 'utf8'));
 const deployment = JSON.parse(
@@ -48,6 +54,45 @@ describe('site config', () => {
     expect(c.miner).toBe('0x01');
     expect(c.token).toBe(deployment.token);
     expect(c.queryOverrides).toBe(true);
+  });
+
+  test("the example claim ships only when it is this deployment's and well formed", () => {
+    const claim = JSON.parse(
+      readFileSync(resolve(import.meta.dir, '../../../deployments/testnet.example-claim.json'), 'utf8'),
+    ) as ExampleClaim;
+    const c = loadSiteConfig({ ...base, mode: 'production', exampleClaim: claim });
+    expect(JSON.parse(viteDefine(c)['import.meta.env.VITE_EXAMPLE_CLAIM'] as string)).toBe(
+      JSON.stringify(claim),
+    );
+    expect(
+      viteDefine(loadSiteConfig({ ...base, mode: 'production' }))['import.meta.env.VITE_EXAMPLE_CLAIM'],
+    ).toBe('""');
+    const foreign = { ...claim, miner: `0x${'2'.padStart(64, '0')}` };
+    expect(() => loadSiteConfig({ ...base, mode: 'production', exampleClaim: foreign })).toThrow(
+      /another deployment/,
+    );
+    for (const bad of [
+      { claims: [1, 3] },
+      { claims: [-1, 0] },
+      { claims: [4, 5] },
+      { claims: [0.5, 1.5] },
+      { claims: ['1', '2'] },
+      { block: -1 },
+      { block: 7.5 },
+      { txHash: '0x12' },
+    ] as Partial<ExampleClaim>[])
+      expect(() =>
+        loadSiteConfig({ ...base, mode: 'production', exampleClaim: { ...claim, ...bad } }),
+      ).toThrow(/malformed/);
+    // An e2e build's identity overrides move the bar: the testnet claim is foreign to a throwaway deployment.
+    expect(() =>
+      loadSiteConfig({
+        ...base,
+        mode: 'e2e',
+        exampleClaim: claim,
+        env: { VITE_YACANA_MINER: `0x${'3'.padStart(64, '0')}` },
+      }),
+    ).toThrow(/another deployment/);
   });
 
   test('production refuses a placeholder RP ID, a local or plaintext node, and the e2e flag', () => {

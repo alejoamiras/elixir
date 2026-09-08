@@ -1,7 +1,7 @@
 // The Vite configuration every app shares: the site config as `define`, the rendered headers on
 // the dev/preview servers and in the build output, and the bb.js plumbing for the apps that prove.
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
@@ -11,6 +11,7 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { faviconDataUrl } from '../../ui/src/mark.ts';
 import {
   type DeploymentRecord,
+  type ExampleClaim,
   loadSiteConfig,
   parseEnvFile,
   type SiteConfig,
@@ -46,10 +47,19 @@ export function siteConfig(command: 'build' | 'serve', env: NodeJS.ProcessEnv = 
   const deployment = JSON.parse(
     readFileSync(resolve(repo, `deployments/${profile}.json`), 'utf8'),
   ) as DeploymentRecord;
+  // The profile's recorded claim when there is one. An e2e build's deployment is a throwaway, so the
+  // profile's claim is never its own: it ships the file `VITE_EXAMPLE_CLAIM` names, or none.
+  const claimPath =
+    mode === 'e2e'
+      ? env.VITE_EXAMPLE_CLAIM && resolve(repo, env.VITE_EXAMPLE_CLAIM)
+      : resolve(repo, `deployments/${profile}.example-claim.json`);
+  const exampleClaim =
+    claimPath && existsSync(claimPath) ? (JSON.parse(readFileSync(claimPath, 'utf8')) as ExampleClaim) : null;
   return loadSiteConfig({
     mode,
     siteEnv: parseEnvFile(readFileSync(resolve(here, '../site.env'), 'utf8')),
     deployment,
+    exampleClaim,
     env,
     sourceCommit: sourceCommit(env),
     bbVersion: (
@@ -110,7 +120,18 @@ export function siteVite(app: SiteAppOptions): (ctx: { command: 'build' | 'serve
           },
           worker: { format: 'es' },
         }
-      : {};
+      : {
+          resolve: {
+            // aztec.js reaches the proving packages through lazy imports; a page that never proves
+            // resolves them to a stub, so its bundle cannot carry them and a reach fails loudly.
+            alias: [/^@aztec\/bb\.js(\/|$)/, /^@aztec\/noir-(acvm_js|noirc_abi|noir_js)(\/|$)/].map(
+              (find) => ({
+                find,
+                replacement: resolve(here, 'browser/no-prover.ts'),
+              }),
+            ),
+          },
+        };
     return {
       base: app.base ?? '/',
       // The assembly materialises the shared assets once at the origin's root; an app's own
