@@ -26,6 +26,12 @@ export function duration(seconds: number): string {
   return `${(seconds / 86400).toFixed(1)} d`;
 }
 
+/** A live counter as `m:ss` (minutes unbounded): 312 → "5:12". */
+export const clockMinutes = (seconds: number): string => {
+  const s = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
 /** Token amount with `decimals`, trimmed to at most `places` fractional digits. */
 export function amount(raw: bigint, decimals: number, places = 4): string {
   const base = 10n ** BigInt(decimals);

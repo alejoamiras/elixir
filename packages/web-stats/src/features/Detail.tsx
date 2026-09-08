@@ -1,7 +1,7 @@
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { difficulty, sentence } from '../../../miner-core/src/metrics.ts';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';
-import { amount, durationParts } from '../../../site/src/browser/format.ts';
+import { amount, clockMinutes, durationParts } from '../../../site/src/browser/format.ts';
 import { Badge, difficultyLabel, Kpi, Tile, TileHeader } from '../../../ui/src/index.ts';
 
 const RULES = { N: PARAMS.N, EXPECTED_EPOCH_SECONDS: PARAMS.EXPECTED_EPOCH_SECONDS, T_MAX: PARAMS.T_MAX };
@@ -14,7 +14,7 @@ const stateOf = (row: EpochRow, open: boolean): State =>
   row.closedBy === 'roll' ? 'roll' : row.duration !== null ? 'claims' : open ? 'open' : 'unread';
 
 const BADGE: Record<State, { variant: 'warn' | 'neutral' | 'uv'; text: string }> = {
-  roll: { variant: 'warn', text: 'closed by roll()' },
+  roll: { variant: 'warn', text: 'closed by the escape hatch' },
   claims: { variant: 'neutral', text: `closed by the ${PARAMS.N}th claim` },
   open: { variant: 'uv', text: 'open' },
   unread: { variant: 'neutral', text: 'closed · not read yet' },
@@ -41,7 +41,7 @@ export function Detail({
     row.duration !== null
       ? durationParts(row.duration)
       : state === 'open'
-        ? durationParts(Math.max(0, now - row.openedAt))
+        ? [clockMinutes(now - row.openedAt), 'min · counting']
         : ['—', ''];
   return (
     <Tile className={className} data-testid="detail">
@@ -54,7 +54,7 @@ export function Detail({
         />
         <Kpi
           label={row.duration === null ? 'open for' : 'duration'}
-          value={dur}
+          value={<span data-testid={row.duration === null ? 'detail-open-for' : undefined}>{dur}</span>}
           unit={durUnit || undefined}
         />
         <Kpi

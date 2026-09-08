@@ -79,7 +79,11 @@ describe('rename guard', () => {
 // The person's account is an "account" in every sentence the miner shows; "key" is for cryptography.
 // Only copy is scanned (JSX text and the string literals of user-facing messages); persistent and
 // protocol strings must never change, since renaming them would strand accounts or break sign-in.
-const COPY_ROOTS = ['packages/web-miner/src', 'packages/miner-core/src/claim-failure.ts'];
+const COPY_ROOTS = [
+  'packages/web-miner/src',
+  'packages/web-stats/src',
+  'packages/miner-core/src/claim-failure.ts',
+];
 const COPY_EXEMPT_FILES = [
   /\.test\.tsx?$/,
   /\.vitest\.tsx$/,

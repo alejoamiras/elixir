@@ -132,7 +132,7 @@ export function sentence(row: EpochRow, rules: EpochRules): string {
   const move = retarget < 1 ? `made ×${(1 / retarget).toFixed(2)} harder` : `eased ×${retarget.toFixed(2)}`;
   switch (kind) {
     case 'rolled':
-      return `Hashrate fell away after ${row.claims} ${row.claims === 1 ? 'claim' : 'claims'}. The epoch sat open past T_MAX and anyone could close it; someone did at ${clock(row.openedAt + (row.duration as number))}, and the next epoch was ${move}.`;
+      return `Hashrate fell away after ${row.claims} ${row.claims === 1 ? 'claim' : 'claims'}. The epoch sat open past the ${Number(rules.T_MAX) / 60}-minute mark, when anyone may close it through the escape hatch; someone did at ${clock(row.openedAt + (row.duration as number))}, and the next epoch was ${move}.`;
     case 'launch':
       return `Epoch 0 opened at launch at difficulty ${difficulty(row.target).toFixed(1)}; ${rules.N} claims closed it in ${dur} against ${expected} expected, and the first retarget ${move} the next epoch.`;
     case 'fast':

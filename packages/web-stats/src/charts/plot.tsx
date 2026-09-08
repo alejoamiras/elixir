@@ -1,12 +1,12 @@
 import * as Plot from '@observablehq/plot';
 import { type ComponentProps, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { cn, useReducedMotion } from '../../../ui/src/index.ts';
-import { type ChartInput, HEIGHT, type Spec } from './specs';
+import type { ChartInput, Spec } from './specs';
 
 const FADE_MS = 240;
 type Figure = HTMLElement | SVGSVGElement;
 
-/** The container's width through a ResizeObserver; 640 where there is none (jsdom) or nothing is laid out yet. */
+/** The container's width through a ResizeObserver: 0 until measured; 640 where there is no observer (jsdom). */
 function useWidth(ref: RefObject<HTMLDivElement | null>): number {
   const [width, setWidth] = useState(0);
   useLayoutEffect(() => {
@@ -17,7 +17,7 @@ function useWidth(ref: RefObject<HTMLDivElement | null>): number {
     observer.observe(el);
     return () => observer.disconnect();
   }, [ref]);
-  return width || 640;
+  return typeof ResizeObserver === 'undefined' ? 640 : width;
 }
 
 /** The outgoing figures fade under the incoming one, inert and hidden from assistive tech, then go. */
@@ -50,19 +50,20 @@ function crossFade(next: Figure, previous: Figure[]): () => void {
 export function Chart({
   spec,
   input,
+  height,
   className,
   ...props
-}: { spec: Spec; input: Omit<ChartInput, 'width'> } & ComponentProps<'div'>) {
+}: { spec: Spec; input: Omit<ChartInput, 'width' | 'height'>; height: number } & ComponentProps<'div'>) {
   const ref = useRef<HTMLDivElement>(null);
   const width = useWidth(ref);
   const reduced = useReducedMotion();
   const epochs = input.rows.map((r) => r.epoch).join(',');
   const drawn = useRef<string | null>(null);
-  const { rows, selected, rules } = input;
+  const { rows, selected, rules, open } = input;
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
-    const figure = Plot.plot(spec({ rows, selected, rules, width }));
+    if (!el || !width) return;
+    const figure = Plot.plot(spec({ rows, selected, rules, open, width, height }));
     figure.style.position = 'absolute';
     figure.style.inset = '0';
     const previous = Array.from(el.children) as Figure[];
@@ -74,12 +75,12 @@ export function Chart({
       return;
     }
     return crossFade(figure, previous);
-  }, [spec, rows, selected, rules, width, epochs, reduced]);
+  }, [spec, rows, selected, rules, open, width, height, epochs, reduced]);
   return (
     <div
       ref={ref}
       className={cn('relative w-full', className)}
-      style={{ height: HEIGHT }}
+      style={{ height }}
       data-slot="chart"
       {...props}
     />
