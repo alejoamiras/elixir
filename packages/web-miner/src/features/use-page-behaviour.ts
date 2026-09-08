@@ -13,14 +13,18 @@ type Battery = {
   removeEventListener(t: 'chargingchange', l: () => void): void;
 };
 
-const editable = (t: EventTarget | null) =>
-  t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+/** A focused control keeps its own keys: Space on a button is that button's click, not the page's Start. */
+const interactive = (t: EventTarget | null) =>
+  t instanceof HTMLElement &&
+  (t.isContentEditable ||
+    t.closest('input, textarea, select, button, a, [role="button"], [contenteditable]') !== null);
 
 export function useHotkeys(controller: () => MinerController | undefined) {
   const store = useStore();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || editable(e.target)) return;
+      if (e.defaultPrevented || e.repeat || e.metaKey || e.ctrlKey || e.altKey || interactive(e.target))
+        return;
       const c = controller();
       const miner = store.get(minerAtom);
       const settings = store.get(settingsAtom);

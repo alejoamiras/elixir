@@ -38,7 +38,7 @@ export async function parseRecipient(text: string, self: string): Promise<AztecA
     throw new Error('not an Aztec address');
   }
   if (to.isZero()) throw new Error('the zero address cannot receive');
-  if (to.toString() === self) throw new Error('that is this key');
+  if (to.toString() === self) throw new Error('that is this account');
   if (!(await to.isValid())) throw new Error('not a valid Aztec address');
   return to;
 }

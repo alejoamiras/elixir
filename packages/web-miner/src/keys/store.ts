@@ -115,7 +115,7 @@ export async function seal(
   record: Pick<MasterRecord, 'v' | 'method' | 'id'>,
 ): Promise<NonNullable<MasterRecord['sealed']>> {
   if (secret.length !== SECRET_BYTES[record.method])
-    throw new Error(`a ${record.method} key seals ${SECRET_BYTES[record.method]} bytes`);
+    throw new Error(`a ${record.method} account's secret is ${SECRET_BYTES[record.method]} bytes`);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ct = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv, additionalData: aad(record) },
@@ -126,7 +126,7 @@ export async function seal(
 }
 
 async function unseal(record: MasterRecord): Promise<Uint8Array> {
-  if (!record.sealed) throw new Error('this key is not stored on this device');
+  if (!record.sealed) throw new Error('this account is not stored on this device');
   const pt = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: record.sealed.iv as BufferSource, additionalData: aad(record) },
     await deviceKey(),
@@ -142,7 +142,7 @@ export const addressOf = async (master: Uint8Array, index: 0): Promise<string> =
 
 /** A words key's phrase, from the sealed entropy; only on the device that created or restored it. */
 export async function openPhrase(record: MasterRecord): Promise<string> {
-  if (record.method !== 'words') throw new Error('not a words key');
+  if (record.method !== 'words') throw new Error('not a twelve-words account');
   return phraseFromEntropy(await unseal(record));
 }
 
@@ -158,7 +158,7 @@ export async function openMaster(record: MasterRecord, supplied?: Uint8Array): P
   const derived = await addressOf(master, record.account.index);
   if (derived !== record.account.address)
     throw new Error(
-      `this ${record.method === 'passkey' ? 'passkey' : 'phrase'} opens a different key than the one on this device`,
+      `this ${record.method === 'passkey' ? 'passkey' : 'phrase'} opens a different account than the one on this device`,
     );
   return master;
 }
@@ -169,7 +169,7 @@ export async function setStayOpen(
   master: Uint8Array,
   stayOpen: boolean,
 ): Promise<MasterRecord> {
-  if (record.method !== 'passkey') throw new Error('a words key is always sealed');
+  if (record.method !== 'passkey') throw new Error('a twelve-words account is always sealed');
   const next: MasterRecord = { ...record, askEveryOpen: !stayOpen };
   if (stayOpen) next.sealed = await seal(master, record);
   else delete next.sealed;

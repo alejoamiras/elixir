@@ -21,7 +21,7 @@ describe('withdraw review', () => {
       review({ to: to.toString(), amount: '1', mode: 'public', ...d }, self, 10n ** 18n, 18);
     await expect(attempt({ to: 'nope' })).rejects.toThrow(/not an Aztec address/);
     await expect(attempt({ to: AztecAddress.ZERO.toString() })).rejects.toThrow(/zero address/);
-    await expect(attempt({ to: self })).rejects.toThrow(/this key/);
+    await expect(attempt({ to: self })).rejects.toThrow(/this account/);
     // In the field but not a Grumpkin x-coordinate (about half of all small integers).
     let x = 1n;
     while (await AztecAddress.fromBigIntUnsafe(x).isValid()) x++;

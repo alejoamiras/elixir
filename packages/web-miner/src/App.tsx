@@ -24,12 +24,15 @@ import { Settings } from './routes/Settings';
 import { Wallet } from './routes/Wallet';
 import type { Session } from './session';
 import { useSettings } from './settings';
-import { bootAtom, epochAtom, minerAtom, rulesAtom } from './state';
+import { bootAtom, epochAtom, minerAtom, nowAtom, rulesAtom } from './state';
 import { applyTabStatus } from './tab-status';
 
-const NAV: { route: Route; label: string }[] = [
+/** The stats app lives beside this one on the same origin; standalone builds point at the assembled path. */
+const statsHref = `${(import.meta.env.BASE_URL ?? '/').replace(/\/mine\/?$/, '/')}stats/`;
+const NAV: ({ route: Route; label: string } | { href: string; label: string })[] = [
   { route: 'mine', label: 'Mine' },
   { route: 'wallet', label: 'Wallet' },
+  { href: statsHref, label: 'Stats ↗' },
   { route: 'settings', label: 'Settings' },
 ];
 
@@ -51,6 +54,7 @@ function useTabStatus(enabled: boolean) {
 function Shell({ children }: { children: ReactNode }) {
   const route = useRoute();
   const miner = useAtomValue(minerAtom);
+  const now = useAtomValue(nowAtom);
   const notice = previewNotice(location.hostname);
   return (
     <div className="mx-auto flex max-w-[1120px] flex-col">
@@ -60,27 +64,40 @@ function Shell({ children }: { children: ReactNode }) {
           Yacana
         </span>
         <nav className="flex gap-4 text-sm" aria-label="miner">
-          {NAV.map((n) => (
-            <a
-              key={n.route}
-              href={`#${n.route}`}
-              aria-current={route === n.route ? 'page' : undefined}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate(n.route);
-              }}
-              className={cn(
-                'py-1 text-ink-2 hover:text-ink',
-                route === n.route && 'text-ink underline underline-offset-[18px]',
-              )}
-            >
-              {n.label}
-            </a>
-          ))}
+          {NAV.map((n) =>
+            'href' in n ? (
+              <a
+                key={n.href}
+                href={n.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="py-1 text-ink-2 hover:text-ink"
+                data-testid="nav-stats"
+              >
+                {n.label}
+              </a>
+            ) : (
+              <a
+                key={n.route}
+                href={`#${n.route}`}
+                aria-current={route === n.route ? 'page' : undefined}
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate(n.route);
+                }}
+                className={cn(
+                  'py-1 text-ink-2 hover:text-ink',
+                  route === n.route && 'text-ink underline underline-offset-[18px]',
+                )}
+              >
+                {n.label}
+              </a>
+            ),
+          )}
         </nav>
         <span className="ml-auto flex items-center gap-3">
           <Badge variant="warn">testnet · fees sponsored</Badge>
-          <StatusPill status={pillStatus(miner)} data-testid="phase" />
+          <StatusPill status={pillStatus(miner, now)} data-testid="phase" />
         </span>
       </header>
       <div className="flex flex-col gap-4 p-4 md:p-5">

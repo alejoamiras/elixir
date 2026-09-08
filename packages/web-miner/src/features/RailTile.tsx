@@ -6,6 +6,7 @@ import type { MinerController } from '../controller';
 import { duration } from '../lib/format';
 import { useSettings } from '../settings';
 import { bootAtom, claimsAtom, epochAtom, minerAtom, nowAtom, rulesAtom } from '../state';
+import { ClaimSlot } from './ClaimSlot';
 
 const cores = () => navigator.hardwareConcurrency || 2;
 
@@ -16,6 +17,15 @@ export function RailTile({
   controller: () => MinerController | undefined;
   className?: string;
 }) {
+  return (
+    <div className={cn('flex flex-col gap-[14px]', className)} data-testid="rail">
+      <ClaimSlot />
+      <EpochTile controller={controller} />
+    </div>
+  );
+}
+
+function EpochTile({ controller }: { controller: () => MinerController | undefined }) {
   const epoch = useAtomValue(epochAtom);
   const rules = useAtomValue(rulesAtom);
   const now = useAtomValue(nowAtom);
@@ -31,7 +41,7 @@ export function RailTile({
   };
   const nowSec = BigInt(Math.floor(now / 1000));
   return (
-    <Tile className={cn('flex flex-col gap-5', className)}>
+    <Tile className="flex flex-col gap-5">
       {epoch && rules ? (
         <EpochRail
           epoch={Number(epoch.epoch)}
@@ -57,7 +67,7 @@ export function RailTile({
               ),
             },
             { label: 'difficulty', value: difficulty(epoch.target).toFixed(1) },
-            { label: 'open for', value: duration(Number(nowSec - epoch.openedAt)) },
+            { label: 'open for', value: duration(Math.max(0, Number(nowSec - epoch.openedAt))) },
             { label: 'expected close', value: duration(Number(rules.EXPECTED_EPOCH_SECONDS)) },
             {
               label: 'if it closed now',

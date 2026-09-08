@@ -25,7 +25,7 @@ const vault = (page: Parameters<typeof bootPage>[0]) =>
       }),
   );
 
-test('a passkey key: create, mine, claim, reload with one touch, the balance follows the key', async ({
+test('a passkey account: create, mine, claim, reload with one touch, the balance follows the account', async ({
   page,
 }) => {
   const r = run();
@@ -70,6 +70,16 @@ test('a passkey key: create, mine, claim, reload with one touch, the balance fol
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
   expect(await page.getByTestId('account').getAttribute('title')).toBe(account);
   await expect(page.getByTestId('balance')).toHaveText('4');
+  // The account links to the explorer from the cockpit and from the wallet page's account tile.
+  await expect(page.getByTestId('account')).toHaveAttribute('href', new RegExp(`/address/${account}$`));
+  await page.getByRole('link', { name: 'Wallet' }).click();
+  await expect(page.getByTestId('wallet-account')).toHaveAttribute(
+    'href',
+    new RegExp(`/address/${account}$`),
+  );
+  await expect(page.getByTestId('sign-out')).toBeVisible();
+  await expect(page.getByText('passkey', { exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Mine' }).click();
 
   // Convenience mode: the sealed master opens without any authenticator; switching back drops it.
   await page.getByRole('link', { name: 'Settings' }).click();
@@ -87,7 +97,7 @@ test('a passkey key: create, mine, claim, reload with one touch, the balance fol
   await expect.poll(async () => (await vault(page)).records[0]?.sealed).toBeUndefined();
 });
 
-test('a known key whose passkey is gone does not open; the record stays', async ({ page }) => {
+test('a known account whose passkey is gone does not open; the record stays', async ({ page }) => {
   const r = run();
   const auth = await bootPage(page, pageUrl(r));
   const account = (await page.getByTestId('account').getAttribute('title')) ?? '';

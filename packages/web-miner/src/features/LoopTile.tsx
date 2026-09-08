@@ -3,24 +3,39 @@ import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { difficulty, nextWinSeconds, proofsPerMinute } from '../../../miner-core/src/metrics.ts';
-import { Button, cn, Kpi, ScoreLoop, StatusPill, Tile, TileHeader } from '../../../ui/src/index.ts';
+import {
+  Button,
+  cn,
+  Kpi,
+  Mark,
+  ScoreLoop,
+  StatusPill,
+  Tile,
+  TileHeader,
+  useTweenedNumber,
+} from '../../../ui/src/index.ts';
 import type { MinerController } from '../controller';
 import { amount, compact, durationParts } from '../lib/format';
 import { pillStatus } from '../lib/status';
 import { openPip, pipSupported } from '../pip';
 import { useSettings } from '../settings';
-import { bootAtom, epochAtom, minerAtom } from '../state';
-import { ClaimStepper, MintedMarks, NoticeCard } from './ClaimStatus';
+import { bootAtom, epochAtom, minerAtom, nowAtom } from '../state';
+import { NoticeCard } from './ClaimStatus';
 
-/** What the mini window shows: the pill, the rate, the best, and the one button. */
-function PipView({ controller }: { controller: () => MinerController | undefined }) {
+/** The mini window: the state and Stop, the last minute of the loop as a strip, then rate · epoch · wins. */
+function PipView({ controller, win }: { controller: () => MinerController | undefined; win: Window }) {
   const miner = useAtomValue(minerAtom);
   const epoch = useAtomValue(epochAtom);
-  const perMinute = proofsPerMinute(miner.recent);
+  const now = useAtomValue(nowAtom);
+  const perMinute = useTweenedNumber(proofsPerMinute(miner.recent));
+  const bar = epoch ? difficulty(epoch.target) : 1;
   return (
-    <div className="flex h-full flex-col justify-between bg-bg p-3 text-ink">
+    <div className="flex h-full flex-col justify-between bg-ground p-3 text-ink">
       <div className="flex items-center justify-between">
-        <StatusPill status={pillStatus(miner)} />
+        <span className="flex items-center gap-2">
+          <Mark state={miner.phase === 'mining' ? 'mining' : 'idle'} />
+          <StatusPill status={pillStatus(miner, now)} />
+        </span>
         {miner.phase === 'mining' ? (
           <Button size="sm" onClick={() => controller()?.stop()}>
             Stop
@@ -36,13 +51,33 @@ function PipView({ controller }: { controller: () => MinerController | undefined
           </Button>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Kpi label="rate" value={perMinute.toFixed(1)} unit="proofs/min" />
-        <Kpi
-          label="best this epoch"
-          value={miner.best === null ? '—' : miner.best.toFixed(1)}
-          unit={epoch ? `of ${difficulty(epoch.target).toFixed(1)}` : undefined}
-        />
+      <ScoreLoop
+        calm
+        difficulty={bar}
+        samples={miner.samples}
+        winAt={miner.winAt}
+        height={48}
+        spanMs={60_000}
+        geometry={{ pad: 4, fontPx: 10 }}
+        win={win}
+      />
+      <div className="flex items-baseline justify-between gap-2 font-mono text-2xs text-ink-2">
+        <span>
+          <span className="font-sans text-lg font-semibold tracking-[-0.02em] text-ink">
+            {perMinute.toFixed(1)}
+          </span>{' '}
+          proofs/min
+        </span>
+        {epoch && (
+          <span>
+            epoch {epoch.epoch.toString()} · <span className="text-ink">{epoch.claims}</span> of {PARAMS.N} ·
+            bar {bar.toFixed(1)}
+          </span>
+        )}
+        <span className="text-ok">
+          {miner.wins} {miner.wins === 1 ? 'win' : 'wins'} ·{' '}
+          {amount(PARAMS.REWARD * BigInt(miner.wins), PARAMS.DECIMALS)} {PARAMS.TOKEN_SYMBOL}
+        </span>
       </div>
     </div>
   );
@@ -56,7 +91,7 @@ function PopOut({ controller }: { controller: () => MinerController | undefined 
     const root = createRoot(pip.document.body);
     root.render(
       <Provider store={store}>
-        <PipView controller={controller} />
+        <PipView controller={controller} win={pip} />
       </Provider>,
     );
     const onHide = () => setPip(null);
@@ -79,6 +114,7 @@ function PopOut({ controller }: { controller: () => MinerController | undefined 
   );
 }
 
+/** The header row is a fixed-height status line: the claim's progress lives in the rail, not here. */
 export function LoopTile({
   controller,
   className,
@@ -89,19 +125,29 @@ export function LoopTile({
   const boot = useAtomValue(bootAtom);
   const miner = useAtomValue(minerAtom);
   const epoch = useAtomValue(epochAtom);
+  const now = useAtomValue(nowAtom);
   const [settings] = useSettings();
   const last = miner.recent[miner.recent.length - 1];
+  const perProof = useTweenedNumber(last === undefined ? 0 : last / 1000);
   const ready = boot.phase === 'ready';
   const bar = epoch ? difficulty(epoch.target) : 1;
-  const status = pillStatus(miner);
+  const status = pillStatus(miner, now);
+  const nonClaimNotice =
+    miner.notice &&
+    (miner.notice.kind === 'prover-dead' || miner.notice.kind === 'offline' || miner.notice.kind === 'paused')
+      ? miner.notice
+      : null;
   return (
     <Tile className={cn('flex flex-col gap-4', className)}>
       <TileHeader
-        className="mb-0"
+        className="mb-0 h-[30px] items-center"
         aside={
           <span className="flex items-center gap-3">
             {last !== undefined && miner.phase !== 'idle' && (
-              <span>{(last / 1000).toFixed(2)} s per proof</span>
+              <span>
+                {perProof.toFixed(2)} s per proof · {boot.phase === 'ready' ? boot.threads : '—'} threads ·{' '}
+                {compact(miner.proofs)} proofs · {miner.wins} {miner.wins === 1 ? 'win' : 'wins'}
+              </span>
             )}
             {settings.pip && pipSupported() && <PopOut controller={controller} />}
             {miner.phase === 'mining' ? (
@@ -125,15 +171,13 @@ export function LoopTile({
         {status === 'paused' ? (
           <StatusPill status="paused" />
         ) : status === 'mining' ? (
-          'live · one dot per proof'
+          'live · last 3 min'
         ) : (
           status
         )}
       </TileHeader>
-      {miner.claim && <ClaimStepper claim={miner.claim} />}
-      <ScoreLoop difficulty={bar} samples={miner.samples} winAt={miner.winAt} height={230} />
-      {miner.minted && <MintedMarks minted={miner.minted} />}
-      {miner.notice && <NoticeCard notice={miner.notice} recovering={miner.phase === 'recovering'} />}
+      <ScoreLoop calm difficulty={bar} samples={miner.samples} winAt={miner.winAt} height={230} />
+      {nonClaimNotice && <NoticeCard notice={nonClaimNotice} recovering={miner.phase === 'recovering'} />}
     </Tile>
   );
 }
@@ -147,9 +191,9 @@ const nextWin = (target: bigint, perMinute: number): [string, string] | null => 
 export function KpiTiles({ className }: { className?: string }) {
   const miner = useAtomValue(minerAtom);
   const epoch = useAtomValue(epochAtom);
-  const perMinute = proofsPerMinute(miner.recent);
+  const perMinute = useTweenedNumber(proofsPerMinute(miner.recent));
   const bar = epoch ? difficulty(epoch.target) : 1;
-  const next = epoch ? nextWin(epoch.target, perMinute) : null;
+  const next = epoch ? nextWin(epoch.target, proofsPerMinute(miner.recent)) : null;
   return (
     <div className={cn('grid grid-cols-3 gap-[14px]', className)} data-testid="kpi-tiles">
       <Tile>

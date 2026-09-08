@@ -28,11 +28,11 @@ export function classifyClaimFailure(e: unknown): ClaimFailure {
 export const CLAIM_FAILURE_COPY: Record<ClaimFailure, { title: string; body: string }> = {
   reverted: {
     title: 'claim reverted',
-    body: 'Someone closed the epoch first. Your claim landed after it closed. The sponsor paid the fee; your proof is unspent. You lost a race with another miner. Re-syncing this key from the chain…',
+    body: 'Someone closed the epoch first. Your claim landed after it closed. The sponsor paid the fee; your proof is unspent. You lost a race with another miner. Re-syncing this account from the chain…',
   },
   'delivery-blocked': {
     title: 'claim reverted',
-    body: 'A claim from this key reverted earlier and its note delivery is stuck. You lost a race with another miner. Re-syncing this key from the chain…',
+    body: 'A claim from this account reverted earlier and its note delivery is stuck. You lost a race with another miner. Re-syncing this account from the chain…',
   },
   expired: {
     title: 'claim expired',

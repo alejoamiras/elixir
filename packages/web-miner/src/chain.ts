@@ -141,19 +141,25 @@ export interface Withdrawal {
   mode: 'private' | 'public';
 }
 
+export interface Sent {
+  block: number;
+  txHash: string;
+}
+
 /** The token's transfer from private balance; nonce 0 (a self-call needs no authwit). */
 export async function sendWithdraw(
   d: Deployment,
   from: AztecAddress,
   fee: Fee,
   w: Withdrawal,
-): Promise<number> {
+): Promise<Sent> {
   const call =
     w.mode === 'private'
       ? d.token.methods.transfer_private_to_private(from, w.to, w.amount, 0)
       : d.token.methods.transfer_private_to_public(from, w.to, w.amount, 0);
   const sent = await call.send({ from, fee: fee as never, wait: { timeout: 900 } });
-  return Number((sent as { receipt?: { blockNumber?: number } }).receipt?.blockNumber ?? 0);
+  const receipt = (sent as { receipt?: { blockNumber?: number; txHash?: { toString(): string } } }).receipt;
+  return { block: Number(receipt?.blockNumber ?? 0), txHash: receipt?.txHash?.toString() ?? '' };
 }
 
 /**

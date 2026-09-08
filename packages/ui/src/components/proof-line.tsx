@@ -1,11 +1,16 @@
 import type * as React from 'react';
 import { cn } from '../lib/cn.ts';
+import { ExternalLink } from './external-link.tsx';
+
+/** Turns a minted line's block and transaction into explorer URLs; either may be undefined (no link). */
+export type LedgerLinks = (links: { block: number; tx: string }) => { block?: string; tx?: string };
 
 /** The ledger's line grammar: ★ win · ✓ minted · ✗ failed · ── epoch; plain lines are attempts. */
 export type ProofLine =
   | { kind: 'attempt'; time: string; n: number; score: number; proveMs: number; best?: boolean }
   | { kind: 'win'; time: string; n: number; score: number; proveMs: number }
-  | { kind: 'minted'; time: string; text: string; chain?: string }
+  /** `text` follows the block phrase, which the renderer builds from `links.block` (linked when it can). */
+  | { kind: 'minted'; time: string; text: string; links?: { block: number; tx: string } }
   | { kind: 'failed'; time: string; text: string }
   | { kind: 'epoch'; time: string; text: string };
 
@@ -40,17 +45,46 @@ function Attempt({ line }: { line: Extract<ProofLine, { n: number }> }) {
   );
 }
 
-function Event({ line }: { line: Extract<ProofLine, { text: string }> }) {
+function Minted({ line, linkFor }: { line: Extract<ProofLine, { kind: 'minted' }>; linkFor?: LedgerLinks }) {
+  if (!line.links) return <span>{line.text}</span>;
+  const urls = linkFor?.(line.links);
+  const block = `block ${line.links.block.toLocaleString('en-US')}`;
+  return (
+    <>
+      <span>
+        claim in{' '}
+        {urls?.block ? (
+          <ExternalLink href={urls.block} full={String(line.links.block)}>
+            {block}
+          </ExternalLink>
+        ) : (
+          block
+        )}{' '}
+        · {line.text}
+      </span>
+      {urls?.tx && (
+        <span>
+          ·{' '}
+          <ExternalLink href={urls.tx} full={line.links.tx}>
+            effects
+          </ExternalLink>
+        </span>
+      )}
+    </>
+  );
+}
+
+function Event({ line, linkFor }: { line: Extract<ProofLine, { text: string }>; linkFor?: LedgerLinks }) {
+  if (line.kind === 'minted') return <Minted line={line} linkFor={linkFor} />;
   return (
     <>
       <span>{line.text}</span>
-      {line.kind === 'minted' && line.chain && <span className="text-ink-2">{line.chain}</span>}
       {line.kind === 'epoch' && <span aria-hidden>──</span>}
     </>
   );
 }
 
-function Line({ line }: { line: ProofLine }) {
+function Line({ line, linkFor }: { line: ProofLine; linkFor?: LedgerLinks }) {
   return (
     <li
       data-slot="proof-line"
@@ -67,21 +101,25 @@ function Line({ line }: { line: ProofLine }) {
           <span className="sr-only">{line.kind}</span>
         </span>
       )}
-      {'n' in line ? <Attempt line={line} /> : <Event line={line} />}
+      {'n' in line ? <Attempt line={line} /> : <Event line={line} linkFor={linkFor} />}
     </li>
   );
 }
 
-/** Newest first; keeps the last LEDGER_WINDOW lines in the DOM. */
+/** Newest first; keeps the last LEDGER_WINDOW lines in the DOM. `linkFor` resolves a minted line's explorer links. */
 export function ProofLedger({
   lines,
+  linkFor,
   className,
   ...props
-}: React.ComponentProps<'ol'> & { lines: readonly (ProofLine & { id: string | number })[] }) {
+}: React.ComponentProps<'ol'> & {
+  lines: readonly (ProofLine & { id: string | number })[];
+  linkFor?: LedgerLinks;
+}) {
   return (
     <ol data-slot="proof-ledger" className={cn('m-0 list-none p-0', className)} {...props}>
       {lines.slice(0, LEDGER_WINDOW).map((line) => (
-        <Line key={line.id} line={line} />
+        <Line key={line.id} line={line} linkFor={linkFor} />
       ))}
     </ol>
   );

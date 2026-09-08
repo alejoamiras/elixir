@@ -45,15 +45,19 @@ test('withdraw: private to a second key on this device, public to an address', a
   await expect(page.getByTestId('unknown-recipient')).toHaveCount(0);
   await page.getByTestId('withdraw-send').click();
   await expect(page.getByTestId('withdraw-sent')).toBeVisible({ timeout: 10 * 60_000 });
+  // The receipt links the block and the transaction on the explorer (the e2e build points at the testnet host).
+  await expect(page.getByTestId('sent-block')).toHaveAttribute('href', /\/blocks\/\d+$/);
+  await expect(page.getByTestId('sent-tx')).toHaveAttribute('href', /\/tx-effects\/0x[0-9a-f]{64}$/);
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByTestId('wallet-balance')).toHaveText('3', { timeout: 60_000 });
 
   await page.getByTestId('withdraw').click();
   await page.getByTestId('withdraw-to').fill(b);
   await page.getByTestId('withdraw-amount').fill('1');
-  await page.getByRole('radio', { name: 'Public' }).click();
+  await page.getByRole('radio', { name: /Publicly/ }).click();
   await page.getByTestId('withdraw-review').click();
-  await expect(page.getByTestId('public-warning')).toBeVisible();
+  await expect(page.getByTestId('public-warning')).toContainText('This will be public.');
+  await expect(page.getByTestId('withdraw-send')).toHaveText('Send publicly');
   await page.getByTestId('withdraw-send').click();
   await expect(page.getByTestId('withdraw-sent')).toBeVisible({ timeout: 10 * 60_000 });
   await page.getByRole('button', { name: 'Done' }).click();

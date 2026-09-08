@@ -90,7 +90,7 @@ const DELETE_GRACE_MS = 10_000;
 /** A blocked delete queues every later open of the name until the other connection closes. */
 export class ChainViewHeldError extends Error {
   constructor() {
-    super('another tab holds this key’s chain view open; close it and reload this page');
+    super('another tab holds this account’s chain view open; close it and reload this page');
     this.name = 'ChainViewHeldError';
   }
 }

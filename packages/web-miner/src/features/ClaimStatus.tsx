@@ -85,7 +85,7 @@ export function NoticeCard({ notice, recovering }: { notice: Notice; recovering:
       {(notice.kind === 'reverted' || notice.kind === 'paused') && !recovering && (
         <div className="mt-2">
           <Button size="sm" onClick={() => location.reload()} data-testid="fresh-key">
-            Use another key
+            Use another account
           </Button>
         </div>
       )}

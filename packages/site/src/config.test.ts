@@ -22,7 +22,9 @@ describe('site config', () => {
     expect(c.minerClassId).toBe(deployment.minerClassId);
     expect(c.queryOverrides).toBe(false);
     expect(c.launchMode).toBe(false);
+    expect(c.explorerUrl).toBe('https://testnet.aztecscan.xyz');
     expect(viteDefine(c)['import.meta.env.VITE_E2E_QUERY_OVERRIDES']).toBe('""');
+    expect(viteDefine(c)['import.meta.env.VITE_EXPLORER_URL']).toBe('"https://testnet.aztecscan.xyz"');
   });
 
   test('e2e lets the environment override every value, including the override flag', () => {
@@ -36,9 +38,11 @@ describe('site config', () => {
         VITE_YACANA_MINER: '0x01',
         VITE_E2E_QUERY_OVERRIDES: '1',
         VITE_LAUNCH_MODE: '1',
+        VITE_EXPLORER_URL: 'off',
       },
     });
     expect(c.launchMode).toBe(true);
+    expect(c.explorerUrl).toBe('off');
     expect(c.allowedNodeOrigins).toEqual(['http://localhost:8080', 'http://127.0.0.1:1']);
     expect(c.rpId).toBe('localhost');
     expect(c.miner).toBe('0x01');
@@ -61,6 +65,8 @@ describe('site config', () => {
       attempt({ VITE_AZTEC_NODE_URL: 'https://10.0.0.1', VITE_ALLOWED_NODE_ORIGINS: 'https://10.0.0.1' }),
     ).toThrow(/is local/);
     expect(attempt({ VITE_ALLOWED_NODE_ORIGINS: 'https://other.example' })).toThrow(/not among/);
+    expect(attempt({ VITE_EXPLORER_URL: 'http://explorer.example' })).toThrow(/explorer .* not https/);
+    expect(attempt({ VITE_EXPLORER_URL: 'off' })).not.toThrow();
   });
 
   test('parseEnvFile ignores comments and rejects a line without a key', () => {

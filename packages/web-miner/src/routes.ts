@@ -15,9 +15,17 @@ export const pathFor = (route: Route): string => `${base}/${route === 'mine' ? '
 
 const NAVIGATE = 'yacana:navigate';
 
-export const navigate = (route: Route): void => {
-  history.pushState(null, '', pathFor(route));
+/** `intent` rides in history state: `send` opens the wallet's Send sheet on arrival. */
+export const navigate = (route: Route, intent?: 'send'): void => {
+  history.pushState(intent ? { intent } : null, '', pathFor(route));
   window.dispatchEvent(new Event(NAVIGATE));
+};
+
+/** Reads and clears a navigation intent, so a reload or a back does not reopen the sheet. */
+export const takeIntent = (): 'send' | undefined => {
+  const intent = (history.state as { intent?: 'send' } | null)?.intent;
+  if (intent) history.replaceState(null, '', location.href);
+  return intent;
 };
 
 const subscribe = (cb: () => void) => {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { proofsPerMinute } from '../../../miner-core/src/metrics.ts';
-import { type EpochInfo, initial, reduce } from './reducer';
+import { type EpochInfo, initial, MINTED_FRESH_MS, mintedFresh, reduce, SAMPLE_SPAN_MS } from './reducer';
 
 const epoch = (n: bigint, seed = 7n): EpochInfo => ({
   epoch: n,
@@ -64,7 +64,8 @@ describe('miner reducer', () => {
     [s] = reduce(s, { type: 'claimed', block: 184209, reward: '4 tYACA', ...MINTED });
     expect(s.ledger[0]).toMatchObject({
       kind: 'minted',
-      text: 'claim in block 184,209 · 4 tYACA minted, privately',
+      text: '4 tYACA minted, privately',
+      links: { block: 184209, tx: MINTED.txHash },
     });
     expect(s.wins).toBe(1);
     [s] = reduce(s, { type: 'start', epoch: epoch(3n) });
@@ -75,11 +76,12 @@ describe('miner reducer', () => {
     expect(new Set(s.ledger.map((l) => l.id)).size).toBe(200);
   });
 
-  test('the samples keep the last minute; the rate is over the last 20 proofs', () => {
+  test('the samples keep the last three minutes; the rate is over the last 20 proofs', () => {
+    expect(SAMPLE_SPAN_MS).toBe(180_000);
     let [s] = reduce(initial, { type: 'start', epoch: epoch(3n) });
-    for (let i = 0; i < 30; i++) [s] = reduce(s, attempt(2, i * 3000));
-    expect(s.samples.length).toBe(21); // t ∈ [27 s, 87 s]
-    expect(s.samples[0]?.t).toBe(27_000);
+    for (let i = 0; i < 80; i++) [s] = reduce(s, attempt(2, i * 3000));
+    expect(s.samples.length).toBe(61); // t ∈ [57 s, 237 s]
+    expect(s.samples[0]?.t).toBe(57_000);
     expect(s.recent).toHaveLength(20);
     expect(proofsPerMinute(s.recent)).toBe(20);
   });
@@ -98,7 +100,7 @@ describe('miner reducer', () => {
     expect(reduce(claiming, { type: 'claimed', block: 1, reward: '4', ...MINTED })[0].phase).toBe('idle');
   });
 
-  test('the claim walks proving → sent (with the expiry) → waiting → minted marks, cleared by the next attempt', () => {
+  test('the claim walks proving → sent (with the expiry) → waiting → minted; the mint survives the restart and the next proof, fades after ten seconds, and a new claim replaces it', () => {
     let [s] = reduce(initial, { type: 'start', epoch: epoch(3n) });
     [s] = reduce(s, { type: 'winner', epoch: 3n, secretId: 1, at: 1000 });
     expect(s.claim).toEqual({ step: 'proving', since: 1000, done: [] });
@@ -107,10 +109,23 @@ describe('miner reducer', () => {
     [s] = reduce(s, { type: 'included', block: 9, at: 50_000 });
     expect(s.claim).toMatchObject({ step: 'waiting', done: [40_000, 9000] });
     [s] = reduce(s, { type: 'claimed', block: 9, reward: '4 tYACA', ...MINTED, at: 51_000 });
-    expect(s).toMatchObject({ phase: 'idle', claim: null, minted: MINTED, wins: 1 });
+    expect(s).toMatchObject({ phase: 'idle', claim: null, minted: { ...MINTED, at: 51_000 }, wins: 1 });
+    expect(s.ledger[0]).toMatchObject({ kind: 'minted', links: { block: 9, tx: '0xt' } });
+    // The controller restarts mining at once and the next proof lands seconds later: neither clears the mint.
     [s] = reduce(s, { type: 'start', epoch: epoch(3n) });
     expect(s.minted).toMatchObject({ ...MINTED, block: 9 });
     [s] = reduce(s, attempt(2));
+    expect(s.minted).toMatchObject({ ...MINTED, block: 9 });
+    // Freshness is the display's business, from the mint's own clock.
+    expect(mintedFresh(s.minted, 51_000 + 5_000)).toBe(true);
+    expect(mintedFresh(s.minted, 51_000 + MINTED_FRESH_MS)).toBe(false);
+    expect(mintedFresh(null, 0)).toBe(false);
+    // A stop keeps the record but the display is stale by then; a new claim replaces it.
+    [s] = reduce(s, { type: 'stop' });
+    expect(s.minted).toMatchObject({ block: 9 });
+    [s] = reduce(s, { type: 'start', epoch: epoch(3n) });
+    [s] = reduce(s, { type: 'winner', epoch: 3n, secretId: s.secretId, at: 70_000 });
+    expect(s.phase).toBe('claiming');
     expect(s.minted).toBeNull();
   });
 

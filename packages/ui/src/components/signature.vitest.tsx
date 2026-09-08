@@ -29,8 +29,8 @@ describe('ProofLedger', () => {
         id: 3,
         kind: 'minted',
         time: '03:33:20',
-        text: 'claim in block 184,209 · 4 YACA minted',
-        chain: 'chain saw: nullifier',
+        text: '4 YACA minted, privately',
+        links: { block: 184209, tx: '0xabc' },
       },
       { id: 4, kind: 'failed', time: '03:33:10', text: 'claim reverted' },
       { id: 5, kind: 'epoch', time: '03:33:51', text: 'epoch 22 opened · difficulty 33.1' },
@@ -48,7 +48,8 @@ describe('ProofLedger', () => {
     expect(items[1]).toHaveTextContent('★');
     expect(items[1].querySelector('.sr-only')).toHaveTextContent('win');
     expect(items[2]).toHaveTextContent('✓');
-    expect(items[2]).toHaveTextContent('chain saw: nullifier');
+    expect(items[2]).toHaveTextContent('claim in block 184,209 · 4 YACA minted, privately');
+    expect(items[2].querySelector('a')).toBeNull();
     expect(items[3]).toHaveTextContent('✗');
     expect(items[4]).toHaveTextContent(/──.*epoch 22 opened · difficulty 33\.1.*──/);
   });
