@@ -58,3 +58,36 @@ What the phase found:
   while the dialog shows.
 - The words spec asserted the old heading ("Sign up with a passkey."); the modal's is "Sign in to mine." per the
   canvas.
+
+## P2.3 · Opening A ✓ (2026-09-08, `P23HASH`)
+
+Gate, as run: `bun run lint` exit 0 · every typecheck ok · `bun test` (new `opening-steps.bun.test.ts` — the
+weights, the active keys step's byte fraction, the notes step indeterminate; `session-open.bun.test.ts` — a cancel
+after the ceremony ends in signedOut with no error and zeros the master and hands the epoch back, a dismissal
+during the ceremony is inert, a superseded attempt publishes nothing and disposes what it made, a failure shows
+the error) · Vitest web-miner 62 (the opening body: the bar's width from three step states, `aria-valuenow` 28,
+Cancel disabled while the key step is active) · **arc boundary**: the full miner suite on the isolated network
+(incl. the new `opening.e2e.ts` — a cancel mid-opening returns to signed out and the next open reaches the account
+on one PXE) · renders at 1280/1440 of signed-out, watching and opening beside `MineSignedOut`, `MineWatching`,
+`MineBootA`.
+
+What the phase found:
+
+- **The opening is a cancellable attempt in `Session`, and `startSession` is injectable.** The attempt (a
+  generation + an `AbortController`) is minted at the initiating key action, before the ceremony; the ceremony (the
+  OS passkey prompt, or the words work) runs under it with Cancel inert, and only once it settles does
+  `startImpl` run the steps, checking the signal between each. A cancel aborts, `startSession`'s catch disposes the
+  controller and stops the wallet, the master is zeroed, and the public poll takes the epoch back. `startSession`
+  and `preflight` are constructor deps so `session-open.bun.test.ts` drives the attempt with fakes (no IndexedDB,
+  no WebAuthn); the wallet's own stop-on-abort is covered by the E2E, not the unit.
+- **"Cancel works" is derivable from the steps, not a second flag.** During the ceremony the published steps show
+  the first step (`key`) active; `startSession` republishes it done. So the dialog enables Cancel exactly when the
+  `key` step is done — the ceremony-over signal is already in the state the bar reads.
+- **The step id `keys` reads as the forbidden word.** The rename guard scans string literals, and the CRS step's id
+  `'keys'` (a discriminant, not copy) tripped "account, not key". Renamed the id to `crs`; the label stays
+  "proving keys" (a compound the guard exempts).
+- **The bar's indeterminate stripe is a `Progress` prop.** The notes step's fraction is unknown, so `Progress`
+  gained `indeterminate` (a stripe crossing its slice under motion, a static half under reduced motion, `value=null`
+  to Radix) rather than a hand-rolled div or a fake percentage. The keyframes live in `theme.css`.
+- **The 480 × 720 geometry check runs at 900 wide** (below 900 the phone fallback shows and there is no dialog); it
+  asserts the dialog's own 480-wide box, no overflow, and the primary reachable by its scroll.

@@ -14,7 +14,7 @@ import {
 import { keysAllowed } from '../../site/src/browser/host.ts';
 import { type NodeProbe, probeNode } from '../../site/src/browser/node.ts';
 import { nodeHealth, waitTurn } from '../../site/src/browser/node-health.ts';
-import { expectedOf, type Preflighted, preflight, startSession, switchNodeLive } from './boot';
+import { expectedOf, type Preflighted, preflight, type Started, startSession, switchNodeLive } from './boot';
 import {
   loadArtifact,
   readPublicBalance,
@@ -39,10 +39,13 @@ import {
   seal,
   setStayOpen,
 } from './keys/store';
+import { initialSteps } from './opening-steps';
 import { loadSettings, saveSettings } from './settings';
 import { bootAtom } from './state';
 
 type Store = ReturnType<typeof createStore>;
+
+const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name === 'AbortError';
 
 export class Session {
   private pre: Preflighted | undefined;
@@ -59,19 +62,30 @@ export class Session {
   private words: string | undefined;
   record: MasterRecord | undefined;
 
+  /** The open attempt: its generation and the AbortController Cancel aborts once the ceremony is over. */
+  private attempt: { id: number; abort: AbortController; ceremony: boolean; done: Promise<void> } | undefined;
+  private attemptSeq = 0;
+
   readonly ready: Promise<void>;
+
+  private readonly startImpl: typeof startSession;
+  private readonly preflightImpl: typeof preflight;
 
   constructor(
     private readonly store: Store,
     private readonly connection: Connection,
+    // Injectable for tests: the real ones open the wallet / run the preflight against a node.
+    deps: { startImpl?: typeof startSession; preflightImpl?: typeof preflight } = {},
   ) {
+    this.startImpl = deps.startImpl ?? startSession;
+    this.preflightImpl = deps.preflightImpl ?? preflight;
     this.ready = this.runPreflight();
   }
 
   /** A preflight the node failed (throttled or silent) is shown, then tried again once the node is usable. */
   private async runPreflight(): Promise<void> {
     try {
-      this.pre = await preflight(this.store, this.connection);
+      this.pre = await this.preflightImpl(this.store, this.connection);
     } catch (e) {
       this.store.set(bootAtom, { phase: 'error', message: e instanceof Error ? e.message : String(e) });
       if (nodeHealth().transport.kind === 'ok') return;
@@ -99,19 +113,92 @@ export class Session {
     this.pre?.publicEpoch.start();
   }
 
-  private async start(record: MasterRecord, master: Uint8Array, words?: string): Promise<void> {
-    if (!this.pre) throw new Error('preflight has not finished');
-    this.master = master;
-    this.record = record;
-    this.words = words;
-    const started = await startSession(this.store, this.pre, this.connection, record, master);
-    this.controller = started.controller;
-    this.wallet = started.wallet;
+  /**
+   * A cancellable opening. The ceremony (an OS passkey prompt, or the words work) runs first, under
+   * an attempt whose Cancel is inert until it settles; then `startImpl` runs the steps, honouring the
+   * signal between them. A superseded attempt (a newer one began) publishes nothing and disposes what
+   * it made; a cancel returns to `signedOut` with no error, and the public poll takes the epoch back.
+   */
+  private runAttempt(
+    keyLabel: string,
+    ceremony: () => Promise<{ record: MasterRecord; master: Uint8Array; words?: string }>,
+  ): Promise<void> {
+    if (!this.pre) return this.fail(new Error('preflight has not finished'));
+    const id = ++this.attemptSeq;
+    const abort = new AbortController();
+    const steps = initialSteps(keyLabel);
+    const key = steps.find((step) => step.id === 'key');
+    if (key) key.state = 'active'; // the ceremony is the active step; `done` means Cancel works
+    this.store.set(bootAtom, { phase: 'opening', steps });
+    const attempt = { id, abort, ceremony: true, done: Promise.resolve() };
+    this.attempt = attempt;
+    const run = this.attemptBody(id, abort, keyLabel, ceremony).finally(() => {
+      if (this.attempt?.id === id) this.attempt = undefined;
+    });
+    attempt.done = run;
+    return run;
+  }
+
+  private async attemptBody(
+    id: number,
+    abort: AbortController,
+    keyLabel: string,
+    ceremony: () => Promise<{ record: MasterRecord; master: Uint8Array; words?: string }>,
+  ): Promise<void> {
+    const mine = () => this.attempt?.id === id;
+    let master: Uint8Array | undefined;
+    let started: Started | undefined;
+    try {
+      const c = await ceremony();
+      master = c.master;
+      if (!mine()) return; // superseded during the ceremony
+      (this.attempt as { ceremony: boolean }).ceremony = false; // the prompt is done: Cancel works
+      abort.signal.throwIfAborted();
+      started = await this.startImpl(this.store, this.pre as Preflighted, this.connection, c.record, master, {
+        signal: abort.signal,
+        keyLabel,
+        publish: (steps) => mine() && this.store.set(bootAtom, { phase: 'opening', steps }),
+      });
+      if (!mine()) return; // superseded while the steps ran
+      this.controller = started.controller;
+      this.wallet = started.wallet;
+      this.master = master;
+      this.record = c.record;
+      this.words = c.words;
+      master = undefined; // the session owns it now
+      this.store.set(bootAtom, {
+        phase: 'ready',
+        account: c.record.account.address,
+        threads: started.threads,
+        record: c.record,
+      });
+    } catch (e) {
+      if (!mine()) return started?.controller.dispose(); // a stale attempt publishes nothing
+      if (isAbort(e)) await this.toSignedOut();
+      else await this.fail(e);
+    } finally {
+      master?.fill(0);
+      if (!mine()) started?.controller.dispose();
+    }
+  }
+
+  /** Aborts the open in flight, once its ceremony is over, and waits for its cleanup to finish. */
+  async cancelOpening(): Promise<void> {
+    const a = this.attempt;
+    if (!a || a.ceremony) return;
+    a.abort.abort();
+    await a.done.catch(() => {});
+  }
+
+  /** Back to the signed-out cockpit with no error (a cancel); the public poll feeds the chain again. */
+  private async toSignedOut(): Promise<void> {
+    this.store.set(bootAtom, { phase: 'signedOut', records: await listRecords() });
+    this.pre?.publicEpoch.start();
   }
 
   /** The record is written before the wallet opens: a boot failure must not lose a fresh passkey. */
   async createWithPasskey(): Promise<void> {
-    try {
+    return this.runAttempt('passkey', async () => {
       this.guardHost();
       const known = (await listRecords()).flatMap((r) =>
         r.credentialId ? [fromBase64url(r.credentialId)] : [],
@@ -134,23 +221,20 @@ export class Session {
       };
       if (!record.askEveryOpen) record.sealed = await seal(master, record);
       await putRecord(record);
-      await this.start(record, master);
-    } catch (e) {
-      await this.fail(e);
-    }
+      return { record, master };
+    });
   }
 
   /** One touch on a known record (default mode), or none when the secret is sealed on this device. */
   async open(record: MasterRecord): Promise<void> {
-    try {
+    const keyLabel = record.method === 'passkey' ? 'passkey' : 'twelve words';
+    return this.runAttempt(keyLabel, async () => {
       const master = record.sealed
         ? await openMaster(record)
         : await openMaster(record, await this.masterFromCeremony(record));
       const words = record.method === 'words' ? await openPhrase(record) : undefined;
-      await this.start(record, master, words);
-    } catch (e) {
-      await this.fail(e);
-    }
+      return { record, master, words };
+    });
   }
 
   private async masterFromCeremony(record: MasterRecord): Promise<Uint8Array> {
@@ -162,7 +246,7 @@ export class Session {
 
   /** "I already have a key": a discoverable request; a known address opens, a new one gets a record. */
   async restoreWithPasskey(): Promise<void> {
-    try {
+    return this.runAttempt('passkey', async () => {
       this.guardHost();
       const { credentialId, prf } = await assertPasskey({ rpId: this.rpId });
       const master = await masterFromPrf(prf);
@@ -179,10 +263,8 @@ export class Session {
         account: { address, index: 0 },
       };
       if (!existing) await putRecord(record);
-      await this.start(record, await openMaster(record, master));
-    } catch (e) {
-      await this.fail(e);
-    }
+      return { record, master: await openMaster(record, master) };
+    });
   }
 
   /** A fresh phrase; the key exists only once the screen calls `createWithWords` with it. */
@@ -193,39 +275,45 @@ export class Session {
 
   /** Words keys seal their entropy: nothing re-derives it, and a skipped backup can be shown later. */
   async createWithWords(phrase: string, backedUp: boolean): Promise<void> {
-    try {
-      this.guardHost();
-      const master = await masterFromMnemonic(phrase);
-      const record: MasterRecord = {
-        v: 1,
-        id: crypto.randomUUID(),
-        method: 'words',
-        createdAt: Date.now(),
-        askEveryOpen: false,
-        backedUp,
-        account: { address: await addressOf(master, 0), index: 0 },
-      };
-      record.sealed = await seal(entropyOf(phrase), record);
-      await putRecord(record);
-      await this.start(record, master, normaliseWords(phrase));
-    } catch (e) {
-      await this.fail(e);
-    }
+    return this.runAttempt('twelve words', () => this.wordsRecord(phrase, backedUp));
+  }
+
+  /** A fresh sealed words record and its master; the entropy is sealed, the master returned. */
+  private async wordsRecord(
+    phrase: string,
+    backedUp: boolean,
+  ): Promise<{ record: MasterRecord; master: Uint8Array; words: string }> {
+    this.guardHost();
+    const master = await masterFromMnemonic(phrase);
+    const record: MasterRecord = {
+      v: 1,
+      id: crypto.randomUUID(),
+      method: 'words',
+      createdAt: Date.now(),
+      askEveryOpen: false,
+      backedUp,
+      account: { address: await addressOf(master, 0), index: 0 },
+    };
+    record.sealed = await seal(entropyOf(phrase), record);
+    await putRecord(record);
+    return { record, master, words: normaliseWords(phrase) };
   }
 
   /** Restore: the phrase opens its record if this device has one, or gets a new (sealed) record. */
   async restoreWithWords(phrase: string): Promise<void> {
-    try {
+    return this.runAttempt('twelve words', async () => {
       this.guardHost();
       const master = await masterFromMnemonic(phrase);
       const address = await addressOf(master, 0);
       const existing = (await listRecords()).find((r) => r.account.address === address);
       if (existing)
-        return await this.start(existing, await openMaster(existing, master), normaliseWords(phrase));
-      await this.createWithWords(normaliseWords(phrase), true);
-    } catch (e) {
-      await this.fail(e);
-    }
+        return {
+          record: existing,
+          master: await openMaster(existing, master),
+          words: normaliseWords(phrase),
+        };
+      return this.wordsRecord(normaliseWords(phrase), true);
+    });
   }
 
   /** The open words key's phrase, for the backup screen; never stored, only re-shown from memory. */

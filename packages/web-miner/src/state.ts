@@ -3,6 +3,7 @@ import type { PreflightRow } from '../../ui/src/index.ts';
 import type { MasterRecord } from './keys/store';
 import type { EpochInfo, MinerState } from './lib/reducer';
 import { initial } from './lib/reducer';
+import type { OpeningStep } from './opening-steps';
 import type { CrsProgress } from './pinned-crs';
 
 export type Boot =
@@ -10,8 +11,8 @@ export type Boot =
   | { phase: 'preflight'; rows: PreflightRow[] }
   /** Preflight passed, no account open: the chain shows, the key screen decides how to open. */
   | { phase: 'signedOut'; records: MasterRecord[]; error?: string }
-  /** The ceremony passed; wallet, account and prover are coming up. */
-  | { phase: 'opening'; step: string }
+  /** An account is opening; the steps drive the dialog's bar. `key` done means the ceremony is over. */
+  | { phase: 'opening'; steps: OpeningStep[] }
   | { phase: 'ready'; account: string; threads: number; record: MasterRecord }
   | { phase: 'error'; message: string };
 

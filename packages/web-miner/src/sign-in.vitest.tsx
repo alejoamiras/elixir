@@ -5,6 +5,7 @@ import type { MinerController } from './controller';
 import { SignInDialog } from './features/SignInDialog';
 import { useHotkeys } from './features/use-page-behaviour';
 import type { MasterRecord } from './keys/store';
+import { initialSteps } from './opening-steps';
 import { Mine } from './routes/Mine';
 import type { Session } from './session';
 import { bootAtom, epochAtom, nowAtom, rulesAtom, signInAtom } from './state';
@@ -94,6 +95,44 @@ describe('the cockpit signed out', () => {
     expect(screen.getByTestId('key-address').textContent).toContain('0xababab');
     expect(screen.getByTestId('open-key')).toBeTruthy();
     expect(screen.getByTestId('not-now')).toBeTruthy();
+  });
+});
+
+describe('the opening body', () => {
+  test('the bar reflects the step states and the notes step is indeterminate', () => {
+    const store = createStore();
+    const steps = initialSteps('passkey');
+    const crs = steps.find((x) => x.id === 'crs');
+    if (crs) {
+      crs.state = 'active';
+      crs.bytes = { loaded: 5, total: 20 };
+    }
+    store.set(bootAtom, { phase: 'opening', steps });
+    render(
+      <Provider store={store}>
+        <SignInDialog session={session} />
+      </Provider>,
+    );
+    const bar = screen.getByTestId('opening-bar');
+    // key 5 + node 5 + crs 70×0.25 = 27.5 → 28; determinate here.
+    expect(bar.getAttribute('aria-valuenow')).toBe('28');
+    expect(bar.hasAttribute('data-indeterminate')).toBe(false);
+    // Cancel is available: the ceremony (the key step) is done.
+    expect((screen.getByTestId('opening-cancel') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  test('Cancel is disabled while the ceremony (the key step) is still active', () => {
+    const store = createStore();
+    const steps = initialSteps('passkey');
+    const key = steps.find((x) => x.id === 'key');
+    if (key) key.state = 'active';
+    store.set(bootAtom, { phase: 'opening', steps });
+    render(
+      <Provider store={store}>
+        <SignInDialog session={session} />
+      </Provider>,
+    );
+    expect((screen.getByTestId('opening-cancel') as HTMLButtonElement).disabled).toBe(true);
   });
 });
 

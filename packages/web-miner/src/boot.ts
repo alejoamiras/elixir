@@ -16,11 +16,11 @@ import type { Connection } from './config';
 import { MinerController, type Rebound } from './controller';
 import { preparePasskeys } from './keys/passkey';
 import { assertNoLegacyWalletDb, listRecords, type MasterRecord } from './keys/store';
-import { shortAddress } from './lib/format';
+import { bytesDetail, initialSteps, type OpeningStep } from './opening-steps';
 import { crsReady } from './pinned-crs';
 import { type PublicEpochPoll, publicEpochReader, startPublicEpoch } from './public-epoch';
 import { loadSettings } from './settings';
-import { bootAtom, logAtom, rulesAtom } from './state';
+import { bootAtom, crsAtom, logAtom, rulesAtom } from './state';
 import {
   ChainViewHeldError,
   type OpenedWallet,
@@ -207,9 +207,25 @@ export async function switchNodeLive(o: {
   }
 }
 
+/** What the opening dialog needs to drive its steps and to be cancelled between them. */
+export interface OpeningOpts {
+  signal: AbortSignal;
+  publish: (steps: OpeningStep[]) => void;
+  /** The first step's label for the account's kind (a passkey, twelve words). */
+  keyLabel?: string;
+}
+
+export interface Started {
+  controller: MinerController;
+  wallet: () => EmbeddedWallet;
+  threads: number;
+}
+
 /**
- * From a master (already checked against the record) to a running miner. `wallet()` is the current
- * one: a lost race replaces it with a rebuilt chain view.
+ * From a master (already checked against the record) to a running miner, publishing the opening
+ * steps and honouring the signal between them: an abort throws (its cleanup disposes the controller
+ * and stops the wallet, so a retry never finds a second PXE). `wallet()` is the current one; a lost
+ * race replaces it with a rebuilt chain view.
  */
 export async function startSession(
   store: Store,
@@ -217,54 +233,76 @@ export async function startSession(
   connection: Connection,
   record: MasterRecord,
   master: Uint8Array,
-): Promise<{ controller: MinerController; wallet: () => EmbeddedWallet }> {
-  const step = (s: string) => store.set(bootAtom, { phase: 'opening', step: s });
-  // The keys download from page load; the wallet (its first proof) and the prover both need them.
-  step('the proving keys');
-  await crsReady();
-  step('opening the wallet');
-  let opened = await openWallet(pre.node, pre.chainId);
+  opts: OpeningOpts,
+): Promise<Started> {
+  const steps = initialSteps(opts.keyLabel);
+  const set = (id: OpeningStep['id'], patch: Partial<OpeningStep>) => {
+    const i = steps.findIndex((s) => s.id === id);
+    steps[i] = { ...(steps[i] as OpeningStep), ...patch };
+    opts.publish(steps.map((s) => ({ ...s })));
+  };
+  opts.publish(steps.map((s) => ({ ...s })));
+  opts.signal.throwIfAborted();
+
+  // The proving keys: downloading since page load. Show the bytes as they land, then wait for the pin.
+  set('crs', { state: 'active' });
+  const onCrs = () => {
+    const c = store.get(crsAtom);
+    set('crs', { state: 'active', bytes: { loaded: c.loaded, total: c.total }, detail: bytesDetail(c) });
+  };
+  onCrs();
+  const unsub = store.sub(crsAtom, onCrs);
+  try {
+    await crsReady();
+  } finally {
+    unsub();
+  }
+  opts.signal.throwIfAborted();
+  set('crs', { state: 'done', bytes: undefined, detail: undefined });
+
+  // Notes and balance: the wallet, the account, the deployment, and the controller's first read.
+  set('notes', { state: 'active' });
+  let opened: OpenedWallet | undefined;
   let controller: MinerController | undefined;
   try {
-    step(`registering your account ${shortAddress(record.account.address)}`);
+    opts.signal.throwIfAborted();
+    opened = await openWallet(pre.node, pre.chainId);
+    opts.signal.throwIfAborted();
     const fields = await deriveAccountFields(master, record.account.index);
     // A view built from another node (or one whose origin is unknown) is thrown away, never read
     // against this one: the PXE anchors on a node's tips and a lagging or lying node can prune or
     // poison it. The marker is written after the rebuild, so an interrupted one rebuilds again.
     const fingerprint = await endpointFingerprint(pre.switchable.current());
-    if (viewBuiltOn(opened.pxeDb) !== fingerprint) {
-      step('rebuilding the chain view from this node');
+    if (viewBuiltOn(opened.pxeDb) !== fingerprint)
       opened = await resetAccountView(opened, pre.node, pre.chainId, fields);
-    }
     const account = await registerAccount(opened, fields);
     if (account.toString() !== record.account.address)
       throw new Error('the wallet derived a different address than the vault');
     markViewBuiltOn(opened.pxeDb, fingerprint);
-    step('registering the deployment');
+    opts.signal.throwIfAborted();
     const attach = (o: OpenedWallet) =>
       attachDeployment(o.wallet, pre.node, connection, pre.minerArtifact, o.lastSent);
     const deployment = await attach(opened);
     store.set(rulesAtom, await readEpochRules(deployment, account));
     // A drop that fails leaves the old wallet stopped: reopen the namespace as it is, so the page
-    // keeps a working wallet, and say so (`rebuilt: false`). Not when another tab holds the
-    // namespace: a reopen would queue behind the pending delete, for good.
-    // `strict` (a node switch): a reset failure is surfaced, never the reopen fallback, which against
-    // the new node would keep a view built on the old one. The lost-race path (strict false) reopens
-    // so the page keeps a working wallet while it waits for finality.
+    // keeps a working wallet, and say so (`rebuilt: false`). `strict` (a node switch) surfaces the
+    // failure instead, never the reopen fallback, which against the new node would keep a stale view;
+    // `ChainViewHeldError` (another tab holds the namespace) always surfaces (a reopen would queue
+    // behind the pending delete, for good).
     const recover = async (strict = false): Promise<Rebound> => {
       let rebuilt = true;
       try {
-        opened = await resetAccountView(opened, pre.node, pre.chainId, fields);
-        markViewBuiltOn(opened.pxeDb, await endpointFingerprint(pre.switchable.current()));
+        opened = await resetAccountView(opened as OpenedWallet, pre.node, pre.chainId, fields);
+        markViewBuiltOn((opened as OpenedWallet).pxeDb, await endpointFingerprint(pre.switchable.current()));
       } catch (e) {
         if (e instanceof ChainViewHeldError || strict) throw e;
         rebuilt = false;
         opened = await openWallet(pre.node, pre.chainId);
         await registerAccount(opened, fields);
       }
-      return { deployment: await attach(opened), fee: opened.fee, rebuilt };
+      const o = opened as OpenedWallet;
+      return { deployment: await attach(o), fee: o.fee, rebuilt };
     };
-    step('starting the prover');
     const cores = navigator.hardwareConcurrency || 2;
     // A setting saved on another machine may exceed this one's cores: the slider's clamp applies.
     const threads = clampThreads(loadSettings().threads ?? Math.max(1, cores - 1), cores);
@@ -281,15 +319,20 @@ export async function startSession(
       recover,
     });
     await controller.ready();
+    opts.signal.throwIfAborted();
     // The controller's first read owns the epoch from here; a public read still out lands nowhere.
     pre.publicEpoch.stop();
     await controller.begin();
-    store.set(bootAtom, { phase: 'ready', account: account.toString(), threads, record });
-    return { controller, wallet: () => opened.wallet };
+    set('notes', { state: 'done' });
+    set('ready', { state: 'done' });
+    const openedWallet = opened;
+    return { controller, wallet: () => openedWallet.wallet, threads };
   } catch (e) {
-    // Nothing of a failed start survives: a retry must not find a second PXE on the namespace.
+    // Nothing of an aborted or failed start survives: a retry must not find a second PXE on the
+    // namespace, and the public poll takes the epoch back (it stopped only on a first read that stuck).
     controller?.dispose();
-    await opened.wallet.stop().catch(() => {});
+    await opened?.wallet.stop().catch(() => {});
+    pre.publicEpoch.start();
     throw e;
   }
 }

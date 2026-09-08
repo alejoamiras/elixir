@@ -1,10 +1,11 @@
 import type * as React from 'react';
 import { cn } from '../lib/cn.ts';
 
-export type Status = 'idle' | 'mining' | 'claiming' | 'minted' | 'not-backed-up' | 'paused';
+export type Status = 'idle' | 'opening' | 'mining' | 'claiming' | 'minted' | 'not-backed-up' | 'paused';
 
 const LABEL: Record<Status, string> = {
   idle: 'idle',
+  opening: 'opening',
   mining: 'mining',
   claiming: 'claiming',
   minted: 'minted',
@@ -14,6 +15,7 @@ const LABEL: Record<Status, string> = {
 
 const TONE: Record<Status, string> = {
   idle: 'border-line-2 text-ink-2 [&>i]:bg-ink-3',
+  opening: 'border-uv/60 text-uv-2 [&>i]:bg-uv [&>i]:animate-pulse [&>i]:motion-reduce:animate-none',
   mining: 'border-uv/60 text-uv-2 [&>i]:bg-uv [&>i]:animate-pulse [&>i]:motion-reduce:animate-none',
   claiming: 'border-uv/60 text-uv-2 [&>i]:bg-uv',
   minted: 'border-ok/50 text-ok [&>i]:bg-ok',

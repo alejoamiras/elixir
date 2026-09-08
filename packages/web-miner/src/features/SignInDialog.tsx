@@ -1,13 +1,16 @@
 import { useAtom, useAtomValue } from 'jotai';
-import { Dialog, DialogContent, DialogTitle } from '../../../ui/src/index.ts';
+import { Button, Dialog, DialogContent, DialogTitle, Progress, Stepper } from '../../../ui/src/index.ts';
+import { type OpeningStep, openingIndeterminate, progressOf } from '../opening-steps';
 import type { Session } from '../session';
+import { useSettings } from '../settings';
 import { bootAtom, signInAtom } from '../state';
 import { CreateKey, WelcomeBack } from './KeyScreen';
 
 /**
  * The sign-in over the dull cockpit. Signed out, Escape, the veil and "Not now" are one action:
  * dismiss (either sign-in button on the cockpit reopens it). Opening, nothing dismisses it — a click
- * on the veil must not abort an account open — and it closes when the account is ready.
+ * on the veil must not abort an account open — and it closes when the account is ready. Cancel inside
+ * it aborts once the ceremony is over.
  */
 export function SignInDialog({ session }: { session: Session }) {
   const boot = useAtomValue(bootAtom);
@@ -31,7 +34,7 @@ export function SignInDialog({ session }: { session: Session }) {
       >
         <DialogTitle className="sr-only">{opening ? 'Opening your account' : 'Sign in to mine'}</DialogTitle>
         {opening ? (
-          <Opening step={boot.step} />
+          <Opening steps={boot.steps} onCancel={() => void session.cancelOpening()} />
         ) : boot.phase !== 'signedOut' ? null : boot.records.length ? (
           <WelcomeBack
             session={session}
@@ -47,14 +50,41 @@ export function SignInDialog({ session }: { session: Session }) {
   );
 }
 
-/** The step while the account comes up; the bar and the step list come with the opening's own work. */
-function Opening({ step }: { step: string }) {
+/** The opening body: the step list, the bar, and Cancel once the ceremony is over. */
+function Opening({ steps, onCancel }: { steps: OpeningStep[]; onCancel: () => void }) {
+  const [settings] = useSettings();
+  // The first step done means the ceremony (its OS prompt) is over: Cancel is safe from here.
+  const canCancel = steps.find((s) => s.id === 'key')?.state === 'done';
+  const footer = settings.resumeOnOpen
+    ? 'Mining resumes when it is done.'
+    : 'You can watch the chain behind this; press Start when it is done.';
   return (
-    <div className="flex flex-col gap-2">
-      <span className="label-mono">opening your account</span>
-      <p className="text-sm text-ink-2" data-testid="boot-step">
-        {step}…
-      </p>
+    <div className="flex flex-col gap-4" data-testid="opening">
+      <div>
+        <span className="label-mono">opening your account</span>
+        <h2 className="mt-1 text-2xl">A minute the first time.</h2>
+        <p className="mt-2 text-sm text-ink-2">
+          The proving keys are 20 MB, fetched once and kept. After that, opening takes a few seconds.
+        </p>
+      </div>
+      <Progress
+        value={progressOf(steps)}
+        indeterminate={openingIndeterminate(steps)}
+        data-testid="opening-bar"
+      />
+      <Stepper steps={steps} />
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs text-ink-3">{footer}</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={!canCancel}
+          onClick={onCancel}
+          data-testid="opening-cancel"
+        >
+          Cancel
+        </Button>
+      </div>
     </div>
   );
 }

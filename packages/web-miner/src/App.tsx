@@ -61,6 +61,7 @@ const STALE_AFTER_MS = 60_000;
 
 export function Shell({ children }: { children: ReactNode }) {
   const route = useRoute();
+  const boot = useAtomValue(bootAtom);
   const miner = useAtomValue(minerAtom);
   const now = useAtomValue(nowAtom);
   const notice = previewNotice(location.hostname);
@@ -107,7 +108,10 @@ export function Shell({ children }: { children: ReactNode }) {
         </nav>
         <span className="ml-auto flex items-center gap-3">
           <Badge variant="warn">testnet · fees sponsored</Badge>
-          <StatusPill status={pillStatus(miner, now)} data-testid="phase" />
+          <StatusPill
+            status={boot.phase === 'opening' ? 'opening' : pillStatus(miner, now)}
+            data-testid="phase"
+          />
         </span>
       </header>
       <div className="flex flex-col gap-4 p-4 md:p-5">

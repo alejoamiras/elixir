@@ -118,17 +118,25 @@ function PopOut({ controller }: { controller: () => MinerController | undefined 
   );
 }
 
-/** Start's place: the way in while no account is open, Stop while mining, Start otherwise. */
+/** Start's place: opening while an account comes up, the way in while none is, Stop/Start otherwise. */
 function StartControl({
   ready,
+  opening,
   miner,
   controller,
 }: {
   ready: boolean;
+  opening: boolean;
   miner: MinerState;
   controller: () => MinerController | undefined;
 }) {
   const openSignIn = useSetAtom(signInAtom);
+  if (opening)
+    return (
+      <Button size="sm" variant="primary" disabled data-testid="start-opening">
+        opening…
+      </Button>
+    );
   if (!ready)
     return (
       <Button size="sm" variant="uv" data-testid="sign-in-mine" onClick={() => openSignIn(true)}>
@@ -198,6 +206,7 @@ export function LoopTile({
   const last = miner.recent[miner.recent.length - 1];
   const perProof = useTweenedNumber(last === undefined ? 0 : last / 1000);
   const ready = boot.phase === 'ready';
+  const opening = boot.phase === 'opening';
   const threads = boot.phase === 'ready' ? boot.threads : (settings.threads ?? Math.max(1, cores() - 1));
   const bar = epoch ? difficulty(epoch.target) : null;
   const status = pillStatus(miner, now);
@@ -214,7 +223,7 @@ export function LoopTile({
           <span className="flex items-center gap-3">
             <RateLine ready={ready} threads={threads} miner={miner} perProof={perProof} />
             {settings.pip && pipSupported() && <PopOut controller={controller} />}
-            <StartControl ready={ready} miner={miner} controller={controller} />
+            <StartControl ready={ready} opening={opening} miner={miner} controller={controller} />
           </span>
         }
       >
