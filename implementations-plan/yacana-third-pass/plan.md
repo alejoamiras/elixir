@@ -635,7 +635,7 @@ prove layout): at a 480 × 720 viewport the backup, the quiz, the restore and th
 no horizontal overflow and the primary reachable by scroll — run in this phase against the dev server through `bun
 run e2e:agent`, not deferred to the arc boundary. Layers: lint/typecheck · unit · component.
 
-**P2.3 · Opening A** ✓ (2026-09-08, `P23HASH`) — the attempt and its cancel in `Session`; `startSession` on a `runStep(id, fn)` runner (as
+**P2.3 · Opening A** ✓ (2026-09-08, `9f0eb51`) — the attempt and its cancel in `Session`; `startSession` on a `runStep(id, fn)` runner (as
 `preflight`'s `run`) that publishes `steps`; the steps and the bar (`Progress` with `indeterminate` for the notes
 step) in the modal; Escape and the overlay inert while opening; the shimmering balance behind; the header pill.
 Gate: lint · typecheck · `bun test packages/web-miner` (`opening-steps.test.ts`: the weights, a finished keys step;

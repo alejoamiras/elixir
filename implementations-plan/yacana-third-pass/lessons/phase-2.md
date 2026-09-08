@@ -59,7 +59,7 @@ What the phase found:
 - The words spec asserted the old heading ("Sign up with a passkey."); the modal's is "Sign in to mine." per the
   canvas.
 
-## P2.3 · Opening A ✓ (2026-09-08, `P23HASH`)
+## P2.3 · Opening A ✓ (2026-09-08, `9f0eb51`)
 
 Gate, as run: `bun run lint` exit 0 · every typecheck ok · `bun test` (new `opening-steps.bun.test.ts` — the
 weights, the active keys step's byte fraction, the notes step indeterminate; `session-open.bun.test.ts` — a cancel
