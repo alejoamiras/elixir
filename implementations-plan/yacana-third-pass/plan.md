@@ -25,7 +25,8 @@ authoring session's scratchpad, and every measurement the implementation needs i
 
 Each surface matches its canvas artboard at 1280 and 1440 px in composition, copy and hierarchy (deviations listed in
 `lessons/` with the reason); a user can point the miner, the stats and the landing at any https node from the miner's
-Settings (a save and a reload) and the change holds across reloads and pages; a throttled or silent node is named on a banner with the way
+Settings without a reload (the account's chain view rebuilt from the new node) and the change holds across
+reloads and pages; a throttled or silent node is named on a banner with the way
 out on it; the stats page paints its structure within 300 ms of a slow node answering and fills in the order the reads
 land; the miner shows the chain's numbers before any account exists and opens an account behind a modal with a
 determinate bar; the strip stays 48 cells wide at any history and the map under it moves the window; the senders card
@@ -121,12 +122,12 @@ Tokens, type and primitives are `packages/ui`'s; the numbers below are the canva
   status line in mono 12.5 px (`block 73,164 · 3 s ago` in `ok`, the latency, `this deployment ✓` in `ok`) and a
   dimmed "In use" button; below, "Another node" (label + input + "Check"); a result line after Check (`✓ chain … ·
   rollup …`, `✓ the miner and the token are there`, the block, the latency; or the refusal in `warn`); "Use this
-  node" (primary) with "Saves and reloads the page; your account reopens (a passkey asks for a touch) and mining
-  starts again when you press Start — at once if 'Resume mining when the page opens' is on. The page checks any node
-  against this deployment before it reads a number from it."; a rule and the note "The node answers what this page asks; it can delay or hide, never spend: every claim is
+  node" (primary) with "Applies at once; your account's view of the chain is rebuilt from the new node (about a
+  minute) and mining carries on. The page checks any node against this deployment before it reads a number from
+  it."; a rule and the note "The node answers what this page asks; it can delay or hide, never spend: every claim is
   proved here and verified on the chain. A public node may rate-limit you: run a node →" (link to the Aztec docs).
-  (The canvas board says "Applies at once; mining carries on"; the audit showed the wallet cannot change nodes under
-  itself safely — see the Decision ledger and Ask A4.)
+  (The canvas board's "Applies at once; mining carries on" holds; the owner chose the live switch over the reload the
+  audits leaned to — the rebuild on switch is what makes it safe; see the Decision ledger.)
 - The miner and token address inputs go: the deployment is the build's and never a setting.
 - When the node in use is throttled the framed row's status reads `429 · rate limited` (warn) · `last answer 40 s
   ago` · `this deployment ✓`.
@@ -137,10 +138,8 @@ Tokens, type and primitives are `packages/ui`'s; the numbers below are the canva
   counts from the last successful chain read, not from the last HTTP success. What proving does is the header pill's
   to say (the controller pauses after a minute without a read, as today); the banner never claims it. Not dismissible
   while the condition holds; gone on the first good chain read.
-- The Behaviour, Performance and About tiles keep their content; the dashed **Advanced** tile ("rarely needed")
-  carries one row: "Senders this account can receive from — A private transfer from another account is found only if
-  that account is listed here. Mining rewards need nothing." with "Add a sender" (opens the same input the wallet card
-  had, inline). See Ask A1.
+- The Behaviour, Performance, Account, Appearance and About tiles keep their content. The canvas's dashed
+  **Advanced** tile is not built: the owner dropped the senders capability (A1), and nothing else belonged in it.
 
 ### Strip · A (`StripA`)
 
@@ -165,7 +164,11 @@ Tokens, type and primitives are `packages/ui`'s; the numbers below are the canva
 
 ### Wallet, money, pop-out (`WalletNoSenders`, `MoneyAfter`, `PopoutAfter`)
 
-- Wallet: the balance tile (Send), the claims list, the account tile with Sign out; the senders card is gone.
+- Wallet: the balance tile (Send), the claims list, the account tile with Sign out; the senders card is gone, and
+  with it the capability (`addSender`, `registerSender`). Consequence, said where it matters: another Yacana account
+  cannot discover a private transfer from this one (note discovery needs the recipient to know the sender), so the
+  Send sheet's private mode carries one line — "Another Yacana account will not see a private transfer from you; send
+  publicly to a Yacana account." — beside the existing unknown-recipient warning.
 - Money: the table's last row loses its bottom rule (`[&>tr:last-child>td]:border-b-0` on the `tbody` — `last:` on a
   cell would match every row's last column; the section's border closes the block).
 - Pop-out (360×190): the 48 px strip draws ordinary proofs as the cockpit's dim ticks (2 px, `ink-3` at 55 %) and a
@@ -179,52 +182,60 @@ Grounded in `recon.md` and revised after the round-1 audits: the modal, the prog
 tween, the connection module, the reader, `serial` / `coalesced` and the fetch deadline all exist and are reused; what
 is new is one skeleton primitive, one error boundary, a node-health store with its banner, a fail-closed fetch guard,
 a streamed key loader, a public epoch read for the miner, a staged stats read, the strip's map with its cache, a
-cancellable opening, and the measured margin in the loop. The live node switch of the first draft is gone: the node
-changes by save-and-reload (see Trade-offs).
+cancellable opening, and the measured margin in the loop. The node switches live — the owner's call — with the
+account's chain view rebuilt on every switch (see Trade-offs).
 
 ### Proposed architecture
 
-1. **The node is one shared setting, checked before it is used, changed by a reload.**
+1. **The node is one shared setting, checked before it is used, switched live.**
    `packages/site/src/browser/connection.ts` keeps `yacana.connection` (nodeUrl) as the single source the three apps
    read at boot; the origin allowlist and `disallowedNodeUrl` go. `headers.ts` takes `mode: 'production' | 'e2e' |
    'dev'` and emits `connect-src 'self' data: https:` in production, plus `http://127.0.0.1:*` and
    `http://localhost:*` in `e2e` and `dev` (the E2E preview build keeps production's other headers and its local node
    and mock origins; `assertProductionConfig` still refuses an http default). `config.ts` drops
-   `VITE_ALLOWED_NODE_ORIGINS`. A new `packages/site/src/browser/node.ts` owns `probeNode(url, expected, layout)` →
-   `{ chainId, rollupVersion, rollupAddress, block, blockAgeS, latencyMs }` after `assertDeployment` (the boot's
-   `node` + `deployment` rows and the Node tile's Check are the same call; its client is built with
-   `makeFetch([], false)` so a dead candidate fails in one deadline, not three; a Check opens a **candidate lease**
-   on the guard — `allowCandidate(endpointUrl, deadlineMs)` returns a release — so the probe's requests pass while
-   the active endpoint stays active, and the candidate's responses never touch the active endpoint's health, even
-   when both are paths of one origin). The
-   expected rollup address comes from the build like the other identity fields: `deploy.ts` records
-   `info.l1ContractAddresses.rollupAddress` in the deployment record from now on, a one-off script amends
-   `deployments/testnet.json` from the default node once, `ExpectedDeployment` gains `rollupAddress`, and every boot
-   and every Check compares it (so the check does not depend on the current node being alive). The tile's health row ("block N ·
-   3 s ago · 210 ms") comes from a probe tick every 10 s while the Settings route is open — the miner never reads the
-   block number otherwise. The Node tile's "Use this node" runs the
-   probe against the candidate, refuses a different rollup address, then `saveConnection` + `location.reload()` — the
-   wallet, the PXE and the controller are rebuilt on the new node by the boot they already have. The PXE's store is
-   keyed by the rollup, not by the node (`wallet.ts:35-38`), and its block synchroniser anchors on the node's tips: a
-   node behind the old one prunes the view (notes vanish until rediscovered), a lying node's fake finalized tip can
-   leave it unable to reconcile. So the boot remembers which **endpoint** the account's chain view was last built
-   on — `yacana.pxe-view.<namespace>` → the SHA-256 of the normalised node URL (origin + path + query: two paths on
-   one origin can be two nodes) — and, when the saved endpoint differs or the marker is missing, opens the account
-   through a rebuild: open the wallet, **migrate the persisted senders** — not through `wallet.getAddressBook()`,
-   which returns the WalletDB's contacts and this app's WalletDB is a fresh `MemoryKvStore` (`wallet.ts:66`,
-   `embedded_wallet.ts:147`), but from the PXE's persisted tagging sources
-   (`getTaggingSecretSources({ kind: 'address-derived' })` through a small wallet adapter), the namespace-wide
-   union merged into the app's `yacana.senders.<account>` list and written durably before anything is deleted —
-   `resetAccountView` (drop and reopen the namespace), register the account, **replay the senders** from the app's
-   list, write the marker, then let the sync run. A reset that fails is a boot error
-   with the way out (never the lost-race fallback that reopens the old database, which would keep a poisoned view).
-   The senders an account added are kept by the app (`yacana.senders.<account>`) and replayed after *every*
-   rebuild, this one and the lost-race one — today `resetAccountView` drops them with the database
-   (`pxe.ts:855-889`), an existing loss the plan closes. The opening steps show it ("rebuilding the chain view from
-   the new node"). The Node tile works with no session
-   (`boot.phase` `signedOut` or `error`): Use is always a save and a reload. Every boot-error alert (miner, stats,
-   landing) offers "Use the default node" (`saveConnection(default)` + reload) and links `/mine/settings/`, so a dead
-   saved node always has a way out.
+   `VITE_ALLOWED_NODE_ORIGINS`. A new `packages/site/src/browser/node.ts` owns:
+   - `probeNode(url, expected, layout)` → `{ chainId, rollupVersion, rollupAddress, block, blockAgeS, latencyMs }`
+     after `assertDeployment` (the boot's `node` + `deployment` rows and the Node tile's Check are the same call; its
+     client is built with `makeFetch([], false)` so a dead candidate fails in one deadline, not three; a Check opens
+     a **candidate lease** on the guard — `allowCandidate(endpointUrl, deadlineMs)` returns a release — so the
+     probe's requests pass while the active endpoint stays active, and the candidate's responses never touch the
+     active endpoint's health, even when both are paths of one origin). The expected rollup address comes from the
+     build like the other identity fields: `deploy.ts` records `info.l1ContractAddresses.rollupAddress` in the
+     deployment record from now on, a one-off script amends `deployments/testnet.json` from the default node once,
+     `ExpectedDeployment` gains `rollupAddress`, and every boot and every Check compares it (so the check does not
+     depend on the current node being alive). The tile's health row ("block N · 3 s ago · 210 ms") comes from a
+     probe tick every 10 s while the Settings route is open — the miner never reads the block number otherwise.
+   - `switchableNode(url)` → `{ node, use(url), current() }`: a `Proxy` whose every property read forwards to the
+     current SDK client and binds functions to it — the same shape the wallet already puts in front of its node
+     (`observeSends`, `wallet.ts:41-52`), and the SDK's own holders resolve methods at call time (the benchmarked and
+     caching wrappers, the block-stream source: `benchmarked_node.js:30-45`, `caching_aztec_node.js:16-118`,
+     `block_stream_source.js:7-35`; the fable audit read them). The wallet, the controller, the public poll and the
+     probe hold the proxy.
+   **"Use this node" switches live**, in this order (the owner's pick over the reload the audits leaned to; the
+   safety property both asked for — no view built on one node is ever read against another — is kept by the
+   rebuild): the candidate passed its Check (same chain id, rollup version, rollup address, both class ids, the
+   bound token — so the `NodeInfo` the wallet cached for its lifetime, `base_wallet.ts:170`, stays true); the
+   controller **pauses** (`'switch'`, the existing pause) and the serial read queue **drains** (no claim or read in
+   flight straddles two endpoints); `saveConnection`; `switchable.use(url)`, the guard's active endpoint, the
+   deadline and the health store move to the new endpoint (the old endpoint's late answers are dropped by endpoint
+   tag); with an account open, the chain view is **rebuilt from the new node** through the existing recover path
+   (`resetAccountView` → register the account → re-attach the deployment — the lost-race path, `controller.ts:
+   518-537`) with the opening steps shown in the dialog ("rebuilding the chain view from the new node", about a
+   minute); then the controller **resumes** (mining continues if it was mining). Signed out, the switch is the swap
+   alone: the public poll's next tick reads the new node. The stats and the landing pick the saved URL at their next
+   boot (same origin, same key). A rebuild that fails is a boot error with the way out (never the lost-race
+   fallback that reopens the old database, which would keep a poisoned view).
+   The PXE's store is keyed by the rollup, not by the node (`wallet.ts:35-38`), and its block synchroniser anchors on
+   the node's tips: a node behind the old one prunes the view (notes vanish until rediscovered), a lying node's fake
+   finalized tip can leave it unable to reconcile — which is why the view is rebuilt on every switch, and why the
+   boot remembers which **endpoint** the view was last built on (`yacana.pxe-view.<namespace>` → the SHA-256 of the
+   normalised node URL: origin + path + query, two paths on one origin can be two nodes). A boot whose saved
+   endpoint differs from the marker, or finds no marker (a switch made on another page or tab, an interrupted
+   rebuild), opens the account through the same rebuild; the marker is written after the rebuild, before the sync.
+   No sender list is migrated or replayed: the owner dropped the senders capability (A1), so a rebuild registers
+   the account and nothing else. The Node tile works with no session (`boot.phase` `signedOut` or `error`). Every
+   boot-error alert (miner, stats, landing) offers "Use the default node" (`saveConnection(default)` + reload) and
+   links `/mine/settings/`, so a dead saved node always has a way out.
 2. **Every context's fetch fails closed.** `packages/site/src/browser/node-guard.ts` installs one mutable interceptor
    per context (page and prover Worker), imported before `pinned-crs.ts` so the CRS interceptor's fall-through goes
    through it: same-origin requests pass; requests to the **active endpoint** — matched on the complete normalised
@@ -364,6 +375,7 @@ changes by save-and-reload (see Trade-offs).
 export interface NodeProbe { chainId: bigint; rollupVersion: bigint; rollupAddress: string; block: number; blockAgeS: number; latencyMs: number }
 export function probeNode(url: string, expected: ExpectedDeployment, layout: StorageLayout): Promise<NodeProbe>;
 export function parseNodeUrl(text: string, mode: SiteMode): URL;   // https only in production; no credentials, no fragment
+export function switchableNode(url: string): { node: Node; use(url: string): void; current(): string };   // a Proxy over the current SDK client; functions bound at read time
 
 // packages/site/src/browser/node-guard.ts — one interceptor per context, installed at import
 export function setNodeOrigin(url: string | null, deadlineMs: number): void;   // one mutable cell; the gate answers 429 while throttled
@@ -421,10 +433,12 @@ export const labelsCollide = (yBar: number, yBase: number, fontPx: number): bool
   key action (the attempt and its `AbortController` are minted here, before the ceremony) → `startSession` (steps
   published; the keys step waits on `crsAtom`; the public poll stops when the controller's first read lands) →
   `ready`. Cancel at any step → cleanup → `signedOut`; a dismissal during the ceremony is inert.
-- **Node switch**: Settings → Check (`probeNode(candidate)`) → Use (same rollup address required) → `saveConnection`
-  returns whether the write held (today it swallows storage failures, `connection.ts:62-68`) → `location.reload()`
-  only on success, else a fixed message ("The browser refused to save the setting; free some site storage and try
-  again.") and no reload; the stats and the landing pick the saved URL at their next boot (same origin, same key).
+- **Node switch**: Settings → Check (`probeNode(candidate)` under a lease) → Use (same identity required) →
+  `saveConnection` returns whether the write held (today it swallows storage failures, `connection.ts:62-68`) — on
+  failure a fixed message ("The browser refused to save the setting; free some site storage and try again.") and no
+  switch — then the controller pauses (`'switch'`), the serial queue drains, `switchable.use(url)` + the guard's
+  endpoint + the deadline + the health store move, the view is rebuilt when an account is open (steps in the
+  dialog), the controller resumes; the stats and the landing pick the saved URL at their next boot (same origin, same key).
 - **Health**: every node response → the store's transport; every successful chain read → `markRead`; the banner
   renders while transport ≠ `ok` or `now − lastReadAt` exceeds two poll intervals; the gate answers during a
   cooldown (no poller logic); a failed boot re-runs after `waitTurn()` (both failure kinds have a deadline).
@@ -443,8 +457,11 @@ export const labelsCollide = (yBar: number, yBase: number, fontPx: number): bool
   `opening-steps.ts`), `session.ts` (the attempt, `cancelOpening`), `state.ts`, `pinned-crs.ts` (streamed `load`),
   new `public-epoch.ts`, new `features/SignInDialog.tsx`, `features/KeyScreen.tsx` (screens only),
   `features/WordsScreens.tsx` (wrapping), `features/LoopTile.tsx` (signed-out button; no bar before the epoch),
-  `features/RailTile.tsx`, `features/use-page-behaviour.ts` (hotkeys off while the dialog is open),
-  `components/BalanceCard.tsx`, `routes/Settings.tsx` (Node tile, Advanced tile), `components/ConnectionCard.tsx` →
+  `features/RailTile.tsx`, `features/use-page-behaviour.ts` (hotkeys off while the dialog is open), `session.ts`
+  (`addSender` removed; the live switch's pause → drain → swap → rebuild → resume), `controller.ts` (the `'switch'`
+  pause, the recover path reused),
+  `components/BalanceCard.tsx`, `features/SendSheet.tsx` (the private-mode line), `routes/Settings.tsx` (Node tile;
+  no Advanced tile), `components/ConnectionCard.tsx` →
   `NodeTile.tsx`, `routes/Wallet.tsx` (card removed), `App.tsx` (banner, boundaries), `prover.worker.ts` (the guard
   imported first), new `scripts/prebuild.ts` (with `copySlots`), package scripts; e2e helpers and specs.
 - `packages/web-stats/src/`: `chain.ts` → `read-fixed.ts`, `read-window.ts`, `history-fill.ts`, `history-cache.ts`;
@@ -490,11 +507,17 @@ export const labelsCollide = (yBar: number, yBase: number, fontPx: number): bool
 
 ### Trade-offs & alternatives not taken
 
-- **A live node switch under the wallet** (the first draft's `switchableNode` proxy): the round-1 audit read the
-  SDK — the wallet caches `NodeInfo` for its lifetime, the PXE initialises a genesis hash and keeps cached reads,
-  anchors and rollback state (`wallet-sdk/src/base-wallet/base_wallet.ts:170`, `pxe/src/pxe.ts:294-334`); switching
-  between two calls of one sync or simulation can mix endpoints, and no E2E on one healthy node under two names would
-  prove it safe. Rejected; save-and-reload (outline B's item 1) taken, the tile's copy says so.
+- **Save-and-reload on a node switch** (outline B's item 1; the audits' lean): codex read the SDK — the wallet
+  caches `NodeInfo` for its lifetime, the PXE initialises a genesis hash and keeps cached reads, anchors and
+  rollback state (`wallet-sdk/src/base-wallet/base_wallet.ts:170`, `pxe/src/pxe.ts:294-334`) — and warned that a
+  switch between two calls of one sync or simulation mixes endpoints; fable read the same SDK and found every holder
+  resolves methods at call time, so the proxy dispatches, and named the real risk (the per-rollup view) with its
+  fix (rebuild on switch). The owner chose the live switch. What makes it safe: the probe's identity check keeps the
+  cached `NodeInfo` true; the pause and the drain mean no operation straddles the swap; the rebuild throws the old
+  view away, so nothing read against the old node survives. The residual risk is the same as the reload's: a
+  malicious new node feeds the rebuilt view; the way out is another switch, which rebuilds again. The E2E for it
+  runs two distinct endpoints (two forwarding proxies in front of the isolated node, with request counters and a
+  stall mode), not two names for one.
 - **Per-app 429 checks in the polls** (outline B's item 2): the SDK's RPC methods return decoded values, not
   responses (`foundation/src/json-rpc/client/fetch.ts:63-72`); the status is only visible at the fetch layer, which is
   where the guard already sits. Rejected; the shared store taken.
@@ -523,9 +546,9 @@ checks removed; `parseNodeUrl`; `probeNode` (with the rollup address); the fail-
 prover Worker, imported before `pinned-crs` (a static import-order test); the miner's node client without transport
 retries and `redirect: 'error'` on guarded requests; `webrtc 'block'` (best effort); the miner's boot on them; the
 **Node tile** as `HealthRow` + `CheckForm` (a reducer for the check states) + `NodeNote`, usable with no session,
-with the candidate lease for Check; Use → save and reload; the rebuild-on-endpoint-change at boot
-(`yacana.pxe-view.*` keyed by the endpoint fingerprint, the senders replayed from `yacana.senders.<account>` after
-this rebuild and the lost-race one); the expected rollup address in the deployment record and `ExpectedDeployment`;
+with the candidate lease for Check; `switchableNode`; Use → the live switch (pause → drain → swap → rebuild →
+resume; signed out, the swap alone); the rebuild-on-endpoint-change at boot (`yacana.pxe-view.*` keyed by the
+endpoint fingerprint); the expected rollup address in the deployment record and `ExpectedDeployment`;
 "Use the default node" on the three boot-error alerts; the miner and token inputs gone (the
 e2e query overrides stay); `docs/threat-model.md` rows on the CRS control rewritten and `docs/` on the node setting.
 Gate: `bun run lint` · `bun run --cwd packages/site typecheck` and `--cwd packages/web-miner typecheck` · `bun test
@@ -536,15 +559,16 @@ node origin pass, any other origin throws, the deadline applies, and through `pi
 throws, `data:` and `blob:` URLs pass, and bb.js's real browser loader fetches its bundled WASM under the guard;
 `import-order.test.ts` — in `main.tsx` and `prover.worker.ts` the shim precedes the SDK and the guard precedes
 `pinned-crs`, which precedes the SDK; the
-connection tests without the allowlist; `boot` with a fake wallet: a changed endpoint fingerprint or a missing
-marker opens through the rebuild, a reset failure is a boot error, an upgrade fixture with senders only in the PXE
-store and no app list migrates them before the reset and replays them after it — against the real SDK wallet on an
-in-memory PXE store, not a fake, since `getAddressBook()` on this app's wallet returns nothing — the marker is written after the
-replay; two paths on one origin are two endpoints for the marker, the cache key and the guard; a guarded request
-carries `redirect: 'error'` even when the caller asked to follow)
+connection tests without the allowlist; `node.test.ts` also: the proxy forwards every call to the current client
+and `use()` moves it, a function read through the proxy is bound to the client of that moment; `boot`/`session` with
+a fake wallet: a live switch pauses, drains the read queue, swaps, rebuilds through `resetAccountView`, writes the
+marker after the rebuild and resumes; a changed endpoint fingerprint or a missing marker at boot opens through the
+rebuild; a reset failure is a boot error and never reopens the old database; two paths on one origin are two
+endpoints for the marker, the cache key and the guard; a guarded request carries `redirect: 'error'` even when the
+caller asked to follow)
 · Vitest `packages/web-miner` (the tile: Check shows the probe's line, a refusal in warn, Use is disabled until a
-check passed, Use saves and reloads, a storage write that throws (quota) shows the fixed message and does not
-reload, the tile renders in `signedOut` and `error`) · `bun run e2e:agent -- bun run
+check passed, Use switches and shows the rebuild's progress, a storage write that throws (quota) shows the fixed
+message and does not switch, the tile renders in `signedOut` and `error`) · `bun run e2e:agent -- bun run
 site:e2e` (the `_headers` line carries `https:` and `webrtc 'block'`, and under the e2e mode the localhost forms).
 Layers: lint/typecheck · unit · component · e2e (assembled site).
 
@@ -577,15 +601,17 @@ drawing itself is checked by eye in the renders) · **the owner's symptom reprod
 screenshots before and after under `shots/arc-1/`; if the "0" is something else, it is logged in `lessons/phase-1.md`
 and fixed in this phase. Layers: lint/typecheck · unit · manual render.
 
-**P1.4 · Boundaries and the senders row** — `TileBoundary` around every tile and section of the three apps, the
-derivations inside; the senders card leaves the wallet; the Advanced tile in Settings carries the row (same
-testids); `withdraw.e2e.ts` adds the sender from Settings.
+**P1.4 · Boundaries and the senders' removal** — `TileBoundary` around every tile and section of the three apps,
+the derivations inside; the senders card, `Session.addSender` and the `registerSender` call go; the Send sheet's
+private mode gets its one line; `withdraw.e2e.ts` loses the sender steps — the private send is asserted from the
+sender's side (balance down, the transaction mined) and the public withdraw stays the cross-account check.
 Gate: lint · typecheck · Vitest `packages/ui` (a throwing child renders the fixed text, a sibling survives, Try
-again remounts, the error reaches `onError`) and `packages/web-miner` (the wallet has no sender input; Settings has)
-· **arc boundary**: `bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e` (the full miner suite: a node
-switch by save-and-reload, loaded without the `node=` pin, that comes back signed in for a words account through the
-rebuild and lands a claim after it, and an account that added a sender still receives from it after the switch;
-the pop-out) · `bun run e2e:agent -- bun run
+again remounts, the error reaches `onError`) and `packages/web-miner` (no sender input anywhere; the private mode's
+line) · **arc boundary**: `bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e` (the full miner suite,
+with two forwarding proxies A and B in front of the isolated node — a Bun forwarder under `e2e/` with per-endpoint
+request counters and a stall switch: a live switch A → B under an open words account while mining, loaded without
+the `node=` pin, shows the rebuild, keeps the session, lands a claim after it, and A's counter stays flat from the
+switch on; a switch to a stalled B raises the silent banner and the switch back to A clears it; the pop-out) · `bun run e2e:agent -- bun run
 site:e2e` · renders at 1280/1440 of Settings and the banner beside `NodeSettings`, `NodeRateLimited`,
 `RateLimitBanner`, `PopoutAfter`. Layers: lint/typecheck · unit · component · e2e (isolated network).
 
@@ -707,10 +733,13 @@ testnet layer: nothing here touches chain behaviour.
   **deployment-consistency** check (chain id, rollup version, both class ids, the miner's bound token, the rollup
   address the PXE namespace is keyed by — `wallet.ts:35-38`), answered by the node under test; it authenticates
   neither the chain nor its headers. The tile's copy says what a node can and cannot do (see the spec).
-- **The switch** is a reload, and the account's chain view is rebuilt on the first boot after it: the PXE's store
-  is per rollup, its synchroniser anchors on a node's tips, and a lagging or lying node can prune or poison a view
-  that would otherwise survive across reloads (`block_synchronizer.js:41-128`, `l2_block_stream.js:82-110`); the
-  rebuild (`resetAccountView`) rediscovers notes from the new node. No operation straddles two endpoints. The fee
+- **The switch** is live, and the account's chain view is rebuilt as part of it: the PXE's store is per rollup, its
+  synchroniser anchors on a node's tips, and a lagging or lying node can prune or poison a view that would otherwise
+  survive (`block_synchronizer.js:41-128`, `l2_block_stream.js:82-110`); the rebuild (`resetAccountView`)
+  rediscovers notes from the new node. The controller is paused and the read queue drained before the client moves,
+  so no operation straddles two endpoints; the probe's identity check (chain id, rollup version, rollup address,
+  class ids, bound token) keeps the wallet's cached `NodeInfo` true; a boot that finds the saved endpoint differing
+  from the view's marker rebuilds too. The fee
   payer is fixed locally (the sponsored FPC is derived from a constant salt, `wallet.ts:68-70`) while the fee inputs
   are node-dependent (the gas limits are read from the node once at open, `:74`): a lying node can make a claim fail
   or grief the sponsor's max fee, not spend.
@@ -763,7 +792,7 @@ testnet layer: nothing here touches chain behaviour.
   and `bad`; the three shells render the preview notice with `data-testid="preview-banner"`;
   `use-page-behaviour.ts:22-53` binds space, `[`, `]`, `w`, `,` on `window`.
 - F8 `Wallet.tsx:117-149` is the only sender UI; `session.ts:229-232` the only `registerSender` call;
-  `withdraw.e2e.ts:22-34` the only test of it. `Money.tsx:5` applies `border-b` to every cell. `WordsScreens.tsx:9,
+  `withdraw.e2e.ts:22-34` the only test of it (both go with the capability). `Money.tsx:5` applies `border-b` to every cell. `WordsScreens.tsx:9,
   28,120` lay the backup and the quiz in three-column grids.
 - F9 No error boundary exists; no test asserts the opening strings, `boot-step` or the Network tile's copy;
   `controller.ts:30,318-335` pauses mining after `OFFLINE_AFTER_MS` (60 s) without a successful read.
@@ -809,15 +838,14 @@ testnet layer: nothing here touches chain behaviour.
 
 **Asks** (the owner decides at the gate)
 
-- A1 The senders capability: the plan keeps it as the single row under Settings → Advanced (drawn on the Node board
-  and named "perfect" in the review). Say "drop it" and P1.4 removes the row and `addSender` too.
+- A1 *(decided: drop it)* The senders capability goes entirely — the card, the Advanced row, `addSender`, the
+  `registerSender` call; no migration or replay of registered senders; the Send sheet's private mode says what that
+  means.
 - A2 The banner on the stats page and the landing links to `/mine/settings` (they have no settings of their own).
 - A3 The docs link on the Node tile: the Aztec docs' "run a node" page (an outbound `rel="noopener"` anchor).
-- A4 **The node switch reloads the page** (the canvas said "applies at once; mining carries on"): the audit read the
-  wallet SDK and found state a live switch would straddle; the tile's copy says "Saves and reloads the page; your
-  account reopens (a passkey asks for a touch) and its chain view is rebuilt from the new node"; mining resumes by
-  itself only when "Resume mining when the page opens" is on, otherwise Start. Approve the deviation, or ask for a spike that disables the old endpoint and drives sync, simulation, note discovery and a
-  send across a real live switch before it is allowed.
+- A4 *(decided: live switch)* The node switches in place — the proxy, the pause and drain, the rebuild of the view
+  through the existing recover path, the resume — as the canvas said; the audits' lean to a reload is recorded in
+  the ledger with the reasons, and the E2E runs the switch between two distinct endpoints.
 - A5 **The sign-in dialog keeps every action today's key screens have**, per screen: the fresh-account screen
   "Sign up with a passkey" (primary, `create-passkey`), "Use twelve words instead" (`use-words`: creates a words
   account), "I already have a passkey" (`restore-passkey`) and "I have twelve words" (`restore-words`: restores
@@ -834,7 +862,7 @@ testnet layer: nothing here touches chain behaviour.
 
 | decision | taken | rejected | source |
 |---|---|---|---|
-| Node switch | save and reload, and the account's chain view rebuilt (`resetAccountView`) on the first boot after a node change; the tile says so (A4) | a `Proxy` that swaps the client under the wallet (codex: mid-operation mixing; fable: the proxy dispatches fine but the PXE view is per rollup and can be pruned or poisoned by the new node — its fix was rebuild-on-switch, taken here on the reload path) | codex r1 High; fable r1 A1 High |
+| Node switch | **live** (owner's decision at the gate): `switchableNode` proxy + pause → drain → swap → rebuild (`resetAccountView`, the recover path) → resume; the endpoint marker still guards boots after a switch made elsewhere | save-and-reload (codex r1/r2 lean: mid-operation mixing, a healthy same-node E2E proves nothing); fable r1 had the proxy dispatching and asked for the rebuild-on-switch, which is what ships | codex r1 High; fable r1 A1 High; owner A4 |
 | Dead saved node | every boot-error alert offers "Use the default node" and links `/mine/settings/`; the tile works with no session | leaving the banner as the only way out (it is not mounted when boot fails) | fable r1 Asks |
 | Guard as gate | the fetch guard answers a synthetic 429 during a cooldown (covers the PXE's reads); no per-poller `retryAt` checks; opaque `TypeError` bursts count as throttling; the miner's client without transport retries | pollers consulting `retryAt` | fable r1 A4/A5; codex r1 C (one interceptor) |
 | CRS control | the guard + an import-order test + `headers.test.ts` on `https:` + threat-model rows rewritten | "no cryptography touched" as the whole story | codex r1 High; fable r1 A2 |
@@ -842,14 +870,14 @@ testnet layer: nothing here touches chain behaviour.
 | Sign-in affordances | every action of today's screens kept, per screen (A5) | the canvas's two | fable r1 I2 / Asks; codex r3 |
 | Fill on a throttle | stop for the visit, hairline, the cache completes it | pause and resume | fable r1 I5 |
 | Cache key | + the endpoint fingerprint | deployment identity only; the origin; a per-visit spot check | fable r1 A6; codex r3 |
-| PXE view identity | the endpoint fingerprint (normalised URL, hashed) for the marker, the cache key and the guard's leases; a missing marker → rebuild; a reset failure → boot error; the PXE address book migrated to the app's list before the first reset and replayed after every rebuild | the origin; the lost-race reopen fallback; a replay from a list that does not exist yet | codex r2 High ×2, r3 High |
+| PXE view identity | the endpoint fingerprint (normalised URL, hashed) for the marker, the cache key and the guard's leases; a missing marker → rebuild; a reset failure → boot error | the origin; the lost-race reopen fallback | codex r2 High ×2, r3 High |
 | Cooldown gate | both failure kinds gate (synthetic 429 / 503); `claimRecovery` gives one caller the network at the deadline | `waitTurn` releasing every caller at once | codex r3 Medium |
 | Map end | `[from, min(from + 48, open + 1))` | `min(from + 47, open)` as exclusive | codex r3 Medium |
 | Guard and WASM | `data:` and `blob:` pass; bb.js's loader tested under the guard | "everything else throws" | codex final High |
-| Sender migration | the PXE's persisted tagging sources through an adapter, tested on the real SDK | `getAddressBook()` (the WalletDB's contacts: empty here) | codex final High |
+| Sender migration | moot: the capability is dropped (A1); nothing is migrated or replayed | the PXE's persisted tagging sources through an adapter (codex final, correct while the capability existed) | owner A1 |
 | Outcome timing | reported on body completion; recovery held until then | on `fetch` resolving | codex final Medium |
 | Handover | ownership returns to the public poll on a cancel or failure after the controller's first write | takeover only | codex final Medium |
-| Persistence | `saveConnection` reports success; reload only then | reload regardless | codex final Medium |
+| Persistence | `saveConnection` reports success; the switch runs only then | switching regardless | codex final Medium |
 | CI | `bun test packages/web-stats` added to `web-stats.yml` | assuming the suites run | codex final Medium |
 | Check while open | a candidate lease on the guard, its responses not events | swapping the active origin for the probe | codex r2 High |
 | Cooldown feedback | only real outcomes are events; `silent` has its own deadline and one recovery attempt | synthetic 429s as events | codex r2 High |
@@ -866,7 +894,7 @@ testnet layer: nothing here touches chain behaviour.
 | Cancel | an attempt with an `AbortSignal` owned by `Session`; superseded writes dropped; secrets zeroed | Cancel as a UI-only close | codex r1 High |
 | Error text | fixed text; the error to the log | `error.message` through the shortener | codex r1 Medium |
 | Money rule | `[&>tr:last-child>td]:border-b-0` on `tbody` | `last:border-b-0` on cells | codex r1 Medium |
-| Senders | one row under Settings → Advanced (A1) | dropping the capability | canvas review ("perfect") |
+| Senders | dropped entirely (owner's decision at the gate); the Send sheet's private mode says a Yacana account will not see a private transfer | a row under Settings → Advanced (the canvas); migrating and replaying registrations across rebuilds (codex r2/r3/final, now moot) | owner A1 |
 
 Disputed / open after rounds 1–4 and the fresh pass (codex round 4: conditional approve, both conditions folded in — the complete endpoint URL as the identity everywhere, `waitTurn` awaiting an in-flight recovery; the fresh pass: reject on two SDK facts — the WASM `data:` loads and the address book's source — both folded in above): the node switch's shape — fable wanted the live switch with a rebuild, codex the
 reload; the plan takes the reload with the rebuild (both audits' safety property, neither's transition risk) and
@@ -948,7 +976,9 @@ Verdicts (transcripts in `audit-codex.md`, `audit-fable.md`):
   loads; `getAddressBook()` as the migration source) → folded in; follow-up on the same session: **`approve`** (one
   note on A4's wording, applied).
 
-Owner's decision: pending — A1, A4, A5, A6 (and A2, A3 if disagreed).
+Owner's decision (2026-09-08): **approved** with A1 = drop the senders capability, A2 ok, A3 ok, A4 = the live
+switch ("doable without any weird hacks"), A5 approved, A6 approved. The plan above is the approved scope; the
+seeds below are final.
 
 ## Seeds
 
