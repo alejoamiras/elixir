@@ -8,11 +8,17 @@ export interface NodeRequestOutcome {
   /** The normalised endpoint the request went to. */
   endpoint: string;
   startedAt: number;
+  /** The HTTP status once the body landed, or how the request died; reported once per request. */
   status: number | 'timeout' | 'network';
   latencyMs: number;
+  /** The `Retry-After` header when the browser lets the page read it (it is not CORS-safelisted). */
+  retryAfter: string | null;
 }
 
 interface GuardState {
+  /** The context's fetch under the guard; re-pointed when the guard is re-armed over a test's fake. */
+  original: typeof globalThis.fetch;
+  guarded: typeof globalThis.fetch;
   endpoint: string | null;
   deadlineMs: number;
   candidates: Map<string, number>;
@@ -82,14 +88,66 @@ const withDeadline = (input: RequestInfo | URL, init: RequestInit | undefined, m
   return { ...init, redirect: 'error', signal: own ? AbortSignal.any([own, deadline]) : deadline };
 };
 
-function report(s: GuardState, endpoint: string, startedAt: number, status: NodeRequestOutcome['status']) {
-  const o: NodeRequestOutcome = { endpoint, startedAt, status, latencyMs: performance.now() - startedAt };
+function report(
+  s: GuardState,
+  endpoint: string,
+  startedAt: number,
+  status: NodeRequestOutcome['status'],
+  retryAfter: string | null = null,
+) {
+  const o: NodeRequestOutcome = {
+    endpoint,
+    startedAt,
+    status,
+    latencyMs: performance.now() - startedAt,
+    retryAfter,
+  };
   for (const fn of s.listeners) fn(o);
+}
+
+const died = (e: unknown): 'timeout' | 'network' =>
+  e instanceof DOMException && e.name === 'TimeoutError' ? 'timeout' : 'network';
+
+/**
+ * A node can send `200` headers and stall the body, and the SDK reads the body after `fetch`
+ * resolves: the outcome is reported once the body has landed (or died), through a pass-through
+ * stream, so a recovery is not declared on headers alone.
+ */
+function reportOnBody(s: GuardState, endpoint: string, startedAt: number, res: Response): Response {
+  if (!res.body) {
+    report(s, endpoint, startedAt, res.status, res.headers.get('retry-after'));
+    return res;
+  }
+  let done = false;
+  const settle = (status: NodeRequestOutcome['status']) => {
+    if (done) return;
+    done = true;
+    report(s, endpoint, startedAt, status, res.headers.get('retry-after'));
+  };
+  const observed = new TransformStream<Uint8Array, Uint8Array>({
+    flush: () => settle(res.status),
+  });
+  const body = res.body.pipeThrough(observed);
+  // A body that errors (the deadline, a reset) reports the death; the reader sees the error as before.
+  const reader = body.getReader();
+  const relay = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { value, done: end } = await reader.read();
+        if (end) controller.close();
+        else controller.enqueue(value);
+      } catch (e) {
+        settle(died(e));
+        controller.error(e);
+      }
+    },
+    cancel: (reason) => reader.cancel(reason),
+  });
+  return new Response(relay, { status: res.status, statusText: res.statusText, headers: res.headers });
 }
 
 async function nodeRequest(
   s: GuardState,
-  original: typeof globalThis.fetch,
   endpoint: string,
   input: RequestInfo | URL,
   init: RequestInit | undefined,
@@ -98,48 +156,50 @@ async function nodeRequest(
   if (synthetic) return synthetic;
   const startedAt = performance.now();
   try {
-    const res = await original(input, withDeadline(input, init, s.deadlineMs));
-    report(s, endpoint, startedAt, res.status);
-    return res;
+    const res = await s.original(input, withDeadline(input, init, s.deadlineMs));
+    return reportOnBody(s, endpoint, startedAt, res);
   } catch (e) {
-    report(
-      s,
-      endpoint,
-      startedAt,
-      e instanceof DOMException && e.name === 'TimeoutError' ? 'timeout' : 'network',
-    );
+    report(s, endpoint, startedAt, died(e));
     throw e;
   }
 }
 
 /**
- * Installs the guard over the context's current `fetch`. Runs once at import; a test that swaps
- * `fetch` for a fake first calls it again so the guard sits over the fake.
+ * Installs the guard over the context's current `fetch`; runs once at import. Called again (a
+ * test that swapped `fetch` for a fake), it re-points the one guard at the new fetch instead of
+ * stacking a second one.
  */
 export function installNodeGuard(): void {
-  const original = globalThis.fetch.bind(globalThis);
+  const existing = (globalThis as Realm)[MARK];
+  if (existing) {
+    if (globalThis.fetch !== existing.guarded) existing.original = globalThis.fetch.bind(globalThis);
+    globalThis.fetch = existing.guarded;
+    return;
+  }
   const s: GuardState = {
+    original: globalThis.fetch.bind(globalThis),
+    guarded: globalThis.fetch,
     endpoint: null,
     deadlineMs: 120_000,
     candidates: new Map(),
     listeners: new Set(),
     gate: null,
   };
-  const guarded = ((input: RequestInfo | URL, init?: RequestInit) => {
+  s.guarded = ((input: RequestInfo | URL, init?: RequestInit) => {
     const href = hrefOf(input);
-    if (/^(data|blob):/i.test(href)) return original(input, init);
+    if (/^(data|blob):/i.test(href)) return s.original(input, init);
     const url = new URL(href, globalThis.location?.href);
-    if (url.origin === globalThis.location?.origin) return original(input, init);
+    if (url.origin === globalThis.location?.origin) return s.original(input, init);
     const endpoint = normaliseEndpoint(url.href);
-    if (endpoint === s.endpoint) return nodeRequest(s, original, endpoint, input, init);
+    if (endpoint === s.endpoint) return nodeRequest(s, endpoint, input, init);
     const lease = s.candidates.get(endpoint);
-    if (lease !== undefined) return original(input, withDeadline(input, init, lease));
+    if (lease !== undefined) return s.original(input, withDeadline(input, init, lease));
     return Promise.reject(
       new Error(`blocked endpoint ${url.origin}${url.pathname}: not this page, its node or a candidate`),
     );
   }) as typeof globalThis.fetch;
   (globalThis as Realm)[MARK] = s;
-  globalThis.fetch = guarded;
+  globalThis.fetch = s.guarded;
 }
 
 if (!(globalThis as Realm)[MARK]) installNodeGuard();

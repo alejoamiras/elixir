@@ -13,6 +13,7 @@ import {
 } from '../../miner-core/src/keys/mnemonic.ts';
 import { keysAllowed } from '../../site/src/browser/host.ts';
 import { type NodeProbe, probeNode } from '../../site/src/browser/node.ts';
+import { nodeHealth, waitTurn } from '../../site/src/browser/node-health.ts';
 import { expectedOf, type Preflighted, preflight, startSession, switchNodeLive } from './boot';
 import {
   loadArtifact,
@@ -59,13 +60,19 @@ export class Session {
     private readonly store: Store,
     private readonly connection: Connection,
   ) {
-    this.ready = preflight(store, connection).then(
-      (pre) => {
-        this.pre = pre;
-      },
-      (e: unknown) =>
-        store.set(bootAtom, { phase: 'error', message: e instanceof Error ? e.message : String(e) }),
-    );
+    this.ready = this.runPreflight();
+  }
+
+  /** A preflight the node failed (throttled or silent) is shown, then tried again once the node is usable. */
+  private async runPreflight(): Promise<void> {
+    try {
+      this.pre = await preflight(this.store, this.connection);
+    } catch (e) {
+      this.store.set(bootAtom, { phase: 'error', message: e instanceof Error ? e.message : String(e) });
+      if (nodeHealth().transport.kind === 'ok') return;
+      await waitTurn();
+      return this.runPreflight();
+    }
   }
 
   private get rpId(): string {

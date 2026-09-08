@@ -6,8 +6,29 @@ const calls: { href: string; init?: RequestInit }[] = [];
 const network = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
   const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
   calls.push({ href, init });
-  if (href.startsWith('data:')) return realFetch(href);
+  if (href.startsWith('data:')) {
+    // Decoded here, not through whatever `fetch` is by now (another suite's guard may be underneath).
+    const [meta, payload] = href.slice(5).split(',', 2) as [string, string];
+    const bytes = meta.endsWith(';base64')
+      ? Buffer.from(payload, 'base64')
+      : Buffer.from(decodeURIComponent(payload));
+    return new Response(bytes, { headers: { 'content-type': meta.replace(/;base64$/, '') } });
+  }
   if (href.includes('down')) throw new TypeError('Failed to fetch');
+  if (href.includes('limited'))
+    return new Response('{"error":{"message":"slow down"}}', {
+      status: 429,
+      headers: { 'retry-after': '7' },
+    });
+  if (href.includes('stall')) {
+    // Headers at once, a body that never comes until the signal aborts it.
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        init?.signal?.addEventListener('abort', () => controller.error(init.signal?.reason));
+      },
+    });
+    return new Response(body, { status: 200 });
+  }
   if (href.includes('slow')) {
     // A real fetch rejects with the signal's reason; the fake must too, or the deadline is untested.
     await new Promise<void>((resolve, reject) => {
@@ -23,7 +44,6 @@ const network = async (input: RequestInfo | URL, init?: RequestInit): Promise<Re
     headers: { 'content-type': 'application/json' },
   });
 };
-const realFetch = globalThis.fetch;
 const PAGE = 'https://yacana.test';
 const NODE = 'https://node.example/rpc?key=a';
 
@@ -37,8 +57,10 @@ beforeAll(async () => {
   });
   globalThis.fetch = network as typeof fetch;
   guard = await import('./node-guard.ts');
-  // Another suite in the same run may have imported the guard over the real fetch: re-arm it over the fake.
+  // Another suite in the same run may have imported the guard over the real fetch, or left a gate on it
+  // (the health store's): re-arm it over the fake, with no gate.
   guard.installNodeGuard();
+  guard.setNodeGate(null);
   guard.setNodeEndpoint(NODE, 1_000);
 });
 
@@ -75,18 +97,20 @@ describe('node guard', () => {
     const seen: string[] = [];
     const off = guard.onNodeResponse((o) => seen.push(o.endpoint));
     const release = guard.allowCandidate('https://cand.example/rpc/', 500);
-    await fetch('https://cand.example/rpc');
-    await fetch(NODE);
+    await (await fetch('https://cand.example/rpc')).text();
+    await (await fetch(NODE)).text();
     release();
     await expect(fetch('https://cand.example/rpc')).rejects.toThrow(/blocked endpoint/);
     off();
     expect(seen).toEqual([guard.normaliseEndpoint(NODE)]);
   });
 
-  test('outcomes name the status, a timeout and a network failure', async () => {
+  test('outcomes name the status once the body landed, a timeout and a network failure', async () => {
     const seen: (number | string)[] = [];
     const off = guard.onNodeResponse((o) => seen.push(o.status));
-    await fetch(NODE);
+    const res = await fetch(NODE);
+    expect(seen).toEqual([]); // headers alone are not an outcome
+    await res.text();
     guard.setNodeEndpoint('https://node.example/slow', 10);
     await expect(fetch('https://node.example/slow')).rejects.toThrow();
     guard.setNodeEndpoint('https://node.example/down', 1_000);
@@ -94,6 +118,28 @@ describe('node guard', () => {
     guard.setNodeEndpoint(NODE, 1_000);
     off();
     expect(seen).toEqual([200, 'timeout', 'network']);
+  });
+
+  test('a 200 whose body stalls past the deadline is one timeout, reported once', async () => {
+    const seen: (number | string)[] = [];
+    const off = guard.onNodeResponse((o) => seen.push(o.status));
+    guard.setNodeEndpoint('https://node.example/stall', 30);
+    const res = await fetch('https://node.example/stall');
+    expect(res.status).toBe(200);
+    await expect(res.text()).rejects.toThrow();
+    guard.setNodeEndpoint(NODE, 1_000);
+    off();
+    expect(seen).toEqual(['timeout']);
+  });
+
+  test('the Retry-After header rides along when readable', async () => {
+    const seen: (string | null)[] = [];
+    const off = guard.onNodeResponse((o) => seen.push(o.retryAfter));
+    guard.setNodeEndpoint('https://node.example/limited', 1_000);
+    await (await fetch('https://node.example/limited')).text();
+    guard.setNodeEndpoint(NODE, 1_000);
+    off();
+    expect(seen).toEqual(['7']);
   });
 
   test('the gate answers an endpoint without touching the network', async () => {

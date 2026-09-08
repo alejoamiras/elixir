@@ -20,6 +20,7 @@ export { Kpi } from './components/kpi.tsx';
 export { Label } from './components/label.tsx';
 export { Mark } from './components/mark.tsx';
 export { Marks, shortHash } from './components/marks.tsx';
+export { NodeBanner, type NodeBannerKind, type NodeBannerState } from './components/node-banner.tsx';
 export { NodeWayOut } from './components/node-way-out.tsx';
 export { clampThreads, PowerSlider, powerLabels, powerRange } from './components/power-slider.tsx';
 export { Preflight, type PreflightRow } from './components/preflight.tsx';

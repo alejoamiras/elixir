@@ -7,6 +7,7 @@ import { deriveAccountFields } from '../../miner-core/src/keys/derive.ts';
 import { type ExpectedDeployment, expectedFromStrings } from '../../miner-core/src/reader.ts';
 import { probeNode, type SwitchableNode, switchableNode } from '../../site/src/browser/node.ts';
 import { endpointFingerprint, setNodeEndpoint } from '../../site/src/browser/node-guard.ts';
+import { markRead, resetNodeHealth, startNodeHealth } from '../../site/src/browser/node-health.ts';
 import { clampThreads, type PreflightRow } from '../../ui/src/index.ts';
 import { attachDeployment, loadArtifact, type Node, readEpochRules } from './chain';
 import type { Connection } from './config';
@@ -119,6 +120,7 @@ export async function preflight(store: Store, connection: Connection): Promise<P
     };
   });
   setNodeEndpoint(connection.nodeUrl, NODE_REQUEST_MS);
+  startNodeHealth();
   const switchable = switchableNode(connection.nodeUrl);
   const node = switchable.node;
   const expected = expectedOf(connection);
@@ -144,6 +146,7 @@ export async function preflight(store: Store, connection: Connection): Promise<P
       NODE_REQUEST_MS,
       () => node,
     );
+    markRead();
     return {
       evidence: `miner ${short(connection.miner)} · class ${short(import.meta.env.VITE_YACANA_MINER_CLASS)} · block ${probe.block.toLocaleString('en-US')}, ${probe.blockAgeS} s old`,
       value: artifact,
@@ -172,6 +175,7 @@ export async function switchNodeLive(o: {
     await c?.drain();
     o.switchable.use(o.url);
     setNodeEndpoint(o.url, o.deadlineMs ?? NODE_REQUEST_MS);
+    resetNodeHealth();
     await c?.rebuildForNewNode();
   } finally {
     c?.release('switch');

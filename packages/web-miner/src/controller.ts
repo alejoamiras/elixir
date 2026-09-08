@@ -13,6 +13,7 @@ import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { difficulty } from '../../miner-core/src/metrics.ts';
 import { deployDomain, ticketNullifier } from '../../miner-core/src/proof.ts';
 import { newEpochSecret } from '../../miner-core/src/secret.ts';
+import { markRead } from '../../site/src/browser/node-health.ts';
 import { type Deployment, type Fee, readBalance, readEpoch, sendClaim, sendRoll } from './chain';
 import { chime } from './chime';
 import { amount } from './lib/format';
@@ -321,6 +322,7 @@ export class MinerController {
     try {
       await this.refresh();
       this.lastRead = Date.now();
+      markRead(this.lastRead);
       if (!this.offline) return;
       this.offline = false;
       this.log('node reachable again');

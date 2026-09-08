@@ -1,8 +1,9 @@
 import { useAtomValue } from 'jotai';
-import { type ReactNode, useCallback, useEffect } from 'react';
+import { type ReactNode, useCallback, useEffect, useSyncExternalStore } from 'react';
 import { proofsPerMinute } from '../../miner-core/src/metrics.ts';
 import { defaultNodeUrl, restoreDefaultNode } from '../../site/src/browser/connection.ts';
 import { previewNotice } from '../../site/src/browser/host.ts';
+import { bannerState, nodeHealth, subscribeNodeHealth } from '../../site/src/browser/node-health.ts';
 import {
   Alert,
   AlertDescription,
@@ -10,6 +11,7 @@ import {
   Badge,
   cn,
   Mark,
+  NodeBanner,
   NodeWayOut,
   StatusPill,
   Toaster,
@@ -53,11 +55,16 @@ function useTabStatus(enabled: boolean) {
   }, [enabled, miner, epoch, rules]);
 }
 
-function Shell({ children }: { children: ReactNode }) {
+/** The banner calls the numbers stale once the controller would have paused for silence (a minute). */
+const STALE_AFTER_MS = 60_000;
+
+export function Shell({ children }: { children: ReactNode }) {
   const route = useRoute();
   const miner = useAtomValue(minerAtom);
   const now = useAtomValue(nowAtom);
   const notice = previewNotice(location.hostname);
+  const health = useSyncExternalStore(subscribeNodeHealth, nodeHealth, nodeHealth);
+  const banner = bannerState(health, now, STALE_AFTER_MS);
   return (
     <div className="mx-auto flex max-w-[1120px] flex-col">
       <header className="flex h-[52px] items-center gap-5 border-b border-line px-4 md:px-5">
@@ -108,6 +115,7 @@ function Shell({ children }: { children: ReactNode }) {
             <AlertDescription>{notice}</AlertDescription>
           </Alert>
         )}
+        <NodeBanner state={banner} settingsHref={route === 'settings' ? undefined : pathFor('settings')} />
         {children}
       </div>
     </div>
