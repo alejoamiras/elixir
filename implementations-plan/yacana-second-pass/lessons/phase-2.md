@@ -99,3 +99,14 @@ epochs 1–4 (minutes), the whole history (hours), asserting distinct labels eac
 confirmed correct. Gates: web-stats components 19 ✓ · `test:visual` 4 passed, no diff ✓ · lint ✓ · typecheck ✓.
 This is the third round; the remaining item was a narrowing of one finding, not new ground, so one confirming
 resume follows rather than a stop.
+
+## Arc 2 codex loop · convergence (2026-09-08)
+
+Resumed over `bca89f2` + `2a3dfe6`: **"No material findings. High confidence."** (codex reproduced the three spans
+in Plot and probed zero seconds through multi-day spans.) Four rounds in one session
+(`01a07e40-c02c-7fb1-b19d-89d863349ed1`): 5 → 2 → 1 → 0; the last two rounds were one finding narrowing (the
+emission axis), settled by laying the ticks in the step's own unit. `shots/arc-2/` holds the renders from the
+converged tree's predecessor (`e3f27d5`; the two later commits changed the emission axis only, which the
+regenerated baselines show).
+
+LESSONS_FILE=implementations-plan/yacana-second-pass/lessons/phase-2.md
