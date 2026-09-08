@@ -190,6 +190,79 @@ describe('the live node switch', () => {
     expect(store.get(minerAtom).proverDead).toBe(true);
   });
 
+  test('a tracked operation is drained before the swap, and none may start across the switch', async () => {
+    const events: string[] = [];
+    let finishOp: (() => void) | undefined;
+    const switchable: SwitchableNode = {
+      node: {} as never,
+      use: (u) => events.push(`use ${u}`),
+      current: () => 'https://a.example',
+    };
+    const controller = new MinerController({
+      store,
+      spawnWorker: () => worker as unknown as Worker,
+      threads: 1,
+      deployment: fakeDeployment(async () => 5n),
+      account,
+      fee,
+      chainId: 1n,
+      rollupVersion: 1n,
+      recover: async () =>
+        ({ deployment: fakeDeployment(async () => 9n), fee, rebuilt: true }) satisfies Rebound,
+    });
+    await controller.ready();
+    await controller.begin();
+    const op = controller.track(
+      () =>
+        new Promise<void>((r) => {
+          finishOp = () => {
+            events.push('op done');
+            r();
+          };
+        }),
+    );
+    const switching = boot.switchNodeLive({
+      controller,
+      switchable,
+      url: 'https://b.example',
+      deadlineMs: 5_000,
+    });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(events).toEqual([]); // the swap waits for the operation
+    await expect(controller.track(async () => 1)).rejects.toThrow(/switch is underway/);
+    finishOp?.();
+    await op;
+    await switching;
+    expect(events).toEqual(['op done', 'use https://b.example']);
+  });
+
+  test('a lost-race rebuild that goes terminal while the drain waits fails the switch', async () => {
+    const switchable: SwitchableNode = {
+      node: {} as never,
+      use: () => {},
+      current: () => 'https://a.example',
+    };
+    const controller = new MinerController({
+      store,
+      spawnWorker: () => worker as unknown as Worker,
+      threads: 1,
+      deployment: fakeDeployment(async () => 5n),
+      account,
+      fee,
+      chainId: 1n,
+      rollupVersion: 1n,
+      recover: async () =>
+        ({ deployment: fakeDeployment(async () => 9n), fee, rebuilt: true }) satisfies Rebound,
+    });
+    await controller.ready();
+    await controller.begin();
+    // The prover dies while the switch is draining (a rebuild that failed, a crashed worker).
+    store.set(minerAtom, { ...store.get(minerAtom), proverDead: true });
+    await expect(
+      boot.switchNodeLive({ controller, switchable, url: 'https://b.example', deadlineMs: 5_000 }),
+    ).rejects.toThrow(/only a reload recovers/);
+  });
+
   test('signed out (no controller) the switch is the handle and the guard alone', async () => {
     const used: string[] = [];
     const switchable: SwitchableNode = { node: {} as never, use: (u) => used.push(u), current: () => 'x' };

@@ -134,6 +134,8 @@ export class MinerController {
   private inflightRead: Promise<void> = Promise.resolve();
   /** True from the drain through the rebuild of a node switch: the poll must not read across it. */
   private switching = false;
+  /** Node operations outside the poll and the claim (a roll, a withdrawal), for the drain to await. */
+  private ops: Promise<void> = Promise.resolve();
   /** Bumped per refresh; a read that outlived its deadline must not write over a newer one. */
   private reads = 0;
   private lastRead = Date.now();
@@ -368,9 +370,30 @@ export class MinerController {
 
   /** Anyone may close an epoch that stayed open for T_MAX; the miner does it so mining resumes. */
   async roll() {
-    this.log('rolling the epoch (T_MAX reached)');
-    await sendRoll(this.d, this.account, this.fee);
-    await this.refresh();
+    await this.track(async () => {
+      this.log('rolling the epoch (T_MAX reached)');
+      await sendRoll(this.d, this.account, this.fee);
+      await this.refresh();
+    });
+  }
+
+  /**
+   * Runs an operation that talks to the node outside the poll and the claim (a roll, a withdrawal).
+   * The drain waits for it, and none may start across a switch: it would be sent on one node and
+   * confirmed on another.
+   */
+  track<T>(op: () => Promise<T>): Promise<T> {
+    if (this.switching)
+      return Promise.reject(new Error('a node switch is underway; try again when it is done'));
+    const run = op();
+    this.ops = Promise.all([
+      this.ops,
+      run.then(
+        () => {},
+        () => {},
+      ),
+    ]).then(() => {});
+    return run;
   }
 
   private dispatch(event: Event) {
@@ -538,7 +561,14 @@ export class MinerController {
     };
     while (busy()) await new Promise((r) => setTimeout(r, 100));
     await this.reading?.catch(() => {});
-    await this.inflightRead.catch(() => {}); // a read the rebuild started while we waited
+    await this.ops;
+    await this.inflightRead.catch(() => {}); // a read the rebuild or an operation started meanwhile
+    // A lost-race rebuild that failed while we waited left no prover: the switch must not go on and
+    // report success over a dead account (the caller turns this into the boot error).
+    if (this.store.get(minerAtom).proverDead)
+      throw new Error(
+        'the prover was abandoned while the switch waited; only a reload recovers this account',
+      );
   }
 
   /** The switch is over (rebuilt or failed): the poll may read again. */

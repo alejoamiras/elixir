@@ -171,17 +171,13 @@ async function nodeRequest(
 }
 
 /**
- * Installs the guard over the context's current `fetch`; runs once at import. Idempotent: called
- * again it only re-asserts the one guard on `globalThis.fetch`, never re-capturing `original` —
- * inferring it from the current fetch would capture a wrapper that forwards back here (the CRS
- * interceptor) and recurse. Tests point the guard at a fake through `setOriginalFetch`.
+ * Installs the guard over the context's current `fetch`, once, at import. A repeated call is a
+ * no-op: it neither re-captures `original` (the current fetch may be a wrapper that forwards back
+ * here — the CRS interceptor — and would recurse) nor touches `globalThis.fetch` (that would drop
+ * such a wrapper). Tests arm the guard over a fake through `setOriginalFetch`.
  */
 export function installNodeGuard(): void {
-  const existing = (globalThis as Realm)[MARK];
-  // Already installed: leave `globalThis.fetch` alone. A wrapper may sit on top of the guard (the
-  // CRS interceptor); re-asserting the guarded fetch here would drop it. Tests arm the guard over a
-  // fake through `setOriginalFetch`, which is the only path that re-points `globalThis.fetch`.
-  if (existing) return;
+  if ((globalThis as Realm)[MARK]) return;
   const s: GuardState = {
     original: globalThis.fetch.bind(globalThis),
     guarded: globalThis.fetch,

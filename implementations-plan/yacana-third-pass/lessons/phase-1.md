@@ -217,3 +217,27 @@ mean a real answer — under observation-time cooldowns a `startedAt: 0` success
 the opaque-burst test tripped on; the tile's storage-refusal spec now asserts the switch happened first, the tile
 followed the node, and nothing was persisted. Gate re-run: lint · 5 typechecks · `bun test` 199 pass · Vitest 130
 pass · the live-switch and pop-out E2E on the isolated network.
+
+## Arc 1 codex loop · round 3 (2026-09-08)
+
+Resumed session, the round-2 diff. Four findings (12 → 8 → 4: converging), all verified, all adopted. Round 3 is
+the plan's nominal stop; with the trend clear and the goal requiring a clean resumed pass, one confirmation pass
+follows — not clean means stop and surface.
+
+- **High — withdrawals and rolls bypassed the drain** (deferred by me in round 2; codex was right to hold it). The
+  controller now has `track(op)`: an operation that talks to the node outside the poll and the claim joins an
+  `ops` accumulator the drain awaits, and none may start across a switch (it would be sent on one node and
+  confirmed on another). `roll()` and `Session.withdraw` run through it.
+- **Medium — a lost-race rebuild that went terminal while the drain waited let the switch "succeed"** over a dead
+  prover. `drain()` now throws when it ends with `proverDead`; the switch rejects and `Session` turns it into the
+  boot error with the way out.
+- **Medium — `resetNodeHealth` did not invalidate outcomes already in flight.** A → B → A: a late answer from the
+  first visit to A passes the endpoint check and would rewrite the fresh store. A reset records `resetAt`
+  (performance.now) and `recordOutcome` drops anything that started before it — failures included.
+- **Low —** the installer's doc-comment still described re-asserting the global fetch; one honest sentence now.
+
+Tests: a tracked operation is drained before the swap and a new one is refused across it; a terminal drain rejects;
+an outcome from before a reset is dropped. The health fixture's `outcome()` now defaults `startedAt` to a fresh
+`performance.now()`: the store has two time cutoffs in that domain (`cooldownFrom`, `resetAt`) and `beforeEach`
+resets, so `startedAt: 0` had become "stale" — three tests that meant a fresh answer said so implicitly; staleness
+is now passed explicitly where it is the point.

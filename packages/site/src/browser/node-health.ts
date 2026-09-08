@@ -43,6 +43,8 @@ let probing = false;
 let probingSince = 0;
 /** performance.now() when the current cooldown was observed: a success that started earlier is stale. */
 let cooldownFrom = 0;
+/** performance.now() of the last reset: an outcome that started before it belongs to the node before. */
+let resetAt = 0;
 
 const emit = () => {
   for (const fn of listeners) fn();
@@ -94,6 +96,8 @@ export const coolingDown = (t: Transport, now = Date.now()): boolean =>
 
 /** One outcome of the current endpoint into the store; exported for tests, the guard feeds it in production. */
 export function recordOutcome(o: NodeRequestOutcome): void {
+  // A → B → A: an answer from the first visit to A passes the endpoint check but predates the reset.
+  if (o.startedAt < resetAt) return;
   const now = Date.now();
   let event = classify(o);
   // A success that started before the request that opened the cooldown says nothing about now.
@@ -163,6 +167,7 @@ export const resetNodeHealth = (): void => {
   probing = false;
   probingSince = 0;
   cooldownFrom = 0;
+  resetAt = performance.now();
   set({ transport: OK, lastReadAt: null });
 };
 

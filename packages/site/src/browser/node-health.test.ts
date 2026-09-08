@@ -27,9 +27,11 @@ const network = async (input: RequestInfo | URL): Promise<Response> => {
 let guard: typeof import('./node-guard.ts');
 let health: typeof import('./node-health.ts');
 const NODE = 'https://node.example/rpc';
+// A fresh request by default: the store drops what started before the last reset or the cooldown,
+// so a test that means a stale answer passes an old `startedAt` itself.
 const outcome = (over: Partial<NodeRequestOutcome>): NodeRequestOutcome => ({
   endpoint: guard.normaliseEndpoint(NODE),
-  startedAt: 0,
+  startedAt: performance.now(),
   status: 200,
   latencyMs: 12,
   retryAfter: null,
@@ -129,6 +131,15 @@ describe('the store', () => {
     health.recordOutcome(outcome({ status: 'network' }));
     expect(health.nodeHealth().transport.kind).toBe('silent');
     health.recordOutcome(outcome({ status: 'network' }));
+    expect(health.nodeHealth().transport.kind).toBe('throttled');
+  });
+
+  test('an outcome that started before a reset is dropped (A → B → A, a late answer from the first A)', () => {
+    const before = performance.now();
+    health.resetNodeHealth();
+    health.recordOutcome(outcome({ status: 429, retryAfter: '5', startedAt: before }));
+    expect(health.nodeHealth().transport.kind).toBe('ok');
+    health.recordOutcome(outcome({ status: 429, retryAfter: '5', startedAt: performance.now() }));
     expect(health.nodeHealth().transport.kind).toBe('throttled');
   });
 

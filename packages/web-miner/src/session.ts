@@ -322,9 +322,11 @@ export class Session {
     if (!c) throw new Error('no open account');
     c.pause('withdraw');
     try {
-      const sent = await sendWithdraw(c.deployment, c.address, c.feeSettings, w);
-      await c.refresh().catch((e: unknown) => c.log(`balance after withdraw: ${String(e)}`));
-      return sent;
+      return await c.track(async () => {
+        const sent = await sendWithdraw(c.deployment, c.address, c.feeSettings, w);
+        await c.refresh().catch((e: unknown) => c.log(`balance after withdraw: ${String(e)}`));
+        return sent;
+      });
     } finally {
       c.release('withdraw');
     }
