@@ -1,6 +1,6 @@
 # Phase 2 — arc 2: mine loading
 
-## P2.1 · The chain before the account ✓ (2026-09-08, `P21HASH`)
+## P2.1 · The chain before the account ✓ (2026-09-08, `00cfb5e`)
 
 Gate, as run: `bun run lint` exit 0 · every typecheck ok · `bun test` 216 pass, 0 fail (new, under
 `packages/web-miner/tests/`: `pinned-crs.bun.test.ts` — the streamed verifier reports bytes as they land and they
