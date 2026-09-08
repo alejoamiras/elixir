@@ -1,6 +1,7 @@
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { difficulty } from '../../../miner-core/src/metrics.ts';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';
+import { difficultyLabel } from '../../../ui/src/index.ts';
 
 /** The last closed epochs drawn beside the open one. */
 export const SHOWN = 6;
@@ -10,7 +11,13 @@ const LEFT = 30;
 const RIGHT = 6;
 const TOP = 10;
 const BOTTOM = 18;
-const TICKS = [1, 4, 16, 64];
+
+/** Up to four powers of four across the axis, so a bar of 2^128 (a test network) still reads as its own scale. */
+const ticks = (hiLog2: number): number[] => {
+  const powers = Array.from({ length: Math.floor(hiLog2 / 2) + 1 }, (_, k) => 4 ** k);
+  const every = Math.max(1, Math.ceil(powers.length / 4));
+  return powers.filter((_, k) => k % every === 0);
+};
 
 /** The rows the chart draws: up to six closed before the open one, in order. */
 export const shown = (rows: readonly EpochRow[]): EpochRow[] => rows.slice(-(SHOWN + 1));
@@ -45,11 +52,11 @@ export function BarChart({ rows, open }: { rows: readonly EpochRow[]; open: numb
       aria-label={`the bar over the last ${drawn.length} epochs, a dot per accepted claim`}
       data-testid="hero-chart"
     >
-      {TICKS.filter((t) => Math.log2(t) >= lo && Math.log2(t) <= hi).map((t) => (
+      {ticks(hi).map((t) => (
         <g key={t}>
           <line x1={LEFT} x2={W - RIGHT} y1={y(t)} y2={y(t)} stroke="currentColor" strokeOpacity="0.18" />
           <text x={LEFT - 6} y={y(t)} textAnchor="end" dominantBaseline="middle" fill="currentColor">
-            {t}
+            {t < 1e6 ? t : difficultyLabel(t)}
           </text>
         </g>
       ))}

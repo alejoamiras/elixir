@@ -113,7 +113,14 @@ describe('the hero tile and the ledger', () => {
     expect(new Set(xs).size).toBe(4);
     expect(Math.max(...xs) - Math.min(...xs)).toBeLessThan(230);
     expect(container.textContent).toContain('epoch 1 · open · 1 of 4');
-    expect(container.textContent).toContain('64');
+    // The y axis: powers of four from 1, at most four of them, the top one above the highest bar (256).
+    const yTicks = Array.from(container.querySelectorAll('text[text-anchor="end"]'))
+      .map((t) => Number(t.textContent))
+      .filter((n) => Number.isFinite(n));
+    expect(yTicks[0]).toBe(1);
+    expect(yTicks.length).toBeLessThanOrEqual(4);
+    expect(yTicks.every((n) => Number.isInteger(Math.log2(n) / 2))).toBe(true);
+    expect(Math.max(...yTicks)).toBeGreaterThanOrEqual(256);
     // Only the last six closed epochs and the open one are drawn, whatever the history holds.
     const many: EpochRow[] = Array.from({ length: 12 }, (_, i) => ({
       ...(live.rows[0] as EpochRow),
