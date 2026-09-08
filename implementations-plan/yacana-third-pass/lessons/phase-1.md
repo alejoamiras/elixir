@@ -66,3 +66,26 @@ What the phase found:
   store; the `unreachable` status stays for the poll's own bookkeeping.
 - `packages/site` has no React: the store exposes `subscribeNodeHealth` and each shell calls `useSyncExternalStore`
   itself; the banner's props are plain values, so `ui` imports nothing from `site`.
+
+## P1.3 · The loop's margin and the pop-out ✓ (2026-09-08, `063363a`)
+
+Gate, as run: lint exit 0 · every typecheck ok · `bun test packages/ui` 9 pass (`labelsCollide`, `marginFor`) ·
+Vitest ui 43 · the owner's symptom reproduced: `shots/arc-1/loop-before-after.png` renders the pre-change drawing and
+the new one side by side, the same samples, at the pop-out's 48 px and the cockpit's 230 px.
+
+What the render showed (the diagnosis the plan could only infer):
+
+- **The "0" is the clip.** At 10 px mono in a 28 px margin, "56.2" right-aligned 8 px in starts at x = −4: the render
+  reads "6.2" with the 5 gone — a bar between 10 and 99 shows its last digits only, and a bar just past 10 reads
+  "0.0". The margin is now measured from the widest label the axis will carry, the font set in `frame()` before the
+  measurement (it used to be set later, in the calm drawing).
+- **The bar at difficulty 1 before the epoch was worse than a collision.** The cockpit passed `difficulty 1` until the
+  epoch landed, and with every score ≥ 1 by construction, every proof drew as a ringed win with its "★ 1.x · a win"
+  label: a wall of rings and text over the baseline. The loop now takes `null` and says "reading the epoch…".
+- **A win near the top right collided with the bar's caption** ("the bar · clear it to win") in both drawings; a win
+  within 2.5 lines of the bar in the right 220 px now labels itself below its dot, when there is room above the
+  baseline.
+- A bar of exactly 1.0 stays degenerate by definition (every proof clears it); the drawing is honest, not pretty.
+- The harness: React + the two drawings bundled with `bun build --format iife`, loaded as a classic script over
+  `file://` (module scripts are blocked there, and inlining the bundle tripped on a `</script>` inside it),
+  screenshotted with Playwright at 2×. Deleted after the render; the PNG is the artefact.

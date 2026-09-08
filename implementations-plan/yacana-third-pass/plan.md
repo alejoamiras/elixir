@@ -594,7 +594,7 @@ settlement and then proceeds on `ok` or waits the new deadline on failure) · Vi
 test:visual` (unchanged pixels; the recording covers any new call). Layers: lint/typecheck · unit · component ·
 visual.
 
-**P1.3 · The loop's margin and the pop-out** — `measureText` margin; ticks at every height; the baseline label
+**P1.3 · The loop's margin and the pop-out** ✓ (2026-09-08, `063363a`) — `measureText` margin; ticks at every height; the baseline label
 yields; `labelsCollide`; no bar before the epoch; the drawing try/catch.
 Gate: lint · `bun test packages/ui` (`labelsCollide`; the margin helper given a width — jsdom has no canvas, so the
 drawing itself is checked by eye in the renders) · **the owner's symptom reproduced first**: the miner on the isolated network (its target puts the bar at the floor) and the pop-out,
