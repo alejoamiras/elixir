@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { NodeProbe } from '../../../site/src/browser/node.ts';
+import { markRead, resetNodeHealth, setTransportForTests } from '../../../site/src/browser/node-health.ts';
 import type { Session } from '../session';
 import { NodeTile } from './NodeTile';
 
@@ -31,6 +32,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
   localStorage.clear();
+  resetNodeHealth();
 });
 
 describe('the Node tile', () => {
@@ -43,6 +45,25 @@ describe('the Node tile', () => {
     );
     expect(screen.getByTestId('node-health').textContent).toContain('this deployment ✓');
     expect((screen.getByTestId('node-use') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  test('a throttled node reads 429 · rate limited with the last answer’s age; the check it passed stands', async () => {
+    render(<NodeTile session={session()} nodeUrl={IN_USE} onSwitched={() => {}} />);
+    await waitFor(() => expect(screen.getByTestId('node-health').textContent).toContain('this deployment ✓'));
+    act(() => {
+      markRead(Date.now() - 40_000);
+      setTransportForTests({
+        kind: 'throttled',
+        retryAt: Date.now() + 60_000,
+        status: 429,
+        backoffMs: 60_000,
+      });
+    });
+    const line = screen.getByTestId('node-health').textContent ?? '';
+    expect(line).toContain('429 · rate limited');
+    expect(line).toMatch(/last answer (39|40|41) s ago/);
+    expect(line).toContain('this deployment ✓');
+    expect(line).not.toContain('block 73,164');
   });
 
   test('Check shows the probe’s lines and enables Use; a refusal reads in warn; Use switches', async () => {

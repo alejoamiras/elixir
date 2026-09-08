@@ -89,3 +89,47 @@ What the render showed (the diagnosis the plan could only infer):
 - The harness: React + the two drawings bundled with `bun build --format iife`, loaded as a classic script over
   `file://` (module scripts are blocked there, and inlining the bundle tripped on a `</script>` inside it),
   screenshotted with Playwright at 2×. Deleted after the render; the PNG is the artefact.
+
+## P1.4 · Boundaries, the senders' removal, the arc boundary ✓ (2026-09-08)
+
+Gate, as run: `bun run lint` exit 0 · every typecheck ok · `bun test` 194 pass, 0 fail (9 live tests skipped; new:
+`clearOf`) · Vitest ui 46 (`TileBoundary`: a throwing child renders the fixed text, a sibling survives, Try again
+remounts, the error reaches `onError` cut at 300 chars), web-miner 55 (no sender input anywhere; the tile's throttled
+line), web-stats 19, web-landing 10 · **arc boundary**: `bun run e2e:agent -- bun run --cwd packages/web-miner
+test:e2e` **13 passed in 13.5 min, exit 0** (miner ×6, passkey ×2, states ×2, the new `switch.e2e.ts`, withdraw,
+words) · `bun run e2e:agent -- bun run site:e2e` 2 passed · renders at 1280/1440 under `shots/arc-1/`
+(`miner-settings-*`, `miner-settings-throttled-*`, `miner-banner-*`, plus the cockpit and the wallet) beside the
+artboards `NodeSettings`, `NodeRateLimited`, `RateLimitBanner`; the pop-out beside `PopoutAfter` in
+`loop-before-after.png` (P1.3).
+
+What the phase found:
+
+- **The senders finding.** The plan had the Send sheet warn that a private transfer to another Yacana account needs
+  the recipient to have registered the sender. The rewritten `withdraw.e2e.ts` — the sender steps gone, the
+  recipient's balance still asserted — passed: the recipient found the notes with no sender registered (Aztec's
+  first-contact handshake carries the tag). So the capability cost nothing to drop and the warning line was wrong;
+  it went, and the plan, the ledger and the ELI5 say so.
+- **Two forwarding proxies, not two nodes.** `e2e/node-proxy.ts` puts A and B in front of the one isolated node,
+  each counting the JSON-RPC requests it forwarded, with a mode switch (`ok` · `down` → 503 · `throttled` → 429 with
+  `Retry-After: 60`). The switch spec proves the live switch by A's counter staying flat after it (≤ 2 in-flight
+  requests) while B's climbs past 20, and a claim minting on B; the render script uses `throttled` for the
+  rate-limited screens. The spec loads the page with the node in `localStorage`, not the `?node=` pin: a pinned page
+  disables the tile by design.
+- **The first full run failed two specs for reasons outside this arc.** `passkey.e2e.ts` asserted the exact text of
+  `key-address`, which has carried an `ExternalLink`'s screen-reader suffix since #20 — the spec now checks the
+  visible text and the `title`. The lost-race spec's burst miner read `packages/work-circuit/target/yacana_work.json`,
+  gitignored and absent in a fresh worktree (like the contracts in P1.1) — `bun run --cwd packages/work-circuit
+  compile`; the bytecode matched the committed copy. The suite was rerun whole: 13 passed.
+- **The renders caught two spec deviations the tests could not.** (1) Under a 429 the tile's health line printed the
+  client's raw error ("Error 429 from server http://…: the node is rate-limiting this page"); the spec wants `429 ·
+  rate limited` · `last answer N s ago` · `this deployment ✓`. The line now reads the shared health store while the
+  transport is throttled or silent (and the probe's result otherwise), and the deployment check a node passed once
+  survives its failed probes (`verified`). (2) Two wins within a hundred pixels near the bar: the upper one's label
+  landed on the bar line, the caption and its neighbour's dot. A label that goes below now goes below the **bar**,
+  not merely below its dot, and `clearOf` steps it down a line past the labels already drawn this frame (stopping at
+  the baseline). Unit-tested; the drawing re-rendered.
+- **`TileBoundary` catches rendering only.** A throw inside the loop's animation frame is the drawing's own
+  (`safely()` → `drawFailure`); a rejected promise in a tile's effect is the tile's. The boundary's text is fixed and
+  the error goes to `onError` or the console, cut at 300 characters (a node's whole response can ride an error).
+- The docs link in the tile note is set in the prose face and unbreakable; `ExternalLink` defaults to mono for
+  chain values.

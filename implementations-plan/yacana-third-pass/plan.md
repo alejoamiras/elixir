@@ -165,10 +165,10 @@ Tokens, type and primitives are `packages/ui`'s; the numbers below are the canva
 ### Wallet, money, pop-out (`WalletNoSenders`, `MoneyAfter`, `PopoutAfter`)
 
 - Wallet: the balance tile (Send), the claims list, the account tile with Sign out; the senders card is gone, and
-  with it the capability (`addSender`, `registerSender`). Consequence, said where it matters: another Yacana account
-  cannot discover a private transfer from this one (note discovery needs the recipient to know the sender), so the
-  Send sheet's private mode carries one line — "Another Yacana account will not see a private transfer from you; send
-  publicly to a Yacana account." — beside the existing unknown-recipient warning.
+  with it the capability (`addSender`, `registerSender`). What it costs, measured in P1.4: nothing — the rewritten
+  `withdraw.e2e.ts` sends privately from one account to another that never registered the sender, and the recipient
+  finds the notes (Aztec's constrained delivery publishes a handshake on first contact; `registerSender` was
+  redundant here). The Send sheet's copy is unchanged.
 - Money: the table's last row loses its bottom rule (`[&>tr:last-child>td]:border-b-0` on the `tbody` — `last:` on a
   cell would match every row's last column; the section's border closes the block).
 - Pop-out (360×190): the 48 px strip draws ordinary proofs as the cockpit's dim ticks (2 px, `ink-3` at 55 %) and a
@@ -601,13 +601,12 @@ drawing itself is checked by eye in the renders) · **the owner's symptom reprod
 screenshots before and after under `shots/arc-1/`; if the "0" is something else, it is logged in `lessons/phase-1.md`
 and fixed in this phase. Layers: lint/typecheck · unit · manual render.
 
-**P1.4 · Boundaries and the senders' removal** — `TileBoundary` around every tile and section of the three apps,
-the derivations inside; the senders card, `Session.addSender` and the `registerSender` call go; the Send sheet's
-private mode gets its one line; `withdraw.e2e.ts` loses the sender steps — the private send is asserted from the
-sender's side (balance down, the transaction mined) and the public withdraw stays the cross-account check.
+**P1.4 · Boundaries and the senders' removal** ✓ (2026-09-08, `P14HASH`) — `TileBoundary` around every tile and section of the three apps,
+the derivations inside; the senders card, `Session.addSender` and the `registerSender` call go; `withdraw.e2e.ts`
+loses the sender steps and keeps its strongest assertion — the recipient's balance rises — which proves the
+capability was redundant (the delivery handshake); the Send sheet's copy stays.
 Gate: lint · typecheck · Vitest `packages/ui` (a throwing child renders the fixed text, a sibling survives, Try
-again remounts, the error reaches `onError`) and `packages/web-miner` (no sender input anywhere; the private mode's
-line) · **arc boundary**: `bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e` (the full miner suite,
+again remounts, the error reaches `onError`) and `packages/web-miner` (no sender input anywhere) · **arc boundary**: `bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e` (the full miner suite,
 with two forwarding proxies A and B in front of the isolated node — a Bun forwarder under `e2e/` with per-endpoint
 request counters and a stall switch: a live switch A → B under an open words account while mining, loaded without
 the `node=` pin, shows the rebuild, keeps the session, lands a claim after it, and A's counter stays flat from the
@@ -894,7 +893,7 @@ testnet layer: nothing here touches chain behaviour.
 | Cancel | an attempt with an `AbortSignal` owned by `Session`; superseded writes dropped; secrets zeroed | Cancel as a UI-only close | codex r1 High |
 | Error text | fixed text; the error to the log | `error.message` through the shortener | codex r1 Medium |
 | Money rule | `[&>tr:last-child>td]:border-b-0` on `tbody` | `last:border-b-0` on cells | codex r1 Medium |
-| Senders | dropped entirely (owner's decision at the gate); the Send sheet's private mode says a Yacana account will not see a private transfer | a row under Settings → Advanced (the canvas); migrating and replaying registrations across rebuilds (codex r2/r3/final, now moot) | owner A1 |
+| Senders | dropped entirely (owner's decision at the gate); the E2E proves a private transfer between two Yacana accounts is found with no sender registered (the first-contact handshake), so nothing is lost | a row under Settings → Advanced (the canvas); a warning line in the Send sheet (drafted, then disproved by the E2E); migrating and replaying registrations across rebuilds (codex r2/r3/final, now moot) | owner A1 |
 
 Disputed / open after rounds 1–4 and the fresh pass (codex round 4: conditional approve, both conditions folded in — the complete endpoint URL as the identity everywhere, `waitTurn` awaiting an in-flight recovery; the fresh pass: reject on two SDK facts — the WASM `data:` loads and the address book's source — both folded in above): the node switch's shape — fable wanted the live switch with a rebuild, codex the
 reload; the plan takes the reload with the rebuild (both audits' safety property, neither's transition risk) and

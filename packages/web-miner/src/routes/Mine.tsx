@@ -1,3 +1,4 @@
+import { TileBoundary } from '../../../ui/src/index.ts';
 import { BalanceCard } from '../components/BalanceCard';
 import type { MinerController } from '../controller';
 import { LedgerTile } from '../features/LedgerTile';
@@ -14,12 +15,22 @@ export function Mine({ controller }: { controller: () => MinerController | undef
       className="grid items-start gap-[14px] md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_300px]"
       data-testid="cockpit"
     >
-      <LoopTile controller={controller} className="md:col-span-2 xl:col-span-3" />
-      <RailTile controller={controller} className="md:order-3 xl:order-none xl:row-span-2" />
-      <KpiTiles className="md:col-span-2 xl:col-span-3" />
+      <TileBoundary name="loop" className="md:col-span-2 xl:col-span-3">
+        <LoopTile controller={controller} className="md:col-span-2 xl:col-span-3" />
+      </TileBoundary>
+      <TileBoundary name="rail" className="md:order-3 xl:order-none xl:row-span-2">
+        <RailTile controller={controller} className="md:order-3 xl:order-none xl:row-span-2" />
+      </TileBoundary>
+      <TileBoundary name="kpis" className="md:col-span-2 xl:col-span-3">
+        <KpiTiles className="md:col-span-2 xl:col-span-3" />
+      </TileBoundary>
       <div className="contents md:order-4 md:flex md:flex-col md:gap-[14px] xl:contents">
-        <LedgerTile className="xl:col-span-3" />
-        <BalanceCard />
+        <TileBoundary name="ledger" className="xl:col-span-3">
+          <LedgerTile className="xl:col-span-3" />
+        </TileBoundary>
+        <TileBoundary name="balance">
+          <BalanceCard />
+        </TileBoundary>
       </div>
     </div>
   );

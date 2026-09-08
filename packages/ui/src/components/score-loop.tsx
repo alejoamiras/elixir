@@ -5,8 +5,10 @@ import {
   axis,
   axisTo,
   axisTop,
+  clearOf,
   difficultyLabel,
   flash,
+  type LabelBox,
   labelsCollide,
   marginFor,
   rise,
@@ -69,6 +71,8 @@ interface Frame {
   fontPx: number;
   /** Score → 0…1 on the axis in force (fixed 1–1000, or the calm ceiling). */
   scale: (score: number) => number;
+  /** The win labels drawn this frame, so the next one steps clear of them. */
+  labels: LabelBox[];
 }
 
 const yOf = (f: Frame, fraction: number) => f.h - f.pad - fraction * (f.h - f.pad * 2);
@@ -222,16 +226,22 @@ function drawCalmWin(f: Frame, right: number, x: number, y: number, score: numbe
   ctx.stroke();
   if (!tall) return;
   const flip = x > right - 90;
-  // The bar's caption sits above the bar at the right edge: a win up there labels itself below its dot.
+  // The bar's caption sits above the bar at the right edge: a win up there labels itself under the bar.
   const underCaption =
     x > right - 220 && Math.abs(y - yBar) < 2.5 * f.fontPx && y + 2 * f.fontPx < f.h - f.pad;
+  const text = `★ ${score.toFixed(1)} · a win`;
+  const width = ctx.measureText(text).width;
+  const x0 = flip ? x - 14 - width : x + 14;
+  const start = underCaption ? Math.max(y, yBar) + f.fontPx + 4 : y - 4;
+  const box = {
+    x0,
+    x1: x0 + width,
+    y: clearOf(f.labels, { x0, x1: x0 + width, y: start }, f.fontPx, f.h - f.pad),
+  };
+  f.labels.push(box);
   ctx.fillStyle = f.p.ink;
   ctx.textAlign = flip ? 'right' : 'left';
-  ctx.fillText(
-    `★ ${score.toFixed(1)} · a win`,
-    x + (flip ? -14 : 14),
-    underCaption ? y + f.fontPx + 4 : y - 4,
-  );
+  ctx.fillText(text, flip ? x - 14 : x + 14, box.y);
 }
 
 /** Calm: ordinary proofs are dim ticks from the baseline; wins are drawn bright; the window's ends are labelled. */
@@ -301,6 +311,7 @@ function frame(canvas: HTMLCanvasElement, props: ScoreLoopProps, now: number): F
     hero: props.hero ?? false,
     fontPx,
     scale: scaleFor(props, now),
+    labels: [],
   };
 }
 

@@ -65,7 +65,9 @@ test('a passkey account: create, mine, claim, reload with one touch, the balance
   // Second visit: Welcome back, one touch, same key, same balance.
   await page.reload();
   await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
-  await expect(page.getByTestId('key-address')).toHaveText(`${account.slice(0, 8)}…${account.slice(-4)}`);
+  // The explorer link carries a screen-reader suffix after the shortened address.
+  await expect(page.getByTestId('key-address')).toContainText(`${account.slice(0, 8)}…${account.slice(-4)}`);
+  await expect(page.getByTestId('key-address')).toHaveAttribute('title', account);
   await page.getByTestId('open-key').click();
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
   expect(await page.getByTestId('account').getAttribute('title')).toBe(account);

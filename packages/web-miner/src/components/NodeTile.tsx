@@ -1,6 +1,7 @@
-import { useEffect, useReducer, useState } from 'react';
+import { useEffect, useReducer, useState, useSyncExternalStore } from 'react';
 import { defaultNodeUrl, isPinnedByQuery, saveConnection } from '../../../site/src/browser/connection.ts';
 import { type NodeProbe, parseNodeUrl } from '../../../site/src/browser/node.ts';
+import { nodeHealth, subscribeNodeHealth } from '../../../site/src/browser/node-health.ts';
 import { Button, ExternalLink, Input, Label, Tile, TileHeader } from '../../../ui/src/index.ts';
 import { canUse, checkReducer, describeProbe } from '../lib/node-check';
 import type { Session } from '../session';
@@ -8,20 +9,30 @@ import type { Session } from '../session';
 const RUN_A_NODE = 'https://docs.aztec.network/the_aztec_network/guides/run_nodes/how_to_run_full_node';
 const HEALTH_EVERY_MS = 10_000;
 
-type Health = { kind: 'pending' } | { kind: 'ok'; probe: NodeProbe } | { kind: 'failed'; message: string };
+type Health =
+  | { kind: 'pending'; verified: boolean }
+  | { kind: 'ok'; probe: NodeProbe; verified: true }
+  | { kind: 'failed'; message: string; verified: boolean };
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-/** The node in use, probed every ten seconds while the tile is on screen. */
+/**
+ * The node in use, probed every ten seconds while the tile is on screen. `verified` survives a
+ * failed probe: a node that passed the deployment check once is still that deployment when it throttles.
+ */
 function useNodeHealth(session: Session, nodeUrl: string): Health {
-  const [health, setHealth] = useState<Health>({ kind: 'pending' });
+  const [health, setHealth] = useState<Health>({ kind: 'pending', verified: false });
   useEffect(() => {
     let live = true;
+    setHealth({ kind: 'pending', verified: false });
     const tick = () =>
       session
         .probeNode(nodeUrl, HEALTH_EVERY_MS)
-        .then((probe) => live && setHealth({ kind: 'ok', probe }))
-        .catch((e: unknown) => live && setHealth({ kind: 'failed', message: message(e) }));
+        .then((probe) => live && setHealth({ kind: 'ok', probe, verified: true }))
+        .catch(
+          (e: unknown) =>
+            live && setHealth((h) => ({ kind: 'failed', message: message(e), verified: h.verified })),
+        );
     void tick();
     const timer = setInterval(tick, HEALTH_EVERY_MS);
     return () => {
@@ -30,6 +41,38 @@ function useNodeHealth(session: Session, nodeUrl: string): Health {
     };
   }, [session, nodeUrl]);
   return health;
+}
+
+const secondsSince = (at: number | null) =>
+  at === null ? null : Math.max(0, Math.round((Date.now() - at) / 1000));
+
+/** The status line: the store's word while the node is throttled or silent, the probe's otherwise. */
+function HealthLine({ health }: { health: Health }) {
+  const store = useSyncExternalStore(subscribeNodeHealth, nodeHealth, nodeHealth);
+  const t = store.transport;
+  if (t.kind !== 'ok') {
+    const age = secondsSince(store.lastReadAt);
+    return (
+      <>
+        <span className="text-warn">
+          {t.kind === 'throttled' ? '429 · rate limited' : `no answer for ${secondsSince(t.since)} s`}
+        </span>
+        {age !== null && <span>last answer {age} s ago</span>}
+        {health.verified && <span className="text-ok">this deployment ✓</span>}
+      </>
+    );
+  }
+  if (health.kind === 'pending') return <span>checking…</span>;
+  if (health.kind === 'failed') return <span className="text-warn">{health.message}</span>;
+  return (
+    <>
+      <span className="text-ok">
+        block {health.probe.block.toLocaleString('en-US')} · {health.probe.blockAgeS} s ago
+      </span>
+      <span>{Math.round(health.probe.latencyMs)} ms</span>
+      <span className="text-ok">this deployment ✓</span>
+    </>
+  );
 }
 
 function HealthRow({ nodeUrl, health }: { nodeUrl: string; health: Health }) {
@@ -45,17 +88,7 @@ function HealthRow({ nodeUrl, health }: { nodeUrl: string; health: Health }) {
           className="mt-1.5 flex flex-wrap gap-x-3.5 gap-y-1 font-mono text-2xs text-ink-2"
           data-testid="node-health"
         >
-          {health.kind === 'pending' && <span>checking…</span>}
-          {health.kind === 'ok' && (
-            <>
-              <span className="text-ok">
-                block {health.probe.block.toLocaleString('en-US')} · {health.probe.blockAgeS} s ago
-              </span>
-              <span>{Math.round(health.probe.latencyMs)} ms</span>
-              <span className="text-ok">this deployment ✓</span>
-            </>
-          )}
-          {health.kind === 'failed' && <span className="text-warn">{health.message}</span>}
+          <HealthLine health={health} />
         </div>
       </div>
       <Button size="sm" disabled>
@@ -188,7 +221,9 @@ const NodeNote = () => (
   <p className="border-t border-line pt-3 text-xs text-ink-3">
     The node answers what this page asks; it can delay or hide, never spend: every claim is proved here and
     verified on the chain. A public node may rate-limit you:{' '}
-    <ExternalLink href={RUN_A_NODE}>run a node</ExternalLink>
+    <ExternalLink href={RUN_A_NODE} className="font-sans whitespace-nowrap text-ink-2">
+      run a node
+    </ExternalLink>
   </p>
 );
 

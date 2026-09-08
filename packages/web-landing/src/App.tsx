@@ -7,7 +7,7 @@ import {
 } from '../../site/src/browser/connection.ts';
 import { previewNotice } from '../../site/src/browser/host.ts';
 import { bannerState, nodeHealth, subscribeNodeHealth } from '../../site/src/browser/node-health.ts';
-import { Alert, AlertDescription, NodeBanner } from '../../ui/src/index.ts';
+import { Alert, AlertDescription, NodeBanner, TileBoundary } from '../../ui/src/index.ts';
 import { useNow } from './hooks';
 import { POLL_MS } from './live';
 import { Ask, Footer } from './sections/Ask';
@@ -39,12 +39,24 @@ export function App({ live, launch }: { live: LiveStatus; launch: LaunchStatus }
         />
       </div>
       <main>
-        {launchMode() ? <Launch status={launch} live={live} /> : <Hero status={live} />}
-        <Money />
-        <Chain />
-        <How />
-        <Verify />
-        <Ask />
+        <TileBoundary name="hero">
+          {launchMode() ? <Launch status={launch} live={live} /> : <Hero status={live} />}
+        </TileBoundary>
+        <TileBoundary name="money">
+          <Money />
+        </TileBoundary>
+        <TileBoundary name="chain">
+          <Chain />
+        </TileBoundary>
+        <TileBoundary name="how">
+          <How />
+        </TileBoundary>
+        <TileBoundary name="verify">
+          <Verify />
+        </TileBoundary>
+        <TileBoundary name="ask">
+          <Ask />
+        </TileBoundary>
       </main>
       <Footer />
     </div>

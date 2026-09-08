@@ -41,6 +41,7 @@ export { type Status, StatusPill } from './components/status-pill.tsx';
 export { fmtSeconds, type Step, Stepper } from './components/stepper.tsx';
 export { Switch } from './components/switch.tsx';
 export { KvRow, Tile, TileHeader } from './components/tile.tsx';
+export { TileBoundary } from './components/tile-boundary.tsx';
 export { Toaster } from './components/toaster.tsx';
 export { useDocumentHidden, useReducedMotion } from './hooks/use-reduced-motion.ts';
 export { useTweenedNumber } from './hooks/use-tweened-number.ts';

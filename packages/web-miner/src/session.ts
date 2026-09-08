@@ -274,12 +274,6 @@ export class Session {
     await switchNodeLive({ controller: this.controller, switchable: this.pre.switchable, url });
   }
 
-  /** Someone expects to send us notes: the PXE needs the sender to find them. */
-  async addSender(address: string): Promise<void> {
-    if (!this.wallet) throw new Error('no open account');
-    await this.wallet().registerSender(AztecAddress.fromStringUnsafe(address), '');
-  }
-
   /** Whether anything on the chain or in the wallet knows the recipient as a contract. */
   async recipientKnown(to: AztecAddress): Promise<boolean> {
     if (!this.pre || !this.wallet) throw new Error('no open account');

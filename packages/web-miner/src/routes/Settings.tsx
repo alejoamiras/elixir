@@ -9,6 +9,7 @@ import {
   Switch,
   type Theme,
   Tile,
+  TileBoundary,
   TileHeader,
   useTheme,
 } from '../../../ui/src/index.ts';
@@ -91,11 +92,13 @@ export function Settings({
   const canBattery = 'getBattery' in navigator;
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <NodeTile
-        session={session}
-        nodeUrl={nodeUrl}
-        onSwitched={() => setNodeUrl(session.nodeUrl ?? nodeUrl)}
-      />
+      <TileBoundary name="node">
+        <NodeTile
+          session={session}
+          nodeUrl={nodeUrl}
+          onSwitched={() => setNodeUrl(session.nodeUrl ?? nodeUrl)}
+        />
+      </TileBoundary>
       <Tile>
         <TileHeader>Performance</TileHeader>
         <PowerSlider
