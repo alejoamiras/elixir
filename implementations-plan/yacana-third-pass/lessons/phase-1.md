@@ -90,7 +90,7 @@ What the render showed (the diagnosis the plan could only infer):
   `file://` (module scripts are blocked there, and inlining the bundle tripped on a `</script>` inside it),
   screenshotted with Playwright at 2×. Deleted after the render; the PNG is the artefact.
 
-## P1.4 · Boundaries, the senders' removal, the arc boundary ✓ (2026-09-08)
+## P1.4 · Boundaries, the senders' removal, the arc boundary ✓ (2026-09-08, `c4fa43d`)
 
 Gate, as run: `bun run lint` exit 0 · every typecheck ok · `bun test` 194 pass, 0 fail (9 live tests skipped; new:
 `clearOf`) · Vitest ui 46 (`TileBoundary`: a throwing child renders the fixed text, a sibling survives, Try again

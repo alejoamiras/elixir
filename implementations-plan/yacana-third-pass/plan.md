@@ -601,7 +601,7 @@ drawing itself is checked by eye in the renders) · **the owner's symptom reprod
 screenshots before and after under `shots/arc-1/`; if the "0" is something else, it is logged in `lessons/phase-1.md`
 and fixed in this phase. Layers: lint/typecheck · unit · manual render.
 
-**P1.4 · Boundaries and the senders' removal** ✓ (2026-09-08, `P14HASH`) — `TileBoundary` around every tile and section of the three apps,
+**P1.4 · Boundaries and the senders' removal** ✓ (2026-09-08, `c4fa43d`) — `TileBoundary` around every tile and section of the three apps,
 the derivations inside; the senders card, `Session.addSender` and the `registerSender` call go; `withdraw.e2e.ts`
 loses the sender steps and keeps its strongest assertion — the recipient's balance rises — which proves the
 capability was redundant (the delivery handshake); the Send sheet's copy stays.
