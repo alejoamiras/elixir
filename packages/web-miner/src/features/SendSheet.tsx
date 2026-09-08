@@ -36,7 +36,6 @@ const MODES = [
   },
 ];
 
-/** The destination, linked to its explorer page; the full address in the title. */
 const Recipient = ({ to }: { to: string }) => (
   <ExternalLink href={links.address(to)} full={to} className="text-ink" data-testid="send-to">
     {shortAddress(to)}

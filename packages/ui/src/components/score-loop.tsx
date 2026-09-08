@@ -291,7 +291,8 @@ function draw(canvas: HTMLCanvasElement, props: ScoreLoopProps, now: number, red
 
 /**
  * Draws on requestAnimationFrame while visible in a foreground tab; a still frame under reduced motion. When
- * `win` is another window (the pop-out), that window's clock and visibility drive the loop.
+ * `win` is another window (the pop-out), its frames and visibility drive the loop; sample ages stay on the
+ * opener's clock, which is the one the samples carry.
  */
 export function ScoreLoop(props: ScoreLoopProps) {
   const ref = React.useRef<HTMLCanvasElement>(null);
