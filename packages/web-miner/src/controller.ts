@@ -369,7 +369,7 @@ export class MinerController {
       });
     }
     const balance = await readBalance(this.d, this.account);
-    if (gen === this.reads) this.store.set(balanceAtom, balance);
+    if (gen === this.reads && !this.disposed) this.store.set(balanceAtom, balance);
   }
 
   /** Anyone may close an epoch that stayed open for T_MAX; the miner does it so mining resumes. */

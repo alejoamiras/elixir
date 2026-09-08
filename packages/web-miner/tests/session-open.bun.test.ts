@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto';
 import { describe, expect, test } from 'bun:test';
 import { createStore } from 'jotai';
 import type { Started } from '../src/boot.ts';
@@ -90,16 +91,17 @@ describe('the opening attempt', () => {
     expect(store.get(bootAtom).phase).toBe('signedOut');
   });
 
-  test('a superseded attempt publishes nothing and disposes what it made', async () => {
-    let releaseFirst: (() => void) | undefined;
-    let disposedFirst = false;
+  test('a newer attempt aborts its predecessor and waits it out; the predecessor publishes nothing', async () => {
+    const signals: AbortSignal[] = [];
     let call = 0;
-    const { store, session } = harness(async (_s, _p, _c, _r, _m, _o) => {
+    const { store, session } = harness(async (_s, _p, _c, _r, _m, opts: { signal: AbortSignal }) => {
       call++;
+      signals.push(opts.signal);
       if (call === 1) {
-        await new Promise<void>((r) => (releaseFirst = r));
-        return started(() => {
-          disposedFirst = true;
+        // The predecessor honours the signal between its steps, as startSession does.
+        await new Promise<void>((resolve, reject) => {
+          opts.signal.addEventListener('abort', () => reject(opts.signal.reason), { once: true });
+          setTimeout(resolve, 60_000);
         });
       }
       return started();
@@ -107,13 +109,44 @@ describe('the opening attempt', () => {
     await session.ready;
     const first = runAttempt(session, ceremony);
     await new Promise((r) => setTimeout(r, 5));
-    const second = runAttempt(session, ceremony); // supersedes the first
-    await second;
-    expect(store.get(bootAtom).phase).toBe('ready'); // the second won
-    releaseFirst?.(); // the first finally lands
-    await first;
-    expect(disposedFirst).toBe(true); // its controller was thrown away
-    expect(store.get(bootAtom).phase).toBe('ready'); // and it published nothing over the second
+    const second = runAttempt(session, ceremony); // aborts the first and waits for its cleanup
+    await Promise.all([first, second]);
+    expect(signals[0]?.aborted).toBe(true);
+    expect(call).toBe(2); // one PXE at a time: the second began only after the first ended
+    expect(store.get(bootAtom).phase).toBe('ready'); // the second won, the first published no signedOut
+  });
+
+  test('a cancel that lands as the last step settles disposes the returned controller and stops its wallet', async () => {
+    let release: (() => void) | undefined;
+    let disposed = false;
+    let stopped = false;
+    const { store, session } = harness(async () => {
+      await new Promise<void>((r) => (release = r));
+      // Resolves anyway: the abort landed after the last signal check, as it can after begin().
+      return {
+        controller: {
+          dispose: () => {
+            disposed = true;
+          },
+        } as never,
+        wallet: () =>
+          ({
+            stop: async () => {
+              stopped = true;
+            },
+          }) as never,
+        threads: 4,
+      };
+    });
+    await session.ready;
+    const run = runAttempt(session, ceremony);
+    await new Promise((r) => setTimeout(r, 5));
+    const cancel = session.cancelOpening();
+    release?.();
+    await Promise.all([run, cancel]);
+    expect(store.get(bootAtom).phase).toBe('signedOut');
+    expect(disposed).toBe(true);
+    expect(stopped).toBe(true);
   });
 
   test('a failure (not a cancel) shows signedOut with the error', async () => {

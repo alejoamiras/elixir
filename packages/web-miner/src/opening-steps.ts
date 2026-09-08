@@ -42,9 +42,12 @@ export function progressOf(steps: readonly OpeningStep[]): number {
   return Math.min(100, Math.max(0, Math.round(pct)));
 }
 
-/** The active step's fraction is unknown (the notes step): the bar shows indeterminate motion. */
+/** The active step's fraction is unknown (the notes step): the bar moves inside that step's slice. */
 export const openingIndeterminate = (steps: readonly OpeningStep[]): boolean =>
   steps.some((s) => s.state === 'active' && s.id === 'notes');
+
+/** The notes step's share of the bar, for the stripe's width. */
+export const NOTES_SPAN = WEIGHTS.notes;
 
 /** The keys step's second line while it downloads: MB landed of the pinned total. */
 export const bytesDetail = (bytes: { loaded: number; total: number }): string =>

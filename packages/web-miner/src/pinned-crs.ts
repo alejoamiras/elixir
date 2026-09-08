@@ -119,8 +119,8 @@ export function startCrs(listen?: (p: CrsProgress) => void): Promise<void> {
     listen(progress);
   }
   crsRun ??= (async () => {
-    await purgeCrsCache();
     try {
+      await purgeCrsCache();
       await Promise.all(Object.keys(files).map(load));
       report({ loaded: TOTAL_BYTES, done: true });
     } catch (e) {

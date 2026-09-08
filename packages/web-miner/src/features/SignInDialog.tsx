@@ -1,6 +1,6 @@
 import { useAtom, useAtomValue } from 'jotai';
 import { Button, Dialog, DialogContent, DialogTitle, Progress, Stepper } from '../../../ui/src/index.ts';
-import { type OpeningStep, openingIndeterminate, progressOf } from '../opening-steps';
+import { NOTES_SPAN, type OpeningStep, openingIndeterminate, progressOf } from '../opening-steps';
 import type { Session } from '../session';
 import { useSettings } from '../settings';
 import { bootAtom, signInAtom } from '../state';
@@ -62,7 +62,7 @@ function Opening({ steps, onCancel }: { steps: OpeningStep[]; onCancel: () => vo
     <div className="flex flex-col gap-4" data-testid="opening">
       <div>
         <span className="label-mono">opening your account</span>
-        <h2 className="mt-1 text-2xl">A minute the first time.</h2>
+        <h2 className="mt-1 text-[24px] leading-tight">A minute the first time.</h2>
         <p className="mt-2 text-sm text-ink-2">
           The proving keys are 20 MB, fetched once and kept. After that, opening takes a few seconds.
         </p>
@@ -70,6 +70,7 @@ function Opening({ steps, onCancel }: { steps: OpeningStep[]; onCancel: () => vo
       <Progress
         value={progressOf(steps)}
         indeterminate={openingIndeterminate(steps)}
+        indeterminateSpan={NOTES_SPAN}
         data-testid="opening-bar"
       />
       <Stepper steps={steps} />

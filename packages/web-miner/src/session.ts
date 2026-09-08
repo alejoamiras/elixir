@@ -47,6 +47,16 @@ type Store = ReturnType<typeof createStore>;
 
 const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name === 'AbortError';
 
+/** Runs the work a freshly derived master feeds; if that work throws, the master is zeroed first. */
+async function owning<T>(master: Uint8Array, work: () => Promise<T>): Promise<T> {
+  try {
+    return await work();
+  } catch (e) {
+    master.fill(0);
+    throw e;
+  }
+}
+
 export class Session {
   private pre: Preflighted | undefined;
   controller: MinerController | undefined;
@@ -114,16 +124,19 @@ export class Session {
   }
 
   /**
-   * A cancellable opening. The ceremony (an OS passkey prompt, or the words work) runs first, under
-   * an attempt whose Cancel is inert until it settles; then `startImpl` runs the steps, honouring the
-   * signal between them. A superseded attempt (a newer one began) publishes nothing and disposes what
-   * it made; a cancel returns to `signedOut` with no error, and the public poll takes the epoch back.
+   * A cancellable opening. A previous attempt is aborted and fully cleaned up first (one PXE at a
+   * time). The ceremony (an OS passkey prompt, or the words work) runs under the new attempt with
+   * Cancel inert; then `startImpl` runs the steps, honouring the signal between them. Whatever an
+   * attempt made and the session did not adopt — a controller, a wallet, the master — is disposed,
+   * stopped or zeroed on every exit; a cancel returns to `signedOut` with no error and the public poll
+   * takes the epoch back; a superseded attempt publishes nothing.
    */
   private runAttempt(
     keyLabel: string,
     ceremony: () => Promise<{ record: MasterRecord; master: Uint8Array; words?: string }>,
   ): Promise<void> {
     if (!this.pre) return this.fail(new Error('preflight has not finished'));
+    const prev = this.attempt;
     const id = ++this.attemptSeq;
     const abort = new AbortController();
     const steps = initialSteps(keyLabel);
@@ -132,7 +145,7 @@ export class Session {
     this.store.set(bootAtom, { phase: 'opening', steps });
     const attempt = { id, abort, ceremony: true, done: Promise.resolve() };
     this.attempt = attempt;
-    const run = this.attemptBody(id, abort, keyLabel, ceremony).finally(() => {
+    const run = this.attemptBody(id, abort, keyLabel, ceremony, prev).finally(() => {
       if (this.attempt?.id === id) this.attempt = undefined;
     });
     attempt.done = run;
@@ -144,22 +157,33 @@ export class Session {
     abort: AbortController,
     keyLabel: string,
     ceremony: () => Promise<{ record: MasterRecord; master: Uint8Array; words?: string }>,
+    prev: Session['attempt'],
   ): Promise<void> {
     const mine = () => this.attempt?.id === id;
     let master: Uint8Array | undefined;
     let started: Started | undefined;
     try {
+      // The predecessor ends first (it sees itself superseded and publishes nothing) so two attempts
+      // never hold the PXE namespace at once.
+      if (prev) {
+        prev.abort.abort();
+        await prev.done.catch(() => {});
+      }
+      const t0 = performance.now();
       const c = await ceremony();
       master = c.master;
-      if (!mine()) return; // superseded during the ceremony
+      const keyMs = performance.now() - t0;
+      if (!mine()) return;
       (this.attempt as { ceremony: boolean }).ceremony = false; // the prompt is done: Cancel works
       abort.signal.throwIfAborted();
       started = await this.startImpl(this.store, this.pre as Preflighted, this.connection, c.record, master, {
         signal: abort.signal,
         keyLabel,
+        keyMs,
         publish: (steps) => mine() && this.store.set(bootAtom, { phase: 'opening', steps }),
       });
-      if (!mine()) return; // superseded while the steps ran
+      if (!mine()) return;
+      abort.signal.throwIfAborted(); // a cancel that landed as the last step settled
       this.controller = started.controller;
       this.wallet = started.wallet;
       this.master = master;
@@ -173,12 +197,19 @@ export class Session {
         record: c.record,
       });
     } catch (e) {
-      if (!mine()) return started?.controller.dispose(); // a stale attempt publishes nothing
-      if (isAbort(e)) await this.toSignedOut();
+      if (!mine()) return; // a stale attempt publishes nothing
+      // A cancel wins over whatever the abort made the steps throw (a download that failed later).
+      if (isAbort(e) || abort.signal.aborted) await this.toSignedOut();
       else await this.fail(e);
     } finally {
       master?.fill(0);
-      if (!mine()) started?.controller.dispose();
+      if (started && started.controller !== this.controller) {
+        started.controller.dispose();
+        void started
+          .wallet()
+          .stop()
+          .catch(() => {});
+      }
     }
   }
 
@@ -209,19 +240,21 @@ export class Session {
         exclude: known,
       });
       const master = await masterFromPrf(prf);
-      const record: MasterRecord = {
-        v: 1,
-        id: crypto.randomUUID(),
-        method: 'passkey',
-        createdAt: Date.now(),
-        credentialId: base64url(credentialId),
-        askEveryOpen: !loadSettings().stayOpen,
-        backedUp: false,
-        account: { address: await addressOf(master, 0), index: 0 },
-      };
-      if (!record.askEveryOpen) record.sealed = await seal(master, record);
-      await putRecord(record);
-      return { record, master };
+      return owning(master, async () => {
+        const record: MasterRecord = {
+          v: 1,
+          id: crypto.randomUUID(),
+          method: 'passkey',
+          createdAt: Date.now(),
+          credentialId: base64url(credentialId),
+          askEveryOpen: !loadSettings().stayOpen,
+          backedUp: false,
+          account: { address: await addressOf(master, 0), index: 0 },
+        };
+        if (!record.askEveryOpen) record.sealed = await seal(master, record);
+        await putRecord(record);
+        return { record, master };
+      });
     });
   }
 
@@ -232,8 +265,11 @@ export class Session {
       const master = record.sealed
         ? await openMaster(record)
         : await openMaster(record, await this.masterFromCeremony(record));
-      const words = record.method === 'words' ? await openPhrase(record) : undefined;
-      return { record, master, words };
+      return owning(master, async () => ({
+        record,
+        master,
+        words: record.method === 'words' ? await openPhrase(record) : undefined,
+      }));
     });
   }
 
@@ -250,20 +286,22 @@ export class Session {
       this.guardHost();
       const { credentialId, prf } = await assertPasskey({ rpId: this.rpId });
       const master = await masterFromPrf(prf);
-      const address = await addressOf(master, 0);
-      const existing = (await listRecords()).find((r) => r.account.address === address);
-      const record: MasterRecord = existing ?? {
-        v: 1,
-        id: crypto.randomUUID(),
-        method: 'passkey',
-        createdAt: Date.now(),
-        credentialId: base64url(credentialId),
-        askEveryOpen: true,
-        backedUp: false,
-        account: { address, index: 0 },
-      };
-      if (!existing) await putRecord(record);
-      return { record, master: await openMaster(record, master) };
+      return owning(master, async () => {
+        const address = await addressOf(master, 0);
+        const existing = (await listRecords()).find((r) => r.account.address === address);
+        const record: MasterRecord = existing ?? {
+          v: 1,
+          id: crypto.randomUUID(),
+          method: 'passkey',
+          createdAt: Date.now(),
+          credentialId: base64url(credentialId),
+          askEveryOpen: true,
+          backedUp: false,
+          account: { address, index: 0 },
+        };
+        if (!existing) await putRecord(record);
+        return { record, master: await openMaster(record, master) };
+      });
     });
   }
 
@@ -278,25 +316,28 @@ export class Session {
     return this.runAttempt('twelve words', () => this.wordsRecord(phrase, backedUp));
   }
 
-  /** A fresh sealed words record and its master; the entropy is sealed, the master returned. */
+  /** A fresh sealed words record and its master (derived here unless the caller already has it). */
   private async wordsRecord(
     phrase: string,
     backedUp: boolean,
+    derived?: Uint8Array,
   ): Promise<{ record: MasterRecord; master: Uint8Array; words: string }> {
     this.guardHost();
-    const master = await masterFromMnemonic(phrase);
-    const record: MasterRecord = {
-      v: 1,
-      id: crypto.randomUUID(),
-      method: 'words',
-      createdAt: Date.now(),
-      askEveryOpen: false,
-      backedUp,
-      account: { address: await addressOf(master, 0), index: 0 },
-    };
-    record.sealed = await seal(entropyOf(phrase), record);
-    await putRecord(record);
-    return { record, master, words: normaliseWords(phrase) };
+    const master = derived ?? (await masterFromMnemonic(phrase));
+    return owning(master, async () => {
+      const record: MasterRecord = {
+        v: 1,
+        id: crypto.randomUUID(),
+        method: 'words',
+        createdAt: Date.now(),
+        askEveryOpen: false,
+        backedUp,
+        account: { address: await addressOf(master, 0), index: 0 },
+      };
+      record.sealed = await seal(entropyOf(phrase), record);
+      await putRecord(record);
+      return { record, master, words: normaliseWords(phrase) };
+    });
   }
 
   /** Restore: the phrase opens its record if this device has one, or gets a new (sealed) record. */
@@ -304,15 +345,15 @@ export class Session {
     return this.runAttempt('twelve words', async () => {
       this.guardHost();
       const master = await masterFromMnemonic(phrase);
-      const address = await addressOf(master, 0);
+      const address = await owning(master, () => addressOf(master, 0));
       const existing = (await listRecords()).find((r) => r.account.address === address);
       if (existing)
-        return {
+        return owning(master, async () => ({
           record: existing,
           master: await openMaster(existing, master),
           words: normaliseWords(phrase),
-        };
-      return this.wordsRecord(normaliseWords(phrase), true);
+        }));
+      return this.wordsRecord(normaliseWords(phrase), true, master);
     });
   }
 

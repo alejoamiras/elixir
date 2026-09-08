@@ -1,6 +1,14 @@
 import { useAtomValue, useSetAtom } from 'jotai';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { Button, ExternalLink, Kpi, Tile, TileHeader, useTweenedNumber } from '../../../ui/src/index.ts';
+import {
+  Button,
+  ExternalLink,
+  Kpi,
+  Skeleton,
+  Tile,
+  TileHeader,
+  useTweenedNumber,
+} from '../../../ui/src/index.ts';
 import { links } from '../explorer';
 import { amount, shortAddress } from '../lib/format';
 import { navigate } from '../routes';
@@ -11,6 +19,7 @@ export function BalanceCard({ className }: { className?: string }) {
   const balance = useAtomValue(balanceAtom);
   const claims = useAtomValue(claimsAtom);
   const ready = boot.phase === 'ready';
+  const opening = boot.phase === 'opening';
   const openSignIn = useSetAtom(signInAtom);
   // The tween is display only; anything that sends reads the store's bigint.
   const shown = useTweenedNumber(balance === null ? 0 : Number(amount(balance, PARAMS.DECIMALS, 2)));
@@ -18,26 +27,40 @@ export function BalanceCard({ className }: { className?: string }) {
     <Tile className={className}>
       <TileHeader aside="private">balance</TileHeader>
       <div className="flex flex-col gap-3">
-        <Kpi
-          size="lg"
-          label={<span className="sr-only">private balance</span>}
-          value={
-            <span
-              data-testid="balance"
-              data-exact={balance === null ? undefined : amount(balance, PARAMS.DECIMALS)}
-            >
-              {!ready ? '—' : balance === null ? '…' : shown.toFixed(2).replace(/\.?0+$/, '')}
-            </span>
-          }
-          unit={PARAMS.TOKEN_SYMBOL}
-        />
-        <div className="flex gap-2">
+        {opening ? (
+          // The account is coming up: the shape of the balance and its line, not a number.
+          <div className="flex flex-col gap-2" data-testid="balance-skeleton">
+            <Skeleton className="h-10 w-24" />
+            <Skeleton className="h-2.5 w-[180px]" />
+          </div>
+        ) : (
+          <Kpi
+            size="lg"
+            label={<span className="sr-only">private balance</span>}
+            value={
+              <span
+                data-testid="balance"
+                data-exact={balance === null ? undefined : amount(balance, PARAMS.DECIMALS)}
+              >
+                {!ready ? '—' : balance === null ? '…' : shown.toFixed(2).replace(/\.?0+$/, '')}
+              </span>
+            }
+            unit={PARAMS.TOKEN_SYMBOL}
+          />
+        )}
+        <div className={opening ? 'flex gap-2 opacity-50' : 'flex gap-2'}>
           {ready ? (
             <Button variant="primary" size="sm" onClick={() => navigate('wallet', 'send')} data-testid="send">
               Send
             </Button>
           ) : (
-            <Button variant="uv" size="sm" onClick={() => openSignIn(true)} data-testid="sign-in-balance">
+            <Button
+              variant="uv"
+              size="sm"
+              disabled={opening}
+              onClick={() => openSignIn(true)}
+              data-testid="sign-in-balance"
+            >
               Sign in
             </Button>
           )}

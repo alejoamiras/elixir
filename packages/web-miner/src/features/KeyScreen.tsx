@@ -16,20 +16,6 @@ import { shortAddress } from '../lib/format';
 import type { Session } from '../session';
 import { WordsBackup, WordsRestore } from './WordsScreens';
 
-function Fingerprint() {
-  return (
-    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden className="shrink-0 text-uv-2">
-      <title>passkey</title>
-      <path
-        d="M20 6c-7.7 0-14 6.3-14 14M9 20c0-6.1 4.9-11 11-11s11 4.9 11 11v3M13 20a7 7 0 0 1 14 0v6M17 20a3 3 0 0 1 6 0v9M20 20v14"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 type Words = { mode: 'none' } | { mode: 'create'; phrase: string } | { mode: 'restore' };
 
 /** The dialog's way out without an account: the cockpit stays, dull, with a way back in. */
@@ -81,7 +67,7 @@ export function CreateKey({
     <div className="flex flex-col gap-5" data-testid="key-screen">
       <div>
         <span className="label-mono">mine</span>
-        <h2 className="mt-1 text-2xl">Sign in to mine.</h2>
+        <h2 className="mt-1 text-[24px] leading-tight">Sign in to mine.</h2>
         <p className="mt-2 text-ink-2">
           Your account lives in a passkey on this device, synced by your platform. Your balance follows the
           account, not the browser; nothing is written down.
@@ -93,17 +79,7 @@ export function CreateKey({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <div className="flex flex-col gap-4 rounded-lg border border-uv/55 bg-uv-dim p-5">
-        <div className="flex items-start gap-4">
-          <Fingerprint />
-          <div>
-            <h3 className="text-lg">Passkey</h3>
-            <p className="text-sm text-ink-2">
-              The account is derived from the passkey and never leaves this device. It follows your passkeys
-              to your other devices.
-            </p>
-          </div>
-        </div>
+      <div className="flex flex-col gap-3">
         <label className="flex items-start gap-3 text-sm text-ink-2">
           <input
             type="checkbox"
@@ -222,7 +198,7 @@ export function WelcomeBack({
     <div className="flex flex-col gap-5" data-testid="key-screen">
       <div>
         <span className="label-mono">mine</span>
-        <h2 className="mt-1 text-2xl">Welcome back.</h2>
+        <h2 className="mt-1 text-[24px] leading-tight">Welcome back.</h2>
         <p className="mt-2 text-ink-2">Your balance follows the account, not the browser.</p>
       </div>
       {error && (

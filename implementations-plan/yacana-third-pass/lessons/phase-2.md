@@ -91,3 +91,42 @@ What the phase found:
   to Radix) rather than a hand-rolled div or a fake percentage. The keyframes live in `theme.css`.
 - **The 480 × 720 geometry check runs at 900 wide** (below 900 the phone fallback shows and there is no dialog); it
   asserts the dialog's own 480-wide box, no overflow, and the primary reachable by its scroll.
+
+## Arc 2 codex loop · round 1 (2026-09-08)
+
+Session `01a08352-8b88-75e2-9dd8-cad7371dcf96` (Astra, high), the three renders and artboards attached. Twelve
+findings; all verified, all adopted:
+
+- **High — a cancel during the controller's first read still opened the account.** No signal check after
+  `controller.begin()`, and `Session` adopted whatever `startSession` returned. Now the signal is checked after
+  `begin()` (inside the cleanup-protected block) and again as the result is adopted; anything returned and not
+  adopted is disposed and its wallet stopped in `finally`.
+- **Medium — the wallet accessor captured the initial wallet.** A rebuild (a lost race, a node switch) replaces
+  `opened`; `recipientKnown` would have used the stopped one. It reads the mutable handle again.
+- **Medium — a disposed controller could overwrite the balance.** The `disposed` guard covered the epoch write, not
+  the balance read that follows. Both now.
+- **Medium — Cancel could not escape a stalled CRS download.** `crsReady()` is shared and un-cancellable; the
+  attempt now races it against its own signal (the download keeps running for the next attempt), and a cancel wins
+  over whatever error the abort made the steps throw.
+- **Medium — supersession did not enforce ownership.** A new attempt neither aborted nor awaited its predecessor;
+  both could hold the PXE namespace. It aborts the predecessor and waits for its cleanup first; the predecessor sees
+  itself superseded and publishes nothing.
+- **Medium — secret cleanup started too late.** A master derived in a ceremony whose later work threw (address,
+  seal, record write) was never zeroed; `restoreWithWords` derived twice and dropped one. `owning(master, work)`
+  zeros on throw in every ceremony; the restore passes its master on.
+- **Medium — the indeterminate bar dropped the finished fill** and swept the whole track (a static 50 % under
+  reduced motion). `Progress` keeps `value` and confines the stripe to `[value, value + span]`; the dialog passes the
+  notes weight.
+- **Low — fidelity**: `text-2xl` is 30 px, the spec says 24 (`text-[24px]` now); done steps carry their times (the
+  ceremony's from `Session`, the crs and notes steps timed in `startSession`); the balance tile shows a `Skeleton`
+  (new in ui) while opening with the buttons at 50 %; the sign-up is the compact one the artboard draws — the
+  fingerprint card and its contradictory sentence ("never leaves this device" beside "follows your passkeys") are
+  gone, the consent line, the button and the warning stay.
+- **Low —** a failed purge now reports through `crsAtom.error` (purge inside the try); the opening tests import
+  `fake-indexeddb/auto` themselves (they passed the full run on another suite's preload); the `boot.ts`/`state.ts`
+  comments no longer place the CRS in the preflight.
+
+Tests: the supersession test became two — a signal-aware predecessor is aborted and outlasted on one PXE, and a
+cancel landing as the last step settles disposes the returned controller and stops its wallet. Gate re-run: lint ·
+5 typechecks · `bun test` 224 pass · Vitest 137 · the full miner E2E on the isolated network 15 passed · the arc-2
+renders re-shot.

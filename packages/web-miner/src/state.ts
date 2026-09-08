@@ -7,7 +7,7 @@ import type { OpeningStep } from './opening-steps';
 import type { CrsProgress } from './pinned-crs';
 
 export type Boot =
-  /** Isolation, CRS, node, deployment: each row with its evidence. */
+  /** Isolation, node, deployment: each row with its evidence (the proving keys stream beside it). */
   | { phase: 'preflight'; rows: PreflightRow[] }
   /** Preflight passed, no account open: the chain shows, the key screen decides how to open. */
   | { phase: 'signedOut'; records: MasterRecord[]; error?: string }

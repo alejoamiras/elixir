@@ -1,5 +1,6 @@
-// Boot in three parts: the preflight (isolation, CRS, node, deployment, each with its evidence),
-// the key screen (a passkey or the words → a master), then wallet, account, rules and prover.
+// Boot in three parts: the preflight (isolation, node, deployment, each with its evidence; the
+// proving keys stream from page load beside it), the sign-in (a passkey or the words → a master),
+// then the opening: wallet, account, rules and prover, as cancellable steps.
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
@@ -207,12 +208,17 @@ export async function switchNodeLive(o: {
   }
 }
 
+/** Rejects with the signal's reason when it aborts: what a wait that cannot itself be cancelled races against. */
+const aborted = (signal: AbortSignal): Promise<never> =>
+  new Promise((_, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+
 /** What the opening dialog needs to drive its steps and to be cancelled between them. */
 export interface OpeningOpts {
   signal: AbortSignal;
   publish: (steps: OpeningStep[]) => void;
-  /** The first step's label for the account's kind (a passkey, twelve words). */
+  /** The first step's label for the account's kind (a passkey, twelve words), and how long it took. */
   keyLabel?: string;
+  keyMs?: number;
 }
 
 export interface Started {
@@ -236,6 +242,7 @@ export async function startSession(
   opts: OpeningOpts,
 ): Promise<Started> {
   const steps = initialSteps(opts.keyLabel);
+  if (opts.keyMs !== undefined) (steps[0] as OpeningStep).ms = opts.keyMs;
   const set = (id: OpeningStep['id'], patch: Partial<OpeningStep>) => {
     const i = steps.findIndex((s) => s.id === id);
     steps[i] = { ...(steps[i] as OpeningStep), ...patch };
@@ -245,6 +252,8 @@ export async function startSession(
   opts.signal.throwIfAborted();
 
   // The proving keys: downloading since page load. Show the bytes as they land, then wait for the pin.
+  // The wait is this attempt's, not the download's: a cancel leaves the shared download running.
+  const t0 = performance.now();
   set('crs', { state: 'active' });
   const onCrs = () => {
     const c = store.get(crsAtom);
@@ -253,14 +262,15 @@ export async function startSession(
   onCrs();
   const unsub = store.sub(crsAtom, onCrs);
   try {
-    await crsReady();
+    await Promise.race([crsReady(), aborted(opts.signal)]);
   } finally {
     unsub();
   }
   opts.signal.throwIfAborted();
-  set('crs', { state: 'done', bytes: undefined, detail: undefined });
+  set('crs', { state: 'done', bytes: undefined, detail: undefined, ms: performance.now() - t0 });
 
   // Notes and balance: the wallet, the account, the deployment, and the controller's first read.
+  const t1 = performance.now();
   set('notes', { state: 'active' });
   let opened: OpenedWallet | undefined;
   let controller: MinerController | undefined;
@@ -323,10 +333,12 @@ export async function startSession(
     // The controller's first read owns the epoch from here; a public read still out lands nowhere.
     pre.publicEpoch.stop();
     await controller.begin();
-    set('notes', { state: 'done' });
+    // A cancel that landed during the first read must not end in a running account.
+    opts.signal.throwIfAborted();
+    set('notes', { state: 'done', ms: performance.now() - t1 });
     set('ready', { state: 'done' });
-    const openedWallet = opened;
-    return { controller, wallet: () => openedWallet.wallet, threads };
+    // Over the mutable handle: a rebuild (a lost race, a node switch) replaces `opened`.
+    return { controller, wallet: () => (opened as OpenedWallet).wallet, threads };
   } catch (e) {
     // Nothing of an aborted or failed start survives: a retry must not find a second PXE on the
     // namespace, and the public poll takes the epoch back (it stopped only on a first read that stuck).
