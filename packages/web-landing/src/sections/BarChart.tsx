@@ -19,7 +19,6 @@ const ticks = (hiLog2: number): number[] => {
   return powers.filter((_, k) => k % every === 0);
 };
 
-/** The rows the chart draws: the last six, in order. */
 export const shown = (rows: readonly EpochRow[]): EpochRow[] => rows.slice(-SHOWN);
 
 /**
