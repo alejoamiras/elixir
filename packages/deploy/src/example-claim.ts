@@ -82,12 +82,6 @@ export const effectView = (effect: unknown): EffectView => {
   };
 };
 
-/**
- * A claim's notes: the minted note and, on an account's first claim, the delivery handshake's.
- * More means the transaction did other things too, and "one claim, as recorded" would be a lie.
- */
-const MAX_NOTES = 2;
-
 const leafOf = async (contract: AztecAddress, slot: Fr, key: Fr): Promise<string> =>
   (
     await computePublicDataTreeLeafSlot(contract, await deriveStorageSlotInMap(slot, { toField: () => key }))
@@ -96,8 +90,11 @@ const leafOf = async (contract: AztecAddress, slot: Fr, key: Fr): Promise<string
 /**
  * The claim in `effect` for `identity.miner`, searching epochs `0..epochs`. Refused when the effect
  * lacks the pair of leaf writes, writes claims of more than one epoch, lacks the digest's siloed
- * ticket among its nullifiers (the search is by value, never by position), carries notes beyond a
- * claim's, or shows no fee write on the sponsor's balance.
+ * ticket among its nullifiers (the search is by value, never by position), carries other than
+ * exactly one note hash, or shows no fee write on the sponsor's balance. One note is what makes
+ * it one claim: a batch of claims in one epoch leaves one counter and one digest but a note each,
+ * and an account's first claim adds the delivery handshake's note, so neither can be "one claim,
+ * as recorded".
  */
 export async function exampleClaimFromEffect(
   effect: EffectView,
@@ -121,8 +118,8 @@ export async function exampleClaimFromEffect(
   const nullifier = (await ticketNullifier(Fr.fromString(one.digest), miner)).toString();
   if (!effect.nullifiers.includes(nullifier))
     throw new Error(`the effect writes claims[${one.epoch}] but carries no ticket nullifier for its digest`);
-  if (effect.noteHashes.length < 1 || effect.noteHashes.length > MAX_NOTES)
-    throw new Error(`the effect carries ${effect.noteHashes.length} note hashes: not one claim`);
+  if (effect.noteHashes.length !== 1)
+    throw new Error(`the effect carries ${effect.noteHashes.length} note hashes: not one plain claim`);
   if (!writes.has(await leafOf(fee.feeJuice, fee.balancesSlot, fee.sponsor.toField())))
     throw new Error('the effect shows no fee-juice write on the sponsor: the fee was not the sponsor’s');
   const after = Number(BigInt(one.claims));

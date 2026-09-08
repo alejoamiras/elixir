@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/stdlib/hash';
 import { TxHash } from '@aztec/stdlib/tx';
-import { PARAMS } from '../../miner-core/src/generated/params.ts';
+import { TABLE_EPOCHS } from '../../miner-core/src/reader.ts';
 import { loadLayouts } from '../../miner-core/src/slots.ts';
 import {
   type EffectView,
@@ -49,9 +49,12 @@ describe('the example claim from a transaction effect', () => {
     await expect(
       extract({ ...e, nullifiers: e.nullifiers.filter((n) => n !== recorded.nullifier) }),
     ).rejects.toThrow(/no ticket nullifier/);
+    // Two notes: a batch of claims in one epoch (one counter, one digest, a note each) or a first claim with
+    // its handshake; either way not "one claim, as recorded".
     await expect(
-      extract({ ...e, noteHashes: [...e.noteHashes, ...e.noteHashes, ...e.noteHashes] }),
-    ).rejects.toThrow(/note hashes: not one claim/);
+      extract({ ...e, noteHashes: [...e.noteHashes, `0x${'7'.padStart(64, '0')}`] }),
+    ).rejects.toThrow(/2 note hashes: not one plain claim/);
+    await expect(extract({ ...e, noteHashes: [] })).rejects.toThrow(/0 note hashes/);
     // Without the fee-juice write on the sponsor's balance leaf, the fee was someone else's.
     const sponsorLeaf = (
       await computePublicDataTreeLeafSlot(
@@ -77,6 +80,6 @@ describe.skipIf(!testnet)('the recorded claim on the testnet', () => {
     expect(effect).toBeTruthy();
     const view = effectView(effect);
     expect(view).toEqual(fixture.effect);
-    expect(await exampleClaimFromEffect(view, identity, layout, PARAMS.CHAIN_LEN, fee)).toEqual(recorded);
+    expect(await exampleClaimFromEffect(view, identity, layout, TABLE_EPOCHS - 1, fee)).toEqual(recorded);
   }, 120_000);
 });

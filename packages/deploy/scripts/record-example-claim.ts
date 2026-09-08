@@ -6,8 +6,12 @@ import { resolve } from 'node:path';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { TxHash } from '@aztec/stdlib/tx';
-import { PARAMS } from '../../miner-core/src/generated/params.ts';
-import { assertDeployment, expectedFromStrings, readOpenEpochNumber } from '../../miner-core/src/reader.ts';
+import {
+  assertDeployment,
+  expectedFromStrings,
+  readOpenEpochNumber,
+  TABLE_EPOCHS,
+} from '../../miner-core/src/reader.ts';
 import { loadLayouts } from '../../miner-core/src/slots.ts';
 import { effectView, exampleClaimFromEffect, sponsorFeeLeaf } from '../src/example-claim.ts';
 
@@ -40,11 +44,13 @@ const view = effectView(effect);
 if (view.txHash.toLowerCase() !== txHash.toLowerCase())
   throw new Error(`the node returned the effect of ${view.txHash}, not ${txHash}`);
 const open = await readOpenEpochNumber(node, AztecAddress.fromStringUnsafe(record.miner), layout);
+if (!Number.isSafeInteger(open) || open < 0 || open >= TABLE_EPOCHS)
+  throw new Error(`the node reports open epoch ${open}: not an epoch this deployment can have`);
 const claim = await exampleClaimFromEffect(
   view,
   { miner: record.miner, chainId: record.chainId, rollupVersion: record.rollupVersion },
   layout,
-  Math.min(open, PARAMS.CHAIN_LEN),
+  open,
   await sponsorFeeLeaf(),
 );
 const out = resolve(repo, recordPath.replace(/\.json$/, '.example-claim.json'));

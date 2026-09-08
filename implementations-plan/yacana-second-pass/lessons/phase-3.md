@@ -76,3 +76,16 @@ Codex judged the recorded-claim label, the privacy caveat and the test network's
 path from a read-only page to the throwing prover proxies, and confirmed the derived issuance (192 an hour).
 Gates after the round: landing components 10 ✓ · `bun test packages/site packages/deploy scripts packages/web-landing`
 ✓ · landing E2E 3 passed (45.5 s) ✓ · lint ✓ · typecheck ✓.
+
+## Arc 3 codex loop · round 2 (2026-09-08)
+
+Resumed over `7cc96a5`: two findings, both verified and adopted:
+
+| sev | finding | fix |
+|---|---|---|
+| P2 | Two claims in one epoch leave one counter and one digest but two minted notes — the permitted maximum — so the extractor could still pair the last claim's ticket with the first claim's note. | Exactly one note hash: a batch in one epoch has a note per claim and a first claim adds the handshake's, so neither is "one claim, as recorded". The committed example has one. The unit test drives two notes and none; miner-core's live test now asserts its own first claim is *refused* for its two notes and, with one note set aside, extracted with the same leaves, ticket and fee. |
+| P2 | `PARAMS.CHAIN_LEN` bounded the epoch scan, but it is the work circuit's hash-chain length: any claim past epoch 2048 would have been refused. | The node's `open_epoch` is validated as a safe integer below `TABLE_EPOCHS` (the slot table's reach) and used as the bound. |
+
+The re-run of the miner-core live suite on the isolated network: **4 pass** (LIVE_EXIT=0; a first attempt was killed by
+the machine's memory pressure from other sessions, not by the test, and left no orphan). Offline: `bun test
+packages/deploy` 4 pass, 1 skipped (the testnet reread) ✓ · lint ✓ · typecheck ✓.
