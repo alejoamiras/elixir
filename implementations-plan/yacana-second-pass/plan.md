@@ -440,7 +440,7 @@ codex loop, then `gh stack add second-pass-landing`.
 
 ### Arc 3 · landing + site (`second-pass-landing`)
 
-**P3.1 The landing: hero tile with the bar chart, the diet, the ledger, Verify, the demo removed.** `copy.ts`;
+**P3.1 ✓ The landing: hero tile with the bar chart, the diet, the ledger, Verify, the demo removed.** `copy.ts`;
 `HeroLive` + `BarChart`; `Money` two tones; `Chain` ledger from `VITE_EXAMPLE_CLAIM` (present → the recorded claim
 with its links; absent → "—"); `packages/deploy/scripts/record-example-claim.ts` (+ a unit test on a committed captured effect, and a
 `describe.skipIf(!AZTEC_NODE_URL)` test on a real testnet claim); the owner runs the script once with a soak claim's tx hash to produce

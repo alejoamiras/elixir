@@ -22,3 +22,5 @@ vi.stubEnv('VITE_YACANA_TOKEN_CLASS', record.tokenClassId);
 vi.stubEnv('VITE_SOURCE_COMMIT', 'abcdef0123456789');
 vi.stubEnv('VITE_DEPLOYMENT_RECORD', JSON.stringify(record));
 vi.stubEnv('VITE_LAUNCH_MODE', '');
+vi.stubEnv('VITE_EXPLORER_URL', 'https://testnet.aztecscan.xyz');
+vi.stubEnv('VITE_EXAMPLE_CLAIM', '');

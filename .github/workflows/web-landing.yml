@@ -23,9 +23,6 @@ jobs:
           - 'packages/miner-core/src/**'
           - 'packages/miner-core/scripts/**'
           - 'packages/miner-core/fixtures/**'
-          - 'packages/web-miner/src/demo/**'
-          - 'packages/web-miner/src/pinned-crs.ts'
-          - 'packages/web-miner/src/shims/**'
           - 'biome.json'
           - 'bunfig.toml'
           - 'tsconfig.json'
@@ -47,5 +44,5 @@ jobs:
       - run: bun run lint
       - run: bun run --cwd packages/web-landing typecheck
       - run: bun run --cwd packages/web-landing test:components
-      # The site config (launch mode) and the metrics the copy deck and the demo panel compute from.
+      # The site config (launch mode, the example claim) and the metrics the copy deck computes from.
       - run: bun test packages/site packages/miner-core/src/metrics.test.ts

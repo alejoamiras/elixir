@@ -65,7 +65,7 @@ export function Launch({ status, live }: { status: LaunchStatus; live: LiveStatu
       </div>
       <Tile className="flex flex-col gap-4">
         <Kpi
-          label={<span data-testid="launch-phase">{phase ? l.phases[phase] : copy.live.loading}</span>}
+          label={<span data-testid="launch-phase">{phase ? l.phases[phase] : copy.hero.loading}</span>}
           value={<span data-testid="launch-countdown">{clock()}</span>}
           size="lg"
           sub={
@@ -81,7 +81,7 @@ export function Launch({ status, live }: { status: LaunchStatus; live: LiveStatu
         />
         {status.phase === 'ready' && status.unreachable && (
           <p className="text-2xs text-warn" data-testid="launch-unreachable">
-            {copy.live.unreachable}
+            {copy.hero.unreachable}
           </p>
         )}
       </Tile>

@@ -17,6 +17,8 @@ interface ImportMetaEnv {
   readonly VITE_E2E_QUERY_OVERRIDES: string;
   readonly VITE_LAUNCH_MODE: string;
   readonly VITE_EXPLORER_URL: string;
+  /** The recorded example claim as JSON, or '' when the profile has none. */
+  readonly VITE_EXAMPLE_CLAIM: string;
   /** JSON of the deployment record the build was made for. */
   readonly VITE_DEPLOYMENT_RECORD: string;
 }

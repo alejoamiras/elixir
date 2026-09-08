@@ -13,7 +13,7 @@ function Root() {
   const [live, setLive] = useState<LiveStatus>({ phase: 'loading' });
   const [launch, setLaunch] = useState<LaunchStatus>({ phase: 'loading' });
   useEffect(() => watchChain(connection, { live: setLive, launch: setLaunch }), []);
-  return <App live={live} launch={launch} miner={connection.miner} />;
+  return <App live={live} launch={launch} />;
 }
 
 const root = document.getElementById('root');

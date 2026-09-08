@@ -3,6 +3,8 @@ import { expect, test } from '@playwright/test';
 import { type E2eRun, RUN_FILE } from './run.ts';
 
 const run = (): E2eRun => JSON.parse(readFileSync(RUN_FILE, 'utf8')) as E2eRun;
+/** The smallest file of the pinned CRS the miner fetches from `/crs` (`crs.lock.json`). */
+const CRS_FILE = 'g2.dat';
 
 const query = (r: E2eRun) =>
   `?${new URLSearchParams({ node: r.nodeUrl, miner: r.miner, token: r.token }).toString()}`;
@@ -68,13 +70,22 @@ test('one origin, three apps: every path serves its app under the same headers; 
   await expect(page.getByTestId('verify-miner')).toHaveText(r.miner);
 });
 
-test('the demo proves on the assembled origin', async ({ page }) => {
-  test.setTimeout(6 * 60_000);
+test('the landing serves no prover; the miner still does', async ({ page, request }) => {
   const r = run();
+  // The landing's HTML and its assets name nothing of bb.js or a WASM binary.
+  const html = await (await request.get(`${r.baseURL}/`)).text();
+  expect(html).not.toMatch(/barretenberg|\.wasm/);
+  const heavy: string[] = [];
+  page.on('request', (req) => {
+    if (/barretenberg|\.wasm(\?|$)/.test(req.url())) heavy.push(req.url());
+  });
   await page.goto(`${r.baseURL}/${query(r)}`);
-  const prove = page.getByTestId('prove');
-  await expect(prove).toBeEnabled();
-  await prove.click();
-  await expect(page.getByTestId('demo-result')).toBeVisible({ timeout: 4 * 60_000 });
-  expect(Number(await page.getByTestId('demo-score').textContent())).toBeGreaterThanOrEqual(1);
+  await expect(page.getByTestId('hero-live')).toBeVisible();
+  await expect(page.getByTestId('live-epoch')).toHaveText('0 of 4');
+  await expect(page.getByTestId('ledger-public')).toContainText('—');
+  expect(heavy).toEqual([]);
+  // The miner's CRS is still there at the origin's root.
+  const crs = await request.get(`${r.baseURL}/crs/${CRS_FILE}`);
+  expect(crs.status()).toBe(200);
+  expect((await crs.body()).length).toBe(128);
 });

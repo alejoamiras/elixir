@@ -97,7 +97,8 @@ every path's app, identical headers, `build.json` and the landing's proof.
 First production deploy: 2026-09-06, Worker version `ea00520a-65bf-415a-b524-4235442159c6`, commit `aef4edd`
 (`build.json`), 624 assets; the custom domain, its DNS record and certificate were created by that deploy. Verified
 live: every path with identical policy headers, the landing's strip reading the testnet (epoch 8), a real proof
-through "Prove one now" (5.0 s), the stats' deep link, the miner's key screen with keys offered. Cloudflare
+through "Prove one now" (5.0 s; the in-page demo has since been removed and the landing ships no prover), the
+stats' deep link, the miner's sign-up screen. Cloudflare
 injects its Web Analytics beacon into HTML by default; the CSP blocks it (one console error per page) and the
 promise is no trackers, so it is turned off in the Worker's Observability settings.
 

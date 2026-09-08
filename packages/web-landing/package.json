@@ -2,7 +2,7 @@
   "name": "@yacana/web-landing",
   "version": "0.0.0",
   "private": true,
-  "description": "The landing at /: what YACA is, the money rules, the live strip, the in-page demo proof, launch mode",
+  "description": "The landing at /: what YACA is, the money rules, the live hero, the recorded claim, launch mode",
   "type": "module",
   "scripts": {
     "build": "bun scripts/prebuild.ts && tsc -b && vite build",
@@ -15,9 +15,7 @@
   },
   "dependencies": {
     "@aztec/aztec.js": "5.2.0",
-    "@aztec/bb.js": "5.2.0",
     "@aztec/foundation": "5.2.0",
-    "@aztec/noir-noir_js": "5.2.0",
     "@aztec/stdlib": "5.2.0",
     "@tailwindcss/vite": "^4",
     "idb-keyval": "^6",

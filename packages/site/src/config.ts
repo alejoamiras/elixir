@@ -24,6 +24,21 @@ export interface SiteConfig {
   explorerUrl: string;
   /** The whole deployment record, for the Verify page; its identity fields agree with the ones above. */
   record: DeploymentRecord;
+  /** One recorded claim of this deployment for the landing's ledger, or null: the tile then shows dashes. */
+  exampleClaim: ExampleClaim | null;
+}
+
+/** `deployments/<profile>.example-claim.json`, written by `record-example-claim.ts` from a claim's effect. */
+export interface ExampleClaim {
+  miner: string;
+  chainId: string;
+  rollupVersion: string;
+  epoch: number;
+  claims: [number, number];
+  block: number;
+  txHash: string;
+  nullifier: string;
+  noteHash: string;
 }
 
 export interface DeploymentRecord {
@@ -72,6 +87,7 @@ export function loadSiteConfig(opts: {
   mode: SiteMode;
   siteEnv: Record<string, string>;
   deployment: DeploymentRecord;
+  exampleClaim?: ExampleClaim | null;
   env?: Env;
   sourceCommit: string;
   bbVersion: string;
@@ -103,6 +119,7 @@ export function loadSiteConfig(opts: {
     launchMode: pick('VITE_LAUNCH_MODE', siteEnv.VITE_LAUNCH_MODE ?? '') === '1',
     explorerUrl: pick('VITE_EXPLORER_URL', siteEnv.VITE_EXPLORER_URL ?? 'off'),
     record: deployment,
+    exampleClaim: opts.exampleClaim ?? null,
   };
   // An e2e build carries its throwaway deployment's record, or at least its identity.
   const overridden = env.VITE_DEPLOYMENT_RECORD
@@ -117,8 +134,30 @@ export function loadSiteConfig(opts: {
     minerClassId: config.minerClassId,
     tokenClassId: config.tokenClassId,
   };
+  assertExampleClaim(config);
   if (mode === 'production') assertProductionConfig(config, siteEnv);
   return config;
+}
+
+const HEX32 = /^0x[0-9a-f]{64}$/;
+
+/** The example claim is this deployment's or none: a file left over from another profile never ships. */
+function assertExampleClaim(c: SiteConfig): void {
+  const x = c.exampleClaim;
+  if (!x) return;
+  const identity = [x.miner === c.miner, x.chainId === c.chainId, x.rollupVersion === c.rollupVersion];
+  if (!identity.every(Boolean))
+    throw new Error(
+      `the example claim is another deployment's (${x.miner} on ${x.chainId}/${x.rollupVersion})`,
+    );
+  const shape =
+    Number.isSafeInteger(x.epoch) &&
+    x.epoch >= 0 &&
+    Number.isSafeInteger(x.block) &&
+    x.claims.length === 2 &&
+    x.claims[1] - x.claims[0] === 1 &&
+    [x.txHash, x.nullifier, x.noteHash].every((h) => HEX32.test(h));
+  if (!shape) throw new Error('the example claim is malformed');
 }
 
 const IP_OR_LOCAL = /^(localhost|127\.\d+\.\d+\.\d+|\[?::1\]?|\d+\.\d+\.\d+\.\d+)$/;
@@ -158,5 +197,6 @@ export const viteDefine = (c: SiteConfig): Record<string, string> =>
       VITE_LAUNCH_MODE: c.launchMode ? '1' : '',
       VITE_EXPLORER_URL: c.explorerUrl,
       VITE_DEPLOYMENT_RECORD: JSON.stringify(c.record),
+      VITE_EXAMPLE_CLAIM: c.exampleClaim ? JSON.stringify(c.exampleClaim) : '',
     }).map(([k, v]) => [`import.meta.env.${k}`, JSON.stringify(v)]),
   );
