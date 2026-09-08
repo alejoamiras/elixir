@@ -7,7 +7,7 @@ import { difficultyLabel } from '../../../ui/src/index.ts';
 export const SHOWN = 6;
 const W = 480;
 const H = 100;
-const LEFT = 30;
+const LEFT = 42;
 const RIGHT = 6;
 const TOP = 10;
 const BOTTOM = 18;
