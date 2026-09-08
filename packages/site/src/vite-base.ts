@@ -47,9 +47,10 @@ export function siteConfig(command: 'build' | 'serve', env: NodeJS.ProcessEnv = 
   const deployment = JSON.parse(
     readFileSync(resolve(repo, `deployments/${profile}.json`), 'utf8'),
   ) as DeploymentRecord;
-  // The profile's recorded claim when there is one; an e2e build may point at its own file (or at none).
+  // The profile's recorded claim when there is one. An e2e build's deployment is a throwaway, so the
+  // profile's claim is never its own: it ships the file `VITE_EXAMPLE_CLAIM` names, or none.
   const claimPath =
-    mode === 'e2e' && env.VITE_EXAMPLE_CLAIM !== undefined
+    mode === 'e2e'
       ? env.VITE_EXAMPLE_CLAIM && resolve(repo, env.VITE_EXAMPLE_CLAIM)
       : resolve(repo, `deployments/${profile}.example-claim.json`);
   const exampleClaim =

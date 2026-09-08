@@ -3,9 +3,17 @@ import { expect, type Page, test } from '@playwright/test';
 import { type E2eRun, RUN_FILE } from './run.ts';
 
 const run = (): E2eRun => JSON.parse(readFileSync(RUN_FILE, 'utf8')) as E2eRun;
+const fixture = JSON.parse(
+  readFileSync(new URL('./fixtures/example-claim.json', import.meta.url), 'utf8'),
+) as {
+  block: number;
+  txHash: string;
+  epoch: number;
+  claims: [number, number];
+};
 
-const pageUrl = (r: E2eRun) => {
-  const url = new URL(r.baseURL);
+const pageUrl = (r: E2eRun, base = r.baseURL) => {
+  const url = new URL(base);
   url.searchParams.set('node', r.nodeUrl);
   url.searchParams.set('miner', r.miner);
   url.searchParams.set('token', r.token);
@@ -20,7 +28,7 @@ function watch(page: Page, r: E2eRun) {
     origins.add(new URL(req.url()).origin);
     if (/barretenberg|\.wasm(\?|$)/.test(req.url())) heavy.push(req.url());
   });
-  const allowed = new Set([new URL(r.baseURL).origin, new URL(r.nodeUrl).origin]);
+  const allowed = new Set([new URL(r.baseURL).origin, new URL(r.claimURL).origin, new URL(r.nodeUrl).origin]);
   return { heavy, foreign: () => [...origins].filter((o) => !allowed.has(o)) };
 }
 
@@ -38,11 +46,10 @@ async function expectFrames(page: Page) {
   expect(hero).toHaveLength(2);
   expect((hero[1] as number) / (hero[0] as number)).toBeCloseTo(1.1, 2);
   expect(sum(hero)).toBeCloseTo(1120 - 2 * 36 - 30, 0);
-  const live = await tracks(page, 'live');
-  expect(live).toHaveLength(5);
-  expect(new Set(live.slice(0, 4).map((t) => t.toFixed(1))).size).toBe(1);
-  expect((live[4] as number) / (live[0] as number)).toBeCloseTo(1.4, 2);
-  expect(sum(live)).toBeCloseTo(1120 - 2 * 36 - 4 * 16, 0);
+  // The tile sits in the hero's right track and its chart spans the tile.
+  const tile = await page.getByTestId('hero-live').boundingBox();
+  const chart = await page.getByTestId('hero-chart').boundingBox();
+  expect(tile && chart && chart.width > tile.width - 40 && chart.height >= 90).toBe(true);
   const ask = await page.locator('#ask').evaluate((el) => {
     const heading = el.querySelector('h2') as HTMLElement;
     const row = heading.nextElementSibling as HTMLElement;
@@ -66,17 +73,44 @@ test.beforeEach(({ page }) => {
   page.on('console', (m) => m.type() === 'error' && console.log(`[console] ${m.text().slice(0, 300)}`));
 });
 
-test('the argument in order, the live strip from the chain, nothing of the prover before the click', async ({
+test('the argument in order, the hero tile from the chain, the ledger empty, nothing of the prover ever', async ({
   page,
 }) => {
   const r = run();
   const net = watch(page, r);
   await page.goto(pageUrl(r));
   const ids = await page.locator('main > section').evaluateAll((els) => els.map((e) => e.id));
-  expect(ids).toEqual(['hero', 'money', 'chain', 'how', 'live', 'verify', 'ask']);
+  expect(ids).toEqual(['hero', 'money', 'chain', 'how', 'verify', 'ask']);
   await expect(page.getByTestId('live-minted')).toHaveText('0');
   await expect(page.getByTestId('live-epoch')).toHaveText('0 of 4');
-  await expect(page.getByTestId('demo-caption')).toContainText('epoch 0');
+  await expect(page.getByTestId('live-block').getByRole('link')).toHaveAttribute('href', /\/blocks\/\d+$/);
+  await expect(page.getByTestId('hero-chart')).toBeVisible();
+  await expect(page.getByTestId('hero-chart')).toContainText('epoch 0 · open · 0 of 4');
+  await expect(page.getByTestId('hero-caption')).toContainText('every epoch so far');
+  // No recorded claim on this deployment: the public tile shows its labels with dashes and no block chip.
+  await expect(page.getByTestId('ledger-public')).toContainText('a nullifier');
+  await expect(page.getByTestId('ledger-public')).toContainText('—');
+  await expect(page.getByTestId('ledger-block')).toHaveCount(0);
+  await expect(page.getByTestId('ledger-public').getByRole('link')).toHaveCount(0);
+  await expect(page.getByTestId('ledger-private').getByRole('link')).toHaveCount(0);
+  // Verify: the deployment's own addresses open on the explorer; one button.
+  await expect(page.getByTestId('chip-miner')).toHaveAttribute(
+    'href',
+    new RegExp(`/contracts/instances/${r.miner}$`),
+  );
+  await expect(page.getByTestId('chip-token')).toHaveAttribute(
+    'href',
+    new RegExp(`/contracts/instances/${r.token}$`),
+  );
+  await expect(page.getByTestId('chip-class')).toHaveAttribute(
+    'href',
+    /\/contracts\/classes\/0x[0-9a-f]{64}\/versions\/1$/,
+  );
+  await expect(page.getByTestId('verify-source')).toHaveAttribute(
+    'href',
+    'https://github.com/alejoamiras/elixir',
+  );
+  await expect(page.locator('#verify').getByRole('link')).toHaveCount(5);
   await expect(page.getByTestId('footer-line')).toContainText(
     'no trackers, no cookies, no requests except to the Aztec node you choose',
   );
@@ -90,30 +124,25 @@ test('the argument in order, the live strip from the chain, nothing of the prove
   expect(net.foreign()).toEqual([]);
 });
 
-test('"Prove one now" proves W against the open epoch: real step times, a score, no request elsewhere', async ({
+test('with a recorded claim the ledger shows its block, hashes and counter, each linked to the explorer', async ({
   page,
 }) => {
-  test.setTimeout(6 * 60_000);
   const r = run();
   const net = watch(page, r);
-  await page.goto(pageUrl(r));
-  const prove = page.getByTestId('prove');
-  await expect(prove).toBeEnabled();
-  await prove.click();
-  await expect(page.getByTestId('demo-steps')).toBeVisible();
-  await expect(page.getByTestId('demo-result')).toBeVisible({ timeout: 4 * 60_000 });
-  const steps = page.getByTestId('demo-steps').locator('li[data-done="1"]');
-  await expect(steps).toHaveCount(4);
-  const times = await steps.locator('span:last-child').allTextContents();
-  for (const t of times) expect(t).toMatch(/^\d+\.\d s$/);
-  // The proof itself is seconds, not milliseconds: a real UltraHonk proof of W was made.
-  const proofMs = Number((times[2] as string).replace(' s', '')) * 1000;
-  expect(proofMs).toBeGreaterThan(300);
-  const score = Number(await page.getByTestId('demo-score').textContent());
-  expect(score).toBeGreaterThanOrEqual(1);
-  expect(net.heavy.length).toBeGreaterThan(0);
+  await page.goto(pageUrl(r, r.claimURL));
+  await expect(page.getByTestId('live-epoch')).toHaveText('0 of 4');
+  await expect(page.getByTestId('ledger-block')).toHaveAttribute(
+    'href',
+    new RegExp(`/blocks/${fixture.block}$`),
+  );
+  await expect(page.getByTestId('ledger-block')).toContainText(`block ${fixture.block}`);
+  for (const id of ['ledger-nullifier', 'ledger-note-hash'])
+    await expect(page.getByTestId(id)).toHaveAttribute('href', new RegExp(`/tx-effects/${fixture.txHash}$`));
+  await expect(page.getByTestId('ledger-claims')).toHaveText(`${fixture.claims[0]} → ${fixture.claims[1]}`);
+  await expect(page.getByTestId('ledger-public')).toContainText(`claims in epoch ${fixture.epoch}`);
+  await expect(page.getByTestId('ledger-public')).toContainText('the sponsor');
+  expect(net.heavy).toEqual([]);
   expect(net.foreign()).toEqual([]);
-  await expect(prove).toHaveText('Prove another');
 });
 
 test('a phone reads, shares the miner link and mines nothing', async ({ page }) => {
@@ -121,7 +150,7 @@ test('a phone reads, shares the miner link and mines nothing', async ({ page }) 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(pageUrl(r));
   await expect(page.getByTestId('share')).toBeVisible();
-  await expect(page.getByTestId('demo')).toHaveCount(0);
-  await expect(page.getByTestId('hero-prove')).toHaveCount(0);
-  await expect(page.getByTestId('live-epoch')).toHaveText('0 of 4');
+  await expect(page.getByTestId('hero-live')).toHaveCount(0);
+  await expect(page.getByTestId('hero-mine')).toHaveCount(0);
+  await expect(page.getByTestId('ledger-public')).toBeVisible();
 });

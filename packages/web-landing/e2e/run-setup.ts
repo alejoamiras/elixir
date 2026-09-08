@@ -2,7 +2,7 @@
 // port (lane 5; owned by the Playwright process, which outlives this script), and e2e/.run.json
 // for the specs. The server binds `localhost`.
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
-import { openSync } from 'node:fs';
+import { openSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -15,6 +15,8 @@ const nodeUrl = process.env.AZTEC_NODE_URL;
 if (!nodeUrl) throw new Error('AZTEC_NODE_URL is not set: run through `bun run e2e:agent -- …`');
 const pkg = resolve(import.meta.dir, '..');
 const OUT_DIR = 'e2e/.dist';
+const CLAIM_OUT_DIR = 'e2e/.dist-claim';
+const CLAIM_FILE = 'packages/web-landing/e2e/.example-claim.json';
 
 const e2eEnv = (d: Deployment): NodeJS.ProcessEnv => ({
   ...process.env,
@@ -30,22 +32,40 @@ const e2eEnv = (d: Deployment): NodeJS.ProcessEnv => ({
   VITE_YACANA_MINER_CLASS: d.minerClassId,
   VITE_YACANA_TOKEN_CLASS: d.tokenClassId,
   VITE_DEPLOYMENT_RECORD: JSON.stringify(d),
+  // No recorded claim: the ledger's empty state. The second build points at the run's fixture.
+  VITE_EXAMPLE_CLAIM: '',
 });
 
-function buildForRun(log: number, env: NodeJS.ProcessEnv): void {
-  execFileSync('bunx', ['vite', 'build', '--outDir', OUT_DIR, '--emptyOutDir'], {
+/** The committed fixture claim with its identity rewritten to this run's deployment, so the config accepts it. */
+function writeClaimFixture(d: Deployment): void {
+  const fixture = JSON.parse(readFileSync(resolve(pkg, 'e2e/fixtures/example-claim.json'), 'utf8')) as Record<
+    string,
+    unknown
+  >;
+  writeFileSync(
+    resolve(pkg, '../..', CLAIM_FILE),
+    JSON.stringify(
+      { ...fixture, miner: d.miner, chainId: d.chainId, rollupVersion: d.rollupVersion },
+      null,
+      2,
+    ),
+  );
+}
+
+function buildForRun(log: number, env: NodeJS.ProcessEnv, outDir: string): void {
+  execFileSync('bunx', ['vite', 'build', '--outDir', outDir, '--emptyOutDir'], {
     cwd: pkg,
     stdio: ['ignore', log, log],
     env,
   });
 }
 
-function startServer(log: number, port: number, env: NodeJS.ProcessEnv): ChildProcess {
+function startServer(log: number, port: number, env: NodeJS.ProcessEnv, outDir: string): ChildProcess {
   const args = [
     'vite',
     'preview',
     '--outDir',
-    OUT_DIR,
+    outDir,
     '--port',
     String(port),
     '--strictPort',
@@ -71,41 +91,47 @@ async function waitUntilUp(baseURL: string, child: ChildProcess): Promise<boolea
 
 const ownerPid = Number(process.env.E2E_OWNER_PID ?? process.ppid);
 const runId = `web-landing-e2e-${ownerPid}-${Date.now()}`;
-const port = await claim({
-  runId,
-  service: 'vite',
-  ownerPid,
-  worktree: resolve(pkg, '../..'),
-  base: lanePortBase(runPortWindowBase(runId), 5, 8),
-  span: 8,
-});
-let spawned: ChildProcess | undefined;
+const worktree = resolve(pkg, '../..');
+const base = lanePortBase(runPortWindowBase(runId), 5, 8);
+const portFor = (service: string) => claim({ runId, service, ownerPid, worktree, base, span: 8 });
+const spawned: ChildProcess[] = [];
 try {
-  // A target no proof reaches: the demo scores its proof and never has a winner to discard.
+  // A target no proof reaches: the deployment stays at epoch 0 with no claim, the ledger's empty state.
   const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: 1n });
   const log = openSync(resolve(pkg, 'e2e/.vite.log'), 'w');
   const env = e2eEnv(deployed);
-  buildForRun(log, env);
-  spawned = startServer(log, port, env);
-  const baseURL = `http://localhost:${port}`;
-  if (!(await waitUntilUp(baseURL, spawned)))
-    throw new Error(`vite preview did not start on ${baseURL} (see e2e/.vite.log)`);
+  writeClaimFixture(deployed);
+  const serve = async (service: string, outDir: string, extra: NodeJS.ProcessEnv): Promise<string> => {
+    const port = await portFor(service);
+    buildForRun(log, { ...env, ...extra }, outDir);
+    const child = startServer(log, port, env, outDir);
+    spawned.push(child);
+    const url = `http://localhost:${port}`;
+    if (!(await waitUntilUp(url, child)))
+      throw new Error(`vite preview did not start on ${url} (see e2e/.vite.log)`);
+    return url;
+  };
+  const baseURL = await serve('vite', OUT_DIR, {});
+  const claimURL = await serve('vite-claim', CLAIM_OUT_DIR, { VITE_EXAMPLE_CLAIM: CLAIM_FILE });
   const run: E2eRun = {
     baseURL,
+    claimURL,
     nodeUrl,
     miner: deployed.miner,
     token: deployed.token,
-    vitePid: spawned.pid as number,
+    vitePids: spawned.map((c) => c.pid as number),
     runId,
   };
   await Bun.write(RUN_FILE, JSON.stringify(run, null, 2));
-  console.log(`e2e: ${baseURL} miner ${deployed.miner} token ${deployed.token}`);
+  console.log(
+    `e2e: ${baseURL} (+ ${claimURL} with the claim) miner ${deployed.miner} token ${deployed.token}`,
+  );
   process.exit(0);
 } catch (e) {
-  // The server is detached: nothing else would reap it once this script is gone.
-  if (spawned?.pid) {
+  // The servers are detached: nothing else would reap them once this script is gone.
+  for (const child of spawned) {
     try {
-      process.kill(-spawned.pid, 'SIGKILL');
+      process.kill(-(child.pid as number), 'SIGKILL');
     } catch {
       /* never started */
     }

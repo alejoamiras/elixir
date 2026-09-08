@@ -41,6 +41,8 @@ packages/web-landing/public/layouts.json
 packages/web-landing/test-results/
 packages/web-landing/e2e/.run.json
 packages/web-landing/e2e/.dist/
+packages/web-landing/e2e/.dist-claim/
+packages/web-landing/e2e/.example-claim.json
 packages/web-landing/e2e/.vite.log
 
 # site assembly outputs and E2E state

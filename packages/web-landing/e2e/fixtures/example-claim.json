@@ -1,0 +1,14 @@
+{
+  "miner": "0x0000000000000000000000000000000000000000000000000000000000000001",
+  "chainId": "0",
+  "rollupVersion": "0",
+  "epoch": 0,
+  "claims": [
+    0,
+    1
+  ],
+  "block": 7,
+  "txHash": "0x0cc85e677c17cf0d99c45beb71b84f820813db102ed0b0529c1a0203aae1cad5",
+  "nullifier": "0x29b9adff02de2cfe6795d4aa007723143971ad2d6f751393a39e25209864b62f",
+  "noteHash": "0x1f31034eae0014e5522480a61cacb755abb67dd367e3a00db723e8580dcdc410"
+}

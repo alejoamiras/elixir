@@ -455,7 +455,7 @@ packages/deploy && bun run --cwd packages/web-landing test:components && bun ins
 (the built landing carries no prover; the lockfile diff reviewed for unrelated version moves and recorded in
 `lessons/phase-3.md`). Layers: lint/typecheck · unit · component.
 
-**P3.2 Landing E2E and the assembled site.** `landing.e2e.ts`: the section order (six), the hero tile reading the
+**P3.2 ✓ Landing E2E and the assembled site.** `landing.e2e.ts`: the section order (six), the hero tile reading the
 chain (`live-*` ids move into the tile), no bb.js, WASM or CRS request at any point (`net.heavy` empty for the whole
 visit), the ledger's "—" state (the isolated deployment has no claim), then a second e2e build and server with
 `VITE_EXAMPLE_CLAIM` pointed at `e2e/fixtures/example-claim.json` (bound to the e2e deployment's identity by the

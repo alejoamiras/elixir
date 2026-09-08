@@ -36,4 +36,24 @@ web-landing; no other version moved) · `bun run --cwd packages/web-landing buil
 - `docs/deployments.md`'s first-deploy record keeps its history ("Prove one now" was verified then) with a note
   that the demo has since gone.
 
+
+## P3.2 · the landing E2E and the assembled site (2026-09-08) ✓
+
+Gate: `bun run e2e:agent -- bun run --cwd packages/web-landing test:e2e` **3 passed (45.4 s)** ✓ ·
+`bun run e2e:agent -- bun run site:e2e` **2 passed (51.8 s)** ✓.
+
+- The landing's setup now builds twice from one throwaway deployment: `e2e/.dist` with no claim, and
+  `e2e/.dist-claim` with `VITE_EXAMPLE_CLAIM` pointed at `e2e/.example-claim.json`, the committed fixture
+  (`e2e/fixtures/example-claim.json`) with its `miner` / `chainId` / `rollupVersion` rewritten to the run's
+  deployment, since the config refuses anything else. Two ports under one run id in lane 5; the teardown kills
+  both process groups. The first spec asserts the empty ledger (labels, dashes, no block chip, no link), the
+  second the populated one (the block's, the hashes' and the counter's values and explorer hrefs); both assert
+  no bb.js chunk or WASM was ever requested.
+- An e2e build ships no claim unless `VITE_EXAMPLE_CLAIM` names one: the assembler's e2e run picked up the
+  testnet file for its throwaway deployment and the identity guard refused it, which is the guard doing its job
+  (a claim from another deployment must never ship); `siteConfig` now reads the profile's file only outside e2e.
+- `site.e2e.ts`'s demo test became "the landing serves no prover; the miner still does": the landing's HTML and
+  its requests name nothing of bb.js or a WASM, the hero tile and the empty ledger render on the assembled origin,
+  and `/crs/g2.dat` (the CRS's 128-byte file) still serves from the root for the miner.
+
 LESSONS_FILE=implementations-plan/yacana-second-pass/lessons/phase-3.md

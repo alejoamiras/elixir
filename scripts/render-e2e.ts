@@ -24,7 +24,8 @@ const run = JSON.parse(readFileSync(resolve(repo, `packages/web-${app}/e2e/.run.
   tokenClassId: string;
   chainId: string;
   rollupVersion: string;
-  vitePid: number;
+  vitePid?: number;
+  vitePids?: number[];
   runId: string;
 };
 const url = new URL(run.baseURL);
