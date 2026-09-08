@@ -17,7 +17,7 @@ import type { PrivateCallExecutionResult, TxReceipt } from '@aztec/stdlib/tx';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { TokenContract } from '@aztec-foundation/aztec-standards/artifacts/src/artifacts/Token.js';
 import { type Deployment, deployYacana } from '../../deploy/src/deploy.ts';
-import { effectView, exampleClaimFromEffect } from '../../deploy/src/example-claim.ts';
+import { effectView, exampleClaimFromEffect, sponsorFeeLeaf } from '../../deploy/src/example-claim.ts';
 import { loadMinerArtifact, loadWorkArtifact } from './artifacts.ts';
 import { buildClaim, claimGasLimits } from './claim.ts';
 import { readOpenEpoch, readRules } from './epoch.ts';
@@ -236,9 +236,10 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
       effectView(effect),
       { miner: deployment.miner, chainId: chainId.toString(), rollupVersion: rollupVersion.toString() },
       miner.artifact.storageLayout,
-      receipt.txHash.toString(),
       0,
+      await sponsorFeeLeaf(),
     );
+    expect(example.txHash).toBe(receipt.txHash.toString());
     expect(example).toMatchObject({ epoch: 0, claims: [0, 1], nullifier: siloedTicket.toString() });
     expect(data.noteHashes.map((n) => String(n))).toContain(example.noteHash);
     // The only other write is the fee-juice deduction: the same leaf slot the baseline wrote.

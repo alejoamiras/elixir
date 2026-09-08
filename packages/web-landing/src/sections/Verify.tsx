@@ -54,7 +54,7 @@ export function Verify() {
           <Chip label="launched" value={launched} />
         </div>
         <div className="mt-3.5">
-          <Button size="sm" asChild>
+          <Button size="sm" variant="primary" asChild>
             <a href={REPO} data-testid="verify-source">
               {v.source}
             </a>

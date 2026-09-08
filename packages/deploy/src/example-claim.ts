@@ -1,9 +1,13 @@
 // One accepted claim, as its transaction's public effect records it: the leaf writes to this
-// deployment's `claims[e]` and `last_digest[e]` and the siloed ticket nullifier of that digest. Public
-// storage keeps counts and a digest per epoch, never a nullifier or a note hash, so the landing's
-// ledger example can only come from an effect, recorded once and committed.
+// deployment's `claims[e]` and `last_digest[e]`, the siloed ticket nullifier of that digest, the
+// fee-juice write on the sponsor's balance. Public storage keeps counts and a digest per epoch,
+// never a nullifier or a note hash, so the landing's ledger example can only come from an effect,
+// recorded once and committed.
 import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
+import { FEE_JUICE_ADDRESS, FEE_JUICE_BALANCES_SLOT, SPONSORED_FPC_SALT } from '@aztec/constants';
+import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/stdlib/hash';
 import { ticketNullifier } from '../../miner-core/src/proof.ts';
 import { fixedSlot, type StorageLayout } from '../../miner-core/src/reader.ts';
@@ -23,6 +27,7 @@ export interface ExampleClaim {
 
 /** A transaction effect with its fields as hex strings: what the node returns, made serialisable. */
 export interface EffectView {
+  txHash: string;
   l2BlockNumber: number;
   nullifiers: string[];
   noteHashes: string[];
@@ -35,9 +40,28 @@ export interface Identity {
   rollupVersion: string;
 }
 
+/** Where the effect must show the fee: the sponsor's fee-juice balance leaf, so "paid by the sponsor" is read, not assumed. */
+export interface FeeLeaf {
+  feeJuice: AztecAddress;
+  balancesSlot: Fr;
+  sponsor: AztecAddress;
+}
+
+/** The canonical sponsored FPC's balance in the fee-juice contract: the leaf every sponsored transaction debits. */
+export const sponsorFeeLeaf = async (): Promise<FeeLeaf> => ({
+  feeJuice: AztecAddress.fromNumberUnsafe(FEE_JUICE_ADDRESS),
+  balancesSlot: new Fr(FEE_JUICE_BALANCES_SLOT),
+  sponsor: (
+    await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
+      salt: new Fr(SPONSORED_FPC_SALT),
+    })
+  ).address,
+});
+
 type RawEffect = {
   l2BlockNumber: number;
   data: {
+    txHash: { toString(): string };
     nullifiers: { toString(): string }[];
     noteHashes: { toString(): string }[];
     publicDataWrites: { leafSlot: { toString(): string }; value: { toString(): string } }[];
@@ -47,6 +71,7 @@ type RawEffect = {
 export const effectView = (effect: unknown): EffectView => {
   const e = effect as RawEffect;
   return {
+    txHash: e.data.txHash.toString(),
     l2BlockNumber: e.l2BlockNumber,
     nullifiers: e.data.nullifiers.map((n) => n.toString()),
     noteHashes: e.data.noteHashes.map((n) => n.toString()),
@@ -58,46 +83,56 @@ export const effectView = (effect: unknown): EffectView => {
 };
 
 /**
- * The claim in `effect` for `identity.miner`, searching epochs `0..epochs`; throws when the effect
- * lacks the two leaf writes, or its nullifiers lack the digest's siloed ticket (the search is by
- * value, never by position).
+ * A claim's notes: the minted note and, on an account's first claim, the delivery handshake's.
+ * More means the transaction did other things too, and "one claim, as recorded" would be a lie.
+ */
+const MAX_NOTES = 2;
+
+const leafOf = async (contract: AztecAddress, slot: Fr, key: Fr): Promise<string> =>
+  (
+    await computePublicDataTreeLeafSlot(contract, await deriveStorageSlotInMap(slot, { toField: () => key }))
+  ).toString();
+
+/**
+ * The claim in `effect` for `identity.miner`, searching epochs `0..epochs`. Refused when the effect
+ * lacks the pair of leaf writes, writes claims of more than one epoch, lacks the digest's siloed
+ * ticket among its nullifiers (the search is by value, never by position), carries notes beyond a
+ * claim's, or shows no fee write on the sponsor's balance.
  */
 export async function exampleClaimFromEffect(
   effect: EffectView,
   identity: Identity,
   layout: StorageLayout,
-  txHash: string,
   epochs: number,
+  fee: FeeLeaf,
 ): Promise<ExampleClaim> {
   const miner = AztecAddress.fromStringUnsafe(identity.miner);
   const writes = new Map(effect.publicDataWrites.map((w) => [w.leafSlot, w.value]));
-  const nullifiers = new Set(effect.nullifiers);
-  const leaf = async (name: string, e: number) =>
-    (
-      await computePublicDataTreeLeafSlot(
-        miner,
-        await deriveStorageSlotInMap(fixedSlot(layout, name), { toField: () => new Fr(e) }),
-      )
-    ).toString();
+  const found: { epoch: number; claims: string; digest: string }[] = [];
   for (let e = 0; e <= epochs; e++) {
-    const claims = writes.get(await leaf('claims', e));
-    const digest = writes.get(await leaf('last_digest', e));
-    if (claims === undefined || digest === undefined) continue;
-    const nullifier = (await ticketNullifier(Fr.fromString(digest), miner)).toString();
-    if (!nullifiers.has(nullifier))
-      throw new Error(`the effect writes claims[${e}] but carries no ticket nullifier for its digest`);
-    const noteHash = effect.noteHashes[0];
-    if (!noteHash) throw new Error('the effect carries no note hash');
-    const after = Number(BigInt(claims));
-    return {
-      ...identity,
-      epoch: e,
-      claims: [after - 1, after],
-      block: effect.l2BlockNumber,
-      txHash,
-      nullifier,
-      noteHash,
-    };
+    const claims = writes.get(await leafOf(miner, fixedSlot(layout, 'claims'), new Fr(e)));
+    const digest = writes.get(await leafOf(miner, fixedSlot(layout, 'last_digest'), new Fr(e)));
+    if (claims !== undefined && digest !== undefined) found.push({ epoch: e, claims, digest });
   }
-  throw new Error(`no claims[e] and last_digest[e] writes for ${identity.miner} in epochs 0..${epochs}`);
+  const one = found[0];
+  if (!one)
+    throw new Error(`no claims[e] and last_digest[e] writes for ${identity.miner} in epochs 0..${epochs}`);
+  if (found.length > 1) throw new Error(`the effect claims in ${found.length} epochs: not one claim`);
+  const nullifier = (await ticketNullifier(Fr.fromString(one.digest), miner)).toString();
+  if (!effect.nullifiers.includes(nullifier))
+    throw new Error(`the effect writes claims[${one.epoch}] but carries no ticket nullifier for its digest`);
+  if (effect.noteHashes.length < 1 || effect.noteHashes.length > MAX_NOTES)
+    throw new Error(`the effect carries ${effect.noteHashes.length} note hashes: not one claim`);
+  if (!writes.has(await leafOf(fee.feeJuice, fee.balancesSlot, fee.sponsor.toField())))
+    throw new Error('the effect shows no fee-juice write on the sponsor: the fee was not the sponsor’s');
+  const after = Number(BigInt(one.claims));
+  return {
+    ...identity,
+    epoch: one.epoch,
+    claims: [after - 1, after],
+    block: effect.l2BlockNumber,
+    txHash: effect.txHash,
+    nullifier,
+    noteHash: effect.noteHashes[0] as string,
+  };
 }

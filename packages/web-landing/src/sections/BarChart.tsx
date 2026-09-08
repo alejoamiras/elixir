@@ -3,7 +3,7 @@ import { difficulty } from '../../../miner-core/src/metrics.ts';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';
 import { difficultyLabel } from '../../../ui/src/index.ts';
 
-/** The last closed epochs drawn beside the open one. */
+/** Epochs drawn: the open one and the five closed before it. */
 export const SHOWN = 6;
 const W = 480;
 const H = 100;
@@ -19,8 +19,8 @@ const ticks = (hiLog2: number): number[] => {
   return powers.filter((_, k) => k % every === 0);
 };
 
-/** The rows the chart draws: up to six closed before the open one, in order. */
-export const shown = (rows: readonly EpochRow[]): EpochRow[] => rows.slice(-(SHOWN + 1));
+/** The rows the chart draws: the last six, in order. */
+export const shown = (rows: readonly EpochRow[]): EpochRow[] => rows.slice(-SHOWN);
 
 /**
  * The bar per epoch as a step line on log₂, one dot per accepted claim spread evenly across its

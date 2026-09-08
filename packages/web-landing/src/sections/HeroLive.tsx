@@ -103,7 +103,6 @@ function Numbers({ status, live }: { status: LiveStatus; live: Live | undefined 
   );
 }
 
-/** The hero's tile: the four numbers, the bar over the last six epochs, the way to the stats. */
 export function HeroLive({ status }: { status: LiveStatus }) {
   const live = status.phase === 'ready' ? status.live : undefined;
   const rows = live?.rows ?? [];
@@ -122,7 +121,7 @@ export function HeroLive({ status }: { status: LiveStatus }) {
           <div className="h-[100px]" aria-hidden />
         )}
         <p className="mt-1 font-mono text-2xs text-ink-3" data-testid="hero-caption">
-          {rows.length > SHOWN ? h.caption : h.caption.replace('the last six epochs', 'every epoch so far')}
+          {rows.length > SHOWN ? h.caption : h.captionShort}
         </p>
       </div>
       <p className="text-2xs text-ink-3">

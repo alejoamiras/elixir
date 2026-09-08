@@ -55,6 +55,7 @@ export const copy = {
     mintedSub: 'by browsers',
     barSub: 'what a proof has to clear',
     caption: 'the bar over the last six epochs · a dot per accepted claim, spread across its epoch',
+    captionShort: 'the bar over every epoch so far · a dot per accepted claim, spread across its epoch',
     rule: `${PARAMS.N} claims close an epoch, then the bar moves`,
     allStats: 'all stats →',
   },

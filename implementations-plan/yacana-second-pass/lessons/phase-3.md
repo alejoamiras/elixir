@@ -57,3 +57,22 @@ Gate: `bun run e2e:agent -- bun run --cwd packages/web-landing test:e2e` **3 pas
   and `/crs/g2.dat` (the CRS's 128-byte file) still serves from the root for the miner.
 
 LESSONS_FILE=implementations-plan/yacana-second-pass/lessons/phase-3.md
+
+## Arc 3 codex loop · round 1 (2026-09-08)
+
+New session `01a07e75-f834-7610-995e-eaca63b69990` (Astra, high; the landing at 1440 / 1280, the LandingA and
+H2-plus artboards, the arc diff, the plan, recon, the arc map, both rules). Six findings, all verified and adopted:
+
+| sev | finding | fix |
+|---|---|---|
+| P2 | The recorder took `chainId` / `rollupVersion` from the deployment file, not the node it queried, so a forked endpoint with matching storage could mint a record the build guard accepts; the epoch scan trusted the node's `open_epoch` unbounded. | `assertDeployment` against the node first (chain, rollup, both contracts and classes), the returned effect's tx hash checked against the requested one, the scan bounded by `CHAIN_LEN`. |
+| P2 | "One claim, as recorded" could splice a batched transaction: the first note hash of another operation, `[after − 1, after]` for a counter that moved twice; the sponsor row was copy, not a reading. | The extractor refuses an effect that claims in more than one epoch, carries more than a claim's notes (the minted one and, on a first claim, the handshake's), or lacks a fee-juice write on the canonical sponsored FPC's balance leaf (`sponsorFeeLeaf()`: `FEE_JUICE_ADDRESS`, `FEE_JUICE_BALANCES_SLOT`, the FPC instance from `SPONSORED_FPC_SALT`). The testnet record was re-recorded through the stricter path and is byte-identical. |
+| P2 | The config guard accepted `[-1, 0]`, `[4, 5]`, `[0.5, 1.5]`, `['1', '2']`, block −1. | Safe integers, `0 ≤ before`, `after = before + 1 ≤ N` (from the record's params), block > 0, hex strings; eight malformed shapes in the config test. |
+| P3 | The E2E asserted the hashes' links, never the hashes shown; nothing re-read the committed transaction. | The E2E reads each hash's short form and full `title`; `example-claim.test.ts` gained a `describe.skipIf(!YACANA_TESTNET_NODE_URL)` reread of the recorded transaction (run once here against the testnet node: the effect and the record match). |
+| P3 | "the last six epochs" while the chart drew six closed plus the open one. | The chart draws the last six rows; a `captionShort` for shorter histories replaces the string surgery. |
+| P3 | Grey eyebrows (the artboard's are violet), an outlined source button (filled), `live.ts` still describing the demo and reading the open epoch's seed, a narrating doc comment on `HeroLive`, the money table's "as money" header (blank in the artboard). | All six changed; the seed read is gone (`live.test.ts` asserts no row carries one). |
+
+Codex judged the recorded-claim label, the privacy caveat and the test network's numbers justified, found no runtime
+path from a read-only page to the throwing prover proxies, and confirmed the derived issuance (192 an hour).
+Gates after the round: landing components 10 ✓ · `bun test packages/site packages/deploy scripts packages/web-landing`
+✓ · landing E2E 3 passed (45.5 s) ✓ · lint ✓ · typecheck ✓.

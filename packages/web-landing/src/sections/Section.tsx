@@ -24,7 +24,7 @@ export function SectionLabel({
   className,
   ...props
 }: ComponentProps<'p'> & { as?: 'p' | 'h2' }) {
-  return <Tag className={cn('label-mono leading-none', className)} {...props} />;
+  return <Tag className={cn('label-mono leading-none text-uv-2', className)} {...props} />;
 }
 
 export function SectionHeading({ className, ...props }: ComponentProps<'h2'>) {

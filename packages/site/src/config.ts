@@ -150,13 +150,20 @@ function assertExampleClaim(c: SiteConfig): void {
     throw new Error(
       `the example claim is another deployment's (${x.miner} on ${x.chainId}/${x.rollupVersion})`,
     );
+  const n = Number((c.record.params as { N?: unknown } | undefined)?.N ?? Number.POSITIVE_INFINITY);
+  const whole = (v: unknown): v is number => Number.isSafeInteger(v);
+  const [before, after] = Array.isArray(x.claims) ? x.claims : [];
   const shape =
-    Number.isSafeInteger(x.epoch) &&
+    whole(x.epoch) &&
     x.epoch >= 0 &&
-    Number.isSafeInteger(x.block) &&
-    x.claims.length === 2 &&
-    x.claims[1] - x.claims[0] === 1 &&
-    [x.txHash, x.nullifier, x.noteHash].every((h) => HEX32.test(h));
+    whole(x.block) &&
+    x.block > 0 &&
+    whole(before) &&
+    whole(after) &&
+    before >= 0 &&
+    after === before + 1 &&
+    after <= n &&
+    [x.txHash, x.nullifier, x.noteHash].every((h) => typeof h === 'string' && HEX32.test(h));
   if (!shape) throw new Error('the example claim is malformed');
 }
 

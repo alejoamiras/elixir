@@ -10,7 +10,10 @@ const fixture = JSON.parse(
   txHash: string;
   epoch: number;
   claims: [number, number];
+  nullifier: string;
+  noteHash: string;
 };
+const short = (h: string) => `${h.slice(0, 6)}…${h.slice(-4)}`;
 
 const pageUrl = (r: E2eRun, base = r.baseURL) => {
   const url = new URL(base);
@@ -136,8 +139,14 @@ test('with a recorded claim the ledger shows its block, hashes and counter, each
     new RegExp(`/blocks/${fixture.block}$`),
   );
   await expect(page.getByTestId('ledger-block')).toContainText(`block ${fixture.block}`);
-  for (const id of ['ledger-nullifier', 'ledger-note-hash'])
+  for (const [id, hash] of [
+    ['ledger-nullifier', fixture.nullifier],
+    ['ledger-note-hash', fixture.noteHash],
+  ] as const) {
     await expect(page.getByTestId(id)).toHaveAttribute('href', new RegExp(`/tx-effects/${fixture.txHash}$`));
+    await expect(page.getByTestId(id)).toContainText(short(hash));
+    await expect(page.getByTestId(id)).toHaveAttribute('title', hash);
+  }
   await expect(page.getByTestId('ledger-claims')).toHaveText(`${fixture.claims[0]} → ${fixture.claims[1]}`);
   await expect(page.getByTestId('ledger-public')).toContainText(`claims in epoch ${fixture.epoch}`);
   await expect(page.getByTestId('ledger-public')).toContainText('the sponsor');

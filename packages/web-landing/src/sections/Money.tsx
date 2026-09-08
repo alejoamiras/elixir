@@ -25,7 +25,7 @@ export function Money() {
           </colgroup>
           <thead>
             <tr>
-              {['as money', ...table.columns].map((c) => (
+              {['', ...table.columns].map((c) => (
                 <th
                   key={c}
                   className={cn(

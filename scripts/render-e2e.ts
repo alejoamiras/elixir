@@ -46,8 +46,9 @@ async function landing(page: Page, width: number) {
 }
 
 async function stats(page: Page, width: number) {
-  await mockNode(page, run);
-  await page.goto(pageUrl(run, '', { node: MOCK_NODE_ORIGIN }));
+  const statsRun = { ...run, vitePid: run.vitePid ?? 0 };
+  await mockNode(page, statsRun);
+  await page.goto(pageUrl(statsRun, '', { node: MOCK_NODE_ORIGIN }));
   await page.getByTestId('table').locator('tbody tr').nth(30).waitFor({ timeout: 60_000 });
   await page.locator('main[data-settled="1"]').waitFor({ timeout: 10_000 });
   // Every chart drawn at its container's width (the observer's measurement can lag under load).

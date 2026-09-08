@@ -14,6 +14,7 @@
     "noteHash": "0x1f31034eae0014e5522480a61cacb755abb67dd367e3a00db723e8580dcdc410"
   },
   "effect": {
+    "txHash": "0x0cc85e677c17cf0d99c45beb71b84f820813db102ed0b0529c1a0203aae1cad5",
     "l2BlockNumber": 73162,
     "nullifiers": [
       "0x1a008ecf66921874a517d002ee30224d66219943688a6dfcbc71eee8d87b1e63",

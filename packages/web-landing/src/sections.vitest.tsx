@@ -82,7 +82,7 @@ describe('the landing', () => {
     expect(screen.getByTestId('live-epoch').textContent).toBe('1 of 4');
     expect(screen.getByText('open 1 min · expected 5 min')).toBeTruthy();
     expect(screen.getByText(copy.hero.barSub)).toBeTruthy();
-    expect(screen.getByTestId('hero-caption').textContent).toContain('every epoch so far');
+    expect(screen.getByTestId('hero-caption').textContent).toBe(copy.hero.captionShort);
     expect(screen.getByText(copy.hero.allStats).getAttribute('href')).toBe('/stats/');
     expect(screen.getByTestId('footer-line').textContent).toContain(copy.footer.line);
   });
@@ -121,12 +121,12 @@ describe('the hero tile and the ledger', () => {
     expect(yTicks.length).toBeLessThanOrEqual(4);
     expect(yTicks.every((n) => Number.isInteger(Math.log2(n) / 2))).toBe(true);
     expect(Math.max(...yTicks)).toBeGreaterThanOrEqual(256);
-    // Only the last six closed epochs and the open one are drawn, whatever the history holds.
+    // Only the last six epochs are drawn, whatever the history holds.
     const many: EpochRow[] = Array.from({ length: 12 }, (_, i) => ({
       ...(live.rows[0] as EpochRow),
       epoch: i,
     }));
-    expect(shown(many).map((r) => r.epoch)).toEqual([5, 6, 7, 8, 9, 10, 11]);
+    expect(shown(many).map((r) => r.epoch)).toEqual([6, 7, 8, 9, 10, 11]);
   });
 
   test('the ledger shows the recorded claim with its links; without one, dashes and no block chip', () => {

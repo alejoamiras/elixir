@@ -71,8 +71,19 @@ describe('site config', () => {
     expect(() => loadSiteConfig({ ...base, mode: 'production', exampleClaim: foreign })).toThrow(
       /another deployment/,
     );
-    const torn = { ...claim, claims: [1, 3] as [number, number] };
-    expect(() => loadSiteConfig({ ...base, mode: 'production', exampleClaim: torn })).toThrow(/malformed/);
+    for (const bad of [
+      { claims: [1, 3] },
+      { claims: [-1, 0] },
+      { claims: [4, 5] },
+      { claims: [0.5, 1.5] },
+      { claims: ['1', '2'] },
+      { block: -1 },
+      { block: 7.5 },
+      { txHash: '0x12' },
+    ] as Partial<ExampleClaim>[])
+      expect(() =>
+        loadSiteConfig({ ...base, mode: 'production', exampleClaim: { ...claim, ...bad } }),
+      ).toThrow(/malformed/);
     // An e2e build's identity overrides move the bar: the testnet claim is foreign to a throwaway deployment.
     expect(() =>
       loadSiteConfig({

@@ -45,14 +45,15 @@ function fakeReader(open: number, opts: { failSlots?: boolean } = {}): Reader {
 }
 
 describe('readLive', () => {
-  test('the open epoch with its seed and the twelve before it, linked; the fixed slots', async () => {
+  test('the open epoch and the twelve before it, linked, none with a seed; the fixed slots', async () => {
     const live = await readLive(fakeReader(20));
     expect(live.rows.map((r) => r.epoch)).toEqual(
       Array.from({ length: HISTORY + 1 }, (_, i) => 20 - HISTORY + i),
     );
-    expect(live.rows.at(-1)).toMatchObject({ epoch: 20, seed: 21n, claims: 1, duration: null });
+    expect(live.rows.at(-1)).toMatchObject({ epoch: 20, claims: 1, duration: null });
     expect(live.rows.at(-2)).toMatchObject({ epoch: 19, duration: 300, closedBy: 'claims' });
-    expect(live.rows[0]?.seed).toBeUndefined();
+    // Nothing on the page proves against the seed any more: no row reads it.
+    expect(live.rows.every((r) => r.seed === undefined)).toBe(true);
     expect(live).toMatchObject({ open: 20, block: { number: 99 } });
     expect(live.historyError).toBeUndefined();
     expect(live.supply).toBe(4n * 10n ** 18n * 80n);
