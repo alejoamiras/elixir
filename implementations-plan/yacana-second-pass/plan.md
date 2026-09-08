@@ -677,6 +677,8 @@ contracts, the reader's storage layout, the launch mode, the OG card).
 
 ELI5: https://claude.ai/code/artifact/be2699e5-2b43-47b8-90e1-e4f9849d5aa5 (source `eli5.html` in this directory). Codex final verdict: `conditional approve` (all conditions adopted). Fable: `conditional approve` (all conditions adopted). **Approved by the owner on 2026-09-07** (the `/goal` was set on the plan as written; Ask 1 answered "find it": the agent locates a testnet claim's tx hash and records the example claim itself). The seeds below are final.
 
+**Delivered 2026-09-08**: every phase ✓ with its gate in `lessons/phase-{1,2,3}.md`; the three arcs' codex loops and the final cross-arc pass converged; the stack on GitHub is #20 (`worktree-yacana-second-pass`) → #21 (`second-pass-stats`) → #22 (`second-pass-landing`), stack #23. The owner merges (`gh stack merge`) and deploys (`bun run site:deploy`).
+
 ## Seeds
 
 Final (approved scope, no conditions). Recommended: `/goal` (completion is transcript-observable); set by the owner on 2026-09-07.
