@@ -141,10 +141,11 @@ function reportOnBody(s: GuardState, endpoint: string, startedAt: number, res: R
         controller.error(e);
       }
     },
-    // A consumer that cancels the body before it ends still saw the headers: report the status
-    // once (so a recovery's lock is released), then cancel the underlying reader.
+    // A consumer that cancels the body before it ends did not get a complete answer: report it as a
+    // failure once (so a recovery's lock is released without declaring the node healthy on headers
+    // alone), then cancel the underlying reader.
     cancel: (reason) => {
-      settle(res.status);
+      settle(died(reason));
       return reader.cancel(reason);
     },
   });
@@ -177,10 +178,10 @@ async function nodeRequest(
  */
 export function installNodeGuard(): void {
   const existing = (globalThis as Realm)[MARK];
-  if (existing) {
-    globalThis.fetch = existing.guarded;
-    return;
-  }
+  // Already installed: leave `globalThis.fetch` alone. A wrapper may sit on top of the guard (the
+  // CRS interceptor); re-asserting the guarded fetch here would drop it. Tests arm the guard over a
+  // fake through `setOriginalFetch`, which is the only path that re-points `globalThis.fetch`.
+  if (existing) return;
   const s: GuardState = {
     original: globalThis.fetch.bind(globalThis),
     guarded: globalThis.fetch,
@@ -207,10 +208,12 @@ export function installNodeGuard(): void {
   globalThis.fetch = s.guarded;
 }
 
-/** Tests only: point the guard's pass-through at a fake network, whatever `globalThis.fetch` is now. */
+/** Tests only: point the guard's pass-through at a fake network and arm the guard over it. */
 export function setOriginalFetch(fetchImpl: typeof globalThis.fetch): void {
   const s = (globalThis as Realm)[MARK];
-  if (s) s.original = fetchImpl;
+  if (!s) return;
+  s.original = fetchImpl;
+  globalThis.fetch = s.guarded;
 }
 
 if (!(globalThis as Realm)[MARK]) installNodeGuard();

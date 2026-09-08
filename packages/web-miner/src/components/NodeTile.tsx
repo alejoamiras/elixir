@@ -138,19 +138,22 @@ function CheckForm({
   const use = async () => {
     const url = typed.trim();
     dispatch({ type: 'switch', url });
+    try {
+      await session.switchNode(url);
+    } catch (e) {
+      return dispatch({ type: 'switch-failed', url, message: message(e) });
+    }
+    // The live node moved: the tile follows it now. The setting is saved only after the switch, so a
+    // failed switch never leaves storage pointing at a node the page never took.
+    onSwitched();
     if (!saveConnection({ nodeUrl: url }))
       return dispatch({
         type: 'switch-failed',
         url,
-        message: 'The browser refused to save the setting; free some site storage and try again.',
+        message:
+          'Now in use, but the browser refused to save it; free some site storage so it sticks on reload.',
       });
-    try {
-      await session.switchNode(url);
-      dispatch({ type: 'switched', url });
-      onSwitched();
-    } catch (e) {
-      dispatch({ type: 'switch-failed', url, message: message(e) });
-    }
+    dispatch({ type: 'switched', url });
   };
   const busy = state.kind === 'checking' || state.kind === 'switching';
   return (

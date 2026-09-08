@@ -23,7 +23,7 @@ import {
   sendWithdraw,
   type Withdrawal,
 } from './chain';
-import type { Connection } from './config';
+import { type Connection, saveConnection } from './config';
 import type { MinerController } from './controller';
 import { assertPasskey, createPasskey } from './keys/passkey';
 import {
@@ -49,6 +49,9 @@ export class Session {
   controller: MinerController | undefined;
   /** One node switch at a time: a tile remount must not start a second against the same account. */
   private switching: Promise<void> | undefined;
+  private switchingUrl: string | undefined;
+  /** A switch that failed left no working wallet: further node choices reboot rather than live-switch. */
+  private dead = false;
   private wallet: (() => EmbeddedWallet) | undefined;
   /** The open key's master, in memory for the tab's life (convenience mode switches need it). */
   private master: Uint8Array | undefined;
@@ -271,23 +274,35 @@ export class Session {
    * resumes. The caller checked the candidate against this deployment first.
    */
   async switchNode(url: string): Promise<void> {
-    // Without a preflight there is nothing to move under: the saved setting takes effect on reload.
-    if (!this.pre) return location.reload();
+    // A terminal failure abandoned the wallet, and no preflight means nothing to move under: either
+    // way the saved setting takes effect on a fresh boot. Reload only once the write lands.
+    if (this.dead || !this.pre) {
+      if (!saveConnection({ nodeUrl: url }))
+        throw new Error('The browser refused to save the setting; free some site storage and try again.');
+      return location.reload();
+    }
+    if (this.switching) {
+      if (this.switchingUrl === url) return this.switching; // the same switch, already underway
+      throw new Error('a node switch is already underway; wait for it to finish');
+    }
     const pre = this.pre;
-    if (!this.switching)
-      this.switching = switchNodeLive({ controller: this.controller, switchable: pre.switchable, url })
-        .catch((e: unknown) => {
-          // A rebuild that failed left no working wallet: the boot error carries the way out.
-          const message = e instanceof Error ? e.message : String(e);
-          this.store.set(bootAtom, {
-            phase: 'error',
-            message: `the node changed but its chain view could not be rebuilt (${message}); use another node or reload`,
-          });
-          throw e;
-        })
-        .finally(() => {
-          this.switching = undefined;
+    this.switchingUrl = url;
+    this.switching = switchNodeLive({ controller: this.controller, switchable: pre.switchable, url })
+      .catch((e: unknown) => {
+        // A rebuild that failed left no working wallet: the boot error carries the way out, and the
+        // next node choice reboots rather than live-switching a dead account.
+        this.dead = true;
+        const message = e instanceof Error ? e.message : String(e);
+        this.store.set(bootAtom, {
+          phase: 'error',
+          message: `the node changed but its chain view could not be rebuilt (${message}); use another node or reload`,
         });
+        throw e;
+      })
+      .finally(() => {
+        this.switching = undefined;
+        this.switchingUrl = undefined;
+      });
     return this.switching;
   }
 

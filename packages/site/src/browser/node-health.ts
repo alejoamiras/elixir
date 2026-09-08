@@ -41,7 +41,7 @@ let opaque: number[] = [];
 let probing = false;
 /** performance.now() when `probing` was set: only the recovery it admitted may clear it. */
 let probingSince = 0;
-/** When (performance.now()) the request that opened the current cooldown started: older successes are stale. */
+/** performance.now() when the current cooldown was observed: a success that started earlier is stale. */
 let cooldownFrom = 0;
 
 const emit = () => {
@@ -105,7 +105,9 @@ export function recordOutcome(o: NodeRequestOutcome): void {
     if (opaque.length >= OPAQUE_BURST) event = { type: '429', retryAfterS: null };
   } else if (event.type === 'ok') opaque = [];
   const transport = nextTransport(health.transport, event, now);
-  if (transport.kind !== 'ok' && health.transport.kind === 'ok') cooldownFrom = o.startedAt;
+  // The cooldown is observed now, not when the failing request was sent: a success already in flight
+  // when the throttle began does not prove it has lifted, so it must not clear the cooldown either.
+  if (transport.kind !== 'ok' && health.transport.kind === 'ok') cooldownFrom = performance.now();
   set({ ...health, transport });
 }
 

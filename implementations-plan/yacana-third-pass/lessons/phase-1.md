@@ -171,3 +171,49 @@ New tests: a cancelled body reports once (guard); a stale answer does not free t
 switch stays idle and a strict rebuild failure rejects without reopening (switch). Gate re-run: lint · 5 typechecks ·
 `bun test` 199 pass · Vitest ui 46 / web-miner 55 · the switch and pop-out E2E on the isolated network · renders
 re-shot (the throttled tile now reads `429 · rate limited · last answer N s ago · this deployment ✓`).
+
+## Arc 1 codex loop · round 2 (2026-09-08)
+
+Resumed session, the round-1 fix diff. Eight findings, all verified; all adopted (the round-1 fixes had been
+built by a downgraded model and the owner asked for a re-review under the intended one — that re-read found
+two more defects of its own, below):
+
+- **High — the drain still missed work.** `inflightRead` was overwritten per refresh, so a read that outlived its
+  deadline while the next started was not awaited; and `claiming → recovering` ended the phase wait before a
+  lost-race rebuild finished (two rebuilds at once). Reads now accumulate (`Promise.all` over the previous
+  entry), and the drain waits out `recovering` as well as `claiming` — both settle to `idle` (recovered / paused /
+  prover-dead) — then the rebuild read.
+- **Medium — a concurrent switch to a different node silently picked the first.** `switchNode(C)` during a switch
+  to B returned B's promise while the tile had already saved C. A different-target call now rejects; the same
+  target returns the switch underway; and the tile saves **after** the switch lands, never before.
+- **Medium — strict recovery swallowed a first-read failure.** `recover(strict)` could succeed and the fresh view's
+  first `refresh()` fail inside `readRebuiltOnce`, which resolved anyway. Strict now threads through
+  `readRebuilt`: the read failure abandons the prover and rethrows, so the switch rejects and the boot error shows.
+- **Medium — after a terminal switch failure the next node choice could not recover the session.** `Session.dead`
+  is set on a rejected switch; a later `switchNode` saves and reloads (a fresh boot on the chosen node) instead of
+  live-switching a dead account.
+- **Medium — the cooldown's reference time was the failing request's start**, so a success already in flight when
+  the throttle began could clear it. `cooldownFrom` is now `performance.now()` at the moment the cooldown is
+  observed; a success that started earlier says nothing about now.
+- **Medium — a cancelled body reported its status (200)**, which is "headers alone are success" — the very thing
+  `reportOnBody` exists to avoid. A cancel now settles once as a failure (`died(reason)`), freeing a recovery lock
+  without declaring the node healthy.
+- **Medium — the idempotent reinstall still re-asserted `globalThis.fetch = guarded`**, dropping a wrapper above it
+  (the CRS interceptor). Reinstall is a pure no-op now; `setOriginalFetch` (tests only) is the one path that
+  re-points `globalThis.fetch`.
+- **Low —** the rebuild-failure comment said a lost race "waits it out" after `abandonProver`; it is terminal for
+  both paths (a switch additionally rethrows).
+
+The owner's re-review request (Fable over the round-1 edits) found two more:
+
+- **`Session.switchNode`'s reload path returned silently when the save failed**, and the tile would then have
+  reported "now in use" for a node the page never took. It throws the fixed storage message instead.
+- **`NodeTile.use()` skipped `onSwitched()` when the post-switch save failed**, leaving the tile on the old host
+  while the session was on the new node. `onSwitched()` fires as soon as the switch lands; the save's failure is
+  reported after it, as what it is ("Now in use, but the browser refused to save it").
+
+Tests: the cancel test expects a failure; the cooldown tests use fresh (`performance.now()`) successes where they
+mean a real answer — under observation-time cooldowns a `startedAt: 0` success is correctly stale, which is what
+the opaque-burst test tripped on; the tile's storage-refusal spec now asserts the switch happened first, the tile
+followed the node, and nothing was persisted. Gate re-run: lint · 5 typechecks · `bun test` 199 pass · Vitest 130
+pass · the live-switch and pop-out E2E on the isolated network.

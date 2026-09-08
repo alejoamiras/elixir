@@ -93,10 +93,11 @@ describe('the Node tile', () => {
     expect(screen.getByTestId('node-check-result').textContent).toContain('in use');
   });
 
-  test('a storage write the browser refuses shows the fixed message and does not switch', async () => {
+  test('the switch lands before the save; a storage write the browser refuses is said, node in use', async () => {
     vi.stubEnv('VITE_SITE_MODE', 'e2e');
     const s = session();
-    render(<NodeTile session={s} nodeUrl={IN_USE} onSwitched={() => {}} />);
+    const switched = vi.fn();
+    render(<NodeTile session={s} nodeUrl={IN_USE} onSwitched={switched} />);
     fireEvent.change(screen.getByTestId('node-url'), { target: { value: OTHER } });
     fireEvent.click(screen.getByTestId('node-check'));
     await waitFor(() => expect((screen.getByTestId('node-use') as HTMLButtonElement).disabled).toBe(false));
@@ -105,9 +106,13 @@ describe('the Node tile', () => {
     });
     await act(() => fireEvent.click(screen.getByTestId('node-use')));
     await waitFor(() =>
-      expect(screen.getByTestId('node-check-result').textContent).toMatch(/refused to save/),
+      expect(screen.getByTestId('node-check-result').textContent).toMatch(
+        /Now in use, but .*refused to save/,
+      ),
     );
-    expect(s.switchNode).not.toHaveBeenCalled();
+    expect(s.switchNode).toHaveBeenCalledWith(OTHER); // the live switch happened first
+    expect(switched).toHaveBeenCalled(); // and the tile follows the node in use
+    expect(localStorage.getItem('yacana.connection')).toBeNull(); // nothing was persisted
   });
 
   test('renders with no session state at all (a failed preflight): the probe’s error is shown', async () => {

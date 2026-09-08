@@ -314,7 +314,10 @@ export class MinerController {
     const run = this.refreshing.then(() => {
       const gen = ++this.reads;
       const read = this.readChain(gen);
-      this.inflightRead = read.catch(() => {});
+      // A read that outlives its deadline floats while the next refresh starts; the drain must still
+      // await it, so accumulate rather than overwrite. Settled entries drop out on their own.
+      const tracked = read.catch(() => {});
+      this.inflightRead = Promise.all([this.inflightRead, tracked]).then(() => {});
       return deadline(read, this.readDeadlineMs);
     });
     this.refreshing = run.catch(() => {});
@@ -527,8 +530,15 @@ export class MinerController {
     this.switching = true;
     await this.refreshing.catch(() => {});
     await this.inflightRead.catch(() => {});
+    // A claim in flight may fail into a lost-race rebuild; wait that out too, or its rebuild would
+    // race the switch's. Both phases settle to idle (recovered / paused / prover-dead).
+    const busy = () => {
+      const phase = this.store.get(minerAtom).phase;
+      return phase === 'claiming' || phase === 'recovering';
+    };
+    while (busy()) await new Promise((r) => setTimeout(r, 100));
     await this.reading?.catch(() => {});
-    while (this.store.get(minerAtom).phase === 'claiming') await new Promise((r) => setTimeout(r, 100));
+    await this.inflightRead.catch(() => {}); // a read the rebuild started while we waited
   }
 
   /** The switch is over (rebuilt or failed): the poll may read again. */
@@ -561,7 +571,8 @@ export class MinerController {
     } catch (e) {
       this.log(`rebuild failed: ${claimFailureMessage(e)}`);
       this.abandonProver(`the chain view could not be rebuilt: ${claimFailureMessage(e)}`);
-      // A node switch surfaces the failure (the caller shows the boot error); a lost race waits it out.
+      // The prover is abandoned either way (only a reload recovers). A node switch additionally
+      // rethrows so its caller shows the boot error with the way out.
       if (strict) throw e;
       return;
     }
@@ -573,7 +584,7 @@ export class MinerController {
     }
     this.rebuiltAt = Date.now();
     this.unread = true;
-    await this.readRebuilt();
+    await this.readRebuilt(strict);
   }
 
   /**
@@ -581,18 +592,24 @@ export class MinerController {
    * resumes. Until it succeeds nothing is known to be recovered, and Start retries it; one read
    * at a time, so a second Start cannot restart mining behind a Stop.
    */
-  private readRebuilt(): Promise<void> {
-    this.reading ??= this.readRebuiltOnce().finally(() => {
+  private readRebuilt(strict = false): Promise<void> {
+    this.reading ??= this.readRebuiltOnce(strict).finally(() => {
       this.reading = undefined;
     });
     return this.reading;
   }
 
-  private async readRebuiltOnce() {
+  private async readRebuiltOnce(strict = false) {
     try {
       await this.refresh();
     } catch (e) {
       this.log(`the rebuilt chain view could not be read: ${claimFailureMessage(e)}`);
+      // A node switch's first read is part of the switch: its failure abandons the prover and
+      // surfaces, so the caller shows the boot error rather than reporting a good switch.
+      if (strict) {
+        this.abandonProver(`the new node did not answer the first read: ${claimFailureMessage(e)}`);
+        throw e;
+      }
       return this.dispatch({
         type: 'failed',
         error: `the chain view was rebuilt but the node did not answer (${claimFailureMessage(e)}); press Start to read it again`,

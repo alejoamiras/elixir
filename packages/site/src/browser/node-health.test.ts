@@ -124,7 +124,7 @@ describe('the store', () => {
     health.recordOutcome(outcome({ status: 'network' }));
     health.recordOutcome(outcome({ status: 'network' }));
     expect(health.nodeHealth().transport.kind).toBe('silent');
-    health.recordOutcome(outcome({ status: 200 }));
+    health.recordOutcome(outcome({ status: 200, startedAt: performance.now() })); // a fresh answer
     health.recordOutcome(outcome({ status: 'network' }));
     health.recordOutcome(outcome({ status: 'network' }));
     expect(health.nodeHealth().transport.kind).toBe('silent');
@@ -136,8 +136,8 @@ describe('the store', () => {
     health.markRead(1234);
     health.recordOutcome(outcome({ status: 429 }));
     expect(health.nodeHealth()).toMatchObject({ lastReadAt: 1234, transport: { kind: 'throttled' } });
-    health.recordOutcome(outcome({ status: 200 }));
-    expect(health.nodeHealth().lastReadAt).toBe(1234);
+    health.recordOutcome(outcome({ status: 200, startedAt: performance.now() }));
+    expect(health.nodeHealth()).toMatchObject({ lastReadAt: 1234, transport: { kind: 'ok' } });
   });
 
   test('an outcome from an endpoint that is no longer the page’s is dropped', async () => {
@@ -208,11 +208,12 @@ describe('the gate', () => {
     expect((health.nodeHealth().transport as { retryAt: number }).retryAt).toBe(retryAt);
   });
 
-  test('a success that started before the 429 does not clear the cooldown; a later one does', () => {
-    health.recordOutcome(outcome({ status: 429, retryAfter: '5', startedAt: 1_000 }));
-    health.recordOutcome(outcome({ status: 200, startedAt: 500 }));
+  test('a success in flight when the throttle was observed does not clear it; a later one does', () => {
+    health.recordOutcome(outcome({ status: 429, retryAfter: '5' })); // cooldown observed = performance.now()
+    const observed = performance.now();
+    health.recordOutcome(outcome({ status: 200, startedAt: observed - 5_000 })); // sent before the throttle
     expect(health.nodeHealth().transport.kind).toBe('throttled');
-    health.recordOutcome(outcome({ status: 200, startedAt: 2_000 }));
+    health.recordOutcome(outcome({ status: 200, startedAt: performance.now() })); // sent after it
     expect(health.nodeHealth().transport.kind).toBe('ok');
   });
 

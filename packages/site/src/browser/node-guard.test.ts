@@ -153,13 +153,13 @@ describe('node guard', () => {
     guard.setNodeGate(null);
   });
 
-  test('a cancelled body still reports its status once, so a recovery lock is never left stuck', async () => {
+  test('a cancelled body reports a failure once, so a recovery lock is freed without declaring success', async () => {
     const seen: (number | string)[] = [];
     const off = guard.onNodeResponse((o) => seen.push(o.status));
     const res = await fetch(NODE);
     await res.body?.cancel('done early');
     off();
-    expect(seen).toEqual([200]);
+    expect(seen).toEqual(['network']); // headers alone are not a completed answer
   });
 
   test('data: and blob: loads pass untouched — bb.js fetches its bundled WASM as data: URLs', async () => {
