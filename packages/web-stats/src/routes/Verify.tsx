@@ -78,7 +78,9 @@ export function Verify({ nodeUrl }: { nodeUrl: string }) {
         />
         <KvRow
           label="deployer (no privilege after bind_token)"
-          value={<Hex value={record.deployer ?? '—'} />}
+          value={
+            <Hex value={record.deployer ?? '—'} href={record.deployer && links.address(record.deployer)} />
+          }
         />
         <KvRow
           label="miner salt · token salt"
