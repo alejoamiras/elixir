@@ -19,9 +19,11 @@ const interactive = (t: EventTarget | null) =>
   (t.isContentEditable ||
     t.closest('input, textarea, select, button, a, [role="button"], [contenteditable]') !== null);
 
-export function useHotkeys(controller: () => MinerController | undefined) {
+export function useHotkeys(controller: () => MinerController | undefined, enabled = true) {
   const store = useStore();
   useEffect(() => {
+    // Off while the sign-in dialog shows: its own keys (Escape, Enter) must not reach the page.
+    if (!enabled) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.repeat || e.metaKey || e.ctrlKey || e.altKey || interactive(e.target))
         return;
@@ -52,7 +54,7 @@ export function useHotkeys(controller: () => MinerController | undefined) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [controller, store]);
+  }, [controller, store, enabled]);
 }
 
 /** Battery and hidden-tab pauses; both clear by themselves. */

@@ -52,7 +52,7 @@ test('a words account: create, quiz, mine, sign out, restore, same address', asy
   await page.mouse.up();
   // The session ends with a reload onto a device that knows no account: the sign-up screen.
   await expect(page.getByTestId('create-passkey')).toBeVisible({ timeout: BOOT_MS });
-  await expect(page.getByRole('heading', { name: 'Sign up with a passkey.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sign in to mine.' })).toBeVisible();
 
   // Restore on a device that knows no account: hostname banner, paste allowed, same address.
   await page.getByTestId('restore-words').click();

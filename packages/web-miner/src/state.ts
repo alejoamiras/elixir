@@ -31,4 +31,6 @@ export const claimsAtom = atom<{ epoch: bigint; block: number; at: number }[]>([
 export const logAtom = atom<string[]>([]);
 /** The proving keys' download, from page load; the wallet's and the prover's start wait for `done`. */
 export const crsAtom = atom<CrsProgress>({ loaded: 0, total: 0, done: false });
+/** The sign-in dialog is wanted while no account is open: "Not now" clears it, the cockpit's buttons set it. */
+export const signInAtom = atom(true);
 export const nowAtom = atom(Date.now());

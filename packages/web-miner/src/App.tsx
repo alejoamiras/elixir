@@ -19,7 +19,8 @@ import {
 import { DesktopOnly } from './components/DesktopOnly';
 import type { Connection } from './config';
 import { isDesktop } from './desktop';
-import { KeyScreen } from './features/KeyScreen';
+import { PreflightTile } from './features/KeyScreen';
+import { SignInDialog } from './features/SignInDialog';
 import { useHotkeys, usePauses, useResumeOnOpen } from './features/use-page-behaviour';
 import { pillStatus } from './lib/status';
 import { navigate, pathFor, type Route, useRoute } from './routes';
@@ -28,7 +29,7 @@ import { Settings } from './routes/Settings';
 import { Wallet } from './routes/Wallet';
 import type { Session } from './session';
 import { useSettings } from './settings';
-import { bootAtom, epochAtom, minerAtom, nowAtom, rulesAtom } from './state';
+import { bootAtom, epochAtom, minerAtom, nowAtom, rulesAtom, signInAtom } from './state';
 import { applyTabStatus } from './tab-status';
 
 /** The stats app lives beside this one on the same origin; standalone builds point at the assembled path. */
@@ -125,14 +126,20 @@ export function Shell({ children }: { children: ReactNode }) {
 export function App({ connection, session }: { connection: Connection; session: Session }) {
   const boot = useAtomValue(bootAtom);
   const route = useRoute();
+  const signIn = useAtomValue(signInAtom);
   const [settings] = useSettings();
   const controller = useCallback(() => session.controller, [session]);
+  // Settings stays reachable signed out (the node is changed there); everywhere else the sign-in
+  // sits over the cockpit, and the page's keys are its while it shows.
+  const dialogShowing =
+    route !== 'settings' && (boot.phase === 'opening' || (boot.phase === 'signedOut' && signIn));
   useTabStatus(settings.tabStatus);
-  useHotkeys(controller);
+  useHotkeys(controller, !dialogShowing);
   usePauses(controller, settings);
   useResumeOnOpen(controller);
   if (!isDesktop(window)) return <DesktopOnly />;
   const open = boot.phase === 'ready';
+  const chain = open || boot.phase === 'signedOut' || boot.phase === 'opening';
   return (
     <Shell>
       {boot.phase === 'error' && (
@@ -146,10 +153,11 @@ export function App({ connection, session }: { connection: Connection; session: 
           />
         </Alert>
       )}
-      {!open && boot.phase !== 'error' && <KeyScreen session={session} />}
-      {open && route === 'mine' && <Mine controller={controller} />}
+      {boot.phase === 'preflight' && <PreflightTile rows={boot.rows} />}
+      {chain && route === 'mine' && <Mine controller={controller} />}
       {open && route === 'wallet' && <Wallet session={session} />}
       {route === 'settings' && <Settings connection={connection} controller={controller} session={session} />}
+      {route !== 'settings' && <SignInDialog session={session} />}
       <p className="text-xs text-ink-2">
         Whoever serves this page controls it: a compromised host could redirect claims or spend this wallet.
         Run your own build if that matters. Chain reads come from the node in Settings and can only waste work

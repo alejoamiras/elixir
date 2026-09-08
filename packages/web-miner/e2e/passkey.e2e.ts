@@ -89,9 +89,10 @@ test('a passkey account: create, mine, claim, reload with one touch, the balance
   await expect.poll(async () => (await vault(page)).records[0]?.sealed).toBeDefined();
   await auth.remove();
   await page.reload();
+  // The reload lands on Settings, which stays free of the sign-in: the Account tile is the way in.
+  await page.getByTestId('sign-in-settings').click({ timeout: BOOT_MS });
   await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
   await page.getByTestId('open-key').click();
-  await page.getByRole('link', { name: 'Mine' }).click();
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
   expect(await page.getByTestId('account').getAttribute('title')).toBe(account);
   await page.getByRole('link', { name: 'Settings' }).click();

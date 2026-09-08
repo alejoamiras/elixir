@@ -1,3 +1,4 @@
+import { useAtomValue } from 'jotai';
 import { TileBoundary } from '../../../ui/src/index.ts';
 import { BalanceCard } from '../components/BalanceCard';
 import type { MinerController } from '../controller';
@@ -5,6 +6,7 @@ import { LedgerTile } from '../features/LedgerTile';
 import { KpiTiles, LoopTile } from '../features/LoopTile';
 import { RailTile } from '../features/RailTile';
 import { useTileLog } from '../lib/tile-log';
+import { bootAtom } from '../state';
 
 /**
  * The ledger and the balance tile share a wrapper so that between `md` and `xl` they stack beside the
@@ -12,9 +14,11 @@ import { useTileLog } from '../lib/tile-log';
  */
 export function Mine({ controller }: { controller: () => MinerController | undefined }) {
   const onError = useTileLog();
+  const ready = useAtomValue(bootAtom).phase === 'ready';
   return (
     <div
-      className="grid items-start gap-[14px] md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_300px]"
+      className="grid items-start gap-[14px] md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_300px] data-[signed-out]:opacity-[.72] data-[signed-out]:saturate-[.55]"
+      data-signed-out={ready ? undefined : ''}
       data-testid="cockpit"
     >
       <TileBoundary name="loop" onError={onError} className="md:col-span-2 xl:col-span-3">
