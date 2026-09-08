@@ -28,7 +28,7 @@ What the phase found:
 - The dual-runner rule: the two new suites are `*.bun.test.ts` (bun only) — `ReadableStream` bodies and a fresh
   jotai store per test are cleaner outside jsdom.
 
-## P2.2 · The cockpit signed out and the modal ✓ (2026-09-08, `P22HASH`)
+## P2.2 · The cockpit signed out and the modal ✓ (2026-09-08, `1347482`)
 
 Gate, as run: `bun run lint` exit 0 · every typecheck ok · `bun test` 216 pass · Vitest web-miner 60 (new
 `sign-in.vitest.tsx`: the cockpit is dull with the epoch's numbers and "Sign in to mine" in Start's place, the

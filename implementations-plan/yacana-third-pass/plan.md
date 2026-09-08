@@ -624,7 +624,7 @@ a wrong hash still throws after streaming, the Worker's import order; `public-ep
 poll fills the atom, stops on handover, never regresses the epoch number) · Vitest `packages/web-miner` (the cockpit
 renders with the atom filled and no session). Layers: lint/typecheck · unit · component.
 
-**P2.2 · The cockpit signed out and the modal** ✓ (2026-09-08, `P22HASH`) — the dull cockpit; "Sign in to mine"; the dashed claim slot; the KPI
+**P2.2 · The cockpit signed out and the modal** ✓ (2026-09-08, `1347482`) — the dull cockpit; "Sign in to mine"; the dashed claim slot; the KPI
 dashes and subs; the ledger's opened line; the balance tile; `SignInDialog` hosting the key screens (scroll, no X,
 wrapping, focus restore, hotkeys off); "Not now — just watch"; the E2E helper opens the dialog first and handles it
 already open.
