@@ -5,7 +5,7 @@ import type { NodeRequestOutcome } from './node-guard.ts';
 
 // The fake network the guard sits over: per-path behaviour, a call log, a delay per request.
 const calls: string[] = [];
-const network = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+const network = async (input: RequestInfo | URL): Promise<Response> => {
   const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
   calls.push(href);
   const url = new URL(href);

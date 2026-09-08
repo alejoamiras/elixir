@@ -1,11 +1,22 @@
 import * as React from 'react';
 import { useDocumentHidden, useReducedMotion } from '../hooks/use-reduced-motion.ts';
 import { cn } from '../lib/cn.ts';
-import { axis, axisTo, axisTop, difficultyLabel, flash, rise, type Sample } from '../score-loop-model.ts';
+import {
+  axis,
+  axisTo,
+  axisTop,
+  difficultyLabel,
+  flash,
+  labelsCollide,
+  marginFor,
+  rise,
+  type Sample,
+} from '../score-loop-model.ts';
 import { DARK, ink } from '../tokens.ts';
 
 export interface ScoreLoopProps {
-  difficulty: number;
+  /** The bar; null before the epoch is read, when no bar is drawn and the caption says so. */
+  difficulty: number | null;
   /** Every attempt of the window, oldest first, on the performance.now() clock. */
   samples: readonly Sample[];
   /** The last win's time, for the bar flash. */
@@ -79,7 +90,8 @@ function drawGrid(f: Frame, right: number) {
   }
 }
 
-function drawBar(f: Frame, right: number, difficulty: number, glow: number) {
+function drawBar(f: Frame, right: number, difficulty: number | null, glow: number) {
+  if (difficulty === null) return;
   const { ctx } = f;
   const y = yOf(f, f.scale(difficulty));
   ctx.strokeStyle = glow > 0 ? f.p.uv2 : f.p.uv;
@@ -94,8 +106,28 @@ function drawBar(f: Frame, right: number, difficulty: number, glow: number) {
   ctx.fillText(`difficulty ${difficultyLabel(difficulty)} · the bar`, f.left + 6, y - 10);
 }
 
-function drawDots(f: Frame, right: number, props: ScoreLoopProps, now: number, reduced: boolean) {
+/** One attempt of the grid rendering: a stem from the baseline and a dot, ringed for a win. */
+function drawDot(f: Frame, x: number, y: number, base: number, win: boolean, age: number) {
   const { ctx } = f;
+  ctx.strokeStyle = win ? f.p.uv2 : f.p.line;
+  ctx.beginPath();
+  ctx.moveTo(x, base);
+  ctx.lineTo(x, y);
+  ctx.stroke();
+  ctx.fillStyle = win ? f.p.uv2 : f.p.ink;
+  ctx.globalAlpha = win ? 1 : 0.85 - age * 0.6;
+  ctx.beginPath();
+  ctx.arc(x, y, win ? 4 : 2.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  if (!win) return;
+  ctx.strokeStyle = f.p.uv;
+  ctx.beginPath();
+  ctx.arc(x, y, 9, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+function drawDots(f: Frame, right: number, props: ScoreLoopProps, now: number, reduced: boolean) {
   const span = props.spanMs ?? 60_000;
   const base = f.h - f.pad;
   for (const s of props.samples) {
@@ -103,24 +135,7 @@ function drawDots(f: Frame, right: number, props: ScoreLoopProps, now: number, r
     if (age > 1 || age < 0) continue;
     const x = right - age * (right - f.left);
     const y = base - (base - yOf(f, f.scale(s.score))) * rise(now, s.t, reduced);
-    const win = s.score >= props.difficulty;
-    ctx.strokeStyle = win ? f.p.uv2 : f.p.line;
-    ctx.beginPath();
-    ctx.moveTo(x, base);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-    ctx.fillStyle = win ? f.p.uv2 : f.p.ink;
-    ctx.globalAlpha = win ? 1 : 0.85 - age * 0.6;
-    ctx.beginPath();
-    ctx.arc(x, y, win ? 4 : 2.3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    if (win) {
-      ctx.strokeStyle = f.p.uv;
-      ctx.beginPath();
-      ctx.arc(x, y, 9, 0, Math.PI * 2);
-      ctx.stroke();
-    }
+    drawDot(f, x, y, base, props.difficulty !== null && s.score >= props.difficulty, age);
   }
 }
 
@@ -128,7 +143,7 @@ function drawLabels(f: Frame, right: number, props: ScoreLoopProps) {
   const { ctx } = f;
   const last = props.samples[props.samples.length - 1];
   if (last) {
-    const win = last.score >= props.difficulty;
+    const win = props.difficulty !== null && last.score >= props.difficulty;
     ctx.fillStyle = win ? f.p.uv2 : f.p.ink;
     ctx.textAlign = 'right';
     const y = Math.max(f.pad - 6, yOf(f, f.scale(last.score)) - 12);
@@ -142,7 +157,7 @@ function drawLabels(f: Frame, right: number, props: ScoreLoopProps) {
 }
 
 /** Calm: the baseline at score 1 and the bar, each labelled once on the axis; no grid. */
-function drawCalmLines(f: Frame, right: number, difficulty: number, glow: number) {
+function drawCalmLines(f: Frame, right: number, difficulty: number | null, glow: number) {
   const { ctx } = f;
   ctx.font = `${f.fontPx}px "JetBrains Mono Variable", monospace`;
   ctx.textBaseline = 'middle';
@@ -152,10 +167,20 @@ function drawCalmLines(f: Frame, right: number, difficulty: number, glow: number
   ctx.moveTo(f.left, base);
   ctx.lineTo(right, base);
   ctx.stroke();
-  ctx.fillStyle = f.p.ink3;
   ctx.textAlign = 'right';
-  ctx.fillText('1', f.left - 8, base);
+  if (difficulty === null) {
+    ctx.fillStyle = f.p.ink3;
+    ctx.fillText('1', f.left - 8, base);
+    ctx.textAlign = 'center';
+    ctx.fillText('reading the epoch…', (f.left + right) / 2, (f.pad + base) / 2);
+    return;
+  }
   const y = yOf(f, f.scale(difficulty));
+  // A bar on the floor would print its label over the baseline's: the baseline's steps aside.
+  if (!labelsCollide(y, base, f.fontPx)) {
+    ctx.fillStyle = f.p.ink3;
+    ctx.fillText('1', f.left - 8, base);
+  }
   ctx.strokeStyle = glow > 0 ? f.p.uv2 : f.p.uv;
   ctx.lineWidth = 2 + glow * 1.5;
   ctx.beginPath();
@@ -183,7 +208,7 @@ function tick(f: Frame, x: number, y: number, color: string, width: number, alph
 }
 
 /** Calm: a win is the ringed dot, with its score beside it when there is room for type. */
-function drawCalmWin(f: Frame, right: number, x: number, y: number, score: number) {
+function drawCalmWin(f: Frame, right: number, x: number, y: number, score: number, yBar: number) {
   const { ctx } = f;
   const tall = f.h > 80;
   tick(f, x, y, f.p.uv2, 1.5);
@@ -197,9 +222,16 @@ function drawCalmWin(f: Frame, right: number, x: number, y: number, score: numbe
   ctx.stroke();
   if (!tall) return;
   const flip = x > right - 90;
+  // The bar's caption sits above the bar at the right edge: a win up there labels itself below its dot.
+  const underCaption =
+    x > right - 220 && Math.abs(y - yBar) < 2.5 * f.fontPx && y + 2 * f.fontPx < f.h - f.pad;
   ctx.fillStyle = f.p.ink;
   ctx.textAlign = flip ? 'right' : 'left';
-  ctx.fillText(`★ ${score.toFixed(1)} · a win`, x + (flip ? -14 : 14), y - 4);
+  ctx.fillText(
+    `★ ${score.toFixed(1)} · a win`,
+    x + (flip ? -14 : 14),
+    underCaption ? y + f.fontPx + 4 : y - 4,
+  );
 }
 
 /** Calm: ordinary proofs are dim ticks from the baseline; wins are drawn bright; the window's ends are labelled. */
@@ -212,14 +244,9 @@ function drawCalmDots(f: Frame, right: number, props: ScoreLoopProps, now: numbe
     if (age > 1 || age < 0) continue;
     const x = right - age * (right - f.left);
     const y = base - (base - yOf(f, f.scale(s.score))) * rise(now, s.t, reduced);
-    if (s.score >= props.difficulty) drawCalmWin(f, right, x, y, s.score);
-    else if (f.h > 80) tick(f, x, y, f.p.ink3, 2, 0.55);
-    else {
-      ctx.fillStyle = f.p.uv;
-      ctx.beginPath();
-      ctx.arc(x, y, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    if (props.difficulty !== null && s.score >= props.difficulty)
+      drawCalmWin(f, right, x, y, s.score, yOf(f, f.scale(props.difficulty)));
+    else tick(f, x, y, f.p.ink3, 2, 0.55);
   }
   if (f.h <= 80) return;
   ctx.fillStyle = f.p.ink3;
@@ -240,7 +267,7 @@ function scaleFor(props: ScoreLoopProps, now: number): (score: number) => number
   const span = props.spanMs ?? 180_000;
   // The ceiling is computed from what this window shows, not from everything the store retains.
   const top = axisTop(
-    props.difficulty,
+    props.difficulty ?? 1,
     props.samples.filter((s) => now - s.t <= span && now - s.t >= 0),
   );
   return (score) => axisTo(score, top);
@@ -259,7 +286,11 @@ function frame(canvas: HTMLCanvasElement, props: ScoreLoopProps, now: number): F
   }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
-  const { pad, fontPx, left } = layout(props);
+  const { pad, fontPx, left: floor } = layout(props);
+  // The font before the measurement: the margin is the widest label the axis will carry.
+  ctx.font = `${fontPx}px "JetBrains Mono Variable", monospace`;
+  const widest = props.calm ? (props.difficulty === null ? '1' : difficultyLabel(props.difficulty)) : '1000';
+  const left = marginFor(ctx.measureText(widest).width, floor);
   return {
     ctx,
     w,
@@ -271,6 +302,19 @@ function frame(canvas: HTMLCanvasElement, props: ScoreLoopProps, now: number): F
     fontPx,
     scale: scaleFor(props, now),
   };
+}
+
+/** The fixed text a drawing error leaves behind; the error itself went to the console. */
+function drawFailure(canvas: HTMLCanvasElement) {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.font = '11px "JetBrains Mono Variable", monospace';
+  ctx.fillStyle = palette(canvas).ink3;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  ctx.fillText('This tile hit an error. Reload the page.', canvas.clientWidth / 2, canvas.clientHeight / 2);
 }
 
 function draw(canvas: HTMLCanvasElement, props: ScoreLoopProps, now: number, reduced: boolean) {
@@ -318,17 +362,27 @@ export function ScoreLoop(props: ScoreLoopProps) {
     // Samples carry the opener's performance.now(); a pop-out's rAF timestamps run on its own, later
     // time origin, so frames are scheduled on `w` but every age is measured on the page's clock.
     const clock = () => performance.now();
+    // A throw inside a frame reaches no React boundary: the loop stops and the canvas says so.
+    const safely = (fn: () => void): boolean => {
+      try {
+        fn();
+        return true;
+      } catch (e) {
+        console.error(e);
+        drawFailure(canvas);
+        return false;
+      }
+    };
     if (!reduced) {
       let raf = 0;
       const tick = () => {
-        draw(canvas, latest.current, clock(), false);
-        raf = w.requestAnimationFrame(tick);
+        if (safely(() => draw(canvas, latest.current, clock(), false))) raf = w.requestAnimationFrame(tick);
       };
       raf = w.requestAnimationFrame(tick);
       return () => w.cancelAnimationFrame(raf);
     }
     // A still frame is only right for the size and palette it was drawn with.
-    const still = () => draw(canvas, latest.current, clock(), true);
+    const still = () => void safely(() => draw(canvas, latest.current, clock(), true));
     still();
     const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(still);
     resize?.observe(canvas);
@@ -353,7 +407,7 @@ export function ScoreLoop(props: ScoreLoopProps) {
       data-reduced={reduced || undefined}
       data-calm={props.calm || undefined}
       role="img"
-      aria-label={`score loop: ${props.samples.length} proofs in the last ${Math.round(span / 1000)} seconds, difficulty ${difficultyLabel(props.difficulty)}`}
+      aria-label={`score loop: ${props.samples.length} proofs in the last ${Math.round(span / 1000)} seconds, difficulty ${props.difficulty === null ? 'not read yet' : difficultyLabel(props.difficulty)}`}
       className={cn('block w-full', props.className)}
       style={{ height: props.height ?? 200 }}
     />

@@ -25,6 +25,14 @@ export const axisTop = (difficulty: number, samples: readonly Sample[]): number 
 export const axisTo = (score: number, top: number): number =>
   Math.min(1, Math.max(0, Math.log(Math.max(1, score)) / Math.log(top)));
 
+/** The baseline's label yields when the bar's line sits within a line of type of it. */
+export const labelsCollide = (yBar: number, yBase: number, fontPx: number): boolean =>
+  Math.abs(yBar - yBase) < 1.2 * fontPx;
+
+/** The left margin a right-aligned axis label needs: its measured width plus the gap on both sides, never under the floor. */
+export const marginFor = (labelWidth: number, floor: number, gap = 8): number =>
+  Math.max(floor, Math.ceil(labelWidth) + 2 * gap);
+
 /** Finite positive inputs: one decimal below 1e6, the compact exponent (3.4e38) above it. */
 export const difficultyLabel = (d: number): string =>
   d >= 1e6 ? d.toExponential(1).replace('+', '') : d.toFixed(1);
