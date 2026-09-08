@@ -133,3 +133,41 @@ What the phase found:
   the error goes to `onError` or the console, cut at 300 characters (a node's whole response can ride an error).
 - The docs link in the tile note is set in the prose face and unbreakable; `ExternalLink` defaults to mono for
   chain values.
+
+## Arc 1 codex loop · round 1 (2026-09-08)
+
+Session `01a082b3-cb6f-7763-b05d-48f6157796c8` (Astra, high), the four renders and three artboards attached. Twelve
+findings; all verified against the code, all adopted (the loop's high signal — three were plan invariants the code
+had drifted from):
+
+- **High — the drain did not bound the switch.** `refresh()` stored the deadline-wrapped promise as `refreshing`, so
+  `drain()` returned while the real `readChain` floated on the old node; the poll ignored the switch. Now `refresh`
+  tracks the real read (`inflightRead`), `drain` awaits it, a `switching` flag makes `poll()` skip across a switch.
+- **High — a failed node-switch rebuild took the lost-race reopen fallback and reported success.** The plan says a
+  switch rebuild that fails is a boot error, never the reopen (which would keep a view built on the old node). Added a
+  `strict` path: `recover(strict)` in `boot.ts` rethrows instead of reopening; `rebuildChainView(why, strict)`
+  rethrows after abandoning the prover; `Session.switchNode` sets `bootAtom` to `error` with the way out.
+- **High — two switches could overlap.** A tile remount gave a second usable form while the first switch ran.
+  `Session` now holds one in-flight switch promise and returns it to a concurrent caller.
+- **Medium — a switch from idle started mining.** `readRebuiltOnce` called `start()` unconditionally; under a switch
+  pause it now leaves the resume to `release('switch')`, which only fires if mining was active at pause time.
+- **Medium — an obsolete answer freed the recovery lock.** `probing` cleared on any current-endpoint outcome; now
+  only an outcome that started at/after the recovery was admitted (`probingSince`) clears it.
+- **Medium — a cancelled response body left the gate stuck.** The relay reported no outcome on cancel; it now settles
+  the status once before cancelling the reader.
+- **Medium — reinstalling the guard after the CRS wrapper recursed.** `installNodeGuard` is now idempotent (never
+  re-captures `original`); tests point the guard at their fake through the new `setOriginalFetch`.
+- **Medium — health probes overlapped for minutes.** The active node's probe uses the guard's 120 s deadline, not the
+  tile's 10 s; a tick is now skipped while the last probe is in flight.
+- **Medium — five Settings tiles were outside a boundary.** Performance, Behaviour, Account, Appearance and About are
+  now wrapped; every miner boundary logs through `useTileLog` (the diagnostics log, host-only), not the console.
+- **Low — `restoreDefaultNode` reloaded even when the save failed** (back into the broken node); it now reloads only
+  on a successful write.
+- **Low — the pop-out footer was 11 px and could wrap**; it is 10 px mono, `whitespace-nowrap`, per the spec.
+- **Low — two stale comments** (`pinned-crs` still named the CSP as the CRS control; the gate comment said others
+  "wait for" the recovery when they get a synthetic answer) corrected.
+
+New tests: a cancelled body reports once (guard); a stale answer does not free the recovery lock (health); an idle
+switch stays idle and a strict rebuild failure rejects without reopening (switch). Gate re-run: lint · 5 typechecks ·
+`bun test` 199 pass · Vitest ui 46 / web-miner 55 · the switch and pop-out E2E on the isolated network · renders
+re-shot (the throttled tile now reads `429 · rate limited · last answer N s ago · this deployment ✓`).

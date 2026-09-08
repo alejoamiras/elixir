@@ -61,7 +61,7 @@ function PipView({ controller, win }: { controller: () => MinerController | unde
         geometry={{ pad: 4, fontPx: 10 }}
         win={win}
       />
-      <div className="flex items-baseline justify-between gap-2 font-mono text-2xs text-ink-2">
+      <div className="flex items-baseline justify-between gap-2 whitespace-nowrap font-mono text-[10px] text-ink-2">
         <span>
           <span className="font-sans text-lg font-semibold tracking-[-0.02em] text-ink">
             {perMinute.toFixed(1)}

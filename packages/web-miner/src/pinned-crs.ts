@@ -1,7 +1,8 @@
 // bb.js fetches its CRS from Aztec's CDN with no integrity check. The page answers those fetches
-// itself from /crs, after the whole asset's sha256 matched the pinned value; the CSP blocks the
-// CDN hosts, so an unintercepted request fails loudly instead of trusting transport security.
-// Import first in every context that creates a Barretenberg instance (page and Worker).
+// itself from /crs, after the whole asset's sha256 matched the pinned value. The node guard (loaded
+// first) is the backstop: this wrapper sits over it, so a CRS request that slips past here reaches
+// an endpoint that is neither the page nor the node and is rejected, never trusting transport
+// security. Import right after the guard in every context that creates a Barretenberg instance.
 import { delMany } from 'idb-keyval';
 import lock from '../../site/crs.lock.json';
 

@@ -58,8 +58,10 @@ beforeAll(async () => {
   globalThis.fetch = network as typeof fetch;
   guard = await import('./node-guard.ts');
   // Another suite in the same run may have imported the guard over the real fetch, or left a gate on it
-  // (the health store's): re-arm it over the fake, with no gate.
+  // (the health store's): point it at this fake and clear the gate. `installNodeGuard` is idempotent
+  // and never re-captures `original`, so the fake is set through `setOriginalFetch`.
   guard.installNodeGuard();
+  guard.setOriginalFetch(network as typeof fetch);
   guard.setNodeGate(null);
   guard.setNodeEndpoint(NODE, 1_000);
 });
@@ -149,6 +151,15 @@ describe('node guard', () => {
     expect(res.status).toBe(429);
     expect(calls).toEqual([]);
     guard.setNodeGate(null);
+  });
+
+  test('a cancelled body still reports its status once, so a recovery lock is never left stuck', async () => {
+    const seen: (number | string)[] = [];
+    const off = guard.onNodeResponse((o) => seen.push(o.status));
+    const res = await fetch(NODE);
+    await res.body?.cancel('done early');
+    off();
+    expect(seen).toEqual([200]);
   });
 
   test('data: and blob: loads pass untouched — bb.js fetches its bundled WASM as data: URLs', async () => {

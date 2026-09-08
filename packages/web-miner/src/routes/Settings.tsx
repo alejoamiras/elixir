@@ -17,6 +17,7 @@ import { NodeTile } from '../components/NodeTile';
 import type { Connection } from '../config';
 import type { MinerController } from '../controller';
 import { diagnostics } from '../lib/diagnostics';
+import { useTileLog } from '../lib/tile-log';
 import type { Session } from '../session';
 import { type BooleanSetting, useSettings } from '../settings';
 import { bootAtom, logAtom } from '../state';
@@ -53,6 +54,39 @@ const THEMES: { value: Theme; label: string }[] = [
   { value: 'system', label: 'System' },
 ];
 
+/** The build's identity and the diagnostics copy: the log's last lines, host-only, for a bug report. */
+function AboutTile({ log }: { log: string[] }) {
+  const [copied, setCopied] = useState<'ok' | 'failed' | null>(null);
+  return (
+    <Tile>
+      <TileHeader>About</TileHeader>
+      <KvRow label="source" value={import.meta.env.VITE_SOURCE_COMMIT.slice(0, 12)} />
+      <KvRow label="build" value={import.meta.env.VITE_SITE_MODE} />
+      <KvRow label="bb.js" value={import.meta.env.VITE_BB_VERSION} />
+      <KvRow label="relying party" value={import.meta.env.VITE_RP_ID} />
+      <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-line pt-3">
+        <Button
+          size="sm"
+          onClick={() =>
+            navigator.clipboard
+              .writeText(diagnostics(log))
+              .then(() => setCopied('ok'))
+              .catch(() => setCopied('failed'))
+          }
+          data-testid="copy-diagnostics"
+        >
+          {copied === 'ok' ? 'Copied' : 'Copy diagnostics (shortened)'}
+        </Button>
+        <span className="text-ink-3 text-xs">
+          {copied === 'failed'
+            ? 'The clipboard refused; the log is also in the browser console.'
+            : "The last 200 lines, addresses shortened. It names this account's claims and the node's host."}
+        </span>
+      </div>
+    </Tile>
+  );
+}
+
 export function Settings({
   connection,
   controller,
@@ -66,7 +100,7 @@ export function Settings({
   const boot = useAtomValue(bootAtom);
   const { setTheme } = useTheme();
   const log = useAtomValue(logAtom);
-  const [copied, setCopied] = useState<'ok' | 'failed' | null>(null);
+  const onError = useTileLog();
   // The node in use follows a live switch; `connection` is what the page booted with.
   const [nodeUrl, setNodeUrl] = useState(session.nodeUrl ?? connection.nodeUrl);
   const cores = navigator.hardwareConcurrency || 2;
@@ -92,101 +126,91 @@ export function Settings({
   const canBattery = 'getBattery' in navigator;
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <TileBoundary name="node">
+      <TileBoundary name="node" onError={onError}>
         <NodeTile
           session={session}
           nodeUrl={nodeUrl}
           onSwitched={() => setNodeUrl(session.nodeUrl ?? nodeUrl)}
         />
       </TileBoundary>
-      <Tile>
-        <TileHeader>Performance</TileHeader>
-        <PowerSlider
-          cores={cores}
-          threads={threads}
-          onChange={(t) => {
-            set({ threads: t });
-            controller()?.reconfigure(t);
-          }}
-        />
-        {flag(
-          'pauseOnBattery',
-          'pause-battery',
-          'Pause on battery',
-          canBattery ? undefined : 'not reported by this browser',
-          !canBattery,
-        )}
-        {flag(
-          'backgroundProving',
-          'background',
-          'Keep proving in a background tab',
-          'off: mining pauses while the tab is hidden',
-        )}
-      </Tile>
-      <Tile>
-        <TileHeader>Behaviour</TileHeader>
-        {flag('resumeOnOpen', 'resume', 'Resume mining when the page opens')}
-        {flag('notify', 'notify', 'Notify on a win', 'no amounts in the notification')}
-        {flag('sound', 'sound', 'Sound on a win')}
-        {flag('tabStatus', 'tab-status', 'Report in the tab title and icon')}
-        {flag(
-          'pip',
-          'pip',
-          'Mini window',
-          canPip ? 'Document Picture-in-Picture' : 'not supported by this browser',
-          !canPip,
-        )}
-      </Tile>
-      <Tile>
-        <TileHeader>Account</TileHeader>
-        {boot.phase === 'ready' && boot.record.method === 'passkey' ? (
-          <>
-            <Toggle
-              id="stay-open"
-              label="Stay open on this device"
-              hint="off (default): one touch per open, no spend secret at rest · on: the account is sealed under a device key in this browser's storage (plaintext-equivalent against a stolen unencrypted disk)"
-              value={!boot.record.askEveryOpen}
-              onChange={(v) => void session.setStayOpen(v)}
-            />
-            <p className="mt-3 text-xs text-warn">
-              A passkey account has no backup: if the passkey is lost and was not synced, so is the balance.
-              Move funds off an account that holds more than a session's worth.
-            </p>
-          </>
-        ) : (
-          <p className="text-xs text-ink-2">Open an account to see its options.</p>
-        )}
-      </Tile>
-      <Tile>
-        <TileHeader>Appearance</TileHeader>
-        <Segmented value={s.theme} onChange={(theme) => set({ theme })} options={THEMES} aria-label="theme" />
-      </Tile>
-      <Tile>
-        <TileHeader>About</TileHeader>
-        <KvRow label="source" value={import.meta.env.VITE_SOURCE_COMMIT.slice(0, 12)} />
-        <KvRow label="build" value={import.meta.env.VITE_SITE_MODE} />
-        <KvRow label="bb.js" value={import.meta.env.VITE_BB_VERSION} />
-        <KvRow label="relying party" value={import.meta.env.VITE_RP_ID} />
-        <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-line pt-3">
-          <Button
-            size="sm"
-            onClick={() =>
-              navigator.clipboard
-                .writeText(diagnostics(log))
-                .then(() => setCopied('ok'))
-                .catch(() => setCopied('failed'))
-            }
-            data-testid="copy-diagnostics"
-          >
-            {copied === 'ok' ? 'Copied' : 'Copy diagnostics (shortened)'}
-          </Button>
-          <span className="text-ink-3 text-xs">
-            {copied === 'failed'
-              ? 'The clipboard refused; the log is also in the browser console.'
-              : "The last 200 lines, addresses shortened. It names this account's claims and the node's host."}
-          </span>
-        </div>
-      </Tile>
+      <TileBoundary name="performance" onError={onError}>
+        <Tile>
+          <TileHeader>Performance</TileHeader>
+          <PowerSlider
+            cores={cores}
+            threads={threads}
+            onChange={(t) => {
+              set({ threads: t });
+              controller()?.reconfigure(t);
+            }}
+          />
+          {flag(
+            'pauseOnBattery',
+            'pause-battery',
+            'Pause on battery',
+            canBattery ? undefined : 'not reported by this browser',
+            !canBattery,
+          )}
+          {flag(
+            'backgroundProving',
+            'background',
+            'Keep proving in a background tab',
+            'off: mining pauses while the tab is hidden',
+          )}
+        </Tile>
+      </TileBoundary>
+      <TileBoundary name="behaviour" onError={onError}>
+        <Tile>
+          <TileHeader>Behaviour</TileHeader>
+          {flag('resumeOnOpen', 'resume', 'Resume mining when the page opens')}
+          {flag('notify', 'notify', 'Notify on a win', 'no amounts in the notification')}
+          {flag('sound', 'sound', 'Sound on a win')}
+          {flag('tabStatus', 'tab-status', 'Report in the tab title and icon')}
+          {flag(
+            'pip',
+            'pip',
+            'Mini window',
+            canPip ? 'Document Picture-in-Picture' : 'not supported by this browser',
+            !canPip,
+          )}
+        </Tile>
+      </TileBoundary>
+      <TileBoundary name="account" onError={onError}>
+        <Tile>
+          <TileHeader>Account</TileHeader>
+          {boot.phase === 'ready' && boot.record.method === 'passkey' ? (
+            <>
+              <Toggle
+                id="stay-open"
+                label="Stay open on this device"
+                hint="off (default): one touch per open, no spend secret at rest · on: the account is sealed under a device key in this browser's storage (plaintext-equivalent against a stolen unencrypted disk)"
+                value={!boot.record.askEveryOpen}
+                onChange={(v) => void session.setStayOpen(v)}
+              />
+              <p className="mt-3 text-xs text-warn">
+                A passkey account has no backup: if the passkey is lost and was not synced, so is the balance.
+                Move funds off an account that holds more than a session's worth.
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-ink-2">Open an account to see its options.</p>
+          )}
+        </Tile>
+      </TileBoundary>
+      <TileBoundary name="appearance" onError={onError}>
+        <Tile>
+          <TileHeader>Appearance</TileHeader>
+          <Segmented
+            value={s.theme}
+            onChange={(theme) => set({ theme })}
+            options={THEMES}
+            aria-label="theme"
+          />
+        </Tile>
+      </TileBoundary>
+      <TileBoundary name="about" onError={onError}>
+        <AboutTile log={log} />
+      </TileBoundary>
     </div>
   );
 }

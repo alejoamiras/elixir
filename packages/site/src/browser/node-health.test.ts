@@ -45,6 +45,7 @@ beforeAll(async () => {
   globalThis.fetch = network as typeof fetch;
   guard = await import('./node-guard.ts');
   guard.installNodeGuard();
+  guard.setOriginalFetch(network as typeof fetch);
   health = await import('./node-health.ts');
   health.startNodeHealth();
 });
@@ -257,6 +258,31 @@ describe('the gate', () => {
     await (await probe).text();
     await waiter;
     expect(resolved).toBe(true);
+    expect(health.nodeHealth().transport.kind).toBe('ok');
+  });
+
+  test('a stale answer that started before the recovery does not release its lock', async () => {
+    // A cooldown whose deadline has passed: the first request through is the recovery.
+    guard.setNodeEndpoint('https://node.example/rpc?delay=60', 1_000);
+    health.setTransportForTests({
+      kind: 'throttled',
+      retryAt: Date.now() - 1,
+      status: 429,
+      backoffMs: 5_000,
+    });
+    const recovery = fetch('https://node.example/rpc?delay=60'); // admitted, on the network
+    await new Promise((r) => setTimeout(r, 5));
+    // An obsolete success from before this recovery arrives first; it must not free the gate.
+    health.recordOutcome({
+      endpoint: guard.normaliseEndpoint('https://node.example/rpc?delay=60'),
+      startedAt: -1,
+      status: 200,
+      latencyMs: 1,
+      retryAfter: null,
+    });
+    const blocked = await fetch('https://node.example/rpc?delay=60');
+    expect(blocked.status).toBe(429); // still synthetic: the recovery is the only one on the network
+    await (await recovery).text();
     expect(health.nodeHealth().transport.kind).toBe('ok');
   });
 

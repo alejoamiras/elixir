@@ -110,7 +110,7 @@ export class MinerController {
   private fee: Fee;
   private readonly chainId: bigint;
   private readonly rollupVersion: bigint;
-  private readonly recover: (() => Promise<Rebound>) | undefined;
+  private readonly recover: ((strict?: boolean) => Promise<Rebound>) | undefined;
   private readonly readDeadlineMs: number;
 
   private secrets = new Map<number, string>();
@@ -130,6 +130,10 @@ export class MinerController {
   private generations = 0;
   private crashes = 0;
   private refreshing: Promise<void> = Promise.resolve();
+  /** The real chain read behind the latest refresh, settled past the deadline: what a switch drains. */
+  private inflightRead: Promise<void> = Promise.resolve();
+  /** True from the drain through the rebuild of a node switch: the poll must not read across it. */
+  private switching = false;
   /** Bumped per refresh; a read that outlived its deadline must not write over a newer one. */
   private reads = 0;
   private lastRead = Date.now();
@@ -309,7 +313,9 @@ export class MinerController {
   refresh(): Promise<void> {
     const run = this.refreshing.then(() => {
       const gen = ++this.reads;
-      return deadline(this.readChain(gen), this.readDeadlineMs);
+      const read = this.readChain(gen);
+      this.inflightRead = read.catch(() => {});
+      return deadline(read, this.readDeadlineMs);
     });
     this.refreshing = run.catch(() => {});
     return run;
@@ -317,8 +323,9 @@ export class MinerController {
 
   /** The timer's refresh: a node silent for a minute pauses mining, its first answer resumes it. */
   private async poll() {
-    // A rebuild swaps the deployment under the reads; its failures say nothing about the node.
-    if (this.store.get(minerAtom).phase === 'recovering') return;
+    // A rebuild swaps the deployment under the reads; its failures say nothing about the node. A
+    // switch drains and rebuilds; a poll across it would read on the wrong node or race the rebuild.
+    if (this.switching || this.store.get(minerAtom).phase === 'recovering') return;
     try {
       await this.refresh();
       this.lastRead = Date.now();
@@ -517,9 +524,16 @@ export class MinerController {
    * sent. What the node switch needs before the client moves, so no operation straddles two.
    */
   async drain(): Promise<void> {
+    this.switching = true;
     await this.refreshing.catch(() => {});
+    await this.inflightRead.catch(() => {});
     await this.reading?.catch(() => {});
     while (this.store.get(minerAtom).phase === 'claiming') await new Promise((r) => setTimeout(r, 100));
+  }
+
+  /** The switch is over (rebuilt or failed): the poll may read again. */
+  endSwitch(): void {
+    this.switching = false;
   }
 
   /**
@@ -527,7 +541,7 @@ export class MinerController {
    * from the new one through the lost-race path, then read before mining resumes.
    */
   async rebuildForNewNode(): Promise<void> {
-    await this.rebuildChainView('the node changed: rebuilding this account’s chain view from it…');
+    await this.rebuildChainView('the node changed: rebuilding this account’s chain view from it…', true);
   }
 
   /**
@@ -535,15 +549,21 @@ export class MinerController {
    * account is still blocked and waits for finality on the reopened view; if nothing could be
    * reopened, the page has no working wallet and only a reload helps.
    */
-  private async rebuildChainView(why = 'lost a race: rebuilding this account’s chain view from the chain…') {
+  private async rebuildChainView(
+    why = 'lost a race: rebuilding this account’s chain view from the chain…',
+    strict = false,
+  ) {
     this.log(why);
     let rebound: Rebound;
     try {
       if (!this.recover) throw new Error('no recovery available');
-      rebound = await this.recover();
+      rebound = await this.recover(strict);
     } catch (e) {
       this.log(`rebuild failed: ${claimFailureMessage(e)}`);
-      return this.abandonProver(`the chain view could not be rebuilt: ${claimFailureMessage(e)}`);
+      this.abandonProver(`the chain view could not be rebuilt: ${claimFailureMessage(e)}`);
+      // A node switch surfaces the failure (the caller shows the boot error); a lost race waits it out.
+      if (strict) throw e;
+      return;
     }
     this.d = rebound.deployment;
     this.fee = rebound.fee;
@@ -582,8 +602,10 @@ export class MinerController {
     this.unread = false;
     this.lastRead = Date.now();
     this.dispatch({ type: 'recovered', at: Date.now() });
-    this.log('chain view rebuilt; mining resumes');
-    this.start();
+    this.log('chain view rebuilt');
+    // A lost race resumes the miner it interrupted; a node switch lets release('switch') decide,
+    // so a switch made while idle does not start mining on its own.
+    if (!this.pausedBy.size) this.start();
   }
 
   private async finalityMs(): Promise<number> {

@@ -138,6 +138,58 @@ describe('the live node switch', () => {
     await settle(() => store.get(minerAtom).phase === 'mining');
   });
 
+  test('a switch made while idle rebuilds and reads, but does not start mining on its own', async () => {
+    const rebuilt = fakeDeployment(async () => 9n);
+    const switchable: SwitchableNode = {
+      node: {} as never,
+      use: () => {},
+      current: () => 'https://a.example',
+    };
+    const controller = new MinerController({
+      store,
+      spawnWorker: () => worker as unknown as Worker,
+      threads: 1,
+      deployment: fakeDeployment(async () => 5n),
+      account,
+      fee,
+      chainId: 1n,
+      rollupVersion: 1n,
+      recover: async () => ({ deployment: rebuilt, fee, rebuilt: true }) satisfies Rebound,
+    });
+    await controller.ready();
+    await controller.begin(); // never started: the miner is idle
+    await boot.switchNodeLive({ controller, switchable, url: 'https://b.example', deadlineMs: 5_000 });
+    await settle(() => store.get(balanceAtom) === 9n); // the rebuilt view was read
+    expect(store.get(minerAtom).phase).toBe('idle'); // …but mining did not start
+  });
+
+  test('a strict rebuild failure surfaces (no reopen): the switch rejects and the prover is abandoned', async () => {
+    const switchable: SwitchableNode = {
+      node: {} as never,
+      use: () => {},
+      current: () => 'https://a.example',
+    };
+    const controller = new MinerController({
+      store,
+      spawnWorker: () => worker as unknown as Worker,
+      threads: 1,
+      deployment: fakeDeployment(async () => 5n),
+      account,
+      fee,
+      chainId: 1n,
+      rollupVersion: 1n,
+      recover: async () => {
+        throw new Error('the fresh node would not sync');
+      },
+    });
+    await controller.ready();
+    await controller.begin();
+    await expect(
+      boot.switchNodeLive({ controller, switchable, url: 'https://b.example', deadlineMs: 5_000 }),
+    ).rejects.toThrow(/would not sync/);
+    expect(store.get(minerAtom).proverDead).toBe(true);
+  });
+
   test('signed out (no controller) the switch is the handle and the guard alone', async () => {
     const used: string[] = [];
     const switchable: SwitchableNode = { node: {} as never, use: (u) => used.push(u), current: () => 'x' };

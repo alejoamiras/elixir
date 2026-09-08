@@ -141,7 +141,12 @@ function reportOnBody(s: GuardState, endpoint: string, startedAt: number, res: R
         controller.error(e);
       }
     },
-    cancel: (reason) => reader.cancel(reason),
+    // A consumer that cancels the body before it ends still saw the headers: report the status
+    // once (so a recovery's lock is released), then cancel the underlying reader.
+    cancel: (reason) => {
+      settle(res.status);
+      return reader.cancel(reason);
+    },
   });
   return new Response(relay, { status: res.status, statusText: res.statusText, headers: res.headers });
 }
@@ -165,14 +170,14 @@ async function nodeRequest(
 }
 
 /**
- * Installs the guard over the context's current `fetch`; runs once at import. Called again (a
- * test that swapped `fetch` for a fake), it re-points the one guard at the new fetch instead of
- * stacking a second one.
+ * Installs the guard over the context's current `fetch`; runs once at import. Idempotent: called
+ * again it only re-asserts the one guard on `globalThis.fetch`, never re-capturing `original` —
+ * inferring it from the current fetch would capture a wrapper that forwards back here (the CRS
+ * interceptor) and recurse. Tests point the guard at a fake through `setOriginalFetch`.
  */
 export function installNodeGuard(): void {
   const existing = (globalThis as Realm)[MARK];
   if (existing) {
-    if (globalThis.fetch !== existing.guarded) existing.original = globalThis.fetch.bind(globalThis);
     globalThis.fetch = existing.guarded;
     return;
   }
@@ -200,6 +205,12 @@ export function installNodeGuard(): void {
   }) as typeof globalThis.fetch;
   (globalThis as Realm)[MARK] = s;
   globalThis.fetch = s.guarded;
+}
+
+/** Tests only: point the guard's pass-through at a fake network, whatever `globalThis.fetch` is now. */
+export function setOriginalFetch(fetchImpl: typeof globalThis.fetch): void {
+  const s = (globalThis as Realm)[MARK];
+  if (s) s.original = fetchImpl;
 }
 
 if (!(globalThis as Realm)[MARK]) installNodeGuard();

@@ -2,7 +2,8 @@
 // asking us to back off) from every outcome the guard reports, and the freshness (when did this
 // page last get usable chain data) from the pollers. During a cooldown the guard itself answers the
 // node's requests with a synthetic failure, so nothing — not the pollers, not the PXE — keeps
-// hammering; at the deadline exactly one request goes to the network and the rest wait for it.
+// hammering; at the deadline one request goes to the network while the rest keep the synthetic
+// answer until it lands. Only `waitTurn()` (the boot) actually waits for that recovery's outcome.
 import { currentNodeEndpoint, type NodeRequestOutcome, onNodeResponse, setNodeGate } from './node-guard.ts';
 
 export type Transport =
@@ -38,6 +39,8 @@ const listeners = new Set<() => void>();
 let opaque: number[] = [];
 /** Set while the one recovery request at a deadline is on the network. */
 let probing = false;
+/** performance.now() when `probing` was set: only the recovery it admitted may clear it. */
+let probingSince = 0;
 /** When (performance.now()) the request that opened the current cooldown started: older successes are stale. */
 let cooldownFrom = 0;
 
@@ -131,16 +134,20 @@ export function startNodeHealth(): void {
   onNodeResponse((o) => {
     // A late answer from an endpoint that is no longer the page's says nothing about the current one.
     if (o.endpoint !== currentNodeEndpoint()) return;
-    if (probing) probing = false;
+    // Only the recovery this deadline admitted clears the lock: an obsolete answer that started
+    // before it (an ignored stale success) must not free the gate while the recovery is still out.
+    if (probing && o.startedAt >= probingSince) probing = false;
     recordOutcome(o);
   });
   setNodeGate(() => {
     const t = health.transport;
     if (t.kind === 'ok') return null;
     if (Date.now() < t.retryAt) return synthetic(t);
-    // The deadline passed: the first request through is the recovery, the rest wait for its outcome.
+    // The deadline passed: one request goes to the network as the recovery; the rest keep the
+    // synthetic answer until its outcome lands (`waitTurn` is what actually waits for it).
     if (probing) return synthetic(t);
     probing = true;
+    probingSince = performance.now();
     return null;
   });
 }
@@ -152,6 +159,7 @@ export const markRead = (at = Date.now()): void => set({ ...health, lastReadAt: 
 export const resetNodeHealth = (): void => {
   opaque = [];
   probing = false;
+  probingSince = 0;
   cooldownFrom = 0;
   set({ transport: OK, lastReadAt: null });
 };

@@ -47,6 +47,8 @@ type Store = ReturnType<typeof createStore>;
 export class Session {
   private pre: Preflighted | undefined;
   controller: MinerController | undefined;
+  /** One node switch at a time: a tile remount must not start a second against the same account. */
+  private switching: Promise<void> | undefined;
   private wallet: (() => EmbeddedWallet) | undefined;
   /** The open key's master, in memory for the tab's life (convenience mode switches need it). */
   private master: Uint8Array | undefined;
@@ -271,7 +273,22 @@ export class Session {
   async switchNode(url: string): Promise<void> {
     // Without a preflight there is nothing to move under: the saved setting takes effect on reload.
     if (!this.pre) return location.reload();
-    await switchNodeLive({ controller: this.controller, switchable: this.pre.switchable, url });
+    const pre = this.pre;
+    if (!this.switching)
+      this.switching = switchNodeLive({ controller: this.controller, switchable: pre.switchable, url })
+        .catch((e: unknown) => {
+          // A rebuild that failed left no working wallet: the boot error carries the way out.
+          const message = e instanceof Error ? e.message : String(e);
+          this.store.set(bootAtom, {
+            phase: 'error',
+            message: `the node changed but its chain view could not be rebuilt (${message}); use another node or reload`,
+          });
+          throw e;
+        })
+        .finally(() => {
+          this.switching = undefined;
+        });
+    return this.switching;
   }
 
   /** Whether anything on the chain or in the wallet knows the recipient as a contract. */

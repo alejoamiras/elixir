@@ -24,15 +24,24 @@ function useNodeHealth(session: Session, nodeUrl: string): Health {
   const [health, setHealth] = useState<Health>({ kind: 'pending', verified: false });
   useEffect(() => {
     let live = true;
+    let running = false;
     setHealth({ kind: 'pending', verified: false });
-    const tick = () =>
+    // The active node's probe rides the page's handle, whose deadline is the guard's, not this 10 s.
+    // A slow node could outlast the interval, so a tick is skipped while the last probe is in flight.
+    const tick = () => {
+      if (running) return;
+      running = true;
       session
         .probeNode(nodeUrl, HEALTH_EVERY_MS)
         .then((probe) => live && setHealth({ kind: 'ok', probe, verified: true }))
         .catch(
           (e: unknown) =>
             live && setHealth((h) => ({ kind: 'failed', message: message(e), verified: h.verified })),
-        );
+        )
+        .finally(() => {
+          running = false;
+        });
+    };
     void tick();
     const timer = setInterval(tick, HEALTH_EVERY_MS);
     return () => {

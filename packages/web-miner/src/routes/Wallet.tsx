@@ -8,6 +8,7 @@ import { SignOutDialog } from '../features/SignOutDialog';
 import { WordsBackup } from '../features/WordsScreens';
 import type { MasterRecord } from '../keys/store';
 import { amount, shortAddress } from '../lib/format';
+import { useTileLog } from '../lib/tile-log';
 import { takeIntent } from '../routes';
 import type { Session } from '../session';
 import { balanceAtom, bootAtom, claimsAtom } from '../state';
@@ -150,6 +151,7 @@ function ClaimsHistory({ claims }: { claims: { epoch: bigint; block: number; at:
 }
 
 export function Wallet({ session }: { session: Session }) {
+  const onError = useTileLog();
   const boot = useAtomValue(bootAtom);
   const balance = useAtomValue(balanceAtom);
   const claims = useAtomValue(claimsAtom);
@@ -175,7 +177,7 @@ export function Wallet({ session }: { session: Session }) {
     );
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <TileBoundary name="balance">
+      <TileBoundary name="balance" onError={onError}>
         <BalanceTile
           account={account}
           balance={balance}
@@ -183,14 +185,14 @@ export function Wallet({ session }: { session: Session }) {
           onSend={() => setSend(true)}
         />
       </TileBoundary>
-      <TileBoundary name="account">
+      <TileBoundary name="account" onError={onError}>
         <AccountTile
           record={boot.record}
           onSignOut={() => setSignOut(true)}
           onBackUp={() => setBackup('account')}
         />
       </TileBoundary>
-      <TileBoundary name="claims" className="md:col-span-2">
+      <TileBoundary name="claims" onError={onError} className="md:col-span-2">
         <ClaimsHistory claims={claims} />
       </TileBoundary>
       <SendSheet

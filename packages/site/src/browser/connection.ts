@@ -28,8 +28,9 @@ export const defaultNodeUrl = (): string => defaults.nodeUrl;
 
 /** Back to the build's node and a fresh boot: the way out of a saved node that does not answer. */
 export const restoreDefaultNode = (): void => {
-  saveConnection({ nodeUrl: defaults.nodeUrl });
-  location.reload();
+  // Reload only once the default is saved: a browser that refused the write would otherwise reload
+  // straight back into the broken saved node. The banner stays up until the write can land.
+  if (saveConnection({ nodeUrl: defaults.nodeUrl })) location.reload();
 };
 
 /** The miner's Node settings, from any of the three apps on the one origin. */

@@ -178,6 +178,7 @@ export async function switchNodeLive(o: {
     resetNodeHealth();
     await c?.rebuildForNewNode();
   } finally {
+    c?.endSwitch();
     c?.release('switch');
   }
 }
@@ -220,13 +221,16 @@ export async function startSession(
     // A drop that fails leaves the old wallet stopped: reopen the namespace as it is, so the page
     // keeps a working wallet, and say so (`rebuilt: false`). Not when another tab holds the
     // namespace: a reopen would queue behind the pending delete, for good.
-    const recover = async (): Promise<Rebound> => {
+    // `strict` (a node switch): a reset failure is surfaced, never the reopen fallback, which against
+    // the new node would keep a view built on the old one. The lost-race path (strict false) reopens
+    // so the page keeps a working wallet while it waits for finality.
+    const recover = async (strict = false): Promise<Rebound> => {
       let rebuilt = true;
       try {
         opened = await resetAccountView(opened, pre.node, pre.chainId, fields);
         markViewBuiltOn(opened.pxeDb, await endpointFingerprint(pre.switchable.current()));
       } catch (e) {
-        if (e instanceof ChainViewHeldError) throw e;
+        if (e instanceof ChainViewHeldError || strict) throw e;
         rebuilt = false;
         opened = await openWallet(pre.node, pre.chainId);
         await registerAccount(opened, fields);
