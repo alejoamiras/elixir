@@ -36,6 +36,13 @@ const MODES = [
   },
 ];
 
+/** The destination, linked to its explorer page; the full address in the title. */
+const Recipient = ({ to }: { to: string }) => (
+  <ExternalLink href={links.address(to)} full={to} className="text-ink" data-testid="send-to">
+    {shortAddress(to)}
+  </ExternalLink>
+);
+
 type Step =
   | { kind: 'form' }
   | { kind: 'review'; snap: Snapshot; known: boolean }
@@ -138,7 +145,7 @@ function Review({
         <span className="text-2xs text-ink-3">{snap.mode === 'private' ? 'privately' : 'publicly'}</span>
       </div>
       <div>
-        <KvRow label="to" value={<span title={to}>{shortAddress(to)}</span>} />
+        <KvRow label="to" value={<Recipient to={to} />} />
         <KvRow
           label="from"
           value={`this account's private balance · ${fmt(balance, PARAMS.DECIMALS)} → ${fmt(after, PARAMS.DECIMALS)}`}
@@ -204,7 +211,7 @@ function SentView({
         </span>
       </div>
       <div>
-        <KvRow label="to" value={<span title={to}>{shortAddress(to)}</span>} />
+        <KvRow label="to" value={<Recipient to={to} />} />
         <KvRow label="how" value={step.snap.mode === 'private' ? 'privately' : 'publicly'} />
         <KvRow
           label="transaction"

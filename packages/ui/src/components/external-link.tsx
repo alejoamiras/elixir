@@ -29,7 +29,7 @@ export function ExternalLink({
       <span aria-hidden className="ml-1 text-uv-2">
         ↗
       </span>
-      <span className="sr-only"> (opens the explorer)</span>
+      <span className="sr-only"> (opens in a new tab)</span>
     </a>
   ) : (
     <span title={full} className={cn('font-mono', className)}>

@@ -86,9 +86,14 @@ describe('the Space shortcut beside the hold', () => {
     function Page() {
       useHotkeys(controller);
       return (
-        <HoldButton onConfirm={() => {}} data-testid="hold">
-          Hold
-        </HoldButton>
+        <>
+          <HoldButton onConfirm={() => {}} data-testid="hold">
+            Hold
+          </HoldButton>
+          <button type="button" data-testid="plain">
+            Send
+          </button>
+        </>
       );
     }
     render(
@@ -100,6 +105,9 @@ describe('the Space shortcut beside the hold', () => {
     fireEvent.keyDown(hold, { key: ' ' });
     fireEvent.keyDown(hold, { key: ' ', repeat: true });
     fireEvent.keyUp(hold, { key: ' ' });
+    expect(start).not.toHaveBeenCalled();
+    // A plain button owns its Space too: it is that button's click, never the page's Start.
+    fireEvent.keyDown(screen.getByTestId('plain'), { key: ' ' });
     expect(start).not.toHaveBeenCalled();
     fireEvent.keyDown(document.body, { key: ' ' });
     fireEvent.keyDown(document.body, { key: ' ', repeat: true });

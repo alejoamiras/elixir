@@ -83,7 +83,6 @@ const COPY_ROOTS = ['packages/web-miner/src', 'packages/miner-core/src/claim-fai
 const COPY_EXEMPT_FILES = [
   /\.test\.tsx?$/,
   /\.vitest\.tsx$/,
-  /\/keys\/store\.ts$/, // DB_NAME 'yacana-keys', the AAD prefix 'yacana-key:', the vault's own invariants
   /\/keys\/passkey\.ts$/, // WebAuthn's literal 'public-key'
   /\/shims\//,
 ];
@@ -93,15 +92,16 @@ const KEY_COMPOUNDS =
 /** The word on its own; `yacana-keys`, `yacana-key:` and `public-key` are joined tokens, not the word. */
 const ACCOUNT_KEY = /(?<![\w:-])keys?(?![\w:-])/i;
 /**
- * A file's copy: JSX text between tags (across lines) and string literals; imports, paths, test ids, comments
- * and code identifiers are not copy. The boot phase named 'key' (the sign-in screen's state) is an identifier.
+ * A file's copy: JSX text between tags (across lines, `.tsx` only: in a `.ts` file angle brackets are generics)
+ * and string literals; imports, paths, test ids, comments and code identifiers are not copy. The boot phase
+ * named 'key' (the sign-in screen's state) is an identifier.
  */
-const copyOf = (source: string): { text: string; line: number }[] => {
+const copyOf = (source: string, jsx = true): { text: string; line: number }[] => {
   const out: { text: string; line: number }[] = [];
   const lineAt = (offset: number) => source.slice(0, offset).split('\n').length;
   // JSX text: between a closing `>` and the next `<`, spanning lines. Generics and arrows also put text
   // between angle brackets, so a span with code punctuation or no letters is not copy.
-  for (const m of source.matchAll(/>([^<>{}]+)</g)) {
+  for (const m of jsx ? source.matchAll(/>([^<>{}]+)</g) : []) {
     const text = (m[1] ?? '').trim();
     if (!text || /[;=()`]|=>/.test(text) || !/[a-z]{3,}/i.test(text)) continue;
     out.push({ text, line: lineAt((m.index ?? 0) + 1 + (m[1]?.search(/\S/) ?? 0)) });
@@ -126,7 +126,7 @@ describe('account, not key', () => {
       (f) => COPY_ROOTS.some((r) => f.startsWith(r)) && !COPY_EXEMPT_FILES.some((re) => re.test(f)),
     );
     const hits = files.flatMap((f) =>
-      copyOf(readFileSync(resolve(repo, f), 'utf8'))
+      copyOf(readFileSync(resolve(repo, f), 'utf8'), f.endsWith('.tsx'))
         .filter(({ text }) => ACCOUNT_KEY.test(text.replace(KEY_COMPOUNDS, '')))
         .map(({ line }) => `${f}:${line}`),
     );

@@ -24,7 +24,7 @@ import { Settings } from './routes/Settings';
 import { Wallet } from './routes/Wallet';
 import type { Session } from './session';
 import { useSettings } from './settings';
-import { bootAtom, epochAtom, minerAtom, rulesAtom } from './state';
+import { bootAtom, epochAtom, minerAtom, nowAtom, rulesAtom } from './state';
 import { applyTabStatus } from './tab-status';
 
 /** The stats app lives beside this one on the same origin; standalone builds point at the assembled path. */
@@ -54,6 +54,7 @@ function useTabStatus(enabled: boolean) {
 function Shell({ children }: { children: ReactNode }) {
   const route = useRoute();
   const miner = useAtomValue(minerAtom);
+  const now = useAtomValue(nowAtom);
   const notice = previewNotice(location.hostname);
   return (
     <div className="mx-auto flex max-w-[1120px] flex-col">
@@ -96,7 +97,7 @@ function Shell({ children }: { children: ReactNode }) {
         </nav>
         <span className="ml-auto flex items-center gap-3">
           <Badge variant="warn">testnet · fees sponsored</Badge>
-          <StatusPill status={pillStatus(miner)} data-testid="phase" />
+          <StatusPill status={pillStatus(miner, now)} data-testid="phase" />
         </span>
       </header>
       <div className="flex flex-col gap-4 p-4 md:p-5">

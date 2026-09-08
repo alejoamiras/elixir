@@ -21,7 +21,7 @@ export interface ScoreLoopProps {
   calm?: boolean;
   /** Padding and type size, for a strip too short for the defaults (the pop-out's 48 px). */
   geometry?: { pad: number; fontPx: number };
-  /** The window that owns the animation clock and visibility: the pop-out's, when drawn there. */
+  /** The window whose frames and visibility drive the drawing (the pop-out's, when drawn there); sample ages stay on the opener's clock. */
   win?: Window;
   className?: string;
 }

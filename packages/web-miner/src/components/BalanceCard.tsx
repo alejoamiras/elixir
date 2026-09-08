@@ -6,7 +6,6 @@ import { amount, shortAddress } from '../lib/format';
 import { navigate } from '../routes';
 import { balanceAtom, bootAtom, claimsAtom } from '../state';
 
-/** The cockpit's balance: the amount, Send, the linked account, this session's claims. */
 export function BalanceCard({ className }: { className?: string }) {
   const boot = useAtomValue(bootAtom);
   const balance = useAtomValue(balanceAtom);

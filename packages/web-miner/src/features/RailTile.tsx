@@ -10,7 +10,6 @@ import { ClaimSlot } from './ClaimSlot';
 
 const cores = () => navigator.hardwareConcurrency || 2;
 
-/** The rail column: the claim slot on top, then the epoch tile with the power slider. */
 export function RailTile({
   controller,
   className,

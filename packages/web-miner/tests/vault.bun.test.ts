@@ -65,19 +65,19 @@ describe('vault', () => {
     expect(words.sealed.ct).toHaveLength(16 + 16);
     expect(new Uint8Array(await openMaster(words))).toEqual(m);
     expect(await openPhrase(words)).toBe(PHRASE);
-    await expect(openPhrase(await record('passkey'))).rejects.toThrow(/not a words key/);
+    await expect(openPhrase(await record('passkey'))).rejects.toThrow(/not a twelve-words account/);
     await expect(setStayOpen(words, m, false)).rejects.toThrow(/always sealed/);
   });
 
   test('every mode re-derives account 0 and fails closed on a mismatch', async () => {
     const passkey = await record('passkey');
     expect(new Uint8Array(await openMaster(passkey, master))).toEqual(master);
-    await expect(openMaster(passkey, other)).rejects.toThrow(/different key/);
+    await expect(openMaster(passkey, other)).rejects.toThrow(/different account/);
     const stayOpen = await setStayOpen(passkey, master, true);
     expect(stayOpen.sealed).toBeDefined();
     expect(new Uint8Array(await openMaster(stayOpen))).toEqual(master);
     const wrong = { ...stayOpen, account: { ...stayOpen.account, address: await addressOf(other, 0) } };
-    await expect(openMaster(wrong)).rejects.toThrow(/different key/);
+    await expect(openMaster(wrong)).rejects.toThrow(/different account/);
     await expect(openMaster(passkey)).rejects.toThrow(/not stored/);
   });
 

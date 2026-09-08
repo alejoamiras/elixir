@@ -1,7 +1,16 @@
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import { keysAllowed } from '../../../site/src/browser/host.ts';
-import { Alert, AlertDescription, AlertTitle, Button, Preflight, Tile } from '../../../ui/src/index.ts';
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Button,
+  ExternalLink,
+  Preflight,
+  Tile,
+} from '../../../ui/src/index.ts';
+import { links } from '../explorer';
 import type { MasterRecord } from '../keys/store';
 import { shortAddress } from '../lib/format';
 import type { Session } from '../session';
@@ -143,9 +152,14 @@ function KnownKey({ record, busy, onOpen }: { record: MasterRecord; busy: boolea
   return (
     <Tile className="flex items-center justify-between gap-4">
       <div>
-        <div className="font-mono text-sm" data-testid="key-address">
+        <ExternalLink
+          href={links.address(record.account.address)}
+          full={record.account.address}
+          className="text-sm text-ink"
+          data-testid="key-address"
+        >
           {shortAddress(record.account.address)}
-        </div>
+        </ExternalLink>
         <div className="text-xs text-ink-2">
           {record.method === 'passkey' ? 'passkey' : 'twelve words'} · {howToOpen(record)}
         </div>
