@@ -1,8 +1,14 @@
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { difficulty, networkRate, rateSample } from '../../../miner-core/src/metrics.ts';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';
+import {
+  defaultNodeUrl,
+  loadConnection,
+  NODE_SETTINGS_HREF,
+  restoreDefaultNode,
+} from '../../../site/src/browser/connection.ts';
 import { amount, duration } from '../../../site/src/browser/format.ts';
-import { difficultyLabel, ExternalLink, Kpi, StatusPill, Tile } from '../../../ui/src/index.ts';
+import { difficultyLabel, ExternalLink, Kpi, NodeWayOut, StatusPill, Tile } from '../../../ui/src/index.ts';
 import { copy } from '../copy';
 import { links } from '../explorer';
 import { useNow } from '../hooks';
@@ -54,8 +60,12 @@ function Notices({ status, live }: { status: LiveStatus; live: Live | undefined 
         </span>
       )}
       {status.phase === 'error' && (
-        <span className="text-2xs text-bad" data-testid="live-error">
+        <span className="flex flex-col gap-2 text-2xs text-bad" data-testid="live-error">
           {status.message}
+          <NodeWayOut
+            onDefault={loadConnection().nodeUrl === defaultNodeUrl() ? undefined : restoreDefaultNode}
+            settingsHref={NODE_SETTINGS_HREF}
+          />
         </span>
       )}
     </>

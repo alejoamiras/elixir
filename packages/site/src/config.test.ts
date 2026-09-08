@@ -39,7 +39,7 @@ describe('site config', () => {
       mode: 'e2e',
       env: {
         VITE_AZTEC_NODE_URL: 'http://localhost:8080',
-        VITE_ALLOWED_NODE_ORIGINS: 'http://localhost:8080,http://127.0.0.1:1',
+        VITE_ROLLUP_ADDRESS: '0x00000000000000000000000000000000000000aa',
         VITE_RP_ID: 'localhost',
         VITE_YACANA_MINER: '0x01',
         VITE_E2E_QUERY_OVERRIDES: '1',
@@ -49,7 +49,9 @@ describe('site config', () => {
     });
     expect(c.launchMode).toBe(true);
     expect(c.explorerUrl).toBe('off');
-    expect(c.allowedNodeOrigins).toEqual(['http://localhost:8080', 'http://127.0.0.1:1']);
+    expect(c.nodeUrl).toBe('http://localhost:8080');
+    expect(c.rollupAddress).toBe('0x00000000000000000000000000000000000000aa');
+    expect(c.record.rollupAddress).toBe('0x00000000000000000000000000000000000000aa');
     expect(c.rpId).toBe('localhost');
     expect(c.miner).toBe('0x01');
     expect(c.token).toBe(deployment.token);
@@ -100,16 +102,8 @@ describe('site config', () => {
       loadSiteConfig({ ...base, mode: 'production', siteEnv: { ...siteEnv, ...siteEnvPatch } });
     expect(attempt({ VITE_RP_ID: 'localhost' })).toThrow(/not a production hostname/);
     expect(attempt({ VITE_RP_ID: 'yacana' })).toThrow(/not a production hostname/);
-    expect(
-      attempt({
-        VITE_AZTEC_NODE_URL: 'http://localhost:8080',
-        VITE_ALLOWED_NODE_ORIGINS: 'http://localhost:8080',
-      }),
-    ).toThrow(/not https/);
-    expect(
-      attempt({ VITE_AZTEC_NODE_URL: 'https://10.0.0.1', VITE_ALLOWED_NODE_ORIGINS: 'https://10.0.0.1' }),
-    ).toThrow(/is local/);
-    expect(attempt({ VITE_ALLOWED_NODE_ORIGINS: 'https://other.example' })).toThrow(/not among/);
+    expect(attempt({ VITE_AZTEC_NODE_URL: 'http://localhost:8080' })).toThrow(/not https/);
+    expect(attempt({ VITE_AZTEC_NODE_URL: 'https://10.0.0.1' })).toThrow(/is local/);
     expect(attempt({ VITE_EXPLORER_URL: 'http://explorer.example' })).toThrow(/explorer .* not https/);
     expect(attempt({ VITE_EXPLORER_URL: 'off' })).not.toThrow();
   });

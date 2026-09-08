@@ -1,6 +1,7 @@
 import { useAtomValue } from 'jotai';
 import { type ReactNode, useCallback, useEffect } from 'react';
 import { proofsPerMinute } from '../../miner-core/src/metrics.ts';
+import { defaultNodeUrl, restoreDefaultNode } from '../../site/src/browser/connection.ts';
 import { previewNotice } from '../../site/src/browser/host.ts';
 import {
   Alert,
@@ -9,6 +10,7 @@ import {
   Badge,
   cn,
   Mark,
+  NodeWayOut,
   StatusPill,
   Toaster,
 } from '../../ui/src/index.ts';
@@ -18,7 +20,7 @@ import { isDesktop } from './desktop';
 import { KeyScreen } from './features/KeyScreen';
 import { useHotkeys, usePauses, useResumeOnOpen } from './features/use-page-behaviour';
 import { pillStatus } from './lib/status';
-import { navigate, type Route, useRoute } from './routes';
+import { navigate, pathFor, type Route, useRoute } from './routes';
 import { Mine } from './routes/Mine';
 import { Settings } from './routes/Settings';
 import { Wallet } from './routes/Wallet';
@@ -129,6 +131,11 @@ export function App({ connection, session }: { connection: Connection; session: 
         <Alert variant="bad" data-testid="boot-error">
           <AlertTitle>Cannot start</AlertTitle>
           <AlertDescription>{boot.message}</AlertDescription>
+          <NodeWayOut
+            className="mt-2"
+            onDefault={connection.nodeUrl === defaultNodeUrl() ? undefined : restoreDefaultNode}
+            settingsHref={route === 'settings' ? undefined : pathFor('settings')}
+          />
         </Alert>
       )}
       {!open && boot.phase !== 'error' && <KeyScreen session={session} />}

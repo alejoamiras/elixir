@@ -32,6 +32,8 @@ export interface Deployment {
   minerClassId: string;
   tokenClassId: string;
   rollupVersion: string;
+  /** The L1 rollup contract; with the chain id and the version it names the network a node must serve. */
+  rollupAddress: string;
   minerSalt: string;
   tokenSalt: string;
   params: Record<string, string | number>;
@@ -166,6 +168,7 @@ export async function deployYacana(
       minerClassId: minerInstance.currentContractClassId.toString(),
       tokenClassId: tokenInstance.currentContractClassId.toString(),
       rollupVersion: String(info.rollupVersion),
+      rollupAddress: info.l1ContractAddresses.rollupAddress.toString(),
       minerSalt: salt.toString(),
       tokenSalt: tokenSalt.toString(),
       params: Object.fromEntries(

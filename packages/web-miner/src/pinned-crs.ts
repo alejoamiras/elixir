@@ -54,11 +54,12 @@ async function serve(url: URL, init: RequestInit | undefined): Promise<Response>
   });
 }
 
-globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+// Bun's `fetch` type carries extras (`preconnect`) a browser's does not; the page only calls it.
+globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
   const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
   const url = new URL(href, globalThis.location?.href);
   return HOSTS.has(url.origin) ? serve(url, init) : originalFetch(input, init);
-};
+}) as typeof globalThis.fetch;
 
 /** Loads and verifies every pinned asset at boot, so a bad one fails before any proving. */
 export const preloadPinnedCrs = async (): Promise<{ bytes: number; sha256: string }> => {

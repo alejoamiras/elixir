@@ -1,9 +1,23 @@
 import { useAtomValue } from 'jotai';
 import { type ReactNode, useEffect } from 'react';
-import type { Connection } from '../../site/src/browser/connection.ts';
+import {
+  type Connection,
+  defaultNodeUrl,
+  NODE_SETTINGS_HREF,
+  restoreDefaultNode,
+} from '../../site/src/browser/connection.ts';
 import { duration } from '../../site/src/browser/format.ts';
 import { previewNotice } from '../../site/src/browser/host.ts';
-import { Alert, AlertDescription, AlertTitle, Badge, cn, ExternalLink, Mark } from '../../ui/src/index.ts';
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Badge,
+  cn,
+  ExternalLink,
+  Mark,
+  NodeWayOut,
+} from '../../ui/src/index.ts';
 import { links } from './explorer';
 import { navigate, type Route, useRoute } from './routes';
 import { Stats } from './routes/Stats';
@@ -114,6 +128,11 @@ function Shell({ children, connection }: { children: ReactNode; connection: Conn
           <Alert variant="bad" data-testid="boot-error">
             <AlertTitle>Cannot read this deployment</AlertTitle>
             <AlertDescription>{status.message}</AlertDescription>
+            <NodeWayOut
+              className="mt-2"
+              onDefault={connection.nodeUrl === defaultNodeUrl() ? undefined : restoreDefaultNode}
+              settingsHref={NODE_SETTINGS_HREF}
+            />
           </Alert>
         )}
         {children}

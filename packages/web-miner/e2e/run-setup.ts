@@ -24,19 +24,17 @@ if (server !== 'dev' && server !== 'preview')
   throw new Error(`E2E_SERVER must be dev or preview, got ${server}`);
 const pkg = resolve(import.meta.dir, '..');
 const OUT_DIR = 'e2e/.dist';
-// The lying-node tests mock this origin; a production build refuses nodes outside its allowlist.
-const MOCK_NODE_ORIGIN = 'http://127.0.0.1:1';
 
 /** The e2e build: the throwaway deployment, the local node, localhost as the RP ID, query overrides on. */
 const e2eEnv = (d: Deployment): NodeJS.ProcessEnv => ({
   ...process.env,
   YACANA_SITE_MODE: 'e2e',
   VITE_AZTEC_NODE_URL: nodeUrl,
-  VITE_ALLOWED_NODE_ORIGINS: `${new URL(nodeUrl as string).origin},${MOCK_NODE_ORIGIN}`,
   VITE_RP_ID: 'localhost',
   VITE_E2E_QUERY_OVERRIDES: '1',
   VITE_CHAIN_ID: d.chainId,
   VITE_ROLLUP_VERSION: d.rollupVersion,
+  VITE_ROLLUP_ADDRESS: d.rollupAddress,
   VITE_YACANA_MINER: d.miner,
   VITE_YACANA_TOKEN: d.token,
   VITE_YACANA_MINER_CLASS: d.minerClassId,

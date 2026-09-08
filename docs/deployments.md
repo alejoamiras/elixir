@@ -11,8 +11,8 @@ epoch 0 once the window closed; `seed_0` folds every reveal, so the announcement
 more than the window. The token must be bound before `launch_at`. Claims and rolls before the launch are refused. The mainnet profile refuses a `launch_at` less than `LAUNCH_NOTICE_SECONDS` (one day) after deployment.
 Verify a deployment against its announcement with `epoch_params(0)` (`target`, `seed`, `opened_at`), `constants()`,
 `work_vk_hash()`, `bound_token()` (must equal the announced token: a deployer could otherwise announce one token and
-bind another) and the class ids and rollup version in `deployments/<profile>.json` (`minerClassId`, `tokenClassId`,
-`rollupVersion`). `launch()` refuses an unbound deployment and `roll()` an unlaunched one, so an instance cannot be rolled
+bind another) and the class ids, rollup version and L1 rollup address in `deployments/<profile>.json`
+(`minerClassId`, `tokenClassId`, `rollupVersion`, `rollupAddress`). `launch()` refuses an unbound deployment and `roll()` an unlaunched one, so an instance cannot be rolled
 towards a trivial target before it can mint. `genesis()` shows the announced target, seed input and launch time. Nobody rolls for a reward, so run a keeper that calls `roll()` after `T_MAX`
 (the soak driver and the web miner offer it) or an epoch stuck at `N − 1` claims hangs.
 
@@ -56,14 +56,18 @@ Parameters (the `testnet` profile, also embedded in the contract as compile-time
 | `LAUNCH_NOTICE_SECONDS` / `REVEAL_WINDOW_SECONDS` | 0 / 0 (mainnet: 86400 / 600) |
 | Token | "Yacana Testnet" / `tYACA` |
 
-The three pages read this record through `packages/site/site.env` + `deployments/testnet.json` (the miner can
-be pointed at another allowlisted node from its Settings; `?node=&miner=&token=` only in e2e builds).
+The three pages read this record through `packages/site/site.env` + `deployments/testnet.json`. The node is a
+user setting: any https node, checked against this record (chain id, rollup version, `rollupAddress`, both
+instances and classes, the bound token) before it is used, from the miner's Settings → Node; it applies at once
+(mining pauses, the account's chain view is rebuilt from the new node, mining resumes) and the stats and landing
+pick it up at their next load (`yacana.connection`, one origin). `?node=&miner=&token=` only in e2e builds. A
+record made before `rollupAddress` was recorded is amended once with `bun run record-rollup-address`.
 
 ### The site (`yacana.network`, a Cloudflare Worker serving static assets)
 
 One origin, three apps, assembled by `bun run site:build` into `packages/site/dist`: the landing at `/`, the miner
 at `/mine/`, the stats at `/stats/` (`/verify` rewrites to it), the CRS / artifacts / slot table once at the root,
-`_headers` (COOP, COEP, CORP, the CSP with `connect-src` = the node, `Permissions-Policy`, `nosniff`,
+`_headers` (COOP, COEP, CORP, the CSP with `connect-src 'self' data: https:` — the fetch guard bounds the node in code — `Permissions-Policy`, `nosniff`,
 `no-referrer`), `_redirects` (exact deep links → each app's directory) and `build.json` (mode, commit, node
 origins, RP ID). Production builds take nothing from the process environment: a build with the e2e flag, a local
 or plaintext node origin, or an RP ID other than `site.env`'s fails (`packages/site/src/config.ts`), and a

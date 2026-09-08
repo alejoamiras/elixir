@@ -1,17 +1,19 @@
-// One public configuration for the three apps: site.env (node, allowlist, RP ID) plus the
-// deployment record (addresses, class ids, chain). Production builds take nothing from the
+// One public configuration for the three apps: site.env (the default node, RP ID) plus the
+// deployment record (addresses, class ids, chain, the rollup). Production builds take nothing from the
 // process environment; e2e and dev builds may override every value through VITE_* variables.
 export type SiteMode = 'production' | 'e2e' | 'dev';
 
 export interface SiteConfig {
   mode: SiteMode;
+  /** The default node; a user may pick another from the miner's settings (the guard bounds requests to it). */
   nodeUrl: string;
-  allowedNodeOrigins: string[];
   rpId: string;
   sourceCommit: string;
   bbVersion: string;
   chainId: string;
   rollupVersion: string;
+  /** The L1 rollup contract the deployment lives under: a node for another rollup is refused. */
+  rollupAddress: string;
   miner: string;
   token: string;
   minerClassId: string;
@@ -44,6 +46,7 @@ export interface ExampleClaim {
 export interface DeploymentRecord {
   chainId: string;
   rollupVersion: string;
+  rollupAddress: string;
   miner: string;
   token: string;
   minerClassId: string;
@@ -73,16 +76,6 @@ const required = (source: Record<string, string | undefined>, key: string, where
   return v;
 };
 
-const origins = (list: string): string[] => [
-  ...new Set(
-    list
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((u) => new URL(u).origin),
-  ),
-];
-
 export function loadSiteConfig(opts: {
   mode: SiteMode;
   siteEnv: Record<string, string>;
@@ -97,20 +90,19 @@ export function loadSiteConfig(opts: {
   const env = mode === 'production' ? {} : (opts.env ?? {});
   const pick = (key: string, fallback: string) => env[key] || fallback;
   const nodeUrl = pick('VITE_AZTEC_NODE_URL', required(siteEnv, 'VITE_AZTEC_NODE_URL', 'site.env'));
-  const allowed = origins(
-    pick('VITE_ALLOWED_NODE_ORIGINS', required(siteEnv, 'VITE_ALLOWED_NODE_ORIGINS', 'site.env')),
-  );
-  if (!allowed.includes(new URL(nodeUrl).origin))
-    throw new Error(`VITE_AZTEC_NODE_URL ${nodeUrl} is not among VITE_ALLOWED_NODE_ORIGINS`);
+  new URL(nodeUrl);
+  const rollupAddress = pick('VITE_ROLLUP_ADDRESS', deployment.rollupAddress ?? '');
+  if (!rollupAddress)
+    throw new Error('the deployment record lacks rollupAddress (bun run record-rollup-address)');
   const config: SiteConfig = {
     mode,
     nodeUrl,
-    allowedNodeOrigins: allowed,
     rpId: pick('VITE_RP_ID', required(siteEnv, 'VITE_RP_ID', 'site.env')),
     sourceCommit: opts.sourceCommit,
     bbVersion: opts.bbVersion,
     chainId: pick('VITE_CHAIN_ID', deployment.chainId),
     rollupVersion: pick('VITE_ROLLUP_VERSION', deployment.rollupVersion),
+    rollupAddress,
     miner: pick('VITE_YACANA_MINER', deployment.miner),
     token: pick('VITE_YACANA_TOKEN', deployment.token),
     minerClassId: pick('VITE_YACANA_MINER_CLASS', deployment.minerClassId),
@@ -129,6 +121,7 @@ export function loadSiteConfig(opts: {
     ...deployment,
     chainId: config.chainId,
     rollupVersion: config.rollupVersion,
+    rollupAddress: config.rollupAddress,
     miner: config.miner,
     token: config.token,
     minerClassId: config.minerClassId,
@@ -172,11 +165,9 @@ const IP_OR_LOCAL = /^(localhost|127\.\d+\.\d+\.\d+|\[?::1\]?|\d+\.\d+\.\d+\.\d+
 /** What may never reach Cloudflare: test hooks, local or plaintext nodes, a foreign relying party. */
 export function assertProductionConfig(c: SiteConfig, siteEnv: Record<string, string>): void {
   if (c.queryOverrides) throw new Error('production build with VITE_E2E_QUERY_OVERRIDES set');
-  for (const o of [new URL(c.nodeUrl).origin, ...c.allowedNodeOrigins]) {
-    const u = new URL(o);
-    if (u.protocol !== 'https:') throw new Error(`production node origin ${o} is not https`);
-    if (IP_OR_LOCAL.test(u.hostname)) throw new Error(`production node origin ${o} is local`);
-  }
+  const u = new URL(c.nodeUrl);
+  if (u.protocol !== 'https:') throw new Error(`production node ${c.nodeUrl} is not https`);
+  if (IP_OR_LOCAL.test(u.hostname)) throw new Error(`production node ${c.nodeUrl} is local`);
   if (c.rpId !== siteEnv.VITE_RP_ID) throw new Error(`RP ID ${c.rpId} differs from site.env`);
   if (c.explorerUrl !== 'off' && new URL(c.explorerUrl).protocol !== 'https:')
     throw new Error(`production explorer ${c.explorerUrl} is not https`);
@@ -190,12 +181,12 @@ export const viteDefine = (c: SiteConfig): Record<string, string> =>
     Object.entries({
       VITE_SITE_MODE: c.mode,
       VITE_AZTEC_NODE_URL: c.nodeUrl,
-      VITE_ALLOWED_NODE_ORIGINS: c.allowedNodeOrigins.join(','),
       VITE_RP_ID: c.rpId,
       VITE_SOURCE_COMMIT: c.sourceCommit,
       VITE_BB_VERSION: c.bbVersion,
       VITE_CHAIN_ID: c.chainId,
       VITE_ROLLUP_VERSION: c.rollupVersion,
+      VITE_ROLLUP_ADDRESS: c.rollupAddress,
       VITE_YACANA_MINER: c.miner,
       VITE_YACANA_TOKEN: c.token,
       VITE_YACANA_MINER_CLASS: c.minerClassId,

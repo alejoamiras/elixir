@@ -1,6 +1,7 @@
 {
   "chainId": "31337",
   "rollupVersion": "3685977955",
+  "rollupAddress": "0x4ed7c70f96b99c776995fb64377f0d4ab3b0e1c1",
   "miner": "0x1e6584404d21d946f6f6454b5706e8098ffcdc0259b428c1eeb46e98a67cec8f",
   "token": "0x27ac94229e190bd34408f923b97d5d3d380ef1f27420b30bae416f5283e8b417",
   "minerClassId": "0x20680945ecd95004af585e35e78dcfbdc27b559b021d7feb816aa54697bbebb9",

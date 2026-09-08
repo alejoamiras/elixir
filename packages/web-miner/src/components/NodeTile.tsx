@@ -1,0 +1,216 @@
+import { useEffect, useReducer, useState } from 'react';
+import { defaultNodeUrl, isPinnedByQuery, saveConnection } from '../../../site/src/browser/connection.ts';
+import { type NodeProbe, parseNodeUrl } from '../../../site/src/browser/node.ts';
+import { Button, ExternalLink, Input, Label, Tile, TileHeader } from '../../../ui/src/index.ts';
+import { canUse, checkReducer, describeProbe } from '../lib/node-check';
+import type { Session } from '../session';
+
+const RUN_A_NODE = 'https://docs.aztec.network/the_aztec_network/guides/run_nodes/how_to_run_full_node';
+const HEALTH_EVERY_MS = 10_000;
+
+type Health = { kind: 'pending' } | { kind: 'ok'; probe: NodeProbe } | { kind: 'failed'; message: string };
+
+const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/** The node in use, probed every ten seconds while the tile is on screen. */
+function useNodeHealth(session: Session, nodeUrl: string): Health {
+  const [health, setHealth] = useState<Health>({ kind: 'pending' });
+  useEffect(() => {
+    let live = true;
+    const tick = () =>
+      session
+        .probeNode(nodeUrl, HEALTH_EVERY_MS)
+        .then((probe) => live && setHealth({ kind: 'ok', probe }))
+        .catch((e: unknown) => live && setHealth({ kind: 'failed', message: message(e) }));
+    void tick();
+    const timer = setInterval(tick, HEALTH_EVERY_MS);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [session, nodeUrl]);
+  return health;
+}
+
+function HealthRow({ nodeUrl, health }: { nodeUrl: string; health: Health }) {
+  const isDefault = nodeUrl === defaultNodeUrl();
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-lg border border-line-2 px-3.5 py-3">
+      <div className="min-w-0">
+        <div className="font-mono text-sm" data-testid="node-in-use">
+          {new URL(nodeUrl).host}
+          {isDefault && <span className="text-2xs text-ink-3"> · the default</span>}
+        </div>
+        <div
+          className="mt-1.5 flex flex-wrap gap-x-3.5 gap-y-1 font-mono text-2xs text-ink-2"
+          data-testid="node-health"
+        >
+          {health.kind === 'pending' && <span>checking…</span>}
+          {health.kind === 'ok' && (
+            <>
+              <span className="text-ok">
+                block {health.probe.block.toLocaleString('en-US')} · {health.probe.blockAgeS} s ago
+              </span>
+              <span>{Math.round(health.probe.latencyMs)} ms</span>
+              <span className="text-ok">this deployment ✓</span>
+            </>
+          )}
+          {health.kind === 'failed' && <span className="text-warn">{health.message}</span>}
+        </div>
+      </div>
+      <Button size="sm" disabled>
+        In use
+      </Button>
+    </div>
+  );
+}
+
+function CheckForm({
+  session,
+  nodeUrl,
+  onSwitched,
+}: {
+  session: Session;
+  nodeUrl: string;
+  onSwitched: () => void;
+}) {
+  const [typed, setTyped] = useState('');
+  const [state, dispatch] = useReducer(checkReducer, { kind: 'idle' });
+  const pinned = isPinnedByQuery();
+  const check = async () => {
+    let url: string;
+    try {
+      url = parseNodeUrl(typed, import.meta.env.VITE_SITE_MODE).href;
+    } catch (e) {
+      dispatch({ type: 'check', url: typed.trim() });
+      return dispatch({ type: 'failed', url: typed.trim(), message: message(e) });
+    }
+    dispatch({ type: 'check', url });
+    setTyped(url);
+    try {
+      dispatch({ type: 'ok', url, probe: await session.probeNode(url) });
+    } catch (e) {
+      dispatch({ type: 'failed', url, message: message(e) });
+    }
+  };
+  const use = async () => {
+    const url = typed.trim();
+    dispatch({ type: 'switch', url });
+    if (!saveConnection({ nodeUrl: url }))
+      return dispatch({
+        type: 'switch-failed',
+        url,
+        message: 'The browser refused to save the setting; free some site storage and try again.',
+      });
+    try {
+      await session.switchNode(url);
+      dispatch({ type: 'switched', url });
+      onSwitched();
+    } catch (e) {
+      dispatch({ type: 'switch-failed', url, message: message(e) });
+    }
+  };
+  const busy = state.kind === 'checking' || state.kind === 'switching';
+  return (
+    <div className="grid gap-3">
+      <div className="grid gap-1.5">
+        <Label htmlFor="node-url">Another node</Label>
+        <div className="flex gap-2">
+          <Input
+            id="node-url"
+            className="font-mono"
+            value={typed}
+            placeholder="https://…"
+            disabled={pinned || busy}
+            onChange={(e) => {
+              setTyped(e.target.value);
+              dispatch({ type: 'edit' });
+            }}
+            data-testid="node-url"
+          />
+          <Button
+            size="default"
+            disabled={pinned || busy || !typed.trim()}
+            onClick={() => void check()}
+            data-testid="node-check"
+          >
+            {state.kind === 'checking' ? 'Checking…' : 'Check'}
+          </Button>
+        </div>
+        {pinned && <span className="text-xs text-ink-2">set by the page URL</span>}
+      </div>
+      <CheckResult state={state} />
+      <div className="flex items-center gap-3">
+        <Button
+          variant="primary"
+          disabled={!canUse(state, typed, nodeUrl) || pinned}
+          onClick={() => void use()}
+          data-testid="node-use"
+        >
+          {state.kind === 'switching' ? 'Switching…' : 'Use this node'}
+        </Button>
+        <span className="text-xs text-ink-3">
+          Applies at once; your account's view of the chain is rebuilt from the new node (about a minute) and
+          mining carries on. The page checks any node against this deployment before it reads a number from
+          it.
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function CheckResult({ state }: { state: ReturnType<typeof checkReducer> }) {
+  if (state.kind === 'idle' || state.kind === 'checking') return null;
+  const lines =
+    state.kind === 'ok'
+      ? describeProbe(state.probe)
+      : state.kind === 'switching'
+        ? ['rebuilding the chain view from the new node…']
+        : state.kind === 'switched'
+          ? ['✓ in use']
+          : [state.message];
+  const warn = state.kind === 'failed' || state.kind === 'switch-failed';
+  return (
+    <div
+      className={`flex flex-wrap gap-x-3.5 gap-y-1 font-mono text-2xs ${warn ? 'text-warn' : 'text-ink-2'}`}
+      data-testid="node-check-result"
+    >
+      {lines.map((l) => (
+        <span key={l} className={!warn && l.startsWith('✓') ? 'text-ok' : undefined}>
+          {l}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+const NodeNote = () => (
+  <p className="border-t border-line pt-3 text-xs text-ink-3">
+    The node answers what this page asks; it can delay or hide, never spend: every claim is proved here and
+    verified on the chain. A public node may rate-limit you:{' '}
+    <ExternalLink href={RUN_A_NODE}>run a node</ExternalLink>
+  </p>
+);
+
+/** Settings → Node: the node in use and its health, and the way to check and use another one. */
+export function NodeTile({
+  session,
+  nodeUrl,
+  onSwitched,
+}: {
+  session: Session;
+  nodeUrl: string;
+  onSwitched: () => void;
+}) {
+  const health = useNodeHealth(session, nodeUrl);
+  return (
+    <Tile>
+      <TileHeader aside="chain reads and claims go through it">Node</TileHeader>
+      <div className="grid gap-3.5">
+        <HealthRow nodeUrl={nodeUrl} health={health} />
+        <CheckForm session={session} nodeUrl={nodeUrl} onSwitched={onSwitched} />
+        <NodeNote />
+      </div>
+    </Tile>
+  );
+}

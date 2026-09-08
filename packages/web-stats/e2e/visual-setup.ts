@@ -27,6 +27,7 @@ const VISUAL_COMMIT = '0123456789abcdef0123456789abcdef01234567';
 interface VisualDeployment {
   chainId: string;
   rollupVersion: string;
+  rollupAddress: string;
   miner: string;
   token: string;
   minerClassId: string;
@@ -53,11 +54,11 @@ const visualEnv = (d: VisualDeployment): NodeJS.ProcessEnv => ({
   ...process.env,
   YACANA_SITE_MODE: 'e2e',
   VITE_AZTEC_NODE_URL: MOCK_NODE_ORIGIN,
-  VITE_ALLOWED_NODE_ORIGINS: MOCK_NODE_ORIGIN,
   VITE_RP_ID: 'localhost',
   VITE_SOURCE_COMMIT: VISUAL_COMMIT,
   VITE_CHAIN_ID: d.chainId,
   VITE_ROLLUP_VERSION: d.rollupVersion,
+  VITE_ROLLUP_ADDRESS: d.rollupAddress,
   VITE_YACANA_MINER: d.miner,
   VITE_YACANA_TOKEN: d.token,
   VITE_YACANA_MINER_CLASS: d.minerClassId,

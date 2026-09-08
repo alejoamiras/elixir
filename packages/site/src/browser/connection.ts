@@ -1,5 +1,6 @@
 // Where the page connects. The build carries the deployment (packages/site); the user may pick
-// another allowlisted node, persisted in localStorage; e2e builds may pin everything by query.
+// another node, persisted in localStorage and shared by the three apps; e2e builds may pin
+// everything by query. A node is only ever used after it passed the deployment check.
 export interface Connection {
   nodeUrl: string;
   miner: string;
@@ -9,6 +10,7 @@ export interface Connection {
 export interface Expected {
   chainId: bigint;
   rollupVersion: bigint;
+  rollupAddress: string;
   minerClassId: string;
   tokenClassId: string;
 }
@@ -21,10 +23,23 @@ const defaults: Connection = {
   token: import.meta.env.VITE_YACANA_TOKEN,
 };
 
-/** The build's deployment identity, checked against the node at boot. */
+/** The build's default node: what "Use the default node" restores. */
+export const defaultNodeUrl = (): string => defaults.nodeUrl;
+
+/** Back to the build's node and a fresh boot: the way out of a saved node that does not answer. */
+export const restoreDefaultNode = (): void => {
+  saveConnection({ nodeUrl: defaults.nodeUrl });
+  location.reload();
+};
+
+/** The miner's Node settings, from any of the three apps on the one origin. */
+export const NODE_SETTINGS_HREF = '/mine/settings/';
+
+/** The build's deployment identity, checked against the node at boot and before any switch. */
 export const expectedDeployment = (): Expected => ({
   chainId: BigInt(import.meta.env.VITE_CHAIN_ID),
   rollupVersion: BigInt(import.meta.env.VITE_ROLLUP_VERSION),
+  rollupAddress: import.meta.env.VITE_ROLLUP_ADDRESS,
   minerClassId: import.meta.env.VITE_YACANA_MINER_CLASS,
   tokenClassId: import.meta.env.VITE_YACANA_TOKEN_CLASS,
 });
@@ -59,38 +74,15 @@ const fromStorage = (): Partial<Connection> => {
 
 export const loadConnection = (): Connection => ({ ...defaults, ...fromStorage(), ...fromQuery() });
 
-export const saveConnection = (c: Pick<Connection, 'nodeUrl'>): void => {
+/** False when the browser refused the write (quota, private mode): the caller must not act as if it held. */
+export const saveConnection = (c: Pick<Connection, 'nodeUrl'>): boolean => {
   try {
     globalThis.localStorage?.setItem(KEY, JSON.stringify({ nodeUrl: c.nodeUrl }));
+    return globalThis.localStorage?.getItem(KEY) !== null;
   } catch {
-    /* private mode: settings live for the session only */
+    return false;
   }
 };
 
 /** The query string wins over storage, so an E2E page can never pick up a stale saved node. */
 export const isPinnedByQuery = (): boolean => Object.keys(fromQuery()).length > 0;
-
-/** Node origins this build's CSP lets the page reach; a node outside fails at boot, not with an opaque fetch. */
-export const allowedNodeOrigins = (): string[] => [
-  ...new Set(
-    import.meta.env.VITE_ALLOWED_NODE_ORIGINS.split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((u) => new URL(u).origin),
-  ),
-];
-
-const isLocal = (origin: string) => /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin);
-
-/** The configured node URL when the CSP would block it, or null. */
-export const disallowedNodeUrl = (c: Connection): string | null => {
-  let origin: string;
-  try {
-    origin = new URL(c.nodeUrl).origin;
-  } catch {
-    return c.nodeUrl;
-  }
-  if (allowedNodeOrigins().includes(origin)) return null;
-  if (import.meta.env.DEV && isLocal(origin)) return null;
-  return c.nodeUrl;
-};

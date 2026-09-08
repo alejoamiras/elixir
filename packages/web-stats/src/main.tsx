@@ -1,3 +1,4 @@
+import '../../site/src/browser/node-guard.ts';
 import './index.css';
 import { createStore, Provider } from 'jotai';
 import { StrictMode } from 'react';

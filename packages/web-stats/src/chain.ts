@@ -1,8 +1,6 @@
 // Everything the page reads: the deployment check, the open epoch, the slot chunks the window
 // needs, the rows, then supply, genesis and lottery; all through miner-core's reader, no wallet.
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { createAztecNodeClient } from '@aztec/aztec.js/node';
-import { makeFetch } from '@aztec/foundation/json-rpc/client';
 import {
   assertDeployment,
   assertTimestamp,
@@ -20,7 +18,8 @@ import {
   type StorageLayout,
 } from '../../miner-core/src/reader.ts';
 import { type Connection, expectedDeployment } from '../../site/src/browser/connection.ts';
-import { boundNodeRequests } from '../../site/src/browser/node-deadline.ts';
+import { nodeClient } from '../../site/src/browser/node.ts';
+import { setNodeEndpoint } from '../../site/src/browser/node-guard.ts';
 import { chunkLoader, fetchLayouts } from '../../site/src/browser/slots.ts';
 import type { Chain } from './state';
 
@@ -40,8 +39,8 @@ export interface Reader {
 export async function openReader(connection: Connection): Promise<Reader> {
   // A read the reader gave up on ends with it: one deadline per request, no transport retries
   // (the SDK's default would keep an abandoned read alive through three more attempts).
-  boundNodeRequests(connection.nodeUrl, DEFAULT_LIMITS.timeoutMs);
-  const node = createAztecNodeClient(connection.nodeUrl, {}, makeFetch([], false));
+  setNodeEndpoint(connection.nodeUrl, DEFAULT_LIMITS.timeoutMs);
+  const node = nodeClient(connection.nodeUrl);
   const layout = await fetchLayouts();
   const expected = expectedDeployment();
   await assertDeployment(
@@ -49,6 +48,7 @@ export async function openReader(connection: Connection): Promise<Reader> {
     expectedFromStrings({
       chainId: expected.chainId.toString(),
       rollupVersion: expected.rollupVersion.toString(),
+      rollupAddress: expected.rollupAddress,
       miner: connection.miner,
       minerClassId: expected.minerClassId,
       token: connection.token,

@@ -4,7 +4,7 @@ import { diagnostics } from './diagnostics';
 const bytes = (s: string) => new TextEncoder().encode(s).length;
 
 describe('diagnostics export', () => {
-  test('keeps the tail, shortens long hex, strips URL credentials and queries, caps line and total size', () => {
+  test('keeps the tail, shortens long hex, keeps only the origin of a URL, caps line and total size', () => {
     const hash = `0x${'ab'.repeat(32)}`;
     const lines = [
       ...Array.from({ length: 250 }, (_, i) => `line ${i}`),
@@ -21,9 +21,9 @@ describe('diagnostics export', () => {
     expect(rows[0]).toBe('line 56');
     expect(out).toContain('claim 0xabab…abab sent');
     expect(out).not.toContain(hash);
-    expect(out).toContain('node https://node.example/rpc failed');
-    expect(out).toContain('node https://[::1]:8080/rpc failed');
-    expect(out).toContain('wrapped [https://node.example/x] and ([https://[::1]/y])');
+    expect(out).toContain('node https://node.example failed');
+    expect(out).toContain('node https://[::1]:8080 failed');
+    expect(out).toContain('wrapped [https://node.example] and ([https://[::1]])');
     expect(out).not.toContain('secret');
     expect(out).not.toContain('token=abc');
     expect(bytes(rows[rows.length - 1] ?? '')).toBeLessThanOrEqual(400);

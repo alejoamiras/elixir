@@ -32,7 +32,7 @@ const MAX_CRASHES = 3;
 /** The pause when the rollup's constants cannot be read either. */
 const FALLBACK_FINALITY_S = 40 * 60;
 
-type PauseReason = 'battery' | 'hidden' | 'withdraw' | 'offline' | 'lost-race';
+type PauseReason = 'battery' | 'hidden' | 'withdraw' | 'offline' | 'lost-race' | 'switch';
 
 interface Prover {
   worker: Worker;
@@ -511,12 +511,30 @@ export class MinerController {
   }
 
   /**
+   * Waits for whatever is talking to the node to finish: the refresh in flight and a claim being
+   * sent. What the node switch needs before the client moves, so no operation straddles two.
+   */
+  async drain(): Promise<void> {
+    await this.refreshing.catch(() => {});
+    await this.reading?.catch(() => {});
+    while (this.store.get(minerAtom).phase === 'claiming') await new Promise((r) => setTimeout(r, 100));
+  }
+
+  /**
+   * The node changed under the handle: the chain view built from the old one is dropped and rebuilt
+   * from the new one through the lost-race path, then read before mining resumes.
+   */
+  async rebuildForNewNode(): Promise<void> {
+    await this.rebuildChainView('the node changed: rebuilding this account’s chain view from it…');
+  }
+
+  /**
    * Drops and rebuilds the chain view. If the drop fails but the view could be reopened, the
    * account is still blocked and waits for finality on the reopened view; if nothing could be
    * reopened, the page has no working wallet and only a reload helps.
    */
-  private async rebuildChainView() {
-    this.log('lost a race: rebuilding this account’s chain view from the chain…');
+  private async rebuildChainView(why = 'lost a race: rebuilding this account’s chain view from the chain…') {
+    this.log(why);
     let rebound: Rebound;
     try {
       if (!this.recover) throw new Error('no recovery available');

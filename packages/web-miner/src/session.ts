@@ -12,8 +12,16 @@ import {
   normaliseWords,
 } from '../../miner-core/src/keys/mnemonic.ts';
 import { keysAllowed } from '../../site/src/browser/host.ts';
-import { type Preflighted, preflight, startSession } from './boot';
-import { readPublicBalance, recipientKnown, type Sent, sendWithdraw, type Withdrawal } from './chain';
+import { type NodeProbe, probeNode } from '../../site/src/browser/node.ts';
+import { expectedOf, type Preflighted, preflight, startSession, switchNodeLive } from './boot';
+import {
+  loadArtifact,
+  readPublicBalance,
+  recipientKnown,
+  type Sent,
+  sendWithdraw,
+  type Withdrawal,
+} from './chain';
 import type { Connection } from './config';
 import type { MinerController } from './controller';
 import { assertPasskey, createPasskey } from './keys/passkey';
@@ -223,6 +231,40 @@ export class Session {
   async forget(record: MasterRecord): Promise<void> {
     await forgetMaster(record.id);
     if (this.record?.id === record.id) location.reload();
+  }
+
+  /** The node in use; the switch target's identity was checked by the caller (the Node tile's probe). */
+  get nodeUrl(): string | undefined {
+    return this.pre?.switchable.current();
+  }
+
+  /**
+   * The deployment check plus the tip and latency of `url`; on the node in use it rides the page's
+   * handle. Works before or without a successful preflight (a dead saved node is when it matters most).
+   */
+  async probeNode(url: string, deadlineMs = 10_000): Promise<NodeProbe> {
+    const pre = this.pre;
+    const layout =
+      pre?.minerArtifact.storageLayout ?? (await loadArtifact('yacana_miner-YacanaMiner')).storageLayout;
+    const inUse = pre !== undefined && url === pre.switchable.current();
+    return probeNode(
+      url,
+      pre?.expected ?? expectedOf(this.connection),
+      layout,
+      deadlineMs,
+      inUse ? () => pre.node : undefined,
+    );
+  }
+
+  /**
+   * Points every holder at another node without a reload: mining pauses, whatever is in flight
+   * finishes, the handle moves, an open account's chain view is rebuilt from the new node, mining
+   * resumes. The caller checked the candidate against this deployment first.
+   */
+  async switchNode(url: string): Promise<void> {
+    // Without a preflight there is nothing to move under: the saved setting takes effect on reload.
+    if (!this.pre) return location.reload();
+    await switchNodeLive({ controller: this.controller, switchable: this.pre.switchable, url });
   }
 
   /** Someone expects to send us notes: the PXE needs the sender to find them. */

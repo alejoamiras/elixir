@@ -1,6 +1,7 @@
 import { useAtomValue } from 'jotai';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  Button,
   KvRow,
   Label,
   PowerSlider,
@@ -11,9 +12,10 @@ import {
   TileHeader,
   useTheme,
 } from '../../../ui/src/index.ts';
-import { ConnectionCard } from '../components/ConnectionCard';
+import { NodeTile } from '../components/NodeTile';
 import type { Connection } from '../config';
 import type { MinerController } from '../controller';
+import { diagnostics } from '../lib/diagnostics';
 import type { Session } from '../session';
 import { type BooleanSetting, useSettings } from '../settings';
 import { bootAtom, logAtom } from '../state';
@@ -63,6 +65,9 @@ export function Settings({
   const boot = useAtomValue(bootAtom);
   const { setTheme } = useTheme();
   const log = useAtomValue(logAtom);
+  const [copied, setCopied] = useState<'ok' | 'failed' | null>(null);
+  // The node in use follows a live switch; `connection` is what the page booted with.
+  const [nodeUrl, setNodeUrl] = useState(session.nodeUrl ?? connection.nodeUrl);
   const cores = navigator.hardwareConcurrency || 2;
   const threads = s.threads ?? Math.max(1, cores - 1);
   useEffect(() => setTheme(s.theme), [s.theme, setTheme]);
@@ -86,6 +91,11 @@ export function Settings({
   const canBattery = 'getBattery' in navigator;
   return (
     <div className="grid gap-4 md:grid-cols-2">
+      <NodeTile
+        session={session}
+        nodeUrl={nodeUrl}
+        onSwitched={() => setNodeUrl(session.nodeUrl ?? nodeUrl)}
+      />
       <Tile>
         <TileHeader>Performance</TileHeader>
         <PowerSlider
@@ -154,10 +164,26 @@ export function Settings({
         <KvRow label="build" value={import.meta.env.VITE_SITE_MODE} />
         <KvRow label="bb.js" value={import.meta.env.VITE_BB_VERSION} />
         <KvRow label="relying party" value={import.meta.env.VITE_RP_ID} />
+        <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-line pt-3">
+          <Button
+            size="sm"
+            onClick={() =>
+              navigator.clipboard
+                .writeText(diagnostics(log))
+                .then(() => setCopied('ok'))
+                .catch(() => setCopied('failed'))
+            }
+            data-testid="copy-diagnostics"
+          >
+            {copied === 'ok' ? 'Copied' : 'Copy diagnostics (shortened)'}
+          </Button>
+          <span className="text-ink-3 text-xs">
+            {copied === 'failed'
+              ? 'The clipboard refused; the log is also in the browser console.'
+              : "The last 200 lines, addresses shortened. It names this account's claims and the node's host."}
+          </span>
+        </div>
       </Tile>
-      <div className="md:col-span-2">
-        <ConnectionCard connection={connection} log={log} />
-      </div>
     </div>
   );
 }

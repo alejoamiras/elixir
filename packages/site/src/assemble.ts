@@ -41,14 +41,15 @@ export const REDIRECTS = [
 export interface BuildRecord {
   mode: SiteConfig['mode'];
   commit: string;
-  nodeOrigins: string[];
+  /** The default node's origin; a user may point the pages elsewhere from the miner's settings. */
+  nodeOrigin: string;
   rpId: string;
 }
 
 export const buildRecord = (c: SiteConfig): BuildRecord => ({
   mode: c.mode,
   commit: c.sourceCommit,
-  nodeOrigins: c.allowedNodeOrigins,
+  nodeOrigin: new URL(c.nodeUrl).origin,
   rpId: c.rpId,
 });
 
@@ -76,7 +77,7 @@ export async function assemble(out: string, env: NodeJS.ProcessEnv = process.env
   cpSync(resolve(repo, 'packages/web-landing/public/og.png'), resolve(out, 'og.png'));
   writeFileSync(
     resolve(out, '_headers'),
-    renderHeaders({ nodeOrigins: config.allowedNodeOrigins, mode: 'production' }),
+    renderHeaders({ mode: config.mode === 'production' ? 'production' : 'e2e' }),
   );
   writeFileSync(resolve(out, '_redirects'), `${REDIRECTS.join('\n')}\n`);
   const record = buildRecord(config);

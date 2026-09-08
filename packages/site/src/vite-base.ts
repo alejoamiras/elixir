@@ -91,8 +91,9 @@ const emitHeaders = (text: string): Plugin => ({
 export function siteVite(app: SiteAppOptions): (ctx: { command: 'build' | 'serve' }) => UserConfig {
   return ({ command }) => {
     const config = siteConfig(command);
-    const production = headerMap({ nodeOrigins: config.allowedNodeOrigins, mode: 'production' });
-    const dev = headerMap({ nodeOrigins: config.allowedNodeOrigins, mode: 'dev' });
+    // An e2e build previews under production's headers plus the local node forms; production alone ships.
+    const shipped = headerMap({ mode: config.mode === 'production' ? 'production' : 'e2e' });
+    const dev = headerMap({ mode: 'dev' });
     const proverConfig: UserConfig = app.prover
       ? {
           resolve: {
@@ -144,11 +145,11 @@ export function siteVite(app: SiteAppOptions): (ctx: { command: 'build' | 'serve
         // Every app imports aztec.js (fields, addresses, the node client), which reads Buffer and
         // process at import time; only the provers need the bb.js Worker plumbing above.
         nodePolyfills({ globals: { Buffer: true, global: true, process: true } }),
-        emitHeaders(renderHeaders({ nodeOrigins: config.allowedNodeOrigins, mode: 'production' })),
+        emitHeaders(renderHeaders({ mode: config.mode === 'production' ? 'production' : 'e2e' })),
         favicon(),
       ],
       server: { headers: dev, fs: { allow: [repo] } },
-      preview: { headers: production },
+      preview: { headers: shipped },
       ...proverConfig,
       resolve: {
         ...proverConfig.resolve,

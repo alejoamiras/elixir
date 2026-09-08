@@ -31,6 +31,7 @@ describe(`deployments/${PROFILE}.json`, () => {
       expect(Fr.fromString(record[k] as string).isZero()).toBe(false);
     for (const k of ['minerSalt', 'tokenSalt']) Fr.fromString(record[k] as string); // zero is a legal salt
     for (const k of ['chainId', 'rollupVersion', 'launchAt']) expect(record[k]).toMatch(DECIMAL);
+    expect(record.rollupAddress).toMatch(/^0x[0-9a-f]{40}$/);
     if (record.launchedAt !== undefined) {
       expect(record.launchedAt).toMatch(DECIMAL);
       expect(BigInt(record.launchedAt as string) >= BigInt(record.launchAt as string)).toBe(true);

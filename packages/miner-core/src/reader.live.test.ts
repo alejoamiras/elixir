@@ -33,6 +33,9 @@ describe.skipIf(!nodeUrl)('assertDeployment against a live node', () => {
     await expect(assertDeployment(node, { ...expected, rollupVersion: 1n }, layout)).rejects.toThrow(
       /rollup version/,
     );
+    await expect(
+      assertDeployment(node, { ...expected, rollupAddress: `0x${'ab'.repeat(20)}` }, layout),
+    ).rejects.toThrow(/serves rollup/);
     await expect(assertDeployment(node, { ...expected, minerClassId: Fr.random() }, layout)).rejects.toThrow(
       /has class/,
     );
