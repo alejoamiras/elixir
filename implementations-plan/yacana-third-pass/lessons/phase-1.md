@@ -241,3 +241,15 @@ an outcome from before a reset is dropped. The health fixture's `outcome()` now 
 `performance.now()`: the store has two time cutoffs in that domain (`cooldownFrom`, `resetAt`) and `beforeEach`
 resets, so `startedAt: 0` had become "stale" — three tests that meant a fresh answer said so implicitly; staleness
 is now passed explicitly where it is the point.
+
+## Arc 1 codex loop · convergence (2026-09-08)
+
+Round 4, resumed on the round-3 diff (`be9a44d`), verbatim: *"High confidence: the four fixes address the remaining
+findings. Operation tracking covers withdrawal and roll completion; terminal drain failures clear the switch flag;
+the reset cutoff rejects obsolete outcomes. No material regression or comment issue found. Focused guard, health,
+and switch tests: 33 passed, 0 failed. No new material findings"*.
+
+Four rounds (12 → 8 → 4 → 0) against the plan's nominal three: the third still carried material items but the
+trend was monotone and each fix small; the fourth was the confirmation the goal requires. Session
+`01a082b3-cb6f-7763-b05d-48f6157796c8` in `~/.cache/tmp/codex-26JvcF33` (responses 0–3). Arc 1 is closed at
+`be9a44d` + this log; `gh stack init --adopt` follows, then `third-pass-mine` for arc 2.
