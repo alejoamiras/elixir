@@ -6,10 +6,12 @@ import { type E2eRun, RUN_FILE } from './run.ts';
 const file = Bun.file(RUN_FILE);
 if (await file.exists()) {
   const run = (await file.json()) as E2eRun;
-  try {
-    process.kill(-run.vitePid, 'SIGKILL');
-  } catch {
-    /* already gone */
+  for (const pid of [run.vitePid, run.proxyPid]) {
+    try {
+      process.kill(-pid, 'SIGKILL');
+    } catch {
+      /* already gone */
+    }
   }
   await release(run.runId).catch(() => {});
   rmSync(RUN_FILE, { force: true });

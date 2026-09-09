@@ -1,0 +1,148 @@
+<title>Yacana Third Pass</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #f2efe9; --panel: #e8e4dc; --panel-2: #dfdad1;
+    --ink: #0a0a0b; --ink-2: rgba(10,10,11,.68); --ink-3: rgba(10,10,11,.46);
+    --line: rgba(10,10,11,.12); --uv: #5b3fe0; --uv-dim: rgba(91,63,224,.12);
+    --ok: #1f8a4c; --warn: #9a6b00;
+    --sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0a0a0b; --panel: #17171b; --panel-2: #1e1e24;
+      --ink: #f2efe9; --ink-2: rgba(242,239,233,.64); --ink-3: rgba(242,239,233,.4);
+      --line: rgba(242,239,233,.1); --uv: #8c6bff; --uv-dim: rgba(140,107,255,.18);
+      --ok: #58c98b; --warn: #e8b54d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0a0a0b; --panel: #17171b; --panel-2: #1e1e24;
+    --ink: #f2efe9; --ink-2: rgba(242,239,233,.64); --ink-3: rgba(242,239,233,.4);
+    --line: rgba(242,239,233,.1); --uv: #8c6bff; --uv-dim: rgba(140,107,255,.18);
+    --ok: #58c98b; --warn: #e8b54d;
+  }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 400 16px/1.55 var(--sans); }
+  main { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; }
+  h1, h2, h3 { font-weight: 600; letter-spacing: -.02em; text-wrap: balance; margin: 0; }
+  h1 { font-size: 34px; line-height: 1.1; }
+  h2 { font-size: 22px; margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--line); }
+  h3 { font-size: 17px; margin-top: 20px; }
+  p { margin: 12px 0; max-width: 65ch; }
+  .eyebrow { font: 500 11.5px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--uv); margin-bottom: 14px; }
+  .lede { font-size: 18px; color: var(--ink-2); }
+  code { font-family: var(--mono); font-size: .9em; }
+  pre { font: 400 12.5px/1.5 var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; overflow-x: auto; white-space: pre-wrap; margin: 12px 0; }
+  .phase { margin: 16px 0; padding: 14px 18px; border-left: 2px solid var(--line); }
+  .phase h3 { margin-top: 0; }
+  .gate { font: 400 13px/1.5 var(--mono); color: var(--ink-3); margin: 8px 0 0; }
+  .arc { font: 500 11.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); margin-top: 28px; }
+  ul { padding-left: 20px; } li { margin: 6px 0; max-width: 65ch; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 12px 0; }
+  th, td { text-align: left; padding: 7px 10px 7px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 500 11px/1.3 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  tr:last-child td { border-bottom: 0; }
+  .approval { background: var(--uv-dim); border-left: 2px solid var(--uv); padding: 14px 18px; margin: 24px 0; }
+  .approval h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 18px; }
+  .rec { border-color: var(--uv); background: var(--panel); }
+  .warn { color: var(--warn); font-weight: 500; }
+  .muted { color: var(--ink-3); font-size: 14px; }
+  .kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 16px; font-size: 14px; margin: 10px 0; }
+  .kv dt { font: 500 11px/1.6 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  .kv dd { margin: 0; }
+  a { color: var(--uv); }
+</style>
+
+<main>
+  <p class="eyebrow">Plan · mid tier · yacana-third-pass · approved 2026-09-08</p>
+  <h1>The node, the waits, the strip, the pop-out</h1>
+  <p class="lede">You picked the screens on the design canvas. This plan turns those picks into three pull requests: a node you can change from the miner's settings with a banner when it throttles; a stats page that shows its shape at once and fills as the numbers land; a miner that shows the chain before you sign in and opens your account behind a small window with a real progress bar; an epochs strip that stays readable at a thousand epochs; and the four small things (the senders card out, the pop-out redrawn, the money table's last line, the label that collided). Two independent reviewers audit it, then a fresh third pass; every finding is folded in before you see this.</p>
+
+  <h2>Why this tier</h2>
+  <p>Rubric: novelty low (every piece extends a surface that exists), blast radius <span class="warn">high</span> (the node setting and its security policy touch all three pages and the wallet), irreversibility low (pages, no chain, no data), migration low (one new browser cache, dropped whole if it is ever wrong), external coupling medium (public nodes and their rate limits), security sensitivity <span class="warn">high</span> in one line (the page may now talk to any https node). Two highs would say <code>deep</code>; both come from the one decision you already took (any https node), argued in the plan's security section and attacked by both audits, so <code>mid</code> with the full dual audit is the honest fit. Budget: one recon agent, code-review off, codex loops per arc plus a final cross-arc pass.</p>
+
+  <h2>The picks, as the plan reads them</h2>
+  <dl class="kv">
+    <dt>Node</dt><dd>Any https node, typed into a field; checked against this deployment before it is used; "Use this node" applies at once: mining pauses for a moment, the page's handle on the node moves, your account's view of the chain is rebuilt from the new node (about a minute, shown in the small window), and mining carries on (your decision A4; the reviewers leaned to a reload, the reasons are in the plan). The Aztec Labs node stays the default. The miner and token addresses stop being settings. If a saved node is dead, every page offers "Use the default node".</dd>
+    <dt>Throttled</dt><dd>A banner under the header on all three pages: what is wrong, how old the numbers are, what still works, the retry countdown, and "Use another node" one click away. It goes when the node answers again.</dd>
+    <dt>Stats</dt><dd>The page's structure from the first frame; grey shimmer where numbers and plots go (no shimmer if you asked your system for less motion); nothing shown under 300 ms; the first numbers in about a second, the history a few seconds later.</dd>
+    <dt>Mine</dt><dd>Signed out, the cockpit shows everything the chain gives, dimmed, with "Sign in to mine" where Start was; the sign-in is a small window over the blurred page, with "Not now — just watch" and the same links today's screens have (see A5). Opening an account keeps the window up with a bar and named steps (option A); Cancel really cancels.</dd>
+    <dt>Strip</dt><dd>Stays 48 epochs wide. Under it a map of every epoch ever; the window is drawn on the map; drag it or page with ‹ ›, and the table, the charts and the link follow (option A). The map fills in the background a page at a time and is remembered in the browser; if the node throttles, the filling stops for that visit and the unread part shows as a hairline rather than raising the banner itself.</dd>
+    <dt>Senders</dt><dd>Gone, card and capability (your decision A1). The browser test then showed it had cost nothing: a private transfer between two Yacana accounts arrives with no sender registered (Aztec's first-contact handshake does that), so no warning was needed either.</dd>
+    <dt>Small fixes</dt><dd>The pop-out draws proofs as ticks like the cockpit and never cuts the bar's number; the money table's last row loses its line; the "0" you saw is most likely the pop-out clipping a two-digit bar into "0.0", or the bar's label sitting on the baseline's label when the bar is at the floor — the plan reproduces it before calling it fixed, and both surfaces stop drawing that.</dd>
+  </dl>
+
+  <h2>Phases</h2>
+  <p class="arc">Arc 1 · miner + site → PR 1</p>
+  <div class="phase"><h3>P1.1 The node is a setting</h3><p>The security policy lets the page talk to any https node; the old one-origin allowlist goes, and the page's own request guard takes its place (only itself and the node you chose; everything else refused, in the page and in the prover). A "Node" tile in Settings shows the node in use and its health, lets you check another one (chain, deployment, block, latency) and use it at once, with the account's chain view rebuilt from the new node.</p><p class="gate">proves itself by: unit tests for the policy line and the check · a component test of the tile · the assembled-site test reading the shipped headers · lint and typecheck</p></div>
+  <div class="phase"><h3>P1.2 Node health and the banner</h3><p>One small store watches every answer from the node (ok, 429 with its retry hint, silence) and the three pages show the same banner from it; polls wait out the retry.</p><p class="gate">proves itself by: unit tests for the store (429 with and without a hint, silence, recovery) · component tests of the banner · lint and typecheck</p></div>
+  <div class="phase"><h3>P1.3 The loop's margin and the pop-out</h3><p>The chart measures its own label before drawing, so "56.2" is whole; short strips draw ticks; the baseline's "1" steps aside when the bar sits on it.</p><p class="gate">proves itself by: unit tests for the collision rule · two saved renders at bar 56.2 and 1.0 · lint</p></div>
+  <div class="phase"><h3>P1.4 Nothing can blank a page; the senders go</h3><p>Every tile and section gets a boundary: an error inside it shows a short message and a "Try again" instead of a white page. The senders card and the capability behind it go; the browser test proves private transfers between two accounts still arrive.</p><p class="gate">proves itself by: component tests (a throwing tile, its neighbours survive) · the full miner browser suite on the isolated network, including a live node switch between two distinct endpoints while mining, a claim landing after it, and a switch to a stalled node raising the banner · the assembled-site test · renders beside the artboards</p></div>
+
+  <p class="arc">Arc 2 · mine loading → PR 2</p>
+  <div class="phase"><h3>P2.1 The chain before the account</h3><p>The miner reads the open epoch from public storage the way the stats page does, before anyone signs in; the 20 MB of proving keys download in the background from page load, with the bytes counted; the boot no longer waits for them.</p><p class="gate">proves itself by: unit tests for the streamed download (sizes and the pinned hashes still checked) and for the public poll's hand-over · lint and typecheck</p></div>
+  <div class="phase"><h3>P2.2 The cockpit signed out, and the window</h3><p>The dimmed cockpit with real numbers, "Sign in to mine", the sign-in window with the passkey, the twelve words and "Not now — just watch".</p><p class="gate">proves itself by: component tests (numbers shown while signed out, both buttons open the window, Not now leaves it dimmed, Welcome back with a saved account) · lint</p></div>
+  <div class="phase"><h3>P2.3 Opening, option A</h3><p>The window stays up after the passkey: a bar and the five steps with their times and the bytes, a Cancel that returns to signed out; the balance shimmers behind until it is known.</p><p class="gate">proves itself by: unit tests for the bar's arithmetic · component tests of the steps · the full miner browser suite on the new flow · renders beside the three artboards</p></div>
+
+  <p class="arc">Arc 3 · stats + landing → PR 3</p>
+  <div class="phase"><h3>P3.1 The skeleton and the two beats</h3><p>The page always renders; the reader publishes the quick numbers first and the history second; each tile, chart and the table draws its own grey shape until its beat lands; nothing under 300 ms.</p><p class="gate">proves itself by: unit tests for the read order (the first beat survives a history failure) · component tests (every tile with no data, the first beat filling, no shimmer under reduced motion) · the screenshot gate unchanged · lint and typecheck</p></div>
+  <div class="phase"><h3>P3.2 The strip's window and map</h3><p>The window lives in the link; the map draws every closed epoch the page holds and fills in the background from the newest back, remembered in the browser so the next visit is whole; the table shows the window; "load older" goes.</p><p class="gate">proves itself by: unit tests for the paging, the cache's validation and the background fill's order and pausing · component tests of the map · the screenshot baselines regenerated once</p></div>
+  <div class="phase"><h3>P3.3 The money table</h3><p>The last row loses its line. The banner and the boundaries are checked in place on the landing.</p><p class="gate">proves itself by: a component test · the stats and landing browser suites on the isolated network · renders beside the artboards</p></div>
+
+  <h2>Human context</h2>
+  <ul>
+    <li><strong>Why the policy line changes.</strong> Today the page may only talk to the one node baked into the build; that is what "any node" costs. The page still runs no script but its own, and the wallet's real threat (a script already on the page) was never held back by that line. Both audits were asked to attack this.</li>
+    <li><strong>Why the live switch rebuilds the view.</strong> Both reviewers read the wallet library: it caches what it learned from the first node, and its view of the chain is kept per network, not per node, so a node that is behind, or lying, can wipe or poison that view. The switch therefore pauses mining, waits for anything in flight to finish, moves the handle, rebuilds the view from the new node (the same routine the miner already uses after a lost race), and resumes. The reviewers preferred a reload; you chose the switch in place, and the plan proves it between two real endpoints in the browser suite.</li>
+    <li><strong>Why the page guards its own requests.</strong> With any https node allowed, the browser policy no longer blocks stray requests, and one safety net relied on that (the proving keys must never come from the network unverified). The page now refuses in code every request that is not to itself or to the node you chose, and the same guard answers "slow down" locally while a node is rate-limiting, so nothing keeps hammering it.</li>
+    <li><strong>Why the map needs a memory.</strong> Reading one epoch is three requests; a thousand epochs is three thousand. The page reads them once, in the background, and keeps closed epochs in the browser (they never change), so the map is whole from the second visit on.</li>
+    <li><strong>Why the keys download moves.</strong> The 20 MB used to sit in front of the sign-in screen. Starting it at page load lets it run while you read the window; if it is done by the time you sign in, the step shows a tick.</li>
+  </ul>
+
+  <h2>Your decisions (taken 2026-09-08)</h2>
+  <ul>
+    <li><strong>A1 · the senders row: dropped.</strong> The card and the capability go; the test proved private transfers between Yacana accounts arrive regardless.</li>
+    <li><strong>A2 · the banner on the stats page and the landing</strong> links to the miner's settings, since those pages have none.</li>
+    <li><strong>A3 · "run a node →"</strong> links the Aztec docs' page on running a node.</li>
+    <li><strong>A4 · the node switch: live.</strong> In place, with the pause, the rebuild of the view and the resume; the reviewers' lean to a reload stays on record in the plan.</li>
+    <li><strong>A6 · the map's first visit is partial by design: approved.</strong> One page of 48 epochs per poll tick, stops for the visit the moment the node throttles, carried between visits by a capped browser cache; the unread part is a hairline with a caption.</li>
+    <li><strong>A5 · the sign-in window keeps every link today's screens have: approved.</strong> The two drawn plus, small and grey where each screen has them today, "Use twelve words instead", "I already have a passkey", and under Welcome back "Use another passkey", "Enter twelve words instead", "Create a new account".</li>
+    <li><strong>A2, A3: ok</strong> — the banner on stats and landing links to the miner's settings; "run a node" links the Aztec docs.</li>
+  </ul>
+
+  <div class="approval">
+    <h2>Approved</h2>
+    <p>Scope, tier, gates and the three stacked PRs confirmed with the decisions above; no hardening pass scheduled. Kept for the record:</p>
+    <ul>
+      <li>Confirm the scope: the seven items above, the picks as read; nothing else.</li>
+      <li>Confirm <code>mid</code> with the dual audit (the two highs come from the one policy decision you took).</li>
+      <li>Confirm the gates: lint, typecheck and unit on every phase; component tests on every screen; the browser suites on the isolated network at each arc boundary; the stats screenshot gate.</li>
+      <li>Confirm three stacked PRs: miner + site → mine loading → stats + landing.</li>
+      <li>Answer A1 (keep the senders row under Advanced, or drop it), A4 (the reload), A5 (the links) and A6 (the partial first-visit map); A2/A3 only if you disagree.</li>
+      <li>No hardening pass scheduled.</li>
+      <li>Approve, conditionally approve (with conditions), or reject (with blocking findings).</li>
+    </ul>
+  </div>
+
+  <h2>What the reviewers said</h2>
+  <p>Two reviewers read the first draft against the code and the wallet library, then a third read the finished plan fresh with the whole argument trail.</p>
+  <ul>
+    <li><strong>Codex, first read: reject.</strong> The security argument for "any https node" was wrong in one place and too kind in another; the proving-key safety net leaned on the old policy; a live node switch under the wallet was unproven; "health" measured the connection, not the numbers; Cancel had no owner; the browser tests would have been blocked by the new policy. Every point taken; the live switch became save-and-reload.</li>
+    <li><strong>Fable, first read: approve with nine conditions.</strong> Went further on the wallet: a node switch, even by reload, can leave the account's view of the chain pruned or poisoned unless it is rebuilt from the new node; the throttle guard should also answer the wallet's own requests; rate limits mostly arrive as opaque network errors; keep the sign-in screens' links; a few facts and sizes. Every condition taken.</li>
+    <li><strong>Codex, rounds two to four on the revision:</strong> caught what my edits had left half-done (the same node on two paths, the migration of your registered senders across a rebuild, one caller at a time on recovery, the map's last cell, the exact list of sign-in links) and ended at "approve with two conditions", both taken.</li>
+    <li><strong>Codex, fresh read of the finished plan: reject on two facts about the wallet library</strong> (the request guard would have blocked the prover's own bundled code; the sender migration read the wrong list) — both verified against the library and fixed — then <strong>approve</strong> on the follow-up, with one wording note, applied.</li>
+  </ul>
+  <p class="muted">The three transcripts are beside the plan: <code>audit-codex.md</code> (five rounds) and <code>audit-fable.md</code>. What each reviewer got wrong or over-asserted is recorded there too; nothing was dropped silently, and where the two disagreed (a live switch with a rebuild vs a reload) the plan takes the reload with the rebuild and names the deviation in A4.</p>
+
+  <h2>Implementation seeds (final)</h2>
+  <p>Two options for the autonomous implementation session, run inside the plan's worktree (<code>agent-worktree resume yacana-third-pass</code> from a fresh terminal). <code>/goal</code> survives <code>claude --resume</code> and checks a condition after every turn; <code>/loop</code> fires on an interval.</p>
+  <p class="warn">Use exactly one per session. They don't compose — setting one replaces the other.</p>
+  <div class="phase rec">
+    <h3>Recommended: /goal</h3>
+    <pre>/goal All phases marked ✓ in implementations-plan/yacana-third-pass/plan.md (the per-phase headers in the file — not the chat, not the task list), each ✓ backed by its phase's validation gate (as defined in plan.md) reported passing in the transcript; for each phase the agent has printed `LESSONS_FILE=implementations-plan/yacana-third-pass/lessons/phase-N.md` in the transcript; `/code-review` was NOT run (code_review is off); the codex fix loop converged for EVERY reviewed diff — each of the three arcs at its boundary plus the final cross-arc pass — each convergence evidenced by a resumed codex pass reporting no new material findings, quoted in the transcript; the Delivery section's PR topology exists on GitHub, created only AFTER all loops converged (`gh stack view` output in the transcript), each PR body linking the 1280/1440 renders beside the canvas artboards; `bun run lint` and `bun test` both report exit 0 in the transcript.</pre>
+  </div>
+  <h3>Alternative: /loop 15m</h3>
+  <pre>/loop 15m Drive implementations-plan/yacana-third-pass forward. Never idle waiting for my input. Each firing: (1) read plan.md and lessons/ (authoritative state), rebuild the task list from plan.md if empty, `git status`, `git log --oneline -5`, and `gh stack view` if a stack exists; (2) waiting on CI is fine if it is progressing (`gh run watch` up to 10 min), use the wait to prep the next phase; (3) no task in hand → take the next pending phase, after each meaningful edit run `bun run lint` and the touched packages' tests and `typecheck`, commit, `gh stack rebase` → fast gates → `gh stack push`; (4) stuck or facing a decision → `/codex high` with full context, decide, act, log the consult in lessons/phase-N.md; hard limits stay hard (never merge, deploy, push to main, or expand scope beyond plan.md; the CSP line is the plan's, not a knob); (5) same step failed 5 times → stop and reassess with codex; (6) phase green means its validation gate in plan.md passes: run it, paste the result, mark ✓, print `LESSONS_FILE=…`, `agent-worktree status yacana-third-pass "phase N green: <next>"`; arc boundary → the codex loop with the arc map, the renders and the plan's two rules until a round yields nothing material, then `gh stack add <next-arc-branch>`; (7) all phases ✓ → the final cross-arc codex pass (fresh session, net diff from f7e2ad4), then Delivery per plan.md (`gh stack submit --auto --open`, `gh pr edit` bodies, `gh pr checks --watch`), then the wrap-up report; surface and stop.</pre>
+
+  <p class="muted">Full plan: <code>implementations-plan/yacana-third-pass/plan.md</code> · recon: <code>recon.md</code> · the competing outline: <code>outline-b.md</code> · audits: <code>audit-codex.md</code>, <code>audit-fable.md</code> · lessons: <code>lessons/</code>.</p>
+</main>

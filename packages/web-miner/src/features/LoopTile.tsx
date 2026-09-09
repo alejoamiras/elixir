@@ -28,7 +28,7 @@ function PipView({ controller, win }: { controller: () => MinerController | unde
   const epoch = useAtomValue(epochAtom);
   const now = useAtomValue(nowAtom);
   const perMinute = useTweenedNumber(proofsPerMinute(miner.recent));
-  const bar = epoch ? difficulty(epoch.target) : 1;
+  const bar = epoch ? difficulty(epoch.target) : null;
   return (
     <div className="flex h-full flex-col justify-between bg-ground p-3 text-ink">
       <div className="flex items-center justify-between">
@@ -61,7 +61,7 @@ function PipView({ controller, win }: { controller: () => MinerController | unde
         geometry={{ pad: 4, fontPx: 10 }}
         win={win}
       />
-      <div className="flex items-baseline justify-between gap-2 font-mono text-2xs text-ink-2">
+      <div className="flex items-baseline justify-between gap-2 whitespace-nowrap font-mono text-[10px] text-ink-2">
         <span>
           <span className="font-sans text-lg font-semibold tracking-[-0.02em] text-ink">
             {perMinute.toFixed(1)}
@@ -71,7 +71,7 @@ function PipView({ controller, win }: { controller: () => MinerController | unde
         {epoch && (
           <span>
             epoch {epoch.epoch.toString()} · <span className="text-ink">{epoch.claims}</span> of {PARAMS.N} ·
-            bar {bar.toFixed(1)}
+            bar {bar === null ? '—' : bar.toFixed(1)}
           </span>
         )}
         <span className="text-ok">
@@ -130,7 +130,7 @@ export function LoopTile({
   const last = miner.recent[miner.recent.length - 1];
   const perProof = useTweenedNumber(last === undefined ? 0 : last / 1000);
   const ready = boot.phase === 'ready';
-  const bar = epoch ? difficulty(epoch.target) : 1;
+  const bar = epoch ? difficulty(epoch.target) : null;
   const status = pillStatus(miner, now);
   const nonClaimNotice =
     miner.notice &&

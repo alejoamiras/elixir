@@ -10,6 +10,10 @@ export interface E2eRun {
   /** A second deployment at an impossible target, for specs that must mine without ever winning. */
   hardMiner: string;
   hardToken: string;
+  /** Two forwarding proxies in front of the node (`node-proxy.ts`), the switch spec's A and B. */
+  proxyA: string;
+  proxyB: string;
+  proxyPid: number;
   vitePid: number;
   runId: string;
   /** `preview` serves a production build made for this run; `dev` is Vite's dev server. */

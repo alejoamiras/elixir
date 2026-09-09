@@ -11,11 +11,10 @@ const URL_LIKE = /https?:\/\/(?:[^\s'"`()[\]]|\[[0-9a-f:.]+\])+/gi;
 
 const shortHex = (h: string): string => `${h.slice(0, 6)}…${h.slice(-4)}`;
 
-/** Strips credentials and queries from a URL, keeping origin and path; leaves unparsable text alone. */
+/** A URL down to its origin: a node URL can carry a key in its path or query; leaves unparsable text alone. */
 const bareUrl = (u: string): string => {
   try {
-    const parsed = new URL(u);
-    return `${parsed.origin}${parsed.pathname}`;
+    return new URL(u).origin;
   } catch {
     return u;
   }

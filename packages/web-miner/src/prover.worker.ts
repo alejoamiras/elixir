@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 import './shims/node-globals';
+import '../../site/src/browser/node-guard.ts';
 import './pinned-crs';
 import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { Fr } from '@aztec/foundation/curves/bn254';

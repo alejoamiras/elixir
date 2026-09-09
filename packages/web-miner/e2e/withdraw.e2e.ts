@@ -19,7 +19,8 @@ test('withdraw: private to a second key on this device, public to an address', a
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
   await page.getByTestId('stop').click();
 
-  // Key B (words, not backed up) on the same device; it names A as a sender so it can find A's notes.
+  // Key B (words, not backed up) on the same device: a second Yacana account to send to. Nothing
+  // registers A as a sender on B: the delivery handshake of a first contact is what lets B find A's notes.
   await page.reload();
   await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
   await page.getByTestId('create-new-key').click();
@@ -29,11 +30,9 @@ test('withdraw: private to a second key on this device, public to an address', a
   const b = (await page.getByTestId('account').getAttribute('title')) ?? '';
   expect(b).not.toBe(a);
   await page.getByRole('link', { name: 'Wallet' }).click();
-  await page.getByTestId('sender').fill(a);
-  await page.getByTestId('add-sender').click();
-  await expect(page.getByText('added')).toBeVisible();
+  await expect(page.getByTestId('sender')).toHaveCount(0);
 
-  // Back on A: 1 tYACA privately to B (known recipient: no warning), 1 tYACA publicly to B.
+  // Back on A: 1 tYACA privately to B (a known contract: no warning), 1 tYACA publicly to B.
   await page.reload();
   await openKey(page, a);
   await page.getByRole('link', { name: 'Wallet' }).click();
@@ -66,7 +65,7 @@ test('withdraw: private to a second key on this device, public to an address', a
   const publicB = await page.evaluate((owner) => window.yacana?.session.publicBalance(owner).then(String), b);
   expect(publicB).toBe(String(10n ** 18n));
 
-  // B sees the private transfer once its key is open again.
+  // B sees the private transfer once its key is open again, with no sender ever registered.
   await page.reload();
   await openKey(page, b);
   await page.getByRole('link', { name: 'Wallet' }).click();

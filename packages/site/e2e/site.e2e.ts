@@ -31,7 +31,7 @@ test('one origin, three apps: every path serves its app under the same headers; 
 }) => {
   const r = run();
   const build = await (await request.get(`${r.baseURL}/build.json`)).json();
-  expect(build).toMatchObject({ mode: 'e2e', rpId: 'localhost', nodeOrigins: [new URL(r.nodeUrl).origin] });
+  expect(build).toMatchObject({ mode: 'e2e', rpId: 'localhost', nodeOrigin: new URL(r.nodeUrl).origin });
   expect(build.commit).toMatch(/^[0-9a-f]{40}$/);
 
   const headersOf = async (path: string) => {
@@ -41,7 +41,11 @@ test('one origin, three apps: every path serves its app under the same headers; 
   };
   const reference = await headersOf('/');
   for (const h of POLICY) expect(reference[h], h).toBeTruthy();
-  expect(reference['content-security-policy']).toContain(new URL(r.nodeUrl).origin);
+  // The node is a setting the policy cannot name: any https origin, the local forms only in this e2e build.
+  const csp = reference['content-security-policy'] as string;
+  expect(csp).toContain("connect-src 'self' data: https: http://127.0.0.1:* http://localhost:*");
+  expect(csp).toContain("webrtc 'block'");
+  expect(csp).not.toContain(new URL(r.nodeUrl).origin);
   for (const path of [
     '/mine/wallet',
     '/stats?epoch=0',

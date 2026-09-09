@@ -2,8 +2,6 @@
 // genesis and the lottery in launch mode. One deadline per request and no transport retries, like
 // the stats page; a failure keeps the last numbers.
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { createAztecNodeClient } from '@aztec/aztec.js/node';
-import { makeFetch } from '@aztec/foundation/json-rpc/client';
 import {
   assertDeployment,
   DEFAULT_LIMITS,
@@ -14,6 +12,7 @@ import {
   type Node,
   readEpochs,
   readGenesis,
+  readLatestBlock,
   readLottery,
   readOpenEpochNumber,
   readTotalSupply,
@@ -21,7 +20,8 @@ import {
   type StorageLayout,
 } from '../../miner-core/src/reader.ts';
 import { type Connection, expectedDeployment } from '../../site/src/browser/connection.ts';
-import { boundNodeRequests } from '../../site/src/browser/node-deadline.ts';
+import { nodeClient } from '../../site/src/browser/node.ts';
+import { setNodeEndpoint } from '../../site/src/browser/node-guard.ts';
 import { chunkLoader, fetchLayouts } from '../../site/src/browser/slots.ts';
 
 /** Closed epochs shown before the open one. */
@@ -53,8 +53,8 @@ export interface Launch {
 }
 
 export async function openReader(connection: Connection): Promise<Reader> {
-  boundNodeRequests(connection.nodeUrl, DEFAULT_LIMITS.timeoutMs);
-  const node = createAztecNodeClient(connection.nodeUrl, {}, makeFetch([], false));
+  setNodeEndpoint(connection.nodeUrl, DEFAULT_LIMITS.timeoutMs);
+  const node = nodeClient(connection.nodeUrl);
   const layout = await fetchLayouts();
   const expected = expectedDeployment();
   await assertDeployment(
@@ -62,6 +62,7 @@ export async function openReader(connection: Connection): Promise<Reader> {
     expectedFromStrings({
       chainId: expected.chainId.toString(),
       rollupVersion: expected.rollupVersion.toString(),
+      rollupAddress: expected.rollupAddress,
       miner: connection.miner,
       minerClassId: expected.minerClassId,
       token: connection.token,
@@ -78,15 +79,6 @@ export async function openReader(connection: Connection): Promise<Reader> {
     load: chunkLoader(),
   };
 }
-
-const latestBlock = async (node: Node): Promise<Live['block']> => {
-  const data = await node.getBlockData('latest');
-  if (!data) throw new Error('the node has no latest block');
-  return {
-    number: Number(data.header.globalVariables.blockNumber),
-    timestamp: Number(data.header.globalVariables.timestamp),
-  };
-};
 
 /** The open epoch's read runs beside the history's lanes; together they stay within the default bound. */
 const HISTORY_LIMITS = { ...DEFAULT_LIMITS, concurrency: DEFAULT_LIMITS.concurrency - 1 };
@@ -107,7 +99,7 @@ async function readRows(r: Reader, open: number): Promise<EpochRow[]> {
 export async function readLive(r: Reader): Promise<Live> {
   const [open, block, supply] = await Promise.all([
     readOpenEpochNumber(r.node, r.miner, r.minerLayout),
-    latestBlock(r.node),
+    readLatestBlock(r.node),
     readTotalSupply(r.node, r.token, r.tokenLayout),
   ]);
   const fixed = { open, supply, block, readAt: Date.now() };

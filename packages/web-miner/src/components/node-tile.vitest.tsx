@@ -1,0 +1,128 @@
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, test, vi } from 'vitest';
+import type { NodeProbe } from '../../../site/src/browser/node.ts';
+import { markRead, resetNodeHealth, setTransportForTests } from '../../../site/src/browser/node-health.ts';
+import type { Session } from '../session';
+import { NodeTile } from './NodeTile';
+
+const probe: NodeProbe = {
+  chainId: 31337n,
+  rollupVersion: 5n,
+  rollupAddress: '0xab',
+  block: 73164,
+  blockAgeS: 3,
+  latencyMs: 210,
+};
+const IN_USE = 'https://node.example/rpc';
+const OTHER = 'https://other.example/rpc';
+
+const session = (over: Partial<Session> = {}) =>
+  ({
+    nodeUrl: IN_USE,
+    probeNode: vi.fn(async (url: string) => {
+      if (url === OTHER) return { ...probe, latencyMs: 96 };
+      return probe;
+    }),
+    switchNode: vi.fn(async () => {}),
+    ...over,
+  }) as unknown as Session;
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+  localStorage.clear();
+  resetNodeHealth();
+});
+
+describe('the Node tile', () => {
+  test('shows the node in use with its health and the default marker', async () => {
+    vi.stubEnv('VITE_AZTEC_NODE_URL', IN_USE);
+    render(<NodeTile session={session()} nodeUrl={IN_USE} onSwitched={() => {}} />);
+    expect(screen.getByTestId('node-in-use').textContent).toContain('node.example');
+    await waitFor(() =>
+      expect(screen.getByTestId('node-health').textContent).toContain('block 73,164 · 3 s ago'),
+    );
+    expect(screen.getByTestId('node-health').textContent).toContain('this deployment ✓');
+    expect((screen.getByTestId('node-use') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  test('a throttled node reads 429 · rate limited with the last answer’s age; the check it passed stands', async () => {
+    render(<NodeTile session={session()} nodeUrl={IN_USE} onSwitched={() => {}} />);
+    await waitFor(() => expect(screen.getByTestId('node-health').textContent).toContain('this deployment ✓'));
+    act(() => {
+      markRead(Date.now() - 40_000);
+      setTransportForTests({
+        kind: 'throttled',
+        retryAt: Date.now() + 60_000,
+        status: 429,
+        backoffMs: 60_000,
+      });
+    });
+    const line = screen.getByTestId('node-health').textContent ?? '';
+    expect(line).toContain('429 · rate limited');
+    expect(line).toMatch(/last answer (39|40|41) s ago/);
+    expect(line).toContain('this deployment ✓');
+    expect(line).not.toContain('block 73,164');
+  });
+
+  test('Check shows the probe’s lines and enables Use; a refusal reads in warn; Use switches', async () => {
+    vi.stubEnv('VITE_SITE_MODE', 'e2e');
+    const s = session();
+    const onSwitched = vi.fn();
+    render(<NodeTile session={s} nodeUrl={IN_USE} onSwitched={onSwitched} />);
+    fireEvent.change(screen.getByTestId('node-url'), { target: { value: 'http://not-local.example' } });
+    fireEvent.click(screen.getByTestId('node-check'));
+    await waitFor(() => expect(screen.getByTestId('node-check-result').textContent).toMatch(/over https/));
+    expect(screen.getByTestId('node-check-result').className).toContain('text-warn');
+    expect((screen.getByTestId('node-use') as HTMLButtonElement).disabled).toBe(true);
+
+    fireEvent.change(screen.getByTestId('node-url'), { target: { value: OTHER } });
+    expect(screen.queryByTestId('node-check-result')).toBeNull();
+    fireEvent.click(screen.getByTestId('node-check'));
+    await waitFor(() =>
+      expect(screen.getByTestId('node-check-result').textContent).toContain('✓ chain 31337'),
+    );
+    expect(screen.getByTestId('node-check-result').textContent).toContain('96 ms');
+    expect((screen.getByTestId('node-use') as HTMLButtonElement).disabled).toBe(false);
+
+    await act(() => fireEvent.click(screen.getByTestId('node-use')));
+    await waitFor(() => expect(s.switchNode).toHaveBeenCalledWith(OTHER));
+    expect(JSON.parse(localStorage.getItem('yacana.connection') ?? '{}')).toEqual({ nodeUrl: OTHER });
+    await waitFor(() => expect(onSwitched).toHaveBeenCalled());
+    expect(screen.getByTestId('node-check-result').textContent).toContain('in use');
+  });
+
+  test('the switch lands before the save; a storage write the browser refuses is said, node in use', async () => {
+    vi.stubEnv('VITE_SITE_MODE', 'e2e');
+    const s = session();
+    const switched = vi.fn();
+    render(<NodeTile session={s} nodeUrl={IN_USE} onSwitched={switched} />);
+    fireEvent.change(screen.getByTestId('node-url'), { target: { value: OTHER } });
+    fireEvent.click(screen.getByTestId('node-check'));
+    await waitFor(() => expect((screen.getByTestId('node-use') as HTMLButtonElement).disabled).toBe(false));
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('quota', 'QuotaExceededError');
+    });
+    await act(() => fireEvent.click(screen.getByTestId('node-use')));
+    await waitFor(() =>
+      expect(screen.getByTestId('node-check-result').textContent).toMatch(
+        /Now in use, but .*refused to save/,
+      ),
+    );
+    expect(s.switchNode).toHaveBeenCalledWith(OTHER); // the live switch happened first
+    expect(switched).toHaveBeenCalled(); // and the tile follows the node in use
+    expect(localStorage.getItem('yacana.connection')).toBeNull(); // nothing was persisted
+  });
+
+  test('renders with no session state at all (a failed preflight): the probe’s error is shown', async () => {
+    const s = session({
+      nodeUrl: undefined,
+      probeNode: vi.fn(async () => {
+        throw new Error('node is on chain 1, this build expects 31337');
+      }),
+    } as Partial<Session>);
+    render(<NodeTile session={s} nodeUrl={IN_USE} onSwitched={() => {}} />);
+    await waitFor(() => expect(screen.getByTestId('node-health').textContent).toContain('on chain 1'));
+  });
+});

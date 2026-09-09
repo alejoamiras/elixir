@@ -1,7 +1,8 @@
 // Renders a surface from its running e2e server (an e2e run in progress, or a server left up) at the
 // widths the binder is judged at: the landing on the isolated network's numbers; the stats on the
 // captured history through the E2E's mocked node; the miner's keyed screens (cockpit, wallet,
-// settings), which a production build refuses off the production host.
+// settings with the node tile checking a second node, then the same page and the cockpit under a
+// rate-limiting node), which a production build refuses off the production host.
 //   bun scripts/render-e2e.ts landing|stats|miner <out dir> [widths, default 1280,1440,1024]
 import { mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -26,6 +27,9 @@ const run = JSON.parse(readFileSync(resolve(repo, `packages/web-${app}/e2e/.run.
   tokenClassId: string;
   chainId: string;
   rollupVersion: string;
+  /** The miner run's two forwarding proxies (`packages/web-miner/e2e/node-proxy.ts`). */
+  proxyA?: string;
+  proxyB?: string;
   vitePid?: number;
   vitePids?: number[];
   runId: string;
@@ -65,7 +69,18 @@ async function stats(page: Page, width: number) {
   await shot(page, 'stats', width);
 }
 
+const setMode = (proxy: string, mode: 'ok' | 'throttled') =>
+  fetch(`${proxy}/__mode`, { method: 'POST', body: JSON.stringify({ mode }) });
+
 async function miner(page: Page, width: number) {
+  const { proxyA, proxyB } = run;
+  if (!proxyA || !proxyB) throw new Error('the miner run has no proxies: rerun e2e/run-setup.ts');
+  // On A through the saved setting, not the query pin: a pinned page disables the node tile.
+  await page.addInitScript(
+    (nodeUrl) => localStorage.setItem('yacana.connection', JSON.stringify({ nodeUrl })),
+    proxyA,
+  );
+  await page.goto(`${run.baseURL}/`);
   await page.getByTestId('use-words').click({ timeout: 120_000 });
   await page.getByTestId('words-skip').click();
   await page.getByTestId('start').waitFor({ state: 'visible', timeout: 8 * 60_000 });
@@ -81,8 +96,30 @@ async function miner(page: Page, width: number) {
   await page.waitForTimeout(1500);
   await shot(page, 'miner-wallet', width);
   await page.getByRole('link', { name: 'Settings' }).click();
-  await page.waitForTimeout(800);
+  await page.getByTestId('node-health').filter({ hasText: 'this deployment' }).waitFor({ timeout: 60_000 });
+  await page.getByTestId('node-url').fill(proxyB);
+  await page.getByTestId('node-check').click();
+  await page
+    .getByTestId('node-check-result')
+    .filter({ hasText: 'the token are there' })
+    .waitFor({ timeout: 60_000 });
   await shot(page, 'miner-settings', width);
+  // A starts rate-limiting: the banner over the page, the tile's health line naming the 429.
+  await setMode(proxyA, 'throttled');
+  try {
+    await page.getByTestId('node-banner').waitFor({ timeout: 60_000 });
+    await page
+      .getByTestId('node-health')
+      .filter({ hasText: /429|rate/ })
+      .waitFor({ timeout: 30_000 });
+    await shot(page, 'miner-settings-throttled', width);
+    await page.getByRole('link', { name: 'Mine' }).click();
+    await page.getByTestId('node-banner').waitFor({ timeout: 10_000 });
+    await page.waitForTimeout(500);
+    await shot(page, 'miner-banner', width);
+  } finally {
+    await setMode(proxyA, 'ok');
+  }
 }
 
 const browser = await chromium.launch();
@@ -90,7 +127,7 @@ try {
   for (const width of widths) {
     const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
     const page = await context.newPage();
-    if (app !== 'stats') await page.goto(url.toString());
+    if (app === 'landing') await page.goto(url.toString());
     try {
       await { landing, stats, miner }[app](page, width);
     } catch (e) {

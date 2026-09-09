@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Tile, TileHeader } from '../../../ui/src/index.ts';
+import { Tile, TileBoundary, TileHeader } from '../../../ui/src/index.ts';
 import { type ChartProps, Difficulty, Duration, Emission, Retarget } from '../charts/index.tsx';
 
 function ChartTile({
@@ -16,7 +16,7 @@ function ChartTile({
   return (
     <Tile className={className}>
       <TileHeader aside={aside}>{title}</TileHeader>
-      {children}
+      <TileBoundary name={`chart:${title}`}>{children}</TileBoundary>
     </Tile>
   );
 }

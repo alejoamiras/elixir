@@ -24,19 +24,17 @@ if (server !== 'dev' && server !== 'preview')
   throw new Error(`E2E_SERVER must be dev or preview, got ${server}`);
 const pkg = resolve(import.meta.dir, '..');
 const OUT_DIR = 'e2e/.dist';
-// The lying-node tests mock this origin; a production build refuses nodes outside its allowlist.
-const MOCK_NODE_ORIGIN = 'http://127.0.0.1:1';
 
 /** The e2e build: the throwaway deployment, the local node, localhost as the RP ID, query overrides on. */
 const e2eEnv = (d: Deployment): NodeJS.ProcessEnv => ({
   ...process.env,
   YACANA_SITE_MODE: 'e2e',
   VITE_AZTEC_NODE_URL: nodeUrl,
-  VITE_ALLOWED_NODE_ORIGINS: `${new URL(nodeUrl as string).origin},${MOCK_NODE_ORIGIN}`,
   VITE_RP_ID: 'localhost',
   VITE_E2E_QUERY_OVERRIDES: '1',
   VITE_CHAIN_ID: d.chainId,
   VITE_ROLLUP_VERSION: d.rollupVersion,
+  VITE_ROLLUP_ADDRESS: d.rollupAddress,
   VITE_YACANA_MINER: d.miner,
   VITE_YACANA_TOKEN: d.token,
   VITE_YACANA_MINER_CLASS: d.minerClassId,
@@ -73,15 +71,20 @@ async function waitUntilUp(baseURL: string, child: ChildProcess): Promise<boolea
 
 const ownerPid = Number(process.env.E2E_OWNER_PID ?? process.ppid);
 const runId = `web-miner-e2e-${ownerPid}-${Date.now()}`;
-const port = await claim({
+const lane = {
   runId,
-  service: 'vite',
   ownerPid,
   worktree: resolve(pkg, '../..'),
   base: lanePortBase(runPortWindowBase(runId), 6, 8),
   span: 8,
-});
+};
+const port = await claim({ ...lane, service: 'vite' });
+const proxyPorts = [
+  await claim({ ...lane, service: 'node-proxy-a' }),
+  await claim({ ...lane, service: 'node-proxy-b' }),
+];
 let spawned: ChildProcess | undefined;
+let proxies: ChildProcess | undefined;
 try {
   const target = BigInt(process.env.YACANA_E2E_TARGET ?? String(1n << 127n));
   const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: target });
@@ -94,6 +97,22 @@ try {
   const baseURL = `http://localhost:${port}`;
   if (!(await waitUntilUp(baseURL, vite)))
     throw new Error(`vite ${server} did not start on ${baseURL} (see e2e/.vite.log)`);
+  proxies = spawn('bun', ['e2e/node-proxy.ts', nodeUrl, ...proxyPorts.map(String)], {
+    cwd: pkg,
+    stdio: ['ignore', log, log],
+    detached: true,
+  });
+  proxies.unref();
+  const proxyA = `http://127.0.0.1:${proxyPorts[0]}`;
+  const proxyB = `http://127.0.0.1:${proxyPorts[1]}`;
+  for (let i = 0; i < 60; i++) {
+    const up = await fetch(`${proxyA}/__stats`).then(
+      (r) => r.ok,
+      () => false,
+    );
+    if (up) break;
+    await delay(250);
+  }
   const run: E2eRun = {
     baseURL,
     nodeUrl,
@@ -101,6 +120,9 @@ try {
     token: deployed.token,
     hardMiner: hard.miner,
     hardToken: hard.token,
+    proxyA,
+    proxyB,
+    proxyPid: proxies.pid as number,
     vitePid: vite.pid as number,
     runId,
     server,
@@ -110,9 +132,10 @@ try {
   process.exit(0);
 } catch (e) {
   // The server is detached: nothing else would reap it once this script is gone.
-  if (spawned?.pid) {
+  for (const child of [spawned, proxies]) {
+    if (!child?.pid) continue;
     try {
-      process.kill(-spawned.pid, 'SIGKILL');
+      process.kill(-child.pid, 'SIGKILL');
     } catch {
       /* never started */
     }

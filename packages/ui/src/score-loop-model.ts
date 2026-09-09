@@ -25,6 +25,37 @@ export const axisTop = (difficulty: number, samples: readonly Sample[]): number 
 export const axisTo = (score: number, top: number): number =>
   Math.min(1, Math.max(0, Math.log(Math.max(1, score)) / Math.log(top)));
 
+/** The baseline's label yields when the bar's line sits within a line of type of it. */
+export const labelsCollide = (yBar: number, yBase: number, fontPx: number): boolean =>
+  Math.abs(yBar - yBase) < 1.2 * fontPx;
+
+/** The left margin a right-aligned axis label needs: its measured width plus the gap on both sides, never under the floor. */
+export const marginFor = (labelWidth: number, floor: number, gap = 8): number =>
+  Math.max(floor, Math.ceil(labelWidth) + 2 * gap);
+
+export interface LabelBox {
+  x0: number;
+  x1: number;
+  /** The text baseline. */
+  y: number;
+}
+
+/**
+ * The baseline for a label that must not sit on one already drawn: steps down a line at a time while it
+ * overlaps one, stops at `floor` (the plot's baseline) and keeps the last place that fits, else the start.
+ */
+export function clearOf(placed: readonly LabelBox[], box: LabelBox, fontPx: number, floor: number): number {
+  const overlaps = (y: number) =>
+    placed.some((o) => o.x0 < box.x1 && box.x0 < o.x1 && Math.abs(o.y - y) < 1.2 * fontPx);
+  let y = box.y;
+  while (overlaps(y)) {
+    const next = y + fontPx + 2;
+    if (next > floor) return y;
+    y = next;
+  }
+  return y;
+}
+
 /** Finite positive inputs: one decimal below 1e6, the compact exponent (3.4e38) above it. */
 export const difficultyLabel = (d: number): string =>
   d >= 1e6 ? d.toExponential(1).replace('+', '') : d.toFixed(1);

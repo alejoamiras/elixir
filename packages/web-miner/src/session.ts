@@ -12,9 +12,18 @@ import {
   normaliseWords,
 } from '../../miner-core/src/keys/mnemonic.ts';
 import { keysAllowed } from '../../site/src/browser/host.ts';
-import { type Preflighted, preflight, startSession } from './boot';
-import { readPublicBalance, recipientKnown, type Sent, sendWithdraw, type Withdrawal } from './chain';
-import type { Connection } from './config';
+import { type NodeProbe, probeNode } from '../../site/src/browser/node.ts';
+import { nodeHealth, waitTurn } from '../../site/src/browser/node-health.ts';
+import { expectedOf, type Preflighted, preflight, startSession, switchNodeLive } from './boot';
+import {
+  loadArtifact,
+  readPublicBalance,
+  recipientKnown,
+  type Sent,
+  sendWithdraw,
+  type Withdrawal,
+} from './chain';
+import { type Connection, saveConnection } from './config';
 import type { MinerController } from './controller';
 import { assertPasskey, createPasskey } from './keys/passkey';
 import {
@@ -38,6 +47,11 @@ type Store = ReturnType<typeof createStore>;
 export class Session {
   private pre: Preflighted | undefined;
   controller: MinerController | undefined;
+  /** One node switch at a time: a tile remount must not start a second against the same account. */
+  private switching: Promise<void> | undefined;
+  private switchingUrl: string | undefined;
+  /** A switch that failed left no working wallet: further node choices reboot rather than live-switch. */
+  private dead = false;
   private wallet: (() => EmbeddedWallet) | undefined;
   /** The open key's master, in memory for the tab's life (convenience mode switches need it). */
   private master: Uint8Array | undefined;
@@ -51,13 +65,19 @@ export class Session {
     private readonly store: Store,
     private readonly connection: Connection,
   ) {
-    this.ready = preflight(store, connection).then(
-      (pre) => {
-        this.pre = pre;
-      },
-      (e: unknown) =>
-        store.set(bootAtom, { phase: 'error', message: e instanceof Error ? e.message : String(e) }),
-    );
+    this.ready = this.runPreflight();
+  }
+
+  /** A preflight the node failed (throttled or silent) is shown, then tried again once the node is usable. */
+  private async runPreflight(): Promise<void> {
+    try {
+      this.pre = await preflight(this.store, this.connection);
+    } catch (e) {
+      this.store.set(bootAtom, { phase: 'error', message: e instanceof Error ? e.message : String(e) });
+      if (nodeHealth().transport.kind === 'ok') return;
+      await waitTurn();
+      return this.runPreflight();
+    }
   }
 
   private get rpId(): string {
@@ -225,10 +245,65 @@ export class Session {
     if (this.record?.id === record.id) location.reload();
   }
 
-  /** Someone expects to send us notes: the PXE needs the sender to find them. */
-  async addSender(address: string): Promise<void> {
-    if (!this.wallet) throw new Error('no open account');
-    await this.wallet().registerSender(AztecAddress.fromStringUnsafe(address), '');
+  /** The node in use; the switch target's identity was checked by the caller (the Node tile's probe). */
+  get nodeUrl(): string | undefined {
+    return this.pre?.switchable.current();
+  }
+
+  /**
+   * The deployment check plus the tip and latency of `url`; on the node in use it rides the page's
+   * handle. Works before or without a successful preflight (a dead saved node is when it matters most).
+   */
+  async probeNode(url: string, deadlineMs = 10_000): Promise<NodeProbe> {
+    const pre = this.pre;
+    const layout =
+      pre?.minerArtifact.storageLayout ?? (await loadArtifact('yacana_miner-YacanaMiner')).storageLayout;
+    const inUse = pre !== undefined && url === pre.switchable.current();
+    return probeNode(
+      url,
+      pre?.expected ?? expectedOf(this.connection),
+      layout,
+      deadlineMs,
+      inUse ? () => pre.node : undefined,
+    );
+  }
+
+  /**
+   * Points every holder at another node without a reload: mining pauses, whatever is in flight
+   * finishes, the handle moves, an open account's chain view is rebuilt from the new node, mining
+   * resumes. The caller checked the candidate against this deployment first.
+   */
+  async switchNode(url: string): Promise<void> {
+    // A terminal failure abandoned the wallet, and no preflight means nothing to move under: either
+    // way the saved setting takes effect on a fresh boot. Reload only once the write lands.
+    if (this.dead || !this.pre) {
+      if (!saveConnection({ nodeUrl: url }))
+        throw new Error('The browser refused to save the setting; free some site storage and try again.');
+      return location.reload();
+    }
+    if (this.switching) {
+      if (this.switchingUrl === url) return this.switching; // the same switch, already underway
+      throw new Error('a node switch is already underway; wait for it to finish');
+    }
+    const pre = this.pre;
+    this.switchingUrl = url;
+    this.switching = switchNodeLive({ controller: this.controller, switchable: pre.switchable, url })
+      .catch((e: unknown) => {
+        // A rebuild that failed left no working wallet: the boot error carries the way out, and the
+        // next node choice reboots rather than live-switching a dead account.
+        this.dead = true;
+        const message = e instanceof Error ? e.message : String(e);
+        this.store.set(bootAtom, {
+          phase: 'error',
+          message: `the node changed but its chain view could not be rebuilt (${message}); use another node or reload`,
+        });
+        throw e;
+      })
+      .finally(() => {
+        this.switching = undefined;
+        this.switchingUrl = undefined;
+      });
+    return this.switching;
   }
 
   /** Whether anything on the chain or in the wallet knows the recipient as a contract. */
@@ -247,9 +322,11 @@ export class Session {
     if (!c) throw new Error('no open account');
     c.pause('withdraw');
     try {
-      const sent = await sendWithdraw(c.deployment, c.address, c.feeSettings, w);
-      await c.refresh().catch((e: unknown) => c.log(`balance after withdraw: ${String(e)}`));
-      return sent;
+      return await c.track(async () => {
+        const sent = await sendWithdraw(c.deployment, c.address, c.feeSettings, w);
+        await c.refresh().catch((e: unknown) => c.log(`balance after withdraw: ${String(e)}`));
+        return sent;
+      });
     } finally {
       c.release('withdraw');
     }

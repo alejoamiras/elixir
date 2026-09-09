@@ -1,13 +1,14 @@
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { Badge, Button, ExternalLink, Input, Kpi, Tile, TileHeader } from '../../../ui/src/index.ts';
+import { Badge, Button, ExternalLink, Kpi, Tile, TileBoundary, TileHeader } from '../../../ui/src/index.ts';
 import { links } from '../explorer';
 import { SendSheet } from '../features/SendSheet';
 import { SignOutDialog } from '../features/SignOutDialog';
 import { WordsBackup } from '../features/WordsScreens';
 import type { MasterRecord } from '../keys/store';
 import { amount, shortAddress } from '../lib/format';
+import { useTileLog } from '../lib/tile-log';
 import { takeIntent } from '../routes';
 import type { Session } from '../session';
 import { balanceAtom, bootAtom, claimsAtom } from '../state';
@@ -113,41 +114,6 @@ function AccountTile({
   );
 }
 
-/** A recipient's wallet only finds a new sender's notes once told about the sender; this is where it is told. */
-function Senders({ session }: { session: Session }) {
-  const [sender, setSender] = useState('');
-  const [note, setNote] = useState<string>();
-  return (
-    <Tile flat className="md:col-span-2">
-      <TileHeader>expecting a private transfer from another Yacana account?</TileHeader>
-      <p className="mb-2 text-xs text-ink-2">Add their address so this account can find their notes.</p>
-      <div className="flex gap-2">
-        <Input
-          value={sender}
-          onChange={(e) => setSender(e.target.value)}
-          placeholder="0x…"
-          className="font-mono"
-          aria-label="sender address"
-          data-testid="sender"
-        />
-        <Button
-          size="sm"
-          onClick={() =>
-            void session
-              .addSender(sender.trim())
-              .then(() => setNote('added'))
-              .catch((e: unknown) => setNote(e instanceof Error ? e.message : String(e)))
-          }
-          data-testid="add-sender"
-        >
-          Add
-        </Button>
-      </div>
-      {note && <p className="mt-2 text-xs text-ink-2">{note}</p>}
-    </Tile>
-  );
-}
-
 function ClaimsHistory({ claims }: { claims: { epoch: bigint; block: number; at: number }[] }) {
   return (
     <Tile className="md:col-span-2">
@@ -185,6 +151,7 @@ function ClaimsHistory({ claims }: { claims: { epoch: bigint; block: number; at:
 }
 
 export function Wallet({ session }: { session: Session }) {
+  const onError = useTileLog();
   const boot = useAtomValue(bootAtom);
   const balance = useAtomValue(balanceAtom);
   const claims = useAtomValue(claimsAtom);
@@ -210,14 +177,24 @@ export function Wallet({ session }: { session: Session }) {
     );
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <BalanceTile account={account} balance={balance} claims={claims.length} onSend={() => setSend(true)} />
-      <AccountTile
-        record={boot.record}
-        onSignOut={() => setSignOut(true)}
-        onBackUp={() => setBackup('account')}
-      />
-      <Senders session={session} />
-      <ClaimsHistory claims={claims} />
+      <TileBoundary name="balance" onError={onError}>
+        <BalanceTile
+          account={account}
+          balance={balance}
+          claims={claims.length}
+          onSend={() => setSend(true)}
+        />
+      </TileBoundary>
+      <TileBoundary name="account" onError={onError}>
+        <AccountTile
+          record={boot.record}
+          onSignOut={() => setSignOut(true)}
+          onBackUp={() => setBackup('account')}
+        />
+      </TileBoundary>
+      <TileBoundary name="claims" onError={onError} className="md:col-span-2">
+        <ClaimsHistory claims={claims} />
+      </TileBoundary>
       <SendSheet
         session={session}
         self={account}

@@ -5,6 +5,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { createAztecNodeClient } from '@aztec/aztec.js/node';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { PARAMS } from './generated/params.ts';
 
@@ -28,6 +29,8 @@ export const layoutsFromJson = (text: string): Layouts => {
 export interface ExpectedDeployment {
   chainId: bigint;
   rollupVersion: bigint;
+  /** The L1 rollup contract, lower-case hex; with the chain id and the version it names the network. */
+  rollupAddress: string;
   miner: AztecAddress;
   minerClassId: Fr;
   token: AztecAddress;
@@ -41,8 +44,10 @@ export const fixedSlot = (layout: StorageLayout, name: string): Fr => {
 };
 
 /**
- * Both instances, both classes, and the miner's immutable `token` slot must match the build: a
- * node that serves another deployment (or a fork sharing addresses) is refused before any read.
+ * The chain, the rollup (version and L1 address), both instances, both classes, and the miner's
+ * immutable `token` slot must match the build: a node that serves another deployment (or a fork
+ * sharing addresses) is refused before any read. Answered by the node under test: a consistency
+ * check, not an authentication of the chain.
  */
 export async function assertDeployment(
   node: Node,
@@ -56,6 +61,9 @@ export async function assertDeployment(
     throw new Error(
       `node runs rollup version ${info.rollupVersion}, this build expects ${expected.rollupVersion}`,
     );
+  const rollup = info.l1ContractAddresses.rollupAddress.toString().toLowerCase();
+  if (rollup !== expected.rollupAddress.toLowerCase())
+    throw new Error(`node serves rollup ${rollup}, this build expects ${expected.rollupAddress}`);
   for (const [name, address, classId] of [
     ['miner', expected.miner, expected.minerClassId],
     ['token', expected.token, expected.tokenClassId],
@@ -76,6 +84,7 @@ export async function assertDeployment(
 export const expectedFromStrings = (s: {
   chainId: string;
   rollupVersion: string;
+  rollupAddress: string;
   miner: string;
   minerClassId: string;
   token: string;
@@ -83,6 +92,7 @@ export const expectedFromStrings = (s: {
 }): ExpectedDeployment => ({
   chainId: BigInt(s.chainId),
   rollupVersion: BigInt(s.rollupVersion),
+  rollupAddress: EthAddress.fromString(s.rollupAddress).toString(),
   miner: AztecAddress.fromStringUnsafe(s.miner),
   minerClassId: Fr.fromString(s.minerClassId),
   token: AztecAddress.fromStringUnsafe(s.token),
@@ -135,6 +145,17 @@ const MAX_UNIX = 8_640_000_000_000n;
 export function assertTimestamp(what: string, value: bigint): bigint {
   if (value > MAX_UNIX) throw new Error(`${what} ${value} is not a timestamp`);
   return value;
+}
+
+/** The node's latest block: its number and slot time (unix s), the timestamp checked like every other. */
+export async function readLatestBlock(node: Node): Promise<{ number: number; timestamp: number }> {
+  const data = await node.getBlockData('latest');
+  if (!data) throw new Error('the node has no latest block');
+  const g = data.header.globalVariables;
+  return {
+    number: Number(g.blockNumber),
+    timestamp: Number(assertTimestamp('the latest block', BigInt(g.timestamp))),
+  };
 }
 
 /** What the contract can have written; anything else is a node lying or a wrong slot, not data. */

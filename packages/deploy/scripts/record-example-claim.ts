@@ -31,6 +31,7 @@ const record = (await Bun.file(resolve(repo, recordPath)).json()) as {
   tokenClassId: string;
   chainId: string;
   rollupVersion: string;
+  rollupAddress: string;
 };
 const nodeUrl = process.env.AZTEC_NODE_URL ?? record.nodeUrl;
 if (!nodeUrl) throw new Error('AZTEC_NODE_URL is not set and the record names no node');

@@ -7,7 +7,6 @@ import { resolve } from 'node:path';
 import { Fr } from '@aztec/aztec.js/fields';
 import { release } from '../../../scripts/run/registry.ts';
 import { type Deployment, deployYacana } from '../../deploy/src/deploy.ts';
-import { MOCK_NODE_ORIGIN } from './helpers.ts';
 import { type E2eRun, MOCK_FILE, RUN_FILE } from './run.ts';
 import { buildApp, claimPreviewPort, mockStorage, pkg, startPreview, waitUntilUp } from './serve.ts';
 
@@ -15,16 +14,16 @@ const nodeUrl = process.env.AZTEC_NODE_URL;
 if (!nodeUrl) throw new Error('AZTEC_NODE_URL is not set: run through `bun run e2e:agent -- …`');
 const OUT_DIR = 'e2e/.dist';
 
-// The mocked-RPC spec answers MOCK_NODE_ORIGIN; a production build refuses nodes outside its allowlist.
+// The mocked-RPC spec answers MOCK_NODE_ORIGIN, a local origin the e2e headers admit.
 const e2eEnv = (d: Deployment): NodeJS.ProcessEnv => ({
   ...process.env,
   YACANA_SITE_MODE: 'e2e',
   VITE_AZTEC_NODE_URL: nodeUrl,
-  VITE_ALLOWED_NODE_ORIGINS: `${new URL(nodeUrl as string).origin},${MOCK_NODE_ORIGIN}`,
   VITE_RP_ID: 'localhost',
   VITE_E2E_QUERY_OVERRIDES: '1',
   VITE_CHAIN_ID: d.chainId,
   VITE_ROLLUP_VERSION: d.rollupVersion,
+  VITE_ROLLUP_ADDRESS: d.rollupAddress,
   VITE_YACANA_MINER: d.miner,
   VITE_YACANA_TOKEN: d.token,
   VITE_YACANA_MINER_CLASS: d.minerClassId,

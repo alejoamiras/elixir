@@ -8,6 +8,7 @@
   "minerClassId": "0x20680945ecd95004af585e35e78dcfbdc27b559b021d7feb816aa54697bbebb9",
   "tokenClassId": "0x10fd5603d57b91daa46f9b8f98ff0cbd4516315ce10e423c05dcfe9638bfecbf",
   "rollupVersion": "1821665230",
+  "rollupAddress": "0xd73a91bdcf6891c7642f3e460036e1ef2cc23178",
   "minerSalt": "0x0f4915a7912702af34db1cb9518ee69eeb803781a729a4cb35c9576c6f5fa94c",
   "tokenSalt": "0x17a20a0f09f0a3e1ae2602f67bda032fefa6ae4e41ccf1ed1b3ffbc56dd6c686",
   "params": {

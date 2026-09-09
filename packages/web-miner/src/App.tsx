@@ -1,7 +1,9 @@
 import { useAtomValue } from 'jotai';
-import { type ReactNode, useCallback, useEffect } from 'react';
+import { type ReactNode, useCallback, useEffect, useSyncExternalStore } from 'react';
 import { proofsPerMinute } from '../../miner-core/src/metrics.ts';
+import { defaultNodeUrl, restoreDefaultNode } from '../../site/src/browser/connection.ts';
 import { previewNotice } from '../../site/src/browser/host.ts';
+import { bannerState, nodeHealth, subscribeNodeHealth } from '../../site/src/browser/node-health.ts';
 import {
   Alert,
   AlertDescription,
@@ -9,6 +11,8 @@ import {
   Badge,
   cn,
   Mark,
+  NodeBanner,
+  NodeWayOut,
   StatusPill,
   Toaster,
 } from '../../ui/src/index.ts';
@@ -18,7 +22,7 @@ import { isDesktop } from './desktop';
 import { KeyScreen } from './features/KeyScreen';
 import { useHotkeys, usePauses, useResumeOnOpen } from './features/use-page-behaviour';
 import { pillStatus } from './lib/status';
-import { navigate, type Route, useRoute } from './routes';
+import { navigate, pathFor, type Route, useRoute } from './routes';
 import { Mine } from './routes/Mine';
 import { Settings } from './routes/Settings';
 import { Wallet } from './routes/Wallet';
@@ -51,11 +55,16 @@ function useTabStatus(enabled: boolean) {
   }, [enabled, miner, epoch, rules]);
 }
 
-function Shell({ children }: { children: ReactNode }) {
+/** The banner calls the numbers stale once the controller would have paused for silence (a minute). */
+const STALE_AFTER_MS = 60_000;
+
+export function Shell({ children }: { children: ReactNode }) {
   const route = useRoute();
   const miner = useAtomValue(minerAtom);
   const now = useAtomValue(nowAtom);
   const notice = previewNotice(location.hostname);
+  const health = useSyncExternalStore(subscribeNodeHealth, nodeHealth, nodeHealth);
+  const banner = bannerState(health, now, STALE_AFTER_MS);
   return (
     <div className="mx-auto flex max-w-[1120px] flex-col">
       <header className="flex h-[52px] items-center gap-5 border-b border-line px-4 md:px-5">
@@ -106,6 +115,7 @@ function Shell({ children }: { children: ReactNode }) {
             <AlertDescription>{notice}</AlertDescription>
           </Alert>
         )}
+        <NodeBanner state={banner} settingsHref={route === 'settings' ? undefined : pathFor('settings')} />
         {children}
       </div>
     </div>
@@ -129,6 +139,11 @@ export function App({ connection, session }: { connection: Connection; session: 
         <Alert variant="bad" data-testid="boot-error">
           <AlertTitle>Cannot start</AlertTitle>
           <AlertDescription>{boot.message}</AlertDescription>
+          <NodeWayOut
+            className="mt-2"
+            onDefault={connection.nodeUrl === defaultNodeUrl() ? undefined : restoreDefaultNode}
+            settingsHref={route === 'settings' ? undefined : pathFor('settings')}
+          />
         </Alert>
       )}
       {!open && boot.phase !== 'error' && <KeyScreen session={session} />}

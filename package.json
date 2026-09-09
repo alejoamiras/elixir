@@ -20,6 +20,7 @@
     "lint:fix": "biome check --write . && sort-package-json package.json 'packages/*/package.json'",
     "lint:shell": "shellcheck scripts/run/*.sh .husky/pre-commit .husky/commit-msg",
     "prepare": "husky",
+    "record-rollup-address": "bun packages/deploy/scripts/record-rollup-address.ts",
     "site:build": "bun packages/site/src/assemble.ts",
     "site:deploy": "bun run --cwd packages/site deploy",
     "site:e2e": "bun run --cwd packages/site test:e2e",

@@ -1,6 +1,7 @@
 // The page's chain state over time: the boot read, then a poll a minute. A failed poll keeps the
 // last numbers and marks them unreachable; a failed boot is the error state.
 import type { Connection } from '../../site/src/browser/connection.ts';
+import { markRead, nodeHealth, startNodeHealth, waitTurn } from '../../site/src/browser/node-health.ts';
 import {
   type Launch,
   type Live,
@@ -56,6 +57,7 @@ export async function readAll(
 
 /** Starts the reads; the returned function stops them (nothing lands afterwards). */
 export function watchChain(connection: Connection, sink: ChainSink): () => void {
+  startNodeHealth();
   let stopped = false;
   let inFlight = false;
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -68,6 +70,7 @@ export function watchChain(connection: Connection, sink: ChainSink): () => void 
     inFlight = true;
     try {
       await readAll(reader, guarded);
+      markRead();
     } catch {
       markUnreachable(guarded);
     } finally {
@@ -78,22 +81,27 @@ export function watchChain(connection: Connection, sink: ChainSink): () => void 
     guarded.live({ phase: 'error', message: message(e) });
     guarded.launch({ phase: 'error' });
   };
-  // A failed initialisation stops the reads; a failed data read is retried by the polls.
-  (async () => {
+  // A failed initialisation is shown and, when the node is the reason (throttled or silent), retried
+  // once the store says the node is usable again; a failed data read is retried by the polls.
+  const start = async (): Promise<void> => {
     let reader: Reader;
     try {
       reader = await openReader(connection);
     } catch (e) {
       fail(e);
-      return;
+      if (stopped || nodeHealth().transport.kind === 'ok') return;
+      await waitTurn();
+      return stopped ? undefined : start();
     }
     try {
       await readAll(reader, guarded);
+      markRead();
     } catch (e) {
       fail(e);
     }
     if (!stopped) timer = setInterval(() => void poll(reader), POLL_MS);
-  })();
+  };
+  void start();
   return () => {
     stopped = true;
     if (timer !== undefined) clearInterval(timer);

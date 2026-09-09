@@ -26,14 +26,13 @@ describe('assembly', () => {
     const c = {
       mode: 'production',
       sourceCommit: 'abc',
-      allowedNodeOrigins: ['https://node.example'],
       rpId: 'yacana.network',
       nodeUrl: 'https://node.example',
     } as SiteConfig;
     expect(buildRecord(c)).toEqual({
       mode: 'production',
       commit: 'abc',
-      nodeOrigins: ['https://node.example'],
+      nodeOrigin: 'https://node.example',
       rpId: 'yacana.network',
     });
   });

@@ -1,11 +1,13 @@
+import '../../site/src/browser/node-guard.ts';
 import './index.css';
 import { createStore, Provider } from 'jotai';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { loadConnection } from '../../site/src/browser/connection.ts';
+import { markRead, nodeHealth, startNodeHealth, waitTurn } from '../../site/src/browser/node-health.ts';
 import { ThemeProvider } from '../../ui/src/index.ts';
 import { App } from './App';
-import { openReader, pollChain, type Reader, readChain, readOlder } from './chain';
+import { openReader, POLL_MS, pollChain, type Reader, readChain, readOlder } from './chain';
 import { coalesced, serial } from './serial';
 import {
   type Chain,
@@ -16,8 +18,6 @@ import {
   sinceOpenedAtom,
   statusAtom,
 } from './state';
-
-const POLL_MS = 30_000;
 
 const store = createStore();
 const connection = loadConnection();
@@ -35,6 +35,7 @@ const poll = coalesced(async () => {
   if (!reader || !chain) return;
   try {
     const { chain: next, historyError } = await pollChain(reader, chain);
+    markRead();
     store.set(chainAtom, next);
     if (historyError) historyLimit(next, historyError);
     else if (store.get(historyLimitAtom)) store.set(historyLimitAtom, null);
@@ -46,13 +47,16 @@ const poll = coalesced(async () => {
   }
 });
 
-async function boot() {
+/** A boot that fails because the node is throttled or silent waits for the store's turn and tries again. */
+async function boot(): Promise<void> {
+  startNodeHealth();
   try {
     store.set(statusAtom, { phase: 'loading', step: 'checking the deployment' });
     reader = await openReader(connection);
     const { chain, historyError } = await readChain(reader, (step) =>
       store.set(statusAtom, { phase: 'loading', step }),
     );
+    markRead();
     store.set(chainAtom, chain);
     store.set(sinceOpenedAtom, { supply: chain.supply, at: Date.now() });
     if (historyError) historyLimit(chain, historyError);
@@ -60,6 +64,9 @@ async function boot() {
     setInterval(() => void poll(), POLL_MS);
   } catch (e) {
     store.set(statusAtom, { phase: 'error', message: message(e) });
+    if (nodeHealth().transport.kind === 'ok') return;
+    await waitTurn();
+    return boot();
   }
 }
 

@@ -1,9 +1,26 @@
 import { useAtomValue } from 'jotai';
-import { type ReactNode, useEffect } from 'react';
-import type { Connection } from '../../site/src/browser/connection.ts';
+import { type ReactNode, useEffect, useSyncExternalStore } from 'react';
+import {
+  type Connection,
+  defaultNodeUrl,
+  NODE_SETTINGS_HREF,
+  restoreDefaultNode,
+} from '../../site/src/browser/connection.ts';
 import { duration } from '../../site/src/browser/format.ts';
 import { previewNotice } from '../../site/src/browser/host.ts';
-import { Alert, AlertDescription, AlertTitle, Badge, cn, ExternalLink, Mark } from '../../ui/src/index.ts';
+import { bannerState, nodeHealth, subscribeNodeHealth } from '../../site/src/browser/node-health.ts';
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Badge,
+  cn,
+  ExternalLink,
+  Mark,
+  NodeBanner,
+  NodeWayOut,
+} from '../../ui/src/index.ts';
+import { POLL_MS } from './chain';
 import { links } from './explorer';
 import { navigate, type Route, useRoute } from './routes';
 import { Stats } from './routes/Stats';
@@ -61,6 +78,8 @@ function Shell({ children, connection }: { children: ReactNode; connection: Conn
   // The miner is at the origin's root whatever this app's base is.
   const minerHref = '/mine/';
   const notice = previewNotice(location.hostname);
+  const health = useSyncExternalStore(subscribeNodeHealth, nodeHealth, nodeHealth);
+  const now = useAtomValue(nowAtom);
   return (
     <div className="mx-auto flex max-w-[1120px] flex-col">
       <header className="flex h-[52px] items-center gap-5 border-b border-line px-4 md:px-5">
@@ -101,19 +120,20 @@ function Shell({ children, connection }: { children: ReactNode; connection: Conn
             <AlertDescription>{notice}</AlertDescription>
           </Alert>
         )}
-        {status.phase === 'unreachable' && (
-          <Alert variant="warn" data-testid="unreachable">
-            <AlertTitle>node unreachable</AlertTitle>
-            <AlertDescription>
-              No answer from {new URL(connection.nodeUrl).host} since{' '}
-              {new Date(status.since).toISOString().slice(11, 19)}; the numbers below are from the last read.
-            </AlertDescription>
-          </Alert>
-        )}
+        <NodeBanner
+          state={bannerState(health, now, 2 * POLL_MS)}
+          settingsHref={NODE_SETTINGS_HREF}
+          onDefault={connection.nodeUrl === defaultNodeUrl() ? undefined : restoreDefaultNode}
+        />
         {status.phase === 'error' && (
           <Alert variant="bad" data-testid="boot-error">
             <AlertTitle>Cannot read this deployment</AlertTitle>
             <AlertDescription>{status.message}</AlertDescription>
+            <NodeWayOut
+              className="mt-2"
+              onDefault={connection.nodeUrl === defaultNodeUrl() ? undefined : restoreDefaultNode}
+              settingsHref={NODE_SETTINGS_HREF}
+            />
           </Alert>
         )}
         {children}

@@ -13,6 +13,7 @@ import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { difficulty } from '../../miner-core/src/metrics.ts';
 import { deployDomain, ticketNullifier } from '../../miner-core/src/proof.ts';
 import { newEpochSecret } from '../../miner-core/src/secret.ts';
+import { markRead } from '../../site/src/browser/node-health.ts';
 import { type Deployment, type Fee, readBalance, readEpoch, sendClaim, sendRoll } from './chain';
 import { chime } from './chime';
 import { amount } from './lib/format';
@@ -32,7 +33,7 @@ const MAX_CRASHES = 3;
 /** The pause when the rollup's constants cannot be read either. */
 const FALLBACK_FINALITY_S = 40 * 60;
 
-type PauseReason = 'battery' | 'hidden' | 'withdraw' | 'offline' | 'lost-race';
+type PauseReason = 'battery' | 'hidden' | 'withdraw' | 'offline' | 'lost-race' | 'switch';
 
 interface Prover {
   worker: Worker;
@@ -109,7 +110,7 @@ export class MinerController {
   private fee: Fee;
   private readonly chainId: bigint;
   private readonly rollupVersion: bigint;
-  private readonly recover: (() => Promise<Rebound>) | undefined;
+  private readonly recover: ((strict?: boolean) => Promise<Rebound>) | undefined;
   private readonly readDeadlineMs: number;
 
   private secrets = new Map<number, string>();
@@ -129,6 +130,12 @@ export class MinerController {
   private generations = 0;
   private crashes = 0;
   private refreshing: Promise<void> = Promise.resolve();
+  /** The real chain read behind the latest refresh, settled past the deadline: what a switch drains. */
+  private inflightRead: Promise<void> = Promise.resolve();
+  /** True from the drain through the rebuild of a node switch: the poll must not read across it. */
+  private switching = false;
+  /** Node operations outside the poll and the claim (a roll, a withdrawal), for the drain to await. */
+  private ops: Promise<void> = Promise.resolve();
   /** Bumped per refresh; a read that outlived its deadline must not write over a newer one. */
   private reads = 0;
   private lastRead = Date.now();
@@ -308,7 +315,12 @@ export class MinerController {
   refresh(): Promise<void> {
     const run = this.refreshing.then(() => {
       const gen = ++this.reads;
-      return deadline(this.readChain(gen), this.readDeadlineMs);
+      const read = this.readChain(gen);
+      // A read that outlives its deadline floats while the next refresh starts; the drain must still
+      // await it, so accumulate rather than overwrite. Settled entries drop out on their own.
+      const tracked = read.catch(() => {});
+      this.inflightRead = Promise.all([this.inflightRead, tracked]).then(() => {});
+      return deadline(read, this.readDeadlineMs);
     });
     this.refreshing = run.catch(() => {});
     return run;
@@ -316,11 +328,13 @@ export class MinerController {
 
   /** The timer's refresh: a node silent for a minute pauses mining, its first answer resumes it. */
   private async poll() {
-    // A rebuild swaps the deployment under the reads; its failures say nothing about the node.
-    if (this.store.get(minerAtom).phase === 'recovering') return;
+    // A rebuild swaps the deployment under the reads; its failures say nothing about the node. A
+    // switch drains and rebuilds; a poll across it would read on the wrong node or race the rebuild.
+    if (this.switching || this.store.get(minerAtom).phase === 'recovering') return;
     try {
       await this.refresh();
       this.lastRead = Date.now();
+      markRead(this.lastRead);
       if (!this.offline) return;
       this.offline = false;
       this.log('node reachable again');
@@ -356,9 +370,30 @@ export class MinerController {
 
   /** Anyone may close an epoch that stayed open for T_MAX; the miner does it so mining resumes. */
   async roll() {
-    this.log('rolling the epoch (T_MAX reached)');
-    await sendRoll(this.d, this.account, this.fee);
-    await this.refresh();
+    await this.track(async () => {
+      this.log('rolling the epoch (T_MAX reached)');
+      await sendRoll(this.d, this.account, this.fee);
+      await this.refresh();
+    });
+  }
+
+  /**
+   * Runs an operation that talks to the node outside the poll and the claim (a roll, a withdrawal).
+   * The drain waits for it, and none may start across a switch: it would be sent on one node and
+   * confirmed on another.
+   */
+  track<T>(op: () => Promise<T>): Promise<T> {
+    if (this.switching)
+      return Promise.reject(new Error('a node switch is underway; try again when it is done'));
+    const run = op();
+    this.ops = Promise.all([
+      this.ops,
+      run.then(
+        () => {},
+        () => {},
+      ),
+    ]).then(() => {});
+    return run;
   }
 
   private dispatch(event: Event) {
@@ -511,19 +546,65 @@ export class MinerController {
   }
 
   /**
+   * Waits for whatever is talking to the node to finish: the refresh in flight and a claim being
+   * sent. What the node switch needs before the client moves, so no operation straddles two.
+   */
+  async drain(): Promise<void> {
+    this.switching = true;
+    await this.refreshing.catch(() => {});
+    await this.inflightRead.catch(() => {});
+    // A claim in flight may fail into a lost-race rebuild; wait that out too, or its rebuild would
+    // race the switch's. Both phases settle to idle (recovered / paused / prover-dead).
+    const busy = () => {
+      const phase = this.store.get(minerAtom).phase;
+      return phase === 'claiming' || phase === 'recovering';
+    };
+    while (busy()) await new Promise((r) => setTimeout(r, 100));
+    await this.reading?.catch(() => {});
+    await this.ops;
+    await this.inflightRead.catch(() => {}); // a read the rebuild or an operation started meanwhile
+    // A lost-race rebuild that failed while we waited left no prover: the switch must not go on and
+    // report success over a dead account (the caller turns this into the boot error).
+    if (this.store.get(minerAtom).proverDead)
+      throw new Error(
+        'the prover was abandoned while the switch waited; only a reload recovers this account',
+      );
+  }
+
+  /** The switch is over (rebuilt or failed): the poll may read again. */
+  endSwitch(): void {
+    this.switching = false;
+  }
+
+  /**
+   * The node changed under the handle: the chain view built from the old one is dropped and rebuilt
+   * from the new one through the lost-race path, then read before mining resumes.
+   */
+  async rebuildForNewNode(): Promise<void> {
+    await this.rebuildChainView('the node changed: rebuilding this account’s chain view from it…', true);
+  }
+
+  /**
    * Drops and rebuilds the chain view. If the drop fails but the view could be reopened, the
    * account is still blocked and waits for finality on the reopened view; if nothing could be
    * reopened, the page has no working wallet and only a reload helps.
    */
-  private async rebuildChainView() {
-    this.log('lost a race: rebuilding this account’s chain view from the chain…');
+  private async rebuildChainView(
+    why = 'lost a race: rebuilding this account’s chain view from the chain…',
+    strict = false,
+  ) {
+    this.log(why);
     let rebound: Rebound;
     try {
       if (!this.recover) throw new Error('no recovery available');
-      rebound = await this.recover();
+      rebound = await this.recover(strict);
     } catch (e) {
       this.log(`rebuild failed: ${claimFailureMessage(e)}`);
-      return this.abandonProver(`the chain view could not be rebuilt: ${claimFailureMessage(e)}`);
+      this.abandonProver(`the chain view could not be rebuilt: ${claimFailureMessage(e)}`);
+      // The prover is abandoned either way (only a reload recovers). A node switch additionally
+      // rethrows so its caller shows the boot error with the way out.
+      if (strict) throw e;
+      return;
     }
     this.d = rebound.deployment;
     this.fee = rebound.fee;
@@ -533,7 +614,7 @@ export class MinerController {
     }
     this.rebuiltAt = Date.now();
     this.unread = true;
-    await this.readRebuilt();
+    await this.readRebuilt(strict);
   }
 
   /**
@@ -541,18 +622,24 @@ export class MinerController {
    * resumes. Until it succeeds nothing is known to be recovered, and Start retries it; one read
    * at a time, so a second Start cannot restart mining behind a Stop.
    */
-  private readRebuilt(): Promise<void> {
-    this.reading ??= this.readRebuiltOnce().finally(() => {
+  private readRebuilt(strict = false): Promise<void> {
+    this.reading ??= this.readRebuiltOnce(strict).finally(() => {
       this.reading = undefined;
     });
     return this.reading;
   }
 
-  private async readRebuiltOnce() {
+  private async readRebuiltOnce(strict = false) {
     try {
       await this.refresh();
     } catch (e) {
       this.log(`the rebuilt chain view could not be read: ${claimFailureMessage(e)}`);
+      // A node switch's first read is part of the switch: its failure abandons the prover and
+      // surfaces, so the caller shows the boot error rather than reporting a good switch.
+      if (strict) {
+        this.abandonProver(`the new node did not answer the first read: ${claimFailureMessage(e)}`);
+        throw e;
+      }
       return this.dispatch({
         type: 'failed',
         error: `the chain view was rebuilt but the node did not answer (${claimFailureMessage(e)}); press Start to read it again`,
@@ -562,8 +649,10 @@ export class MinerController {
     this.unread = false;
     this.lastRead = Date.now();
     this.dispatch({ type: 'recovered', at: Date.now() });
-    this.log('chain view rebuilt; mining resumes');
-    this.start();
+    this.log('chain view rebuilt');
+    // A lost race resumes the miner it interrupted; a node switch lets release('switch') decide,
+    // so a switch made while idle does not start mining on its own.
+    if (!this.pausedBy.size) this.start();
   }
 
   private async finalityMs(): Promise<number> {

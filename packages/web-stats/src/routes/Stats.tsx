@@ -1,7 +1,14 @@
 import { useAtomValue } from 'jotai';
 import { useCallback } from 'react';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { Alert, AlertDescription, AlertTitle, Tile, TileHeader } from '../../../ui/src/index.ts';
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Tile,
+  TileBoundary,
+  TileHeader,
+} from '../../../ui/src/index.ts';
 import { ChartRows } from '../features/ChartRows';
 import { Detail } from '../features/Detail';
 import { NotHere } from '../features/NotHere';
@@ -40,7 +47,9 @@ export function Stats({ onOlder, nodeUrl }: { onOlder: () => void; nodeUrl: stri
   const charts = { rows, selected: current?.epoch ?? null, rules: RULES, open: chain.open };
   return (
     <div className="grid gap-[14px] md:grid-cols-6" data-testid="stats">
-      <Observatory chain={chain} now={now} />
+      <TileBoundary name="observatory" className="md:col-span-6">
+        <Observatory chain={chain} now={now} />
+      </TileBoundary>
       {limit && (
         <Alert variant="warn" className="md:col-span-6" data-testid="history-limit">
           <AlertTitle>history unavailable beyond epoch {limit.beyond}</AlertTitle>
@@ -53,36 +62,46 @@ export function Stats({ onOlder, nodeUrl }: { onOlder: () => void; nodeUrl: stri
             <TileHeader aside="width = duration · violet harder · grey easier · amber escape hatch">
               epochs since launch
             </TileHeader>
-            <Strip
+            <TileBoundary name="strip">
+              <Strip
+                rows={rows}
+                open={chain.open}
+                selected={effective}
+                onSelect={onSelect}
+                now={nowSec}
+                onOlder={onOlder}
+              />
+            </TileBoundary>
+          </Tile>
+          <TileBoundary name="detail" className="md:col-span-6 xl:col-span-2">
+            <Detail
+              className="md:col-span-6 xl:col-span-2"
+              row={current}
+              open={current.epoch === chain.open}
+              next={next}
+              now={nowSec}
+            />
+          </TileBoundary>
+          <ChartRows {...charts} />
+          <TileBoundary name="table" className="md:col-span-6">
+            <Table
+              className="md:col-span-6"
               rows={rows}
               open={chain.open}
               selected={effective}
               onSelect={onSelect}
-              now={nowSec}
               onOlder={onOlder}
+              loadingOlder={loadingOlder}
             />
-          </Tile>
-          <Detail
-            className="md:col-span-6 xl:col-span-2"
-            row={current}
-            open={current.epoch === chain.open}
-            next={next}
-            now={nowSec}
-          />
-          <ChartRows {...charts} />
-          <Table
-            className="md:col-span-6"
-            rows={rows}
-            open={chain.open}
-            selected={effective}
-            onSelect={onSelect}
-            onOlder={onOlder}
-            loadingOlder={loadingOlder}
-          />
+          </TileBoundary>
         </>
       )}
-      <NotHere className="md:col-span-3" />
-      <VerifyTile className="md:col-span-3" nodeUrl={nodeUrl} />
+      <TileBoundary name="not-here" className="md:col-span-3">
+        <NotHere className="md:col-span-3" />
+      </TileBoundary>
+      <TileBoundary name="verify" className="md:col-span-3">
+        <VerifyTile className="md:col-span-3" nodeUrl={nodeUrl} />
+      </TileBoundary>
     </div>
   );
 }
