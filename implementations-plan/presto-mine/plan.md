@@ -345,7 +345,9 @@ on the homelab with `presto-server` on PATH (the whole miner suite, `presto.e2e.
 taken from that run, beside their artboards · `gh workflow run e2e.yml --ref worktree-presto-mine` → the `web-miner`
 job green, the run's head SHA recorded in `lessons/phase-3.md`. Layers: e2e (isolated network, headless Presto) · CI.
 
-**P4 · Docs and close** — `docs/threat-model.md` (the accelerator row: what it sees, what it cannot, the residuals,
+**P4 ✓ (2026-09-09) · Docs and close** — gate passed: lint exit 0 · `bun test` 282 pass / 0 fail (292 tests, 60
+files) · `bun install --frozen-lockfile` clean (`lessons/phase-4.md`).
+Scope — `docs/threat-model.md` (the accelerator row: what it sees, what it cannot, the residuals,
 the guard's class, https only in production, the banner as constrained third-party code), `CLAUDE.md`'s package table,
 `packages/web-miner/README.md` step 5, `implementations-plan/index.md`.
 Gate: lint · `bun test` · `bun install --frozen-lockfile` clean (the min-age policy as decided). Layers: lint · unit.

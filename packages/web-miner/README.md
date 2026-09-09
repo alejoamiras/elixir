@@ -28,7 +28,12 @@ overrides exist only in e2e builds on `localhost` (that is how the E2E points a 
 4. Reads the open epoch every 10 s and the private balance. A node silent for a minute pauses mining; its
    first answer resumes it.
 5. Start: a fresh per-epoch secret, then the Worker proves W per nonce and hashes each proof into a ticket.
-   An epoch switch mid-proof discards the in-flight nonce and rotates the secret.
+   An epoch switch mid-proof discards the in-flight nonce and rotates the secret. If the visitor runs
+   [Presto](https://presto.build) (the native prover; the page asks its local port once the cockpit is ready,
+   over HTTPS only in production), the Worker proves W through it and the status pill gains `✦ presto` after the
+   first native proof; a winning native proof is verified in WASM against the job's own inputs before it is
+   claimed, and any refusal (approval pending in the Presto app, a busy or too-old Presto) falls back to WASM
+   with the reason shown and a Retry. Absent, Presto's billboard invites the install.
 6. A winning ticket becomes a `claim` transaction proved in-page with the network's per-tx maximum gas
    declared (the closing claim of an epoch costs more than the wallet's estimate would cover). The loop
    header follows it: proving → sent (the sequencer's expiry counted down) → waiting → the transaction's

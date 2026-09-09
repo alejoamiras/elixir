@@ -1,0 +1,153 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "1 · Mine, signed out, Presto not installed",
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 1000
+    },
+    {
+      "file": "Native.dc.html",
+      "title": "2 · Mine, proving through Presto",
+      "x": 1380,
+      "y": 0,
+      "w": 1280,
+      "h": 1000
+    },
+    {
+      "file": "FixIt.dc.html",
+      "title": "3 · Mine, Presto denied the origin → browser",
+      "x": 2760,
+      "y": 0,
+      "w": 1280,
+      "h": 1000
+    },
+    {
+      "file": "Rows.dc.html",
+      "title": "4 · The fix-it row, every state",
+      "x": 0,
+      "y": 1160,
+      "w": 1120,
+      "h": 760
+    },
+    {
+      "file": "Settings.dc.html",
+      "title": "5 · Settings · Performance, both states",
+      "x": 1380,
+      "y": 1160,
+      "w": 1280,
+      "h": 760
+    },
+    {
+      "file": "PopOut.dc.html",
+      "title": "6 · The pop-out, today’s layout + native",
+      "x": 2760,
+      "y": 1160,
+      "w": 360,
+      "h": 190
+    },
+    {
+      "file": "NativeB.dc.html",
+      "title": "B1 · Plan B: Presto’s brand on the indicator",
+      "x": 0,
+      "y": 2200,
+      "w": 1280,
+      "h": 1000
+    },
+    {
+      "file": "FixItB.dc.html",
+      "title": "B2 · Plan B: Presto’s ribbon for the fix-it state",
+      "x": 1380,
+      "y": 2200,
+      "w": 1280,
+      "h": 1000
+    },
+    {
+      "file": "RowsB.dc.html",
+      "title": "B3 · Plan B: every state as the ribbon",
+      "x": 2760,
+      "y": 2200,
+      "w": 1120,
+      "h": 1000
+    },
+    {
+      "file": "SettingsB.dc.html",
+      "title": "B4 · Plan B: Settings · Performance",
+      "x": 0,
+      "y": 3360,
+      "w": 1280,
+      "h": 560
+    },
+    {
+      "file": "PopOutB.dc.html",
+      "title": "B5 · Plan B: the pop-out",
+      "x": 1380,
+      "y": 3360,
+      "w": 360,
+      "h": 190
+    }
+  ],
+  "annotations": [
+    {
+      "id": "n-main",
+      "x": 0,
+      "y": -150,
+      "w": 520,
+      "text": "Presto not installed (or unreachable over HTTPS): Presto’s own billboard, in its indigo, under the header where the node banner sits. Dismiss keeps it away 7 days. Cockpit dimmed as today (signed out)."
+    },
+    {
+      "id": "n-native",
+      "x": 1380,
+      "y": -150,
+      "w": 520,
+      "text": "Native: the pill gains “✦ presto” (after the first native proof, not before); the rate line says “native”; the rail’s power slider greys out: Presto’s own speed setting decides the threads. Nothing else moves."
+    },
+    {
+      "id": "n-fixit",
+      "x": 2760,
+      "y": -150,
+      "w": 520,
+      "text": "Presto present but in the way: one warn row in the node-banner shape with Retry; the pill drops the ✦; browser proving continues; slider live again."
+    },
+    {
+      "id": "n-rows",
+      "x": 0,
+      "y": 1010,
+      "w": 520,
+      "text": "All row states with Presto’s wording. Only one shows at a time. “downloading” is an info tone with no Retry. The encrypted-connection row is reachable only if Ask 6 admits plaintext health."
+    },
+    {
+      "id": "n-settings",
+      "x": 1380,
+      "y": 1010,
+      "w": 520,
+      "text": "Settings → Performance: a “prover” line; the slider disabled with the reason while native (Ask 4: disabled vs hidden). Node and the other tiles unchanged."
+    },
+    {
+      "id": "n-b",
+      "x": 0,
+      "y": 2050,
+      "w": 720,
+      "text": "PLAN B · exploration, not the default. Presto’s own brand carries “native”: an indigo presto✦ chip beside the pill (its bolt, its display face falling back to system-ui, its gold spark), “presto” in the rate line, and a small Presto panel in place of the greyed slider (the O4 “hidden” alternative). The fix-it states use Presto’s ribbon component with its own strings where it has them; four states (denied, cooldown, busy, invalid proof) have no Presto string and would carry ours inside the ribbon."
+    },
+    {
+      "id": "n-b2",
+      "x": 1380,
+      "y": 2050,
+      "w": 640,
+      "text": "Trade-off: B is louder and unmistakably Presto (good for the install pitch, consistent with the billboard); A keeps one voice inside the cockpit and its own tokens. The ribbon is a full-width top bar by design (square, border-bottom), so under our header it reads as a page-level notice rather than a tile."
+    },
+    {
+      "id": "n-pip",
+      "x": 2760,
+      "y": 1010,
+      "w": 360,
+      "text": "Pop-out, drawn on the option-C layout you picked for the fixes work (two number lines, the epoch bar): this plan only adds “· native” to the first line and the ✦ to the pill."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
