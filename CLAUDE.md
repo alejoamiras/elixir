@@ -58,7 +58,7 @@ AZTEC_NODE_URL=… bun run launch -- commit|reveal|open   # launch lottery of th
 AZTEC_NODE_URL=… bun run soak -- --hours 2 --epochs 24     # headless soak miner with a hashrate schedule
 bun run epoch:stats            # epoch history of deployments/<profile>.json from public storage (--json <file> keeps the rows)
 bun packages/miner-core/scripts/gen-slots.ts   # the slot table the stats/landing read path fetches (packages/miner-core/generated/slots, gitignored)
-bun run --cwd packages/web-miner dev | build   # both fetch the pinned CRS and copy the artifacts first
+bun run --cwd packages/web-miner dev | build   # both run scripts/prebuild.ts first (pinned CRS, artifacts, slot table)
 bun scripts/run/isolated-node.ts --smoke
 bun run spike:work     # W sweep, determinism, WASM, manifest, mutation, ticket-cost (needs compiled work-circuit)
 bun run spike:gates    # Chonk gate counts of the spike contract's private functions

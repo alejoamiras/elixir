@@ -58,7 +58,11 @@ export async function virtualAuthenticator(
 
 /** Through the key screen: create a passkey key on a first visit, open the known one on a later one. */
 export async function passKeyScreen(page: Page): Promise<void> {
-  await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
+  // The dialog opens by itself over the signed-out cockpit; a dismissed one reopens from the cockpit.
+  await expect(page.getByTestId('cockpit')).toBeVisible({ timeout: BOOT_MS });
+  const screen = page.getByTestId('key-screen');
+  if (!(await screen.isVisible())) await page.getByTestId('sign-in-mine').click();
+  await expect(screen).toBeVisible({ timeout: 10_000 });
   const create = page.getByTestId('create-passkey');
   if (await create.isVisible()) {
     await page.getByTestId('consent').check();

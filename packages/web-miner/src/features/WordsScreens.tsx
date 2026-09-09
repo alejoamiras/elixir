@@ -117,7 +117,7 @@ export function WordsBackup({
           </p>
         </>
       )}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <Button
           variant="uv"
           disabled={!passed(quiz) || busy}
@@ -179,7 +179,7 @@ export function WordsRestore({
         aria-label="twelve words"
       />
       <p className="text-xs text-ink-2">No drag-and-drop, no clipboard reads.</p>
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <Button
           variant="uv"
           disabled={!valid || busy}

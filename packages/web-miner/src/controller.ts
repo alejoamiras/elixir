@@ -134,6 +134,8 @@ export class MinerController {
   private inflightRead: Promise<void> = Promise.resolve();
   /** True from the drain through the rebuild of a node switch: the poll must not read across it. */
   private switching = false;
+  /** True once disposed: a read still in flight from a cancelled or replaced controller writes nothing. */
+  private disposed = false;
   /** Node operations outside the poll and the claim (a roll, a withdrawal), for the drain to await. */
   private ops: Promise<void> = Promise.resolve();
   /** Bumped per refresh; a read that outlived its deadline must not write over a newer one. */
@@ -241,6 +243,7 @@ export class MinerController {
 
   /** Ends the timers and the Worker; the page (or a failed boot) owns nothing of this afterwards. */
   dispose() {
+    this.disposed = true;
     if (this.timer) clearInterval(this.timer);
     if (this.pauseTimer) clearTimeout(this.pauseTimer);
     this.generations++;
@@ -353,7 +356,8 @@ export class MinerController {
   private async readChain(gen: number) {
     const epoch = await readEpoch(this.d, this.account);
     const previous = this.store.get(epochAtom);
-    if (gen !== this.reads || (previous && epoch.epoch < previous.epoch)) return;
+    // A read that outlived dispose (a cancelled open, a replaced controller) belongs to no one now.
+    if (this.disposed || gen !== this.reads || (previous && epoch.epoch < previous.epoch)) return;
     this.store.set(epochAtom, epoch);
     if (previous && previous.epoch !== epoch.epoch) {
       this.log(`epoch ${epoch.epoch} opened (target ${epoch.target.toString(16)})`);
@@ -365,7 +369,7 @@ export class MinerController {
       });
     }
     const balance = await readBalance(this.d, this.account);
-    if (gen === this.reads) this.store.set(balanceAtom, balance);
+    if (gen === this.reads && !this.disposed) this.store.set(balanceAtom, balance);
   }
 
   /** Anyone may close an epoch that stayed open for T_MAX; the miner does it so mining resumes. */
@@ -581,6 +585,10 @@ export class MinerController {
    * from the new one through the lost-race path, then read before mining resumes.
    */
   async rebuildForNewNode(): Promise<void> {
+    // The old node's numbers are not this node's: cleared, so the first read is published whatever
+    // epoch it reports (the regression guard compares against the same node only).
+    this.store.set(epochAtom, null);
+    this.store.set(balanceAtom, null);
     await this.rebuildChainView('the node changed: rebuilding this account’s chain view from it…', true);
   }
 

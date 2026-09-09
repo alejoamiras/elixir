@@ -616,7 +616,7 @@ site:e2e` · renders at 1280/1440 of Settings and the banner beside `NodeSetting
 
 ### Arc 2 · mine loading (`third-pass-mine`, stacks on arc 1)
 
-**P2.1 · The chain before the account** — the preflight without the CRS; `startCrs` streamed with bytes; readiness
+**P2.1 · The chain before the account** ✓ (2026-09-08, `00cfb5e`) — the preflight without the CRS; `startCrs` streamed with bytes; readiness
 awaited by the wallet's and the prover's start; the public epoch poll and its handover; `rulesAtom` from `PARAMS`;
 `copySlots` in the miner's prebuild; the `Boot` shape.
 Gate: lint · typecheck · `bun test packages/web-miner` (`pinned-crs.test.ts`: progress totals equal the pinned sizes,
@@ -624,7 +624,7 @@ a wrong hash still throws after streaming, the Worker's import order; `public-ep
 poll fills the atom, stops on handover, never regresses the epoch number) · Vitest `packages/web-miner` (the cockpit
 renders with the atom filled and no session). Layers: lint/typecheck · unit · component.
 
-**P2.2 · The cockpit signed out and the modal** — the dull cockpit; "Sign in to mine"; the dashed claim slot; the KPI
+**P2.2 · The cockpit signed out and the modal** ✓ (2026-09-08, `1347482`) — the dull cockpit; "Sign in to mine"; the dashed claim slot; the KPI
 dashes and subs; the ledger's opened line; the balance tile; `SignInDialog` hosting the key screens (scroll, no X,
 wrapping, focus restore, hotkeys off); "Not now — just watch"; the E2E helper opens the dialog first and handles it
 already open.
@@ -635,7 +635,7 @@ prove layout): at a 480 × 720 viewport the backup, the quiz, the restore and th
 no horizontal overflow and the primary reachable by scroll — run in this phase against the dev server through `bun
 run e2e:agent`, not deferred to the arc boundary. Layers: lint/typecheck · unit · component.
 
-**P2.3 · Opening A** — the attempt and its cancel in `Session`; `startSession` on a `runStep(id, fn)` runner (as
+**P2.3 · Opening A** ✓ (2026-09-08, `9f0eb51`) — the attempt and its cancel in `Session`; `startSession` on a `runStep(id, fn)` runner (as
 `preflight`'s `run`) that publishes `steps`; the steps and the bar (`Progress` with `indeterminate` for the notes
 step) in the modal; Escape and the overlay inert while opening; the shimmering balance behind; the header pill.
 Gate: lint · typecheck · `bun test packages/web-miner` (`opening-steps.test.ts`: the weights, a finished keys step;

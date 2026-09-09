@@ -19,6 +19,8 @@ import { DARK, ink } from '../tokens.ts';
 export interface ScoreLoopProps {
   /** The bar; null before the epoch is read, when no bar is drawn and the caption says so. */
   difficulty: number | null;
+  /** Centred over an empty window once the bar is known (a cockpit before sign-in). */
+  placeholder?: string;
   /** Every attempt of the window, oldest first, on the performance.now() clock. */
   samples: readonly Sample[];
   /** The last win's time, for the bar flash. */
@@ -260,6 +262,10 @@ function drawCalmDots(f: Frame, right: number, props: ScoreLoopProps, now: numbe
   }
   if (f.h <= 80) return;
   ctx.fillStyle = f.p.ink3;
+  if (!props.samples.length && props.placeholder && props.difficulty !== null) {
+    ctx.textAlign = 'center';
+    ctx.fillText(props.placeholder, (f.left + right) / 2, (f.pad + base) / 2);
+  }
   ctx.textAlign = 'left';
   ctx.fillText(`−${Math.round(span / 60_000)} min`, f.left, f.h - f.fontPx / 2 - 2);
   ctx.textAlign = 'right';

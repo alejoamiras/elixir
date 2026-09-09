@@ -1,4 +1,4 @@
-import { useAtomValue } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { useEffect, useState } from 'react';
 import {
   Button,
@@ -18,9 +18,10 @@ import type { Connection } from '../config';
 import type { MinerController } from '../controller';
 import { diagnostics } from '../lib/diagnostics';
 import { useTileLog } from '../lib/tile-log';
+import { navigate } from '../routes';
 import type { Session } from '../session';
 import { type BooleanSetting, useSettings } from '../settings';
-import { bootAtom, logAtom } from '../state';
+import { bootAtom, logAtom, signInAtom } from '../state';
 
 function Toggle({
   id,
@@ -101,6 +102,7 @@ export function Settings({
   const { setTheme } = useTheme();
   const log = useAtomValue(logAtom);
   const onError = useTileLog();
+  const openSignIn = useSetAtom(signInAtom);
   // The node in use follows a live switch; `connection` is what the page booted with.
   const [nodeUrl, setNodeUrl] = useState(session.nodeUrl ?? connection.nodeUrl);
   const cores = navigator.hardwareConcurrency || 2;
@@ -193,7 +195,22 @@ export function Settings({
               </p>
             </>
           ) : (
-            <p className="text-xs text-ink-2">Open an account to see its options.</p>
+            <>
+              <p className="text-xs text-ink-2">Open an account to see its options.</p>
+              {/* Settings stays free of the sign-in dialog (the node is changed here); this is the way in. */}
+              <Button
+                size="sm"
+                variant="uv"
+                className="mt-3"
+                onClick={() => {
+                  openSignIn(true);
+                  navigate('mine');
+                }}
+                data-testid="sign-in-settings"
+              >
+                Sign in
+              </Button>
+            </>
           )}
         </Tile>
       </TileBoundary>

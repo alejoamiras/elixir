@@ -1,5 +1,5 @@
 import '../../site/src/browser/node-guard.ts';
-import './pinned-crs';
+import { startCrs } from './pinned-crs';
 import './index.css';
 import { createStore, Provider } from 'jotai';
 import { StrictMode } from 'react';
@@ -9,9 +9,12 @@ import { App } from './App';
 import { loadConnection } from './config';
 import type { MinerController } from './controller';
 import { Session } from './session';
-import { claimsAtom, nowAtom } from './state';
+import { claimsAtom, crsAtom, nowAtom } from './state';
 
 const store = createStore();
+// The proving keys download from the first moment, off the preflight's path: the wallet and the
+// prover wait for them, the page does not. A failure is in the atom and in `crsReady()`.
+startCrs((c) => store.set(crsAtom, c)).catch(() => {});
 const connection = loadConnection();
 // Claims history stays on this device (localStorage), keyed by nothing: it names no key.
 const CLAIMS_KEY = 'yacana.claims';

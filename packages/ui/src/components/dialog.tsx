@@ -23,11 +23,17 @@ function DialogOverlay({ className, ...props }: React.ComponentProps<typeof Dial
 function DialogContent({
   className,
   children,
+  hideClose,
+  overlayClassName,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content>) {
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  /** A dialog whose only ways out are its own actions (a sign-in, an opening in progress). */
+  hideClose?: boolean;
+  overlayClassName?: string;
+}) {
   return (
     <DialogPrimitive.Portal>
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
@@ -37,12 +43,14 @@ function DialogContent({
         {...props}
       >
         {children}
-        <DialogPrimitive.Close
-          className="absolute top-3 right-3 rounded-sm p-1 text-ink-3 outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-ring/50"
-          aria-label="Close"
-        >
-          <XIcon className="size-4" />
-        </DialogPrimitive.Close>
+        {!hideClose && (
+          <DialogPrimitive.Close
+            className="absolute top-3 right-3 rounded-sm p-1 text-ink-3 outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-ring/50"
+            aria-label="Close"
+          >
+            <XIcon className="size-4" />
+          </DialogPrimitive.Close>
+        )}
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   );

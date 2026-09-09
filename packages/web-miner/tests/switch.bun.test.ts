@@ -7,7 +7,7 @@ import { createStore } from 'jotai';
 import type { SwitchableNode } from '../../site/src/browser/node.ts';
 import type { Deployment, Fee } from '../src/chain.ts';
 import { MinerController, type Rebound } from '../src/controller.ts';
-import { balanceAtom, minerAtom } from '../src/state.ts';
+import { balanceAtom, epochAtom, minerAtom } from '../src/state.ts';
 import type { FromWorker, ToWorker } from '../src/worker-protocol.ts';
 
 let boot: typeof import('../src/boot.ts');
@@ -136,6 +136,33 @@ describe('the live node switch', () => {
     // The rebuilt view was read (its balance) and mining resumed on it.
     await settle(() => store.get(balanceAtom) === 9n);
     await settle(() => store.get(minerAtom).phase === 'mining');
+  });
+
+  test("a node whose open epoch is lower than the old one's claim: the switch publishes the new node's numbers", async () => {
+    const rebuilt = fakeDeployment(async () => 9n);
+    const switchable: SwitchableNode = {
+      node: {} as never,
+      use: () => {},
+      current: () => 'https://a.example',
+    };
+    const controller = new MinerController({
+      store,
+      spawnWorker: () => worker as unknown as Worker,
+      threads: 1,
+      deployment: fakeDeployment(async () => 5n),
+      account,
+      fee,
+      chainId: 1n,
+      rollupVersion: 1n,
+      recover: async () => ({ deployment: rebuilt, fee, rebuilt: true }) satisfies Rebound,
+    });
+    await controller.ready();
+    await controller.begin();
+    // The old node (a liar, or a longer chain) said epoch 100; the new one says 3 (the fake's open_epoch).
+    store.set(epochAtom, { epoch: 100n, seed: 0n, target: 1n << 122n, openedAt: 0n, claims: 1 });
+    await boot.switchNodeLive({ controller, switchable, url: 'https://b.example', deadlineMs: 5_000 });
+    await settle(() => store.get(balanceAtom) === 9n);
+    expect(store.get(epochAtom)?.epoch).toBe(3n);
   });
 
   test('a switch made while idle rebuilds and reads, but does not start mining on its own', async () => {

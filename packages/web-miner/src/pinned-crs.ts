@@ -10,8 +10,57 @@ const HOSTS = new Set(lock.hosts);
 const files = lock.files as Record<string, { bytes: number; sha256: string }>;
 const verified = new Map<string, Promise<Uint8Array>>();
 
+const TOTAL_BYTES = Object.values(files).reduce((n, f) => n + f.bytes, 0);
+
 const hex = (buf: ArrayBuffer) =>
   Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
+
+export interface CrsProgress {
+  loaded: number;
+  total: number;
+  done: boolean;
+  error?: string;
+}
+
+/**
+ * Streams a pinned asset into a buffer of exactly its pinned size, reporting bytes as they land, and
+ * checks the whole against the pin at the end: a wrong hash can only be known after the download; a
+ * body longer than the pin fails the moment it overflows, never buffered whole.
+ */
+export async function streamVerified(
+  res: Response,
+  pin: { bytes: number; sha256: string },
+  name: string,
+  onBytes: (n: number) => void,
+): Promise<Uint8Array> {
+  if (!res.ok) throw new Error(`crs: /crs/${name} → HTTP ${res.status}`);
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error(`crs: ${name} came without a body`);
+  const out = new Uint8Array(pin.bytes);
+  let at = 0;
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    if (at + value.length > pin.bytes) {
+      await reader.cancel();
+      throw new Error(`crs: ${name} is longer than its pin (${pin.bytes} bytes)`);
+    }
+    out.set(value, at);
+    at += value.length;
+    onBytes(value.length);
+  }
+  const digest = hex(await crypto.subtle.digest('SHA-256', out.subarray(0, at)));
+  if (at !== pin.bytes || digest !== pin.sha256)
+    throw new Error(`crs: ${name} does not match its pin (${at} bytes, sha256 ${digest})`);
+  return out;
+}
+
+let progress: CrsProgress = { loaded: 0, total: TOTAL_BYTES, done: false };
+let onProgress: ((p: CrsProgress) => void) | undefined;
+const report = (patch: Partial<CrsProgress>) => {
+  progress = { ...progress, ...patch };
+  onProgress?.(progress);
+};
 
 function load(name: string): Promise<Uint8Array> {
   let p = verified.get(name);
@@ -20,12 +69,7 @@ function load(name: string): Promise<Uint8Array> {
       const pin = files[name];
       if (!pin) throw new Error(`crs: ${name} is not pinned`);
       const res = await originalFetch(`/crs/${name}`);
-      if (!res.ok) throw new Error(`crs: /crs/${name} → HTTP ${res.status}`);
-      const bytes = new Uint8Array(await res.arrayBuffer());
-      const digest = hex(await crypto.subtle.digest('SHA-256', bytes));
-      if (bytes.length !== pin.bytes || digest !== pin.sha256)
-        throw new Error(`crs: ${name} does not match its pin (${bytes.length} bytes, sha256 ${digest})`);
-      return bytes;
+      return streamVerified(res, pin, name, (n) => report({ loaded: progress.loaded + n }));
     })();
     verified.set(name, p);
   }
@@ -62,14 +106,33 @@ globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
   return HOSTS.has(url.origin) ? serve(url, init) : originalFetch(input, init);
 }) as typeof globalThis.fetch;
 
-/** Loads and verifies every pinned asset at boot, so a bad one fails before any proving. */
-export const preloadPinnedCrs = async (): Promise<{ bytes: number; sha256: string }> => {
-  const loaded = await Promise.all(Object.keys(files).map(load));
-  return {
-    bytes: loaded.reduce((n, b) => n + b.length, 0),
-    sha256: files['g1_compressed.dat']?.sha256 ?? '',
-  };
-};
+let crsRun: Promise<void> | undefined;
+
+/**
+ * Loads and verifies every pinned asset, with byte progress, from the first moment the page runs:
+ * off the preflight's path, so the chain shows while the keys come down. One run per context; a bad
+ * pin leaves it failed (only a reload retries) and the failure is in the progress and in `crsReady`.
+ */
+export function startCrs(listen?: (p: CrsProgress) => void): Promise<void> {
+  if (listen) {
+    onProgress = listen;
+    listen(progress);
+  }
+  crsRun ??= (async () => {
+    try {
+      await purgeCrsCache();
+      await Promise.all(Object.keys(files).map(load));
+      report({ loaded: TOTAL_BYTES, done: true });
+    } catch (e) {
+      report({ error: e instanceof Error ? e.message : String(e) });
+      throw e;
+    }
+  })();
+  return crsRun;
+}
+
+/** The proving keys, verified: what the wallet's and the prover's start wait for. */
+export const crsReady = (): Promise<void> => startCrs();
 
 /**
  * bb.js serves the CRS from its own IndexedDB cache (idb-keyval keys) before it ever fetches, so
