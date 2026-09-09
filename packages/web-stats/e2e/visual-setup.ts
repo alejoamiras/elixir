@@ -128,6 +128,7 @@ async function record(nodeUrl: string): Promise<void> {
   const d: VisualDeployment = {
     chainId: deployed.chainId,
     rollupVersion: deployed.rollupVersion,
+    rollupAddress: deployed.rollupAddress,
     miner: deployed.miner,
     token: deployed.token,
     minerClassId: deployed.minerClassId,
