@@ -159,3 +159,44 @@ subsequent window recovery leaves epoch 99 open. All 8 beat tests pass. No remai
 The trend was monotone (13 → 1 → 0) and round 3 was the confirmation round, so the loop closes here: three rounds,
 inside the plan's hard stop. Arc 3 is `197b08c` on `third-pass-stats`; the final cross-arc pass (a fresh session over
 `f7e2ad4..HEAD`) follows.
+
+## Cross-arc codex pass · round 1 (2026-09-09)
+
+A fresh session (`01a083ee-904d-7ce3-83ea-d7ce6450dbe9`, Astra, high) over the net diff `f7e2ad4..HEAD`, asked
+for seams, duplication and drift. Ten findings, all verified, all adopted — each on the arc that owns the file
+(arc 1 `ac0cc0d`, arc 2 `76ead96`, arc 3 `69a753c`), the stack cascaded with `gh stack rebase --no-trunk` after
+each:
+
+- **High (arc 1 → 2/3) — `/rpc` and `/rpc/` shared an identity.** `normaliseEndpoint` folded trailing slashes
+  while the SDK posts the path as given; two endpoints that can be two nodes shared a candidate lease, a PXE
+  view marker and a stats cache key. The path is kept exactly now (the fragment alone is dropped); the tests that
+  asserted the equivalence assert the difference.
+- **High (arcs 1/2) — a switch could run under an opening attempt.** `switchNode` only checked another switch;
+  until the attempt adopts its controller there is nothing to drain, and the opening wallet was left on a node the
+  guard no longer admitted. Refused while `this.attempt` is set; the node tile's Use is off during the opening.
+- **High (arcs 1/2) — a rebuild against a lower epoch kept the old node's numbers.** `readChain`'s regression
+  guard compared the new node's epoch with the old node's; a lying node's inflated epoch survived a switch to an
+  honest one. `rebuildForNewNode` clears the epoch and the balance first.
+- **Medium (arcs 1/2) — the signed-out public poll crossed the switch**, publishing an old-node answer after the
+  swap and marking the new node read. It stops before the swap (its generation discards a read out), the epoch is
+  cleared, and it restarts after.
+- **Medium (arc 3 → 1) — the fill raised the banner.** Its reads went through the ordinary reporting path, so a
+  fill-only 429 opened a cooldown before the fill stopped. `quietNodeReads` marks optional work; the store ignores
+  a quiet outcome while the transport is `ok` and applies it once a cooldown is on (it may be the recovery).
+- **Medium (arc 1) — a node on the page's own origin bypassed the guard** (no deadline, gate or reporting). The
+  endpoint and the candidate lease are classified before the same-origin pass-through.
+- **Medium (arc 1) — overlapping candidate leases revoked each other.** One entry per endpoint; the first release
+  deleted it. Leases count their holders; a release is idempotent.
+- **Medium (arcs 1/3) — Verify had no boundaries** and the observatory one for six KPIs. Four child components
+  behind their own boundary; a boundary per KPI.
+- **Low (arcs 1/3) — two latest-block readers disagreed on validation** (the landing's skipped `assertTimestamp`).
+  One `readLatestBlock` in miner-core; the probe uses it too.
+- **Low — three comments** (the e2e's "before the ceremony", `serial.ts`'s "load older", the skeleton's paragraph).
+
+Codex's "looks fine" list: production `?node=` overrides ignored; the slot reads on one reader; the stats boot's
+retry and `NodeWayOut`; the banner thresholds vs the poll; the cache caps and margin; the map coordinates; the
+documented `data-settled` scope; the A5 actions; the CSP emission; the money selector; the CI step.
+
+Two runbook notes: on arc 1's tree the miner's generated `public/` (the slot table the arc-2 prebuild copies) is
+not yet ignored and fails `bun run lint` — it was set aside, not deleted; and a `NodeRequestOutcome` gained a
+field, so every test literal of it needed `quiet: false` (the fixture's spread order mattered: defaults first).
