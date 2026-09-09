@@ -212,7 +212,7 @@ const rect = {
 
 describe('the strip over a long chain', () => {
   test('the map draws one bar per held epoch at its cell and the window box over the 48 shown', () => {
-    renderLong(at(900));
+    renderLong(at(900), { fill: { phase: 'filling', readTo: 800 } });
     expect(screen.getByTestId('map-bars').querySelectorAll('rect')).toHaveLength(200);
     const box = screen.getByTestId('map-window');
     expect(box.style.left).toBe('90%');
@@ -220,6 +220,13 @@ describe('the strip over a long chain', () => {
     expect(box.className).toContain('min-w-[3px]');
     expect(screen.getByTestId('strip-from').textContent).toContain('epoch 900');
     expect(screen.getByTestId('fill-note')).toBeTruthy();
+    cleanup();
+    // Before the fill's first tick, and once it reached epoch 0, there is nothing to say.
+    renderLong(at(900));
+    expect(screen.queryByTestId('fill-note')).toBeNull();
+    cleanup();
+    renderLong(at(900), { fill: { phase: 'stopped', reason: 'complete', readTo: 0 } });
+    expect(screen.queryByTestId('fill-note')).toBeNull();
   });
 
   test('‹ › page by 48 and are disabled at the ends', () => {

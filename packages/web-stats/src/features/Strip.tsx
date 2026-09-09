@@ -192,11 +192,13 @@ function Controls({
   onWindow: (from: number | null) => void;
 }) {
   const ready = win !== null && open !== null;
+  // The note once the fill has measured what is missing and not yet reached epoch 0.
+  const incomplete = fill.readTo !== null && fill.readTo > 0;
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-xs text-ink-3">
         {HINT}
-        {fill.reason !== 'complete' && (
+        {incomplete && (
           <span data-testid="fill-note">
             {' '}
             · older epochs are read a page at a time; the map fills over visits
