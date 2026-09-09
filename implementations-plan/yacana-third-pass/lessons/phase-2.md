@@ -165,3 +165,13 @@ and the comparison now sit in one try/catch that zeros on either failure. Test: 
 mismatch and when the address cannot be derived. The change is an error path inside `keys/store.ts`; the unit suite
 (227 pass) covers it, the miner E2E from round 2 stands. As in arc 1, round 3 still carried an item and round 4 is
 the confirmation the goal requires.
+
+## Arc 2 codex loop · convergence (2026-09-09)
+
+Round 4, resumed on the round-3 fix (`546facb`), verbatim: *"The fix closes the remaining cleanup gap: derivation
+failures and address mismatches both zero the master before rethrowing. Focused vault and opening tests: 13 passed.
+Confidence: high. No new material findings"*.
+
+Four rounds (12 → 5 → 1 → 0), the same shape as arc 1: the third still carried an item and the fourth was the
+confirmation the goal requires. Session `01a08352-8b88-75e2-9dd8-cad7371dcf96` in `~/.cache/tmp/codex-nZRkm5z4`
+(responses 0–3). Arc 2 is closed at `546facb` + this log; `third-pass-stats` for arc 3 branches from here.
