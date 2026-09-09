@@ -45,6 +45,8 @@ jobs:
       - run: bun run lint
       - run: bun run --cwd packages/web-stats typecheck
       - run: bun run --cwd packages/web-stats test:components
+      # The beats, the window, the map geometry, the cache, the fill (and one page on the wire).
+      - run: bun test packages/web-stats
       # The slot table pinned against deriveStorageSlotInMap, and the CSV / metrics on the fixture.
       - run: bun test packages/miner-core/src/reader.test.ts packages/miner-core/src/metrics.test.ts packages/miner-core/src/csv.test.ts
 

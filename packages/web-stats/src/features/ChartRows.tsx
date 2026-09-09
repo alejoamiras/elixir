@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { EpochRow } from '../../../miner-core/src/reader.ts';
 import { Tile, TileBoundary, TileHeader } from '../../../ui/src/index.ts';
 import { type ChartProps, Difficulty, Duration, Emission, Retarget } from '../charts/index.tsx';
 
@@ -21,12 +22,18 @@ function ChartTile({
   );
 }
 
-export function ChartRows(charts: ChartProps) {
+/** Before beat two the charts draw their axes over no data (the specs' empty branch); `rows` is null then. */
+export function ChartRows({
+  rows,
+  open,
+  ...rest
+}: Omit<ChartProps, 'rows' | 'open'> & { rows: readonly EpochRow[] | null; open: number | null }) {
+  const charts: ChartProps = { ...rest, rows: rows ?? [], open: open ?? 0 };
   return (
     <>
       <ChartTile
         title="difficulty"
-        aside={`per epoch, log scale · ${charts.rows.length} epochs`}
+        aside={`per epoch, log scale · ${rows?.length ?? '—'} epochs`}
         className="border-line-2 md:col-span-6"
       >
         <Difficulty {...charts} />

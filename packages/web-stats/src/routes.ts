@@ -43,13 +43,46 @@ export const selectedFromSearch = (search: string): number | null => {
   return Number.isInteger(n) && n >= 0 ? n : null;
 };
 
+/** `url` with `?epoch=` set or removed; everything else (`?from=`, the node pin) kept. */
+export const withEpoch = (url: URL, epoch: number | null): URL => {
+  const u = new URL(url);
+  if (epoch === null) u.searchParams.delete('epoch');
+  else u.searchParams.set('epoch', String(epoch));
+  return u;
+};
+
 export const select = (epoch: number | null): void => {
-  const url = new URL(location.href);
-  if (epoch === null) url.searchParams.delete('epoch');
-  else url.searchParams.set('epoch', String(epoch));
-  history.replaceState(null, '', url);
+  history.replaceState(null, '', withEpoch(new URL(location.href), epoch));
   window.dispatchEvent(new Event(CHANGED));
 };
+
+/** The window's first epoch lives in `?from=N`; absent (or not an epoch) is the newest window. */
+export const fromSearch = (search: string): number | null => {
+  const v = new URLSearchParams(search).get('from');
+  if (v === null) return null;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 0 ? n : null;
+};
+
+/** `url` with `?from=` set or removed; `?epoch=` and the node pin kept. */
+export const withFrom = (url: URL, from: number | null): URL => {
+  const u = new URL(url);
+  if (from === null) u.searchParams.delete('from');
+  else u.searchParams.set('from', String(from));
+  return u;
+};
+
+export const setFrom = (from: number | null): void => {
+  history.replaceState(null, '', withFrom(new URL(location.href), from));
+  window.dispatchEvent(new Event(CHANGED));
+};
+
+export const useFrom = (): number | null =>
+  React.useSyncExternalStore(
+    subscribe,
+    () => fromSearch(location.search),
+    () => null,
+  );
 
 export const useSelected = (): number | null =>
   React.useSyncExternalStore(

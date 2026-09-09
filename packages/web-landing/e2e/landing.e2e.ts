@@ -114,6 +114,15 @@ test('the argument in order, the hero tile from the chain, the ledger empty, not
     'https://github.com/alejoamiras/elixir',
   );
   await expect(page.locator('#verify').getByRole('link')).toHaveCount(5);
+  // The money table's last row has no bottom rule; the row above keeps its 1 px.
+  expect(
+    await page.getByTestId('money-table').evaluate((t) => {
+      const rows = Array.from(t.querySelectorAll('tbody tr'));
+      const rule = (tr: Element | undefined) =>
+        Array.from(tr?.querySelectorAll('td') ?? []).map((td) => getComputedStyle(td).borderBottomWidth);
+      return { last: rule(rows[rows.length - 1]), above: rule(rows[rows.length - 2]) };
+    }),
+  ).toEqual({ last: ['0px', '0px', '0px', '0px'], above: ['1px', '1px', '1px', '1px'] });
   await expect(page.getByTestId('footer-line')).toContainText(
     'no trackers, no cookies, no requests except to the Aztec node you choose',
   );

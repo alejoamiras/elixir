@@ -616,7 +616,7 @@ site:e2e` · renders at 1280/1440 of Settings and the banner beside `NodeSetting
 
 ### Arc 2 · mine loading (`third-pass-mine`, stacks on arc 1)
 
-**P2.1 · The chain before the account** ✓ (2026-09-08, `00cfb5e`) — the preflight without the CRS; `startCrs` streamed with bytes; readiness
+**P2.1 · The chain before the account** ✓ (2026-09-08, `d797f60`) — the preflight without the CRS; `startCrs` streamed with bytes; readiness
 awaited by the wallet's and the prover's start; the public epoch poll and its handover; `rulesAtom` from `PARAMS`;
 `copySlots` in the miner's prebuild; the `Boot` shape.
 Gate: lint · typecheck · `bun test packages/web-miner` (`pinned-crs.test.ts`: progress totals equal the pinned sizes,
@@ -624,7 +624,7 @@ a wrong hash still throws after streaming, the Worker's import order; `public-ep
 poll fills the atom, stops on handover, never regresses the epoch number) · Vitest `packages/web-miner` (the cockpit
 renders with the atom filled and no session). Layers: lint/typecheck · unit · component.
 
-**P2.2 · The cockpit signed out and the modal** ✓ (2026-09-08, `1347482`) — the dull cockpit; "Sign in to mine"; the dashed claim slot; the KPI
+**P2.2 · The cockpit signed out and the modal** ✓ (2026-09-08, `8abd687`) — the dull cockpit; "Sign in to mine"; the dashed claim slot; the KPI
 dashes and subs; the ledger's opened line; the balance tile; `SignInDialog` hosting the key screens (scroll, no X,
 wrapping, focus restore, hotkeys off); "Not now — just watch"; the E2E helper opens the dialog first and handles it
 already open.
@@ -635,7 +635,7 @@ prove layout): at a 480 × 720 viewport the backup, the quiz, the restore and th
 no horizontal overflow and the primary reachable by scroll — run in this phase against the dev server through `bun
 run e2e:agent`, not deferred to the arc boundary. Layers: lint/typecheck · unit · component.
 
-**P2.3 · Opening A** ✓ (2026-09-08, `9f0eb51`) — the attempt and its cancel in `Session`; `startSession` on a `runStep(id, fn)` runner (as
+**P2.3 · Opening A** ✓ (2026-09-08, `75a8274`) — the attempt and its cancel in `Session`; `startSession` on a `runStep(id, fn)` runner (as
 `preflight`'s `run`) that publishes `steps`; the steps and the bar (`Progress` with `indeterminate` for the notes
 step) in the modal; Escape and the overlay inert while opening; the shimmering balance behind; the header pill.
 Gate: lint · typecheck · `bun test packages/web-miner` (`opening-steps.test.ts`: the weights, a finished keys step;
@@ -653,7 +653,7 @@ unit · component · e2e (isolated network).
 
 ### Arc 3 · stats + landing (`third-pass-stats`, stacks on arc 2)
 
-**P3.1 · The skeleton and the two beats** — `Skeleton`; `read-fixed` / `read-window`; `main.tsx`'s beats;
+**P3.1 · The skeleton and the two beats** ✓ (2026-09-09, `70af0fc`) — `Skeleton`; `read-fixed` / `read-window`; `main.tsx`'s beats;
 `fixedAtom` / `historyAtom`; every tile, chart and the table with `null`; the per-beat 300 ms rule; the header pill;
 `Tweened` from null; `data-settled` waits for beat two.
 Gate: lint · typecheck (ui, web-stats) · `bun test packages/web-stats packages/ui` (the beat order; beat one
@@ -665,7 +665,7 @@ in the pinned image after each intentional visual change — here if a wrapper m
 the map — each regeneration committed with the change that caused it).
 Layers: lint/typecheck · unit · component · visual.
 
-**P3.2 · Strip A** — the window from `?from=` kept with `?epoch=`; `EpochMap` as `barsFor(rows)` (pure) +
+**P3.2 · Strip A** ✓ (2026-09-09, `6d83ab2`) — the window from `?from=` kept with `?epoch=`; `EpochMap` as `barsFor(rows)` (pure) +
 `useDragWindow` + `DayAxis`; ‹ ›, click and drag; a missing window fetched at once; the table and the charts on the
 window; `history-fill` as `pageLoop` / `persist` over `readCache`, paced, serialized, stopping for the visit on the
 first throttle; the hairline for the unread span; `history-cache` with its caps and validation; `load-older` gone.
@@ -680,7 +680,7 @@ page is 48 × 3 + 3 methods, and the HTTP request count is measured through the 
 keyboard stepping at a historical window) · `bun run --cwd packages/web-stats test:visual` with the baselines
 regenerated in the pinned image and committed with the map. Layers: lint/typecheck · unit · component · visual.
 
-**P3.3 · The money table** — the `tbody` selector; the landing's banner and boundaries from P1.2/P1.4 verified in
+**P3.3 · The money table** ✓ (2026-09-09, `0db788a`) — the `tbody` selector; the landing's banner and boundaries from P1.2/P1.4 verified in
 place.
 Gate: lint · Vitest `packages/web-landing` (the last `tr`'s cells are the ones the selector reaches; no cell carries
 `last:`) · **arc
@@ -963,7 +963,7 @@ plan's, not a knob.
 ## Approval
 
 ELI5 companion: `implementations-plan/yacana-third-pass/eli5.html`, published as the Artifact **Yacana Third Pass**
-(https://claude.ai/code/artifact/2e6e0475-a801-4017-8772-5d5243d7b99f; redeploying the same source file keeps the URL).
+(https://claude.ai/code/artifact/06dd666b-90bc-4c2a-986c-3b44e28a5ddc — republished at Delivery on 2026-09-09 after the first artifact was deleted; redeploying the same source file keeps this URL).
 
 Verdicts (transcripts in `audit-codex.md`, `audit-fable.md`):
 - codex round 1 (Astra high, session `01a081ee`): `reject` (five blocking findings) → all folded in.

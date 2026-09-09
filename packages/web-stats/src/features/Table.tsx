@@ -3,6 +3,7 @@ import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { difficulty } from '../../../miner-core/src/metrics.ts';
 import { type EpochRow, rowsToJson } from '../../../miner-core/src/reader.ts';
 import { Button, cn, Tile, TileHeader } from '../../../ui/src/index.ts';
+import { Sk } from './Sk';
 
 const clock = (unix: number) => new Date(unix * 1000).toISOString().slice(11, 19);
 const HEAD = [
@@ -17,6 +18,9 @@ const HEAD = [
 ];
 /** Rows beyond this scroll inside the tile; the header stays. */
 const BODY_MAX = 'max-h-[460px]';
+/** The skeleton: eight rows, one 10 px block per column at the canvas's widths. */
+const SKELETON_ROWS = [0, 1, 2, 3, 4, 5, 6, 7];
+const SKELETON_WIDTHS = [24, 60, 30, 48, 70, 34, 80, 44];
 const CELL = 'border-b border-line py-1.5 pr-4';
 
 /** A download the CSP allows: a blob URL on an anchor, revoked once clicked. */
@@ -73,34 +77,38 @@ export function Table({
   open,
   selected,
   onSelect,
-  onOlder,
-  loadingOlder,
   className,
 }: {
   className?: string;
-  rows: readonly EpochRow[];
-  open: number;
+  /** The window's rows; null until they are held: eight skeleton rows, the count and the downloads dashed. */
+  rows: readonly EpochRow[] | null;
+  open: number | null;
   selected: number | null;
   onSelect: (epoch: number | null) => void;
-  onOlder: () => void;
-  loadingOlder: boolean;
 }) {
-  const oldest = rows[0]?.epoch ?? 0;
   const link = 'h-auto font-mono text-2xs';
+  const pending = rows === null || open === null;
   return (
     <Tile className={className}>
       <TileHeader
         aside={
           <span className="flex items-baseline gap-2">
             <span data-testid="table-count">
-              {rows.length} of {open + 1}
+              {pending ? (
+                '— of —'
+              ) : (
+                <>
+                  {rows.length} of {open + 1}
+                </>
+              )}
             </span>
             · newest first ·
             <Button
               size="sm"
               variant="link"
               className={link}
-              onClick={() => download('yacana-epochs.csv', toCsv(rows), 'text/csv')}
+              disabled={pending}
+              onClick={() => rows && download('yacana-epochs.csv', toCsv(rows), 'text/csv')}
               data-testid="download-csv"
             >
               CSV
@@ -110,7 +118,8 @@ export function Table({
               size="sm"
               variant="link"
               className={link}
-              onClick={() => download('yacana-epochs.json', rowsToJson(rows), 'application/json')}
+              disabled={pending}
+              onClick={() => rows && download('yacana-epochs.json', rowsToJson(rows), 'application/json')}
               data-testid="download-json"
             >
               JSON
@@ -133,26 +142,32 @@ export function Table({
             </tr>
           </thead>
           <tbody>
-            {[...rows].reverse().map((r) => (
-              <Row key={r.epoch} r={r} open={r.epoch === open} selected={selected} onSelect={onSelect} />
-            ))}
+            {pending
+              ? SKELETON_ROWS.map((i) => (
+                  <tr key={i} data-skeleton="">
+                    {SKELETON_WIDTHS.map((w, j) => (
+                      <td key={HEAD[j]} className={CELL}>
+                        <Sk className="h-2.5" style={{ width: w }} />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              : [...rows]
+                  .reverse()
+                  .map((r) => (
+                    <Row
+                      key={r.epoch}
+                      r={r}
+                      open={r.epoch === open}
+                      selected={selected}
+                      onSelect={onSelect}
+                    />
+                  ))}
           </tbody>
         </table>
-        {oldest > 0 && (
-          <Button
-            size="sm"
-            variant="link"
-            className="mt-2 px-0"
-            disabled={loadingOlder}
-            onClick={onOlder}
-            data-testid="load-older"
-          >
-            {loadingOlder ? 'loading…' : `load older (before epoch ${oldest})`}
-          </Button>
-        )}
       </div>
       <p className="mt-2 font-mono text-2xs text-ink-3">
-        ↕ scrolls · header stays · load older at the bottom
+        ↕ scrolls · header stays · the strip's window, newest first
       </p>
     </Tile>
   );

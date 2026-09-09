@@ -150,6 +150,60 @@ test('the captured history through a mocked node: deterministic numbers, selecti
   );
 });
 
+test('a slow node: every tile is on the page as its skeleton at 400 ms, shimmering, and fills in two beats', async ({
+  page,
+}) => {
+  const r = run();
+  await mockNode(page, r, { delayMs: 1500 });
+  await page.goto(pageUrl(r, '', { node: MOCK_NODE_ORIGIN }));
+  await page.waitForTimeout(400);
+  // The frame is up before any answer: the KPI cells, the strip, the card, four charts, the table.
+  await expect(page.getByTestId('observatory').locator('[data-slot=tile]')).toHaveCount(6);
+  await expect(page.getByTestId('strip')).toHaveAttribute('data-skeleton', '');
+  await expect(page.getByTestId('detail')).toHaveAttribute('data-skeleton', '');
+  await expect(page.getByTestId('table').locator('tbody tr[data-skeleton]')).toHaveCount(8);
+  await expect(page.locator('[data-slot=chart] svg')).toHaveCount(4);
+  await expect(page.getByTestId('freshness-pending')).toHaveText('reading the chain…');
+  // Past 300 ms the skeletons shimmer (none is still quiet).
+  expect(await page.locator('[data-slot=skeleton]').count()).toBeGreaterThan(10);
+  await expect(page.locator('[data-slot=skeleton][data-quiet]')).toHaveCount(0);
+  // Beat one: minted and the epoch number, the strip still a skeleton; beat two: the window.
+  await expect(page.getByTestId('minted')).toHaveText('448', { timeout: 60_000 });
+  await expect(page.getByTestId('freshness')).toContainText('block');
+  await expect(page.getByTestId('strip').getByRole('option')).toHaveCount(31, { timeout: 60_000 });
+  await expect(page.getByTestId('strip')).not.toHaveAttribute('data-skeleton', '');
+  await expect(page.locator('main')).toHaveAttribute('data-settled', '1');
+  await expect(page.locator('[data-slot=skeleton]')).toHaveCount(0);
+});
+
+test('the map from 31 epochs, the paging at both ends, a ?from= link', async ({ page }) => {
+  const r = run();
+  await mockNode(page, r);
+  await page.goto(pageUrl(r, '', { node: MOCK_NODE_ORIGIN, from: '99' }));
+  await expect(page.getByTestId('strip').getByRole('option')).toHaveCount(31);
+  // One bar per epoch at its cell; the box covers the whole rail (the chain is one window).
+  await expect(page.getByTestId('map-bars').locator('rect')).toHaveCount(31);
+  const box = page.getByTestId('map-window');
+  await expect(box).toHaveCSS('left', /^0px$/);
+  const [boxW, railW] = await Promise.all([
+    box.evaluate((el) => el.getBoundingClientRect().width),
+    page.getByTestId('map-rail').evaluate((el) => el.getBoundingClientRect().width),
+  ]);
+  expect(Math.abs(boxW - railW)).toBeLessThanOrEqual(1);
+  await expect(page.getByTestId('day-axis')).toContainText('launch');
+  await expect(page.getByTestId('day-axis')).toContainText('now');
+  // `?from=99` clamps to the only window; ‹ › have nowhere to go; the fill is complete, so no note.
+  await expect(page.getByTestId('table-count')).toHaveText('31 of 31');
+  await expect(page.getByTestId('window-older')).toBeDisabled();
+  await expect(page.getByTestId('window-newer')).toBeDisabled();
+  await expect(page.getByTestId('fill-note')).toHaveCount(0);
+  await expect(page.getByTestId('load-older')).toHaveCount(0);
+  // The selection rides beside the window in the URL.
+  await page.getByTestId('strip').getByRole('option', { name: 'epoch 3', exact: true }).click();
+  await expect(page).toHaveURL(/from=99/);
+  await expect(page).toHaveURL(/epoch=3/);
+});
+
 test('a deep link selects an epoch; the calculator answers from the network rate', async ({ page }) => {
   const r = run();
   await mockNode(page, r);

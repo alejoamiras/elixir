@@ -38,7 +38,8 @@ export function Money() {
               ))}
             </tr>
           </thead>
-          <tbody>
+          {/* The section's border closes the block; a `last:` on a cell would hit every row's last column. */}
+          <tbody className="[&>tr:last-child>td]:border-b-0">
             {table.rows.map((row) => (
               <tr key={row.k} className="align-top">
                 <td className={cn(CELL, 'text-ink-2')}>{row.k}</td>

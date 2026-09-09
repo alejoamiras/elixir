@@ -2,15 +2,19 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { createStore, Provider } from 'jotai';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { type EpochRow, rowsFromJson } from '../../../miner-core/src/reader.ts';
+import { type EpochRow, linkRows, rowsFromJson } from '../../../miner-core/src/reader.ts';
+import { Skeleton } from '../../../ui/src/index.ts';
+import { App } from '../App';
 import { Difficulty, Duration, Emission, Retarget } from '../charts/index.tsx';
 import { span } from '../charts/specs';
+import { IDLE } from '../history-fill';
 import { selectedFromSearch } from '../routes';
 import { Stats } from '../routes/Stats';
-import { type Chain, chainAtom, sinceOpenedAtom, unsettledAtom } from '../state';
+import { type Fixed, fixedAtom, historyAtom, sinceOpenedAtom, slowAtom, unsettledAtom } from '../state';
+import { type EpochWindow, windowFor, windowRowsOf } from '../window';
 import { Detail } from './Detail';
 import { Observatory } from './Observatory';
-import { Strip, step } from './Strip';
+import { Strip, type StripProps, step } from './Strip';
 import { Table } from './Table';
 
 const fixture = await import('../../../miner-core/fixtures/epochs.testnet.json?raw');
@@ -120,12 +124,28 @@ describe('charts on the captured history', () => {
   });
 });
 
+const stripWindow = windowFor(null, OPEN);
+const renderStrip = (over: Partial<StripProps> = {}) =>
+  render(
+    <Strip
+      rows={rows}
+      all={rows}
+      open={OPEN}
+      window={stripWindow}
+      selected={null}
+      onSelect={() => {}}
+      now={rows[OPEN]?.openedAt ?? 0}
+      launchAt={rows[0]?.openedAt ?? 0}
+      onWindow={() => {}}
+      fill={IDLE}
+      {...over}
+    />,
+  );
+
 describe('the strip', () => {
   test('one option per epoch, the open one on the right and selected by default; a click selects', () => {
     const onSelect = vi.fn();
-    render(
-      <Strip rows={rows} open={OPEN} selected={null} onSelect={onSelect} now={rows[OPEN]?.openedAt ?? 0} />,
-    );
+    renderStrip({ onSelect });
     const options = screen.getAllByRole('option');
     expect(options).toHaveLength(rows.length);
     expect(options[OPEN]?.getAttribute('aria-selected')).toBe('true');
@@ -136,36 +156,146 @@ describe('the strip', () => {
     expect(onSelect).toHaveBeenCalledWith(null);
   });
 
-  test('← → step through the loaded rows; past the left edge asks for older rows', () => {
-    expect(step(rows, 3, -1)).toBe(2);
-    expect(step(rows, 3, 1)).toBe(4);
-    expect(step(rows, OPEN - 1, 1)).toBeNull();
-    expect(step(rows, OPEN, 1)).toBeNull();
-    expect(step(rows, 0, -1)).toBe('older');
+  test('← → step through the window; at epoch 0 of the newest window there is nothing older', () => {
+    expect(step(rows, 3, -1, OPEN)).toBe(2);
+    expect(step(rows, 3, 1, OPEN)).toBe(4);
+    expect(step(rows, OPEN - 1, 1, OPEN)).toBeNull();
+    expect(step(rows, OPEN, 1, OPEN)).toBeNull();
+    expect(step(rows, 0, -1, OPEN)).toBe('older');
     const onSelect = vi.fn();
-    const onOlder = vi.fn();
-    render(<Strip rows={rows} open={OPEN} selected={0} onSelect={onSelect} onOlder={onOlder} now={0} />);
+    const onWindow = vi.fn();
+    renderStrip({ selected: 0, onSelect, onWindow });
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
-    expect(onOlder).toHaveBeenCalledTimes(1);
+    expect(onWindow).not.toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
     fireEvent.keyDown(window, { key: 'ArrowRight' });
     expect(onSelect).toHaveBeenCalledWith(1);
   });
 });
 
+/** A 1000-epoch chain with the newest 200 held: the boot window and three pages of the fill. */
+const LONG_OPEN = 999;
+const LONG_LAUNCH = 1_700_000_000;
+const mk = (e: number): EpochRow => ({
+  epoch: e,
+  target: 1n << 122n,
+  openedAt: LONG_LAUNCH + e * 300,
+  claims: 4,
+  duration: null,
+  retarget: null,
+  closedBy: null,
+});
+const longHeld = new Map(Array.from({ length: 200 }, (_, i) => [800 + i, mk(800 + i)]));
+const longAll = linkRows([...longHeld.values()]);
+const at = (from: number | null) => windowFor(from, LONG_OPEN);
+const renderLong = (w: EpochWindow, over: Partial<StripProps> = {}) =>
+  renderStrip({
+    rows: windowRowsOf(longHeld, w),
+    all: longAll,
+    open: LONG_OPEN,
+    window: w,
+    now: LONG_LAUNCH + LONG_OPEN * 300,
+    launchAt: LONG_LAUNCH,
+    ...over,
+  });
+const rect = {
+  left: 0,
+  top: 0,
+  width: 1000,
+  height: 26,
+  right: 1000,
+  bottom: 26,
+  x: 0,
+  y: 0,
+  toJSON: () => {},
+};
+
+describe('the strip over a long chain', () => {
+  test('the map draws one bar per held epoch at its cell and the window box over the 48 shown', () => {
+    renderLong(at(900), { fill: { phase: 'filling', readTo: 800 } });
+    expect(screen.getByTestId('map-bars').querySelectorAll('rect')).toHaveLength(200);
+    const box = screen.getByTestId('map-window');
+    expect(box.style.left).toBe('90%');
+    expect(box.style.width).toBe('4.8%');
+    expect(box.className).toContain('min-w-[3px]');
+    expect(screen.getByTestId('strip-from').textContent).toContain('epoch 900');
+    expect(screen.getByTestId('fill-note')).toBeTruthy();
+    cleanup();
+    // Before the fill's first tick, and once it reached epoch 0, there is nothing to say.
+    renderLong(at(900));
+    expect(screen.queryByTestId('fill-note')).toBeNull();
+    cleanup();
+    renderLong(at(900), { fill: { phase: 'stopped', reason: 'complete', readTo: 0 } });
+    expect(screen.queryByTestId('fill-note')).toBeNull();
+  });
+
+  test('‹ › page by 48 and are disabled at the ends', () => {
+    const onWindow = vi.fn();
+    renderLong(at(900), { onWindow });
+    fireEvent.click(screen.getByTestId('window-older'));
+    expect(onWindow).toHaveBeenLastCalledWith(852);
+    fireEvent.click(screen.getByTestId('window-newer'));
+    expect(onWindow).toHaveBeenLastCalledWith(948);
+    cleanup();
+    renderLong(at(948), { onWindow });
+    fireEvent.click(screen.getByTestId('window-newer'));
+    expect(onWindow).toHaveBeenLastCalledWith(null);
+    cleanup();
+    renderLong(at(null));
+    expect((screen.getByTestId('window-newer') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('window-older') as HTMLButtonElement).disabled).toBe(false);
+    cleanup();
+    renderLong(at(0), { rows: null });
+    expect((screen.getByTestId('window-older') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('strip').hasAttribute('data-skeleton')).toBe(true);
+  });
+
+  test('a click on the map centres the window on the epoch under the pointer', () => {
+    const onWindow = vi.fn();
+    renderLong(at(900), { onWindow });
+    const rail = screen.getByTestId('map-rail');
+    rail.getBoundingClientRect = () => rect as DOMRect;
+    fireEvent.pointerDown(rail, { clientX: 500, button: 0 });
+    expect(onWindow).toHaveBeenCalledWith(476);
+    fireEvent.pointerDown(rail, { clientX: 5, button: 0 });
+    expect(onWindow).toHaveBeenLastCalledWith(0);
+    fireEvent.pointerDown(rail, { clientX: 999, button: 0 });
+    expect(onWindow).toHaveBeenLastCalledWith(null);
+  });
+
+  test('keyboard stepping at a historical window pages at its edges and steps in from the open epoch', () => {
+    const onSelect = vi.fn();
+    const onWindow = vi.fn();
+    renderLong(at(900), { selected: 947, onSelect, onWindow });
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(onWindow).toHaveBeenLastCalledWith(948);
+    expect(onSelect).toHaveBeenLastCalledWith(948);
+    cleanup();
+    renderLong(at(900), { selected: 900, onSelect, onWindow });
+    fireEvent.keyDown(window, { key: 'ArrowLeft' });
+    expect(onWindow).toHaveBeenLastCalledWith(852);
+    expect(onSelect).toHaveBeenLastCalledWith(899);
+    cleanup();
+    // Nothing selected: the open epoch is current and outside the window; ← lands on the window's last row.
+    renderLong(at(900), { selected: null, onSelect, onWindow });
+    fireEvent.keyDown(window, { key: 'ArrowLeft' });
+    expect(onSelect).toHaveBeenLastCalledWith(947);
+    expect(screen.getByTestId('strip-selected').textContent).toBe('epoch 999');
+  });
+});
+
 describe('the observatory', () => {
   const last = rows[rows.length - 1] as EpochRow;
-  const chain = (open: number): Chain => ({
-    rows,
+  const fixedOf = (open: number, supply = 0n): Fixed => ({
     open,
-    supply: 0n,
+    supply,
     genesis: { target: 0n, seed: 0n, launchAt: 0 },
-    lottery: { mix: 0n, reveals: 0 },
     block: { number: 1, timestamp: last.openedAt + 60 },
     readAt: 0,
   });
 
   test('the open epoch tile shows the row of the open epoch, or a dash when a close outran the history', () => {
-    render(<Observatory chain={chain(last.epoch)} now={(last.openedAt + 312) * 1000} />);
+    render(<Observatory fixed={fixedOf(last.epoch)} rows={rows} now={(last.openedAt + 312) * 1000} />);
     expect(screen.getByTestId('open-claims').textContent).toBe(String(last.claims));
     // The ring is 312 s into an expected 300: full, still violet (the escape hatch opens at 1200 s).
     expect(screen.getByTestId('open-for').textContent).toBe('open 5:12 · expected 5:00');
@@ -173,10 +303,10 @@ describe('the observatory', () => {
     expect(screen.getByText('an estimate from epoch counts')).toBeTruthy();
     expect(screen.getByText('×0.30 at the last close')).toBeTruthy();
     cleanup();
-    render(<Observatory chain={chain(last.epoch)} now={(last.openedAt + 1201) * 1000} />);
+    render(<Observatory fixed={fixedOf(last.epoch)} rows={rows} now={(last.openedAt + 1201) * 1000} />);
     expect(screen.getByTestId('epoch-ring').getAttribute('data-past-hatch')).toBe('1');
     cleanup();
-    render(<Observatory chain={chain(last.epoch + 1)} now={(last.openedAt + 60) * 1000} />);
+    render(<Observatory fixed={fixedOf(last.epoch + 1)} rows={rows} now={(last.openedAt + 60) * 1000} />);
     expect(screen.getByTestId('open-claims').textContent).toBe('—');
     expect(screen.getByText(/this epoch not read yet/)).toBeTruthy();
     expect((screen.getByTestId('calculator') as HTMLButtonElement).disabled).toBe(true);
@@ -184,17 +314,21 @@ describe('the observatory', () => {
 
   test('since you opened counts from the first read: a second poll with more supply shows the delta', async () => {
     const store = createStore();
-    const first = chain(last.epoch);
+    const first = fixedOf(last.epoch);
     store.set(sinceOpenedAtom, { supply: first.supply, at: last.openedAt * 1000 });
     const view = render(
       <Provider store={store}>
-        <Observatory chain={first} now={(last.openedAt + 60) * 1000} />
+        <Observatory fixed={first} rows={rows} now={(last.openedAt + 60) * 1000} />
       </Provider>,
     );
     expect(screen.getByTestId('since-opened').textContent).toBe('+0');
     view.rerender(
       <Provider store={store}>
-        <Observatory chain={{ ...first, supply: 3n * PARAMS.REWARD }} now={(last.openedAt + 420) * 1000} />
+        <Observatory
+          fixed={{ ...first, supply: 3n * PARAMS.REWARD }}
+          rows={rows}
+          now={(last.openedAt + 420) * 1000}
+        />
       </Provider>,
     );
     // The number glides there: the page reports itself unsettled until the tween lands, then settled.
@@ -205,7 +339,11 @@ describe('the observatory', () => {
     // A supply below the first read is said, never a negative count.
     view.rerender(
       <Provider store={store}>
-        <Observatory chain={{ ...first, supply: -PARAMS.REWARD }} now={(last.openedAt + 420) * 1000} />
+        <Observatory
+          fixed={{ ...first, supply: -PARAMS.REWARD }}
+          rows={rows}
+          now={(last.openedAt + 420) * 1000}
+        />
       </Provider>,
     );
     expect(screen.getByTestId('since-opened').textContent).toBe('—');
@@ -215,22 +353,24 @@ describe('the observatory', () => {
 
 describe('the page', () => {
   const last = rows[rows.length - 1] as EpochRow;
-  const chain = (open: number): Chain => ({
-    rows,
+  const fixedOf = (open: number, supply = 0n): Fixed => ({
     open,
-    supply: 0n,
+    supply,
     genesis: { target: 0n, seed: 0n, launchAt: 0 },
-    lottery: { mix: 0n, reveals: 0 },
     block: { number: 1, timestamp: last.openedAt + 60 },
     readAt: 0,
   });
 
   test('the A grid: six KPI cells, the strip beside the detail, the lead chart alone, three small tiles, the table', () => {
     const store = createStore();
-    store.set(chainAtom, chain(last.epoch));
+    store.set(fixedAtom, fixedOf(last.epoch));
+    store.set(historyAtom, {
+      rows: new Map(rows.map((r) => [r.epoch, r])),
+      lottery: { mix: 0n, reveals: 0 },
+    });
     const { container } = render(
       <Provider store={store}>
-        <Stats onOlder={() => {}} nodeUrl="http://node.test" />
+        <Stats onWindow={() => {}} nodeUrl="http://node.test" />
       </Provider>,
     );
     const grid = container.querySelector('[data-testid=stats]') as HTMLElement;
@@ -262,18 +402,8 @@ describe('the page', () => {
     );
   });
 
-  test('the table scrolls under a sticky head, counts its rows, names the escape hatch, keeps load-older inside', () => {
-    render(
-      <Table
-        rows={rows}
-        open={OPEN}
-        selected={null}
-        onSelect={() => {}}
-        onOlder={() => {}}
-        loadingOlder={false}
-        className=""
-      />,
-    );
+  test('the table scrolls under a sticky head, counts its rows, names the escape hatch', () => {
+    render(<Table rows={rows} open={OPEN} selected={null} onSelect={() => {}} className="" />);
     const scroll = screen.getByTestId('table-scroll');
     expect(scroll.className).toContain('max-h-[460px]');
     expect(scroll.className).toContain('overflow-auto');
@@ -284,8 +414,7 @@ describe('the page', () => {
     const closedBy = Array.from(table.querySelectorAll('tbody tr')).map((tr) => tr.children[6]?.textContent);
     expect(closedBy.filter((t) => t === 'the escape hatch')).toHaveLength(3);
     expect(closedBy).not.toContain('roll()');
-    expect(screen.queryByTestId('load-older')).toBeNull();
-    expect(screen.getByText('↕ scrolls · header stays · load older at the bottom')).toBeTruthy();
+    expect(screen.getByText("↕ scrolls · header stays · the strip's window, newest first")).toBeTruthy();
   });
 
   test('a row without closing facts is "open" only when it is the open epoch; open for counts in m:ss', () => {
@@ -301,6 +430,111 @@ describe('the page', () => {
     render(<Detail row={last} open={false} now={last.openedAt + 60} />);
     expect(screen.getByTestId('detail-closed-by').textContent).toBe('closed · not read yet');
     expect(screen.getByTestId('sentence').textContent).toMatch(/not been read yet/);
+  });
+});
+
+describe('the two beats on the page', () => {
+  const last = rows[rows.length - 1] as EpochRow;
+  const fixedOf = (open: number): Fixed => ({
+    open,
+    supply: 448n * 10n ** 18n,
+    genesis: { target: 0n, seed: 0n, launchAt: 0 },
+    block: { number: 1, timestamp: last.openedAt + 60 },
+    readAt: 0,
+  });
+  const page = (store = createStore()) =>
+    render(
+      <Provider store={store}>
+        <Stats onWindow={() => {}} nodeUrl="http://node.test" />
+      </Provider>,
+    );
+
+  test('before any beat every tile is on the page, as its skeleton', () => {
+    const { container } = page();
+    expect(
+      container.querySelector('[data-testid=observatory]')?.querySelectorAll('[data-slot=tile]'),
+    ).toHaveLength(6);
+    expect(screen.getByTestId('strip').hasAttribute('data-skeleton')).toBe(true);
+    expect(screen.getByTestId('detail').hasAttribute('data-skeleton')).toBe(true);
+    expect(screen.getByTestId('table').querySelectorAll('tbody tr[data-skeleton]')).toHaveLength(8);
+    expect(screen.getByTestId('table-count').textContent).toBe('— of —');
+    expect(container.querySelectorAll('[data-slot=chart]')).toHaveLength(4);
+    expect(container.querySelectorAll('[data-slot=skeleton]').length).toBeGreaterThan(10);
+  });
+
+  test('beat one fills minted and the epoch number while the window is still a skeleton', async () => {
+    const store = createStore();
+    store.set(fixedAtom, fixedOf(last.epoch));
+    page(store);
+    await waitFor(() => expect(store.get(unsettledAtom).size).toBe(0));
+    expect(screen.getByTestId('minted').textContent).toBe('448');
+    expect(screen.getAllByText(`epoch ${last.epoch}`).length).toBeGreaterThan(0);
+    expect(screen.getByTestId('detail').textContent).toContain(`epoch ${last.epoch}`);
+    expect(screen.queryByTestId('open-claims')).toBeNull();
+    expect(screen.getByTestId('strip').hasAttribute('data-skeleton')).toBe(true);
+  });
+
+  test('the header pill reads the chain until beat one, then names the block; settled waits for beat two', async () => {
+    const store = createStore();
+    render(
+      <Provider store={store}>
+        <App connection={{ nodeUrl: 'http://node.test', miner: '0x1', token: '0x2' }} onWindow={() => {}} />
+      </Provider>,
+    );
+    expect(screen.getByTestId('freshness-pending').textContent).toBe('reading the chain…');
+    const main = screen.getByRole('main');
+    expect(main.getAttribute('data-settled')).toBe('0');
+    store.set(fixedAtom, fixedOf(last.epoch));
+    await waitFor(() => expect(screen.getByTestId('freshness').textContent).toContain('block 1'));
+    await waitFor(() => expect(store.get(unsettledAtom).size).toBe(0));
+    expect(main.getAttribute('data-settled')).toBe('0');
+    store.set(historyAtom, { rows: new Map(rows.map((r) => [r.epoch, r])), lottery: null });
+    await waitFor(() => expect(main.getAttribute('data-settled')).toBe('1'));
+  });
+
+  test('fast first, slow second: the window skeleton is quiet until the timer, then shimmers; minted never blinks', async () => {
+    const store = createStore();
+    store.set(fixedAtom, fixedOf(last.epoch));
+    page(store);
+    const box = screen.getByTestId('strip').querySelector('[data-slot=skeleton]') as HTMLElement;
+    expect(box.hasAttribute('data-quiet')).toBe(true);
+    expect(screen.getByTestId('minted').querySelector('[data-slot=skeleton]')).toBeNull();
+    store.set(slowAtom, true);
+    await waitFor(() => expect(box.hasAttribute('data-quiet')).toBe(false));
+    expect(screen.getByTestId('minted').querySelector('[data-slot=skeleton]')).toBeNull();
+  });
+});
+
+describe('the pieces with nothing in them', () => {
+  test('the skeleton shimmers, not under reduced motion; quiet is the bare box', () => {
+    const { container } = render(
+      <>
+        <Skeleton className="h-2" />
+        <Skeleton className="h-2" quiet />
+      </>,
+    );
+    const [loud, quiet] = Array.from(container.querySelectorAll('[data-slot=skeleton]')) as HTMLElement[];
+    expect(loud?.className).toContain('motion-reduce:animate-none');
+    expect(loud?.className).toContain('skeleton-shimmer');
+    expect(quiet?.hasAttribute('data-quiet')).toBe(true);
+    expect(quiet?.className).not.toContain('skeleton-shimmer');
+  });
+
+  test('a chart with no rows draws its axes and a band, nothing else', () => {
+    const labels = (el: HTMLElement) => Array.from(el.querySelectorAll('text')).map((t) => t.textContent);
+    const difficulty = render(<Difficulty rows={[]} selected={null} rules={RULES} open={0} />).container;
+    expect(labels(difficulty)).toEqual(expect.arrayContaining(['1', '4', '16', '64']));
+    expect(difficulty.querySelectorAll('g.skeleton-band rect')).toHaveLength(1);
+    expect(difficulty.querySelectorAll('g.point circle')).toHaveLength(0);
+    cleanup();
+    const duration = render(<Duration rows={[]} selected={null} rules={RULES} open={0} />).container;
+    expect(labels(duration)).toEqual(expect.arrayContaining(['10 s', '1000 s', '1 d']));
+    cleanup();
+    const retarget = render(<Retarget rows={[]} selected={null} rules={RULES} open={0} />).container;
+    expect(labels(retarget)).toEqual(expect.arrayContaining(['×0.25', '×1', '×4']));
+    cleanup();
+    const emission = render(<Emission rows={[]} selected={null} rules={RULES} open={0} />).container;
+    expect(labels(emission)).toEqual(expect.arrayContaining(['0', '5k', '10k']));
   });
 });
 

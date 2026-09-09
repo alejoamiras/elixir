@@ -2,10 +2,12 @@ import { useSetAtom } from 'jotai';
 import { useEffect } from 'react';
 import { useTweenedNumber } from '../../../ui/src/index.ts';
 import { unsettledAtom } from '../state';
+import { SK_VALUE, Sk } from './Sk';
 
 /**
- * A KPI number that glides to `value`; while it moves, `id` sits in `unsettledAtom`, so the page can
- * say when every number is at rest. `format` renders the in-flight value (an integer stays an integer).
+ * A KPI number that glides to `value` — from 0 on its first number, a skeleton while `value` is
+ * still null; while it moves, `id` sits in `unsettledAtom`, so the page can say when every number
+ * is at rest. `format` renders the in-flight value (an integer stays an integer).
  */
 export function Tweened({
   id,
@@ -13,12 +15,12 @@ export function Tweened({
   format = (v) => String(Math.round(v)),
 }: {
   id: string;
-  value: number;
+  value: number | null;
   format?: (v: number) => string;
 }) {
-  const shown = useTweenedNumber(value);
+  const shown = useTweenedNumber(value ?? 0);
   const setUnsettled = useSetAtom(unsettledAtom);
-  const settled = shown === value;
+  const settled = value === null || shown === value;
   useEffect(() => {
     setUnsettled((s) => {
       if (settled === !s.has(id)) return s;
@@ -37,5 +39,6 @@ export function Tweened({
       }),
     [id, setUnsettled],
   );
+  if (value === null) return <Sk className={SK_VALUE} />;
   return <>{format(shown)}</>;
 }
