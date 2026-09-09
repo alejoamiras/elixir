@@ -18,7 +18,7 @@ import { type Deployment, type Fee, readBalance, readEpoch, sendClaim, sendRoll 
 import { chime } from './chime';
 import { amount } from './lib/format';
 import { type Command, type Event, reduce } from './lib/reducer';
-import { type PrestoEndpoint, prestoAtom } from './presto';
+import { type PrestoEndpoint, type ProverKind, prestoAtom } from './presto';
 import { settingsAtom } from './settings';
 import { balanceAtom, claimsAtom, epochAtom, logAtom, minerAtom } from './state';
 import type { FromWorker, MineJob, ToWorker } from './worker-protocol';
@@ -71,6 +71,8 @@ export interface LastClaim {
   nullifiers: string[];
   noteHashes: string[];
   ticketNullifier: string;
+  /** Who made the claimed winning proof. */
+  prover: ProverKind;
 }
 
 const short = (hex: string) => `${hex.slice(0, 8)}…${hex.slice(-4)}`;
@@ -90,6 +92,7 @@ async function claimMarks(
   effect: TxEffect,
   digest: string,
   miner: AztecAddress,
+  prover: ProverKind,
 ): Promise<LastClaim & { nullifier: string; noteHash: string; noteHashes: string[] }> {
   const ticket = (await ticketNullifier(Fr.fromString(digest), miner)).toString();
   const nullifiers = effect.nullifiers.map((n) => n.toString());
@@ -99,6 +102,7 @@ async function claimMarks(
     nullifiers,
     noteHashes,
     ticketNullifier: ticket,
+    prover,
     nullifier: nullifiers.find((n) => n === ticket) ?? nullifiers[1] ?? '0x0',
     noteHash: noteHashes[0] ?? '0x0',
   };
@@ -126,6 +130,7 @@ export class MinerController {
     proofFields: string[];
     digest: string;
     secretId: number;
+    prover: ProverKind;
   } | null = null;
   private timer: ReturnType<typeof setInterval> | undefined;
   private pauseTimer: ReturnType<typeof setTimeout> | undefined;
@@ -494,6 +499,7 @@ export class MinerController {
           proofFields: m.proofFields,
           digest: m.digest,
           secretId: m.secretId,
+          prover: m.prover,
         };
         this.dispatch({ type: 'winner', epoch: m.epoch, secretId: m.secretId, at: Date.now() });
         return;
@@ -544,7 +550,7 @@ export class MinerController {
       this.dispatch({ type: 'sent', txHash: sent.txHash, expiresAt: sent.expiresAt, at: Date.now() });
       const { block, effect } = await sent.wait();
       this.dispatch({ type: 'included', block, at: Date.now() });
-      const marks = await claimMarks(effect, p.digest, this.d.miner.address);
+      const marks = await claimMarks(effect, p.digest, this.d.miner.address, p.prover);
       this.lastClaim = marks;
       await this.refresh();
       const reward = `${amount(PARAMS.REWARD, PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL}`;

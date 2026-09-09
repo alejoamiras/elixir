@@ -13,6 +13,12 @@ import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Fr } from '@aztec/aztec.js/fields';
 import { lanePortBase, runPortWindowBase } from '../../../scripts/run/port-window.ts';
+import {
+  type PrestoLane,
+  prestoServerBinary,
+  startPrestoServer,
+  stopPrestoServer,
+} from '../../../scripts/run/presto.ts';
 import { claim, release } from '../../../scripts/run/registry.ts';
 import { type Deployment, deployYacana } from '../../deploy/src/deploy.ts';
 import { type E2eRun, type E2eServer, RUN_FILE } from './run.ts';
@@ -25,10 +31,11 @@ if (server !== 'dev' && server !== 'preview')
 const pkg = resolve(import.meta.dir, '..');
 const OUT_DIR = 'e2e/.dist';
 
-/** The e2e build: the throwaway deployment, the local node, localhost as the RP ID, query overrides on. */
-const e2eEnv = (d: Deployment): NodeJS.ProcessEnv => ({
+/** The e2e build: the throwaway deployment, the local node, localhost as the RP ID, query overrides on, the run's Presto port. */
+const e2eEnv = (d: Deployment, prestoPort: number | null): NodeJS.ProcessEnv => ({
   ...process.env,
   YACANA_SITE_MODE: 'e2e',
+  VITE_PRESTO_E2E_PORT: prestoPort === null ? '' : String(prestoPort),
   VITE_AZTEC_NODE_URL: nodeUrl,
   VITE_RP_ID: 'localhost',
   VITE_E2E_QUERY_OVERRIDES: '1',
@@ -85,12 +92,18 @@ const proxyPorts = [
 ];
 let spawned: ChildProcess | undefined;
 let proxies: ChildProcess | undefined;
+let presto: PrestoLane | null = null;
 try {
+  // The run's headless Presto: absent only where none is installed (presto.e2e.ts then skips); an
+  // installed one that fails to start fails the run.
+  if (prestoServerBinary())
+    presto = await startPrestoServer({ lane, home: resolve(pkg, 'e2e/.presto-home', runId) });
+  else console.log('e2e: presto-server is not installed; the Presto spec will skip');
   const target = BigInt(process.env.YACANA_E2E_TARGET ?? String(1n << 127n));
   const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: target });
   const hard = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: 1n << 64n });
   const log = openSync(resolve(pkg, 'e2e/.vite.log'), 'w');
-  const env = e2eEnv(deployed);
+  const env = e2eEnv(deployed, presto?.port ?? null);
   if (server === 'preview') buildForRun(log, env);
   spawned = startServer(log, port, env);
   const vite = spawned;
@@ -124,11 +137,16 @@ try {
     proxyB,
     proxyPid: proxies.pid as number,
     vitePid: vite.pid as number,
+    prestoUrl: presto?.url ?? null,
+    prestoPid: presto?.pid ?? null,
+    prestoHome: presto?.home ?? null,
     runId,
     server,
   };
   await Bun.write(RUN_FILE, JSON.stringify(run, null, 2));
-  console.log(`e2e: ${baseURL} (${server}) miner ${deployed.miner} token ${deployed.token}`);
+  console.log(
+    `e2e: ${baseURL} (${server}) miner ${deployed.miner} token ${deployed.token}${presto ? ` presto ${presto.url}` : ''}`,
+  );
   process.exit(0);
 } catch (e) {
   // The server is detached: nothing else would reap it once this script is gone.
@@ -140,6 +158,7 @@ try {
       /* never started */
     }
   }
+  if (presto) await stopPrestoServer(presto.pid);
   await release(runId).catch(() => {});
   throw e;
 }

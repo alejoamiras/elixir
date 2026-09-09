@@ -17,6 +17,8 @@ packages/web-miner/test-results/
 packages/web-miner/e2e/.peak-rss.json
 packages/web-miner/e2e/.run.json
 packages/web-miner/e2e/.dist/
+packages/web-miner/e2e/.presto-home/
+packages/web-miner/e2e/.renders/
 packages/web-miner/playwright-report/
 deployments/.launch-*.json
 

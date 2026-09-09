@@ -15,6 +15,10 @@ export interface E2eRun {
   proxyB: string;
   proxyPid: number;
   vitePid: number;
+  /** The run's headless Presto (`scripts/run/presto.ts`), or null when this machine has none installed. */
+  prestoUrl: string | null;
+  prestoPid: number | null;
+  prestoHome: string | null;
   runId: string;
   /** `preview` serves a production build made for this run; `dev` is Vite's dev server. */
   server: E2eServer;
