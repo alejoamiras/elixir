@@ -145,12 +145,15 @@ export function App({ connection, session }: { connection: Connection; session: 
   const signIn = useAtomValue(signInAtom);
   const [settings] = useSettings();
   const controller = useCallback(() => session.controller, [session]);
+  // Stable: the loop tile's controls hand `onStart` to the picture-in-picture window, which a new identity would close.
+  const onStart = useCallback(() => session.startMining(), [session]);
+  const onRetry = useCallback(() => void session.retryPresto(), [session]);
   // Settings stays reachable signed out (the node is changed there); everywhere else the sign-in
   // sits over the cockpit, and the page's keys are its while it shows.
   const dialogShowing =
     route !== 'settings' && (boot.phase === 'opening' || (boot.phase === 'signedOut' && signIn));
   useTabStatus(settings.tabStatus);
-  useHotkeys(controller, !dialogShowing);
+  useHotkeys(controller, onStart, !dialogShowing);
   usePauses(controller, settings);
   useResumeOnOpen(controller);
   if (!isDesktop(window)) return <DesktopOnly />;
@@ -170,8 +173,8 @@ export function App({ connection, session }: { connection: Connection; session: 
         </Alert>
       )}
       {boot.phase === 'preflight' && <PreflightTile rows={boot.rows} />}
-      {chain && route === 'mine' && <PrestoBanner onRetry={() => void session.retryPresto()} />}
-      {chain && route === 'mine' && <Mine controller={controller} onStart={() => session.startMining()} />}
+      {chain && route === 'mine' && <PrestoBanner onRetry={onRetry} />}
+      {chain && route === 'mine' && <Mine controller={controller} onStart={onStart} />}
       {open && route === 'wallet' && <Wallet session={session} />}
       {route === 'settings' && <Settings connection={connection} controller={controller} session={session} />}
       {route !== 'settings' && <SignInDialog session={session} />}

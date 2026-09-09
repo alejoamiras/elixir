@@ -19,6 +19,8 @@ export interface E2eRun {
   prestoUrl: string | null;
   prestoPid: number | null;
   prestoHome: string | null;
+  /** A loopback port claimed for this run and never listened on: the spec's Presto that is not there. */
+  closedPort: number;
   runId: string;
   /** `preview` serves a production build made for this run; `dev` is Vite's dev server. */
   server: E2eServer;

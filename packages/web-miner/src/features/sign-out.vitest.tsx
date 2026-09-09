@@ -84,7 +84,7 @@ describe('the Space shortcut beside the hold', () => {
     const start = vi.fn();
     const controller = () => ({ start, stop: vi.fn() }) as unknown as MinerController;
     function Page() {
-      useHotkeys(controller);
+      useHotkeys(controller, start);
       return (
         <>
           <HoldButton onConfirm={() => {}} data-testid="hold">

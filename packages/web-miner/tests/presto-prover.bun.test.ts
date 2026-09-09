@@ -103,10 +103,11 @@ describe('PrestoWorkProver', () => {
       expect(sent.bytecode).toBe(artifact.bytecode);
       expect(sent.verifier_target).toBe('noir-recursive-no-zk');
       expect(Buffer.from(String(sent.vk), 'base64').equals(Buffer.from(W_VK_BYTES))).toBe(true);
-      // A gzip stream: the compressed witness, never the inputs in the clear.
+      // The witness travels gzip-encoded, as the route expects.
       expect(Buffer.from(String(sent.witness), 'base64').subarray(0, 2)).toEqual(Buffer.from([0x1f, 0x8b]));
       expect(transitions).toEqual([{ kind: 'presto', t: { sticky: false } }]);
       expect(p.active).toBe('presto');
+      expect(p.lastProver).toBe('presto');
     } finally {
       await p.destroy();
     }
@@ -141,6 +142,7 @@ describe('PrestoWorkProver', () => {
       expect(fake.proves().length - before).toBe(1);
       expect(transitions).toEqual([{ kind: 'wasm', t: { sticky: true, reason: 'denied' } }]);
       expect(p.active).toBe('wasm');
+      expect(p.lastProver).toBe('wasm');
     } finally {
       await p.destroy();
     }
@@ -153,7 +155,10 @@ describe('PrestoWorkProver', () => {
     try {
       const before = fake.proves().length;
       await p.prove(FIXTURE); // busy → WASM, one chance used
+      // Native is still what proves next, but this proof was WASM's: provenance follows the proof.
+      expect([p.active, p.lastProver]).toEqual(['presto', 'wasm']);
       await p.prove(FIXTURE); // native again, the count resets
+      expect(p.lastProver).toBe('presto');
       await p.prove(FIXTURE); // busy
       await p.prove(FIXTURE); // busy
       await p.prove(FIXTURE); // busy: sticky

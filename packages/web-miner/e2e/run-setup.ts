@@ -90,6 +90,8 @@ const proxyPorts = [
   await claim({ ...lane, service: 'node-proxy-a' }),
   await claim({ ...lane, service: 'node-proxy-b' }),
 ];
+// Claimed so nothing else on this host binds it for the run's duration; deliberately never listened on.
+const closedPort = await claim({ ...lane, service: 'presto-closed' });
 let spawned: ChildProcess | undefined;
 let proxies: ChildProcess | undefined;
 let presto: PrestoLane | null = null;
@@ -140,6 +142,7 @@ try {
     prestoUrl: presto?.url ?? null,
     prestoPid: presto?.pid ?? null,
     prestoHome: presto?.home ?? null,
+    closedPort,
     runId,
     server,
   };

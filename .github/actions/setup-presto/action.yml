@@ -4,17 +4,10 @@ description: Install the pinned presto-server release (scripts/run/install-prest
 runs:
   using: composite
   steps:
-    - id: pin
+    - name: Install presto-server
       shell: bash
-      run: echo "version=$(sed -n 's/^VERSION="\(.*\)"$/\1/p' scripts/run/install-presto-server.sh)" >> "$GITHUB_OUTPUT"
-    - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
-      with:
-        path: ~/.local/bin/presto-server
-        key: presto-server-${{ runner.os }}-${{ runner.arch }}-${{ steps.pin.outputs.version }}
-    - name: Install presto-server ${{ steps.pin.outputs.version }}
-      shell: bash
-      # The script verifies the archive against the SHA-256 committed beside the version; a cached
-      # binary that already reports the version is left alone.
+      # Downloaded and verified against the committed SHA-256 on every run: no cache, so nothing is
+      # ever trusted on the strength of a binary's own version string.
       run: |
         bash scripts/run/install-presto-server.sh "$HOME/.local/bin"
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"

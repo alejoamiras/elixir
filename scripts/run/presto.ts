@@ -68,7 +68,7 @@ export async function startPrestoServer(o: {
   child.unref();
   const url = `http://127.0.0.1:${port}`;
   for (let i = 0; i < 60 && child.exitCode === null; i++) {
-    const up = await fetch(`${url}/health`).then(
+    const up = await fetch(`${url}/health`, { signal: AbortSignal.timeout(2_000) }).then(
       (r) => r.ok,
       () => false,
     );

@@ -475,29 +475,36 @@ export class Session {
   }
 
   /**
-   * The user's Start: mining begins now; Presto is asked again in the background and an answer that
+   * The user's Start: mining begins now; Presto is asked afresh in the background and an answer that
    * changes its eligibility rebuilds the prover at the next nonce. The automatic resumes (after a
    * claim, an expired claim) never come through here.
    */
   startMining(): void {
-    this.controller?.start();
-    void this.reprobePresto(false);
+    const c = this.controller;
+    c?.start();
+    void this.reprobePresto({ rebuild: false, stops: c?.stopCount });
   }
 
-  /** The fix-it row's Retry: a forced probe, then the prover rebuilt with the endpoint — never a start. */
+  /** The fix-it row's Retry: a fresh probe, then the prover rebuilt with the endpoint — never a start. */
   async retryPresto(): Promise<void> {
-    await this.reprobePresto(true);
+    await this.reprobePresto({ rebuild: true });
   }
 
-  private async reprobePresto(force: boolean): Promise<void> {
+  /**
+   * A fresh answer from Presto (the SDK's cache skipped). One that changes eligibility rebuilds the
+   * prover; `rebuild` does so under an unchanged one (a Retry after a sticky fallback). `stops` is
+   * the Start's: a Stop that landed while the probe was out withdraws its interest.
+   */
+  private async reprobePresto(o: { rebuild: boolean; stops?: number }): Promise<void> {
     const pre = this.pre;
     if (!pre?.presto) return;
     const c = this.controller;
-    const status = await probePresto(this.store, pre.presto, force).catch(() => null);
+    const status = await probePresto(this.store, pre.presto, true).catch(() => null);
     // Disposed or replaced while the probe was out: nothing to rebuild.
     if (!c || this.controller !== c) return;
+    if (o.stops !== undefined && c.stopCount !== o.stops) return;
     const endpoint = prestoEligible(status) ? pre.presto : null;
-    if (endpoint) c.reconfigure(c.currentThreads, endpoint, { force });
+    if (endpoint) c.reconfigure(c.currentThreads, endpoint, { force: o.rebuild });
     else if (c.currentPresto) c.reconfigure(c.currentThreads, null);
   }
 

@@ -138,6 +138,8 @@ export class MinerController {
   private prover: Prover;
   private generations = 0;
   private crashes = 0;
+  /** Bumped per user Stop: work queued behind a Start (the Presto probe) checks it before acting. */
+  private stops = 0;
   private refreshing: Promise<void> = Promise.resolve();
   /** The real chain read behind the latest refresh, settled past the deadline: what a switch drains. */
   private inflightRead: Promise<void> = Promise.resolve();
@@ -212,10 +214,22 @@ export class MinerController {
   /** A crash after a successful start is replaced, a bounded number of times per page lifetime. */
   private replaceProver(reason: string) {
     this.prover.worker.terminate();
+    this.clearPrestoView();
     this.dispatch({ type: 'failed', error: reason });
     this.log(reason);
     if (++this.crashes >= MAX_CRASHES) return this.abandonProver('prover keeps crashing; reload the page');
     this.prover = this.attach();
+  }
+
+  /** What the page knows of the Worker's Presto is that Worker's: a new or a dead one leaves none of it behind. */
+  private clearPrestoView() {
+    this.store.set(prestoAtom, (s) => ({
+      ...s,
+      selected: null,
+      active: null,
+      phase: undefined,
+      fallbackReason: undefined,
+    }));
   }
 
   /**
@@ -225,6 +239,7 @@ export class MinerController {
   private abandonProver(reason: string) {
     this.prover.worker.terminate();
     this.generations++;
+    this.clearPrestoView();
     this.dispatch({ type: 'prover-dead', error: reason });
     this.log(reason);
   }
@@ -258,13 +273,7 @@ export class MinerController {
     if (this.pauseTimer) clearTimeout(this.pauseTimer);
     this.generations++;
     this.prover.worker.terminate();
-    this.store.set(prestoAtom, (s) => ({
-      ...s,
-      selected: null,
-      active: null,
-      phase: undefined,
-      fallbackReason: undefined,
-    }));
+    this.clearPrestoView();
   }
 
   /** Under a page-side pause the intent is kept: mining starts when the last reason clears. */
@@ -279,8 +288,13 @@ export class MinerController {
   }
 
   stop() {
+    this.stops++;
     this.resumeWhenClear = false;
     this.dispatch({ type: 'stop' });
+  }
+
+  get stopCount(): number {
+    return this.stops;
   }
 
   /**

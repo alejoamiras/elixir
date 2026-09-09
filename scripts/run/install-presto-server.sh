@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Installs the pinned headless Presto (`presto-server`) for the miner's live test and its e2e lane.
 # The release and every asset's SHA-256 are committed here: a checksum fetched beside the binary
-# would only guard against corruption, not against a replaced release.
+# would only guard against corruption, not against a replaced release. Every run downloads and
+# verifies the archive: a binary already in place is not trusted on the strength of its own output.
 #   scripts/run/install-presto-server.sh [dest-dir]   (default ~/.local/bin; CI passes the runner's PATH dir)
 set -euo pipefail
 
@@ -17,11 +18,6 @@ case "$(uname -s)-$(uname -m)" in
   Darwin-x86_64) ASSET="presto-server-${VERSION}-macos-x86_64.tar.gz";  SHA="27dc1100c5fb9acb02e5349b2317b28bdeefa6d23e0a8f6f92c4a1a287124a13" ;;
   *) echo "no presto-server ${VERSION} build for $(uname -s)-$(uname -m)" >&2; exit 1 ;;
 esac
-
-if [ -x "$DEST/presto-server" ] && [ "$("$DEST/presto-server" --version 2>/dev/null | head -1)" = "presto-server ${VERSION}" ]; then
-  echo "presto-server ${VERSION} already at $DEST/presto-server"
-  exit 0
-fi
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT

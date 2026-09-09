@@ -39,3 +39,10 @@ Started 2026-09-09 after P2 (`e19afed`).
   1.8 s. The server's own log records five `/prove/ultra-honk` requests; `PRESTO_HOME/versions` never appeared
   (nothing downloaded); after teardown no `presto-server` process remains. Renders at 1280/1440 of the three states
   in `renders/` (the billboard's is the signed-in cockpit with Presto absent; artboard 1 drew the signed-out one).
+- **CI run 34385390258 (`7336ce7`)**: the miner job ran the whole suite; the three Presto specs passed (native
+  1.7 min, the billboard 35.7 s, the update row 2.3 s) and 17 of 18 specs in all. The one failure is the pre-existing
+  first-visit spec (`miner.e2e.ts:63`) on its *second* visit: the claim counter reached 1 (the claim minted, mining
+  resumed) but the balance stayed `4` for the 60 s the assertion allows — the reopened PXE lagging on the new note on
+  the 4-core runner. Nothing on the Presto paths is involved (that page runs `?presto=off`; no probe, no Worker
+  change on that path), and the same spec passed on the homelab in both local runs. Re-dispatched with the fix
+  round's commit; if it recurs, it is a runner-speed allowance for that spec, tracked apart from this plan.

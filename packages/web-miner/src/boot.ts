@@ -46,9 +46,8 @@ export interface Preflighted {
   publicEpoch: PublicEpochPoll;
   /** How long the node and deployment checks took, for the opening's step list. */
   nodeMs: number;
-  /** Where this build looks for Presto (null: switched off), and the probe started at the cockpit's ready. */
+  /** Where this build looks for Presto (null: switched off); its probe starts at the cockpit's ready, never awaited. */
   presto: PrestoEndpoint | null;
-  prestoProbe: Promise<unknown>;
 }
 
 /** The build's deployment identity, as the boot and every node check compare it. */
@@ -161,7 +160,7 @@ export async function preflight(store: Store, connection: Connection): Promise<P
   store.set(bootAtom, { phase: 'signedOut', records: await listRecords() });
   // The cockpit is ready: ask Presto now (the billboard may show before any account), never wait for it.
   const presto = prestoEndpoint();
-  const prestoProbe = presto ? probePresto(store, presto).catch(() => undefined) : Promise.resolve();
+  if (presto) void probePresto(store, presto).catch(() => undefined);
   return {
     node,
     switchable,
@@ -173,7 +172,6 @@ export async function preflight(store: Store, connection: Connection): Promise<P
     publicEpoch,
     nodeMs,
     presto,
-    prestoProbe,
   };
 }
 
@@ -220,8 +218,9 @@ export async function switchNodeLive(o: {
   c?.pause('switch');
   try {
     await c?.drain();
-    o.switchable.use(o.url);
+    // The guard first: a URL it refuses (a collision with the accelerator set) throws before anything moved.
     setNodeEndpoint(o.url, o.deadlineMs ?? NODE_REQUEST_MS);
+    o.switchable.use(o.url);
     resetNodeHealth();
     await c?.rebuildForNewNode();
   } finally {
@@ -234,16 +233,9 @@ export async function switchNodeLive(o: {
 const aborted = (signal: AbortSignal): Promise<never> =>
   new Promise((_, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
 
-/** The endpoint the prover is built with: Presto's when the probe (long answered, in practice) found it worth asking. */
-async function prestoFor(
-  store: Store,
-  pre: Preflighted,
-  signal: AbortSignal,
-): Promise<PrestoEndpoint | null> {
-  await Promise.race([pre.prestoProbe, aborted(signal)]);
-  signal.throwIfAborted();
-  return prestoEligible(store.get(prestoAtom).status) ? pre.presto : null;
-}
+/** The endpoint the prover is built with: Presto's when its probe, out since the cockpit's ready, has found it worth asking; the sign-in never waits for it. */
+const prestoFor = (store: Store, pre: Preflighted): PrestoEndpoint | null =>
+  prestoEligible(store.get(prestoAtom).status) ? pre.presto : null;
 
 /** What the opening dialog needs to drive its steps and to be cancelled between them. */
 export interface OpeningOpts {
@@ -357,7 +349,7 @@ export async function startSession(
       store,
       spawnWorker,
       threads,
-      presto: await prestoFor(store, pre, opts.signal),
+      presto: prestoFor(store, pre),
       deployment,
       account,
       fee: opened.fee,

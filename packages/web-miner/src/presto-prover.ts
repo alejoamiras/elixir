@@ -53,6 +53,7 @@ export class PrestoWorkProver implements WorkProver {
   private stuck: FallbackCause | undefined;
   private transients = 0;
   private reported: ProverKind | null = null;
+  private last: ProverKind = 'wasm';
 
   constructor(
     artifact: WorkArtifact,
@@ -76,6 +77,11 @@ export class PrestoWorkProver implements WorkProver {
     return this.stuck ? 'wasm' : 'presto';
   }
 
+  /** Who made the last proof returned — a busy Presto's witness was proved in WASM even while `active` is native. */
+  get lastProver(): ProverKind {
+    return this.last;
+  }
+
   async prove(inputs: WorkInputs): Promise<WorkResult> {
     const { witness, returnValue } = await this.noir.execute({
       domain: inputs.domain.toString(),
@@ -94,6 +100,7 @@ export class PrestoWorkProver implements WorkProver {
         return { proof: await this.local(witness), out };
       }
       this.transients = 0;
+      this.last = 'presto';
       this.report('presto', { sticky: false });
       return { proof, out };
     } catch (e) {
@@ -160,6 +167,7 @@ export class PrestoWorkProver implements WorkProver {
     this.backend.setForceLocal(true);
     try {
       const { proof } = await this.backend.generateProof(witness, { verifierTarget: TARGET });
+      this.last = 'wasm';
       return proof;
     } finally {
       if (!this.stuck) this.backend.setForceLocal(false);

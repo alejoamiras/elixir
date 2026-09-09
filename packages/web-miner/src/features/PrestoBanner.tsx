@@ -12,11 +12,7 @@ const PRESTO_SITE = 'https://presto.build';
 
 type BannerElement = HTMLElement & { status: PrestoStatus };
 
-/**
- * Presto's `<presto-banner variant="billboard">`: its script is loaded only here, its fonts request
- * is off (the page makes no new network call), and `status` is set once the element is defined.
- * Its CTA opens presto.build; its dismissal is its own (seven days); it has no Retry.
- */
+/** Presto's own billboard: its script loads only here, no fonts request, `status` set once the element is defined. */
 function Billboard({ status }: { status: PrestoStatus }) {
   const ref = useRef<BannerElement>(null);
   const { theme } = useTheme();
@@ -62,7 +58,7 @@ export function PrestoBanner({ onRetry }: { onRetry: () => void }) {
           <span>{notice.text}</span>
         </span>
         <span className="flex items-center gap-3.5 whitespace-nowrap">
-          {boot.phase === 'ready' && (
+          {boot.phase === 'ready' && notice.tone === 'warn' && (
             <span className="font-mono text-2xs tracking-[0.04em] opacity-75">
               browser · {boot.threads} threads
             </span>

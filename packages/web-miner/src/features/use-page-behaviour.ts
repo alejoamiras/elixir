@@ -3,6 +3,7 @@ import { useAtomValue, useStore } from 'jotai';
 import { useEffect } from 'react';
 import { clampThreads } from '../../../ui/src/index.ts';
 import type { MinerController } from '../controller';
+import { prestoAtom } from '../presto';
 import { navigate } from '../routes';
 import { type Settings, settingsAtom } from '../settings';
 import { bootAtom, minerAtom } from '../state';
@@ -19,7 +20,12 @@ const interactive = (t: EventTarget | null) =>
   (t.isContentEditable ||
     t.closest('input, textarea, select, button, a, [role="button"], [contenteditable]') !== null);
 
-export function useHotkeys(controller: () => MinerController | undefined, enabled = true) {
+/** Space is the Start button's own action (`onStart`: it also re-asks Presto), Stop when mining. */
+export function useHotkeys(
+  controller: () => MinerController | undefined,
+  onStart: () => void,
+  enabled = true,
+) {
   const store = useStore();
   useEffect(() => {
     // Off while the sign-in dialog shows: its own keys (Escape, Enter) must not reach the page.
@@ -33,6 +39,8 @@ export function useHotkeys(controller: () => MinerController | undefined, enable
       const cores = navigator.hardwareConcurrency || 2;
       const threads = settings.threads ?? Math.max(1, cores - 1);
       const power = (delta: number) => {
+        // Under native proving the slider is disabled: Presto's Speed setting governs, not the page's threads.
+        if (store.get(prestoAtom).active === 'presto') return;
         const next = clampThreads(threads + delta, cores);
         store.set(settingsAtom, { threads: next });
         c?.reconfigure(next);
@@ -40,7 +48,7 @@ export function useHotkeys(controller: () => MinerController | undefined, enable
       switch (e.key) {
         case ' ':
           e.preventDefault();
-          miner.phase === 'mining' ? c?.stop() : c?.start();
+          miner.phase === 'mining' ? c?.stop() : onStart();
           return;
         case '[':
           return power(-1);
@@ -54,7 +62,7 @@ export function useHotkeys(controller: () => MinerController | undefined, enable
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [controller, store, enabled]);
+  }, [controller, onStart, store, enabled]);
 }
 
 /** Battery and hidden-tab pauses; both clear by themselves. */

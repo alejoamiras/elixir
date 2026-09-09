@@ -7,10 +7,21 @@ import { PrestoBanner } from './features/PrestoBanner';
 import { initialPresto, type PrestoState, prestoAtom } from './presto';
 import { bootAtom } from './state';
 
-// The billboard's script is loaded only when it shows: the mock records whether it ever was.
+// The billboard's script is loaded only when it shows: the mock records whether it ever was, and
+// stands in for the element so the status the host hands it is on record.
 const registered = vi.fn();
+const given: PrestoStatus[] = [];
 vi.mock('@alejoamiras/presto-banners/register', () => {
   registered();
+  if (!customElements.get('presto-banner'))
+    customElements.define(
+      'presto-banner',
+      class extends HTMLElement {
+        set status(s: PrestoStatus) {
+          given.push(s);
+        }
+      },
+    );
   return {};
 });
 
@@ -75,6 +86,9 @@ describe('PrestoBanner', () => {
     expect(el.getAttribute('href')).toBe('https://presto.build');
     expect(el.getAttribute('theme')).toBe('auto');
     await waitFor(() => expect(registered).toHaveBeenCalledTimes(1));
+    // The element gets the probe's own status once defined: it decides its words from it.
+    await waitFor(() => expect(given).toHaveLength(1));
+    expect(given[0]).toMatchObject({ available: false, reason: 'secure-connection-unavailable' });
     expect(container.querySelector('[data-testid=presto-notice]')).toBeNull();
   });
 
@@ -103,5 +117,7 @@ describe('PrestoBanner', () => {
     const info = downloading.getByTestId('presto-notice');
     expect(info.dataset.tone).toBe('info');
     expect(downloading.queryByTestId('presto-retry')).toBeNull();
+    // A native proof is on its way: the row does not claim the browser is proving.
+    expect(info.textContent).not.toContain('threads');
   });
 });

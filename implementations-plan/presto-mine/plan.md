@@ -252,8 +252,8 @@ nonce). Start always re-probes with `forceRefresh`.
   can return well-formed losing garbage forever, withhold, or stall — visible only as a dead rate.
 - **HTTP is an e2e device.** The headless server has no HTTPS; production's CSP admits `https:` only and the SDK's
   browser default is `httpsOnly`. Under `YACANA_SITE_MODE=e2e` the page passes `httpsOnly: false` and the e2e port;
-  the production build drops the field by the same `env = {}` rule as every other override, and a config test builds
-  production with hostile e2e env and asserts the endpoint is the HTTPS default.
+  the production build drops the field by the same `env = {}` rule as every other override, and a config test resolves
+  the production config under hostile e2e env and asserts the endpoint is the HTTPS default.
 - **The realm.** The guard is installed per context; the page admits the URLs at boot, the Worker from the `init`
   message, both before the SDK's first probe.
 - **The prompt before the gesture.** Chrome's Local Network Access permission is asked on the first loopback fetch;
@@ -375,7 +375,7 @@ server, locally and in the dispatchable CI job).
   the same deadline and no-redirect rule as the node, reported to nobody; it cannot pose as the node (`setNodeEndpoint`
   refuses a collision, `currentNodeEndpoint()` is unchanged) nor open a cooldown on it. Production admits `https:`
   only, so a plaintext local endpoint is unreachable from the shipped page; the SDK's `httpsOnly` default agrees; a
-  config test builds production with hostile e2e env and finds no plaintext endpoint in either realm.
+  config test resolves the production config under hostile e2e env and finds no plaintext endpoint in either realm.
 - **Origin approval and permissions.** Presto approves origins per install (a popup; `yacana.network` is not
   pre-approved and cannot be); a denial is a `403` the page shows as "approve in the Presto app", never a retry storm
   (sticky until Retry or Start). The browser's local-network permission is the visitor's; the page shows the blocked
