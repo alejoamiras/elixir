@@ -46,3 +46,11 @@ Started 2026-09-09 after P2 (`e19afed`).
   the 4-core runner. Nothing on the Presto paths is involved (that page runs `?presto=off`; no probe, no Worker
   change on that path), and the same spec passed on the homelab in both local runs. Re-dispatched with the fix
   round's commit; if it recurs, it is a runner-speed allowance for that spec, tracked apart from this plan.
+- **Final local gate (homelab, 2026-09-09 19:27 UTC, `cf74cb0` — the head after both fix rounds)**: `bun run
+  e2e:agent -- bun run --cwd packages/web-miner test:e2e` — **19 passed in 16.2 min, exit 0**. The suite is 19 now
+  because the Presto spec split in two: the native state renders while mining on the hard deployment (11.8 s), and
+  the claim through Presto is its own spec (51.4 s) with the evidence scoped to itself. The billboard spec takes
+  the run's registry-claimed closed port (19.0 s); the update row and Retry, 1.8 s. The run's own server log
+  records six finished UltraHonk proofs (`ok=true`), no `versions` directory appeared, and no `presto-server`
+  survived teardown. The six renders in `renders/` are from this run.
+

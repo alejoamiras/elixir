@@ -84,3 +84,24 @@ suite releases by hand — the two Session behaviours above are what the control
 Codex accepted the omitted approval link and the config-resolution evidence, but was right that the plan
 overstated it: it now says the e2e port is dropped from the resolved config and from both realms' Vite
 definitions, which is what the test checks.
+
+### Round 3 — **approve** (2026-09-09 19:10 UTC), the loop converged
+
+> "Approve — no material correctness or security finding remains in this diff. The production-code review has
+> converged. Confidence: high."
+
+Codex re-derived the Start/Retry behaviour with its own controlled pending probes: a sticky Start forces the
+rebuild, an ordinary Start does not, and a Stop stops either caller from reconfiguring afterwards. It left two
+test notes, both applied in `cf74cb0`:
+
+- The cancellation test's fixed 20 ms waits did not establish that the probe had finished. The fake now announces
+  the request's arrival, so the Stop lands with the probe demonstrably out, and the assertion waits for the answer
+  to reach the atom `reprobePresto` continues from.
+- The gate's `fallback` case is synthetic for this app: under `fallback: 'none'` the SDK throws rather than
+  emitting that phase, and the row is cleared by the prover's transition instead. The comment says so; the branch
+  stays, since the helper is written against the SDK's phase vocabulary, not against one caller's configuration.
+
+Three rounds, which is the protocol's cap. The first two were substantial (ten and five findings, all verified
+before fixing); the third found nothing material, which is what convergence means here. Nothing was left
+unaddressed and nothing was deferred past the PR.
+
