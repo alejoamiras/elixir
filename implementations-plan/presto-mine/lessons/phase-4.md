@@ -105,3 +105,21 @@ Three rounds, which is the protocol's cap. The first two were substantial (ten a
 before fixing); the third found nothing material, which is what convergence means here. Nothing was left
 unaddressed and nothing was deferred past the PR.
 
+### The PR gate found what every local run hid
+
+The first PR gate on #28 failed five of the prover suite's tests with `ERR_INVALID_URL`. The suite proves W in
+WASM, and bb.js fetches the proving keys from Aztec's CDN unless the machine already has them in `~/.bb-crs`.
+This one had them from July, so the fetch never happened here; the runner had nothing, so bb.js asked the CDN,
+the miner's CRS interceptor turned that into `/crs/<name>`, and the guard — which resolves a request against
+`location` before classifying it — met a realm with no `location` at all.
+
+Two things worth keeping:
+
+- **A suite that passes because of a machine's cache is not passing.** The fix is not a `skipIf`: the suite now
+  materialises the pinned CRS through the repo's own `fetchCrs` (same lock, same checksums) and answers bb.js's
+  CDN request from it, so the proofs are real on any machine. Reproduced by moving `~/.bb-crs` aside and running
+  the gate cold, which is now the way to test this suite.
+- **The guard forwards the request it was given, not the URL it resolved.** In a browser that is right and
+  invisible; under Bun a relative path reaches `fetch` unresolved and throws. Worth remembering before anyone
+  puts the guard in front of a relative request outside a document.
+
