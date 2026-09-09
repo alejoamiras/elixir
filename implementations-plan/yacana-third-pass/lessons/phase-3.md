@@ -219,3 +219,33 @@ Resumed on the three fix commits. Two findings, both verified, both adopted on t
 Codex's "looks fine": the quiet recovery clears `probing` and wakes `waitTurn()`; the `resetAt` check belongs
 before the quiet filter; a cancelled opening releases the switch refusal; a strict rebuild failure reaches the boot
 error; endpoint identity, leases, boundaries and the reader consolidation.
+
+## Cross-arc codex pass · round 3 (2026-09-09)
+
+Resumed on the round-2 fixes. Two findings, both introduced or exposed by the round-2 drain, both verified and
+adopted on arc 2 (`f49c69a`):
+
+- **High (arc 2) — the drain opened a window for a sign-in.** While Use waited on the poll's drain, a sign-in
+  from Mine started an attempt (`runAttempt` did not look at `this.switching`); when the drain settled, the swap
+  ran under an opening wallet whose controller was not yet adopted. `attemptBody` now awaits a switch in flight
+  before its ceremony; the switch still refuses to start under an attempt, so the two exclude each other both ways.
+- **Medium (arc 2) — a restart forgot a read left out by an unawaited stop** (the handover's), so a later `stop()`
+  could not drain it and that reader could still cross a swap. The poll keeps every read still out across
+  restarts and `stop()` drains them all; ticks coalesce on the current run's read as before.
+
+The plan's nominal three rounds are exceeded here, as in arcs 1 and 2: round 3's items were small and confined to
+the round-2 fix's seam, and a clean round is what the goal requires. Round 4 is the confirmation.
+
+## Cross-arc codex pass · round 4 (2026-09-09) — converged
+
+Resumed on the round-3 fix (`f49c69a`). Codex, verbatim: *"Both fixes close the reported races (high confidence).
+The attempt is registered before waiting, preventing another switch; `outstanding` retains older reads until
+settlement, while the identity check preserves current-generation coalescing. 52 focused tests passed, plus direct
+checks for idle `stop()`, an old read settling during a restarted run, and a failed read draining without
+rejection. No remaining material findings from rounds 1–3 or comment-quality issues in this diff. No new material
+findings"*.
+
+Four rounds (10 → 2 → 2 → 0). Session `01a083ee-904d-7ce3-83ea-d7ce6450dbe9` in `~/.cache/tmp/codex-Kl4NJ1Hv`
+(responses 0–3). Every review loop of the plan is closed: arc 1 (4 rounds), arc 2 (4), arc 3 (3), the cross-arc
+pass (4). Delivery follows: `gh stack rebase` → the fast gates → `gh stack push` → `gh stack submit --auto --open`
+→ the PR bodies → `gh stack view` → `gh pr checks --watch`.
