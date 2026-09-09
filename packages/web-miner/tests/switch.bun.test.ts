@@ -19,7 +19,8 @@ class FakeWorker {
   sent: ToWorker[] = [];
   postMessage(m: ToWorker) {
     this.sent.push(m);
-    if (m.type === 'init') queueMicrotask(() => this.emit({ type: 'ready', threads: 1, initMs: 0 }));
+    if (m.type === 'init')
+      queueMicrotask(() => this.emit({ type: 'ready', threads: 1, initMs: 0, prover: 'wasm' }));
   }
   terminate() {}
   emit(m: FromWorker) {

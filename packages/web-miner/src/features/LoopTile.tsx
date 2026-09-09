@@ -22,15 +22,20 @@ import { pillStatus } from '../lib/status';
 const cores = () => navigator.hardwareConcurrency || 2;
 
 import { openPip, pipSupported } from '../pip';
+import { prestoAtom } from '../presto';
 import { useSettings } from '../settings';
 import { bootAtom, epochAtom, minerAtom, nowAtom, signInAtom } from '../state';
 import { NoticeCard } from './ClaimStatus';
 
+/** The user's Start goes through the session (it re-asks Presto); the controller alone stops. */
+type Controls = { controller: () => MinerController | undefined; onStart: () => void };
+
 /** The mini window: the state and Stop, the last minute of the loop as a strip, then rate · epoch · wins. */
-function PipView({ controller, win }: { controller: () => MinerController | undefined; win: Window }) {
+function PipView({ controller, onStart, win }: Controls & { win: Window }) {
   const miner = useAtomValue(minerAtom);
   const epoch = useAtomValue(epochAtom);
   const now = useAtomValue(nowAtom);
+  const native = useAtomValue(prestoAtom).active === 'presto';
   const perMinute = useTweenedNumber(proofsPerMinute(miner.recent));
   const bar = epoch ? difficulty(epoch.target) : null;
   return (
@@ -45,12 +50,7 @@ function PipView({ controller, win }: { controller: () => MinerController | unde
             Stop
           </Button>
         ) : (
-          <Button
-            size="sm"
-            variant="primary"
-            disabled={miner.phase !== 'idle'}
-            onClick={() => controller()?.start()}
-          >
+          <Button size="sm" variant="primary" disabled={miner.phase !== 'idle'} onClick={onStart}>
             Start
           </Button>
         )}
@@ -70,7 +70,7 @@ function PipView({ controller, win }: { controller: () => MinerController | unde
           <span className="font-sans text-lg font-semibold tracking-[-0.02em] text-ink">
             {perMinute.toFixed(1)}
           </span>{' '}
-          proofs/min
+          proofs/min{native && <span className="text-uv-2"> · native</span>}
         </span>
         {epoch && (
           <span>
@@ -87,7 +87,7 @@ function PipView({ controller, win }: { controller: () => MinerController | unde
   );
 }
 
-function PopOut({ controller }: { controller: () => MinerController | undefined }) {
+function PopOut({ controller, onStart }: Controls) {
   const store = useStore();
   const [pip, setPip] = useState<Window | null>(null);
   useEffect(() => {
@@ -95,7 +95,7 @@ function PopOut({ controller }: { controller: () => MinerController | undefined 
     const root = createRoot(pip.document.body);
     root.render(
       <Provider store={store}>
-        <PipView controller={controller} win={pip} />
+        <PipView controller={controller} onStart={onStart} win={pip} />
       </Provider>,
     );
     const onHide = () => setPip(null);
@@ -105,7 +105,7 @@ function PopOut({ controller }: { controller: () => MinerController | undefined 
       root.unmount();
       pip.close();
     };
-  }, [pip, store, controller]);
+  }, [pip, store, controller, onStart]);
   return (
     <Button
       size="sm"
@@ -124,12 +124,8 @@ function StartControl({
   opening,
   miner,
   controller,
-}: {
-  ready: boolean;
-  opening: boolean;
-  miner: MinerState;
-  controller: () => MinerController | undefined;
-}) {
+  onStart,
+}: Controls & { ready: boolean; opening: boolean; miner: MinerState }) {
   const openSignIn = useSetAtom(signInAtom);
   if (opening)
     return (
@@ -155,7 +151,7 @@ function StartControl({
       variant="primary"
       data-testid="start"
       disabled={miner.phase !== 'idle' || miner.proverDead}
-      onClick={() => controller()?.start()}
+      onClick={onStart}
     >
       Start mining
     </Button>
@@ -168,40 +164,38 @@ function HeaderText({ status, ready }: { status: ReturnType<typeof pillStatus>; 
   return <>{status === 'mining' || !ready ? 'live · last 3 min' : status}</>;
 }
 
-/** The rate line: dashes before any account, the session's numbers once proofs exist. */
+/** The rate line: dashes before any account, the session's numbers once proofs exist; "native" instead of threads under Presto. */
 function RateLine({
   ready,
   threads,
+  native,
   miner,
   perProof,
 }: {
   ready: boolean;
   threads: number;
+  native: boolean;
   miner: MinerState;
   perProof: number;
 }) {
   if (!ready) return <span>— per proof · {threads} threads · 0 proofs</span>;
   if (!miner.recent.length || miner.phase === 'idle') return null;
   return (
-    <span>
-      {perProof.toFixed(2)} s per proof · {threads} threads · {compact(miner.proofs)} proofs · {miner.wins}{' '}
-      {miner.wins === 1 ? 'win' : 'wins'}
+    <span data-testid="rate-line">
+      {perProof.toFixed(2)} s per proof ·{' '}
+      {native ? <span className="text-uv-2">native</span> : `${threads} threads`} · {compact(miner.proofs)}{' '}
+      proofs · {miner.wins} {miner.wins === 1 ? 'win' : 'wins'}
     </span>
   );
 }
 
 /** The header row is a fixed-height status line: the claim's progress lives in the rail, not here. */
-export function LoopTile({
-  controller,
-  className,
-}: {
-  controller: () => MinerController | undefined;
-  className?: string;
-}) {
+export function LoopTile({ controller, onStart, className }: Controls & { className?: string }) {
   const boot = useAtomValue(bootAtom);
   const miner = useAtomValue(minerAtom);
   const epoch = useAtomValue(epochAtom);
   const now = useAtomValue(nowAtom);
+  const native = useAtomValue(prestoAtom).active === 'presto';
   const [settings] = useSettings();
   const last = miner.recent[miner.recent.length - 1];
   const perProof = useTweenedNumber(last === undefined ? 0 : last / 1000);
@@ -221,9 +215,15 @@ export function LoopTile({
         className="mb-0 h-[30px] items-center"
         aside={
           <span className="flex items-center gap-3">
-            <RateLine ready={ready} threads={threads} miner={miner} perProof={perProof} />
-            {settings.pip && pipSupported() && <PopOut controller={controller} />}
-            <StartControl ready={ready} opening={opening} miner={miner} controller={controller} />
+            <RateLine ready={ready} threads={threads} native={native} miner={miner} perProof={perProof} />
+            {settings.pip && pipSupported() && <PopOut controller={controller} onStart={onStart} />}
+            <StartControl
+              ready={ready}
+              opening={opening}
+              miner={miner}
+              controller={controller}
+              onStart={onStart}
+            />
           </span>
         }
       >

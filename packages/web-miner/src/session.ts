@@ -40,6 +40,7 @@ import {
   setStayOpen,
 } from './keys/store';
 import { initialSteps } from './opening-steps';
+import { prestoAtom, prestoEligible, probePresto } from './presto';
 import { loadSettings, saveSettings } from './settings';
 import { bootAtom, epochAtom } from './state';
 
@@ -471,6 +472,43 @@ export class Session {
         this.switchingUrl = undefined;
       });
     return this.switching;
+  }
+
+  /**
+   * The user's Start: mining begins now; Presto is asked afresh in the background and an answer that
+   * changes its eligibility rebuilds the prover at the next nonce. The automatic resumes (after a
+   * claim, an expired claim) never come through here.
+   */
+  startMining(): void {
+    const c = this.controller;
+    c?.start();
+    // A Start after the Worker gave up on native brings it back: only a rebuild can, and the config
+    // is unchanged, so it has to be forced. An ordinary Start keeps its warm backend.
+    void this.reprobePresto({ rebuild: this.store.get(prestoAtom).fallbackReason !== undefined });
+  }
+
+  /** The fix-it row's Retry: a fresh probe, then the prover rebuilt with the endpoint — never a start. */
+  async retryPresto(): Promise<void> {
+    await this.reprobePresto({ rebuild: true });
+  }
+
+  /**
+   * A fresh answer from Presto (the SDK's cache skipped). One that changes eligibility rebuilds the
+   * prover; `rebuild` does so under an unchanged one, which is what brings native back after the
+   * Worker gave up on it. A Stop that landed while the probe was out withdraws the interest that
+   * asked for it: the answer then changes nothing.
+   */
+  private async reprobePresto(o: { rebuild: boolean }): Promise<void> {
+    const pre = this.pre;
+    if (!pre?.presto) return;
+    const c = this.controller;
+    const stops = c?.stopCount;
+    const status = await probePresto(this.store, pre.presto, true).catch(() => null);
+    // Disposed, replaced or stopped while the probe was out: nothing to act on.
+    if (!c || this.controller !== c || c.stopCount !== stops) return;
+    const endpoint = prestoEligible(status) ? pre.presto : null;
+    if (endpoint) c.reconfigure(c.currentThreads, endpoint, { force: o.rebuild });
+    else if (c.currentPresto) c.reconfigure(c.currentThreads, null);
   }
 
   /** Whether anything on the chain or in the wallet knows the recipient as a contract. */

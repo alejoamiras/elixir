@@ -1,0 +1,161 @@
+<title>Presto on the Mine Page</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #f2efe9; --panel: #e8e4dc; --panel-2: #dfdad1;
+    --ink: #0a0a0b; --ink-2: rgba(10,10,11,.68); --ink-3: rgba(10,10,11,.46);
+    --line: rgba(10,10,11,.12); --uv: #5b3fe0; --uv-dim: rgba(91,63,224,.12);
+    --ok: #1f8a4c; --warn: #9a6b00;
+    --sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0a0a0b; --panel: #17171b; --panel-2: #1e1e24;
+      --ink: #f2efe9; --ink-2: rgba(242,239,233,.64); --ink-3: rgba(242,239,233,.4);
+      --line: rgba(242,239,233,.1); --uv: #8c6bff; --uv-dim: rgba(140,107,255,.18);
+      --ok: #58c98b; --warn: #e8b54d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0a0a0b; --panel: #17171b; --panel-2: #1e1e24;
+    --ink: #f2efe9; --ink-2: rgba(242,239,233,.64); --ink-3: rgba(242,239,233,.4);
+    --line: rgba(242,239,233,.1); --uv: #8c6bff; --uv-dim: rgba(140,107,255,.18);
+    --ok: #58c98b; --warn: #e8b54d;
+  }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 400 16px/1.55 var(--sans); }
+  main { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; }
+  h1, h2, h3 { font-weight: 600; letter-spacing: -.02em; text-wrap: balance; margin: 0; }
+  h1 { font-size: 34px; line-height: 1.1; }
+  h2 { font-size: 22px; margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--line); }
+  h3 { font-size: 17px; margin-top: 20px; }
+  p { margin: 12px 0; max-width: 65ch; }
+  .eyebrow { font: 500 11.5px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--uv); margin-bottom: 14px; }
+  .lede { font-size: 18px; color: var(--ink-2); }
+  code { font-family: var(--mono); font-size: .9em; }
+  pre { font: 400 12.5px/1.5 var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; overflow-x: auto; white-space: pre-wrap; margin: 12px 0; }
+  .done { margin: 0 0 18px; padding: 10px 14px; border-left: 3px solid var(--ok, #4ade80); background: rgba(74,222,128,0.07); border-radius: 0 6px 6px 0; }
+  .phase { margin: 16px 0; padding: 14px 18px; border-left: 2px solid var(--line); }
+  .phase h3 { margin-top: 0; }
+  .gate { font: 400 13px/1.5 var(--mono); color: var(--ink-3); margin: 8px 0 0; }
+  ul { padding-left: 20px; } li { margin: 6px 0; max-width: 65ch; }
+  .approval { background: var(--uv-dim); border-left: 2px solid var(--uv); padding: 14px 18px; margin: 24px 0; }
+  .approval h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 18px; }
+  .rec { border-color: var(--uv); background: var(--panel); }
+  .warn { color: var(--warn); font-weight: 500; }
+  .muted { color: var(--ink-3); font-size: 14px; }
+  .kv { display: grid; grid-template-columns: 150px 1fr; gap: 6px 16px; font-size: 14px; margin: 10px 0; }
+  .kv dt { font: 500 11px/1.6 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  .kv dd { margin: 0; }
+  .states { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 14px 0; }
+  .state { border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; background: var(--panel); font-size: 14px; }
+  .state b { display: block; font: 500 11px/1.6 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  .pill { display: inline-block; font: 500 11px/1 var(--mono); letter-spacing: .06em; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); }
+  .pill .star { color: var(--uv); }
+  .canvas { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; border: 1px solid var(--uv); border-radius: 8px; padding: 14px 18px; margin: 16px 0; background: var(--panel); }
+  .canvas a { font-weight: 600; }
+  @media (max-width: 520px) { .kv { grid-template-columns: 1fr; } .kv dt { margin-top: 8px; } }
+  a { color: var(--uv); }
+</style>
+
+<main>
+  <p class="eyebrow">Plan · light tier · presto-mine · Plan A · shipped 2026-09-09 · PR #28</p>
+  <h1>Presto on the Mine page</h1>
+  <p class="done"><b>Shipped 2026-09-09.</b> All four phases green, three codex review rounds to convergence, open as <a href="https://github.com/alejoamiras/elixir/pull/28">PR #28</a>. The miner suite passes with a real headless Presto: 19 specs locally in 16.2 min and in CI at <code>c5f8c00</code> in 24.2 min.</p>
+  <p class="lede">Presto is your native prover: a small app on the visitor's machine (or a headless server on a box) that proves Noir circuits with the real <code>bb</code> instead of the browser's slow WebAssembly. The miner proves one circuit per nonce, in the browser, today. This plan makes it hand that proof to Presto when Presto is there and working, keep proving in the browser when it is not, say plainly which one is running, and, when Presto is missing, show Presto's own billboard inviting the install. The wallet, the claim and the proving keys stay exactly as they are.</p>
+
+  <div class="canvas">
+    <span><strong>The screens, drawn on the real cockpit.</strong><br><span class="muted">Plan A (six artboards): billboard · native · the fix-it row on the page · every row state · Settings both ways · the pop-out. Plan B (five artboards, the rows below): the same states with Presto's own brand on the indicator and Presto's ribbon for the fix-it states. Pick A or B there; nothing is built before.</span></span>
+    <a href="https://claude.ai/code/artifact/17ef5779-8b73-491d-9f26-874e1ac3aabf">Open the canvas →</a>
+  </div>
+
+  <h2>What the visitor sees</h2>
+  <div class="states">
+    <div class="state"><b>Presto not installed</b>Presto's billboard under the header of the Mine page: the pitch and a "Get Presto" button to presto.build. Dismissable; it stays away for a week. Mining works as today underneath it. (An installed Presto whose encrypted connection is switched off looks the same from the shipped page, see question 6.)</div>
+    <div class="state"><b>Presto installed and working</b>No banner. Once the first native proof has actually come back, the status pill reads <span class="pill">mining · <span class="star">✦</span> presto</span> (Plan A) or gains an indigo <em>presto✦</em> chip beside it (Plan B), the loop tile's rate line says <code>native</code> (A) or <em>presto</em> (B), and the power slider (on Mine's rail and in Settings → Performance) greys out with a line pointing at Presto's own speed setting (A) or gives way to a small Presto panel (B). Settings → Performance also gains a "prover" line.</div>
+    <div class="state"><b>Presto installed but something is in the way</b>One short row in the miner's own style, with Retry: the browser blocked local access (allow it for this site), Presto needs an update, you have not yet approved yacana.network in the Presto app, Presto is busy, or it returned a proof that did not check out. Mining continues in the browser meanwhile, the pill drops the ✦, the slider is live again. If Presto has a newer Aztec than the miner's, it fetches the matching <code>bb</code> once before the first native proof, and an info row says so.</div>
+    <div class="state"><b>Presto fails mid-session</b>The failed proof is redone in the browser on the spot, on the same nonce; the miner sticks to the browser from then on, the ✦ goes, the row names the reason. A busy Presto gets three chances before that. Retry re-checks Presto and, if it answers, brings native back without losing the job.</div>
+  </div>
+
+  <h2>Why this tier</h2>
+  <p>Rubric: novelty low (you wrote Presto; its Noir kit slots in where the browser prover sits today), blast radius medium (the miner only; the wallet's proofs are untouched), irreversibility low, migration none, external coupling <span class="warn">high</span> (a local third-party process, its kit, its permission popups), security sensitivity medium (the page's request guard admits a fixed set of local addresses; Presto sees the circuit's witness, never your key). One high would say <code>mid</code>; you chose <code>light</code> because the surface is bounded (one app, one new class in the guard, one prover behind an interface that already exists). The single codex audit carried the adversarial ask with full weight, and its verdict was "rework": bounded corrections, no change of shape, all folded in. Budget: two recon agents, one plan audit at high, code-review off.</p>
+
+  <h2>Decisions you already took</h2>
+  <dl class="kv">
+    <dt>Banner</dt><dd>Presto's billboard, not the ribbon. It only knows two states (missing, present), so the fix-it states get the miner's own row.</dd>
+    <dt>When to check</dt><dd>As soon as the cockpit is ready, signed out included, so the billboard can show before anyone signs in. Consequence: Chrome may ask for local-network permission before the visitor touches anything; the check never blocks boot or sign-in.</dd>
+    <dt>Where "native" shows</dt><dd>The status pill's suffix, Settings → Performance, and the loop tile's rate line (the pop-out too).</dd>
+    <dt>Proof it works</dt><dd>A real headless Presto on the homelab and in CI (that is what the headless build is for), plus unit and component tests.</dd>
+    <dt>Banners package</dt><dd><code>@alejoamiras/presto-banners</code> 1.0.0, released today at 14:55 UTC, pinned exact.</dd>
+    <dt>Screens first</dt><dd>Every UI change is approved on the canvas before it is built; the canvas is a prerequisite of phase 2.</dd>
+  </dl>
+
+  <h2>Phases</h2>
+  <div class="phase"><h3><span style="color:var(--ok)">✓</span> P1 · The proof goes through Presto</h3><p>The miner's worker learns a second way to prove: send the circuit and the inputs to Presto's local endpoint, get the proof back. A winning proof from Presto is checked once in the browser, against the inputs the miner itself supplied, before it is announced, so a broken or lying Presto never reaches the claim. The page's request guard learns exactly the handful of local addresses Presto's kit uses, and nothing else local. The first failure from Presto is redone in the browser on the same nonce. The script that installs the pinned headless Presto (checksum committed) lands here too, since this phase's live test needs it.</p><p class="gate">proves itself by: lint and typecheck · unit tests with a fake Presto (the request's shape, a refusal sticks and names itself, a busy answer is retried natively next time and sticks after three, a bad proof is caught, the guard still blocks other local ports and refuses a node at a Presto address) · the worker's existing scheduler tests still green · a live test on the homelab: one proof through the real headless Presto, byte-identical to the browser's proof of the same inputs, the winning check true on it and false on a corrupted copy, its cost measured <strong>Passed: Native 1854 ms against the browser’s 9153 ms at eleven threads, the same proof byte for byte, the winning check true on it and false on a corrupted copy.</strong></p></div>
+  <div class="phase"><h3><span style="color:var(--ok)">✓</span> P2 · The check, the billboard, the fix-it row, the ✦ · <span class="warn">needs the canvas approved</span></h3><p>The page asks Presto "are you there?" once the cockpit is ready, on Start, and on Retry. Missing → the billboard (loaded only then; its fonts request switched off so the page makes no new network call). In the way → the row with the reason and Retry, which also brings native back once Presto answers. Working → nothing to see but the ✦ in the pill after the first native proof, <code>native</code> in the rate line, and the greyed slider with its reason.</p><p class="gate">proves itself by: lint and typecheck · component tests (billboard only when missing and nothing loaded otherwise; each row's wording and Retry; ✦ and native appear after the first native proof and vanish on a fallback; the tile's two looks; the slider disabled) · unit tests for the wording per state and for the production build refusing any plain-http address · a real-browser check of Chrome's local-network prompt, undecided and denied, with screenshots · renders beside the artboards <strong>Passed: The three states drawn and checked against the artboards; Chrome’s local-network prompt exercised for real, with screenshots.</strong></p></div>
+  <div class="phase"><h3><span style="color:var(--ok)">✓</span> P3 · The browser test and CI</h3><p>The miner's isolated test network starts a headless Presto on a registry port, in its own process group, with its own home directory, told which Aztec version it is (so it never downloads anything) and pointed at the same <code>bb</code> the Aztec toolchain installs; it is stopped politely first, so its own child process goes with it. The browser suite then mines through it (the native proof actually observed on the wire, the pill reads ✦ presto, a claim lands from that session) and, with Presto pointed at a closed port, shows the billboard and mines in the browser with no ✦. The tests that exist today keep running in the browser prover, untouched. The dispatchable CI workflow gains the same.</p><p class="gate">proves itself by: shellcheck and actionlint · the whole miner browser suite green on the homelab with headless Presto running, nothing downloaded, nothing left running afterwards · the CI job green on GitHub at this branch's commit <strong>Passed: Nineteen browser specs against a real headless Presto: 16.2 min here, 24.2 min in CI, nothing downloaded, nothing left running.</strong></p></div>
+  <div class="phase"><h3><span style="color:var(--ok)">✓</span> P4 · Docs and close</h3><p>The threat model gains the accelerator row (what it sees, what it cannot, what remains), the package table and the miner README say how to run with Presto, the plans index gets the entry.</p><p class="gate">proves itself by: lint · the full unit suite · a clean frozen-lockfile install <strong>Passed: The threat model, the package table, the miner README and the plans index all carry Presto.</strong></p></div>
+
+  <h2>Human context</h2>
+  <ul>
+    <li><strong>Why Presto never sees a secret.</strong> The work circuit's inputs are the domain, the seed, the epoch, a commitment to the miner and the nonce. The key that spends is not among them, and the prover is only ever handed those inputs, never the job. What Presto can do is notice that all the proofs of one session belong together.</li>
+    <li><strong>Why the browser still checks the winning proof, and what that does not buy.</strong> A Presto that returns rubbish would make the miner think it won and then fail the claim; one check per win, against the miner's own inputs, keeps that off the chain. It cannot catch a Presto that quietly returns losing rubbish forever, or stalls: that shows up only as a dead rate. Binding a local port is a weaker capability than controlling your browser, so Presto is treated as untrusted throughout.</li>
+    <li><strong>Why a first native proof, not a connected Presto, lights the ✦.</strong> Building the connection proves nothing; the first proof that actually comes back does. Before that the pill says nothing about Presto.</li>
+    <li><strong>Why headless Presto is a test device, not a production path.</strong> The headless server speaks plain http on the loopback address and has no encrypted mode. The shipped page only talks https, and Presto's kit defaults to https in a browser. The test build admits the plain local port; a config test builds production with hostile test settings and finds none.</li>
+    <li><strong>Why versions matter.</strong> Presto proves with the exact <code>bb</code> version the page asks for (the miner is pinned to Aztec 5.2.0). Today's Presto ships that version; when Presto moves ahead, it downloads 5.2.0 once, checksum verified, and keeps it. The test rig tells the headless server which version it is so it never downloads anything in CI, and the run checks that it did not.</li>
+    <li><strong>Why the threads slider greys out.</strong> While Presto is the prover, the browser's thread count changes nothing: Presto's own speed setting, in its app, decides how many threads its <code>bb</code> uses. The slider saying otherwise would lie, so it points there instead.</li>
+    <li><strong>Why "Presto needs an update" is rare.</strong> Presto downloads whatever <code>bb</code> version a page asks for, so a version difference is never an error, only a one-time download. That row appears only for a Presto too old to serve this kind of proof at all.</li>
+    <li><strong>Why the billboard cannot carry the fix-it states.</strong> Presto's billboard renders only "missing" and "present" by design, and has no Retry of its own; the states that need a hint belong to Presto's ribbon. Rather than two Presto surfaces on one page, the miner draws those hints in its own row, in Presto's words.</li>
+    <li><strong>Why the seven-day rule bites.</strong> The repo refuses any npm package younger than seven days, a guard against poisoned releases. Presto's kit was published yesterday and the banners today. The exception Bun offers is by package name, for every future version too, so it is a lasting decision, not a one-off.</li>
+  </ul>
+
+  <h2>What the review found after it was built</h2>
+  <p>Three rounds with the same codex session, over the whole diff with the renders attached. Round one returned ten findings, round two five, round three none: <em>"no material correctness or security finding remains in this diff. The production-code review has converged."</em> Every claim was checked against the source before it was acted on, and all of them held. The two that mattered most: a proof made in the browser while Presto was busy was being labelled native, and pressing Start could not bring native proving back after you approved the site in the Presto app, because nothing about the configuration had changed and the rebuild was skipped. A fourth thing was caught by the pull request's own gate rather than by review: the prover suite passed here only because this machine had bb.js's proving keys cached, so it now brings its own.</p>
+
+  <h2>What the reviewer said before it was built</h2>
+  <p>Codex (GPT-6 Astra, one pass at high, read-only, both repos) returned <strong>rework</strong>: the shape was right, the plan was not yet buildable. Its material corrections, each checked against the source and folded in:</p>
+  <ul>
+    <li><strong>The guard admitted one address; Presto's kit uses several.</strong> The health check and the proof route are different addresses, in http and https flavours. The guard now admits the fixed set derived from one config, and refuses a node configured at any of them.</li>
+    <li><strong>The fallback was designed in the wrong place.</strong> The mining loop holds its prover for a whole run of nonces, so swapping the worker's prover from outside would miss the running job or repeat nonces. The swap now happens inside the prover itself, on the same witness, using the kit's own "force local" switch.</li>
+    <li><strong>"Busy" is not a retry in the kit.</strong> A busy Presto is an immediate fallback; the plan now gives it three chances across nonces before sticking to the browser.</li>
+    <li><strong>The old rule would have refused a healthy Presto that merely had to download a version.</strong> Removed; the download is a phase the row explains.</li>
+    <li><strong>The ✦ would have lit on connection, not on proof.</strong> Now it lights after the first native proof.</li>
+    <li><strong>The winning check has to use the miner's own inputs</strong>, not what Presto says they were, and the miner has to re-check that nobody pressed Stop while it was verifying.</li>
+    <li><strong>The billboard has no Retry button</strong>; Start and the row's Retry are the way back.</li>
+    <li><strong>CI would have downloaded <code>bb</code> from GitHub every run</strong> (found independently before the audit landed) and killed Presto in a way that orphans its child process; both fixed.</li>
+    <li><strong>Two claims in the security section were wrong</strong>: "a lying Presto costs one proof" and "whoever owns the machine owns the browser". Both rewritten with the honest residuals.</li>
+    <li><strong>Smaller dependency</strong>: the page's health check uses the core kit, not the full one that drags the Chonk prover in.</li>
+  </ul>
+  <p class="muted">Nothing was rejected outright. The full transcript and the 32-row verification ledger are in <code>audit-codex.md</code>.</p>
+  <h3>Second pass, on the revised plan</h3>
+  <p>The same codex session re-read the rewritten plan with your decisions in. Verdict: <strong>approve with changes</strong>: "the revised fallback architecture, cryptographic binding, exact URL guard, version negotiation, and production transport policy hold." Six small wiring edits, all folded in: the ✦ now follows what is actually proving at every moment (a busy Presto's browser proof shows as browser, native returns with the next native proof); a win is shown only after it has been checked, never before; Retry gets past the "nothing changed" shortcut and can never restart mining after you pressed Stop; a Presto too old for this kind of proof gets the update row instead of silence; the test rig waits longer than Presto needs to stop its own child before forcing it; and the browser test has to prove that the claimed win itself came from Presto, not just that Presto answered once.</p>
+
+  <h2>Your decisions (2026-09-09)</h2>
+  <ul>
+    <li><strong>1 · The fix-it surface — still open, and tied to Plan A / Plan B.</strong> The billboard you chose can only say two things: "install Presto" and "Presto connected". When Presto <em>is</em> installed but something is in the way (the browser blocked it, you have not approved the site in the app, it is too old, it misbehaved), something else has to tell the visitor what to do and offer Retry. <strong>A</strong> is our own amber row, the one the node banner already uses, with Presto's wording (artboards 3 and 4). <strong>B</strong> is Presto's ribbon, its own component in its indigo and gold, with its own sentences where it has them (artboards B2 and B3). A keeps one voice inside the cockpit; B is unmistakably Presto and matches the billboard. Recommended: A.</li>
+    <li><strong>2 · The seven-day rule — exception.</strong> Exactly the three Presto packages, the reason written beside it, and it stays.</li>
+    <li><strong>3 · Licence — no problem.</strong> AGPL accepted for the page. If you want it gone for every dApp that ever embeds Presto, relicense the three npm packages MIT (or Apache-2.0) in the Presto repo; the desktop app can stay AGPL. Your call there, not part of this plan.</li>
+    <li><strong>4 · The slider while native — greyed out (A) or replaced by a Presto panel (B).</strong> Your correction is in: Presto's thread count is its own speed setting, configurable in its app, so the caption points there. "One at a time" is gone from the copy.</li>
+    <li><strong>5 · The billboard — the Mine route only.</strong></li>
+    <li><strong>6 · No plain-http address in the production policy.</strong> An installed Presto with encryption off shows the billboard.</li>
+  </ul>
+
+  <div class="approval">
+    <h2>What is left</h2>
+    <ul>
+      <li><strong>Your merge.</strong> <a href="https://github.com/alejoamiras/elixir/pull/28">PR #28</a> is open against main and nothing merges without you. Twelve commits, all four phases green.</li>
+      <li><strong>Plan B stays on the canvas.</strong> The indicator and the fix-it row are each one component, so switching the miner to Presto's own colours later is still cheap.</li>
+      <li><strong>Two follow-ups you may want, neither in this plan.</strong> Relicensing the three Presto npm packages away from AGPL, which is your call in the Presto repo. And the miner's browser suite is now forty minutes in CI: splitting it into a chainless lane, a mining lane and a small real-claim lane would roughly halve the wall clock without giving up what it proves.</li>
+    </ul>
+  </div>
+
+  <h2>Implementation seeds (final)</h2>
+  <p class="muted">Use exactly one per session. They do not compose: setting one replaces the other. Start the session inside the plan's worktree (<code>agent-worktree resume presto-mine</code>) in the permission mode you intend.</p>
+  <h3>Recommended: /goal</h3>
+  <p class="muted">Every completion signal here is visible in the transcript (the ✓ in plan.md, the gates' output, the live test, the CI job, the PR), so the condition-driven primitive fits and survives a resume.</p>
+  <pre class="rec">/goal All phases marked ✓ in implementations-plan/presto-mine/plan.md (the per-phase headers in the file — not the chat, not the task list), each ✓ backed by its phase's validation gate (as defined in plan.md) reported passing in the transcript — P1's live test against the headless server on the homelab, P2's real-browser LNA check and P3's e2e run and CI job (with its head SHA) included; for each phase the agent has printed `LESSONS_FILE=implementations-plan/presto-mine/lessons/phase-N.md` in the transcript; `/code-review` was NOT run (code_review is off); the codex fix loop over the whole diff converged, evidenced by a resumed codex pass reporting no new material findings, quoted in the transcript; the PR exists on GitHub, created only AFTER the loop converged (`gh pr view` output in the transcript), its body linking the 1280/1440 renders beside the approved canvas artboards; `bun run lint` and `bun test` both report exit 0 in the transcript.</pre>
+  <h3>Alternative: /loop 15m</h3>
+  <pre>/loop 15m Drive implementations-plan/presto-mine forward. Never idle waiting for my input. Each firing: (1) read plan.md and lessons/ (authoritative state), rebuild the task list from plan.md if empty, `git status`, `git log --oneline -5`, `gh pr view --json statusCheckRollup` if a PR exists; (2) waiting on CI is fine if it is progressing (`gh run watch` up to 10 min); use the wait to prep the next phase; (3) no task in hand → take the next pending phase; after each meaningful edit run `bun run lint` and the touched packages' tests and `typecheck`, commit, push; (4) stuck or facing a decision → `/codex high` with full context, decide, act, log the consult in lessons/phase-N.md; hard limits stay hard (never merge, deploy, push to main, or expand scope beyond plan.md; no plaintext origin in the production CSP unless Ask 6 said so; the guard admits the fixed URL set of one endpoint; no UI state that is not on the approved canvas); (5) same step failed 5 times → stop and reassess with codex; (6) phase green means its validation gate in plan.md passes: run it, paste the result, mark ✓, print `LESSONS_FILE=…`, `agent-worktree status presto-mine "phase N green: <next>"`; (7) all phases ✓ → the codex loop over the net diff with the renders and the plan's two rules until a round yields nothing material, then Delivery per plan.md (`gh pr create`, the body, `gh pr checks --watch`), then the wrap-up report; surface and stop.</pre>
+
+  <p class="muted">The full plan, with the engineering detail and the security section, is <code>implementations-plan/presto-mine/plan.md</code> in the worktree; the audit transcript is <code>audit-codex.md</code> beside it; the artboards' source is <code>canvas/</code>.</p>
+</main>

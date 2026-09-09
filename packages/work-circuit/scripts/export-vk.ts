@@ -33,6 +33,10 @@ export const W_VK: readonly string[] = [
 ${fields.map((f) => `  '${f}',`).join('\n')}
 ];
 export const W_VK_HASH = '${hash}';
+/** bb's binary VK (115 × 32 bytes): the fields above, concatenated — what a native prover takes as the key. */
+export const W_VK_BYTES: Uint8Array = Uint8Array.from(W_VK.flatMap((f) => f.slice(2).match(/../g) ?? []), (h) =>
+  Number.parseInt(h, 16),
+);
 `;
 mkdirSync(resolve(workCircuitRoot, 'crates', 'verify_w', 'src'), { recursive: true });
 mkdirSync(resolve(workCircuitRoot, 'src', 'generated'), { recursive: true });

@@ -230,3 +230,41 @@ describe('node guard', () => {
     expect(calls).toEqual([]);
   });
 });
+
+describe('node guard, the accelerator', () => {
+  const HEALTH = 'http://127.0.0.1:59833/health';
+  const PROVE = 'http://127.0.0.1:59833/prove/ultra-honk';
+
+  test('its URLs pass with the deadline and no redirects, unreported even inside a quiet scope; the rest of the host is blocked', async () => {
+    const seen: string[] = [];
+    const off = guard.onNodeResponse((o) => seen.push(o.endpoint));
+    guard.setAcceleratorEndpoints([HEALTH, PROVE], 500);
+    try {
+      calls.length = 0;
+      await (await fetch(HEALTH)).text();
+      await guard.quietNodeReads(async () =>
+        (await fetch(PROVE, { method: 'POST', redirect: 'follow' })).text(),
+      );
+      expect(calls.map((c) => c.href)).toEqual([HEALTH, PROVE]);
+      expect(calls[1]?.init?.redirect).toBe('error');
+      expect(calls[1]?.init?.signal).toBeInstanceOf(AbortSignal);
+      expect(seen).toEqual([]);
+      await expect(fetch('http://127.0.0.1:59833/prove')).rejects.toThrow(/blocked endpoint/);
+      await expect(fetch('http://127.0.0.1:59834/health')).rejects.toThrow(/blocked endpoint/);
+      await expect(fetch('http://127.0.0.1:59833/health?x=1')).rejects.toThrow(/blocked endpoint/);
+    } finally {
+      off();
+      guard.setAcceleratorEndpoints(null, 500);
+    }
+    await expect(fetch(HEALTH)).rejects.toThrow(/blocked endpoint/);
+  });
+
+  test('a node at an accelerator URL is refused, in either order', async () => {
+    guard.setAcceleratorEndpoints([HEALTH, PROVE], 500);
+    expect(() => guard.setNodeEndpoint(PROVE, 1_000)).toThrow(/accelerator/);
+    expect(guard.currentNodeEndpoint()).toBe(NODE);
+    guard.setAcceleratorEndpoints(null, 500);
+    expect(() => guard.setAcceleratorEndpoints([NODE, PROVE], 500)).toThrow(/node/);
+    await expect(fetch(PROVE)).rejects.toThrow(/blocked endpoint/);
+  });
+});

@@ -1,5 +1,7 @@
-// Bun-side E2E teardown: kills exactly the Vite process group this run spawned, releases its port.
+// Bun-side E2E teardown: kills exactly the process groups this run spawned (Vite, the proxies; Presto
+// with SIGTERM first so it ends its own bb child), releases its ports.
 import { rmSync } from 'node:fs';
+import { stopPrestoServer } from '../../../scripts/run/presto.ts';
 import { release } from '../../../scripts/run/registry.ts';
 import { type E2eRun, RUN_FILE } from './run.ts';
 
@@ -13,6 +15,7 @@ if (await file.exists()) {
       /* already gone */
     }
   }
+  if (run.prestoPid) await stopPrestoServer(run.prestoPid);
   await release(run.runId).catch(() => {});
   rmSync(RUN_FILE, { force: true });
 }

@@ -18,6 +18,7 @@ import { type Deployment, type Fee, readBalance, readEpoch, sendClaim, sendRoll 
 import { chime } from './chime';
 import { amount } from './lib/format';
 import { type Command, type Event, reduce } from './lib/reducer';
+import { type PrestoEndpoint, type ProverKind, prestoAtom } from './presto';
 import { settingsAtom } from './settings';
 import { balanceAtom, claimsAtom, epochAtom, logAtom, minerAtom } from './state';
 import type { FromWorker, MineJob, ToWorker } from './worker-protocol';
@@ -52,6 +53,8 @@ export interface MinerOptions {
   store: Store;
   spawnWorker: () => Worker;
   threads: number;
+  /** Presto's endpoint when the page's probe found it worth asking; null proves in WASM as before. */
+  presto?: PrestoEndpoint | null;
   deployment: Deployment;
   account: AztecAddress;
   fee: Fee;
@@ -68,6 +71,8 @@ export interface LastClaim {
   nullifiers: string[];
   noteHashes: string[];
   ticketNullifier: string;
+  /** Who made the claimed winning proof. */
+  prover: ProverKind;
 }
 
 const short = (hex: string) => `${hex.slice(0, 8)}…${hex.slice(-4)}`;
@@ -87,6 +92,7 @@ async function claimMarks(
   effect: TxEffect,
   digest: string,
   miner: AztecAddress,
+  prover: ProverKind,
 ): Promise<LastClaim & { nullifier: string; noteHash: string; noteHashes: string[] }> {
   const ticket = (await ticketNullifier(Fr.fromString(digest), miner)).toString();
   const nullifiers = effect.nullifiers.map((n) => n.toString());
@@ -96,6 +102,7 @@ async function claimMarks(
     nullifiers,
     noteHashes,
     ticketNullifier: ticket,
+    prover,
     nullifier: nullifiers.find((n) => n === ticket) ?? nullifiers[1] ?? '0x0',
     noteHash: noteHashes[0] ?? '0x0',
   };
@@ -105,6 +112,7 @@ export class MinerController {
   private readonly store: Store;
   private readonly spawnWorker: () => Worker;
   private threads: number;
+  private presto: PrestoEndpoint | null;
   private d: Deployment;
   private readonly account: AztecAddress;
   private fee: Fee;
@@ -122,6 +130,7 @@ export class MinerController {
     proofFields: string[];
     digest: string;
     secretId: number;
+    prover: ProverKind;
   } | null = null;
   private timer: ReturnType<typeof setInterval> | undefined;
   private pauseTimer: ReturnType<typeof setTimeout> | undefined;
@@ -129,6 +138,8 @@ export class MinerController {
   private prover: Prover;
   private generations = 0;
   private crashes = 0;
+  /** Bumped per user Stop: work queued behind a Start (the Presto probe) checks it before acting. */
+  private stops = 0;
   private refreshing: Promise<void> = Promise.resolve();
   /** The real chain read behind the latest refresh, settled past the deadline: what a switch drains. */
   private inflightRead: Promise<void> = Promise.resolve();
@@ -156,6 +167,7 @@ export class MinerController {
     this.store = o.store;
     this.spawnWorker = o.spawnWorker;
     this.threads = o.threads;
+    this.presto = o.presto ?? null;
     this.d = o.deployment;
     this.account = o.account;
     this.fee = o.fee;
@@ -195,17 +207,29 @@ export class MinerController {
       };
     });
     ready.catch(() => {});
-    worker.postMessage({ type: 'init', threads: this.threads } satisfies ToWorker);
+    worker.postMessage({ type: 'init', threads: this.threads, presto: this.presto } satisfies ToWorker);
     return { worker, ready, generation };
   }
 
   /** A crash after a successful start is replaced, a bounded number of times per page lifetime. */
   private replaceProver(reason: string) {
     this.prover.worker.terminate();
+    this.clearPrestoView();
     this.dispatch({ type: 'failed', error: reason });
     this.log(reason);
     if (++this.crashes >= MAX_CRASHES) return this.abandonProver('prover keeps crashing; reload the page');
     this.prover = this.attach();
+  }
+
+  /** What the page knows of the Worker's Presto is that Worker's: a new or a dead one leaves none of it behind. */
+  private clearPrestoView() {
+    this.store.set(prestoAtom, (s) => ({
+      ...s,
+      selected: null,
+      active: null,
+      phase: undefined,
+      fallbackReason: undefined,
+    }));
   }
 
   /**
@@ -215,6 +239,7 @@ export class MinerController {
   private abandonProver(reason: string) {
     this.prover.worker.terminate();
     this.generations++;
+    this.clearPrestoView();
     this.dispatch({ type: 'prover-dead', error: reason });
     this.log(reason);
   }
@@ -248,6 +273,7 @@ export class MinerController {
     if (this.pauseTimer) clearTimeout(this.pauseTimer);
     this.generations++;
     this.prover.worker.terminate();
+    this.clearPrestoView();
   }
 
   /** Under a page-side pause the intent is kept: mining starts when the last reason clears. */
@@ -262,16 +288,31 @@ export class MinerController {
   }
 
   stop() {
+    this.stops++;
     this.resumeWhenClear = false;
     this.dispatch({ type: 'stop' });
   }
 
-  /** Power: the Worker finishes the proof in flight, rebuilds bb.js and resumes at the next nonce. */
-  reconfigure(threads: number) {
-    if (threads === this.threads) return;
+  get stopCount(): number {
+    return this.stops;
+  }
+
+  /**
+   * Power, or Presto's endpoint: the Worker finishes the proof in flight, rebuilds the prover and
+   * resumes at the next nonce. `force` rebuilds under an unchanged config — a Retry after the Worker
+   * gave up on native, which only a rebuild brings back.
+   */
+  reconfigure(threads: number, presto: PrestoEndpoint | null = this.presto, opts?: { force?: boolean }) {
+    const same = threads === this.threads && JSON.stringify(presto) === JSON.stringify(this.presto);
+    if (same && !opts?.force) return;
     this.threads = threads;
-    this.post({ type: 'reconfigure', threads });
-    this.log(`power: ${threads} threads`);
+    this.presto = presto;
+    this.post({ type: 'reconfigure', threads, presto });
+    this.log(`prover: ${threads} threads${presto ? `, Presto at ${presto.host}:${presto.port}` : ''}`);
+  }
+
+  get currentPresto(): PrestoEndpoint | null {
+    return this.presto;
   }
 
   get currentThreads(): number {
@@ -462,7 +503,9 @@ export class MinerController {
         });
         return;
       case 'winner':
-        this.log(`ticket wins after ${m.attempts} proofs (nonce ${m.nonce})`);
+        this.log(
+          `ticket wins after ${m.attempts} proofs (nonce ${m.nonce}, ${m.prover === 'presto' ? 'native' : 'browser'})`,
+        );
         this.pending = {
           epoch: m.epoch,
           nonce: m.nonce,
@@ -470,6 +513,7 @@ export class MinerController {
           proofFields: m.proofFields,
           digest: m.digest,
           secretId: m.secretId,
+          prover: m.prover,
         };
         this.dispatch({ type: 'winner', epoch: m.epoch, secretId: m.secretId, at: Date.now() });
         return;
@@ -480,6 +524,26 @@ export class MinerController {
         if (this.generations === this.prover.generation) this.replaceProver(`worker: ${m.message}`);
         return;
       case 'ready':
+        // A fresh prover: whatever the previous one settled on is gone with it.
+        this.store.set(prestoAtom, (s) => ({
+          ...s,
+          selected: m.prover,
+          active: null,
+          phase: undefined,
+          fallbackReason: undefined,
+        }));
+        return;
+      case 'prover':
+        if (m.sticky) this.log(`proving in the browser from now on: ${m.reason}`);
+        this.store.set(prestoAtom, (s) => ({
+          ...s,
+          active: m.kind,
+          phase: undefined,
+          fallbackReason: m.sticky ? m.reason : s.fallbackReason,
+        }));
+        return;
+      case 'presto-phase':
+        this.store.set(prestoAtom, (s) => ({ ...s, phase: m.phase }));
         return;
     }
   }
@@ -500,7 +564,7 @@ export class MinerController {
       this.dispatch({ type: 'sent', txHash: sent.txHash, expiresAt: sent.expiresAt, at: Date.now() });
       const { block, effect } = await sent.wait();
       this.dispatch({ type: 'included', block, at: Date.now() });
-      const marks = await claimMarks(effect, p.digest, this.d.miner.address);
+      const marks = await claimMarks(effect, p.digest, this.d.miner.address, p.prover);
       this.lastClaim = marks;
       await this.refresh();
       const reward = `${amount(PARAMS.REWARD, PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL}`;

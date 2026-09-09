@@ -18,8 +18,13 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-aztec
+      - uses: ./.github/actions/setup-presto
       - run: bun run codegen && git diff --exit-code
       - run: bun run contracts:compile
+      # The runner image carries Google's Chrome apt source; when that repo is mid-publish its index fails
+      # the `apt-get update` inside --with-deps and the job dies before any test. Chromium comes from
+      # Playwright's own CDN, so the source is not needed here.
+      - run: grep -rl dl.google.com /etc/apt/sources.list.d /etc/apt/sources.list 2>/dev/null | xargs -r sudo rm -f
       - run: bunx playwright install --with-deps chromium
       - run: bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e
       - name: Keep the report
@@ -31,6 +36,8 @@ jobs:
             packages/web-miner/playwright-report
             packages/web-miner/test-results
             packages/web-miner/e2e/.vite.log
+            packages/web-miner/e2e/.renders
+            packages/web-miner/e2e/.presto-home/*/server.log
           if-no-files-found: ignore
           retention-days: 14
 
@@ -44,6 +51,10 @@ jobs:
       - uses: ./.github/actions/setup-aztec
       - run: bun run codegen && git diff --exit-code
       - run: bun run contracts:compile
+      # The runner image carries Google's Chrome apt source; when that repo is mid-publish its index fails
+      # the `apt-get update` inside --with-deps and the job dies before any test. Chromium comes from
+      # Playwright's own CDN, so the source is not needed here.
+      - run: grep -rl dl.google.com /etc/apt/sources.list.d /etc/apt/sources.list 2>/dev/null | xargs -r sudo rm -f
       - run: bunx playwright install --with-deps chromium
       - run: bun run e2e:agent -- bun run --cwd packages/web-stats test:e2e
       - name: Keep the report
@@ -67,6 +78,10 @@ jobs:
       - uses: ./.github/actions/setup-aztec
       - run: bun run codegen && git diff --exit-code
       - run: bun run contracts:compile
+      # The runner image carries Google's Chrome apt source; when that repo is mid-publish its index fails
+      # the `apt-get update` inside --with-deps and the job dies before any test. Chromium comes from
+      # Playwright's own CDN, so the source is not needed here.
+      - run: grep -rl dl.google.com /etc/apt/sources.list.d /etc/apt/sources.list 2>/dev/null | xargs -r sudo rm -f
       - run: bunx playwright install --with-deps chromium
       - run: bun run e2e:agent -- bun run --cwd packages/web-landing test:e2e
       - name: Keep the report

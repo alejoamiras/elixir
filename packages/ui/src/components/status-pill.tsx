@@ -23,6 +23,9 @@ const TONE: Record<Status, string> = {
   paused: 'border-bad/50 text-bad [&>i]:bg-bad',
 };
 
+/** The pill's own word for a status, for a caller that adds to it (a suffix) without replacing it. */
+export const statusLabel = (status: Status): string => LABEL[status];
+
 /** One pill per screen, top right; the 5 px square is the state light the favicon mirrors. */
 export function StatusPill({
   status,

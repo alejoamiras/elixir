@@ -141,7 +141,7 @@ describe('the page hotkeys', () => {
     const start = vi.fn();
     const controller = () => ({ start, stop: vi.fn(), reconfigure: vi.fn() }) as unknown as MinerController;
     function Keys({ enabled }: { enabled: boolean }) {
-      useHotkeys(controller, enabled);
+      useHotkeys(controller, start, enabled);
       return null;
     }
     const { rerender } = render(

@@ -131,6 +131,9 @@
       "name": "@yacana/web-miner",
       "version": "0.0.0",
       "dependencies": {
+        "@alejoamiras/presto-banners": "1.0.0",
+        "@alejoamiras/presto-core": "1.0.1",
+        "@alejoamiras/presto-noir": "1.0.1",
         "@aztec-foundation/aztec-standards": "5.2.0",
         "@aztec/accounts": "5.2.0",
         "@aztec/aztec.js": "5.2.0",
@@ -208,6 +211,12 @@
     "@adobe/css-tools": ["@adobe/css-tools@4.5.0", "", {}, "sha512-6OzddxPio9UiWTCemp4N8cYLV2ZN1ncRnV1cVGtve7dhPOtRkleRyx32GQCYSwDYgaHU3USMm84tNsvKzRCa1Q=="],
 
     "@adraffy/ens-normalize": ["@adraffy/ens-normalize@1.11.1", "", {}, "sha512-nhCBV3quEgesuf7c7KYfperqSS14T8bYuvJ8PcLJp6znkZpFc0AuW4qBtr8eKVyPPe/8RSr7sglCWPU5eaxwKQ=="],
+
+    "@alejoamiras/presto-banners": ["@alejoamiras/presto-banners@1.0.0", "", {}, "sha512-0igchxgggtYb1NBEtYV/epOsNLKBQ5WlInHj21kC9drrjZnzaMyvFApxSdgF3ZXovXb8VxSI13LvcR4OzP9nLg=="],
+
+    "@alejoamiras/presto-core": ["@alejoamiras/presto-core@1.0.1", "", { "dependencies": { "@logtape/logtape": "^2.3.2", "ms": "^2.1.3" } }, "sha512-9WCqrEzpS7B5CNFDese3tBLk6+gf3GHmtb+rZqLWvoLY5IIGvbWV2btqeMYL0kgClqDTJ1rry+Ev8wD/lqoE4A=="],
+
+    "@alejoamiras/presto-noir": ["@alejoamiras/presto-noir@1.0.1", "", { "dependencies": { "@alejoamiras/presto-core": "1.0.1", "@logtape/logtape": "^2.3.2" }, "peerDependencies": { "@aztec/bb.js": "5.2.0" } }, "sha512-+G3+OvOFpGlfZmIysHIukCfPbCqIiwVy1jmp+KRjWa31bsO8IzaPlhpUE0QZSgc9FlkfNRgX1kQT673liNNwNg=="],
 
     "@asamuzakjp/css-color": ["@asamuzakjp/css-color@5.1.11", "", { "dependencies": { "@asamuzakjp/generational-cache": "^1.0.1", "@csstools/css-calc": "^3.2.0", "@csstools/css-color-parser": "^4.1.0", "@csstools/css-parser-algorithms": "^4.0.0", "@csstools/css-tokenizer": "^4.0.0" } }, "sha512-KVw6qIiCTUQhByfTd78h2yD1/00waTmm9uy/R7Ck/ctUyAPj+AEDLkQIdJW0T8+qGgj3j5bpNKK7Q3G+LedJWg=="],
 
@@ -584,6 +593,8 @@
     "@lmdb/lmdb-win32-arm64": ["@lmdb/lmdb-win32-arm64@3.5.6", "", { "os": "win32", "cpu": "arm64" }, "sha512-J7A9aEQsQiv0TYtBGL7NDIPp2lOS8nnl+zm4sWZm1xlsTTaQ4PgD096Adzdrk27rw3UxCkDXdCUa4ax41oztBQ=="],
 
     "@lmdb/lmdb-win32-x64": ["@lmdb/lmdb-win32-x64@3.5.6", "", { "os": "win32", "cpu": "x64" }, "sha512-1g7G0knRX2iV/voDu54yxrGqw5Dk0w2oIYb7dgJq8IkOi+m7wbD8Q3QpPFjh0C01G58S88dqGn03len6UPCXsg=="],
+
+    "@logtape/logtape": ["@logtape/logtape@2.3.2", "", {}, "sha512-SfxHfSdDlTp6tLpYP5uezNitSCTQUB3FZ1MXDbgDBN9t9kvF+XL0rOGTIa/pJcDMy1o9FELaZ25E/Ypmsf5fNQ=="],
 
     "@msgpackr-extract/msgpackr-extract-darwin-arm64": ["@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.4", "", { "os": "darwin", "cpu": "arm64" }, "sha512-LCkGo6JDfaBhgST7UpPWgNgLINpcpabaHfyz5OBx75nUYxBsaEPxjnyNjWpeb/xBup/682QnBfRBy2/LvPutZQ=="],
 

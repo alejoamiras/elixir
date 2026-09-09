@@ -31,6 +31,7 @@ export function PowerSlider({
   threads,
   onChange,
   readout,
+  disabled,
   className,
 }: {
   cores: number;
@@ -38,6 +39,8 @@ export function PowerSlider({
   onChange: (threads: number) => void;
   /** The measured rate, e.g. "18.4 / min"; the readout is never a prediction. */
   readout?: React.ReactNode;
+  /** The setting is kept but not in force (another prover decides the threads): shown dimmed, not editable. */
+  disabled?: boolean;
   className?: string;
 }) {
   const { min, max } = powerRange(cores);
@@ -46,7 +49,11 @@ export function PowerSlider({
   const pct = (t: number) => (max === min ? 0 : ((t - min) / (max - min)) * 100);
   const id = React.useId();
   return (
-    <div data-slot="power-slider" className={cn('flex flex-col gap-2', className)}>
+    <div
+      data-slot="power-slider"
+      data-disabled={disabled ? '' : undefined}
+      className={cn('flex flex-col gap-2', disabled && 'opacity-45', className)}
+    >
       <div className="flex items-baseline justify-between gap-3">
         <label htmlFor={id} className="label-mono">
           power
@@ -63,9 +70,10 @@ export function PowerSlider({
         max={max}
         step={1}
         value={value}
+        disabled={disabled}
         onChange={(e) => onChange(clampThreads(Number(e.target.value), cores))}
         aria-valuetext={`${value} of ${max} threads`}
-        className="w-full accent-uv"
+        className="w-full accent-uv disabled:cursor-not-allowed"
       />
       <div className="relative h-8 font-mono text-2xs text-ink-2" aria-hidden>
         {mergedLabels(labels).map(({ names, threads: t }) => {

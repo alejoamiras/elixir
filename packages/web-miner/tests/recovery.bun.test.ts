@@ -15,7 +15,8 @@ class FakeWorker {
   sent: ToWorker[] = [];
   postMessage(m: ToWorker) {
     this.sent.push(m);
-    if (m.type === 'init') queueMicrotask(() => this.emit({ type: 'ready', threads: 1, initMs: 0 }));
+    if (m.type === 'init')
+      queueMicrotask(() => this.emit({ type: 'ready', threads: 1, initMs: 0, prover: 'wasm' }));
   }
   terminate() {}
   emit(m: FromWorker) {
@@ -59,7 +60,7 @@ const fee = {
   gasSettings: { gasLimits: {} },
 } as unknown as Fee;
 const account = AztecAddress.fromBigIntUnsafe(11n);
-const winner: FromWorker = {
+const winner: Extract<FromWorker, { type: 'winner' }> = {
   type: 'winner',
   epoch: 3n,
   secretId: 1,
@@ -68,6 +69,7 @@ const winner: FromWorker = {
   proofFields: [],
   digest: '0x2',
   attempts: 1,
+  prover: 'wasm',
 };
 const REVERTED = new Error(
   'Transaction 0x1 reverted: app_logic_reverted. Reason: Assertion failed: stale claim',

@@ -19,8 +19,8 @@ function fakeBackend(winAtNonce?: bigint) {
   const mined: { startNonce: bigint; secret: string }[] = [];
   let release: (() => void) | undefined;
   const backend: ProverBackend = {
-    async init(threads) {
-      calls.push(`init ${threads}`);
+    async init({ threads, presto }) {
+      calls.push(`init ${threads}${presto ? ` @${presto.port}` : ''}`);
     },
     async destroy() {
       calls.push('destroy');
@@ -46,14 +46,14 @@ describe('prover loop', () => {
     const posted: FromWorker[] = [];
     const f = fakeBackend();
     const loop = createProverLoop(f.backend, (m) => posted.push(m));
-    loop.handle({ type: 'init', threads: 11 });
+    loop.handle({ type: 'init', threads: 11, presto: null });
     loop.handle({ type: 'mine', job: job() });
     await tick();
     f.prove(); // nonce 1 done
     await tick();
     f.prove(); // nonce 2 done
     await tick();
-    loop.handle({ type: 'reconfigure', threads: 3 });
+    loop.handle({ type: 'reconfigure', threads: 3, presto: null });
     f.prove(); // nonce 3: the proof in flight finishes, then the job stops
     await tick();
     await tick();
@@ -69,10 +69,10 @@ describe('prover loop', () => {
     const posted: FromWorker[] = [];
     const f = fakeBackend();
     const loop = createProverLoop(f.backend, (m) => posted.push(m));
-    loop.handle({ type: 'init', threads: 4 });
+    loop.handle({ type: 'init', threads: 4, presto: null });
     loop.handle({ type: 'mine', job: job() });
     await tick();
-    loop.handle({ type: 'reconfigure', threads: 2 });
+    loop.handle({ type: 'reconfigure', threads: 2, presto: null });
     loop.handle({ type: 'stop' });
     f.prove();
     await tick();
@@ -88,8 +88,8 @@ describe('prover loop', () => {
   test('a reconfigure while idle rebuilds at once and a job arriving meanwhile waits for it', async () => {
     const f = fakeBackend();
     const loop = createProverLoop(f.backend, () => {});
-    loop.handle({ type: 'init', threads: 4 });
-    loop.handle({ type: 'reconfigure', threads: 6 });
+    loop.handle({ type: 'init', threads: 4, presto: null });
+    loop.handle({ type: 'reconfigure', threads: 6, presto: null });
     loop.handle({ type: 'mine', job: job() });
     await tick();
     expect(f.calls).toEqual(['init 4', 'destroy', 'init 6']);
@@ -98,23 +98,34 @@ describe('prover loop', () => {
 });
 
 describe('prover loop, rebuilds under contention', () => {
-  test('reconfigures during a rebuild coalesce into one more, at the latest count', async () => {
+  test('reconfigures during a rebuild coalesce into one more, at the latest whole config', async () => {
     const f = fakeBackend();
     const loop = createProverLoop(f.backend, () => {});
-    loop.handle({ type: 'init', threads: 4 });
-    loop.handle({ type: 'reconfigure', threads: 6 });
-    loop.handle({ type: 'reconfigure', threads: 2 });
-    loop.handle({ type: 'reconfigure', threads: 8 });
+    const presto = { host: '127.0.0.1', port: 59833, httpsPort: 59834, httpsOnly: true };
+    loop.handle({ type: 'init', threads: 4, presto: null });
+    loop.handle({ type: 'reconfigure', threads: 6, presto });
+    loop.handle({ type: 'reconfigure', threads: 2, presto: null });
+    loop.handle({ type: 'reconfigure', threads: 8, presto });
     await tick();
-    expect(f.calls).toEqual(['init 4', 'destroy', 'init 6', 'destroy', 'init 8']);
+    expect(f.calls).toEqual(['init 4', 'destroy', 'init 6 @59833', 'destroy', 'init 8 @59833']);
+  });
+
+  test('the same threads with the endpoint added is a rebuild: a native retry never needs a second init', async () => {
+    const f = fakeBackend();
+    const loop = createProverLoop(f.backend, () => {});
+    const presto = { host: '127.0.0.1', port: 59833, httpsPort: 59834, httpsOnly: true };
+    loop.handle({ type: 'init', threads: 4, presto: null });
+    loop.handle({ type: 'reconfigure', threads: 4, presto });
+    await tick();
+    expect(f.calls).toEqual(['init 4', 'destroy', 'init 4 @59833']);
   });
 
   test('a stop while a job waits for a rebuild wins: nothing mines, the stop is reported', async () => {
     const f = fakeBackend();
     const posted: FromWorker[] = [];
     const loop = createProverLoop(f.backend, (m) => posted.push(m));
-    loop.handle({ type: 'init', threads: 4 });
-    loop.handle({ type: 'reconfigure', threads: 6 });
+    loop.handle({ type: 'init', threads: 4, presto: null });
+    loop.handle({ type: 'reconfigure', threads: 6, presto: null });
     loop.handle({ type: 'mine', job: job(5n) });
     loop.handle({ type: 'stop' });
     await tick();
@@ -129,8 +140,8 @@ describe('prover loop, rebuilds under contention', () => {
   test('two jobs arriving during a rebuild: only the last one mines', async () => {
     const f = fakeBackend();
     const loop = createProverLoop(f.backend, () => {});
-    loop.handle({ type: 'init', threads: 4 });
-    loop.handle({ type: 'reconfigure', threads: 6 });
+    loop.handle({ type: 'init', threads: 4, presto: null });
+    loop.handle({ type: 'reconfigure', threads: 6, presto: null });
     loop.handle({ type: 'mine', job: { ...job(), secretId: 1 } });
     loop.handle({ type: 'mine', job: { ...job(), secretId: 2 } });
     await tick();

@@ -160,7 +160,9 @@ test('first visit creates an account, mines at the easy target, claims and shows
   await expect(page.getByTestId('balance')).toHaveText('4');
   await page.getByTestId('start').click();
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
-  await expect(page.getByTestId('balance')).toHaveText('8');
+  // The claim's own balance read can land before this visit's PXE has synced the new note; the poll
+  // publishes it a few reads later. On a slow machine that is minutes, not the default's one minute.
+  await expect(page.getByTestId('balance')).toHaveText('8', { timeout: 5 * 60_000 });
   await page.getByTestId('stop').click();
   memory.stop();
   console.log(`peak browser process-tree RSS: ${memory.peakMiB()} MiB`);

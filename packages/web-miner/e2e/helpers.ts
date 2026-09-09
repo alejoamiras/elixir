@@ -16,6 +16,7 @@ declare global {
               nullifiers: string[];
               noteHashes: string[];
               ticketNullifier: string;
+              prover?: string;
             };
           }
         | undefined;
@@ -24,8 +25,22 @@ declare global {
 }
 
 export const run = (): E2eRun => JSON.parse(readFileSync(RUN_FILE, 'utf8')) as E2eRun;
-export const pageUrl = (r: E2eRun, extra: Record<string, string> = {}) =>
-  `${r.baseURL}/?${new URLSearchParams({ node: r.nodeUrl, miner: r.miner, token: r.token, ...extra })}`;
+/**
+ * The page for this run. Presto is switched off unless a spec asks for it (`presto: 'on'` uses the
+ * lane's port the build carries; a port number points elsewhere): the browser-prover regressions stay
+ * on WASM while a headless Presto serves the run.
+ */
+export const pageUrl = (r: E2eRun, extra: Record<string, string> = {}) => {
+  const q: Record<string, string> = {
+    node: r.nodeUrl,
+    miner: r.miner,
+    token: r.token,
+    presto: 'off',
+    ...extra,
+  };
+  if (q.presto === 'on') delete q.presto;
+  return `${r.baseURL}/?${new URLSearchParams(q)}`;
+};
 
 export const BOOT_MS = 8 * 60_000; // CRS verification, wallet + PXE boot, bb.js init
 

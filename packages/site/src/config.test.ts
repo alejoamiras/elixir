@@ -20,9 +20,16 @@ describe('site config', () => {
     const c = loadSiteConfig({
       ...base,
       mode: 'production',
-      env: { VITE_AZTEC_NODE_URL: 'http://localhost:1', VITE_E2E_QUERY_OVERRIDES: '1' },
+      env: {
+        VITE_AZTEC_NODE_URL: 'http://localhost:1',
+        VITE_E2E_QUERY_OVERRIDES: '1',
+        VITE_PRESTO_E2E_PORT: '59833',
+      },
     });
     expect(c.nodeUrl).toBe(siteEnv.VITE_AZTEC_NODE_URL);
+    // A hostile e2e environment cannot hand production a plaintext Presto port.
+    expect(c.prestoE2ePort).toBe('');
+    expect(viteDefine(c)['import.meta.env.VITE_PRESTO_E2E_PORT']).toBe('""');
     expect(c.rpId).toBe('yacana.network');
     expect(c.miner).toBe(deployment.miner);
     expect(c.minerClassId).toBe(deployment.minerClassId);
@@ -45,9 +52,12 @@ describe('site config', () => {
         VITE_E2E_QUERY_OVERRIDES: '1',
         VITE_LAUNCH_MODE: '1',
         VITE_EXPLORER_URL: 'off',
+        VITE_PRESTO_E2E_PORT: '24996',
       },
     });
     expect(c.launchMode).toBe(true);
+    expect(c.prestoE2ePort).toBe('24996');
+    expect(viteDefine(c)['import.meta.env.VITE_PRESTO_E2E_PORT']).toBe('"24996"');
     expect(c.explorerUrl).toBe('off');
     expect(c.nodeUrl).toBe('http://localhost:8080');
     expect(c.rollupAddress).toBe('0x00000000000000000000000000000000000000aa');
