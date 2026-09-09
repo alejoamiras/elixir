@@ -116,9 +116,14 @@ the miner's CRS interceptor turned that into `/crs/<name>`, and the guard — wh
 Two things worth keeping:
 
 - **A suite that passes because of a machine's cache is not passing.** The fix is not a `skipIf`: the suite now
-  materialises the pinned CRS through the repo's own `fetchCrs` (same lock, same checksums) and answers bb.js's
-  CDN request from it, so the proofs are real on any machine. Reproduced by moving `~/.bb-crs` aside and running
-  the gate cold, which is now the way to test this suite.
+  materialises the pinned CRS (same lock, same checksums) and answers bb.js's CDN request from it, so the proofs
+  are real on any machine. Reproduced by moving `~/.bb-crs` aside and running the gate cold, which is now the way
+  to test this suite.
+- **The materialiser had to leave the process to do its job.** Calling `fetchCrs` in-process failed the same way
+  on the second attempt: by then `fetch` there is the guard, with the miner's CRS interceptor over it, and the
+  interceptor recognises Aztec's CDN and turns the download into a page request nobody in a Bun realm can serve.
+  The repo's script runs as a child process now, where `fetch` is nothing but `fetch`. Two gate rounds to see it,
+  because the first fix moved the failure rather than removing it.
 - **The guard forwards the request it was given, not the URL it resolved.** In a browser that is right and
   invisible; under Bun a relative path reaches `fetch` unresolved and throws. Worth remembering before anyone
   puts the guard in front of a relative request outside a document.
