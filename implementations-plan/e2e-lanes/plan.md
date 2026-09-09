@@ -314,6 +314,15 @@ green and before `gh stack add` opens the next:
 4. Then Delivery: `gh stack sync`, `gh stack submit --auto`, `gh pr edit` each body, `gh pr checks --watch`. No
    pull request before the loops converge. Never merge, never deploy, never push to main.
 
+## Approval
+
+ELI5 companion: `implementations-plan/e2e-lanes/eli5.html`, published as the Artifact **Faster Miner Tests**:
+https://claude.ai/code/artifact/373de523-aadb-4cb3-9da9-354a97d20e8e
+
+Audit trail: `audit-codex.md` (two passes) and `audit-fable.md`. All three verdicts were **reject**; the third
+called the rework "materially responsive" and rejected on gate specificity, which this version closes. Per the
+protocol's three-round rule, a fourth audit is not run — the trail goes to the owner instead.
+
 ## Seeds
 
 Drafted; finalised after approval.
