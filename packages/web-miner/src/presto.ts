@@ -130,6 +130,23 @@ export async function probePresto(
   return status;
 }
 
+/**
+ * What the page is told about a native proof's phases: the start of a bb download, and the end of the
+ * proving that follows it. The SDK walks serialize → transmit → proving between the two, so only a
+ * finished or abandoned proof ends the download; every other phase is the page's business to ignore.
+ */
+export function downloadPhases(post: (phase: PrestoPhase) => void): (phase: PrestoPhase) => void {
+  let downloading = false;
+  return (phase) => {
+    if (phase === 'downloading') {
+      if (downloading) return;
+      downloading = true;
+    } else if (!downloading || (phase !== 'proved' && phase !== 'fallback')) return;
+    else downloading = false;
+    post(phase);
+  };
+}
+
 export interface PrestoNotice {
   tone: 'warn' | 'info';
   text: string;

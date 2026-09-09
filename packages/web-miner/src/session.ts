@@ -40,7 +40,7 @@ import {
   setStayOpen,
 } from './keys/store';
 import { initialSteps } from './opening-steps';
-import { prestoEligible, probePresto } from './presto';
+import { prestoAtom, prestoEligible, probePresto } from './presto';
 import { loadSettings, saveSettings } from './settings';
 import { bootAtom, epochAtom } from './state';
 
@@ -482,7 +482,9 @@ export class Session {
   startMining(): void {
     const c = this.controller;
     c?.start();
-    void this.reprobePresto({ rebuild: false, stops: c?.stopCount });
+    // A Start after the Worker gave up on native brings it back: only a rebuild can, and the config
+    // is unchanged, so it has to be forced. An ordinary Start keeps its warm backend.
+    void this.reprobePresto({ rebuild: this.store.get(prestoAtom).fallbackReason !== undefined });
   }
 
   /** The fix-it row's Retry: a fresh probe, then the prover rebuilt with the endpoint — never a start. */
@@ -492,17 +494,18 @@ export class Session {
 
   /**
    * A fresh answer from Presto (the SDK's cache skipped). One that changes eligibility rebuilds the
-   * prover; `rebuild` does so under an unchanged one (a Retry after a sticky fallback). `stops` is
-   * the Start's: a Stop that landed while the probe was out withdraws its interest.
+   * prover; `rebuild` does so under an unchanged one, which is what brings native back after the
+   * Worker gave up on it. A Stop that landed while the probe was out withdraws the interest that
+   * asked for it: the answer then changes nothing.
    */
-  private async reprobePresto(o: { rebuild: boolean; stops?: number }): Promise<void> {
+  private async reprobePresto(o: { rebuild: boolean }): Promise<void> {
     const pre = this.pre;
     if (!pre?.presto) return;
     const c = this.controller;
+    const stops = c?.stopCount;
     const status = await probePresto(this.store, pre.presto, true).catch(() => null);
-    // Disposed or replaced while the probe was out: nothing to rebuild.
-    if (!c || this.controller !== c) return;
-    if (o.stops !== undefined && c.stopCount !== o.stops) return;
+    // Disposed, replaced or stopped while the probe was out: nothing to act on.
+    if (!c || this.controller !== c || c.stopCount !== stops) return;
     const endpoint = prestoEligible(status) ? pre.presto : null;
     if (endpoint) c.reconfigure(c.currentThreads, endpoint, { force: o.rebuild });
     else if (c.currentPresto) c.reconfigure(c.currentThreads, null);

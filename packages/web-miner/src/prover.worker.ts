@@ -6,7 +6,7 @@ import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { BbJsWorkProver, type WorkArtifact, type WorkProver } from '../../miner-core/src/work.ts';
 import { setAcceleratorEndpoints } from '../../site/src/browser/node-guard.ts';
 import { purgeCrsCache } from './pinned-crs';
-import { acceleratorUrls } from './presto';
+import { acceleratorUrls, downloadPhases } from './presto';
 import { PrestoWorkProver } from './presto-prover';
 import { createProverLoop, type ProverBackend } from './prover-loop';
 import { mineFrom } from './worker-mine';
@@ -31,16 +31,9 @@ async function build({ threads, presto }: ProverConfig): Promise<WorkProver> {
   }
   // This realm's guard learns Presto's URLs before the SDK's first probe; WASM is built only on demand.
   setAcceleratorEndpoints(acceleratorUrls(presto), ACCELERATOR_DEADLINE_MS);
-  let downloading = false;
   return new PrestoWorkProver(artifact, api, presto, {
     prover: (kind, t) => post({ type: 'prover', kind, sticky: t.sticky, reason: t.reason }),
-    // The page shows the download: its start, and the first phase after it, which says it is over.
-    phase: (phase) => {
-      const now = phase === 'downloading';
-      if (now === downloading) return;
-      downloading = now;
-      post({ type: 'presto-phase', phase });
-    },
+    phase: downloadPhases((phase) => post({ type: 'presto-phase', phase })),
   });
 }
 

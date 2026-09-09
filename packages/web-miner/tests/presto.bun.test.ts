@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { PrestoStatus } from '@alejoamiras/presto-core';
 import {
   acceleratorUrls,
+  downloadPhases,
   initialPresto,
   noticeFor,
   PRESTO_DEFAULT,
@@ -111,5 +112,26 @@ describe('the fix-it row', () => {
     expect(text('scheme-unsupported')).toContain('needs an update');
     expect(text('network')).toContain('stopped answering');
     expect(text('cooldown')).toContain('cooldown');
+  });
+});
+
+describe('the phases the page is told about', () => {
+  test('the download row lives from the download to the end of the proof it was for', () => {
+    const seen: string[] = [];
+    const gate = downloadPhases((ph) => seen.push(ph));
+    // The SDK's own order around a download: the announcement, then the preparation, then the POST.
+    for (const ph of ['detect', 'downloading', 'serialize', 'transmit', 'proving'] as const) gate(ph);
+    expect(seen).toEqual(['downloading']);
+    gate('proved');
+    expect(seen).toEqual(['downloading', 'proved']);
+    // A proof that needed no download says nothing at all.
+    for (const ph of ['serialize', 'proving', 'proved'] as const) gate(ph);
+    expect(seen).toEqual(['downloading', 'proved']);
+    // A download that ends in a fallback ends the row too, and only once.
+    gate('downloading');
+    gate('downloading');
+    gate('fallback');
+    gate('fallback');
+    expect(seen).toEqual(['downloading', 'proved', 'downloading', 'fallback']);
   });
 });

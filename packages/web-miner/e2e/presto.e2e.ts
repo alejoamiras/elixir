@@ -48,10 +48,16 @@ test('a win Presto proved is verified in the browser before it shows, then claim
 }) => {
   const r = run();
   test.skip(!r.prestoUrl, 'presto-server is not installed on this machine');
+  const proveUrl = `${r.prestoUrl}/prove/ultra-honk`;
   const proves: number[] = [];
   page.on('response', (res) => {
-    if (res.url().endsWith('/prove/ultra-honk')) proves.push(res.status());
+    if (res.request().method() === 'POST' && res.url() === proveUrl) proves.push(res.status());
   });
+  // The server's log is the run's, and an earlier spec has already proved through it: only what it
+  // gains from here on is this test's evidence.
+  const logFile = r.prestoHome ? resolve(r.prestoHome, 'server.log') : null;
+  const logRead = () => (logFile ? readFileSync(logFile, 'utf8') : '');
+  const logBefore = logRead().length;
   await bootPage(page, pageUrl(r, { presto: 'on' }));
   await page.getByTestId('start').click();
   await expect(page.getByTestId('native')).toBeVisible({ timeout: 3 * 60_000 });
@@ -62,9 +68,9 @@ test('a win Presto proved is verified in the browser before it shows, then claim
   const prover = await page.evaluate(() => window.yacana?.controller()?.lastClaim?.prover);
   expect(prover).toBe('presto');
   // The HTTP evidence, independent of the Worker's own messages: a 200 on the route as Playwright saw
-  // it from the Worker, or, where it sees no Worker traffic, the server's record of a finished proof.
-  const serverLog = r.prestoHome ? readFileSync(resolve(r.prestoHome, 'server.log'), 'utf8') : '';
-  expect(proves.includes(200) || /UltraHonk prove finished.*ok\S*=\S*true/.test(serverLog)).toBe(true);
+  // it from the Worker, or, where it sees no Worker traffic, a proof the server finished during it.
+  const sinceStart = logRead().slice(logBefore);
+  expect(proves.includes(200) || /UltraHonk prove finished.*ok\S*=\S*true/.test(sinceStart)).toBe(true);
   await page.getByTestId('stop').click();
   await expect(page.getByTestId('phase')).toHaveText(/^idle/, { timeout: 60_000 });
 });

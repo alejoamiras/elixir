@@ -375,7 +375,8 @@ server, locally and in the dispatchable CI job).
   the same deadline and no-redirect rule as the node, reported to nobody; it cannot pose as the node (`setNodeEndpoint`
   refuses a collision, `currentNodeEndpoint()` is unchanged) nor open a cooldown on it. Production admits `https:`
   only, so a plaintext local endpoint is unreachable from the shipped page; the SDK's `httpsOnly` default agrees; a
-  config test resolves the production config under hostile e2e env and finds no plaintext endpoint in either realm.
+  config test resolves the production config under hostile e2e env and finds the e2e port dropped from both the
+  resolved config and the Vite definitions the two realms are built with.
 - **Origin approval and permissions.** Presto approves origins per install (a popup; `yacana.network` is not
   pre-approved and cannot be); a denial is a `403` the page shows as "approve in the Presto app", never a retry storm
   (sticky until Retry or Start). The browser's local-network permission is the visitor's; the page shows the blocked
