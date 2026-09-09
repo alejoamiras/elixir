@@ -15,6 +15,8 @@ interface ImportMetaEnv {
   readonly VITE_YACANA_MINER_CLASS: string;
   readonly VITE_YACANA_TOKEN_CLASS: string;
   readonly VITE_E2E_QUERY_OVERRIDES: string;
+  /** The e2e lane's headless Presto port (plaintext); empty in production. */
+  readonly VITE_PRESTO_E2E_PORT: string;
   readonly VITE_LAUNCH_MODE: string;
   readonly VITE_EXPLORER_URL: string;
   /** The recorded example claim as JSON, or '' when the profile has none. */

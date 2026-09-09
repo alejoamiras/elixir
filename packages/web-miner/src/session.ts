@@ -40,6 +40,7 @@ import {
   setStayOpen,
 } from './keys/store';
 import { initialSteps } from './opening-steps';
+import { prestoEligible, probePresto } from './presto';
 import { loadSettings, saveSettings } from './settings';
 import { bootAtom, epochAtom } from './state';
 
@@ -471,6 +472,33 @@ export class Session {
         this.switchingUrl = undefined;
       });
     return this.switching;
+  }
+
+  /**
+   * The user's Start: mining begins now; Presto is asked again in the background and an answer that
+   * changes its eligibility rebuilds the prover at the next nonce. The automatic resumes (after a
+   * claim, an expired claim) never come through here.
+   */
+  startMining(): void {
+    this.controller?.start();
+    void this.reprobePresto(false);
+  }
+
+  /** The fix-it row's Retry: a forced probe, then the prover rebuilt with the endpoint — never a start. */
+  async retryPresto(): Promise<void> {
+    await this.reprobePresto(true);
+  }
+
+  private async reprobePresto(force: boolean): Promise<void> {
+    const pre = this.pre;
+    if (!pre?.presto) return;
+    const c = this.controller;
+    const status = await probePresto(this.store, pre.presto, force).catch(() => null);
+    // Disposed or replaced while the probe was out: nothing to rebuild.
+    if (!c || this.controller !== c) return;
+    const endpoint = prestoEligible(status) ? pre.presto : null;
+    if (endpoint) c.reconfigure(c.currentThreads, endpoint, { force });
+    else if (c.currentPresto) c.reconfigure(c.currentThreads, null);
   }
 
   /** Whether anything on the chain or in the wallet knows the recipient as a contract. */

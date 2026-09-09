@@ -19,6 +19,7 @@ import { preparePasskeys } from './keys/passkey';
 import { assertNoLegacyWalletDb, listRecords, type MasterRecord } from './keys/store';
 import { bytesDetail, initialSteps, type OpeningStep } from './opening-steps';
 import { crsReady } from './pinned-crs';
+import { type PrestoEndpoint, prestoAtom, prestoEligible, prestoEndpoint, probePresto } from './presto';
 import { type PublicEpochPoll, publicEpochReader, startPublicEpoch } from './public-epoch';
 import { loadSettings } from './settings';
 import { bootAtom, crsAtom, logAtom, rulesAtom } from './state';
@@ -45,6 +46,9 @@ export interface Preflighted {
   publicEpoch: PublicEpochPoll;
   /** How long the node and deployment checks took, for the opening's step list. */
   nodeMs: number;
+  /** Where this build looks for Presto (null: switched off), and the probe started at the cockpit's ready. */
+  presto: PrestoEndpoint | null;
+  prestoProbe: Promise<unknown>;
 }
 
 /** The build's deployment identity, as the boot and every node check compare it. */
@@ -155,7 +159,22 @@ export async function preflight(store: Store, connection: Connection): Promise<P
   const publicEpoch = startPublicChain(store, connection, node, minerArtifact);
   const nodeMs = rows.filter((r) => r.id !== 'isolation').reduce((n, r) => n + (r.ms ?? 0), 0);
   store.set(bootAtom, { phase: 'signedOut', records: await listRecords() });
-  return { node, switchable, expected, chainId, rollupVersion, minerArtifact, block, publicEpoch, nodeMs };
+  // The cockpit is ready: ask Presto now (the billboard may show before any account), never wait for it.
+  const presto = prestoEndpoint();
+  const prestoProbe = presto ? probePresto(store, presto).catch(() => undefined) : Promise.resolve();
+  return {
+    node,
+    switchable,
+    expected,
+    chainId,
+    rollupVersion,
+    minerArtifact,
+    block,
+    publicEpoch,
+    nodeMs,
+    presto,
+    prestoProbe,
+  };
 }
 
 /**
@@ -214,6 +233,17 @@ export async function switchNodeLive(o: {
 /** Rejects with the signal's reason when it aborts: what a wait that cannot itself be cancelled races against. */
 const aborted = (signal: AbortSignal): Promise<never> =>
   new Promise((_, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+
+/** The endpoint the prover is built with: Presto's when the probe (long answered, in practice) found it worth asking. */
+async function prestoFor(
+  store: Store,
+  pre: Preflighted,
+  signal: AbortSignal,
+): Promise<PrestoEndpoint | null> {
+  await Promise.race([pre.prestoProbe, aborted(signal)]);
+  signal.throwIfAborted();
+  return prestoEligible(store.get(prestoAtom).status) ? pre.presto : null;
+}
 
 /** What the opening dialog needs to drive its steps and to be cancelled between them. */
 export interface OpeningOpts {
@@ -327,6 +357,7 @@ export async function startSession(
       store,
       spawnWorker,
       threads,
+      presto: await prestoFor(store, pre, opts.signal),
       deployment,
       account,
       fee: opened.fee,

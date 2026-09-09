@@ -20,6 +20,8 @@ export interface SiteConfig {
   tokenClassId: string;
   /** `?node=&miner=&token=` are honoured by the page; only e2e builds set it. */
   queryOverrides: boolean;
+  /** A headless Presto's plaintext port for the e2e lane; empty in production (Presto is then the SDK's HTTPS default). */
+  prestoE2ePort: string;
   /** The landing's hero is the launch lottery (mainnet's launch week); `VITE_LAUNCH_MODE=1`. */
   launchMode: boolean;
   /** The block explorer's origin, or `off`: every address, block and transaction the pages show links there. */
@@ -108,6 +110,7 @@ export function loadSiteConfig(opts: {
     minerClassId: pick('VITE_YACANA_MINER_CLASS', deployment.minerClassId),
     tokenClassId: pick('VITE_YACANA_TOKEN_CLASS', deployment.tokenClassId),
     queryOverrides: mode === 'e2e' && env.VITE_E2E_QUERY_OVERRIDES === '1',
+    prestoE2ePort: mode === 'production' ? '' : (env.VITE_PRESTO_E2E_PORT ?? ''),
     launchMode: pick('VITE_LAUNCH_MODE', siteEnv.VITE_LAUNCH_MODE ?? '') === '1',
     explorerUrl: pick('VITE_EXPLORER_URL', siteEnv.VITE_EXPLORER_URL ?? 'off'),
     record: deployment,
@@ -165,6 +168,7 @@ const IP_OR_LOCAL = /^(localhost|127\.\d+\.\d+\.\d+|\[?::1\]?|\d+\.\d+\.\d+\.\d+
 /** What may never reach Cloudflare: test hooks, local or plaintext nodes, a foreign relying party. */
 export function assertProductionConfig(c: SiteConfig, siteEnv: Record<string, string>): void {
   if (c.queryOverrides) throw new Error('production build with VITE_E2E_QUERY_OVERRIDES set');
+  if (c.prestoE2ePort) throw new Error('production build with VITE_PRESTO_E2E_PORT set');
   const u = new URL(c.nodeUrl);
   if (u.protocol !== 'https:') throw new Error(`production node ${c.nodeUrl} is not https`);
   if (IP_OR_LOCAL.test(u.hostname)) throw new Error(`production node ${c.nodeUrl} is local`);
@@ -192,6 +196,7 @@ export const viteDefine = (c: SiteConfig): Record<string, string> =>
       VITE_YACANA_MINER_CLASS: c.minerClassId,
       VITE_YACANA_TOKEN_CLASS: c.tokenClassId,
       VITE_E2E_QUERY_OVERRIDES: c.queryOverrides ? '1' : '',
+      VITE_PRESTO_E2E_PORT: c.prestoE2ePort,
       VITE_LAUNCH_MODE: c.launchMode ? '1' : '',
       VITE_EXPLORER_URL: c.explorerUrl,
       VITE_DEPLOYMENT_RECORD: JSON.stringify(c.record),

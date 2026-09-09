@@ -4,6 +4,7 @@ import { closePreview, difficulty, escapeHatchIn, proofsPerMinute } from '../../
 import { cn, EpochRail, PowerSlider, Tile, TileHeader } from '../../../ui/src/index.ts';
 import type { MinerController } from '../controller';
 import { duration } from '../lib/format';
+import { prestoAtom } from '../presto';
 import { useSettings } from '../settings';
 import { bootAtom, claimsAtom, epochAtom, minerAtom, nowAtom, rulesAtom } from '../state';
 import { ClaimSlot } from './ClaimSlot';
@@ -34,6 +35,7 @@ function EpochTile({ controller }: { controller: () => MinerController | undefin
   const claims = useAtomValue(claimsAtom);
   const [settings, setSettings] = useSettings();
   const [closing, setClosing] = useState(false);
+  const native = useAtomValue(prestoAtom).active === 'presto';
   const threads = settings.threads ?? Math.max(1, cores() - 1);
   const setThreads = (t: number) => {
     setSettings({ threads: t });
@@ -92,12 +94,13 @@ function EpochTile({ controller }: { controller: () => MinerController | undefin
         cores={cores()}
         threads={threads}
         onChange={setThreads}
+        disabled={native}
         readout={miner.phase === 'mining' ? `${proofsPerMinute(miner.recent).toFixed(1)} / min` : undefined}
       />
-      <p className="text-xs text-ink-2">
-        {cores()} cores, one stays with the page. A change applies at the next proof; the rate readout follows
-        within a minute.
-        {boot.phase === 'ready' && ` Prover started with ${boot.threads} threads.`}
+      <p className="text-xs text-ink-2" data-testid="power-caption">
+        {native
+          ? 'Presto’s speed setting in its app decides the threads; this slider applies when proving in the browser.'
+          : `${cores()} cores, one stays with the page. A change applies at the next proof; the rate readout follows within a minute.${boot.phase === 'ready' ? ` Prover started with ${boot.threads} threads.` : ''}`}
       </p>
     </Tile>
   );

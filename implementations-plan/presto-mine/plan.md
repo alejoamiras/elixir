@@ -311,8 +311,11 @@ Presto whose bytes equal the WASM proof of the same witness, `verifyWin` true on
 the first-win verification latency printed; `PRESTO_HOME/versions` still empty afterwards. Layers: lint/typecheck ·
 unit · component · live.
 
-**P2 · The probe, the billboard, the fix-it row, the indicator** — **prerequisite: the UI approved on the design
-canvas (Approval section)**. `probePresto()` at the preflight's pass, on Start and on Retry; `PrestoBanner` (mount by
+**P2 ✓ (2026-09-09) · The probe, the billboard, the fix-it row, the indicator** — gate passed: lint · typecheck ·
+Vitest web-miner 68 pass, ui 47 pass · bun 219 pass / 0 fail · the LNA check on Chromium 151 with the SDK's probe
+from the LAN address to loopback, three permission states, screenshots in `lessons/lna/` (a denied state cannot be
+produced headless; recorded in `lessons/phase-2.md`) · the renders move to P3 with the running page.
+Prerequisite met: the UI approved on the design canvas (Plan A). `probePresto()` at the preflight's pass, on Start and on Retry; `PrestoBanner` (mount by
 `stateFromStatus`, dynamic import of `@alejoamiras/presto-banners/register`, `fonts="none"`, our theme, `.status`
 after `whenDefined`, events as re-probe requests); `noticeFor` and the row; Retry → `reconfigure` with the endpoint;
 the pill suffix, `RateLine` / `PipView` `· native`, the Performance tile's line and `PowerSlider`'s `disabled`; the
@@ -324,9 +327,9 @@ tile's two states; the slider disabled) · `bun test packages/web-miner packages
 `noticeFor` per status and diagnosis, an `available` without `ultra_honk` → the update row, the `presto-phase`
 message → the info row, the endpoint per mode and override, the URL set; the atom cleared on `ready` and dispose; `config.test.ts`: a
 production build with hostile e2e env keeps the HTTPS default and an empty port) · a real-browser check on the
-homelab's Chromium of the LNA prompt undecided and denied at cockpit-ready, with screenshots in `lessons/phase-2.md`
-· the 1280/1440 renders of each canvas state beside its artboard. Layers: lint/typecheck · unit · component · manual
-browser · render.
+homelab's Chromium of the LNA permission states with the SDK's probe, with screenshots in `lessons/phase-2.md`
+(the renders of each canvas state need the running page and move to P3's gate). Layers: lint/typecheck · unit ·
+component · manual browser.
 
 **P3 · The e2e and CI** — the `setup-presto` action (download, the committed digest, PATH), the run-setup's `presto`
 lane (registry port, per-run `PRESTO_HOME`, `BB_BINARY_PATH`, `AZTEC_BB_VERSION`, default gating, TERM → wait → KILL),
@@ -338,7 +341,8 @@ page's request log if Playwright reports the Worker's requests, else from the he
 Gate: `bun run lint:shell` · `bun run lint:actions` · `bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e`
 on the homelab with `presto-server` on PATH (the whole miner suite, `presto.e2e.ts` included, exit 0; the run's
 `PRESTO_HOME/versions` stays empty, proving the override was used and nothing was downloaded; teardown leaves no
-`presto-server` or `bb` of the run behind) · `gh workflow run e2e.yml --ref worktree-presto-mine` → the `web-miner`
+`presto-server` or `bb` of the run behind) · the 1280/1440 renders of each canvas state (billboard, native, the row)
+taken from that run, beside their artboards · `gh workflow run e2e.yml --ref worktree-presto-mine` → the `web-miner`
 job green, the run's head SHA recorded in `lessons/phase-3.md`. Layers: e2e (isolated network, headless Presto) · CI.
 
 **P4 · Docs and close** — `docs/threat-model.md` (the accelerator row: what it sees, what it cannot, the residuals,

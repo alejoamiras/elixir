@@ -12,7 +12,14 @@ import { bootAtom } from '../state';
  * The ledger and the balance tile share a wrapper so that between `md` and `xl` they stack beside the
  * rail; at `xl` it dissolves (`contents`) and the grid places them itself.
  */
-export function Mine({ controller }: { controller: () => MinerController | undefined }) {
+export function Mine({
+  controller,
+  onStart,
+}: {
+  controller: () => MinerController | undefined;
+  /** The user's Start (through the session, which re-asks Presto); a bare controller start otherwise. */
+  onStart?: () => void;
+}) {
   const onError = useTileLog();
   const ready = useAtomValue(bootAtom).phase === 'ready';
   return (
@@ -22,7 +29,11 @@ export function Mine({ controller }: { controller: () => MinerController | undef
       data-testid="cockpit"
     >
       <TileBoundary name="loop" onError={onError} className="md:col-span-2 xl:col-span-3">
-        <LoopTile controller={controller} className="md:col-span-2 xl:col-span-3" />
+        <LoopTile
+          controller={controller}
+          onStart={onStart ?? (() => controller()?.start())}
+          className="md:col-span-2 xl:col-span-3"
+        />
       </TileBoundary>
       <TileBoundary name="rail" onError={onError} className="md:order-3 xl:order-none xl:row-span-2">
         <RailTile controller={controller} className="md:order-3 xl:order-none xl:row-span-2" />

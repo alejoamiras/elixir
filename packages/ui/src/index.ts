@@ -38,7 +38,7 @@ export {
   SheetTrigger,
 } from './components/sheet.tsx';
 export { Skeleton } from './components/skeleton.tsx';
-export { type Status, StatusPill } from './components/status-pill.tsx';
+export { type Status, StatusPill, statusLabel } from './components/status-pill.tsx';
 export { fmtSeconds, type Step, Stepper } from './components/stepper.tsx';
 export { Switch } from './components/switch.tsx';
 export { KvRow, Tile, TileHeader } from './components/tile.tsx';

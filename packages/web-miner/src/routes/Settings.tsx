@@ -1,4 +1,5 @@
 import { useAtomValue, useSetAtom } from 'jotai';
+import type * as React from 'react';
 import { useEffect, useState } from 'react';
 import {
   Button,
@@ -18,6 +19,7 @@ import type { Connection } from '../config';
 import type { MinerController } from '../controller';
 import { diagnostics } from '../lib/diagnostics';
 import { useTileLog } from '../lib/tile-log';
+import { prestoAtom } from '../presto';
 import { navigate } from '../routes';
 import type { Session } from '../session';
 import { type BooleanSetting, useSettings } from '../settings';
@@ -88,6 +90,92 @@ function AboutTile({ log }: { log: string[] }) {
   );
 }
 
+/** Threads for the browser prover; under Presto the setting is kept, dimmed, and Presto's own speed setting rules. */
+function PerformanceTile({
+  cores,
+  threads,
+  native,
+  onThreads,
+  flags,
+}: {
+  cores: number;
+  threads: number;
+  native: boolean;
+  onThreads: (t: number) => void;
+  flags: React.ReactNode;
+}) {
+  return (
+    <Tile>
+      <TileHeader>Performance</TileHeader>
+      <KvRow
+        label="prover"
+        value={
+          native ? (
+            <span className="text-uv-2" data-testid="prover-native">
+              <span className="text-uv">✦</span> Presto · native
+            </span>
+          ) : (
+            `bb.js WASM · ${threads} threads`
+          )
+        }
+      />
+      <div className="mt-3 flex flex-col gap-2">
+        <PowerSlider cores={cores} threads={threads} disabled={native} onChange={onThreads} />
+        {native && (
+          <p className="text-xs text-ink-2">
+            Presto’s speed setting in its app decides the threads; this slider applies when proving in the
+            browser.
+          </p>
+        )}
+      </div>
+      {flags}
+    </Tile>
+  );
+}
+
+/** A passkey account's convenience switch and its warning; the way in when no account is open. */
+function AccountTile({ session }: { session: Session }) {
+  const boot = useAtomValue(bootAtom);
+  const openSignIn = useSetAtom(signInAtom);
+  return (
+    <Tile>
+      <TileHeader>Account</TileHeader>
+      {boot.phase === 'ready' && boot.record.method === 'passkey' ? (
+        <>
+          <Toggle
+            id="stay-open"
+            label="Stay open on this device"
+            hint="off (default): one touch per open, no spend secret at rest · on: the account is sealed under a device key in this browser's storage (plaintext-equivalent against a stolen unencrypted disk)"
+            value={!boot.record.askEveryOpen}
+            onChange={(v) => void session.setStayOpen(v)}
+          />
+          <p className="mt-3 text-xs text-warn">
+            A passkey account has no backup: if the passkey is lost and was not synced, so is the balance.
+            Move funds off an account that holds more than a session's worth.
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-ink-2">Open an account to see its options.</p>
+          {/* Settings stays free of the sign-in dialog (the node is changed here); this is the way in. */}
+          <Button
+            size="sm"
+            variant="uv"
+            className="mt-3"
+            onClick={() => {
+              openSignIn(true);
+              navigate('mine');
+            }}
+            data-testid="sign-in-settings"
+          >
+            Sign in
+          </Button>
+        </>
+      )}
+    </Tile>
+  );
+}
+
 export function Settings({
   connection,
   controller,
@@ -98,15 +186,14 @@ export function Settings({
   session: Session;
 }) {
   const [s, set] = useSettings();
-  const boot = useAtomValue(bootAtom);
   const { setTheme } = useTheme();
   const log = useAtomValue(logAtom);
   const onError = useTileLog();
-  const openSignIn = useSetAtom(signInAtom);
   // The node in use follows a live switch; `connection` is what the page booted with.
   const [nodeUrl, setNodeUrl] = useState(session.nodeUrl ?? connection.nodeUrl);
   const cores = navigator.hardwareConcurrency || 2;
   const threads = s.threads ?? Math.max(1, cores - 1);
+  const native = useAtomValue(prestoAtom).active === 'presto';
   useEffect(() => setTheme(s.theme), [s.theme, setTheme]);
   // Notifications need the browser's permission, asked for on the toggle (a user gesture).
   const toggle = async (k: BooleanSetting, v: boolean) => {
@@ -136,30 +223,32 @@ export function Settings({
         />
       </TileBoundary>
       <TileBoundary name="performance" onError={onError}>
-        <Tile>
-          <TileHeader>Performance</TileHeader>
-          <PowerSlider
-            cores={cores}
-            threads={threads}
-            onChange={(t) => {
-              set({ threads: t });
-              controller()?.reconfigure(t);
-            }}
-          />
-          {flag(
-            'pauseOnBattery',
-            'pause-battery',
-            'Pause on battery',
-            canBattery ? undefined : 'not reported by this browser',
-            !canBattery,
-          )}
-          {flag(
-            'backgroundProving',
-            'background',
-            'Keep proving in a background tab',
-            'off: mining pauses while the tab is hidden',
-          )}
-        </Tile>
+        <PerformanceTile
+          cores={cores}
+          threads={threads}
+          native={native}
+          onThreads={(t) => {
+            set({ threads: t });
+            controller()?.reconfigure(t);
+          }}
+          flags={
+            <>
+              {flag(
+                'pauseOnBattery',
+                'pause-battery',
+                'Pause on battery',
+                canBattery ? undefined : 'not reported by this browser',
+                !canBattery,
+              )}
+              {flag(
+                'backgroundProving',
+                'background',
+                'Keep proving in a background tab',
+                'off: mining pauses while the tab is hidden',
+              )}
+            </>
+          }
+        />
       </TileBoundary>
       <TileBoundary name="behaviour" onError={onError}>
         <Tile>
@@ -178,41 +267,7 @@ export function Settings({
         </Tile>
       </TileBoundary>
       <TileBoundary name="account" onError={onError}>
-        <Tile>
-          <TileHeader>Account</TileHeader>
-          {boot.phase === 'ready' && boot.record.method === 'passkey' ? (
-            <>
-              <Toggle
-                id="stay-open"
-                label="Stay open on this device"
-                hint="off (default): one touch per open, no spend secret at rest · on: the account is sealed under a device key in this browser's storage (plaintext-equivalent against a stolen unencrypted disk)"
-                value={!boot.record.askEveryOpen}
-                onChange={(v) => void session.setStayOpen(v)}
-              />
-              <p className="mt-3 text-xs text-warn">
-                A passkey account has no backup: if the passkey is lost and was not synced, so is the balance.
-                Move funds off an account that holds more than a session's worth.
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="text-xs text-ink-2">Open an account to see its options.</p>
-              {/* Settings stays free of the sign-in dialog (the node is changed here); this is the way in. */}
-              <Button
-                size="sm"
-                variant="uv"
-                className="mt-3"
-                onClick={() => {
-                  openSignIn(true);
-                  navigate('mine');
-                }}
-                data-testid="sign-in-settings"
-              >
-                Sign in
-              </Button>
-            </>
-          )}
-        </Tile>
+        <AccountTile session={session} />
       </TileBoundary>
       <TileBoundary name="appearance" onError={onError}>
         <Tile>

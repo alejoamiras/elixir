@@ -14,15 +14,18 @@ import {
   NodeBanner,
   NodeWayOut,
   StatusPill,
+  statusLabel,
   Toaster,
 } from '../../ui/src/index.ts';
 import { DesktopOnly } from './components/DesktopOnly';
 import type { Connection } from './config';
 import { isDesktop } from './desktop';
 import { PreflightTile } from './features/KeyScreen';
+import { PrestoBanner } from './features/PrestoBanner';
 import { SignInDialog } from './features/SignInDialog';
 import { useHotkeys, usePauses, useResumeOnOpen } from './features/use-page-behaviour';
 import { pillStatus } from './lib/status';
+import { prestoAtom } from './presto';
 import { navigate, pathFor, type Route, useRoute } from './routes';
 import { Mine } from './routes/Mine';
 import { Settings } from './routes/Settings';
@@ -67,6 +70,8 @@ export function Shell({ children }: { children: ReactNode }) {
   const notice = previewNotice(location.hostname);
   const health = useSyncExternalStore(subscribeNodeHealth, nodeHealth, nodeHealth);
   const banner = bannerState(health, now, STALE_AFTER_MS);
+  const presto = useAtomValue(prestoAtom);
+  const status = boot.phase === 'opening' ? 'opening' : pillStatus(miner, now);
   return (
     <div className="mx-auto flex max-w-[1120px] flex-col">
       <header className="flex h-[52px] items-center gap-5 border-b border-line px-4 md:px-5">
@@ -108,10 +113,17 @@ export function Shell({ children }: { children: ReactNode }) {
         </nav>
         <span className="ml-auto flex items-center gap-3">
           <Badge variant="warn">testnet · fees sponsored</Badge>
-          <StatusPill
-            status={boot.phase === 'opening' ? 'opening' : pillStatus(miner, now)}
-            data-testid="phase"
-          />
+          <StatusPill status={status} data-testid="phase" data-prover={presto.active ?? undefined}>
+            {statusLabel(status)}
+            {presto.active === 'presto' && (
+              <>
+                <span className="text-ink-4">·</span>
+                <span className="text-uv-2" data-testid="native">
+                  <span className="font-semibold text-uv">✦</span> presto
+                </span>
+              </>
+            )}
+          </StatusPill>
         </span>
       </header>
       <div className="flex flex-col gap-4 p-4 md:p-5">
@@ -158,7 +170,8 @@ export function App({ connection, session }: { connection: Connection; session: 
         </Alert>
       )}
       {boot.phase === 'preflight' && <PreflightTile rows={boot.rows} />}
-      {chain && route === 'mine' && <Mine controller={controller} />}
+      {chain && route === 'mine' && <PrestoBanner onRetry={() => void session.retryPresto()} />}
+      {chain && route === 'mine' && <Mine controller={controller} onStart={() => session.startMining()} />}
       {open && route === 'wallet' && <Wallet session={session} />}
       {route === 'settings' && <Settings connection={connection} controller={controller} session={session} />}
       {route !== 'settings' && <SignInDialog session={session} />}
