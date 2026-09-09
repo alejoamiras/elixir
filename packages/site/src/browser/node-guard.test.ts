@@ -139,13 +139,24 @@ describe('node guard', () => {
     await expect(fetch('https://cand.example/rpc')).rejects.toThrow(/blocked endpoint/);
   });
 
-  test('quiet reads are reported with the flag; ordinary ones without', async () => {
+  test('quiet reads are reported with the flag, even when the outcome lands after the reader gave up', async () => {
     const seen: boolean[] = [];
     const off = guard.onNodeResponse((o) => seen.push(o.quiet));
     await guard.quietNodeReads(async () => (await fetch(NODE)).text());
     await (await fetch(NODE)).text();
+    // A slow answer: the quiet scope exits before the body lands (the reader's own deadline fired).
+    guard.setNodeEndpoint('https://node.example/slow', 1_000);
+    try {
+      let late: Promise<string> | undefined;
+      await guard.quietNodeReads(async () => {
+        late = fetch('https://node.example/slow').then((r) => r.text());
+      });
+      await late;
+    } finally {
+      guard.setNodeEndpoint(NODE, 1_000);
+    }
     off();
-    expect(seen).toEqual([true, false]);
+    expect(seen).toEqual([true, false, true]);
   });
 
   test('outcomes name the status once the body landed, a timeout and a network failure', async () => {

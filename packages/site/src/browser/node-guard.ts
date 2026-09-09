@@ -111,20 +111,26 @@ const withDeadline = (input: RequestInfo | URL, init: RequestInit | undefined, m
   return { ...init, redirect: 'error', signal: own ? AbortSignal.any([own, deadline]) : deadline };
 };
 
+/** What a request was when it started; the outcome carries it, however late the body lands. */
+interface Started {
+  endpoint: string;
+  startedAt: number;
+  quiet: boolean;
+}
+
 function report(
   s: GuardState,
-  endpoint: string,
-  startedAt: number,
+  r: Started,
   status: NodeRequestOutcome['status'],
   retryAfter: string | null = null,
 ) {
   const o: NodeRequestOutcome = {
-    endpoint,
-    startedAt,
+    endpoint: r.endpoint,
+    startedAt: r.startedAt,
     status,
-    latencyMs: performance.now() - startedAt,
+    latencyMs: performance.now() - r.startedAt,
     retryAfter,
-    quiet: s.quiet > 0,
+    quiet: r.quiet,
   };
   for (const fn of s.listeners) fn(o);
 }
@@ -137,16 +143,16 @@ const died = (e: unknown): 'timeout' | 'network' =>
  * resolves: the outcome is reported once the body has landed (or died), through a pass-through
  * stream, so a recovery is not declared on headers alone.
  */
-function reportOnBody(s: GuardState, endpoint: string, startedAt: number, res: Response): Response {
+function reportOnBody(s: GuardState, r: Started, res: Response): Response {
   if (!res.body) {
-    report(s, endpoint, startedAt, res.status, res.headers.get('retry-after'));
+    report(s, r, res.status, res.headers.get('retry-after'));
     return res;
   }
   let done = false;
   const settle = (status: NodeRequestOutcome['status']) => {
     if (done) return;
     done = true;
-    report(s, endpoint, startedAt, status, res.headers.get('retry-after'));
+    report(s, r, status, res.headers.get('retry-after'));
   };
   const observed = new TransformStream<Uint8Array, Uint8Array>({
     flush: () => settle(res.status),
@@ -184,12 +190,14 @@ async function nodeRequest(
 ): Promise<Response> {
   const synthetic = s.gate?.(endpoint);
   if (synthetic) return synthetic;
-  const startedAt = performance.now();
+  // Quiet is decided at the start: a reader that gave up on this request (its own deadline) may
+  // have left `quietNodeReads` before the body lands, and the outcome still belongs to optional work.
+  const r: Started = { endpoint, startedAt: performance.now(), quiet: s.quiet > 0 };
   try {
     const res = await s.original(input, withDeadline(input, init, s.deadlineMs));
-    return reportOnBody(s, endpoint, startedAt, res);
+    return reportOnBody(s, r, res);
   } catch (e) {
-    report(s, endpoint, startedAt, died(e));
+    report(s, r, died(e));
     throw e;
   }
 }
