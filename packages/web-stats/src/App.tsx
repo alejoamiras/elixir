@@ -27,6 +27,7 @@ import { navigate, type Route, useRoute } from './routes';
 import { Stats } from './routes/Stats';
 import { Verify } from './routes/Verify';
 import { fixedAtom, historyAtom, nowAtom, statusAtom, unsettledAtom } from './state';
+import type { EpochWindow } from './window';
 
 const NAV: { route: Route; label: string }[] = [
   { route: 'stats', label: 'Stats' },
@@ -152,11 +153,17 @@ function Shell({ children, connection }: { children: ReactNode; connection: Conn
   );
 }
 
-export function App({ connection, onOlder }: { connection: Connection; onOlder: () => void }) {
+export function App({
+  connection,
+  onWindow,
+}: {
+  connection: Connection;
+  onWindow: (w: EpochWindow) => void;
+}) {
   const route = useRoute();
   return (
     <Shell connection={connection}>
-      {route === 'stats' && <Stats onOlder={onOlder} nodeUrl={connection.nodeUrl} />}
+      {route === 'stats' && <Stats onWindow={onWindow} nodeUrl={connection.nodeUrl} />}
       {route === 'verify' && <Verify nodeUrl={connection.nodeUrl} />}
     </Shell>
   );

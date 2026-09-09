@@ -3,11 +3,12 @@
 // charts and the table). Pure over injected reads and sinks, so the order and the failure rules are
 // tested without a node.
 import type { EpochRow } from '../../miner-core/src/reader.ts';
-import { WINDOW } from './chain';
 import type { Fixed, History, Lottery } from './state';
+import { type EpochWindow, WINDOW } from './window';
 
 export interface BeatReads {
   fixed: () => Promise<Fixed>;
+  /** The rows of `[from, to]` and, when it exists, the one after `to` (the seam that closes the last row). */
   rows: (from: number, to: number, open: number) => Promise<EpochRow[]>;
   lottery: () => Promise<Lottery>;
 }
@@ -27,8 +28,6 @@ const upsert = (held: ReadonlyMap<number, EpochRow>, rows: readonly EpochRow[]):
 
 const newest = (rows: ReadonlyMap<number, EpochRow>): number | undefined =>
   rows.size ? Math.max(...rows.keys()) : undefined;
-const oldest = (rows: ReadonlyMap<number, EpochRow>): number | undefined =>
-  rows.size ? Math.min(...rows.keys()) : undefined;
 
 /**
  * The first read. Beat one is published the moment it lands; beat two follows with the newest
@@ -74,16 +73,15 @@ export async function pollBeats(
   }
 }
 
-/** "Load older": the WINDOW epochs before the oldest one held, joined in front; a failure is said, not a crash. */
-export async function olderBeat(
+/** A window the visitor asked for that is not held: read whole and joined; a failure is said, not a crash. */
+export async function windowBeat(
   read: BeatReads,
   publish: BeatSinks,
   held: { fixed: Fixed; history: History },
+  w: EpochWindow,
 ): Promise<void> {
-  const first = oldest(held.history.rows) ?? held.fixed.open;
-  if (first === 0) return;
   try {
-    const rows = await read.rows(Math.max(0, first - WINDOW), first - 1, held.fixed.open);
+    const rows = await read.rows(w.from, w.to, held.fixed.open);
     publish.history({ ...held.history, rows: upsert(held.history.rows, rows), error: undefined });
   } catch (e) {
     publish.history({ ...held.history, error: message(e) });

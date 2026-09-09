@@ -15,8 +15,6 @@ import { setNodeEndpoint } from '../../site/src/browser/node-guard.ts';
 import { chunkLoader, fetchLayouts } from '../../site/src/browser/slots.ts';
 import type { Fixed } from './state';
 
-/** Epochs per read: the first window and every "load older". */
-export const WINDOW = 48;
 /** The poll's cadence; the banner calls the numbers stale after two of them. */
 export const POLL_MS = 30_000;
 

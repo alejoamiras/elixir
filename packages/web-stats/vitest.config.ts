@@ -9,6 +9,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
     include: ['src/**/*.vitest.tsx', 'src/**/*.test.ts'],
-    exclude: ['**/node_modules/**'],
+    // *.bun.test.ts needs Bun.serve; bun runs it, Vitest skips it.
+    exclude: ['**/*.bun.test.ts', '**/node_modules/**'],
   },
 });

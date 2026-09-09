@@ -77,20 +77,15 @@ export function Table({
   open,
   selected,
   onSelect,
-  onOlder,
-  loadingOlder,
   className,
 }: {
   className?: string;
-  /** Null until beat two: eight skeleton rows at the column widths, the count and the downloads dashed. */
+  /** The window's rows; null until they are held: eight skeleton rows, the count and the downloads dashed. */
   rows: readonly EpochRow[] | null;
   open: number | null;
   selected: number | null;
   onSelect: (epoch: number | null) => void;
-  onOlder: () => void;
-  loadingOlder: boolean;
 }) {
-  const oldest = rows?.[0]?.epoch ?? 0;
   const link = 'h-auto font-mono text-2xs';
   const pending = rows === null || open === null;
   return (
@@ -170,21 +165,9 @@ export function Table({
                   ))}
           </tbody>
         </table>
-        {!pending && oldest > 0 && (
-          <Button
-            size="sm"
-            variant="link"
-            className="mt-2 px-0"
-            disabled={loadingOlder}
-            onClick={onOlder}
-            data-testid="load-older"
-          >
-            {loadingOlder ? 'loading…' : `load older (before epoch ${oldest})`}
-          </Button>
-        )}
       </div>
       <p className="mt-2 font-mono text-2xs text-ink-3">
-        ↕ scrolls · header stays · load older at the bottom
+        ↕ scrolls · header stays · the strip's window, newest first
       </p>
     </Tile>
   );

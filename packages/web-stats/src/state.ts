@@ -1,5 +1,6 @@
 import { atom } from 'jotai';
 import { type EpochRow, linkRows } from '../../miner-core/src/reader.ts';
+import { type FillState, IDLE } from './history-fill';
 
 export interface Genesis {
   target: bigint;
@@ -47,7 +48,8 @@ export const rowsAtom = atom<EpochRow[] | null>((get) => {
 /** 300 ms since mount: a beat still unresolved shows its skeleton; before that, the bare geometry. */
 export const slowAtom = atom(false);
 export const statusAtom = atom<Status>({ phase: 'loading', step: 'connecting' });
-export const loadingOlderAtom = atom(false);
+/** Where the background fill of the map stands: the strip's caption reads it. */
+export const fillAtom = atom<FillState>(IDLE);
 export const nowAtom = atom(Date.now());
 /** The supply at this tab's first successful read and when it happened; a reload starts over. */
 export const sinceOpenedAtom = atom<{ supply: bigint; at: number } | null>(null);

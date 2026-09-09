@@ -7,7 +7,7 @@ const FADE_MS = 240;
 type Figure = HTMLElement | SVGSVGElement;
 
 /** The container's width through a ResizeObserver: 0 until measured; 640 where there is no observer (jsdom). */
-function useWidth(ref: RefObject<HTMLDivElement | null>): number {
+export function useWidth(ref: RefObject<HTMLDivElement | null>): number {
   const [width, setWidth] = useState(0);
   useLayoutEffect(() => {
     const el = ref.current;

@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import type { EpochRow } from '../../miner-core/src/reader.ts';
-import { type BeatReads, type BeatSinks, bootBeats, olderBeat, pollBeats, settled } from './beats';
-import { WINDOW } from './chain';
+import { type BeatReads, type BeatSinks, bootBeats, pollBeats, settled, windowBeat } from './beats';
 import type { Fixed, History } from './state';
+import { WINDOW } from './window';
 
 /** Epoch `e` opened at `e × 300` with 4 claims (the open one 1), target 2^122. */
 const row = (e: number, open: number): EpochRow => ({
@@ -97,23 +97,23 @@ describe('the two beats', () => {
     expect(epochs(f.state.history)).toEqual(Array.from({ length: 11 }, (_, i) => i));
   });
 
-  test('older joins the previous window in front; at epoch 0 there is nothing to ask', async () => {
+  test('a window asked for joins what is held; a failure says so and keeps the rows', async () => {
     const f = fake(() => 100);
     await bootBeats(f.reads, f.publish);
-    await olderBeat(f.reads, f.publish, {
-      fixed: f.state.fixed as Fixed,
-      history: f.state.history as History,
-    });
-    expect(f.asked.at(-1)).toEqual([53 - WINDOW, 52]);
-    expect(epochs(f.state.history)[0]).toBe(5);
-    const small = fake(() => 3);
-    await bootBeats(small.reads, small.publish);
-    const asked = small.asked.length;
-    await olderBeat(small.reads, small.publish, {
-      fixed: small.state.fixed as Fixed,
-      history: small.state.history as History,
-    });
-    expect(small.asked.length).toBe(asked);
+    const held = { fixed: f.state.fixed as Fixed, history: f.state.history as History };
+    await windowBeat(f.reads, f.publish, held, { from: 10, to: 57 });
+    expect(f.asked.at(-1)).toEqual([10, 57]);
+    // 10–57 joined under the 53–100 held: one run of 91.
+    expect(epochs(f.state.history)).toEqual(Array.from({ length: 91 }, (_, i) => 10 + i));
+    const failing = fake(() => 100, { failRows: true });
+    await windowBeat(
+      failing.reads,
+      f.publish,
+      { fixed: held.fixed, history: f.state.history as History },
+      { from: 0, to: 9 },
+    );
+    expect(f.state.history?.error).toMatch(/503/);
+    expect(epochs(f.state.history)).toHaveLength(91);
   });
 
   test('settled waits for beat two and for every number to be at rest', () => {
