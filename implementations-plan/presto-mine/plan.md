@@ -331,7 +331,12 @@ homelab's Chromium of the LNA permission states with the SDK's probe, with scree
 (the renders of each canvas state need the running page and move to P3's gate). Layers: lint/typecheck · unit ·
 component · manual browser.
 
-**P3 · The e2e and CI** — the `setup-presto` action (download, the committed digest, PATH), the run-setup's `presto`
+**P3 ✓ (2026-09-09) · The e2e and CI** — gate passed: `lint:shell` · `lint:actions` clean · the whole miner suite
+on the homelab with `presto-server` on PATH, **19 passed in 16.2 min, exit 0** (six finished UltraHonk proofs in the
+run's own server log, no `versions` directory, no `presto-server` left after teardown) · the 1280/1440 renders of the
+three states taken from that run, in `renders/` beside their artboards · CI `gh workflow run e2e.yml` run
+**34395322513 at `c5f8c00`: `web-miner` green, 19 passed in 24.2 min** (`lessons/phase-3.md`).
+Scope — the `setup-presto` action (download, the committed digest, PATH), the run-setup's `presto`
 lane (registry port, per-run `PRESTO_HOME`, `BB_BINARY_PATH`, `AZTEC_BB_VERSION`, default gating, TERM → wait → KILL),
 `presto.e2e.ts` (through Presto: sign in with words, Start, the pill reads `✦ presto`, a claim lands **whose winner
 carries `prover: 'presto'`** (the win line exposes it), and independently a `200` on `/prove/ultra-honk` — from the

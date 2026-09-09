@@ -53,4 +53,10 @@ Started 2026-09-09 after P2 (`e19afed`).
   the run's registry-claimed closed port (19.0 s); the update row and Retry, 1.8 s. The run's own server log
   records six finished UltraHonk proofs (`ok=true`), no `versions` directory appeared, and no `presto-server`
   survived teardown. The six renders in `renders/` are from this run.
+- **CI run 34395322513 (`c5f8c00`)**: all three jobs green; `web-miner` ran the whole suite, **19 passed in 24.2 min**.
+  The two earlier failures were the same unrelated assertion on the first-visit spec's second visit: on a four-core
+  runner the claim's own balance read lands before the reopened wallet has synced the new note, so the claim counter
+  reads one while the balance still reads four, and the poll publishes it a few reads later. That assertion had the
+  default sixty-second allowance while the wait above it had ten minutes; it now waits like the chain-sync waits
+  around it. Nothing in the page changed, and the spec runs with Presto switched off.
 
