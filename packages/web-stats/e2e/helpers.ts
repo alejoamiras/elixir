@@ -27,9 +27,10 @@ interface RpcCall {
 /**
  * A JSON-RPC node at MOCK_NODE_ORIGIN: a `getPublicStorageAt` of a slot in `.mock.json` answers
  * from it, every other call (the fixed slots included) goes to the real node with its id intact,
- * so the deployment check, genesis and the block reads stay real.
+ * so the deployment check, genesis and the block reads stay real. `delayMs` holds every answer
+ * that long: a slow node, for the skeleton.
  */
-export async function mockNode(page: Page, r: E2eRun): Promise<void> {
+export async function mockNode(page: Page, r: E2eRun, opts: { delayMs?: number } = {}): Promise<void> {
   const storage = JSON.parse(readFileSync(MOCK_FILE, 'utf8')) as Record<string, Record<string, string>>;
   const answer = (c: RpcCall): unknown | undefined => {
     if (c.method !== 'aztec_getPublicStorageAt') return undefined;
@@ -64,6 +65,7 @@ export async function mockNode(page: Page, r: E2eRun): Promise<void> {
         else results.set(c.id, { jsonrpc: '2.0', id: c.id, result: local });
       }
       for (const item of await forwardTo(route, forward, Array.isArray(body))) results.set(item.id, item);
+      if (opts.delayMs) await new Promise((resolve) => setTimeout(resolve, opts.delayMs));
       const out = calls.map((c) => results.get(c.id));
       await route.fulfill({ json: Array.isArray(body) ? out : out[0] });
     },

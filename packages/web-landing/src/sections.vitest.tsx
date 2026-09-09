@@ -100,6 +100,16 @@ describe('the landing', () => {
     expect(screen.getByTestId('money-lede').textContent).toBe(copy.money.lede);
     expect(screen.queryByTestId('money-rules')).toBeNull();
   });
+
+  test("the money table drops the last row's rule from the tbody: the selector reaches its cells, no cell says last:", () => {
+    render(<App live={ready} launch={loading} />);
+    const tbody = screen.getByTestId('money-table').querySelector('tbody') as HTMLElement;
+    expect(tbody.className).toContain('[&>tr:last-child>td]:border-b-0');
+    const cells = tbody.querySelectorAll(':scope > tr:last-child > td');
+    expect(cells).toHaveLength(copy.money.table.columns.length + 1);
+    expect(tbody.querySelectorAll('[class*="last:"]')).toHaveLength(0);
+    for (const td of tbody.querySelectorAll('td')) expect(td.className).toContain('border-b');
+  });
 });
 
 describe('the hero tile and the ledger', () => {

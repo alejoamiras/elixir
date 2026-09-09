@@ -47,10 +47,17 @@ async function landing(page: Page, width: number) {
   await page.getByTestId('hero-chart').waitFor({ timeout: 10_000 });
   await page.waitForTimeout(500);
   await shot(page, 'landing', width);
+  await page.locator('#money').screenshot({ path: resolve(out, `landing-money-${width}.png`), type: 'png' });
 }
 
 async function stats(page: Page, width: number) {
   const statsRun = { ...run, vitePid: run.vitePid ?? 0 };
+  // The node answering late: the frame as its skeleton, past the 300 ms quiet.
+  await mockNode(page, statsRun, { delayMs: 1500 });
+  await page.goto(pageUrl(statsRun, '', { node: MOCK_NODE_ORIGIN }));
+  await page.waitForTimeout(450);
+  await shot(page, 'stats-skeleton', width);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
   await mockNode(page, statsRun);
   await page.goto(pageUrl(statsRun, '', { node: MOCK_NODE_ORIGIN }));
   await page.getByTestId('table').locator('tbody tr').nth(30).waitFor({ timeout: 60_000 });
