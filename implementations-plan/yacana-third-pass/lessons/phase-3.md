@@ -200,3 +200,22 @@ documented `data-settled` scope; the A5 actions; the CSP emission; the money sel
 Two runbook notes: on arc 1's tree the miner's generated `public/` (the slot table the arc-2 prebuild copies) is
 not yet ignored and fails `bun run lint` — it was set aside, not deleted; and a `NodeRequestOutcome` gained a
 field, so every test literal of it needed `quiet: false` (the fixture's spread order mattered: defaults first).
+
+## Cross-arc codex pass · round 2 (2026-09-09)
+
+Resumed on the three fix commits. Two findings, both verified, both adopted on their arc (arc 1 `8f1526d`, arc 2
+`09a9543`), the stack cascaded again:
+
+- **Medium (arc 1 → 3) — `quiet` was sampled when the outcome arrived, not when the request started.** The
+  reader's own 10 s deadline rejects without cancelling the request; `quietNodeReads` exited, and a 429 that landed
+  afterwards was reported as ordinary work and opened a cooldown. `nodeRequest` now captures `{endpoint,
+  startedAt, quiet}` at the start and the report carries it; the test holds a slow endpoint past the quiet scope.
+- **Medium (arc 2) — stopping the public poll did not drain its read.** With the real reader, `open_epoch` came
+  from A, the switch completed, and the remaining slots came from B; the restarted poll joined that obsolete
+  promise, so the cockpit's epoch stayed null until the next 30 s tick. `stop()` returns the read in flight,
+  `start()` forgets a read from before the stop, and the signed-out switch awaits the drain inside its own promise
+  before the swap.
+
+Codex's "looks fine": the quiet recovery clears `probing` and wakes `waitTurn()`; the `resetAt` check belongs
+before the quiet filter; a cancelled opening releases the switch refusal; a strict rebuild failure reaches the boot
+error; endpoint identity, leases, boundaries and the reader consolidation.
