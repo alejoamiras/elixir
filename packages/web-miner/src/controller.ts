@@ -585,6 +585,10 @@ export class MinerController {
    * from the new one through the lost-race path, then read before mining resumes.
    */
   async rebuildForNewNode(): Promise<void> {
+    // The old node's numbers are not this node's: cleared, so the first read is published whatever
+    // epoch it reports (the regression guard compares against the same node only).
+    this.store.set(epochAtom, null);
+    this.store.set(balanceAtom, null);
     await this.rebuildChainView('the node changed: rebuilding this account’s chain view from it…', true);
   }
 

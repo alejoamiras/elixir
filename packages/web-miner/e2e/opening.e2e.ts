@@ -24,7 +24,7 @@ test('a cancel mid-opening returns to signed out; the account opens on the next 
   await expect(page.getByTestId('phase')).toHaveText(/opening/i, { timeout: 60_000 });
   await cancel.click();
 
-  // Back to signed out with the saved account (the record was written before the ceremony).
+  // Back to signed out with the saved account (the record was written before the wallet opened).
   await expect(page.getByTestId('open-key')).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId('phase')).not.toHaveText(/opening/i);
 

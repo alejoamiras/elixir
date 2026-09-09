@@ -3,14 +3,15 @@ import { describe, expect, test } from 'bun:test';
 import { createStore } from 'jotai';
 import type { Started } from '../src/boot.ts';
 import { Session } from '../src/session.ts';
-import { bootAtom } from '../src/state.ts';
+import { bootAtom, epochAtom } from '../src/state.ts';
 
 // The attempt bookkeeping (generation, cancel, supersession) with the ceremony and the wallet-level
 // work both faked: the wallet's own stop-on-abort lives in startSession and is covered by the E2E.
 const fakePre = () => {
-  const calls = { start: 0, stop: 0 };
+  const calls = { start: 0, stop: 0, used: [] as string[] };
   const publicEpoch = { start: () => calls.start++, stop: () => calls.stop++, tick: async () => {} };
-  return { pre: { publicEpoch } as never, calls };
+  const switchable = { use: (url: string) => calls.used.push(url), current: () => 'https://a.example/rpc' };
+  return { pre: { publicEpoch, switchable } as never, calls };
 };
 
 /** A Session whose preflight and startImpl are fakes; `runAttempt` is exercised through the real methods. */
@@ -41,6 +42,37 @@ const ceremony = () => ({
 // runAttempt is the internal the open methods share; exercise it directly with a controllable ceremony.
 const runAttempt = (s: Session, c: () => unknown, label = 'passkey') =>
   (s as unknown as { runAttempt: (l: string, c: () => unknown) => Promise<void> }).runAttempt(label, c);
+
+describe('a node switch around the attempt', () => {
+  test('refused while an attempt is opening; the attempt is untouched', async () => {
+    let releaseSteps: (() => void) | undefined;
+    const { store, session } = harness(async (_s, _p, _c, _r, _m, opts: { signal: AbortSignal }) => {
+      await new Promise<void>((r) => (releaseSteps = r));
+      opts.signal.throwIfAborted();
+      return started();
+    });
+    await session.ready;
+    const run = runAttempt(session, ceremony);
+    await new Promise((r) => setTimeout(r, 5));
+    expect(store.get(bootAtom).phase).toBe('opening');
+    await expect(session.switchNode('https://b.example/rpc')).rejects.toThrow(/an account is opening/);
+    releaseSteps?.();
+    await run;
+    expect(store.get(bootAtom).phase).toBe('ready');
+  });
+
+  test('signed out, the public poll stops across the swap, the epoch is cleared, and it restarts on the new node', async () => {
+    const { store, session, pre } = harness(async () => started());
+    await session.ready;
+    store.set(epochAtom, { epoch: 100n, seed: 0n, target: 1n << 122n, openedAt: 0n, claims: 1 });
+    const before = { ...pre.calls };
+    await session.switchNode('https://b.example/rpc');
+    expect(pre.calls.used).toEqual(['https://b.example/rpc']);
+    expect(pre.calls.stop).toBe(before.stop + 1);
+    expect(pre.calls.start).toBe(before.start + 1);
+    expect(store.get(epochAtom)).toBeNull();
+  });
+});
 
 describe('the opening attempt', () => {
   test('a cancel after the ceremony ends in signedOut with no error and zeros the master', async () => {

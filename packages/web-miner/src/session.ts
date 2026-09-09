@@ -41,7 +41,7 @@ import {
 } from './keys/store';
 import { initialSteps } from './opening-steps';
 import { loadSettings, saveSettings } from './settings';
-import { bootAtom } from './state';
+import { bootAtom, epochAtom } from './state';
 
 type Store = ReturnType<typeof createStore>;
 
@@ -430,11 +430,22 @@ export class Session {
         throw new Error('The browser refused to save the setting; free some site storage and try again.');
       return location.reload();
     }
+    // Until the attempt adopts its controller there is nothing to drain: a swap under it would leave
+    // the opening wallet on a node the guard no longer admits.
+    if (this.attempt)
+      throw new Error('an account is opening; cancel it or let it finish before changing the node');
     if (this.switching) {
       if (this.switchingUrl === url) return this.switching; // the same switch, already underway
       throw new Error('a node switch is already underway; wait for it to finish');
     }
     const pre = this.pre;
+    // Signed out, the public poll is the only reader: it stops across the swap (a read out on the old
+    // node lands nowhere), the epoch it guarded against regressing is cleared, and it restarts on the new node.
+    const publicOnly = !this.controller;
+    if (publicOnly) {
+      pre.publicEpoch.stop();
+      this.store.set(epochAtom, null);
+    }
     this.switchingUrl = url;
     this.switching = switchNodeLive({ controller: this.controller, switchable: pre.switchable, url })
       .catch((e: unknown) => {
@@ -449,6 +460,7 @@ export class Session {
         throw e;
       })
       .finally(() => {
+        if (publicOnly) pre.publicEpoch.start();
         this.switching = undefined;
         this.switchingUrl = undefined;
       });

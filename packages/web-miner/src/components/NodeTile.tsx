@@ -1,3 +1,4 @@
+import { useAtomValue } from 'jotai';
 import { useEffect, useReducer, useState, useSyncExternalStore } from 'react';
 import { defaultNodeUrl, isPinnedByQuery, saveConnection } from '../../../site/src/browser/connection.ts';
 import { type NodeProbe, parseNodeUrl } from '../../../site/src/browser/node.ts';
@@ -5,6 +6,7 @@ import { nodeHealth, subscribeNodeHealth } from '../../../site/src/browser/node-
 import { Button, ExternalLink, Input, Label, Tile, TileHeader } from '../../../ui/src/index.ts';
 import { canUse, checkReducer, describeProbe } from '../lib/node-check';
 import type { Session } from '../session';
+import { bootAtom } from '../state';
 
 const RUN_A_NODE = 'https://docs.aztec.network/the_aztec_network/guides/run_nodes/how_to_run_full_node';
 const HEALTH_EVERY_MS = 10_000;
@@ -156,6 +158,7 @@ function CheckForm({
     dispatch({ type: 'switched', url });
   };
   const busy = state.kind === 'checking' || state.kind === 'switching';
+  const opening = useAtomValue(bootAtom).phase === 'opening';
   return (
     <div className="grid gap-3">
       <div className="grid gap-1.5">
@@ -188,16 +191,16 @@ function CheckForm({
       <div className="flex items-center gap-3">
         <Button
           variant="primary"
-          disabled={!canUse(state, typed, nodeUrl) || pinned}
+          disabled={!canUse(state, typed, nodeUrl) || pinned || opening}
           onClick={() => void use()}
           data-testid="node-use"
         >
           {state.kind === 'switching' ? 'Switching…' : 'Use this node'}
         </Button>
         <span className="text-xs text-ink-3">
-          Applies at once; your account's view of the chain is rebuilt from the new node (about a minute) and
-          mining carries on. The page checks any node against this deployment before it reads a number from
-          it.
+          {opening
+            ? 'An account is opening: finish or cancel the sign-in first.'
+            : "Applies at once; your account's view of the chain is rebuilt from the new node (about a minute) and mining carries on. The page checks any node against this deployment before it reads a number from it."}
         </span>
       </div>
     </div>
