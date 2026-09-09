@@ -9,7 +9,6 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { PROOF_FIELDS } from '../../miner-core/src/proof.ts';
 import type { WorkArtifact, WorkInputs } from '../../miner-core/src/work.ts';
 import crsLock from '../../site/crs.lock.json';
-import { fetchCrs } from '../../site/scripts/fetch-crs.ts';
 import { W_VK_BYTES } from '../../work-circuit/src/generated/vk.ts';
 import { acceleratorUrls, type PrestoEndpoint, type ProverKind } from '../src/presto.ts';
 import { PrestoWorkProver, type ProverTransition } from '../src/presto-prover.ts';
@@ -86,12 +85,6 @@ function prover(endpoint: PrestoEndpoint) {
 const pkg = resolve(import.meta.dir, '..');
 const CRS_HOSTS = new Set(crsLock.hosts);
 
-/**
- * bb.js asks Aztec's CDN for the proving keys before it can prove in WASM, and only reads its own
- * disk cache on a machine that already has one — so the WASM proofs below passed on a warm machine
- * and died at the guard on a cold one. This answers those requests from the pinned CRS the app
- * serves, materialised here and checked against the same lock, so every machine proves alike.
- */
 /** The pinned asset this request is for, or null for anything that is not the CRS. */
 function crsAsset(input: RequestInfo | URL): string | null {
   const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
@@ -114,6 +107,12 @@ function ranged(bytes: Uint8Array, init: RequestInit | undefined): Response {
   });
 }
 
+/**
+ * bb.js asks Aztec's CDN for the proving keys before it can prove in WASM, and only reads its own
+ * disk cache on a machine that already has one — so the WASM proofs below passed on a warm machine
+ * and died at the guard on a cold one. This answers those requests from the pinned CRS the app
+ * serves, fetched through the repo's own script and checked against the same lock.
+ */
 function serveCrs(): () => void {
   const under = globalThis.fetch;
   const files = new Map<string, Uint8Array>();
@@ -140,7 +139,13 @@ beforeAll(async () => {
   // Worker admits Presto, or the SDK's requests die at the guard and every test reads as `network`.
   const guard = await import('../../site/src/browser/node-guard.ts');
   guard.setAcceleratorEndpoints(acceleratorUrls(fake.endpoint), 60_000);
-  await fetchCrs(resolve(pkg, 'public'));
+  // In its own process: by now `fetch` in this one may be the guard, or the miner's CRS interceptor
+  // over it, and the download would be turned into a page request no one here can answer.
+  const script = resolve(pkg, '../site/scripts/fetch-crs.ts');
+  const fetched = Bun.spawnSync(['bun', script, resolve(pkg, 'public')], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  if (!fetched.success) throw new Error(`the pinned CRS could not be fetched: ${fetched.stderr.toString()}`);
   stopCrs = serveCrs();
 }, 120_000);
 
