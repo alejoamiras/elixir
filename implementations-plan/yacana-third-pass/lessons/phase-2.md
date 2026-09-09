@@ -130,3 +130,28 @@ Tests: the supersession test became two — a signal-aware predecessor is aborte
 cancel landing as the last step settles disposes the returned controller and stops its wallet. Gate re-run: lint ·
 5 typechecks · `bun test` 224 pass · Vitest 137 · the full miner E2E on the isolated network 15 passed · the arc-2
 renders re-shot.
+
+## Arc 2 codex loop · round 2 (2026-09-09)
+
+Resumed session, the round-1 diff. Five findings (12 → 5), all on the attempt's edges; all verified and adopted:
+
+- **Medium — the cleanup finished too early.** The wallet stop of a discarded result was fire-and-forget, so
+  `done`, `cancelOpening()` and the signed-out publish could all come before the namespace was free. `discard()` is
+  awaited before any publish and before the attempt ends.
+- **Medium — a queued attempt superseded while it waited still ran its ceremony** (A running, B then C queued: B
+  prompted for a passkey and could write a record). Ownership and the signal are checked right after the wait,
+  before the ceremony.
+- **Medium — a stale publish could overwrite a replacement's opening.** `toSignedOut`/`fail` checked ownership
+  before their `listRecords()` await, not after; a replacement that began during it lost its `opening` to a stale
+  `signedOut` and ran its WebAuthn prompt behind dismissible controls. Both take the attempt id and re-check after
+  the read.
+- **Medium — two masters could outlive a failure**: the one `openMaster` refuses (a different account) and the one
+  a words restore derives, whose tail (`listRecords`, the branch) sat outside the ownership wrapper. `openMaster`
+  zeros what it refuses; the restore owns its master through its whole tail.
+- **Low — the step list**: done steps in `ok` with a ✓, the keys step's bytes in the mono right column (`Stepper`
+  gains a `right` slot), the node step's measured time (the preflight rows' `ms`, summed).
+
+Tests: the wallet is stopped before the cancel resolves and before signed out is published; a queued attempt
+superseded meanwhile never prompts (the fake's first call waits, later ones resolve — the first draft re-armed its
+gate on every call and hung). Gate re-run: lint · 5 typechecks · `bun test` 226 pass · Vitest 137 · the full miner
+E2E on the isolated network 15 passed · the arc-2 renders re-shot.

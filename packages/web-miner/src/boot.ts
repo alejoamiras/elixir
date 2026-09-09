@@ -43,6 +43,8 @@ export interface Preflighted {
   block: number;
   /** The open epoch from public storage while no account is open; stopped at the controller's first read. */
   publicEpoch: PublicEpochPoll;
+  /** How long the node and deployment checks took, for the opening's step list. */
+  nodeMs: number;
 }
 
 /** The build's deployment identity, as the boot and every node check compare it. */
@@ -151,8 +153,9 @@ export async function preflight(store: Store, connection: Connection): Promise<P
   });
   await preparePasskeys();
   const publicEpoch = startPublicChain(store, connection, node, minerArtifact);
+  const nodeMs = rows.filter((r) => r.id !== 'isolation').reduce((n, r) => n + (r.ms ?? 0), 0);
   store.set(bootAtom, { phase: 'signedOut', records: await listRecords() });
-  return { node, switchable, expected, chainId, rollupVersion, minerArtifact, block, publicEpoch };
+  return { node, switchable, expected, chainId, rollupVersion, minerArtifact, block, publicEpoch, nodeMs };
 }
 
 /**
@@ -219,6 +222,8 @@ export interface OpeningOpts {
   /** The first step's label for the account's kind (a passkey, twelve words), and how long it took. */
   keyLabel?: string;
   keyMs?: number;
+  /** How long the node step took, back in the preflight. */
+  nodeMs?: number;
 }
 
 export interface Started {
@@ -243,6 +248,7 @@ export async function startSession(
 ): Promise<Started> {
   const steps = initialSteps(opts.keyLabel);
   if (opts.keyMs !== undefined) (steps[0] as OpeningStep).ms = opts.keyMs;
+  if (opts.nodeMs !== undefined) (steps[1] as OpeningStep).ms = opts.nodeMs;
   const set = (id: OpeningStep['id'], patch: Partial<OpeningStep>) => {
     const i = steps.findIndex((s) => s.id === id);
     steps[i] = { ...(steps[i] as OpeningStep), ...patch };

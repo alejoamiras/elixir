@@ -113,10 +113,13 @@ export class Session {
       throw new Error(`accounts can only be created or restored on ${this.rpId}`);
   }
 
-  private async fail(e: unknown): Promise<void> {
+  /** Back to the signed-out cockpit with the error; `id` names the attempt speaking, if any. */
+  private async fail(e: unknown, id?: number): Promise<void> {
+    const records = await listRecords();
+    if (id !== undefined && this.attempt?.id !== id) return; // a replacement began meanwhile
     this.store.set(bootAtom, {
       phase: 'signedOut',
-      records: await listRecords(),
+      records,
       error: e instanceof Error ? e.message : String(e),
     });
     // No account came up: the public epoch feeds the cockpit again.
@@ -124,12 +127,13 @@ export class Session {
   }
 
   /**
-   * A cancellable opening. A previous attempt is aborted and fully cleaned up first (one PXE at a
-   * time). The ceremony (an OS passkey prompt, or the words work) runs under the new attempt with
-   * Cancel inert; then `startImpl` runs the steps, honouring the signal between them. Whatever an
-   * attempt made and the session did not adopt — a controller, a wallet, the master — is disposed,
-   * stopped or zeroed on every exit; a cancel returns to `signedOut` with no error and the public poll
-   * takes the epoch back; a superseded attempt publishes nothing.
+   * A cancellable opening. A previous attempt is aborted and its cleanup awaited first (one PXE at a
+   * time; a queued attempt superseded meanwhile never prompts). The ceremony (an OS passkey prompt,
+   * or the words work) runs under the new attempt with Cancel inert; then `startImpl` runs the steps,
+   * honouring the signal between them. Whatever an attempt made and the session did not adopt — a
+   * controller, a wallet, the master — is disposed, stopped or zeroed before it ends; a cancel returns
+   * to `signedOut` with no error and the public poll takes the epoch back; a superseded attempt
+   * publishes nothing, even from a publish already in flight.
    */
   private runAttempt(
     keyLabel: string,
@@ -162,13 +166,27 @@ export class Session {
     const mine = () => this.attempt?.id === id;
     let master: Uint8Array | undefined;
     let started: Started | undefined;
+    // Whatever the steps returned that the session did not adopt: disposed, and its wallet stopped —
+    // awaited, so `done` (and a successor, and the signed-out publish) come after the namespace is free.
+    const discard = async () => {
+      if (!started || started.controller === this.controller) return;
+      const s = started;
+      started = undefined;
+      s.controller.dispose();
+      await s
+        .wallet()
+        .stop()
+        .catch(() => {});
+    };
     try {
       // The predecessor ends first (it sees itself superseded and publishes nothing) so two attempts
-      // never hold the PXE namespace at once.
+      // never hold the PXE namespace at once; a queued attempt superseded meanwhile never prompts.
       if (prev) {
         prev.abort.abort();
         await prev.done.catch(() => {});
       }
+      if (!mine()) return;
+      abort.signal.throwIfAborted();
       const t0 = performance.now();
       const c = await ceremony();
       master = c.master;
@@ -180,6 +198,7 @@ export class Session {
         signal: abort.signal,
         keyLabel,
         keyMs,
+        nodeMs: (this.pre as Preflighted).nodeMs,
         publish: (steps) => mine() && this.store.set(bootAtom, { phase: 'opening', steps }),
       });
       if (!mine()) return;
@@ -197,19 +216,14 @@ export class Session {
         record: c.record,
       });
     } catch (e) {
+      await discard();
       if (!mine()) return; // a stale attempt publishes nothing
       // A cancel wins over whatever the abort made the steps throw (a download that failed later).
-      if (isAbort(e) || abort.signal.aborted) await this.toSignedOut();
-      else await this.fail(e);
+      if (isAbort(e) || abort.signal.aborted) await this.toSignedOut(id);
+      else await this.fail(e, id);
     } finally {
       master?.fill(0);
-      if (started && started.controller !== this.controller) {
-        started.controller.dispose();
-        void started
-          .wallet()
-          .stop()
-          .catch(() => {});
-      }
+      await discard();
     }
   }
 
@@ -222,8 +236,10 @@ export class Session {
   }
 
   /** Back to the signed-out cockpit with no error (a cancel); the public poll feeds the chain again. */
-  private async toSignedOut(): Promise<void> {
-    this.store.set(bootAtom, { phase: 'signedOut', records: await listRecords() });
+  private async toSignedOut(id: number): Promise<void> {
+    const records = await listRecords();
+    if (this.attempt?.id !== id) return; // a replacement began meanwhile: its opening stands
+    this.store.set(bootAtom, { phase: 'signedOut', records });
     this.pre?.publicEpoch.start();
   }
 
@@ -264,7 +280,7 @@ export class Session {
     return this.runAttempt(keyLabel, async () => {
       const master = record.sealed
         ? await openMaster(record)
-        : await openMaster(record, await this.masterFromCeremony(record));
+        : await this.masterFromCeremony(record).then((m) => owning(m, () => openMaster(record, m)));
       return owning(master, async () => ({
         record,
         master,
@@ -345,15 +361,17 @@ export class Session {
     return this.runAttempt('twelve words', async () => {
       this.guardHost();
       const master = await masterFromMnemonic(phrase);
-      const address = await owning(master, () => addressOf(master, 0));
-      const existing = (await listRecords()).find((r) => r.account.address === address);
-      if (existing)
-        return owning(master, async () => ({
-          record: existing,
-          master: await openMaster(existing, master),
-          words: normaliseWords(phrase),
-        }));
-      return this.wordsRecord(normaliseWords(phrase), true, master);
+      return owning(master, async () => {
+        const address = await addressOf(master, 0);
+        const existing = (await listRecords()).find((r) => r.account.address === address);
+        if (existing)
+          return {
+            record: existing,
+            master: await openMaster(existing, master),
+            words: normaliseWords(phrase),
+          };
+        return this.wordsRecord(normaliseWords(phrase), true, master);
+      });
     });
   }
 

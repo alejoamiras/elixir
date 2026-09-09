@@ -9,6 +9,8 @@ export interface Step {
   ms?: number;
   /** Second line, e.g. a TTL countdown. */
   detail?: React.ReactNode;
+  /** The mono right column when it is not a time (a byte count); wins over `ms`. */
+  right?: React.ReactNode;
 }
 
 export const fmtSeconds = (ms: number): string =>
@@ -50,8 +52,12 @@ export function Stepper({
             <span>{step.label}</span>
             {step.detail !== undefined && <span className="block text-xs text-ink-2">{step.detail}</span>}
           </span>
-          {step.ms !== undefined && (
-            <span className="font-mono text-xs text-ink-2">{fmtSeconds(step.ms)}</span>
+          {step.right !== undefined ? (
+            <span className="font-mono text-xs text-ink-2">{step.right}</span>
+          ) : (
+            step.ms !== undefined && (
+              <span className="font-mono text-xs text-ink-2">{fmtSeconds(step.ms)}</span>
+            )
           )}
         </li>
       ))}

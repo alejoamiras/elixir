@@ -156,10 +156,12 @@ export async function openMaster(record: MasterRecord, supplied?: Uint8Array): P
     supplied ??
     (record.method === 'words' ? await masterFromMnemonic(await openPhrase(record)) : await unseal(record));
   const derived = await addressOf(master, record.account.index);
-  if (derived !== record.account.address)
+  if (derived !== record.account.address) {
+    master.fill(0); // a master nobody will hold: not left in memory behind the error
     throw new Error(
       `this ${record.method === 'passkey' ? 'passkey' : 'phrase'} opens a different account than the one on this device`,
     );
+  }
   return master;
 }
 

@@ -149,6 +149,70 @@ describe('the opening attempt', () => {
     expect(stopped).toBe(true);
   });
 
+  test('the wallet is stopped before the cancel resolves and before signed out is published', async () => {
+    let release: (() => void) | undefined;
+    let stopped = false;
+    let phaseWhenStopped: string | undefined;
+    const { store, session } = harness(async () => {
+      await new Promise<void>((r) => (release = r));
+      return {
+        controller: { dispose: () => {} } as never,
+        wallet: () =>
+          ({
+            stop: async () => {
+              await new Promise((r) => setTimeout(r, 30)); // a slow shutdown
+              phaseWhenStopped = store.get(bootAtom).phase;
+              stopped = true;
+            },
+          }) as never,
+        threads: 4,
+      };
+    });
+    await session.ready;
+    const run = runAttempt(session, ceremony);
+    await new Promise((r) => setTimeout(r, 5));
+    const cancel = session.cancelOpening();
+    release?.();
+    await cancel;
+    expect(stopped).toBe(true); // the cancel waited for the shutdown
+    expect(phaseWhenStopped).toBe('opening'); // and signed out was published only after it
+    await run;
+    expect(store.get(bootAtom).phase).toBe('signedOut');
+  });
+
+  test('a queued attempt superseded while it waited never runs its ceremony', async () => {
+    const prompted: string[] = [];
+    let releaseA: (() => void) | undefined;
+    let call = 0;
+    const { store, session } = harness(async (_s, _p, _c, _r, _m, opts: { signal: AbortSignal }) => {
+      // Only the first attempt's steps wait; a later one resolves at once.
+      if (++call === 1)
+        await new Promise<void>((resolve, reject) => {
+          releaseA = resolve;
+          opts.signal.addEventListener('abort', () => reject(opts.signal.reason), { once: true });
+        });
+      return started();
+    });
+    await session.ready;
+    const a = runAttempt(session, () => {
+      prompted.push('a');
+      return ceremony();
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    const b = runAttempt(session, () => {
+      prompted.push('b'); // must never happen: c supersedes b while b waits on a
+      return ceremony();
+    });
+    const c = runAttempt(session, () => {
+      prompted.push('c');
+      return ceremony();
+    });
+    releaseA?.();
+    await Promise.all([a, b, c]);
+    expect(prompted).toEqual(['a', 'c']);
+    expect(store.get(bootAtom).phase).toBe('ready');
+  });
+
   test('a failure (not a cancel) shows signedOut with the error', async () => {
     const { store, session } = harness(async () => {
       throw new Error('the node did not answer the first read');

@@ -1,6 +1,12 @@
 import { useAtom, useAtomValue } from 'jotai';
 import { Button, Dialog, DialogContent, DialogTitle, Progress, Stepper } from '../../../ui/src/index.ts';
-import { NOTES_SPAN, type OpeningStep, openingIndeterminate, progressOf } from '../opening-steps';
+import {
+  bytesDetail,
+  NOTES_SPAN,
+  type OpeningStep,
+  openingIndeterminate,
+  progressOf,
+} from '../opening-steps';
 import type { Session } from '../session';
 import { useSettings } from '../settings';
 import { bootAtom, signInAtom } from '../state';
@@ -50,6 +56,14 @@ export function SignInDialog({ session }: { session: Session }) {
   );
 }
 
+/** A step as the canvas draws it: done ones in `ok` with a ✓, the keys step's bytes in the right column. */
+const shown = (s: OpeningStep): OpeningStep => ({
+  ...s,
+  label: s.state === 'done' ? <span className="text-ok">✓ {s.label}</span> : s.label,
+  detail: undefined,
+  right: s.state === 'active' && s.bytes ? bytesDetail(s.bytes) : undefined,
+});
+
 /** The opening body: the step list, the bar, and Cancel once the ceremony is over. */
 function Opening({ steps, onCancel }: { steps: OpeningStep[]; onCancel: () => void }) {
   const [settings] = useSettings();
@@ -73,7 +87,7 @@ function Opening({ steps, onCancel }: { steps: OpeningStep[]; onCancel: () => vo
         indeterminateSpan={NOTES_SPAN}
         data-testid="opening-bar"
       />
-      <Stepper steps={steps} />
+      <Stepper steps={steps.map(shown)} />
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs text-ink-3">{footer}</span>
         <Button
