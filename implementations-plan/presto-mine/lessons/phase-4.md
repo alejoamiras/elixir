@@ -59,3 +59,28 @@ Every claim was checked against the source before it was acted on; all held. Wha
 
 Not adopted: nothing. Codex also asked for build evidence behind the "production build under hostile e2e env"
 claim — recorded below once produced.
+
+### Round 2 — **changes** (2026-09-09 19:05 UTC), commit `c271386`
+
+Five findings, each checked against the source (and against the pinned SDK) before it was acted on; all held.
+
+1. **The download row cleared before the download did.** The SDK emits `downloading` and then walks
+   `serialize → transmit → proving` *before* the POST (`presto-client.ts:347,380`), so my edge-trigger on "the next
+   phase" fired immediately. The gate is now `downloadPhases` in `presto.ts` — a plain function, so it is tested
+   directly against that order: `downloading` once, then only `proved` or `fallback` while a download is open.
+2. **A Start could not bring native back.** After a denial the visitor approves the site in Presto and presses
+   Start; the endpoint and the threads are unchanged, so `reconfigure`'s equal-config short-circuit dropped it and
+   the page stayed on WASM. Start now forces the rebuild exactly when the page knows the Worker is stuck
+   (`fallbackReason` set) — which is what plan §4 means by "sticky until Retry or Start".
+3. **Retry still acted after a Stop.** The Stop snapshot only covered Start. It is taken inside `reprobePresto`
+   now, so it covers both, as plan §2 requires ("not at all after Stop or dispose").
+4. **The e2e's "independent" evidence could come from an earlier spec** — the server log is the run's, and the
+   native spec proves through it first. The log is read from the offset taken when the test begins, and the
+   response listener matches a POST at the run's exact prove URL.
+5. **The fix-it row showed the opening thread count**, not the one the slider writes. It reads the setting now.
+
+The new `presto-session.bun.test.ts` drives the real `reprobePresto` against a fake Presto whose `/health` the
+suite releases by hand — the two Session behaviours above are what the controller-level suite could not reach.
+Codex accepted the omitted approval link and the config-resolution evidence, but was right that the plan
+overstated it: it now says the e2e port is dropped from the resolved config and from both realms' Vite
+definitions, which is what the test checks.

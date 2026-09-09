@@ -8,13 +8,15 @@ import { type PrestoEndpoint, prestoAtom } from '../src/presto.ts';
 import { Session } from '../src/session.ts';
 import { bootAtom } from '../src/state.ts';
 
-/** A Presto that answers `/health` only when this suite says so. */
+/** A Presto that answers `/health` only when this suite says so, and says when it was asked. */
 function heldPresto() {
   let release: (() => void) | undefined;
+  let arrived: (() => void) | undefined;
   const server = Bun.serve({
     port: 0,
     hostname: '127.0.0.1',
     async fetch() {
+      arrived?.();
       if (release) await new Promise<void>((r) => (release = r));
       return Response.json({
         status: 'ok',
@@ -35,13 +37,20 @@ function heldPresto() {
   return {
     server,
     endpoint,
-    /** From here on `/health` waits; the returned function lets the waiting answer through. */
+    /**
+     * From here on `/health` waits. Returns the request's arrival and the release: the caller can be
+     * sure the probe is out before it acts, and that it is over before it asserts.
+     */
     hold() {
       release = () => {};
-      return () => {
-        const r = release;
-        release = undefined;
-        r?.();
+      const request = new Promise<void>((r) => (arrived = r));
+      return {
+        request,
+        answer() {
+          const r = release;
+          release = undefined;
+          r?.();
+        },
       };
     },
   };
@@ -99,6 +108,18 @@ function harness() {
 
 const settle = () => new Promise((r) => setTimeout(r, 20));
 
+/** Resolves when the probe's answer has landed in the atom — the write `reprobePresto` continues from. */
+const probeAnswered = (store: ReturnType<typeof createStore>): Promise<void> => {
+  const before = store.get(prestoAtom).probedAt;
+  return new Promise((resolve) => {
+    const stop = store.sub(prestoAtom, () => {
+      if (store.get(prestoAtom).probedAt === before) return;
+      stop();
+      resolve();
+    });
+  });
+};
+
 describe('Start and Retry against Presto', () => {
   test('a Start after the Worker gave up on native forces the rebuild an unchanged config would skip', async () => {
     const { store, session } = harness();
@@ -118,16 +139,20 @@ describe('Start and Retry against Presto', () => {
   });
 
   test('a Stop while the probe is out withdraws it: neither Start nor Retry acts on the answer', async () => {
-    const { session } = harness();
+    const { store, session } = harness();
     await session.ready;
     for (const act of [() => session.startMining(), () => void session.retryPresto()]) {
       const c = fakeController(fake.endpoint);
       session.controller = c.controller;
-      const answer = fake.hold();
+      const held = fake.hold();
       act();
-      await settle();
+      // The probe is demonstrably out (Presto has the request) when the Stop lands.
+      await held.request;
       c.stop();
-      answer();
+      const answered = probeAnswered(store);
+      held.answer();
+      // And demonstrably over — the answer is in the atom — when the absence of a rebuild is asserted.
+      await answered;
       await settle();
       expect(c.calls).toEqual([]);
     }

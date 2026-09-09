@@ -127,7 +127,9 @@ describe('the phases the page is told about', () => {
     // A proof that needed no download says nothing at all.
     for (const ph of ['serialize', 'proving', 'proved'] as const) gate(ph);
     expect(seen).toEqual(['downloading', 'proved']);
-    // A download that ends in a fallback ends the row too, and only once.
+    // A download the SDK abandons ends the row too, and only once. Under this app's `fallback: 'none'`
+    // the SDK throws instead of reaching that phase, and the prover's transition clears the row; the
+    // branch is what keeps the row honest for a caller that does let the SDK fall back.
     gate('downloading');
     gate('downloading');
     gate('fallback');
