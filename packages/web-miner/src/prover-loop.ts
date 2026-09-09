@@ -1,10 +1,10 @@
 // The Worker's scheduling, kept free of bb.js so it can be tested with fakes: one job at a time,
 // a queued replacement, stop, and reconfigure (finish the proof in flight, rebuild, resume).
-import type { FromWorker, MineJob, ToWorker } from './worker-protocol';
+import type { FromWorker, MineJob, ProverConfig, ToWorker } from './worker-protocol';
 
 export interface ProverBackend {
-  /** Builds the prover with `threads`; resolves once proofs can be made. */
-  init(threads: number): Promise<void>;
+  /** Builds the prover with `config`; resolves once proofs can be made. */
+  init(config: ProverConfig): Promise<void>;
   destroy(): Promise<void>;
   /**
    * Mines `job` until a winner or until `keepGoing()` says stop; reports every attempt with
@@ -32,23 +32,23 @@ export function createProverLoop(backend: ProverBackend, post: (m: FromWorker) =
   let queued: MineJob | undefined;
   let stopRequested = false;
   let userStopped = false;
-  /** A reconfigure that arrived while proving: applied once the proof in flight is done. */
-  let reconfigureTo: number | undefined;
-  let pendingThreads: number | undefined;
+  /** A reconfigure that arrived while proving: applied, whole, once the proof in flight is done. */
+  let reconfigureTo: ProverConfig | undefined;
+  let pendingConfig: ProverConfig | undefined;
   let rebuilding: Promise<void> | undefined;
 
   const fail = (err: unknown) => post(errorMessage(err));
 
-  /** Rebuilds run one at a time; requests during one coalesce into a last rebuild at the latest count. */
-  const rebuild = (threads: number): Promise<void> => {
-    pendingThreads = threads;
+  /** Rebuilds run one at a time; requests during one coalesce into a last rebuild at the latest config. */
+  const rebuild = (config: ProverConfig): Promise<void> => {
+    pendingConfig = config;
     rebuilding ??= (async () => {
       try {
-        while (pendingThreads !== undefined) {
-          const t = pendingThreads;
-          pendingThreads = undefined;
+        while (pendingConfig !== undefined) {
+          const c = pendingConfig;
+          pendingConfig = undefined;
           await backend.destroy();
-          await backend.init(t);
+          await backend.init(c);
         }
       } finally {
         rebuilding = undefined;
@@ -73,9 +73,9 @@ export function createProverLoop(backend: ProverBackend, post: (m: FromWorker) =
   /** Once the job stopped, rebuild if asked (still the owner meanwhile), then hand over. */
   const settle = async (resume: MineJob | undefined): Promise<void> => {
     mining = false;
-    const threads = reconfigureTo;
+    const config = reconfigureTo;
     reconfigureTo = undefined;
-    if (threads !== undefined) await rebuild(threads);
+    if (config !== undefined) await rebuild(config);
     current = undefined;
     const next = queued ?? resume;
     if (resume && (userStopped || queued)) stopped(resume, resume.startNonce);
@@ -109,7 +109,7 @@ export function createProverLoop(backend: ProverBackend, post: (m: FromWorker) =
     handle(m: ToWorker): void {
       switch (m.type) {
         case 'init':
-          void backend.init(m.threads).catch(fail);
+          void backend.init({ threads: m.threads, presto: m.presto }).catch(fail);
           return;
         case 'mine':
           userStopped = false;
@@ -123,12 +123,14 @@ export function createProverLoop(backend: ProverBackend, post: (m: FromWorker) =
           userStopped = true;
           stopRequested = true;
           return;
-        case 'reconfigure':
+        case 'reconfigure': {
+          const config = { threads: m.threads, presto: m.presto };
           if (mining) {
-            reconfigureTo = m.threads;
+            reconfigureTo = config;
             stopRequested = true;
-          } else void rebuild(m.threads).catch(fail);
+          } else void rebuild(config).catch(fail);
           return;
+        }
         case 'crash':
           // Test hook: an uncaught exception inside the Worker, which the page sees as `onerror`.
           throw new Error('synthetic prover crash');

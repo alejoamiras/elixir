@@ -1,6 +1,6 @@
 // The page's own bound on where it talks: the policy admits any https origin so the node can be
 // a setting, and this interceptor refuses in code everything that is not the page's origin, the
-// node in use or a candidate under check. Installed once per context (page and prover Worker)
+// node in use, the accelerator's fixed URLs or a candidate under check. Installed once per context (page and prover Worker)
 // before `pinned-crs`, whose fall-through it is, so an unpinned CRS host fails here instead of
 // reaching the network. `data:` and `blob:` loads are not network requests (bb.js carries its
 // WASM as `data:` URLs) and pass untouched.
@@ -25,6 +25,9 @@ interface GuardState {
   deadlineMs: number;
   /** Leased candidates by endpoint: overlapping probes each hold the lease until the last releases it. */
   candidates: Map<string, { deadlineMs: number; owners: number }>;
+  /** The local accelerator's exact URLs (health and prove routes): admitted for the session, never reported. */
+  accelerators: Set<string> | null;
+  acceleratorDeadlineMs: number;
   /** Requests in flight under `quietNodeReads`. */
   quiet: number;
   listeners: Set<(o: NodeRequestOutcome) => void>;
@@ -58,11 +61,33 @@ const state = (): GuardState => {
 
 export const setNodeEndpoint = (url: string | null, deadlineMs: number): void => {
   const s = state();
-  s.endpoint = url === null ? null : normaliseEndpoint(url);
+  const endpoint = url === null ? null : normaliseEndpoint(url);
+  // A node at an accelerator URL would take its requests (deadline, gate, reporting) and vice versa.
+  if (endpoint !== null && s.accelerators?.has(endpoint))
+    throw new Error(`node ${endpoint} is one of the accelerator's URLs`);
+  s.endpoint = endpoint;
   s.deadlineMs = deadlineMs;
 };
 
 export const currentNodeEndpoint = (): string | null => state().endpoint;
+
+/**
+ * The accelerator's URLs, exactly (the SDK's health and prove routes on its host and ports): each
+ * passes with the deadline and no redirects and is never reported — the health store, the quiet
+ * scope and the candidate leases do not see it. Null clears the set.
+ */
+export function setAcceleratorEndpoints(urls: readonly string[] | null, deadlineMs: number): void {
+  const s = state();
+  if (urls === null) {
+    s.accelerators = null;
+    return;
+  }
+  const set = new Set(urls.map(normaliseEndpoint));
+  if (s.endpoint !== null && set.has(s.endpoint))
+    throw new Error(`accelerator URL ${s.endpoint} is the node's endpoint`);
+  s.accelerators = set;
+  s.acceleratorDeadlineMs = deadlineMs;
+}
 
 /** A probe's lease: its requests pass and are not reported; the endpoint stays admitted until its last holder releases. */
 export function allowCandidate(url: string, deadlineMs: number): () => void {
@@ -216,6 +241,8 @@ export function installNodeGuard(): void {
     endpoint: null,
     deadlineMs: 120_000,
     candidates: new Map(),
+    accelerators: null,
+    acceleratorDeadlineMs: 300_000,
     quiet: 0,
     listeners: new Set(),
     gate: null,
@@ -224,15 +251,19 @@ export function installNodeGuard(): void {
     const href = hrefOf(input);
     if (/^(data|blob):/i.test(href)) return s.original(input, init);
     const url = new URL(href, globalThis.location?.href);
-    // The node and a candidate are classified before the page's own origin: a node served from it
-    // still gets the deadline, the gate and the reporting.
+    // The node, the accelerator and a candidate are classified before the page's own origin: a node
+    // served from it still gets the deadline, the gate and the reporting.
     const endpoint = normaliseEndpoint(url.href);
     if (endpoint === s.endpoint) return nodeRequest(s, endpoint, input, init);
+    if (s.accelerators?.has(endpoint))
+      return s.original(input, withDeadline(input, init, s.acceleratorDeadlineMs));
     const lease = s.candidates.get(endpoint);
     if (lease) return s.original(input, withDeadline(input, init, lease.deadlineMs));
     if (url.origin === globalThis.location?.origin) return s.original(input, init);
     return Promise.reject(
-      new Error(`blocked endpoint ${url.origin}${url.pathname}: not this page, its node or a candidate`),
+      new Error(
+        `blocked endpoint ${url.origin}${url.pathname}: not this page, its node, its accelerator or a candidate`,
+      ),
     );
   }) as typeof globalThis.fetch;
   (globalThis as Realm)[MARK] = s;

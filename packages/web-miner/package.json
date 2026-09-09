@@ -13,6 +13,9 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@alejoamiras/presto-banners": "1.0.0",
+    "@alejoamiras/presto-core": "1.0.1",
+    "@alejoamiras/presto-noir": "1.0.1",
     "@aztec-foundation/aztec-standards": "5.2.0",
     "@aztec/accounts": "5.2.0",
     "@aztec/aztec.js": "5.2.0",

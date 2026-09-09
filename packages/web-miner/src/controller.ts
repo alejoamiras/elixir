@@ -18,6 +18,7 @@ import { type Deployment, type Fee, readBalance, readEpoch, sendClaim, sendRoll 
 import { chime } from './chime';
 import { amount } from './lib/format';
 import { type Command, type Event, reduce } from './lib/reducer';
+import { type PrestoEndpoint, prestoAtom } from './presto';
 import { settingsAtom } from './settings';
 import { balanceAtom, claimsAtom, epochAtom, logAtom, minerAtom } from './state';
 import type { FromWorker, MineJob, ToWorker } from './worker-protocol';
@@ -52,6 +53,8 @@ export interface MinerOptions {
   store: Store;
   spawnWorker: () => Worker;
   threads: number;
+  /** Presto's endpoint when the page's probe found it worth asking; null proves in WASM as before. */
+  presto?: PrestoEndpoint | null;
   deployment: Deployment;
   account: AztecAddress;
   fee: Fee;
@@ -105,6 +108,7 @@ export class MinerController {
   private readonly store: Store;
   private readonly spawnWorker: () => Worker;
   private threads: number;
+  private presto: PrestoEndpoint | null;
   private d: Deployment;
   private readonly account: AztecAddress;
   private fee: Fee;
@@ -156,6 +160,7 @@ export class MinerController {
     this.store = o.store;
     this.spawnWorker = o.spawnWorker;
     this.threads = o.threads;
+    this.presto = o.presto ?? null;
     this.d = o.deployment;
     this.account = o.account;
     this.fee = o.fee;
@@ -195,7 +200,7 @@ export class MinerController {
       };
     });
     ready.catch(() => {});
-    worker.postMessage({ type: 'init', threads: this.threads } satisfies ToWorker);
+    worker.postMessage({ type: 'init', threads: this.threads, presto: this.presto } satisfies ToWorker);
     return { worker, ready, generation };
   }
 
@@ -248,6 +253,13 @@ export class MinerController {
     if (this.pauseTimer) clearTimeout(this.pauseTimer);
     this.generations++;
     this.prover.worker.terminate();
+    this.store.set(prestoAtom, (s) => ({
+      ...s,
+      selected: null,
+      active: null,
+      phase: undefined,
+      fallbackReason: undefined,
+    }));
   }
 
   /** Under a page-side pause the intent is kept: mining starts when the last reason clears. */
@@ -266,12 +278,22 @@ export class MinerController {
     this.dispatch({ type: 'stop' });
   }
 
-  /** Power: the Worker finishes the proof in flight, rebuilds bb.js and resumes at the next nonce. */
-  reconfigure(threads: number) {
-    if (threads === this.threads) return;
+  /**
+   * Power, or Presto's endpoint: the Worker finishes the proof in flight, rebuilds the prover and
+   * resumes at the next nonce. `force` rebuilds under an unchanged config — a Retry after the Worker
+   * gave up on native, which only a rebuild brings back.
+   */
+  reconfigure(threads: number, presto: PrestoEndpoint | null = this.presto, opts?: { force?: boolean }) {
+    const same = threads === this.threads && JSON.stringify(presto) === JSON.stringify(this.presto);
+    if (same && !opts?.force) return;
     this.threads = threads;
-    this.post({ type: 'reconfigure', threads });
-    this.log(`power: ${threads} threads`);
+    this.presto = presto;
+    this.post({ type: 'reconfigure', threads, presto });
+    this.log(`prover: ${threads} threads${presto ? `, Presto at ${presto.host}:${presto.port}` : ''}`);
+  }
+
+  get currentPresto(): PrestoEndpoint | null {
+    return this.presto;
   }
 
   get currentThreads(): number {
@@ -462,7 +484,9 @@ export class MinerController {
         });
         return;
       case 'winner':
-        this.log(`ticket wins after ${m.attempts} proofs (nonce ${m.nonce})`);
+        this.log(
+          `ticket wins after ${m.attempts} proofs (nonce ${m.nonce}, ${m.prover === 'presto' ? 'native' : 'browser'})`,
+        );
         this.pending = {
           epoch: m.epoch,
           nonce: m.nonce,
@@ -480,6 +504,26 @@ export class MinerController {
         if (this.generations === this.prover.generation) this.replaceProver(`worker: ${m.message}`);
         return;
       case 'ready':
+        // A fresh prover: whatever the previous one settled on is gone with it.
+        this.store.set(prestoAtom, (s) => ({
+          ...s,
+          selected: m.prover,
+          active: null,
+          phase: undefined,
+          fallbackReason: undefined,
+        }));
+        return;
+      case 'prover':
+        if (m.sticky) this.log(`proving in the browser from now on: ${m.reason}`);
+        this.store.set(prestoAtom, (s) => ({
+          ...s,
+          active: m.kind,
+          phase: undefined,
+          fallbackReason: m.sticky ? m.reason : s.fallbackReason,
+        }));
+        return;
+      case 'presto-phase':
+        this.store.set(prestoAtom, (s) => ({ ...s, phase: m.phase }));
         return;
     }
   }

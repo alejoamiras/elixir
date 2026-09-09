@@ -117,3 +117,7 @@ export const W_VK: readonly string[] = [
   '0x0000000000000000000000000000000000163032829b315d0f3ee24455927bdd',
 ];
 export const W_VK_HASH = '0x1d1043617e4762fe8a2bb2ecf572de706ae890fdb4a4ff0d8f298e24722ece7b';
+/** bb's binary VK (115 × 32 bytes): the fields above, concatenated — what a native prover takes as the key. */
+export const W_VK_BYTES: Uint8Array = Uint8Array.from(W_VK.flatMap((f) => f.slice(2).match(/../g) ?? []), (h) =>
+  Number.parseInt(h, 16),
+);
