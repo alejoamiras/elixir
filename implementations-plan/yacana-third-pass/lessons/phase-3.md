@@ -38,3 +38,38 @@ What the phase found:
   codex rounds `95a8abc` → `176cef1`, `4cc074c` → `4fd3861`, `546facb` → `dd65186`, the convergence log `e1a51b0` →
   `0f7ab85`. The plan's phase marks carry the new hashes; `lessons/phase-2.md` keeps the ones it was written with.
   From here the root typecheck is part of every arc gate.
+
+## P3.2 · Strip A ✓ (2026-09-09, `6d83ab2`)
+
+Gate, as run: `bun run lint` exit 0 · typecheck web-stats and root ok · `bun test` 251 pass, 0 fail (new:
+`routes.test.ts` — `?from=` parsing, `withFrom` / `withEpoch` keep each other and the node pin, `windowFor` clamps at
+both ends, ‹ › page by 48 and write null at the newest window, `centredFrom`; `map-geometry.test.ts` — a bar at
+its absolute cell and a page arriving moves none, the heights, the window box at open = 0 · 1 · 47 · 48 · 999,
+`epochAtX`, the day ticks and their thinning; `history-cache.test.ts` — the key, the round trip, the newest 96 never
+written or served, each validation rule drops the cache whole, malformed text / a duplicate / an empty range, the
+row and byte caps, a quota error swallowed; `history-fill.test.ts` — `readTo`, one page per tick newest first
+through the queue, stops at epoch 0, stops for the visit on a throttle or silence before reading and on a failed
+page, yields to a foreground window, a page is 48 × 3 + 3 storage reads; `tests/history-transport.bun.test.ts` —
+the same page through the real SDK client against a counting `Bun.serve`: **147 methods in 21 HTTP requests**) ·
+Vitest web-stats 61 (the strip's tests on the window props; over a 1000-epoch chain with 200 rows held: 200 bars,
+the box at `left: 90%` / `width: 4.8%`, ‹ › page by 48 and are disabled at the ends, a click on the rail centres
+the window, keyboard stepping at a historical window pages at its edges and steps in from the open epoch) ·
+`bun run --cwd packages/web-stats test:visual` regenerated in the pinned image (the map and the paging row are new
+pixels) and stable on a second run.
+
+What the phase found:
+
+- **`Window` is the DOM's name.** The first draft called the `{from, to}` type `Window`; Biome's `noRedeclare`
+  caught the clash with `declare global { interface Window }` in `main.tsx`. It is `EpochWindow`.
+- **The SDK batches.** One 48-epoch page is 147 `getPublicStorageAt` methods at 8 lanes; the client's batching
+  window folds them into 21 HTTP requests (measured, not assumed). The plan's I5 concern was about HTTP requests
+  per poll tick against a public node's limit: 21 per 30 s is the number the testnet watch should use.
+- **A drag is one window change.** The box follows the pointer in local state and the URL (and any fetch) gets
+  the window on release; the fetch effect keys on a memoised window object, so the one-second clock tick does not
+  re-queue a fetch while one is in flight.
+- **jsdom rejects `max()` in inline styles**: `style.width = 'max(4.8%, 3px)'` reads back empty. The box is a
+  plain percentage plus `min-w-[3px]`, which is also the cleaner CSS.
+- **The skeleton's `Sk` covers the map before beat two**; after beat one the badge already names the open epoch
+  (it is known), so a Vitest that looked for one "epoch 30" found two — the KPI label and the badge.
+- **The fill's stop is a phase, not a flag**: `fillAtom` carries `readTo` and the reason, and the strip's caption
+  reads it; the map itself needs nothing extra for the unread span — missing cells draw nothing over the rail.

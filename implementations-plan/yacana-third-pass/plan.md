@@ -665,7 +665,7 @@ in the pinned image after each intentional visual change — here if a wrapper m
 the map — each regeneration committed with the change that caused it).
 Layers: lint/typecheck · unit · component · visual.
 
-**P3.2 · Strip A** — the window from `?from=` kept with `?epoch=`; `EpochMap` as `barsFor(rows)` (pure) +
+**P3.2 · Strip A** ✓ (2026-09-09, `6d83ab2`) — the window from `?from=` kept with `?epoch=`; `EpochMap` as `barsFor(rows)` (pure) +
 `useDragWindow` + `DayAxis`; ‹ ›, click and drag; a missing window fetched at once; the table and the charts on the
 window; `history-fill` as `pageLoop` / `persist` over `readCache`, paced, serialized, stopping for the visit on the
 first throttle; the hairline for the unread span; `history-cache` with its caps and validation; `load-older` gone.
