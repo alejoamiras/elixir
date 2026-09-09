@@ -1,13 +1,15 @@
 // The prover against a fake Presto on loopback: what it sends, when it sticks to WASM, when it
 // gives native another chance, and that a winning native proof is verified against the job's own
 // public inputs. WASM proofs are real (bb.js in this process), so the suite proves W a few times.
-import { beforeAll, describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { cpus } from 'node:os';
 import { resolve } from 'node:path';
 import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { PROOF_FIELDS } from '../../miner-core/src/proof.ts';
 import type { WorkArtifact, WorkInputs } from '../../miner-core/src/work.ts';
+import crsLock from '../../site/crs.lock.json';
+import { fetchCrs } from '../../site/scripts/fetch-crs.ts';
 import { W_VK_BYTES } from '../../work-circuit/src/generated/vk.ts';
 import { acceleratorUrls, type PrestoEndpoint, type ProverKind } from '../src/presto.ts';
 import { PrestoWorkProver, type ProverTransition } from '../src/presto-prover.ts';
@@ -81,13 +83,70 @@ function prover(endpoint: PrestoEndpoint) {
   return { p, transitions };
 }
 
+const pkg = resolve(import.meta.dir, '..');
+const CRS_HOSTS = new Set(crsLock.hosts);
+
+/**
+ * bb.js asks Aztec's CDN for the proving keys before it can prove in WASM, and only reads its own
+ * disk cache on a machine that already has one — so the WASM proofs below passed on a warm machine
+ * and died at the guard on a cold one. This answers those requests from the pinned CRS the app
+ * serves, materialised here and checked against the same lock, so every machine proves alike.
+ */
+/** The pinned asset this request is for, or null for anything that is not the CRS. */
+function crsAsset(input: RequestInfo | URL): string | null {
+  const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  if (!URL.canParse(href)) return null;
+  const url = new URL(href);
+  const name = url.pathname.slice(1);
+  return CRS_HOSTS.has(url.origin) && name in crsLock.files ? name : null;
+}
+
+/** bb.js takes the prefix it needs; the pinned file is exactly the length the app pins. */
+function ranged(bytes: Uint8Array, init: RequestInit | undefined): Response {
+  const range = new Headers(init?.headers).get('range')?.match(/^bytes=(\d+)-(\d+)?$/);
+  const total = bytes.length;
+  if (!range) return new Response(bytes.slice().buffer as ArrayBuffer);
+  const start = Number(range[1]);
+  const end = range[2] === undefined ? total : Math.min(total, Number(range[2]) + 1);
+  return new Response(bytes.slice(start, end).buffer as ArrayBuffer, {
+    status: 206,
+    headers: { 'content-range': `bytes ${start}-${end - 1}/${total}` },
+  });
+}
+
+function serveCrs(): () => void {
+  const under = globalThis.fetch;
+  const files = new Map<string, Uint8Array>();
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const name = crsAsset(input);
+    if (!name) return under(input, init);
+    let bytes = files.get(name);
+    if (!bytes) {
+      bytes = new Uint8Array(await Bun.file(resolve(pkg, 'public/crs', name)).arrayBuffer());
+      files.set(name, bytes);
+    }
+    return ranged(bytes, init);
+  }) as typeof globalThis.fetch;
+  return () => {
+    globalThis.fetch = under;
+  };
+}
+
 let fake: ReturnType<typeof fakePresto>;
+let stopCrs: (() => void) | undefined;
 beforeAll(async () => {
   fake = fakePresto();
   // Another suite in this process may have armed the node guard over `fetch`: admit the fake as the
   // Worker admits Presto, or the SDK's requests die at the guard and every test reads as `network`.
   const guard = await import('../../site/src/browser/node-guard.ts');
   guard.setAcceleratorEndpoints(acceleratorUrls(fake.endpoint), 60_000);
+  await fetchCrs(resolve(pkg, 'public'));
+  stopCrs = serveCrs();
+}, 120_000);
+
+afterAll(() => {
+  stopCrs?.();
+  fake?.server.stop(true);
 });
 
 describe('PrestoWorkProver', () => {

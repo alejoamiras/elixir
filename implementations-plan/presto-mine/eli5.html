@@ -34,6 +34,7 @@
   .lede { font-size: 18px; color: var(--ink-2); }
   code { font-family: var(--mono); font-size: .9em; }
   pre { font: 400 12.5px/1.5 var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; overflow-x: auto; white-space: pre-wrap; margin: 12px 0; }
+  .done { margin: 0 0 18px; padding: 10px 14px; border-left: 3px solid var(--ok, #4ade80); background: rgba(74,222,128,0.07); border-radius: 0 6px 6px 0; }
   .phase { margin: 16px 0; padding: 14px 18px; border-left: 2px solid var(--line); }
   .phase h3 { margin-top: 0; }
   .gate { font: 400 13px/1.5 var(--mono); color: var(--ink-3); margin: 8px 0 0; }
@@ -60,6 +61,7 @@
 <main>
   <p class="eyebrow">Plan · light tier · presto-mine · Plan A approved 2026-09-09 · awaiting the go</p>
   <h1>Presto on the Mine page</h1>
+  <p class="done"><b>Shipped 2026-09-09.</b> All four phases green, three codex review rounds to convergence, open as <a href="https://github.com/alejoamiras/elixir/pull/28">PR #28</a>. The miner suite passes with a real headless Presto: 19 specs locally in 16.2 min and in CI at <code>c5f8c00</code> in 24.2 min.</p>
   <p class="lede">Presto is your native prover: a small app on the visitor's machine (or a headless server on a box) that proves Noir circuits with the real <code>bb</code> instead of the browser's slow WebAssembly. The miner proves one circuit per nonce, in the browser, today. This plan makes it hand that proof to Presto when Presto is there and working, keep proving in the browser when it is not, say plainly which one is running, and, when Presto is missing, show Presto's own billboard inviting the install. The wallet, the claim and the proving keys stay exactly as they are.</p>
 
   <div class="canvas">
