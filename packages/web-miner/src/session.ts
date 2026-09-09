@@ -185,6 +185,9 @@ export class Session {
         prev.abort.abort();
         await prev.done.catch(() => {});
       }
+      // A switch in flight settles first: `switchNode` refuses to start under an attempt, and the
+      // attempt must not start under a switch (its wallet would open on the node being left).
+      if (this.switching) await this.switching.catch(() => {});
       if (!mine()) return;
       abort.signal.throwIfAborted();
       const t0 = performance.now();

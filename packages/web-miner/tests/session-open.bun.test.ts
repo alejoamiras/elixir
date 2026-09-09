@@ -61,6 +61,33 @@ describe('a node switch around the attempt', () => {
     expect(store.get(bootAtom).phase).toBe('ready');
   });
 
+  test('an attempt begun while a switch is in flight waits for it before its ceremony', async () => {
+    let releaseDrain: (() => void) | undefined;
+    const { store, session, pre } = harness(async () => started());
+    await session.ready;
+    // The poll's drain holds the switch open; the attempt must not open a wallet under it.
+    (pre.pre as { publicEpoch: { stop: () => Promise<void> } }).publicEpoch.stop = () =>
+      new Promise<void>((r) => {
+        releaseDrain = r;
+      });
+    const switching = session.switchNode('https://b.example/rpc');
+    await new Promise((r) => setTimeout(r, 5));
+    let ceremonies = 0;
+    const run = runAttempt(session, () => {
+      ceremonies++;
+      return ceremony();
+    });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(ceremonies).toBe(0);
+    expect(store.get(bootAtom).phase).toBe('opening');
+    releaseDrain?.();
+    await switching;
+    await run;
+    expect(ceremonies).toBe(1);
+    expect(pre.calls.used).toEqual(['https://b.example/rpc']);
+    expect(store.get(bootAtom).phase).toBe('ready');
+  });
+
   test('signed out, the public poll stops across the swap, the epoch is cleared, and it restarts on the new node', async () => {
     const { store, session, pre } = harness(async () => started());
     await session.ready;

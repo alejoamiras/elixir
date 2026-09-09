@@ -63,6 +63,34 @@ describe('the public epoch poll', () => {
     await poll.stop();
   });
 
+  test('stop() drains a read left out by an earlier stop that nobody awaited', async () => {
+    const store = createStore();
+    const releases: ((v: EpochInfo) => void)[] = [];
+    const poll = startPublicEpoch(
+      store,
+      () =>
+        new Promise<EpochInfo>((r) => {
+          releases.push(r);
+        }),
+      { intervalMs: 60_000 },
+    );
+    poll.start(); // read 1 out
+    void poll.stop(); // the handover: not awaited
+    poll.start(); // read 2 out
+    expect(releases).toHaveLength(2);
+    releases[1]?.(info(40, 0));
+    await poll.tick(); // read 2 lands (this run's)
+    let drained = false;
+    const stopping = poll.stop().then(() => {
+      drained = true;
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    expect(drained).toBe(false); // read 1 is still out
+    releases[0]?.(info(38, 0));
+    await stopping;
+    expect(store.get(epochAtom)).toMatchObject({ epoch: 40n });
+  });
+
   test('a read that was out when the poll stopped writes nothing', async () => {
     const store = createStore();
     let release: (() => void) | undefined;

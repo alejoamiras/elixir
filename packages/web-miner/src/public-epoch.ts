@@ -51,7 +51,10 @@ export function startPublicEpoch(
   opts: { intervalMs?: number; log?: (line: string) => void } = {},
 ): PublicEpochPoll {
   let timer: ReturnType<typeof setInterval> | undefined;
+  /** The current run's read, for coalescing ticks. */
   let inflight: Promise<void> | undefined;
+  /** Every read still out, across restarts: `stop()` drains them all. */
+  const outstanding = new Set<Promise<void>>();
   // Bumped by start and stop: a read that was out across either writes nothing.
   let generation = 0;
   const run = async (gen: number) => {
@@ -70,8 +73,10 @@ export function startPublicEpoch(
     if (!timer) return Promise.resolve();
     if (!inflight) {
       const p: Promise<void> = run(generation).finally(() => {
+        outstanding.delete(p);
         if (inflight === p) inflight = undefined;
       });
+      outstanding.add(p);
       inflight = p;
     }
     return inflight;
@@ -91,7 +96,7 @@ export function startPublicEpoch(
         timer = undefined;
         generation++;
       }
-      return inflight ?? Promise.resolve();
+      return Promise.all(outstanding).then(() => {});
     },
     tick,
   };
