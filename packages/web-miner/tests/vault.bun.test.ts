@@ -81,6 +81,17 @@ describe('vault', () => {
     await expect(openMaster(passkey)).rejects.toThrow(/not stored/);
   });
 
+  test('a master the record cannot use is zeroed: a mismatch, or an address that cannot be derived', async () => {
+    const passkey = await record('passkey');
+    const wrongOwner = new Uint8Array(other);
+    await expect(openMaster(passkey, wrongOwner)).rejects.toThrow(/different account/);
+    expect(Array.from(wrongOwner)).toEqual(Array.from(new Uint8Array(32)));
+    const malformed = { ...passkey, account: { ...passkey.account, index: -1 as 0 } };
+    const leaked = new Uint8Array(master);
+    await expect(openMaster(malformed, leaked)).rejects.toThrow();
+    expect(Array.from(leaked)).toEqual(Array.from(new Uint8Array(32)));
+  });
+
   test('switching convenience mode off deletes the ciphertext; forget removes the record', async () => {
     const r = await record('passkey');
     const on = await setStayOpen(r, master, true);

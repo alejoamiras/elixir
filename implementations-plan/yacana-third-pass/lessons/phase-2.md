@@ -155,3 +155,13 @@ Tests: the wallet is stopped before the cancel resolves and before signed out is
 superseded meanwhile never prompts (the fake's first call waits, later ones resolve — the first draft re-armed its
 gate on every call and hung). Gate re-run: lint · 5 typechecks · `bun test` 226 pass · Vitest 137 · the full miner
 E2E on the isolated network 15 passed · the arc-2 renders re-shot.
+
+## Arc 2 codex loop · round 3 (2026-09-09)
+
+Resumed session, the round-2 diff. One finding (12 → 5 → 1), verified, adopted: `openMaster` zeroed a master it
+refused only on an address *mismatch*; when the derivation itself threw (a malformed `account.index`), the decrypted
+master escaped — and the sealed path in `Session.open()` has not entered `owning()` yet at that point. The derivation
+and the comparison now sit in one try/catch that zeros on either failure. Test: a supplied master is zeroed both on a
+mismatch and when the address cannot be derived. The change is an error path inside `keys/store.ts`; the unit suite
+(227 pass) covers it, the miner E2E from round 2 stands. As in arc 1, round 3 still carried an item and round 4 is
+the confirmation the goal requires.
