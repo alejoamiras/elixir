@@ -147,6 +147,17 @@ export function assertTimestamp(what: string, value: bigint): bigint {
   return value;
 }
 
+/** The node's latest block: its number and slot time (unix s), the timestamp checked like every other. */
+export async function readLatestBlock(node: Node): Promise<{ number: number; timestamp: number }> {
+  const data = await node.getBlockData('latest');
+  if (!data) throw new Error('the node has no latest block');
+  const g = data.header.globalVariables;
+  return {
+    number: Number(g.blockNumber),
+    timestamp: Number(assertTimestamp('the latest block', BigInt(g.timestamp))),
+  };
+}
+
 /** What the contract can have written; anything else is a node lying or a wrong slot, not data. */
 function checkRow(e: number, target: bigint, openedAt: bigint, claims: bigint): void {
   if (target < 1n || target > U128) throw new Error(`epoch ${e}: target ${target} is not a u128 above zero`);

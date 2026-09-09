@@ -35,6 +35,7 @@ const outcome = (over: Partial<NodeRequestOutcome>): NodeRequestOutcome => ({
   status: 200,
   latencyMs: 12,
   retryAfter: null,
+  quiet: false,
   ...over,
 });
 
@@ -62,6 +63,20 @@ beforeEach(() => {
 afterAll(() => health.resetNodeHealth());
 
 describe('parseRetryAfter', () => {
+  test('a quiet failure never opens a cooldown; once one is on, a quiet answer counts like any other', () => {
+    health.recordOutcome(outcome({ status: 429, retryAfter: '7', quiet: true }));
+    health.recordOutcome(outcome({ status: 'network', quiet: true }));
+    expect(health.nodeHealth().transport.kind).toBe('ok');
+    health.setTransportForTests({
+      kind: 'throttled',
+      retryAt: Date.now() - 1,
+      status: 429,
+      backoffMs: 15_000,
+    });
+    health.recordOutcome(outcome({ status: 200, quiet: true }));
+    expect(health.nodeHealth().transport.kind).toBe('ok');
+  });
+
   test('delta-seconds and a future HTTP-date; garbage, the past and nothing are null', () => {
     const now = Date.parse('2026-09-08T12:00:00Z');
     expect(health.parseRetryAfter('7', now)).toBe(7);
@@ -289,6 +304,7 @@ describe('the gate', () => {
       endpoint: guard.normaliseEndpoint('https://node.example/rpc?delay=60'),
       startedAt: -1,
       status: 200,
+      quiet: false,
       latencyMs: 1,
       retryAfter: null,
     });

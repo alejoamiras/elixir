@@ -12,6 +12,7 @@ import {
   type Node,
   readEpochs,
   readGenesis,
+  readLatestBlock,
   readLottery,
   readOpenEpochNumber,
   readTotalSupply,
@@ -79,15 +80,6 @@ export async function openReader(connection: Connection): Promise<Reader> {
   };
 }
 
-const latestBlock = async (node: Node): Promise<Live['block']> => {
-  const data = await node.getBlockData('latest');
-  if (!data) throw new Error('the node has no latest block');
-  return {
-    number: Number(data.header.globalVariables.blockNumber),
-    timestamp: Number(data.header.globalVariables.timestamp),
-  };
-};
-
 /** The open epoch's read runs beside the history's lanes; together they stay within the default bound. */
 const HISTORY_LIMITS = { ...DEFAULT_LIMITS, concurrency: DEFAULT_LIMITS.concurrency - 1 };
 
@@ -107,7 +99,7 @@ async function readRows(r: Reader, open: number): Promise<EpochRow[]> {
 export async function readLive(r: Reader): Promise<Live> {
   const [open, block, supply] = await Promise.all([
     readOpenEpochNumber(r.node, r.miner, r.minerLayout),
-    latestBlock(r.node),
+    readLatestBlock(r.node),
     readTotalSupply(r.node, r.token, r.tokenLayout),
   ]);
   const fixed = { open, supply, block, readAt: Date.now() };

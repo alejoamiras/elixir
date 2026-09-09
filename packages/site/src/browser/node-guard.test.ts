@@ -67,19 +67,41 @@ beforeAll(async () => {
 });
 
 describe('node guard', () => {
-  test('normalises an endpoint on origin + path + query; a trailing slash is not a difference', () => {
-    expect(guard.normaliseEndpoint('https://a.example/rpc/?k=1')).toBe('https://a.example/rpc?k=1');
-    expect(guard.normaliseEndpoint('https://a.example/')).toBe('https://a.example');
+  test('normalises an endpoint on origin + path + query, the path exactly as the SDK posts it', () => {
+    expect(guard.normaliseEndpoint('https://a.example/rpc/?k=1#x')).toBe('https://a.example/rpc/?k=1');
+    expect(guard.normaliseEndpoint('https://a.example')).toBe('https://a.example/');
+    expect(guard.normaliseEndpoint('https://a.example/rpc/')).not.toBe(
+      guard.normaliseEndpoint('https://a.example/rpc'),
+    );
     expect(guard.normaliseEndpoint('https://a.example/rpc?node=A')).not.toBe(
       guard.normaliseEndpoint('https://a.example/rpc?node=B'),
     );
   });
 
-  test('the fingerprint is the SHA-256 of the normalised endpoint, so two paths on one origin differ', async () => {
+  test('the fingerprint is the SHA-256 of the normalised endpoint: two paths on one origin are two nodes', async () => {
     const a = await guard.endpointFingerprint('https://a.example/a');
     expect(a).toMatch(/^[0-9a-f]{64}$/);
-    expect(a).toBe(await guard.endpointFingerprint('https://a.example/a/'));
+    expect(a).toBe(await guard.endpointFingerprint('https://a.example/a#frag'));
+    expect(a).not.toBe(await guard.endpointFingerprint('https://a.example/a/'));
     expect(a).not.toBe(await guard.endpointFingerprint('https://a.example/ab'));
+  });
+
+  test("a node on the page's own origin is still the node: the deadline, no redirects, reported", async () => {
+    const seen: string[] = [];
+    const off = guard.onNodeResponse((o) => seen.push(o.endpoint));
+    guard.setNodeEndpoint(`${PAGE}/rpc`, 1_000);
+    try {
+      calls.length = 0;
+      await (await fetch(`${PAGE}/rpc`, { method: 'POST', redirect: 'follow' })).text();
+      await fetch('/slots/0.json');
+      expect(calls[0]?.init?.redirect).toBe('error');
+      expect(calls[0]?.init?.signal).toBeInstanceOf(AbortSignal);
+      expect(calls[1]?.init?.redirect).toBeUndefined();
+      expect(seen).toEqual([`${PAGE}/rpc`]);
+    } finally {
+      off();
+      guard.setNodeEndpoint(NODE, 1_000);
+    }
   });
 
   test('same-origin and the node pass; the node gets the deadline and no redirects; the rest throws', async () => {
@@ -98,13 +120,32 @@ describe('node guard', () => {
   test('a candidate lease admits one endpoint for its duration and is not reported', async () => {
     const seen: string[] = [];
     const off = guard.onNodeResponse((o) => seen.push(o.endpoint));
-    const release = guard.allowCandidate('https://cand.example/rpc/', 500);
+    const release = guard.allowCandidate('https://cand.example/rpc', 500);
     await (await fetch('https://cand.example/rpc')).text();
     await (await fetch(NODE)).text();
     release();
     await expect(fetch('https://cand.example/rpc')).rejects.toThrow(/blocked endpoint/);
     off();
     expect(seen).toEqual([guard.normaliseEndpoint(NODE)]);
+  });
+
+  test('overlapping leases of one endpoint hold it until the last release; a release twice is one', async () => {
+    const first = guard.allowCandidate('https://cand.example/rpc', 500);
+    const second = guard.allowCandidate('https://cand.example/rpc', 500);
+    first();
+    first();
+    await (await fetch('https://cand.example/rpc')).text();
+    second();
+    await expect(fetch('https://cand.example/rpc')).rejects.toThrow(/blocked endpoint/);
+  });
+
+  test('quiet reads are reported with the flag; ordinary ones without', async () => {
+    const seen: boolean[] = [];
+    const off = guard.onNodeResponse((o) => seen.push(o.quiet));
+    await guard.quietNodeReads(async () => (await fetch(NODE)).text());
+    await (await fetch(NODE)).text();
+    off();
+    expect(seen).toEqual([true, false]);
   });
 
   test('outcomes name the status once the body landed, a timeout and a network failure', async () => {

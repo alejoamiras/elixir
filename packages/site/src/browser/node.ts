@@ -4,8 +4,8 @@ import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { makeFetch } from '@aztec/foundation/json-rpc/client';
 import {
   assertDeployment,
-  assertTimestamp,
   type ExpectedDeployment,
+  readLatestBlock,
   type StorageLayout,
 } from '../../../miner-core/src/reader.ts';
 import type { SiteMode } from '../config.ts';
@@ -59,17 +59,14 @@ export async function probeNode(
     const node = make(url);
     const t0 = performance.now();
     await assertDeployment(node, expected, minerLayout);
-    const data = await node.getBlockData('latest');
-    if (!data) throw new Error('the node has no latest block');
+    const block = await readLatestBlock(node);
     const latencyMs = performance.now() - t0;
-    const g = data.header.globalVariables;
-    const at = Number(assertTimestamp('the latest block', BigInt(g.timestamp)));
     return {
       chainId: expected.chainId,
       rollupVersion: expected.rollupVersion,
       rollupAddress: expected.rollupAddress,
-      block: Number(g.blockNumber),
-      blockAgeS: Math.max(0, Math.round(Date.now() / 1000 - at)),
+      block: block.number,
+      blockAgeS: Math.max(0, Math.round(Date.now() / 1000 - block.timestamp)),
       latencyMs,
     };
   } finally {

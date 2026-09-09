@@ -13,6 +13,8 @@ export interface NodeRequestOutcome {
   latencyMs: number;
   /** The `Retry-After` header when the browser lets the page read it (it is not CORS-safelisted). */
   retryAfter: string | null;
+  /** Optional work (the stats page's background fill): the health store never opens a cooldown on it. */
+  quiet: boolean;
 }
 
 interface GuardState {
@@ -21,7 +23,10 @@ interface GuardState {
   guarded: typeof globalThis.fetch;
   endpoint: string | null;
   deadlineMs: number;
-  candidates: Map<string, number>;
+  /** Leased candidates by endpoint: overlapping probes each hold the lease until the last releases it. */
+  candidates: Map<string, { deadlineMs: number; owners: number }>;
+  /** Requests in flight under `quietNodeReads`. */
+  quiet: number;
   listeners: Set<(o: NodeRequestOutcome) => void>;
   /** A synthetic answer for the endpoint while it is on a cooldown; null lets the request through. */
   gate: ((endpoint: string) => Response | null) | null;
@@ -32,11 +37,10 @@ interface GuardState {
 const MARK = Symbol.for('yacana.node-guard');
 type Realm = typeof globalThis & { [MARK]?: GuardState };
 
-/** origin + path (no trailing slash) + query: the SDK posts to the URL as given, so equality is the match. */
+/** origin + path + query, exactly as the SDK posts it (`/rpc` and `/rpc/` can be two nodes); no fragment. */
 export function normaliseEndpoint(url: string): string {
   const u = new URL(url);
-  const path = u.pathname.replace(/\/+$/, '');
-  return `${u.origin}${path}${u.search}`;
+  return `${u.origin}${u.pathname}${u.search}`;
 }
 
 const hex = (buf: ArrayBuffer) =>
@@ -60,12 +64,31 @@ export const setNodeEndpoint = (url: string | null, deadlineMs: number): void =>
 
 export const currentNodeEndpoint = (): string | null => state().endpoint;
 
-/** A probe's lease: its requests pass and are not reported; the release ends it. */
+/** A probe's lease: its requests pass and are not reported; the endpoint stays admitted until its last holder releases. */
 export function allowCandidate(url: string, deadlineMs: number): () => void {
   const s = state();
   const endpoint = normaliseEndpoint(url);
-  s.candidates.set(endpoint, deadlineMs);
-  return () => void s.candidates.delete(endpoint);
+  const held = s.candidates.get(endpoint);
+  if (held) held.owners++;
+  else s.candidates.set(endpoint, { deadlineMs, owners: 1 });
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const lease = s.candidates.get(endpoint);
+    if (lease && --lease.owners <= 0) s.candidates.delete(endpoint);
+  };
+}
+
+/** Runs `fn` with its node requests marked optional: their outcomes reach the store flagged `quiet`. */
+export async function quietNodeReads<T>(fn: () => Promise<T>): Promise<T> {
+  const s = state();
+  s.quiet++;
+  try {
+    return await fn();
+  } finally {
+    s.quiet--;
+  }
 }
 
 export function onNodeResponse(fn: (o: NodeRequestOutcome) => void): () => void {
@@ -101,6 +124,7 @@ function report(
     status,
     latencyMs: performance.now() - startedAt,
     retryAfter,
+    quiet: s.quiet > 0,
   };
   for (const fn of s.listeners) fn(o);
 }
@@ -184,6 +208,7 @@ export function installNodeGuard(): void {
     endpoint: null,
     deadlineMs: 120_000,
     candidates: new Map(),
+    quiet: 0,
     listeners: new Set(),
     gate: null,
   };
@@ -191,11 +216,13 @@ export function installNodeGuard(): void {
     const href = hrefOf(input);
     if (/^(data|blob):/i.test(href)) return s.original(input, init);
     const url = new URL(href, globalThis.location?.href);
-    if (url.origin === globalThis.location?.origin) return s.original(input, init);
+    // The node and a candidate are classified before the page's own origin: a node served from it
+    // still gets the deadline, the gate and the reporting.
     const endpoint = normaliseEndpoint(url.href);
     if (endpoint === s.endpoint) return nodeRequest(s, endpoint, input, init);
     const lease = s.candidates.get(endpoint);
-    if (lease !== undefined) return s.original(input, withDeadline(input, init, lease));
+    if (lease) return s.original(input, withDeadline(input, init, lease.deadlineMs));
+    if (url.origin === globalThis.location?.origin) return s.original(input, init);
     return Promise.reject(
       new Error(`blocked endpoint ${url.origin}${url.pathname}: not this page, its node or a candidate`),
     );

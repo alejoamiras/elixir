@@ -132,7 +132,7 @@ describe('the live node switch', () => {
     await inFlight;
     await switching;
     expect(events).toEqual(['use https://b.example', 'rebuild']);
-    expect(guard.currentNodeEndpoint()).toBe('https://b.example');
+    expect(guard.currentNodeEndpoint()).toBe('https://b.example/');
     // The rebuilt view was read (its balance) and mining resumed on it.
     await settle(() => store.get(balanceAtom) === 9n);
     await settle(() => store.get(minerAtom).phase === 'mining');
@@ -290,8 +290,9 @@ describe('the live node switch', () => {
     expect(boot.viewBuiltOn('pxe-1')).toBeNull();
     boot.markViewBuiltOn('pxe-1', a);
     expect(boot.viewBuiltOn('pxe-1')).toBe(a);
+    // `/rpc/` is another endpoint (the SDK posts the path as given): it means a rebuild.
     expect(boot.viewBuiltOn('pxe-1') === (await guard.endpointFingerprint('https://a.example/rpc/'))).toBe(
-      true,
+      false,
     );
     expect(boot.viewBuiltOn('pxe-1') === (await guard.endpointFingerprint('https://a.example/rpc?n=2'))).toBe(
       false,
