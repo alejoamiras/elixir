@@ -64,9 +64,10 @@ test('nothing answers: the billboard invites the install and the browser proves 
   const billboard = page.getByTestId('presto-billboard');
   await expect(billboard).toBeVisible({ timeout: 60_000 });
   await expect(billboard.getByText('Fast proofs')).toBeVisible();
+  // The element resolves its `href` through `new URL()`, which spells the origin with a trailing slash.
   await expect(billboard.getByRole('link', { name: 'Get Presto' })).toHaveAttribute(
     'href',
-    'https://presto.build',
+    /^https:\/\/presto\.build\/?$/,
   );
   await expect(page.getByTestId('presto-notice')).toHaveCount(0);
   await render(page, 'billboard');

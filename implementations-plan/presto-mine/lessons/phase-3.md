@@ -19,3 +19,9 @@ Started 2026-09-09 after P2 (`e19afed`).
   responses or, failing that, the server's own log under `PRESTO_HOME`.
 - **The row in e2e**: an "old Presto" is a `node:http` fake in the spec answering `/health` without `ultra_honk`
   (CORS open); Retry after the fake gains the route clears the row — the Retry wiring proven end to end.
+- **A fresh worktree needs `bun run contracts:compile` before the e2e** (the deploy reads
+  `packages/contracts/target/yacana_miner-YacanaMiner.json`); the first local run died in setup for that.
+- **CI run 34383319955 (`ba3783b`)**: all three jobs failed in the same second at `bunx playwright install
+  --with-deps chromium` — `apt-get update` refused Google's Chrome repo index (`dl.google.com … Hashes of
+  expected file` ≠ received; a mid-publish state on their side at 17:16–17:39 UTC), before any test ran. The
+  `setup-presto` action had already installed the pinned server by digest on the miner job. Re-dispatched.
