@@ -337,7 +337,7 @@ export async function startSession(
     await controller.ready();
     opts.signal.throwIfAborted();
     // The controller's first read owns the epoch from here; a public read still out lands nowhere.
-    pre.publicEpoch.stop();
+    void pre.publicEpoch.stop();
     await controller.begin();
     // A cancel that landed during the first read must not end in a running account.
     opts.signal.throwIfAborted();

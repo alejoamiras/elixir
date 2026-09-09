@@ -18,8 +18,8 @@ export const PUBLIC_EPOCH_POLL_MS = 30_000;
 export interface PublicEpochPoll {
   /** Reads at once, then every interval; a no-op while running. */
   start(): void;
-  /** The handover: nothing already out lands after this. */
-  stop(): void;
+  /** The handover: nothing already out lands after this; resolves once a read that was out has settled. */
+  stop(): Promise<void>;
   /** One read now (the one in flight, if any); resolves when it settled. */
   tick(): Promise<void>;
 }
@@ -68,24 +68,30 @@ export function startPublicEpoch(
   };
   const tick = (): Promise<void> => {
     if (!timer) return Promise.resolve();
-    if (!inflight)
-      inflight = run(generation).finally(() => {
-        inflight = undefined;
+    if (!inflight) {
+      const p: Promise<void> = run(generation).finally(() => {
+        if (inflight === p) inflight = undefined;
       });
+      inflight = p;
+    }
     return inflight;
   };
   return {
     start() {
       if (timer) return;
       generation++;
+      // A read still out from before the stop is not this run's: the first tick reads afresh.
+      inflight = undefined;
       timer = setInterval(() => void tick(), opts.intervalMs ?? PUBLIC_EPOCH_POLL_MS);
       void tick();
     },
     stop() {
-      if (!timer) return;
-      clearInterval(timer);
-      timer = undefined;
-      generation++;
+      if (timer) {
+        clearInterval(timer);
+        timer = undefined;
+        generation++;
+      }
+      return inflight ?? Promise.resolve();
     },
     tick,
   };

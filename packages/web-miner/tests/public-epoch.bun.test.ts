@@ -31,6 +31,38 @@ describe('the public epoch poll', () => {
     expect(store.get(epochAtom)).toMatchObject({ epoch: 40n, claims: 1 });
   });
 
+  test('stop() resolves once the read out has settled, and a restart reads afresh', async () => {
+    const store = createStore();
+    let release: ((v: EpochInfo) => void) | undefined;
+    let reads = 0;
+    const poll = startPublicEpoch(
+      store,
+      () => {
+        reads++;
+        return new Promise<EpochInfo>((r) => {
+          release = r;
+        });
+      },
+      { intervalMs: 60_000 },
+    );
+    poll.start(); // read 1 is out
+    let stopped = false;
+    const stopping = poll.stop().then(() => {
+      stopped = true;
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    expect(stopped).toBe(false); // the read is still out: a switch waits here
+    release?.(info(38, 1));
+    await stopping;
+    expect(store.get(epochAtom)).toBeNull(); // it belonged to the stopped generation
+    poll.start(); // a fresh read, not the settled one
+    expect(reads).toBe(2);
+    release?.(info(39, 0));
+    await poll.tick();
+    expect(store.get(epochAtom)).toMatchObject({ epoch: 39n });
+    await poll.stop();
+  });
+
   test('a read that was out when the poll stopped writes nothing', async () => {
     const store = createStore();
     let release: (() => void) | undefined;

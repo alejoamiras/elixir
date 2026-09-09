@@ -439,15 +439,18 @@ export class Session {
       throw new Error('a node switch is already underway; wait for it to finish');
     }
     const pre = this.pre;
-    // Signed out, the public poll is the only reader: it stops across the swap (a read out on the old
-    // node lands nowhere), the epoch it guarded against regressing is cleared, and it restarts on the new node.
     const publicOnly = !this.controller;
-    if (publicOnly) {
-      pre.publicEpoch.stop();
-      this.store.set(epochAtom, null);
-    }
     this.switchingUrl = url;
-    this.switching = switchNodeLive({ controller: this.controller, switchable: pre.switchable, url })
+    this.switching = (async () => {
+      // Signed out, the public poll is the only reader: drained before the swap (a read out on the old
+      // node is waited for and lands nowhere), the epoch it guarded against regressing cleared; it
+      // restarts on the new node once the swap settled.
+      if (publicOnly) {
+        await pre.publicEpoch.stop();
+        this.store.set(epochAtom, null);
+      }
+      await switchNodeLive({ controller: this.controller, switchable: pre.switchable, url });
+    })()
       .catch((e: unknown) => {
         // A rebuild that failed left no working wallet: the boot error carries the way out, and the
         // next node choice reboots rather than live-switching a dead account.
