@@ -128,6 +128,17 @@ describe('the two beats', () => {
     expect(f.state.fixed?.open).toBe(99);
     expect(epochs(f.state.history).at(-1)).toBe(99);
     expect(f.state.history?.rows.has(100)).toBe(false);
+    // The same rollback with the history read failing: beat one's open epoch still rules the rows kept.
+    const g = fake(() => 100);
+    await bootBeats(g.reads, g.publish);
+    const failing = fake(() => 99, { failRows: true });
+    await pollBeats(failing.reads, g.publish, {
+      fixed: g.state.fixed as Fixed,
+      history: g.state.history ?? null,
+    });
+    expect(g.state.history?.error).toMatch(/503/);
+    expect(g.state.history?.rows.has(100)).toBe(false);
+    expect(epochs(g.state.history).at(-1)).toBe(99);
   });
 
   test('a lottery read that fails leaves the rows on the page and is asked again by the poll', async () => {

@@ -77,7 +77,12 @@ export async function pollBeats(
     const lottery = held.history?.lottery ?? (await lotteryOrNull(read));
     publish.history({ rows: below(upsert(base, rows), fixed.open), lottery });
   } catch (e) {
-    publish.history({ rows: rows0, lottery: held.history?.lottery ?? null, error: message(e) });
+    // The rows stay, minus any above the open epoch beat one just published: those cannot exist either way.
+    publish.history({
+      rows: below(new Map(rows0), fixed.open),
+      lottery: held.history?.lottery ?? null,
+      error: message(e),
+    });
   }
 }
 
