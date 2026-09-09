@@ -34,7 +34,7 @@ const NONE: readonly never[] = [];
 /** What the window shows: whether it is held, its rows, and the newest window's rows (the observatory's). */
 function frame(history: History | null, win: EpochWindow | null, open: number | null) {
   if (!history || !win || open === null) return { held: false, rows: null, newest: null };
-  const held = windowHeld(history.rows, win);
+  const held = windowHeld(history.rows, win, open);
   return {
     held,
     rows: held ? windowRowsOf(history.rows, win) : null,
@@ -61,7 +61,8 @@ export function Stats({ onWindow, nodeUrl }: { onWindow: (w: EpochWindow) => voi
   const open = fixed?.open ?? null;
   // One object per window, so the fetch effect fires on a window change, not on every tick.
   const win = useMemo(() => (open === null ? null : windowFor(from, open)), [from, open]);
-  const { held, rows, newest } = frame(history, win, open);
+  // Memoised with the window: the clock ticks every second and the charts must not redraw on each.
+  const { held, rows, newest } = useMemo(() => frame(history, win, open), [history, win, open]);
   useEffect(() => {
     if (win && history && !held) onWindow(win);
   }, [history, held, onWindow, win]);
@@ -105,6 +106,7 @@ export function Stats({ onWindow, nodeUrl }: { onWindow: (w: EpochWindow) => voi
         <Detail
           className="md:col-span-6 xl:col-span-2"
           row={current}
+          epoch={open}
           open={current !== null && current.epoch === open}
           next={next}
           now={nowSec}

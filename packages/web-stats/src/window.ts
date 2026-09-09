@@ -33,9 +33,10 @@ export const newerFrom = (w: EpochWindow, open: number): number | null =>
 export const centredFrom = (epoch: number, open: number): number | null =>
   normaliseFrom(epoch - Math.floor(WINDOW / 2), open);
 
-/** Whether every epoch of `w` is held. */
-export function windowHeld(rows: ReadonlyMap<number, EpochRow>, w: EpochWindow): boolean {
-  for (let e = w.from; e <= w.to; e++) if (!rows.has(e)) return false;
+/** Whether every epoch of `w` is held — with `to + 1` when the chain has it, so the last row closes. */
+export function windowHeld(rows: ReadonlyMap<number, EpochRow>, w: EpochWindow, open: number): boolean {
+  const end = Math.min(open, w.to + 1);
+  for (let e = w.from; e <= end; e++) if (!rows.has(e)) return false;
   return true;
 }
 

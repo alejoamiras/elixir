@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
+import type { EpochRow } from '../../miner-core/src/reader.ts';
 import { fromSearch, selectedFromSearch, withEpoch, withFrom } from './routes';
-import { centredFrom, newerFrom, olderFrom, WINDOW, windowFor } from './window';
+import { centredFrom, newerFrom, olderFrom, WINDOW, windowFor, windowHeld } from './window';
 
 describe('the window in the URL', () => {
   test('?from= names the window, absent or malformed means the newest; ?epoch= rides beside it', () => {
@@ -51,5 +52,24 @@ describe('the window over the chain', () => {
     expect(centredFrom(500, 999)).toBe(500 - WINDOW / 2);
     expect(centredFrom(10, 999)).toBe(0);
     expect(centredFrom(990, 999)).toBeNull();
+  });
+
+  test('a historical window is held only with its successor; the newest one needs none', () => {
+    const row = (e: number) =>
+      ({
+        epoch: e,
+        target: 1n,
+        openedAt: e,
+        claims: 0,
+        duration: null,
+        retarget: null,
+        closedBy: null,
+      }) as EpochRow;
+    const rows = new Map(Array.from({ length: 48 }, (_, i) => [856 + i, row(856 + i)]));
+    expect(windowHeld(rows, { from: 856, to: 903 }, 1000)).toBe(false);
+    rows.set(904, row(904));
+    expect(windowHeld(rows, { from: 856, to: 903 }, 1000)).toBe(true);
+    expect(windowHeld(rows, { from: 857, to: 904 }, 904)).toBe(true);
+    expect(windowHeld(rows, { from: 855, to: 902 }, 1000)).toBe(false);
   });
 });

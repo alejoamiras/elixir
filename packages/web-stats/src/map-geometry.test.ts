@@ -73,6 +73,9 @@ describe('the map', () => {
     const later = dayTicks(all.slice(570), launch, 599);
     expect(later.map((t) => t.label)).toEqual(['launch · 01-04', '01-06', 'now']);
     expect(dayTicks([], launch, 599).map((t) => t.label)).toEqual(['launch · 01-04', 'now']);
+    // A timestamp at the far end of what a Date holds costs one label, not a walk over the calendar.
+    const far = [...all.slice(0, 3), { ...(all[3] as EpochRow), openedAt: 4_102_444_800 }];
+    expect(dayTicks(far, launch, 599).map((t) => t.label)).toEqual(['launch · 01-04', '01-01', 'now']);
   });
 
   test('thinning keeps the ends and only labels a label apart', () => {

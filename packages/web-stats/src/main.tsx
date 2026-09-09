@@ -91,18 +91,27 @@ const publish: BeatSinks = {
 
 /** Window fetches queued or running: the fill yields to them. */
 let foreground = 0;
+/** Per window: not before this time (in flight, or failed — its error publish re-fires the ask at once). */
+const askedUntil = new Map<string, number>();
 
 /** A window the visitor asked for that is not held: read at once, ahead of the fill. */
 const showWindow = (w: EpochWindow): Promise<void> => {
+  const key = `${w.from}-${w.to}`;
+  if ((askedUntil.get(key) ?? 0) > Date.now()) return Promise.resolve();
+  askedUntil.set(key, Number.POSITIVE_INFINITY);
   foreground++;
   return serial(async () => {
+    let failed = false;
     try {
       const fixed = store.get(fixedAtom);
       const history = store.get(historyAtom);
-      if (reader && fixed && history && !windowHeld(history.rows, w))
+      if (reader && fixed && history && !windowHeld(history.rows, w, fixed.open))
         await windowBeat(reads(reader), publish, { fixed, history }, w);
+      failed = !!store.get(historyAtom)?.error;
     } finally {
       foreground--;
+      // A failure waits for the poll cadence; the poll's publish re-fires the ask.
+      askedUntil.set(key, failed ? Date.now() + POLL_MS : 0);
     }
   });
 };

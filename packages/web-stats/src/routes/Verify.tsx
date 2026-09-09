@@ -108,7 +108,11 @@ export function Verify({ nodeUrl }: { nodeUrl: string }) {
             <KvRow label="launch at" value={stamp(String(fixed.genesis.launchAt))} />
             <KvRow
               label="lottery mix · reveals"
-              value={`${(history?.lottery?.mix ?? 0n).toString(16).slice(0, 12)}… · ${history?.lottery?.reveals ?? 0}`}
+              value={
+                history?.lottery
+                  ? `${history.lottery.mix.toString(16).slice(0, 12)}… · ${history.lottery.reveals}`
+                  : '—'
+              }
             />
             <KvRow
               label="epoch 0 opened"

@@ -33,9 +33,10 @@ export interface FillDeps {
 
 /** The oldest epoch of the contiguous run held from the newest held epoch at or below `open`. */
 export function readTo(rows: ReadonlyMap<number, EpochRow>, open: number): number | null {
-  let e = open;
-  while (e >= 0 && !rows.has(e)) e--;
-  if (e < 0) return null;
+  let top = -1;
+  for (const e of rows.keys()) if (e <= open && e > top) top = e;
+  if (top < 0) return null;
+  let e = top;
   while (e > 0 && rows.has(e - 1)) e--;
   return e;
 }
@@ -48,7 +49,7 @@ export function createFill(deps: FillDeps): { tick: () => Promise<void>; state: 
   };
   const stop = (reason: FillStop, at: number | null) => set({ phase: 'stopped', reason, readTo: at });
 
-  /** The rows joined under what is held now, published and persisted; the state follows the new run. */
+  /** Under what is held now: a poll may have landed since the tick. */
   const join = (rows: EpochRow[]): void => {
     const latest = deps.held();
     if (!latest) return;
@@ -62,13 +63,15 @@ export function createFill(deps: FillDeps): { tick: () => Promise<void>; state: 
     else set({ phase: 'filling', readTo: at });
   };
 
-  /** One page: the WINDOW epochs under the run's oldest. */
+  /** One page: the WINDOW epochs under the run's oldest. The rules are checked again here: the queue may have held it. */
   const page = async (): Promise<void> => {
     const cur = deps.held();
-    if (!cur || deps.foreground()) return;
+    if (!cur || deps.foreground() || state.phase === 'stopped') return;
     const lo = readTo(cur.history.rows, cur.open);
     if (lo === null) return;
     if (lo === 0) return stop('complete', 0);
+    const t = deps.transport();
+    if (t !== 'ok') return stop(t, lo);
     try {
       join(await deps.rows(Math.max(0, lo - WINDOW), lo - 1, cur.open));
     } catch {

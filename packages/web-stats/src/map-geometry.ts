@@ -61,23 +61,20 @@ const DAY = 86_400;
 const mmdd = (unix: number) => new Date(unix * 1000).toISOString().slice(5, 10);
 
 /**
- * Day ticks along the rail: "launch · MM-DD" at the first cell, one per UTC day boundary at the cell
- * of the first held epoch opened on or after it, "now" at the right edge. A day with no held epoch has
- * no tick; several boundaries inside one gap share the first epoch after it and keep one tick.
+ * Day ticks along the rail: "launch · MM-DD" at the first cell, then the first held epoch of each
+ * later UTC day at its cell, "now" at the right edge. A day with no held epoch has no tick. One pass
+ * over the rows: a timestamp far in the future costs nothing more than a label.
  */
 export function dayTicks(rows: readonly EpochRow[], launchAt: number, open: number): Tick[] {
   const held = [...rows].filter((r) => r.epoch <= open).sort((a, b) => a.epoch - b.epoch);
   const ticks: Tick[] = [{ x: 0, label: `launch · ${mmdd(launchAt)}` }];
-  const last = held[held.length - 1];
-  let i = 0;
-  for (let day = Math.floor(launchAt / DAY) + 1; last && day * DAY <= last.openedAt; day++) {
-    while (i < held.length && (held[i] as EpochRow).openedAt < day * DAY) i++;
-    const r = held[i];
-    if (!r) break;
+  let lastDay = Math.floor(launchAt / DAY);
+  for (const r of held) {
+    const day = Math.floor(r.openedAt / DAY);
+    if (day <= lastDay) continue;
     const x = cellX(r.epoch, open);
-    // An epoch opened past the next boundary belongs to that day: this one has no held epoch, no tick.
-    if (r.openedAt < (day + 1) * DAY && x > (ticks[ticks.length - 1] as Tick).x)
-      ticks.push({ x, label: mmdd(day * DAY) });
+    if (x > (ticks[ticks.length - 1] as Tick).x) ticks.push({ x, label: mmdd(day * DAY) });
+    lastDay = day;
   }
   ticks.push({ x: 1, label: 'now' });
   return ticks;

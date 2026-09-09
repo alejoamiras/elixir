@@ -1,6 +1,7 @@
-// Closed epochs never change, so the rows a visit read are kept in the browser for the next one:
-// per deployment and per node (a node's rows never outlive a switch), as contiguous ranges of
-// `[epoch, target hex, openedAt, claims]`, capped, and validated row by row on the way back in —
+// Rows read at `latest` and older than a 96-epoch margin are kept in the browser for the next
+// visit: an observation from one node, not a finality proof, so the key carries the deployment and
+// the node (a node's rows never outlive a switch), the text is contiguous ranges of
+// `[epoch, target hex, openedAt, claims]`, capped, and every row is validated on the way back in —
 // any row the contract could not have written drops the cache whole.
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import type { EpochRow } from '../../miner-core/src/reader.ts';

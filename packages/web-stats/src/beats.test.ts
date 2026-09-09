@@ -23,7 +23,7 @@ const fixedOf = (open: number): Fixed => ({
 });
 
 /** A fake node: `fixed()` answers the current open epoch; `rows()` the range; the log says what was asked. */
-function fake(open: () => number, opts: { failRows?: boolean } = {}) {
+function fake(open: () => number, opts: { failRows?: boolean; failLottery?: boolean } = {}) {
   const asked: [number, number][] = [];
   const published: string[] = [];
   const state: { fixed?: Fixed; history?: History } = {};
@@ -34,7 +34,10 @@ function fake(open: () => number, opts: { failRows?: boolean } = {}) {
       if (opts.failRows) throw new Error('chunk 0: 503');
       return Array.from({ length: to - from + 1 }, (_, i) => row(from + i, open()));
     },
-    lottery: async () => ({ mix: 5n, reveals: 2 }),
+    lottery: async () => {
+      if (opts.failLottery) throw new Error('lottery: 503');
+      return { mix: 5n, reveals: 2 };
+    },
   };
   const publish: BeatSinks = {
     fixed: (f) => {
@@ -116,10 +119,34 @@ describe('the two beats', () => {
     expect(epochs(f.state.history)).toHaveLength(91);
   });
 
-  test('settled waits for beat two and for every number to be at rest', () => {
+  test('a node answering a lower open epoch drops the rows above it, so the open one has no successor', async () => {
+    let open = 100;
+    const f = fake(() => open);
+    await bootBeats(f.reads, f.publish);
+    open = 99;
+    await pollBeats(f.reads, f.publish, { fixed: f.state.fixed as Fixed, history: f.state.history ?? null });
+    expect(f.state.fixed?.open).toBe(99);
+    expect(epochs(f.state.history).at(-1)).toBe(99);
+    expect(f.state.history?.rows.has(100)).toBe(false);
+  });
+
+  test('a lottery read that fails leaves the rows on the page and is asked again by the poll', async () => {
+    const opts = { failLottery: true };
+    const f = fake(() => 10, opts);
+    await bootBeats(f.reads, f.publish);
+    expect(f.published).toEqual(['fixed', 'history']);
+    expect(f.state.history?.rows.size).toBe(11);
+    expect(f.state.history?.lottery).toBeNull();
+    opts.failLottery = false;
+    await pollBeats(f.reads, f.publish, { fixed: f.state.fixed as Fixed, history: f.state.history ?? null });
+    expect(f.state.history?.lottery).toEqual({ mix: 5n, reveals: 2 });
+  });
+
+  test('settled waits for beat two, whole, and for every number to be at rest', () => {
     const history: History = { rows: new Map(), lottery: null };
     expect(settled(null, new Set())).toBe(false);
     expect(settled(history, new Set(['minted']))).toBe(false);
+    expect(settled({ ...history, error: '503' }, new Set())).toBe(false);
     expect(settled(history, new Set())).toBe(true);
   });
 });

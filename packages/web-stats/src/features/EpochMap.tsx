@@ -1,6 +1,6 @@
 // Every epoch since launch as a bar at its absolute cell, the window box over the 48 shown, and
 // the day axis under it. A click centres the window on the epoch under the pointer; the box drags.
-import { type PointerEvent as ReactPointerEvent, useCallback, useRef, useState } from 'react';
+import { memo, type PointerEvent as ReactPointerEvent, useCallback, useRef, useState } from 'react';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';
 import { cn } from '../../../ui/src/index.ts';
 import { useWidth } from '../charts/plot';
@@ -30,7 +30,13 @@ export interface EpochMapProps {
  */
 function useDragWindow(open: number, from: number, onWindow: (from: number | null) => void) {
   const [live, setLive] = useState<number | null>(null);
+  /** The same value outside React's batching: the release reads it once, whatever Strict Mode replays. */
+  const liveRef = useRef<number | null>(null);
   const start = useRef<{ x: number; from: number; width: number } | null>(null);
+  const move = useCallback((f: number | null) => {
+    liveRef.current = f;
+    setLive(f);
+  }, []);
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       const rail = e.currentTarget.parentElement;
@@ -38,30 +44,29 @@ function useDragWindow(open: number, from: number, onWindow: (from: number | nul
       e.stopPropagation();
       e.currentTarget.setPointerCapture(e.pointerId);
       start.current = { x: e.clientX, from, width: rail.getBoundingClientRect().width };
-      setLive(from);
+      move(from);
     },
-    [from],
+    [from, move],
   );
   const onPointerMove = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       const s = start.current;
       if (!s || s.width <= 0) return;
       const cells = Math.round(((e.clientX - s.x) / s.width) * (open + 1));
-      setLive(Math.min(newestFrom(open), Math.max(0, s.from + cells)));
+      move(Math.min(newestFrom(open), Math.max(0, s.from + cells)));
     },
-    [open],
+    [open, move],
   );
   const onPointerUp = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       if (!start.current) return;
       e.currentTarget.releasePointerCapture(e.pointerId);
       start.current = null;
-      setLive((f) => {
-        if (f !== null && f !== from) onWindow(normaliseFrom(f, open));
-        return null;
-      });
+      const f = liveRef.current;
+      move(null);
+      if (f !== null && f !== from) onWindow(normaliseFrom(f, open));
     },
-    [from, open, onWindow],
+    [from, open, onWindow, move],
   );
   return { from: live ?? from, dragging: live !== null, onPointerDown, onPointerMove, onPointerUp };
 }
@@ -96,7 +101,8 @@ function DayAxis({
   );
 }
 
-export function EpochMap({ rows, open, from, launchAt, onWindow }: EpochMapProps) {
+/** Memoised: the page re-renders every second for its clock; the map's inputs change on a read or a window move. */
+export const EpochMap = memo(function EpochMap({ rows, open, from, launchAt, onWindow }: EpochMapProps) {
   const ref = useRef<HTMLDivElement>(null);
   const width = useWidth(ref);
   const drag = useDragWindow(open, from, onWindow);
@@ -147,4 +153,4 @@ export function EpochMap({ rows, open, from, launchAt, onWindow }: EpochMapProps
       <DayAxis rows={rows} launchAt={launchAt} open={open} width={width} />
     </div>
   );
-}
+});

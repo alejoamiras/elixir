@@ -29,6 +29,15 @@ const upsert = (held: ReadonlyMap<number, EpochRow>, rows: readonly EpochRow[]):
 const newest = (rows: ReadonlyMap<number, EpochRow>): number | undefined =>
   rows.size ? Math.max(...rows.keys()) : undefined;
 
+/** The lottery is decoration next to the rows: a failed read leaves it null and the next poll asks again. */
+const lotteryOrNull = (read: BeatReads): Promise<Lottery | null> => read.lottery().catch(() => null);
+
+/** Rows above `open` cannot exist: a node answering a lower open epoch (a reorg, a different node) drops them. */
+const below = (rows: Map<number, EpochRow>, open: number): Map<number, EpochRow> => {
+  for (const e of [...rows.keys()]) if (e > open) rows.delete(e);
+  return rows;
+};
+
 /**
  * The first read. Beat one is published the moment it lands; beat two follows with the newest
  * window and the lottery. A history failure still leaves beat one on the page and says so in
@@ -39,8 +48,7 @@ export async function bootBeats(read: BeatReads, publish: BeatSinks): Promise<Fi
   publish.fixed(fixed);
   try {
     const rows = await read.rows(Math.max(0, fixed.open - WINDOW + 1), fixed.open, fixed.open);
-    const lottery = await read.lottery();
-    publish.history({ rows: upsert(new Map(), rows), lottery });
+    publish.history({ rows: upsert(new Map(), rows), lottery: await lotteryOrNull(read) });
   } catch (e) {
     publish.history({ rows: new Map(), lottery: null, error: message(e) });
   }
@@ -62,14 +70,14 @@ export async function pollBeats(
   publish.fixed(fixed);
   const from = Math.max(0, Math.min(held.fixed.open, fixed.open) - 1, fixed.open - WINDOW + 1);
   const rows0 = held.history?.rows ?? new Map<number, EpochRow>();
-  const lottery = held.history?.lottery ?? null;
   const top = newest(rows0);
   const base = top === undefined || from <= top + 1 ? rows0 : new Map<number, EpochRow>();
   try {
     const rows = await read.rows(from, fixed.open, fixed.open);
-    publish.history({ rows: upsert(base, rows), lottery });
+    const lottery = held.history?.lottery ?? (await lotteryOrNull(read));
+    publish.history({ rows: below(upsert(base, rows), fixed.open), lottery });
   } catch (e) {
-    publish.history({ rows: rows0, lottery, error: message(e) });
+    publish.history({ rows: rows0, lottery: held.history?.lottery ?? null, error: message(e) });
   }
 }
 
@@ -88,6 +96,6 @@ export async function windowBeat(
   }
 }
 
-/** The page is settled once beat two landed and every number is at rest: what the visual gate waits for. */
+/** The page is settled once beat two landed whole and every number is at rest: what the visual gate waits for. */
 export const settled = (history: History | null, unsettled: ReadonlySet<string>): boolean =>
-  history !== null && unsettled.size === 0;
+  history !== null && !history.error && unsettled.size === 0;

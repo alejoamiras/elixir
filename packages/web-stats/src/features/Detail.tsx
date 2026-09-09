@@ -22,10 +22,12 @@ const BADGE: Record<State, { variant: 'warn' | 'neutral' | 'uv'; text: string }>
 };
 
 /** The epoch card before beat two: three value blocks and two sentence lines, at the measured sizes. */
-function DetailSkeleton({ className }: { className?: string }) {
+function DetailSkeleton({ className, epoch }: { className?: string; epoch: number | null }) {
   return (
     <Tile className={className} data-testid="detail" data-skeleton="">
-      <TileHeader aside={<Sk className="h-2.5 w-[140px]" />}>epoch</TileHeader>
+      <TileHeader aside={<Sk className="h-2.5 w-[140px]" />}>
+        {epoch === null ? 'epoch' : `epoch ${epoch}`}
+      </TileHeader>
       <div className="mb-2 flex flex-wrap gap-4">
         {['claims', 'duration', 'difficulty'].map((label) => (
           <Kpi key={label} label={label} value={<Sk className="h-[22px] w-10 rounded-[4px]" />} />
@@ -39,6 +41,7 @@ function DetailSkeleton({ className }: { className?: string }) {
 
 export function Detail({
   row,
+  epoch,
   open,
   next,
   now,
@@ -46,13 +49,15 @@ export function Detail({
 }: {
   /** Null until beat two: the card keeps its shape and shows its skeleton. */
   row: EpochRow | null;
+  /** The open epoch's number once beat one landed: the skeleton's header names it. */
+  epoch?: number | null;
   /** Whether `row` is the chain's open epoch; without closing facts otherwise it is closed, unread. */
   open: boolean;
   next?: EpochRow;
   now: number;
   className?: string;
 }) {
-  if (row === null) return <DetailSkeleton className={className} />;
+  if (row === null) return <DetailSkeleton className={className} epoch={epoch ?? null} />;
   const state = stateOf(row, open);
   const closedAt = row.duration === null ? null : row.openedAt + row.duration;
   const span = `${clock(row.openedAt)} → ${closedAt ? clock(closedAt) : state === 'open' ? 'open' : '…'}`;

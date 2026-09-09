@@ -79,12 +79,15 @@ function RowSkeleton() {
 function Row({
   rows,
   open,
+  openRow,
   current,
   onSelect,
   now,
 }: {
   rows: readonly EpochRow[];
   open: number;
+  /** The open epoch's row from everything held: the window may be historical. */
+  openRow: EpochRow | undefined;
   current: number;
   onSelect: (e: number | null) => void;
   now: number;
@@ -95,7 +98,6 @@ function Row({
   );
   const lastClosed = rows.length >= 2 ? rows[rows.length - 2] : undefined;
   const first = rows[0];
-  const openRow = rows.find((r) => r.epoch === open);
   return (
     <>
       <div
@@ -133,7 +135,7 @@ function Row({
           {first ? clock(first.openedAt) : ''}
         </span>
         <span>
-          {clock(openRow?.openedAt ?? now)} · epoch {open} open
+          {openRow ? clock(openRow.openedAt) : '—'} · epoch {open} open
         </span>
       </div>
     </>
@@ -242,7 +244,14 @@ export function Strip(p: StripProps) {
   return (
     <div data-testid="strip" data-skeleton={ready && rows ? undefined : ''} className="flex flex-col gap-2">
       {rows && open !== null ? (
-        <Row rows={rows} open={open} current={current as number} onSelect={onSelect} now={now} />
+        <Row
+          rows={rows}
+          open={open}
+          openRow={all.find((r) => r.epoch === open)}
+          current={current as number}
+          onSelect={onSelect}
+          now={now}
+        />
       ) : (
         <RowSkeleton />
       )}

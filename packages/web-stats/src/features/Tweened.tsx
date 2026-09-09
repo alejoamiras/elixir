@@ -39,6 +39,6 @@ export function Tweened({
       }),
     [id, setUnsettled],
   );
-  if (value === null) return <Sk className={`inline-block align-middle ${SK_VALUE}`} />;
+  if (value === null) return <Sk className={SK_VALUE} />;
   return <>{format(shown)}</>;
 }

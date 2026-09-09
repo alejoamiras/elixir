@@ -13,5 +13,5 @@ export function Sk(props: ComponentProps<typeof Skeleton>) {
 }
 
 /** The KPI sizes the canvas measured: a value block and its sub line. */
-export const SK_VALUE = 'h-[22px] w-16 rounded-[4px]';
+export const SK_VALUE = 'inline-block h-[22px] w-16 rounded-[4px] align-middle';
 export const SK_SUB = 'mt-1 h-2.5 w-[120px]';

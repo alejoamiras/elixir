@@ -50,6 +50,7 @@ function fake(open: number, epochs: number[], opts: { fail?: boolean } = {}) {
   };
   return {
     fill: createFill(deps),
+    deps,
     asked,
     states,
     knobs,
@@ -65,6 +66,25 @@ describe('the history fill', () => {
     expect(readTo(held([]).rows, 30)).toBeNull();
     // Right after a close the open epoch may not be held yet: the run starts at the newest held one.
     expect(readTo(held(range(953, 1000)).rows, 1001)).toBe(953);
+    // A number no loop could count down from: the walk is over the held keys, not the gap.
+    expect(readTo(held(range(953, 1000)).rows, 1e20)).toBe(953);
+  });
+
+  test('a page the queue held back obeys a stop that came after it was queued', async () => {
+    const f = fake(1000, range(953, 1000));
+    const queued: (() => Promise<void>)[] = [];
+    f.deps.serial = (fn) => {
+      queued.push(fn);
+      return Promise.resolve();
+    };
+    await f.fill.tick();
+    expect(queued).toHaveLength(1);
+    f.knobs.transport = 'throttled';
+    await f.fill.tick();
+    expect(f.fill.state()).toEqual({ phase: 'stopped', reason: 'throttled', readTo: 953 });
+    await (queued[0] as () => Promise<void>)();
+    expect(f.asked).toEqual([]);
+    expect(f.fill.state().phase).toBe('stopped');
   });
 
   test('one page per tick, newest first, joined under the rows held; the queue is used each time', async () => {

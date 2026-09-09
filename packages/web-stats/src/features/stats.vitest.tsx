@@ -469,6 +469,7 @@ describe('the two beats on the page', () => {
     await waitFor(() => expect(store.get(unsettledAtom).size).toBe(0));
     expect(screen.getByTestId('minted').textContent).toBe('448');
     expect(screen.getAllByText(`epoch ${last.epoch}`).length).toBeGreaterThan(0);
+    expect(screen.getByTestId('detail').textContent).toContain(`epoch ${last.epoch}`);
     expect(screen.queryByTestId('open-claims')).toBeNull();
     expect(screen.getByTestId('strip').hasAttribute('data-skeleton')).toBe(true);
   });
