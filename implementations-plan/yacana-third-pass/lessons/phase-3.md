@@ -101,3 +101,61 @@ What the phase found:
   units are build constants, not reads, and hiding them would shift the layout when the numbers land.
 - **The mocked node's `delayMs`** is the only E2E knob added; the slow-node spec takes 28 s because every
   round trip (the deployment check, the layouts, beat one, beat two) pays the delay — acceptable for one spec.
+
+## Arc 3 codex loop · round 1 (2026-09-09)
+
+Session `01a083d9-7ad0-7a71-8da4-4e863e9f5f74` (Astra, high), the three renders and artboards attached. Thirteen
+findings; all verified, all adopted (two in a narrower form). Fix commit `f2218d6`.
+
+- **High — a failed window fetch retried in a tight loop.** The fetch effect keys on `history`; every failed
+  `windowBeat` published a new history object with the error, which re-fired the effect at once (under a cooldown
+  the guard answers synthetically, so the loop was as fast as React). `showWindow` now keeps a per-window gate:
+  in flight, or failed and not before the poll cadence; the poll's publish is the retry.
+- **High — a lying node could freeze the tab.** `readOpenEpochNumber` is `Number(bigint)`; `open = 1e20` made
+  `readTo`'s `e--` a no-op forever. `assertOpenEpoch` refuses anything outside `[0, TABLE_EPOCHS)` before `Fixed`
+  is published, and `readTo` walks the held keys instead of counting down through the gap.
+- **Medium — a poll answering a lower open epoch kept the rows above it**, so the open epoch had a successor and a
+  duration. `below()` drops them after a successful poll.
+- **Medium — a queued fill page ignored a stop that came after it was queued.** `page` re-checks `stopped` and the
+  transport.
+- **Medium — the lottery never recovered from a failed boot read** and Verify showed zeros. It is read with
+  `.catch(() => null)` at boot and again by every poll until it lands; a lottery failure no longer discards beat
+  two's rows; Verify shows `—`.
+- **Medium — "held" ignored the successor**: a historical window ending where the cache ended left its last row
+  open. `windowHeld` requires `min(open, to + 1)`.
+- **Medium — the day axis walked the calendar** up to the largest timestamp a row carried (a lying node could make
+  that ~10⁸ iterations). One pass over the rows now.
+- **Low** — `settled` needs a whole beat two (the displayed-window readiness was not folded in: the visual gate
+  never pages; a paged unread window shows its own skeleton); the right caption names the open epoch's opening
+  time from every held row; `frame()` memoised and `EpochMap` under `memo` (the clock redrew four Plots a second);
+  the KPI value skeleton inline (the network tile's unit had wrapped); the card's skeleton names the open epoch at
+  beat one; the drag's release reads a ref (a state updater ran `onWindow`, twice under Strict Mode); two comments
+  tightened (the cache's header had claimed finality).
+- The 390 px screenshot baseline moved by one pixel at the reproduce box's bottom edge after these changes — a
+  sub-pixel layout shift with nothing textual behind it; regenerated, and the other three widths passed unchanged.
+
+## Arc 3 codex loop · round 2 (2026-09-09)
+
+Resumed session, the round-1 fix diff (`76a0100..f2218d6`). One finding, verified and adopted (`197b08c`):
+
+- **Medium — the rollback fix missed the poll's error path.** Beat one publishes the lower open epoch before the
+  rows are read; when that read failed, the held rows (row 100 included) were republished unchanged, and a later
+  successful window fetch cleared the error while keeping the row that closed the open epoch. `below()` now cuts
+  the kept rows on both paths (on a copy: the held map is never mutated); the rollback test covers the failing
+  read.
+
+Codex's verdict on the rest of round 1: `askedUntil` handles the internally caught failures and distinguishes
+windows; the integer check rejects the oversized bigint conversion; the successor rule, the bounded day ticks, the
+memoisation and the ref-based release address their findings; the narrower `settled` contract is acceptable for
+the stated gate; the lottery's null stays visible through the transport health where it applies.
+
+## Arc 3 codex loop · round 3 (2026-09-09) — converged
+
+Resumed session, the round-2 fix diff (`f2218d6..197b08c`). Codex, verbatim: *"The fix is correct (high
+confidence). The copied map preserves held state, retains the error, and removes future rows. Verified that
+subsequent window recovery leaves epoch 99 open. All 8 beat tests pass. No remaining material findings from rounds
+1–2. No new material findings"*.
+
+The trend was monotone (13 → 1 → 0) and round 3 was the confirmation round, so the loop closes here: three rounds,
+inside the plan's hard stop. Arc 3 is `197b08c` on `third-pass-stats`; the final cross-arc pass (a fresh session over
+`f7e2ad4..HEAD`) follows.
