@@ -963,7 +963,7 @@ plan's, not a knob.
 ## Approval
 
 ELI5 companion: `implementations-plan/yacana-third-pass/eli5.html`, published as the Artifact **Yacana Third Pass**
-(https://claude.ai/code/artifact/2e6e0475-a801-4017-8772-5d5243d7b99f; redeploying the same source file keeps the URL).
+(https://claude.ai/code/artifact/06dd666b-90bc-4c2a-986c-3b44e28a5ddc — republished at Delivery on 2026-09-09 after the first artifact was deleted; redeploying the same source file keeps this URL).
 
 Verdicts (transcripts in `audit-codex.md`, `audit-fable.md`):
 - codex round 1 (Astra high, session `01a081ee`): `reject` (five blocking findings) → all folded in.
