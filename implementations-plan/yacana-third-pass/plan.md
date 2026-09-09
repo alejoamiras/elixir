@@ -680,7 +680,7 @@ page is 48 × 3 + 3 methods, and the HTTP request count is measured through the 
 keyboard stepping at a historical window) · `bun run --cwd packages/web-stats test:visual` with the baselines
 regenerated in the pinned image and committed with the map. Layers: lint/typecheck · unit · component · visual.
 
-**P3.3 · The money table** — the `tbody` selector; the landing's banner and boundaries from P1.2/P1.4 verified in
+**P3.3 · The money table** ✓ (2026-09-09, `0db788a`) — the `tbody` selector; the landing's banner and boundaries from P1.2/P1.4 verified in
 place.
 Gate: lint · Vitest `packages/web-landing` (the last `tr`'s cells are the ones the selector reaches; no cell carries
 `last:`) · **arc

@@ -73,3 +73,31 @@ What the phase found:
   (it is known), so a Vitest that looked for one "epoch 30" found two — the KPI label and the badge.
 - **The fill's stop is a phase, not a flag**: `fillAtom` carries `readTo` and the reason, and the strip's caption
   reads it; the map itself needs nothing extra for the unread span — missing cells draw nothing over the rail.
+
+## P3.3 · The money table ✓ (2026-09-09, `0db788a`) — and the arc-3 boundary
+
+Gate, as run: `bun run lint` exit 0 · `bun run lint:actions` ok · typecheck web-landing, web-stats, root ok ·
+Vitest web-landing 11 (new: the money table's `tbody` carries `[&>tr:last-child>td]:border-b-0`, the selector
+reaches the last row's five cells, no cell says `last:`, every cell keeps `border-b`) · **arc boundary** on the
+isolated network: `bun run e2e:agent -- bun run --cwd packages/web-stats test:e2e` **5 passed** (new: a slow
+node — the mocked node holding every answer 1.5 s — shows every tile as its skeleton at 400 ms with no quiet box
+left, then minted and the pill at beat one and the 31 options at beat two, `data-settled` 1 and no skeleton left;
+the map from 31 epochs: 31 bars, the box spanning the rail, "launch" and "now" on the axis, `?from=99` clamped to
+the one window, ‹ › disabled, no fill note, `?epoch=` riding beside `?from=`) · `bun run e2e:agent -- bun run
+--cwd packages/web-landing test:e2e` **3 passed** (the money table's last row has a computed bottom border of
+0 px on all four cells and the row above 1 px) · renders at 1280/1440 under `shots/arc-3/`: `stats-skeleton-*`
+(the slow node at 450 ms), `stats-*` (settled), `landing-money-*` (the section as an element shot), beside
+`StatsSkeleton`, `StripA`, `MoneyAfter`.
+
+What the phase found:
+
+- **`getByRole('option', { name: 'epoch 3' })` also matches "epoch 30"**: the accessible-name match is a
+  substring by default; the spec uses `exact: true`. The first boundary run failed on that alone.
+- **The fill note was on the skeleton.** With `fillAtom` idle (no `reason`), "older epochs are read a page at a
+  time…" showed before beat two; the note now needs a measured gap (`readTo > 0`), so it is absent before the
+  fill's first tick and once it reached epoch 0. The stats renders were redone after that change.
+- **The skeleton render vs the artboard**: the KPI tiles show their constant units (`tYACA`, `of 48`,
+  `proofs/s`) and the calculator link while the values are skeletons — the artboard drew bare blocks. Kept: the
+  units are build constants, not reads, and hiding them would shift the layout when the numbers land.
+- **The mocked node's `delayMs`** is the only E2E knob added; the slow-node spec takes 28 s because every
+  round trip (the deployment check, the layouts, beat one, beat two) pays the delay — acceptable for one spec.
