@@ -4,7 +4,7 @@ import { createStore, Provider } from 'jotai';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { expectedDeployment, loadConnection } from '../../site/src/browser/connection.ts';
-import { endpointFingerprint } from '../../site/src/browser/node-guard.ts';
+import { endpointFingerprint, quietNodeReads } from '../../site/src/browser/node-guard.ts';
 import { markRead, nodeHealth, startNodeHealth, waitTurn } from '../../site/src/browser/node-health.ts';
 import { ThemeProvider } from '../../ui/src/index.ts';
 import { App } from './App';
@@ -117,8 +117,11 @@ const showWindow = (w: EpochWindow): Promise<void> => {
 };
 
 const fill = createFill({
+  // Quiet: a page the fill asks for never opens a cooldown (the fill stops itself on the first failure).
   rows: (from, to, open) =>
-    reader ? readWindowRows(reader, from, to, open) : Promise.reject(new Error('no reader')),
+    reader
+      ? quietNodeReads(() => readWindowRows(reader as Reader, from, to, open))
+      : Promise.reject(new Error('no reader')),
   held: () => {
     const fixed = store.get(fixedAtom);
     const history = store.get(historyAtom);

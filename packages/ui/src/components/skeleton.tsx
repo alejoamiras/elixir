@@ -1,11 +1,7 @@
 import type * as React from 'react';
 import { cn } from '../lib/cn.ts';
 
-/**
- * A shape that is loading, at the size of what will replace it: a 90° `panel → panel-2 → panel`
- * gradient sliding across it (still under reduced motion). `quiet` is the same box with nothing in
- * it — the geometry without the noise, for a beat that has not yet been late.
- */
+/** A loading shape at the size of what replaces it. `quiet` keeps the geometry and drops the shimmer: for a beat not yet late. */
 export function Skeleton({ className, quiet, ...props }: React.ComponentProps<'div'> & { quiet?: boolean }) {
   return (
     <div

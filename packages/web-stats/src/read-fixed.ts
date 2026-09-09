@@ -1,10 +1,11 @@
 import {
   readGenesis,
+  readLatestBlock,
   readOpenEpochNumber,
   readTotalSupply,
   TABLE_EPOCHS,
 } from '../../miner-core/src/reader.ts';
-import { latestBlock, type Reader } from './chain';
+import type { Reader } from './chain';
 import type { Fixed } from './state';
 
 /** An open epoch the slot table can address; anything else (a lying node) is refused before it is walked. */
@@ -18,7 +19,7 @@ export function assertOpenEpoch(open: number): number {
 export async function readFixed(r: Reader): Promise<Fixed> {
   const [open, block, supply, genesis] = await Promise.all([
     readOpenEpochNumber(r.node, r.miner, r.minerLayout),
-    latestBlock(r.node),
+    readLatestBlock(r.node),
     readTotalSupply(r.node, r.token, r.tokenLayout),
     readGenesis(r.node, r.miner, r.minerLayout),
   ]);

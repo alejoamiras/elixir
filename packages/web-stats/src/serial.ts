@@ -1,4 +1,4 @@
-/** Chain reads run one at a time: a poll and a "load older" must not each publish a stale whole. */
+/** Chain reads run one at a time: the poll, a window fetch and a fill page must not each publish a stale whole. */
 let inFlight: Promise<void> = Promise.resolve();
 export const serial = (fn: () => Promise<void>): Promise<void> => {
   const run = inFlight.then(fn);

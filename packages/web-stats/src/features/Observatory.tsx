@@ -9,7 +9,7 @@ import {
 } from '../../../miner-core/src/metrics.ts';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';
 import { amount, clockMinutes } from '../../../site/src/browser/format.ts';
-import { Button, difficultyLabel, Kpi, Tile } from '../../../ui/src/index.ts';
+import { Button, difficultyLabel, Kpi, Tile, TileBoundary } from '../../../ui/src/index.ts';
 import type { Fixed } from '../state';
 import { Calculator } from './Calculator';
 import { EpochRing } from './EpochRing';
@@ -147,30 +147,42 @@ function NetworkTile({ open, rows }: { open: number | null; rows: Rows }) {
   );
 }
 
-/** Six KPI tiles, placed by the page's grid (`contents`); each fills at its own beat. */
+/** Six KPI tiles, placed by the page's grid (`contents`), each behind its own boundary; each fills at its own beat. */
 export function Observatory({ fixed, rows, now }: { fixed: Fixed | null; rows: Rows; now: number }) {
   const nowSec = Math.max(fixed?.block.timestamp ?? 0, Math.floor(now / 1000));
   const open = fixed?.open ?? null;
   return (
     <div className="contents" data-testid="observatory">
-      <Tile className={CELL}>
-        <MintedTile fixed={fixed} />
-      </Tile>
-      <Tile className={CELL}>
-        <OpenEpoch open={open} rows={rows} nowSec={nowSec} />
-      </Tile>
-      <Tile className={CELL}>
-        <DifficultyTile open={open} rows={rows} />
-      </Tile>
-      <Tile className={CELL}>
-        <ClaimsPerHour rows={rows} nowSec={nowSec} />
-      </Tile>
-      <Tile className={CELL}>
-        <NetworkTile open={open} rows={rows} />
-      </Tile>
-      <Tile className={CELL}>
-        <SinceOpened supply={fixed?.supply ?? null} now={now} />
-      </Tile>
+      <TileBoundary name="kpi-minted" className={CELL}>
+        <Tile className={CELL}>
+          <MintedTile fixed={fixed} />
+        </Tile>
+      </TileBoundary>
+      <TileBoundary name="kpi-open-epoch" className={CELL}>
+        <Tile className={CELL}>
+          <OpenEpoch open={open} rows={rows} nowSec={nowSec} />
+        </Tile>
+      </TileBoundary>
+      <TileBoundary name="kpi-difficulty" className={CELL}>
+        <Tile className={CELL}>
+          <DifficultyTile open={open} rows={rows} />
+        </Tile>
+      </TileBoundary>
+      <TileBoundary name="kpi-claims-per-hour" className={CELL}>
+        <Tile className={CELL}>
+          <ClaimsPerHour rows={rows} nowSec={nowSec} />
+        </Tile>
+      </TileBoundary>
+      <TileBoundary name="kpi-network" className={CELL}>
+        <Tile className={CELL}>
+          <NetworkTile open={open} rows={rows} />
+        </Tile>
+      </TileBoundary>
+      <TileBoundary name="kpi-since-opened" className={CELL}>
+        <Tile className={CELL}>
+          <SinceOpened supply={fixed?.supply ?? null} now={now} />
+        </Tile>
+      </TileBoundary>
     </div>
   );
 }
