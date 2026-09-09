@@ -7,7 +7,7 @@ import { ExternalLink, KvRow, Tile, TileHeader } from '../../../ui/src/index.ts'
 import { W_VK_HASH } from '../../../work-circuit/src/generated/vk.ts';
 import { links } from '../explorer';
 import { reproduceCommand } from '../lib/reproduce.ts';
-import { chainAtom } from '../state';
+import { fixedAtom, historyAtom, rowsAtom } from '../state';
 
 const record = JSON.parse(import.meta.env.VITE_DEPLOYMENT_RECORD) as DeploymentRecord & {
   profile?: string;
@@ -40,7 +40,10 @@ const Hex = ({ value, testId, href }: { value: string; testId?: string; href?: s
 const stamp = (unix?: string) => (unix ? `${new Date(Number(unix) * 1000).toISOString()} (${unix})` : '—');
 
 export function Verify({ nodeUrl }: { nodeUrl: string }) {
-  const chain = useAtomValue(chainAtom);
+  const fixed = useAtomValue(fixedAtom);
+  const history = useAtomValue(historyAtom);
+  const rows = useAtomValue(rowsAtom);
+  const first = rows?.[0];
   const commit = import.meta.env.VITE_SOURCE_COMMIT;
   return (
     <div className="grid gap-4 md:grid-cols-2" data-testid="verify">
@@ -95,23 +98,23 @@ export function Verify({ nodeUrl }: { nodeUrl: string }) {
       </Tile>
       <Tile>
         <TileHeader>the launch, as public storage records it</TileHeader>
-        {chain ? (
+        {fixed ? (
           <>
             <KvRow
               label="genesis target"
-              value={<Hex value={`0x${chain.genesis.target.toString(16)}`} testId="verify-genesis-target" />}
+              value={<Hex value={`0x${fixed.genesis.target.toString(16)}`} testId="verify-genesis-target" />}
             />
-            <KvRow label="genesis seed" value={<Hex value={`0x${chain.genesis.seed.toString(16)}`} />} />
-            <KvRow label="launch at" value={stamp(String(chain.genesis.launchAt))} />
+            <KvRow label="genesis seed" value={<Hex value={`0x${fixed.genesis.seed.toString(16)}`} />} />
+            <KvRow label="launch at" value={stamp(String(fixed.genesis.launchAt))} />
             <KvRow
               label="lottery mix · reveals"
-              value={`${chain.lottery.mix.toString(16).slice(0, 12)}… · ${chain.lottery.reveals}`}
+              value={`${(history?.lottery?.mix ?? 0n).toString(16).slice(0, 12)}… · ${history?.lottery?.reveals ?? 0}`}
             />
             <KvRow
               label="epoch 0 opened"
-              value={stamp(String(chain.rows[0]?.epoch === 0 ? chain.rows[0].openedAt : record.launchedAt))}
+              value={stamp(String(first?.epoch === 0 ? first.openedAt : record.launchedAt))}
             />
-            <KvRow label="open epoch" value={String(chain.open)} />
+            <KvRow label="open epoch" value={String(fixed.open)} />
           </>
         ) : (
           <p className="text-xs text-ink-2">reading…</p>

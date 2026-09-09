@@ -3,11 +3,13 @@
 import { useEffect } from 'react';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';
 import { Badge, cn } from '../../../ui/src/index.ts';
+import { Sk } from './Sk';
 
 export interface StripProps {
-  rows: readonly EpochRow[];
+  /** Null until beat two: the strip keeps its height and shows its skeleton. */
+  rows: readonly EpochRow[] | null;
   /** The chain's open epoch; a row without closing facts that is not it is closed, unread. */
-  open: number;
+  open: number | null;
   selected: number | null;
   onSelect: (epoch: number | null) => void;
   /** Unix seconds "now" for the open epoch's width (the last block's time). */
@@ -43,7 +45,24 @@ export function step(
 const typing = (t: EventTarget | null) =>
   t instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName);
 
-export function Strip({ rows, open, selected, onSelect, now, onOlder }: StripProps) {
+/** The strip before beat two: the 28 px row and its two captions, at their widths. */
+function StripSkeleton() {
+  return (
+    <div data-testid="strip" data-skeleton="" className="flex flex-col gap-2">
+      <Sk className="h-7 w-full" />
+      <div className="flex justify-between gap-3">
+        <Sk className="h-2.5 w-[90px]" />
+        <Sk className="h-2.5 w-[140px]" />
+      </div>
+      <p className="text-xs text-ink-3">
+        click an epoch · ← → to step · the open one is always on the right · the URL follows
+      </p>
+    </div>
+  );
+}
+
+export function Strip({ rows: held, open, selected, onSelect, now, onOlder }: StripProps) {
+  const rows = held ?? [];
   const current = selected ?? rows[rows.length - 1]?.epoch ?? null;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -57,6 +76,7 @@ export function Strip({ rows, open, selected, onSelect, now, onOlder }: StripPro
     return () => window.removeEventListener('keydown', onKey);
   }, [rows, current, onSelect, onOlder]);
   // Width is a flex weight (seconds, clamped), so the row shares the container; many rows scroll.
+  if (held === null || open === null) return <StripSkeleton />;
   const widths = rows.map((r) =>
     Math.max(MIN, Math.min(400, (r.duration ?? Math.max(0, now - r.openedAt)) / 6)),
   );

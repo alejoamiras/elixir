@@ -1,0 +1,95 @@
+// The stats page reads in two beats and publishes each as it lands: beat one is the fixed slots
+// (the page has numbers in a few hundred milliseconds), beat two the epoch window (the strip, the
+// charts and the table). Pure over injected reads and sinks, so the order and the failure rules are
+// tested without a node.
+import type { EpochRow } from '../../miner-core/src/reader.ts';
+import { WINDOW } from './chain';
+import type { Fixed, History, Lottery } from './state';
+
+export interface BeatReads {
+  fixed: () => Promise<Fixed>;
+  rows: (from: number, to: number, open: number) => Promise<EpochRow[]>;
+  lottery: () => Promise<Lottery>;
+}
+
+export interface BeatSinks {
+  fixed: (f: Fixed) => void;
+  history: (h: History) => void;
+}
+
+const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+const upsert = (held: ReadonlyMap<number, EpochRow>, rows: readonly EpochRow[]): Map<number, EpochRow> => {
+  const next = new Map(held);
+  for (const r of rows) next.set(r.epoch, r);
+  return next;
+};
+
+const newest = (rows: ReadonlyMap<number, EpochRow>): number | undefined =>
+  rows.size ? Math.max(...rows.keys()) : undefined;
+const oldest = (rows: ReadonlyMap<number, EpochRow>): number | undefined =>
+  rows.size ? Math.min(...rows.keys()) : undefined;
+
+/**
+ * The first read. Beat one is published the moment it lands; beat two follows with the newest
+ * window and the lottery. A history failure still leaves beat one on the page and says so in
+ * `history.error`, with no rows.
+ */
+export async function bootBeats(read: BeatReads, publish: BeatSinks): Promise<Fixed> {
+  const fixed = await read.fixed();
+  publish.fixed(fixed);
+  try {
+    const rows = await read.rows(Math.max(0, fixed.open - WINDOW + 1), fixed.open, fixed.open);
+    const lottery = await read.lottery();
+    publish.history({ rows: upsert(new Map(), rows), lottery });
+  } catch (e) {
+    publish.history({ rows: new Map(), lottery: null, error: message(e) });
+  }
+  return fixed;
+}
+
+/**
+ * The poll: beat one again, then the rows from the last one held (it may just have closed) to the
+ * open epoch, joined to what is held. More closes than a window since the last read would leave a
+ * gap; the held rows are dropped for the newest window instead. A history read that fails keeps the
+ * rows held and says so; the fixed slots are published either way.
+ */
+export async function pollBeats(
+  read: BeatReads,
+  publish: BeatSinks,
+  held: { fixed: Fixed; history: History | null },
+): Promise<void> {
+  const fixed = await read.fixed();
+  publish.fixed(fixed);
+  const from = Math.max(0, Math.min(held.fixed.open, fixed.open) - 1, fixed.open - WINDOW + 1);
+  const rows0 = held.history?.rows ?? new Map<number, EpochRow>();
+  const lottery = held.history?.lottery ?? null;
+  const top = newest(rows0);
+  const base = top === undefined || from <= top + 1 ? rows0 : new Map<number, EpochRow>();
+  try {
+    const rows = await read.rows(from, fixed.open, fixed.open);
+    publish.history({ rows: upsert(base, rows), lottery });
+  } catch (e) {
+    publish.history({ rows: rows0, lottery, error: message(e) });
+  }
+}
+
+/** "Load older": the WINDOW epochs before the oldest one held, joined in front; a failure is said, not a crash. */
+export async function olderBeat(
+  read: BeatReads,
+  publish: BeatSinks,
+  held: { fixed: Fixed; history: History },
+): Promise<void> {
+  const first = oldest(held.history.rows) ?? held.fixed.open;
+  if (first === 0) return;
+  try {
+    const rows = await read.rows(Math.max(0, first - WINDOW), first - 1, held.fixed.open);
+    publish.history({ ...held.history, rows: upsert(held.history.rows, rows), error: undefined });
+  } catch (e) {
+    publish.history({ ...held.history, error: message(e) });
+  }
+}
+
+/** The page is settled once beat two landed and every number is at rest: what the visual gate waits for. */
+export const settled = (history: History | null, unsettled: ReadonlySet<string>): boolean =>
+  history !== null && unsettled.size === 0;

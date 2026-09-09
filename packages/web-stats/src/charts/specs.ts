@@ -45,6 +45,42 @@ const base = (width: number, height: number, options: Plot.PlotOptions): Plot.Pl
   ...options,
 });
 
+/**
+ * A chart with no rows yet: its gridlines and dim tick labels, and a `panel` band 30 % of the plot
+ * high at 35 % from the top — the axes are the chart's skeleton. `band` is in the y domain.
+ */
+const emptyPlot = (
+  width: number,
+  height: number,
+  y: Plot.ScaleOptions,
+  band: [number, number],
+  marks: Plot.Markish[] = [],
+): Plot.PlotOptions =>
+  base(width, height, {
+    x: { label: null, domain: [0, 1], ticks: [] },
+    y: { label: null, grid: true, ...y },
+    marks: [
+      Plot.rect([0], {
+        x1: 0,
+        x2: 1,
+        y1: band[0],
+        y2: band[1],
+        fill: 'var(--panel)',
+        className: 'skeleton-band',
+      }),
+      ...marks,
+    ],
+  });
+/** The band's edges for a log domain: 35 % to 65 % of the height, top down. */
+const logBand = (lo: number, hi: number): [number, number] => [
+  hi * (lo / hi) ** 0.65,
+  hi * (lo / hi) ** 0.35,
+];
+const linearBand = (lo: number, hi: number): [number, number] => [
+  hi - 0.65 * (hi - lo),
+  hi - 0.35 * (hi - lo),
+];
+
 /** Emission, duration and retarget read the closed rows; the open one has no closing facts. */
 const closedRows = (rows: readonly EpochRow[]): EpochRow[] => rows.filter((r) => r.duration !== null);
 
@@ -165,6 +201,17 @@ const elapsedTicks = (spanS: number): { ticks: number[]; label: (s: number) => s
 
 /** Minted over elapsed time from the oldest loaded row, against N × REWARD per expected epoch. */
 export const emission: Spec = ({ rows, selected, rules, width, height }) => {
+  if (!rows.length)
+    return emptyPlot(
+      width,
+      height,
+      {
+        domain: [0, 10_000],
+        ticks: [0, 5000, 10_000],
+        tickFormat: (v: number) => (v >= 1000 ? `${v / 1000}k` : `${v}`),
+      },
+      linearBand(0, 10_000),
+    );
   const closed = closedRows(rows);
   const unit = Number(rules.REWARD / 10n ** BigInt(rules.DECIMALS));
   const start = closed[0]?.openedAt ?? 0;
@@ -244,6 +291,13 @@ export const span = (r: EpochRow, open: number): string =>
 
 /** Difficulty per epoch as a step line, the open epoch included, log base 2; a roll annotated at its close. */
 export const difficultyChart: Spec = ({ rows, selected, open, width, height }) => {
+  if (!rows.length)
+    return emptyPlot(
+      width,
+      height,
+      { type: 'log', base: 2, domain: [0.5, 128], ticks: [1, 4, 16, 64], tickFormat: wholeOrLabel },
+      logBand(0.5, 128),
+    );
   const steps = rows.map((r) => ({ epoch: r.epoch, d: difficulty(r.target), row: r }));
   type Step = (typeof steps)[number];
   const last = steps[steps.length - 1];
@@ -332,6 +386,19 @@ export const difficultyChart: Spec = ({ rows, selected, open, width, height }) =
 
 /** Closed epochs' durations from a 10 s floor on a log scale; the escape hatch's closes amber; T_MAX a rule, never a cap. */
 export const duration: Spec = ({ rows, selected, rules, width, height }) => {
+  if (!rows.length)
+    return emptyPlot(
+      width,
+      height,
+      { type: 'log', domain: [FLOOR, 86_400], ticks: [] },
+      logBand(FLOOR, 86_400),
+      [
+        Plot.axisY([FLOOR, 1000, 86_400], {
+          label: null,
+          text: (v: number) => (v === 86_400 ? '1 d' : `${v} s`),
+        }),
+      ],
+    );
   const closed = closedRows(rows);
   const expected = Number(rules.EXPECTED_EPOCH_SECONDS);
   const tMax = Number(rules.T_MAX);
@@ -411,6 +478,13 @@ export const duration: Spec = ({ rows, selected, rules, width, height }) => {
 
 /** target[e+1] / target[e] from a baseline of 1, log base 2: below 1 the next epoch got harder (violet). */
 export const retarget: Spec = ({ rows, selected, width, height }) => {
+  if (!rows.length)
+    return emptyPlot(
+      width,
+      height,
+      { type: 'log', base: 2, domain: [0.25, 4], ticks: [0.25, 1, 4], tickFormat: (v: number) => `×${v}` },
+      logBand(0.25, 4),
+    );
   const closed = closedRows(rows).filter((r) => r.retarget !== null);
   const ratio = (r: EpochRow) => r.retarget as number;
   // The contract clamps a retarget to [¼, 4]; anything else is a node lying or a wrong slot, marked, not drawn.

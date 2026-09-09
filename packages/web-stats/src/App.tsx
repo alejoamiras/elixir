@@ -20,12 +20,13 @@ import {
   NodeBanner,
   NodeWayOut,
 } from '../../ui/src/index.ts';
+import { settled } from './beats';
 import { POLL_MS } from './chain';
 import { links } from './explorer';
 import { navigate, type Route, useRoute } from './routes';
 import { Stats } from './routes/Stats';
 import { Verify } from './routes/Verify';
-import { chainAtom, nowAtom, statusAtom, unsettledAtom } from './state';
+import { fixedAtom, historyAtom, nowAtom, statusAtom, unsettledAtom } from './state';
 
 const NAV: { route: Route; label: string }[] = [
   { route: 'stats', label: 'Stats' },
@@ -38,15 +39,18 @@ const TITLE: Record<Route, string> = { stats: 'Yacana · Stats', verify: 'Yacana
  * The dot is keyed by the block number, so a new block replays its 240 ms pulse.
  */
 function Freshness() {
-  const chain = useAtomValue(chainAtom);
+  const fixed = useAtomValue(fixedAtom);
   const status = useAtomValue(statusAtom);
   const now = useAtomValue(nowAtom);
-  if (!chain)
+  // Until beat one lands the pill says so; the block and its age come with it.
+  if (!fixed)
     return (
-      <span className="font-mono text-2xs text-ink-2">{status.phase === 'loading' ? status.step : ''}</span>
+      <span className="font-mono text-2xs text-ink-2" data-testid="freshness-pending">
+        {status.phase === 'loading' || status.phase === 'ready' ? 'reading the chain…' : ''}
+      </span>
     );
-  const age = Math.max(0, Math.floor(now / 1000) - chain.block.timestamp);
-  const n = chain.block.number;
+  const age = Math.max(0, Math.floor(now / 1000) - fixed.block.timestamp);
+  const n = fixed.block.number;
   return (
     <span className="inline-flex items-center gap-1.5 font-mono text-2xs text-ink-2" data-testid="freshness">
       <span
@@ -72,6 +76,7 @@ function Shell({ children, connection }: { children: ReactNode; connection: Conn
   const route = useRoute();
   const status = useAtomValue(statusAtom);
   const unsettled = useAtomValue(unsettledAtom);
+  const history = useAtomValue(historyAtom);
   useEffect(() => {
     document.title = TITLE[route];
   }, [route]);
@@ -114,7 +119,7 @@ function Shell({ children, connection }: { children: ReactNode; connection: Conn
           <Freshness />
         </span>
       </header>
-      <main className="flex flex-col gap-4 p-4 md:p-5" data-settled={unsettled.size === 0 ? '1' : '0'}>
+      <main className="flex flex-col gap-4 p-4 md:p-5" data-settled={settled(history, unsettled) ? '1' : '0'}>
         {notice && (
           <Alert variant="warn" data-testid="preview-banner">
             <AlertDescription>{notice}</AlertDescription>

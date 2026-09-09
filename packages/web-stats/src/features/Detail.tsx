@@ -3,6 +3,7 @@ import { difficulty, sentence } from '../../../miner-core/src/metrics.ts';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';
 import { amount, clockMinutes, durationParts } from '../../../site/src/browser/format.ts';
 import { Badge, difficultyLabel, Kpi, Tile, TileHeader } from '../../../ui/src/index.ts';
+import { Sk } from './Sk';
 
 const RULES = { N: PARAMS.N, EXPECTED_EPOCH_SECONDS: PARAMS.EXPECTED_EPOCH_SECONDS, T_MAX: PARAMS.T_MAX };
 const clock = (unix: number) => new Date(unix * 1000).toISOString().slice(11, 19);
@@ -20,6 +21,22 @@ const BADGE: Record<State, { variant: 'warn' | 'neutral' | 'uv'; text: string }>
   unread: { variant: 'neutral', text: 'closed · not read yet' },
 };
 
+/** The epoch card before beat two: three value blocks and two sentence lines, at the measured sizes. */
+function DetailSkeleton({ className }: { className?: string }) {
+  return (
+    <Tile className={className} data-testid="detail" data-skeleton="">
+      <TileHeader aside={<Sk className="h-2.5 w-[140px]" />}>epoch</TileHeader>
+      <div className="mb-2 flex flex-wrap gap-4">
+        {['claims', 'duration', 'difficulty'].map((label) => (
+          <Kpi key={label} label={label} value={<Sk className="h-[22px] w-10 rounded-[4px]" />} />
+        ))}
+      </div>
+      <Sk className="h-3.5 w-full" />
+      <Sk className="mt-1.5 h-3.5 w-[70%]" />
+    </Tile>
+  );
+}
+
 export function Detail({
   row,
   open,
@@ -27,13 +44,15 @@ export function Detail({
   now,
   className,
 }: {
-  row: EpochRow;
+  /** Null until beat two: the card keeps its shape and shows its skeleton. */
+  row: EpochRow | null;
   /** Whether `row` is the chain's open epoch; without closing facts otherwise it is closed, unread. */
   open: boolean;
   next?: EpochRow;
   now: number;
   className?: string;
 }) {
+  if (row === null) return <DetailSkeleton className={className} />;
   const state = stateOf(row, open);
   const closedAt = row.duration === null ? null : row.openedAt + row.duration;
   const span = `${clock(row.openedAt)} → ${closedAt ? clock(closedAt) : state === 'open' ? 'open' : '…'}`;

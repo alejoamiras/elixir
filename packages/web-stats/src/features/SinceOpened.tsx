@@ -2,12 +2,26 @@ import { useAtomValue } from 'jotai';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { amount, duration } from '../../../site/src/browser/format.ts';
 import { Kpi } from '../../../ui/src/index.ts';
-import { type Chain, sinceOpenedAtom } from '../state';
+import { sinceOpenedAtom } from '../state';
+import { SK_SUB, Sk } from './Sk';
 import { Tweened } from './Tweened';
 
-export function SinceOpened({ chain, now }: { chain: Chain; now: number }) {
+/** Claims minted since this tab's first read; a skeleton until beat one lands. */
+export function SinceOpened({ supply, now }: { supply: bigint | null; now: number }) {
   const since = useAtomValue(sinceOpenedAtom);
-  const minted = since ? chain.supply - since.supply : 0n;
+  if (supply === null)
+    return (
+      <Kpi
+        label="since you opened"
+        value={
+          <span data-testid="since-opened">
+            <Tweened id="since-opened" value={null} />
+          </span>
+        }
+        sub={<Sk className={SK_SUB} />}
+      />
+    );
+  const minted = since ? supply - since.supply : 0n;
   // A supply below the first read (a reorg, a stale answer, a lying node) is said, not shown as a negative count.
   if (minted < 0n)
     return (

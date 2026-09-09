@@ -1,17 +1,32 @@
 import { atom } from 'jotai';
-import type { EpochRow } from '../../miner-core/src/reader.ts';
+import { type EpochRow, linkRows } from '../../miner-core/src/reader.ts';
 
-export interface Chain {
-  /** Epoch rows this page holds, ascending and contiguous, ending at the open epoch. */
-  rows: EpochRow[];
+export interface Genesis {
+  target: bigint;
+  seed: bigint;
+  launchAt: number;
+}
+export interface Lottery {
+  mix: bigint;
+  reveals: number;
+}
+
+/** Beat one: the open epoch's number, the latest block, the supply and the genesis, read together. */
+export interface Fixed {
   open: number;
-  supply: bigint;
-  genesis: { target: bigint; seed: bigint; launchAt: number };
-  lottery: { mix: bigint; reveals: number };
   /** The node's latest block and its slot time (unix s). */
   block: { number: number; timestamp: number };
+  supply: bigint;
+  genesis: Genesis;
   /** Wall clock (ms) of the read that produced this. */
   readAt: number;
+}
+
+/** Beat two: the epoch rows held, by epoch, and the lottery; `error` when the window read failed (the rows kept). */
+export interface History {
+  rows: Map<number, EpochRow>;
+  lottery: Lottery | null;
+  error?: string;
 }
 
 export type Status =
@@ -21,10 +36,17 @@ export type Status =
   | { phase: 'unreachable'; since: number; error: string }
   | { phase: 'error'; message: string };
 
-export const chainAtom = atom<Chain | null>(null);
+export const fixedAtom = atom<Fixed | null>(null);
+export const historyAtom = atom<History | null>(null);
+/** The rows held, ascending and linked (the open epoch last when held); null until beat two lands. */
+export const rowsAtom = atom<EpochRow[] | null>((get) => {
+  const h = get(historyAtom);
+  if (!h) return null;
+  return linkRows([...h.rows.values()].sort((a, b) => a.epoch - b.epoch));
+});
+/** 300 ms since mount: a beat still unresolved shows its skeleton; before that, the bare geometry. */
+export const slowAtom = atom(false);
 export const statusAtom = atom<Status>({ phase: 'loading', step: 'connecting' });
-/** Epochs the slot table could not serve (a chunk failed to load): the history stops there. */
-export const historyLimitAtom = atom<{ beyond: number; reason: string } | null>(null);
 export const loadingOlderAtom = atom(false);
 export const nowAtom = atom(Date.now());
 /** The supply at this tab's first successful read and when it happened; a reload starts over. */

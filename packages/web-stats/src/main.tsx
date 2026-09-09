@@ -7,38 +7,55 @@ import { loadConnection } from '../../site/src/browser/connection.ts';
 import { markRead, nodeHealth, startNodeHealth, waitTurn } from '../../site/src/browser/node-health.ts';
 import { ThemeProvider } from '../../ui/src/index.ts';
 import { App } from './App';
-import { openReader, POLL_MS, pollChain, type Reader, readChain, readOlder } from './chain';
+import { type BeatReads, type BeatSinks, bootBeats, olderBeat, pollBeats } from './beats';
+import { openReader, POLL_MS, type Reader } from './chain';
+import { readFixed } from './read-fixed';
+import { readLotteryOf, readWindowRows } from './read-window';
 import { coalesced, serial } from './serial';
 import {
-  type Chain,
-  chainAtom,
-  historyLimitAtom,
+  fixedAtom,
+  historyAtom,
   loadingOlderAtom,
   nowAtom,
   sinceOpenedAtom,
+  slowAtom,
   statusAtom,
 } from './state';
 
 const store = createStore();
 const connection = loadConnection();
 setInterval(() => store.set(nowAtom, Date.now()), 1000);
+// Nothing under 300 ms: a beat that lands first never shows a skeleton; the ones still out at 300 ms do.
+setTimeout(() => store.set(slowAtom, true), 300);
 
 let reader: Reader | undefined;
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-const historyLimit = (chain: Chain, reason: string) =>
-  store.set(historyLimitAtom, { beyond: chain.rows.at(-1)?.epoch ?? 0, reason });
+const reads = (r: Reader): BeatReads => ({
+  fixed: () => readFixed(r),
+  rows: (from, to, open) => readWindowRows(r, from, to, open),
+  lottery: () => readLotteryOf(r),
+});
+
+/** Each beat lands in its atom the moment it is read; a chain read is what marks the node fresh. */
+const publish: BeatSinks = {
+  fixed: (f) => {
+    markRead();
+    store.set(fixedAtom, f);
+    if (!store.get(sinceOpenedAtom)) store.set(sinceOpenedAtom, { supply: f.supply, at: Date.now() });
+  },
+  history: (h) => {
+    if (!h.error) markRead();
+    store.set(historyAtom, h);
+  },
+};
 
 /** The 30 s poll: a failure marks the node unreachable and keeps the last view; an answer clears it. */
 const poll = coalesced(async () => {
-  const chain = store.get(chainAtom);
-  if (!reader || !chain) return;
+  const fixed = store.get(fixedAtom);
+  if (!reader || !fixed) return;
   try {
-    const { chain: next, historyError } = await pollChain(reader, chain);
-    markRead();
-    store.set(chainAtom, next);
-    if (historyError) historyLimit(next, historyError);
-    else if (store.get(historyLimitAtom)) store.set(historyLimitAtom, null);
+    await pollBeats(reads(reader), publish, { fixed, history: store.get(historyAtom) });
     if (store.get(statusAtom).phase === 'unreachable') store.set(statusAtom, { phase: 'ready' });
   } catch (e) {
     const status = store.get(statusAtom);
@@ -53,13 +70,8 @@ async function boot(): Promise<void> {
   try {
     store.set(statusAtom, { phase: 'loading', step: 'checking the deployment' });
     reader = await openReader(connection);
-    const { chain, historyError } = await readChain(reader, (step) =>
-      store.set(statusAtom, { phase: 'loading', step }),
-    );
-    markRead();
-    store.set(chainAtom, chain);
-    store.set(sinceOpenedAtom, { supply: chain.supply, at: Date.now() });
-    if (historyError) historyLimit(chain, historyError);
+    store.set(statusAtom, { phase: 'loading', step: 'reading the chain' });
+    await bootBeats(reads(reader), publish);
     store.set(statusAtom, { phase: 'ready' });
     setInterval(() => void poll(), POLL_MS);
   } catch (e) {
@@ -78,11 +90,10 @@ const older = (): Promise<void> => {
   if (store.get(loadingOlderAtom)) return Promise.resolve();
   store.set(loadingOlderAtom, true);
   return serial(async () => {
-    const chain = store.get(chainAtom);
+    const fixed = store.get(fixedAtom);
+    const history = store.get(historyAtom);
     try {
-      if (reader && chain) store.set(chainAtom, await readOlder(reader, chain));
-    } catch (e) {
-      store.set(historyLimitAtom, { beyond: chain?.rows[0]?.epoch ?? 0, reason: message(e) });
+      if (reader && fixed && history) await olderBeat(reads(reader), publish, { fixed, history });
     } finally {
       store.set(loadingOlderAtom, false);
     }
