@@ -23,8 +23,11 @@ describe('the shard lists and the inventory follow the spec files', () => {
     for (const files of Object.values(shards)) expect(files.length).toBeGreaterThan(0);
   });
 
-  test('the canary is a shard of its own: the only one CI runs with the real prover', () => {
-    expect(shards.canary).toEqual(['canary.e2e.ts']);
+  test('the canary shard is the one CI runs with the real prover; its companions never prove', () => {
+    expect(shards.canary).toContain('canary.e2e.ts');
+    for (const f of shards.canary ?? [])
+      if (f !== 'canary.e2e.ts')
+        for (const floor of Object.values(INVENTORY[f] ?? {})) expect(floor, f).toBe(0);
   });
 
   test('the inventory names every spec file and exactly the titles its source declares', () => {
@@ -61,7 +64,7 @@ describe('the replay lane took exactly the tests it was given', () => {
       expect(sharded, title).not.toContain(title);
       expect(replayed, title).toContain(title);
     }
-    // Nineteen originally, plus the canary the proverless split added to the sharded suite.
+    // Every original test is somewhere, exactly once; the canary is the one addition.
     expect(sharded.length + MOVED_TO_REPLAY.length).toBe(19 + 1);
     expect(new Set([...sharded, ...replayed]).size).toBe(sharded.length + replayed.length);
   });

@@ -3,8 +3,8 @@
 # packages/web-miner/e2e/shards.json, each on its own network, and a last job merges the breakdowns
 # and requires the executed tests to equal the inventory — a green shard that skipped tests is not
 # green. Every shard but `canary` runs a proverless build (the PXE skips transaction proving; the
-# meter then fails any test that proves); `canary` keeps the real prover and shows a tampered claim
-# refused by it. The local run (`bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e`) stays
+# meter then fails any test that proves); `canary` keeps the real prover, shows a tampered claim
+# refused by it, and carries the specs that never prove on either build. The local run (`bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e`) stays
 # mandatory before a PR.
 name: e2e
 

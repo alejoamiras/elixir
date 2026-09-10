@@ -17,10 +17,7 @@ import { PROVERLESS_MARKER } from '../../site/src/config.ts';
 import type { Fee, Node } from './chain';
 import { MemoryKvStore } from './wallet/memory-store';
 
-/**
- * An e2e build may ask the PXE to skip proving; the marker is logged inside the same branch, so a
- * bundle that carries the string carries the flag (the production artifact check looks for it).
- */
+/** An e2e build may ask the PXE to skip proving; `PROVERLESS_MARKER` must stay inside this flag's branch. */
 export const PROVERLESS = import.meta.env.VITE_E2E_PROVERLESS === '1';
 
 /** A transaction as it left for the node; the expiry (unix s) is the one the sequencer enforces. */

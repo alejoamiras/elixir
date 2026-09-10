@@ -26,8 +26,8 @@ function scriptsOf(env: Record<string, string>): string {
   }
 }
 
-// Two real builds: the marker must be inseparable from the flag, not a constant that happens to be
-// in or out of the bundle. Each build is a few seconds.
+// Real builds: the marker must be inseparable from the flag, not a constant that happens to be in
+// or out of the bundle.
 describe('the proverless marker is in the flagged bundle and in no production one', () => {
   test('a flagged e2e build carries it', () => {
     expect(

@@ -52,7 +52,7 @@ export const INVENTORY: Readonly<Record<string, Readonly<Record<string, number>>
   },
   // The real-proving canary: a tampered claim refused at proving, the same ticket minting untampered.
   'canary.e2e.ts': {
-    'a claim with a bound public input altered fails at proving; the same ticket untampered mints': 1,
+    'a claim with a bound public input altered is refused at proving before it is sent; the next claim mints': 1,
   },
   // The claim is the page's, whichever prover found the ticket.
   'presto.e2e.ts': {

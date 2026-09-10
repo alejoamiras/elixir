@@ -12,6 +12,10 @@
 - **The meter under proverless**: `proofShortfall(title, meter, proverless)` ignores the floors and fails any test that produced a proof event at all — a build meant to skip proving that proved is as wrong as a real build that did not.
 - **CI**: `e2e.yml` sets `E2E_PROVERLESS: ${{ matrix.shard != 'canary' && '1' || '' }}`; `run-setup.ts` forwards it into the build as `VITE_E2E_PROVERLESS`. The inventory test holds sharded (17) + moved (3) = 19 + the canary.
 
+## Codex fix loop (arc D)
+
+- 2026-09-10 · Round 1 (GPT-6 Astra, high, session in `scratchpad/auditd`): **changes**, five findings. (1) The lost-race fix's first shape still raced: the warm burst was started when the page's first claim landed and awaited *inside* the held request, so a fast next win (easy target) put all three claims under the hold — the local run's own timestamps showed it (hold 20:12:41, warm claims 20:13:05 and 20:13:22, closer 20:13:41). Now the page is stopped, the warm-up runs to completion, then Start. (2) "Warm two" assumed the epoch held exactly the page's claim; an unsharded run's earlier specs claim in the same epoch, so the count now comes from the tile and the warm-up targets `N − 1` total. (3) The canary's `/prov|verif|ClientIVC|circuit/` accepted a simulation failure (`Circuit execution failed`) and a node validation error; the message is now pinned to the PXE's exact text `Failed to verify the generated proof!` (found by running it — `/prov/` does not match "proof") and the spec requires zero `aztec_sendTx` before the refusal. (4) The positive control mines a fresh ticket, not the same one with `out` restored: retrying the identical ticket needs a reducer transition that does not exist (`winner` is discarded from `idle`), which would be product code for the test; the title now says what is shown. (5) Unit cases for `proofShortfall(…, proverless)` and for the flag's `e2e`-only binding. Codex confirmed: no production bypass on the supported routes; the marker log's removal fails the flagged-build test; the tamper hook adds no authority beyond existing console access; an accidentally flagged canary fails its first assertion.
+
 ## Evidence
 
-_(filled from the local canary and proverless-shard runs and the CI run)_
+_(filled from the local canary and proverless-shard re-runs and the CI run)_

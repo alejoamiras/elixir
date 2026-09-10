@@ -63,6 +63,21 @@ describe('the proof inventory', () => {
   });
 });
 
+describe('the proof inventory under a proverless build', () => {
+  const one: ProofMeter = { proofs: [{ durationMs: 20_000, at: 1 }], sends: [] };
+  test('no events pass despite a floor; any event fails, malformed included; an unknown title still fails', () => {
+    const claimTitle = 'a poisoned CRS cache is purged before proving';
+    expect(proofShortfall(claimTitle, { proofs: [], sends: [] }, true)).toBeNull();
+    expect(proofShortfall(claimTitle, one, true)).toMatch(/from a build that was to skip proving/);
+    expect(
+      proofShortfall(claimTitle, { proofs: [{ durationMs: Number.NaN, at: 1 }], sends: [] }, true),
+    ).toMatch(/from a build that was to skip proving/);
+    expect(proofShortfall('a test nobody listed', { proofs: [], sends: [] }, true)).toMatch(
+      /not in the proof inventory/,
+    );
+  });
+});
+
 describe('the breakdown', () => {
   test('sums proving per spec from the attached meters and reconciles the clocks', () => {
     const report: JsonReport = {

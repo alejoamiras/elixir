@@ -25,9 +25,11 @@ describe('site config', () => {
         VITE_AZTEC_NODE_URL: 'http://localhost:1',
         VITE_E2E_QUERY_OVERRIDES: '1',
         VITE_PRESTO_E2E_PORT: '59833',
+        VITE_E2E_PROVERLESS: '1',
       },
     });
     expect(c.nodeUrl).toBe(siteEnv.VITE_AZTEC_NODE_URL);
+    expect(c.proverless).toBe(false);
     // A hostile e2e environment cannot hand production a plaintext Presto port.
     expect(c.prestoE2ePort).toBe('');
     expect(viteDefine(c)['import.meta.env.VITE_PRESTO_E2E_PORT']).toBe('""');
@@ -58,6 +60,10 @@ describe('site config', () => {
         VITE_E2E_PROVERLESS: '1',
       },
     });
+    // The proverless flag needs the exact mode `e2e`: a dev build with it set still proves.
+    expect(loadSiteConfig({ ...base, mode: 'dev', env: { VITE_E2E_PROVERLESS: '1' } }).proverless).toBe(
+      false,
+    );
     expect(c.launchMode).toBe(true);
     expect(c.prestoE2ePort).toBe('24996');
     expect(viteDefine(c)['import.meta.env.VITE_PRESTO_E2E_PORT']).toBe('"24996"');

@@ -72,11 +72,7 @@ export interface DeploymentRecord {
 
 type Env = Record<string, string | undefined>;
 
-/**
- * Logged by a proverless build where the flag takes effect, and searched for by the artifact check:
- * a marker that only exists inside the flag's own branch, so a production bundle that carries it
- * carries the branch.
- */
+/** Logged inside the proverless flag's own branch and nowhere else; the artifact check refuses a bundle carrying it. */
 export const PROVERLESS_MARKER = 'yacana:proverless';
 
 /** KEY=value lines; `#` comments and blank lines ignored; no quoting or interpolation. */
