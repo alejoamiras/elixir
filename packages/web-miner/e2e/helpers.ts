@@ -11,6 +11,7 @@ declare global {
       log(): string[];
       proverless: boolean;
       tamperNextClaim(): void;
+      retryPendingClaim(): boolean;
       session: { publicBalance(owner: string): Promise<bigint> };
       controller():
         | {

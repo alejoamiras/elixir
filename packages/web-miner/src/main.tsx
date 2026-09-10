@@ -60,6 +60,8 @@ declare global {
       proverless: boolean;
       /** The next claim goes out with a bound public input altered: real proving must refuse it. */
       tamperNextClaim: () => void;
+      /** The refused claim again with its input restored; false when there is none. */
+      retryPendingClaim: () => boolean;
     };
   }
 }
@@ -72,6 +74,7 @@ window.yacana = {
   log: () => store.get(logAtom),
   proverless: PROVERLESS,
   tamperNextClaim: () => session.controller?.tamperNextClaim(),
+  retryPendingClaim: () => session.controller?.retryPendingClaim() ?? false,
 };
 
 const root = document.getElementById('root');

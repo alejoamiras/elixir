@@ -1,13 +1,14 @@
 // A claim whose proof no longer matches one of its bound public inputs is refused at proving:
 // simulation cannot tell (the recursive verifier is a black box to the ACVM), and a proverless build
-// would send it for the local network, which verifies nothing, to mint.
+// would send it for the local network, which verifies nothing, to mint. The same claim with the
+// input restored then mints, so nothing but the tamper explains the refusal.
 import { expect, test } from './fixtures.ts';
 import { bootPage, pageUrl, run } from './helpers.ts';
 
 /** What the embedded PXE says when ClientIVC refuses the claim's proof; nothing else counts. */
 const REFUSED_AT_PROVING = /Failed to verify the generated proof/;
 
-test('a claim with a bound public input altered is refused at proving before it is sent; the next claim mints', async ({
+test('a claim with a bound public input altered is refused at proving before it is sent; restored, the same claim mints', async ({
   page,
 }) => {
   const r = run();
@@ -34,7 +35,7 @@ test('a claim with a bound public input altered is refused at proving before it 
   expect(sends).toBe(0);
   await expect(page.getByTestId('claims')).toHaveText('0');
 
-  await page.getByTestId('start').click();
+  expect(await page.evaluate(() => window.yacana?.retryPendingClaim())).toBe(true);
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
   await expect(page.getByTestId('balance')).toHaveText('4');
   expect(sends).toBe(1);

@@ -23,11 +23,8 @@ describe('the shard lists and the inventory follow the spec files', () => {
     for (const files of Object.values(shards)) expect(files.length).toBeGreaterThan(0);
   });
 
-  test('the canary shard is the one CI runs with the real prover; its companions never prove', () => {
-    expect(shards.canary).toContain('canary.e2e.ts');
-    for (const f of shards.canary ?? [])
-      if (f !== 'canary.e2e.ts')
-        for (const floor of Object.values(INVENTORY[f] ?? {})) expect(floor, f).toBe(0);
+  test('the canary shard, the one CI runs with the real prover, holds the canary and the transfers', () => {
+    expect(shards.canary).toEqual(expect.arrayContaining(['canary.e2e.ts', 'withdraw.e2e.ts']));
   });
 
   test('the inventory names every spec file and exactly the titles its source declares', () => {

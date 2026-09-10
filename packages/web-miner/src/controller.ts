@@ -559,9 +559,12 @@ export class MinerController {
     const secret = p && this.secrets.get(p.secretId);
     if (!p || !secret) return this.dispatch({ type: 'failed', error: 'no pending ticket' });
     this.pending = null;
+    // The tampered claim keeps its ticket: the canary resubmits it with the input restored.
+    let restore: typeof p | null = null;
     if (this.tamperNext) {
       // The lowest bit of `out`: the ticket, the epoch and the nullifier stay valid, only the proof's
       // public inputs no longer match it — which simulation cannot see and real proving must.
+      restore = { ...p };
       p.out = `0x${(BigInt(p.out) ^ 1n).toString(16).padStart(64, '0')}`;
       this.tamperNext = false;
       this.log('e2e: this claim goes out with a bound public input altered');
@@ -597,8 +600,17 @@ export class MinerController {
       this.announceWin(block);
       this.start();
     } catch (e) {
+      if (restore) this.pending = restore;
       await this.claimFailed(e);
     }
+  }
+
+  /** The refused claim again, its input restored; false when there is none to retry. */
+  retryPendingClaim(): boolean {
+    if (!this.pending) return false;
+    this.log('e2e: the refused claim goes out again, its input restored');
+    this.dispatch({ type: 'retry', at: Date.now() });
+    return true;
   }
 
   /** Never an amount: the notification and the tab are the only things another app can read. */
