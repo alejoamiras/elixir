@@ -69,9 +69,14 @@ One origin, three apps, assembled by `bun run site:build` into `packages/site/di
 at `/mine/`, the stats at `/stats/` (`/verify` rewrites to it), the CRS / artifacts / slot table once at the root,
 `_headers` (COOP, COEP, CORP, the CSP with `connect-src 'self' data: https:` — the fetch guard bounds the node in code — `Permissions-Policy`, `nosniff`,
 `no-referrer`), `_redirects` (exact deep links → each app's directory) and `build.json` (mode, commit, node
-origins, RP ID). Production builds take nothing from the process environment: a build with the e2e flag, a local
-or plaintext node origin, or an RP ID other than `site.env`'s fails (`packages/site/src/config.ts`), and a
-non-production mode can land neither in `packages/site/dist` nor in a Cloudflare build (`CF_PAGES`).
+origins, RP ID). Production builds take nothing from the process environment: a local or plaintext node origin or an RP ID
+other than `site.env`'s fails (`packages/site/src/config.ts`), `YACANA_SITE_MODE` must be one of `production`,
+`e2e`, `dev` or the build refuses to start, and a non-production mode can land neither in `packages/site/dist`
+nor in a Cloudflare build (`CF_PAGES`). After a production assembly, the emitted files are checked as well
+(`packages/site/src/artifact.ts`): `build.json` must say `production`, every `_headers` must be the production
+map, and no script may name a plaintext loopback origin. These guards sit on the supported routes —
+`site:deploy` and Workers Builds' build step both assemble first; a bare `wrangler deploy` of an existing `dist`
+is not guarded, and `packages/web-miner`'s own `build` writes `packages/web-miner/dist`, which nothing deploys.
 
 `packages/site/wrangler.jsonc` is the whole deployment definition: the Worker's name (`yacana`), the custom domain
 (`yacana.network`, whose DNS record and certificate Cloudflare creates on the first deploy; the zone must be in the

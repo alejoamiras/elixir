@@ -10,6 +10,7 @@ import type { Route as StatsRoute } from '../../web-stats/src/routes.ts';
 import { copyArtifacts } from '../scripts/copy-artifacts.ts';
 import { copySlots } from '../scripts/copy-slots.ts';
 import { fetchCrs } from '../scripts/fetch-crs.ts';
+import { assertProductionArtifact } from './artifact.ts';
 import type { SiteConfig } from './config.ts';
 import { renderHeaders } from './headers.ts';
 import { siteConfig } from './vite-base.ts';
@@ -62,7 +63,21 @@ function buildApp(name: string, base: string, outDir: string, env: NodeJS.Proces
   });
 }
 
-export async function assemble(out: string, env: NodeJS.ProcessEnv = process.env): Promise<BuildRecord> {
+/** The minutes-long steps of an assembly, replaceable so a test can drive the rest in milliseconds. */
+export interface AssemblySteps {
+  buildApp: typeof buildApp;
+  fetchCrs: typeof fetchCrs;
+  copyArtifacts: typeof copyArtifacts;
+  copySlots: typeof copySlots;
+}
+const STEPS: AssemblySteps = { buildApp, fetchCrs, copyArtifacts, copySlots };
+
+export async function assemble(
+  outDir: string,
+  env: NodeJS.ProcessEnv = process.env,
+  steps: AssemblySteps = STEPS,
+): Promise<BuildRecord> {
+  const out = resolve(outDir);
   // The config is loaded once here so a production build fails before any app is built.
   const config = siteConfig('build', env);
   // What Cloudflare serves is `dist` of a Cloudflare build: neither may hold anything but production.
@@ -70,10 +85,10 @@ export async function assemble(out: string, env: NodeJS.ProcessEnv = process.env
     throw new Error(`a ${config.mode} build may not land in ${out}: production builds only`);
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
-  for (const app of APPS) buildApp(app.name, app.base, resolve(out, app.base.slice(1)), env);
-  await fetchCrs(out);
-  await copyArtifacts(out);
-  console.log(await copySlots(out));
+  for (const app of APPS) steps.buildApp(app.name, app.base, resolve(out, app.base.slice(1)), env);
+  await steps.fetchCrs(out);
+  await steps.copyArtifacts(out);
+  console.log(await steps.copySlots(out));
   cpSync(resolve(repo, 'packages/web-landing/public/og.png'), resolve(out, 'og.png'));
   writeFileSync(
     resolve(out, '_headers'),
@@ -82,6 +97,7 @@ export async function assemble(out: string, env: NodeJS.ProcessEnv = process.env
   writeFileSync(resolve(out, '_redirects'), `${REDIRECTS.join('\n')}\n`);
   const record = buildRecord(config);
   writeFileSync(resolve(out, 'build.json'), `${JSON.stringify(record, null, 2)}\n`);
+  if (config.mode === 'production') assertProductionArtifact(out, config);
   return record;
 }
 

@@ -2,6 +2,17 @@
 // deployment record (addresses, class ids, chain, the rollup). Production builds take nothing from the
 // process environment; e2e and dev builds may override every value through VITE_* variables.
 export type SiteMode = 'production' | 'e2e' | 'dev';
+export const SITE_MODES: readonly SiteMode[] = ['production', 'e2e', 'dev'];
+
+/**
+ * The mode named by `YACANA_SITE_MODE`, or `fallback` when unset. Anything else throws: every value
+ * but `production` relaxes the build, so a misspelling must not quietly pick the relaxed side.
+ */
+export function siteModeFrom(value: string | undefined, fallback: SiteMode): SiteMode {
+  if (value === undefined || value === '') return fallback;
+  if ((SITE_MODES as readonly string[]).includes(value)) return value as SiteMode;
+  throw new Error(`YACANA_SITE_MODE=${JSON.stringify(value)}: expected one of ${SITE_MODES.join(', ')}`);
+}
 
 export interface SiteConfig {
   mode: SiteMode;
@@ -165,10 +176,11 @@ function assertExampleClaim(c: SiteConfig): void {
 
 const IP_OR_LOCAL = /^(localhost|127\.\d+\.\d+\.\d+|\[?::1\]?|\d+\.\d+\.\d+\.\d+)$/;
 
-/** What may never reach Cloudflare: test hooks, local or plaintext nodes, a foreign relying party. */
+/**
+ * What may never reach Cloudflare: a local or plaintext node, a foreign relying party. Production
+ * construction disables the e2e hooks; assembly rechecks the resolved values.
+ */
 export function assertProductionConfig(c: SiteConfig, siteEnv: Record<string, string>): void {
-  if (c.queryOverrides) throw new Error('production build with VITE_E2E_QUERY_OVERRIDES set');
-  if (c.prestoE2ePort) throw new Error('production build with VITE_PRESTO_E2E_PORT set');
   const u = new URL(c.nodeUrl);
   if (u.protocol !== 'https:') throw new Error(`production node ${c.nodeUrl} is not https`);
   if (IP_OR_LOCAL.test(u.hostname)) throw new Error(`production node ${c.nodeUrl} is local`);
