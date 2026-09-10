@@ -5,13 +5,15 @@ driver: claude-code
 tier: mid
 eli5_mode: artifact
 code_review: off
-status: reworked twice; three audits on the record; awaiting the owner
+status: reworked three times; three audits and a fourth read on the record; awaiting the owner
 ```
 
 ## What this is
 
-The miner's browser suite is nineteen tests, about sixteen minutes on the homelab and forty in CI on one runner,
-and it runs on `workflow_dispatch` only, so nothing about the miner is checked on an ordinary push. This plan
+The miner's browser suite is nineteen tests. Measured on the last green run: 16.6 minutes on the homelab, 16.2
+of them inside Playwright; 26.5 minutes in CI on one runner, 24.9 of them in the e2e step, every step before it
+under twenty seconds because the toolchain is cached. The forty minutes in `e2e.yml`'s header is stale. It runs on
+`workflow_dispatch` only, so nothing about the miner is checked on an ordinary push. This plan
 makes it faster and gives it a lane that can run on every push. The first draft of this plan was rejected twice,
 by both reviewers, on findings that turned out to be correct; what follows is the design the evidence supports,
 not the one I started with.
@@ -63,6 +65,31 @@ Recorded because the corrections are the plan.
   minutes are spread more evenly than the timeouts suggest, which weakens the case for pinning specs to their
   own jobs and strengthens the case for measuring before sharding at all.
 
+## What a fourth read corrected
+
+A different reviewer, checking the third version against the last green CI run rather than against the plan's
+own prose.
+
+- **The baseline was wrong by a third, in the direction that mattered.** The job is 26.5 minutes, not forty, and
+  the fixed cost outside the tests is small: the pre-test steps are cached and take seconds, the node starts in
+  under a minute, and locally the whole rig outside Playwright is under half a minute. Test time is the whole
+  problem. That reverses the plan's biggest fear about sharding — three shards cost roughly a third more runner
+  minutes for roughly half the wall clock — and it answers Ask 1 without waiting for P1.
+- **"One environment variable disables all of it" was true of the config and false of the deploy.**
+  `assemble.ts:69-70` refuses any non-production mode into the production directory or a Cloudflare build, and
+  both `site:deploy` and Workers Builds go through `assemble`. A misspelled `YACANA_SITE_MODE` cannot ship
+  today. P0 buys an early, clear failure and closes the one path `assemble` does not see —
+  `packages/web-miner`'s own `vite build`, which is on no deploy path anyway. Worth doing; not a hole.
+- **P0 had no definition of "forbidden".** There is no proverless marker yet, so an artifact inspection needs a
+  concrete list or it tests nothing in particular. The list is below.
+- **Proverless can be estimated now.** From the measured local durations, the claim specs are about ten of the
+  sixteen minutes and contain about nine claims, each with a ~12 s transaction proof: roughly two minutes, about
+  12% of the suite. That is the only thing in the suite exercising the claim circuit's in-circuit verification of
+  the mining proof. The plan now carries a decision rule instead of an open question.
+- **The replay lane's running cost was unnamed.** Any change to the miner's boot-time RPC surface breaks the
+  lane until someone re-records on a machine with the toolchain — exactly how the stats lane already behaves.
+  P3 says so, and runs as a timeboxed spike before anything is built on it.
+
 ## The shape that follows from that
 
 Measure first, then take the cheap wins, and treat the risky one as optional and last.
@@ -91,26 +118,30 @@ Five phases. Two of them — the flag hygiene and the measurement — depend on 
 order; the rest follow the measurement. The last is conditional and may never be built.
 
 **P0 · Flag hygiene, independent of everything else.** Validate `YACANA_SITE_MODE` against its three literals and
-throw otherwise. Decide the fate of the unreachable assertions in `assertProductionConfig` — delete them, or make
+throw otherwise — an early, clear failure where today `assemble.ts` catches the same mistake later with a less
+specific one. Decide the fate of the unreachable assertions in `assertProductionConfig`: delete them, or make
 them assertions over an independently constructed config with tests that fail when a guard is removed; either is
-honest, neither adds a barrier. Add an artifact inspection to `assemble.ts` **after assembly, before it reports
-success** (lines 69-70 run before any artifact exists), over the emitted chunks and the shipped headers rather
-than over the config object. Bring `packages/web-miner`'s own `build` under the same guard without forcing a
-three-app build on someone who wants one app. Normalise `out` inside `assemble()` rather than trusting callers to
-pass the canonical path.
-Gate: `bun run lint` · `bun test packages/site`, including a test that injects forbidden content into the
-inspected output and requires the build to fail, a `YACANA_SITE_MODE=e2e` build refused through the production
-entrypoint, an invalid mode refused, and the intended e2e output still allowed · `bun run site:build` clean.
+honest, neither adds a barrier. Add an artifact inspection to `assemble()` **after assembly, before it reports
+success** (lines 69-70 run before any artifact exists). What it forbids, concretely: any plaintext loopback
+origin (`http://127.0.0.1`, `http://localhost`) in `dist/**/*.js` or in the emitted `_headers`; a `build.json`
+whose mode is not `production`. Normalise `out` inside `assemble()` rather than trusting callers to pass the
+canonical path. `packages/web-miner`'s own `build` is on no deploy path; note that in its script rather than
+guarding it.
+Gate: `bun run lint` · `bun test packages/site`, including a test that writes a loopback origin into the
+inspected output and requires assembly to fail, an invalid mode refused, a `YACANA_SITE_MODE=e2e` assembly into
+the production directory still refused, and the intended e2e output still allowed · `bun run site:build` clean.
 Layers: lint · unit.
 
-**P1 · Measure, and change nothing else.** Time the **whole** run, not just `run-setup.ts`: the isolated network
-starts inside `e2e:agent` before Playwright launches, so instrumenting setup alone misses it. Emit a
+**P1 · Measure, and change nothing else.** The coarse numbers are already known (26.5 min CI, 24.9 in the e2e
+step; 16.6 min locally, 16.2 in Playwright); this phase produces the fine ones. Time the **whole** run, not just
+`run-setup.ts`: the isolated network starts inside `e2e:agent` before Playwright launches, so instrumenting
+setup alone misses it. Emit a
 machine-readable per-spec report (`json` or `blob` beside `list`, which writes no file today although
 `e2e.yml:31` archives `playwright-report`). Reconcile the recorded total against the job's own clock, so
 unattributed time is visible rather than hidden.
 Gate: `bun run lint` · one local run and one CI run, each producing a breakdown that separates network startup,
 deployments, bundle build, and per-spec time, states what share of the total is rig, and attributes claim
-proving specifically — because P6's decision rests on that number and no other phase collects it. Pass
+proving specifically — because P5's decision rule rests on that number and no other phase collects it. Pass
 criterion: the breakdown exists, reconciles to within a stated margin of the job clock, and answers "is the claim
 transaction proof the bulk?" in one sentence with a number behind it. No optimisation ships here.
 Layers: lint · e2e · CI.
@@ -121,20 +152,27 @@ having skipped tests, so the gate compares the executed test identities against 
 trusting exit codes.
 Gate: `bun run lint` · `bun run lint:actions` · `bun test packages/web-miner` with a unit test that the job file
 lists cover every `*.e2e.ts` exactly once · a check that no spec carries `.only` · CI green where **the executed
-identities equal the inventory**, the slowest job beats a wall-clock target set from P1, and total runner minutes
-stay under a ceiling the owner approves (Ask 1, answered with P1's numbers before this phase is implemented).
+identities equal the inventory**, the slowest job finishes under **15 minutes**, and the matrix's total runner
+minutes stay under **45** — both set from the measured baseline (26.5 min on one runner) and tightened, not
+loosened, if P1's finer numbers allow.
 Layers: lint · unit · e2e · CI.
 
-**P3 · A record-and-replay lane, on every push.** Clone the stats visual lane's shape for the miner. Scope it
+**P3 · A record-and-replay lane, on pull requests.** Clone the stats visual lane's shape for the miner. Scope it
 honestly: the three tests that never open an account — dialog geometry, the malformed-RPC rejection, and the
 old-Presto notice. The pop-out and missing-passkey tests call `bootPage()`, which opens an account and a PXE, so
 they are not candidates.
+**A spike comes first, timeboxed to one working session**: record the three tests' RPC under `e2e:agent`, replay
+it with no node, and run them. If that does not pass cleanly within the box, the arc is abandoned, the three
+tests stay in the sharded suite, and the plan records why. Nothing below is built until the spike passes.
+**The running cost, stated now**: the lane fails whenever the miner's boot-time RPC surface changes — a new call,
+a changed parameter, a contract redeploy — until someone re-records on a machine with the toolchain. The stats
+lane already works this way; this doubles that maintenance surface.
 Three things the phase must solve, named now because they are where it will fail: `serve.ts` hard-codes the stats
 package as its working directory, so its `buildApp`/`startPreview`/`waitUntilUp`/`claimPreviewPort` helpers are
 parameterised and the stats lane re-validated in the same change; the replay specs need their own discovery
 boundary, or the existing `testMatch` will sweep them into the full suite; and the recording is bound to the
 contract artifacts, the storage layout and the SDK it was taken against, not merely to the RPC keys it holds.
-Ask 2 — the trigger and branch scope — is answered before the workflow is written.
+The trigger is `pull_request`, matching how `web-miner.yml`'s change filter already works (Ask 2, answered).
 Gate: `bun run lint` · `bun run lint:actions` · the lane green locally with no isolated network running · the
 stats visual lane still green after the helpers move · a compatibility mutation: change one bound input and
 require the lane to fail rather than replay a stale-but-consistent fixture · strict network accounting, so
@@ -150,8 +188,11 @@ Gate: `bun run lint` · `bun test packages/web-miner` · a run with each depende
 named error rather than a skip · a successful trimmed run recording the saving against P1. Layers: lint · unit ·
 e2e.
 
-**P5 · Proverless — conditional, last, and possibly never.** Built only if P1 answered its one-sentence question
-with a number that justifies it, and only after the owner answers Ask 3 with that number in hand. The flag
+**P5 · Proverless — conditional, last, and probably never.** The decision rule, fixed now: **built only if P1
+shows the claim transaction proof above 30% of test time.** The back-of-envelope from measured durations puts it
+near 12% — nine claims at ~12 s in a sixteen-minute suite — and it is the only thing exercising the claim
+circuit's in-circuit verification of the mining proof. At 12% it is not built. If P1 clears the bar, the owner
+still decides how much coverage goes (Ask 3), with the number in hand. The flag
 follows the `config.ts` template; its marker must be inseparable from the flag, since a marker that is merely
 defined is tree-shaken and one emitted as its own asset proves nothing about the code.
 The canary is the point of the phase, and its boundary is specified here rather than left to the implementer: it
@@ -196,14 +237,16 @@ lane; two booleans deliver the rig saving.
 
 ## Security & Adversarial Considerations
 
-- **The one real pre-build barrier is `config.ts:92`.** Everything else I claimed shares its predicate, is
-  unreachable, or cannot fire in production. P5 fixes that inventory rather than building on a fiction.
-- **`YACANA_SITE_MODE` is the attack.** One unvalidated string re-enables the overrides, skips the assertion and
-  loosens the CSP. It is exploitable only by whoever controls the build environment — but that is exactly the
-  threat model a build flag defends against, and the fix is three lines.
-- **`assemble.ts:69-70` is the barrier that actually holds**, because it fires *because* the mode is not
-  production. Artifact checks belong there, on the path every deploy takes, not in a script that only e2e runs.
-  `packages/web-miner`'s own `build` bypasses it today.
+- **The one real pre-build barrier is `config.ts:92`.** Everything else the first draft claimed shares its
+  predicate, is unreachable, or cannot fire in production. P0 fixes that inventory rather than building on it.
+- **`YACANA_SITE_MODE` is unvalidated, and `assemble.ts:69-70` is what stops that mattering.** An unvalidated
+  string re-enables the overrides, skips the assertion and loosens the CSP in the *build* — but every deploy path
+  (`site:deploy`, Workers Builds) goes through `assemble`, which refuses a non-production mode into the production
+  directory or a Cloudflare build. So the exposure today is a confusing late failure, not a shipped artifact. P0
+  makes the failure early and specific, and adds the artifact inspection at the same chokepoint.
+- **The threat model for a build flag is whoever controls the build environment.** That is the same actor who
+  could edit the source, so a build flag is a guard against mistakes more than against attackers; the inspection
+  in P0 is what turns "we set the config right" into "the artifact is clean".
 - **A proverless flag reaching production would not by itself let an attacker mint** — the attacker already
   controls their own browser, and the network is the boundary. It would break transaction submission for real
   visitors and invalidate the suite. That is the honest framing; my draft overstated it.
@@ -223,7 +266,9 @@ lane; two booleans deliver the rig saving.
 3. `config.ts:92` drops every override in production; `config.ts:170-171` cannot fire; `config.test.ts:110`
    does not test those branches, `:19` proves the dropping.
 4. `vite-base.ts:45` casts `YACANA_SITE_MODE` without validation; `headers.ts:19` widens `connect-src` outside
-   production; `assemble.ts:69-70` refuses a non-production build into the production directory.
+   production; `assemble.ts:69-70` refuses a non-production build into the production directory or a Cloudflare
+   build, and `site:deploy` and Workers Builds both go through `assemble`, so a misspelled mode cannot ship
+   today.
 5. The toolchain's local network defaults `realProofs` to false (`local-network.ts:138`), so the node installs
    `TestCircuitVerifier` (`factory.ts:219-228`), which always answers valid.
 6. `states.e2e.ts:75-84` synthesises its race by holding `aztec_sendTx` at a route.
@@ -233,6 +278,11 @@ lane; two booleans deliver the rig saving.
 9. Playwright 1.62.1 has `--shard`, `--grep`, `--grep-invert`, `--project`, and assigns whole files to shards.
 10. `run-setup.ts` always runs two deployments, builds the bundle into a shared `e2e/.dist` with
     `--emptyOutDir`, starts two proxies, and starts Presto when installed.
+11. CI run 34395322513's miner job: 26.5 min total, 24.9 in the e2e step, every earlier step under twenty seconds
+    (the toolchain, contracts and Playwright are cached). Locally: 16.6 min wall, 16.2 in Playwright.
+12. Measured local durations, last green run: lost race 2.6 min, passkey 2.0, withdraw 1.9, node-away 1.7, first
+    visit 1.5, power changes 1.4, presto claim 0.9, switch 0.9; the rest under a minute each. Claim specs total
+    about ten minutes of the sixteen.
 
 **Inferences** (attack these)
 
@@ -243,20 +293,19 @@ lane; two booleans deliver the rig saving.
    early, and if replay cannot cover a spec, that spec stays in the sharded suite.
 3. That two booleans capture the rig saving. If P1 shows the second deployment is cheap and the network is
    everything, P4 is not worth building.
-4. That the wall-clock win is worth the runner minutes at all. Every shard pays its own network, deployments and
-   build, so total minutes rise by roughly the fixed cost times the number of jobs. P1 measures the ratio and Ask
-   1 becomes P2's gate rather than a question asked in the abstract.
+4. That the ~12% estimate for the claim transaction proof is right within a factor of two. It comes from nine
+   claims at ~12 s each against a 16-minute suite; block waits and PXE note sync are the other costs inside a
+   claim and are not removed by proverless. P1 attributes it properly; the decision rule has headroom.
 
-**Asks** (for the owner, and P1's numbers answer most of them)
+**Asks** — two answered by the measured baseline, one converted to a rule
 
-1. **Runner minutes.** Sharding multiplies fixed cost: three jobs pay three networks, three builds, three sets
-   of deployments. Wall clock falls; total minutes rise, plausibly by more than half. Approve after P1 reports
-   the real ratio, not now.
-2. **The push lane's trigger.** Every push on every branch, or pull requests only. `web-miner.yml` runs on
-   `pull_request` and `workflow_dispatch` today and its change filter is written for those; adding `push` is a
-   real change, not a line.
-3. **Whether to build P6 at all**, and if so how much claim coverage may go proverless. This one is a genuine
-   trade of coverage for time and should be decided with P1's numbers.
+1. **Runner minutes — answered: yes.** The job is 26.5 minutes on one runner with a small fixed cost, so three
+   shards cost roughly a third more minutes for roughly half the wall clock. P2's gate carries the ceiling
+   (45 runner-minutes for the matrix, slowest job under 15).
+2. **The push lane's trigger — answered: `pull_request`.** It matches `web-miner.yml`'s existing change filter;
+   every-push would need `_changes.yml` reworked for a `push` event and would run on unfinished branches.
+3. **Proverless — a rule, not a question.** Built only if P1 shows the claim transaction proof above 30% of test
+   time; the estimate is 12%. If it clears the bar, the owner decides the coverage trade then.
 
 ## Decision ledger
 
@@ -267,33 +316,37 @@ lane; two booleans deliver the rig saving.
 | Record-and-replay for the fast lane | second review | **Adopted**: already built for stats, the only shape that satisfies the preflight |
 | Naive `--shard N/M` | first draft | **Rejected**: splits by file and pairs the two longest specs; explicit file lists instead |
 | "Four independent barriers" | first draft | **Rejected as false**; P5 fixes the real inventory |
-| Proverless as arc 3 of 4 | first draft | **Rejected**: unmeasured benefit, real coverage cost; moved last and made conditional |
+| Proverless as the third of four arcs | first draft | **Rejected**: unmeasured benefit, real coverage cost; moved last and made conditional |
 | One happy-path canary | first draft | **Rejected**: happy path plus a negative case, or it proves nothing |
 | A claim-ready fixture | the brief | **Deferred**: the state lives in the PXE; out of scope, named as a possible follow-up |
 | Two lanes sharing a checkout | first draft | **Dropped**: not needed, and five other paths are fixed anyway |
 | "e2e is in no typecheck" | second review, repeated by me | **Wrong**: the root tsconfig covers it and CI runs it |
 | Timeouts quoted as durations | third review | **Corrected**: measured values from the last green run replace them |
-| Six mandatory stacked arcs | third review | **Reduced to four**, with the two independent ones unstacked |
+| Six mandatory stacked arcs | third review | **Reduced**: four arcs after the fourth read, one conditional, the flag hygiene its own PR |
 | P1 measuring only `run-setup.ts` | third review | **Widened**: the network starts before Playwright and must be timed |
 | Asks 1 and 2 left as questions | third review | **Promoted to gates** on the phases they govern |
 | P5's artifact check "in assemble.ts" | third review | **Specified**: after assembly, over emitted chunks and headers |
-| P6's canary "a negative case" | third review | **Specified**: real-proving build, fault injected at the claim boundary, other causes excluded |
+| The proverless canary as "a negative case" | third review | **Specified**: real-proving build, fault injected at the claim boundary, other causes excluded |
+| "Forty minutes in CI" | fourth read | **Corrected** to the measured 26.5, with a small fixed cost; the sharding maths flips |
+| "One variable opens the front door" | fourth read | **Softened**: `assemble.ts` already refuses it on every deploy path; P0 is early failure, not a closed hole |
+| P0's "forbidden content" | fourth read | **Defined**: loopback origins in `dist/**/*.js` and `_headers`; a non-production `build.json` |
+| Proverless as an open ask | fourth read | **A rule**: built only above 30% of test time; estimated at 12% |
+| P3 straight into arc C | fourth read | **A spike first**, timeboxed; the maintenance cost named |
+| Asks 1 and 2 | fourth read | **Answered** from the measured baseline: yes to sharding; `pull_request` |
 
 ## Delivery
 
-Four arcs, not six. The flag hygiene stands alone and can merge first or last; the measurement gates everything
-after it; the conditional arc sits on top so abandoning it costs nothing. P4's rig trim rides with the sharding
-it serves rather than becoming a parent of work that does not depend on it.
+Four arcs, one of them conditional and probably never opened. The flag hygiene ships as its own pull request
+first, since it depends on nothing. The measurement is the first phase of the sharding arc rather than a pull
+request of its own: its code is a reporter and some timestamps, and its numbers land in `lessons/phase-1.md`
+before P2's split is chosen. The replay lane is its own arc because its spike may kill it.
 
 | Arc | Phases | Stacks on | Independently useful? |
 |---|---|---|---|
-| A · flag hygiene | P0 | main | Yes — a security fix on its own |
-| B · measure | P1 | main | Yes — the numbers are the deliverable |
-| C · shard, trim, replay | P2, P4, P3 | arc B | Yes — the wall-clock win and the push lane |
-| D · proverless (conditional) | P5 | arc C | Only if arc B's numbers justify it |
-
-Arcs A and B are independent of each other and of C; if the stack tooling makes that awkward, A ships as its own
-pull request first.
+| A · flag hygiene | P0 | main (its own PR) | Yes — early, clear failure on a misconfigured build |
+| B · measure, shard, trim | P1, P2, P4 | main | Yes — the wall-clock win |
+| C · replay lane | P3 (spike, then lane) | arc B | Yes — the miner checked on every pull request |
+| D · proverless | P5 | arc C | Only if P1 clears the 30% bar |
 
 ## Post-implementation
 
@@ -310,7 +363,8 @@ green and before `gh stack add` opens the next:
 2. Verify every finding against the repo before acting; apply what holds; commit; log the round in
    `lessons/phase-N.md`; resume the same session with the fix diff. Repeat until nothing material. Three rounds
    without convergence: stop and surface.
-3. After the last arc: a fresh codex session over the net diff from `15e4550` for cross-arc issues.
+3. After the last arc that is actually built: a fresh codex session over the net diff from `15e4550` for
+   cross-arc issues.
 4. Then Delivery: `gh stack sync`, `gh stack submit --auto`, `gh pr edit` each body, `gh pr checks --watch`. No
    pull request before the loops converge. Never merge, never deploy, never push to main.
 
@@ -319,9 +373,10 @@ green and before `gh stack add` opens the next:
 ELI5 companion: `implementations-plan/e2e-lanes/eli5.html`, published as the Artifact **Faster Miner Tests**:
 https://claude.ai/code/artifact/373de523-aadb-4cb3-9da9-354a97d20e8e
 
-Audit trail: `audit-codex.md` (two passes) and `audit-fable.md`. All three verdicts were **reject**; the third
-called the rework "materially responsive" and rejected on gate specificity, which this version closes. Per the
-protocol's three-round rule, a fourth audit is not run — the trail goes to the owner instead.
+Audit trail: `audit-codex.md` (two passes, plus the review of the fourth read's corrections) and
+`audit-fable.md` (the first-draft audit, and the fourth read). Three rejections on the first two versions; the
+fourth read, by a different reviewer against the last green CI run, gave a conditional approve whose conditions
+are folded into this version.
 
 ## Seeds
 
