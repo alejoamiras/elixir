@@ -82,6 +82,10 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
   if (!counts) throw new Error(`unreadable epoch claims: ${shown}`);
   const [have, n] = [Number(counts[1]), Number(counts[2])];
   if (have < n - 1) await burst(r, n - 1 - have);
+  // The poll keeps running while stopped; the count is checked here, while the epoch is still stable.
+  await expect(page.getByTestId('epoch-claims')).toHaveText(new RegExp(`^${n - 1}\\s+of\\s+${n}$`), {
+    timeout: 60_000,
+  });
   let release: () => void = () => {};
   const held = new Promise<void>((res) => {
     release = res;
@@ -98,9 +102,6 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
     },
   );
   await page.getByTestId('start').click();
-  await expect(page.getByTestId('epoch-claims')).toHaveText(new RegExp(`^${n - 1}\\s+of\\s+${n}$`), {
-    timeout: 60_000,
-  });
   await expect(page.getByTestId('claim-stepper')).toBeVisible({ timeout: 10 * 60_000 });
   await expect(page.getByTestId('notice-reverted')).toBeVisible({ timeout: 15 * 60_000 });
   await closing;

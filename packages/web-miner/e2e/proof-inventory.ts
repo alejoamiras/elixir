@@ -50,7 +50,7 @@ export const INVENTORY: Readonly<Record<string, Readonly<Record<string, number>>
   'switch.e2e.ts': {
     'a live switch A → B while mining, a claim after it, and the banner on a dead node': 1,
   },
-  // The real-proving canary: a tampered claim refused at proving, the same ticket minting untampered.
+  // The real-proving canary: a tampered claim refused at proving, then the next claim minting.
   'canary.e2e.ts': {
     'a claim with a bound public input altered is refused at proving before it is sent; the next claim mints': 1,
   },
