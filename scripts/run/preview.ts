@@ -2,7 +2,6 @@
 // every fixture-only lane shares (the stats screenshot gate, the miner's replay lane), bound to a
 // package directory by the caller.
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
-import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { lanePortBase, runPortWindowBase } from './port-window.ts';
 import { claim } from './registry.ts';
