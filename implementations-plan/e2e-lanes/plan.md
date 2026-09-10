@@ -189,7 +189,7 @@ criterion: the breakdown exists, reconciles to within a stated margin of the job
 transaction proof the bulk?" in one sentence with a number behind it. No optimisation ships here.
 Layers: lint · e2e · CI.
 
-**P2 · Shard by explicit file lists, with a cost ceiling.** Split by naming files, sized by P1's numbers. Merge
+**P2 ✓ · Shard by explicit file lists, with a cost ceiling.** (2026-09-10, `lessons/phase-2.md`: three shards from `e2e/shards.json`; CI run 34518184884 green with the executed identities equal to the inventory, slowest shard 14.7 min, 40.6 runner-minutes; codex loop converged in two rounds.) Split by naming files, sized by P1's numbers. Merge
 the reports. Assert coverage: Playwright suppresses "no tests found" under `--shard`, and a job can also go green
 having skipped tests, so the gate compares the executed test identities against the inventory rather than
 trusting exit codes.
