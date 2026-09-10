@@ -62,7 +62,7 @@
   <p class="lede">The miner's browser suite is nineteen tests. It takes about seventeen minutes here and twenty-six in CI, on one machine, and it only runs when someone asks for it by hand — so nothing about the Mine page is checked when you push. This plan makes it faster and gives it a small lane quick enough to run on every push. It also does something less comfortable: it says plainly which of the speed-ups cost you test coverage, and puts that decision in front of you with a number attached instead of burying it.</p>
 
   <h2>The short version of what happened</h2>
-  <p>A plan was written. Two reviewers rejected it, for reasons that held up against the code. It was rewritten; a third reader called the rewrite sound in shape but too vague in its promises, and it was tightened. Then a different reviewer checked that version against the last real CI run rather than against its own prose, corrected its numbers, and sent those corrections back through review — which caught two more mistakes, including one in the corrections themselves. What follows is the fifth version. Most of what makes it good came from being wrong, on the record, five times.</p>
+  <p>A plan was written. Two reviewers rejected it, for reasons that held up against the code. It was rewritten; a third reader called the rewrite sound in shape but too vague in its promises, and it was tightened. Then a different reviewer checked that version against the last real CI run rather than against its own prose, corrected its numbers, and sent those corrections back through review — which caught two more mistakes, including one in the corrections themselves. What follows is the version those rounds produced. Most of what makes it good came from being wrong, on the record, and having it caught.</p>
 
   <div class="wrap">
     <table>
@@ -123,9 +123,9 @@
     <div class="verdict"><b>Review 2 · reject</b>Same conclusions independently, plus: the fast lane already exists in this repo and the plan reimplemented a worse one.</div>
     <div class="verdict"><b>Review 3 · reject</b>"Materially responsive" — but the gates could still pass while proving nothing. Those are now tightened.</div>
     <div class="verdict"><b>Review 4 · conditional</b>A different reviewer, against the real CI run: the baseline was a third too high, one finding overstated, one phase undefined.</div>
-    <div class="verdict"><b>Review 5 · reject</b>On review 4's corrections: one of them cited the wrong proofs. Withdrawn; measured instead.</div>
+    <div class="verdict"><b>Review 5 · reject, reject, then approve</b>On review 4's corrections, three rounds: one cited the wrong proofs; one proposed a measurement that timed more than proving; the third approved with two small conditions, both now in.</div>
   </div>
-  <p class="muted">Five rounds is normally a sign that the work is bigger than the plan admits. Here it was mostly that a plan about testing kept making claims it had not tested — including in its corrections. Everything is in the plan, and the reviews are on the record beside it.</p>
+  <p class="muted">Seven verdicts is normally a sign that the work is bigger than the plan admits. Here it was mostly that a plan about testing kept making claims it had not tested — including in its corrections. Everything is in the plan, and the reviews are on the record beside it.</p>
 
   <h2>Three decisions, two of them now answered by the numbers</h2>
   <ul>

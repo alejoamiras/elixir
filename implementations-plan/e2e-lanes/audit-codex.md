@@ -232,3 +232,207 @@ Later arcs do invalidate earlier **performance and coverage conclusions**: P3 ch
 The broad sequence is sensible. I would run a bounded replay feasibility spike immediately after measurement, make P5 independent and earlier, and combine sharding with any justified rig trimming. Five or six mandatory stacked arcs are excessive for nineteen tests, particularly when optional P4 is made the parent of independently valuable P5. Separate reviewable changes are useful; an artificial dependency chain is not.
 
 reject (with blocking findings: P1 cannot supply P6’s required evidence; P3 leaves helper reuse, discovery, and fixture compatibility unresolved; P2 lacks an execution-and-cost acceptance gate; P5’s artifact barrier and P6’s real-proving negative canary are not concretely specified)
+
+---
+
+# On the fourth read's corrections — auditr4
+
+The sharding estimate is plausible, but its original reasoning is wrong. The proverless estimate is unsupported: it uses proofs produced outside the browser. **Confidence: high.**
+
+I read both previous reviews, the implementation, the installed Playwright runner, and the actual CI/local logs. During review, HEAD advanced from `39fa473` to `8e1612e`; I checked that update too. Application code remains unchanged from `15e4550`. I did not run a new build or replay experiment.
+
+1. **Baseline: totals broadly hold; “fixed cost is small” needs correction.**
+
+   **Playwright’s `16.2m` includes global setup and teardown.** Its internal reporter starts timing at `onConfigure`, before setup tasks, and reports elapsed time at `onEnd`. That includes both deployments and the Vite build invoked by [global-setup.ts](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/packages/web-miner/e2e/global-setup.ts:5). See the [installed runner](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/node_modules/playwright/lib/runner/index.js:1773).
+
+   The [local log](/home/homelab/.cache/tmp/claude-1000/-home-homelab-Projects-elixir/bc2e8998-a109-456c-beab-d307b684a651/scratchpad/e2e-final.log:1) records **16m36s wall time**. Adding its rounded individual test durations gives **875.539 seconds = 14.59 minutes**. Therefore approximately **two minutes are outside individual tests**, with roughly 1.6 inside Playwright’s timer. The 0.4-minute wall/Playwright difference never established total rig cost.
+
+   [CI job logs](https://github.com/alejoamiras/elixir/actions/runs/34395322513/job/102613489896) show:
+
+   | Event | UTC |
+   |---|---|
+   | E2E step starts | 19:30:38.716 |
+   | Node ready | 19:31:09.871 |
+   | Setup reports preview ready | 19:33:21.438 |
+   | Test execution begins | 19:33:21.854 |
+   | Playwright finishes | 19:55:33.526 |
+
+   The E2E step is **24.91 minutes**; individual tests total approximately **22.05 minutes**. Against the approximately 26.5-minute job, fixed/unattributed work is approximately **4.4 minutes**, not merely the pre-step difference.
+
+   “Every earlier step under twenty seconds” is false: **codegen takes approximately 20.6 seconds; Playwright installation approximately 31.8 seconds**.
+
+   Nevertheless, the sharding estimate survives independently: with `F ≈ 4.4` and `T ≈ 22.1`, three shards cost `T + 3F ≈ 35.3` minutes, approximately **33% extra**. Partitioning the nine files using this CI run’s rounded durations gives a slowest test bucket around **7.6 minutes**, hence approximately **12 minutes per slowest job**. **Confidence: moderate** in that projection: fresh deployment history, random mining and runner variance can change it.
+
+   The gates permit substantially worse results than the headline: **45 minutes is +70% cost**, and **15 minutes is only −43% wall time**. They are concrete budgets, but should not be presented as equivalent to +35%/−50%.
+
+2. **Front door: correct for supported scripts; false as a universal deploy claim.**
+
+   [Assembly’s guard](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/packages/site/src/assemble.ts:65) protects its canonical production destination. `site:deploy` calls assembly, and the documented Workers Builds configuration calls it during the build stage.
+
+   However, [wrangler.jsonc](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/packages/site/wrangler.jsonc:13) simply uploads `./dist`. It has **no assembly/build hook**. Direct `wrangler deploy` can publish existing assets without assembly. The documented `wrangler versions upload` likewise relies on the preceding build stage. `deploy:www` bypasses assembly too, although it deploys only the redirect Worker.
+
+   Correct wording: **“A misspelled mode is rejected by the supported site build/deploy scripts.”** “Cannot ship today” and “every deploy path” overclaim. This limitation was already identified in the second review.
+
+   Also, an invalid mode does **not** enable every override: query overrides require exact mode `e2e` in [config.ts](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/packages/site/src/config.ts:112).
+
+3. **Forbidden list: useful contamination check, insufficient artifact assurance.**
+
+   I found **no concrete application-code reason that those exact literals must survive a normal production build**:
+
+   - Source maps are explicitly disabled.
+   - The dev-server policy is build configuration.
+   - Node-guard error messages interpolate endpoints; they do not embed those exact origins.
+   - Production Presto legitimately uses HTTPS loopback; that must remain allowed.
+
+   Dependency source does contain HTTP-loopback examples, but source comments do not establish emitted-bundle matches. I cannot certify the current clean build without building it. **Confidence: moderate** on freedom from false positives.
+
+   More importantly, absence of those strings does not prove safe configuration. [Presto’s transport](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/node_modules/@alejoamiras/presto-core/src/lib/presto-transport.ts:688) constructs URLs from pieces; an unsafe runtime URL need not contain either contiguous literal in emitted JavaScript.
+
+   Specify these missing properties:
+
+   - Inspect the actual assembly destination, including worker chunks and nested emitted headers.
+   - Missing/unreadable output, missing headers and missing/malformed `build.json` fail.
+   - Verify the production CSP and relevant resolved configuration, including query overrides and Presto HTTPS policy; mode metadata alone is insufficient.
+   - Apply production restrictions to production assembly while preserving intended E2E assembly.
+
+   Do not describe a two-string grep as proving “the artifact is clean.”
+
+4. **Proverless: neither 12% nor the newly substituted 7% is established.**
+
+   The seven tests explicitly requiring claims entail:
+
+   | Test | Minimum browser claim transactions |
+   |---|---:|
+   | First visit, including second visit | 2 |
+   | Poisoned CRS | 1 |
+   | Passkey | 1 |
+   | Presto claim | 1 |
+   | Lost race | 3: successful, reverted, successful |
+   | Switch | 1 |
+   | Withdraw setup | 1 |
+   | **Total** | **10** |
+
+   That is **nine successful claims plus one deliberately reverted transaction**, each requiring proving. Withdraw adds two transfer transactions. Continued mining can produce additional claims; the crash test can also win. The outside burst miner adds a variable number of separate native transactions.
+
+   The decisive error is attribution: **all eight CI 7–12-second proof measurements occur during deployment setup**. Later logged proofs belong to `burst.ts`. Browser helpers forward page errors, not browser proof-duration logs.
+
+   The new `8e1612e` estimate repeats the mistake with local measurements: **4.9–8.0 seconds measures deployment/native-burst proofs, not browser claim proofs**. Its eleven-transaction count also omits the reverted browser claim.
+
+   Claims include private execution, kernel work, proving, submission, inclusion and balance/note synchronization. First-visit reopening also reconstructs the wallet/PXE session. Proverless retains mining proofs, inclusion waits and synchronization requirements; a wallet-level flag affects withdrawals and rolls too. See [sendClaim](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/packages/web-miner/src/chain.ts:92) and [openWallet](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/packages/web-miner/src/wallet.ts:65).
+
+   **Confidence in either percentage, even within a factor of two: unknown.** Thirty percent is a defensible conservative policy, not a derived optimum. Define its denominator and measure browser proving separately from native/setup proofs. The new broader P5 rule also requires broadening P1’s still claim-specific attribution requirement.
+
+5. **Replay: feasible premise; the stats lane cannot be copied unchanged.**
+
+   **Confidence: moderate**, pending the spike. These three tests do not open a wallet/PXE; their successful boot path uses recordable reads.
+
+   Concrete failures to handle:
+
+   - The existing stats recording lacks **`aztec_getBlockNumber []`**, which miner preflight calls immediately. A fresh miner recording must include it.
+   - Miner public-epoch reads request the **seed**, so stats’ existing storage recording is not sufficient.
+   - Stats’ `visualEnv` does **not enable `VITE_E2E_QUERY_OVERRIDES`**. Merely selecting E2E mode does not enable it. Consequently the old-Presto test’s `?presto=<fake.port>` is ignored if that environment is copied.
+   - The fake Presto’s **`GET /health`** is not JSON-RPC and changes after `upgrade()`. Keep its explicit stateful fake; a method/params recording cannot replace it.
+   - Dialog geometry navigates without `presto=off`, so its default Presto probe also needs an explicit disposition.
+   - Keep the malformed response out of the successful recording; it uses the same mock origin and otherwise risks contaminating shared keys.
+
+   The 30-second poll does not inherently defeat replay: repeated `latest` reads can return the same fixture. The spike should deliberately cross that interval because public-poll errors are caught and logged; geometry assertions could pass despite broken polling.
+
+   The timebox and maintenance disclosure hold. **The CI budget remains unnamed**, and relevant workflow filters still need explicit coverage for shared stats helpers, run scripts and contract inputs.
+
+6. **Delivery: B holds; the dependencies need justification.**
+
+   Combining P1 with P2/P4 in one PR is honest **if the unoptimized local and CI measurements are recorded before choosing the split**. A PR boundary is unnecessary; an experimental boundary is necessary. Since PR creation is deferred until review loops converge, explicitly use the dispatchable feature-branch workflow for P1’s CI measurement.
+
+   C depends on B only if it consumes B’s inventory/discovery changes or relocates tests from those shards. Otherwise it is independent.
+
+   D’s dependency on C is artificial: **abandoning the replay spike should not prevent a separately justified proverless experiment**. D needs the measurement and production safeguards, not successful replay.
+
+Two further omissions remain: the final combined system needs its coverage/performance gates rerun, and the local “last green” durations are still misquoted—the located final log has **lost race 2.0 minutes and passkey 59.7 seconds**, not 2.6 and 2.0 minutes.
+
+reject (with blocking findings: browser proving estimates use deployment/native measurements; deployment protection is still overstated; P0’s artifact acceptance contract and P3’s replay environment, traffic coverage, filters and numeric budget remain incomplete)
+
+---
+
+# On the fourth read's corrections — auditr5
+
+One substantive correction is newly wrong: **P1’s proposed interval does not measure transaction proving.** Several older claims also remain elsewhere in the document. **Confidence: high.**
+
+Verified `447ddf7`; application code remains unchanged from `15e4550`.
+
+1. **P1 can still incorrectly unlock P5.**
+
+   The interval from “proving the claim in-page…” to “claim … sent” surrounds the entire `sendClaim()` call in [controller.ts](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/packages/web-miner/src/controller.ts:557). That includes:
+
+   - PXE synchronization and simulation, explicitly performed by [EmbeddedWallet.sendTx()](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/node_modules/@aztec/wallets/src/embedded/embedded_wallet.ts:164).
+   - Transaction proving.
+   - Submission and its response.
+   - **The deliberate outside-miner wait in the lost-race test**, because its route holds `aztec_sendTx` before allowing submission to finish. [states.e2e.ts](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/packages/web-miner/e2e/states.e2e.ts:78)
+
+   Consequently, the report can reconcile perfectly while attributing synchronization, network delay and native burst mining to browser proving.
+
+   **Required correction:** capture the browser’s actual prover measurement—for example, the SDK’s `client-ivc-proof-generation` event from [createChonkProof()](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/node_modules/@aztec/bb-prover/src/prover/client/bb_private_kernel_prover.ts:379)—and report surrounding work separately. Include withdrawals and rolls if P5’s numerator remains **all browser transaction proving**. Claim-controller timestamps omit those.
+
+   A useful validation: deliberately delay `aztec_sendTx`; submission time should increase while measured proving time remains unchanged. Collect measurements across reloads, rather than scraping the final bounded UI log.
+
+2. **P0’s contract is clearer, but its HTTPS-only check lacks an actual configuration source.**
+
+   `SiteConfig` has `queryOverrides` and `prestoE2ePort`; it has **no HTTPS-only field**. That policy lives in the miner’s [PRESTO_DEFAULT and prestoEndpointFor()](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/packages/web-miner/src/presto.ts:27).
+
+   Specify that the check exercises the **endpoint configuration actually consumed by the miner**, using production-resolved inputs. An independently asserted “HTTPS-only” value would prove nothing about that endpoint.
+
+   Require a mutation check: changing the consumed production endpoint to `httpsOnly: false` must fail validation even with empty `prestoE2ePort` and no contiguous HTTP-loopback literal. Explicitly scope the production acceptance contract to production assembly; E2E assembly necessarily violates it.
+
+3. **P3 is substantially addressed; two acceptance details remain.**
+
+   The named obstacles, budget and filter scope now provide a workable spike brief.
+
+   However, **waiting past 30 seconds is not evidence that polling worked**. A stopped timer produces no unexpected traffic. Require an observed, successfully completed subsequent public-epoch poll and no swallowed poll error.
+
+   Since C now removes tests from B’s inventory, preserve an overall coverage invariant: **live tests plus the three replay tests equal the original inventory, subject only to declared exclusions**. Merely shrinking B’s expected inventory could conceal a failed migration.
+
+4. **Several corrections are only applied to the new paragraphs.**
+
+   The current document still contains:
+
+   | Location | Remaining contradiction |
+   |---|---|
+   | [Security section](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/implementations-plan/e2e-lanes/plan.md:275) | “Every deploy path” and “the artifact is clean.” |
+   | [Fact 4](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/implementations-plan/e2e-lanes/plan.md:301) | A misspelled mode “cannot ship today.” |
+   | [Fact 11](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/implementations-plan/e2e-lanes/plan.md:319) | Old scaled 4.6/8.6/13/36-minute projection alongside the new measured projection. |
+   | [Sharding rationale](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/implementations-plan/e2e-lanes/plan.md:113) | Slowest local test still stated as 2.6 minutes. |
+   | [Proverless overview](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/implementations-plan/e2e-lanes/plan.md:122) | “Removes only the claim transaction proof.” |
+   | [Inference 2](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/implementations-plan/e2e-lanes/plan.md:331) | Wallet/PXE opening still offered as an obstacle to these signed-out replay tests. |
+
+   Rewrite these rather than appending another correction beneath them.
+
+The revised baseline arithmetic, withdrawal of the percentage estimate, twelve-transaction minimum, narrower deployment scope, dispatch-based measurement and revised arc dependencies otherwise hold. The combined-system rerun is also correctly added.
+
+reject (with blocking findings: P1 still misattributes non-proving work and omits transaction types required by P5; P0 must bind its HTTPS-only check to the consumed endpoint configuration; P3 needs observable polling and preserved combined coverage; contradictory operative claims remain)
+
+---
+
+# On the fourth read's corrections — auditr6
+
+The substantive blockers are resolved in `ba61943`. **Confidence: high** from source inspection; replay and measurement still need their planned execution gates.
+
+Two small acceptance requirements remain:
+
+1. **P1 must reject missing proof evidence, not count it as zero.**
+
+   The SDK emits the proposed event, and its browser logger uses the console. However, a broken collector or suppressed logging could produce zero measured proving time; the delayed-submission check would still pass because zero remains unchanged.
+
+   Require valid, positive-duration events for the proofs each relevant test necessarily completes—including the reverted claim and both withdrawals. Missing or malformed evidence must fail measurement. Read structured console arguments rather than assuming `ConsoleMessage.text()` contains serialized event fields. Keep legitimate zero-proof tests distinct.
+
+   This closes the remaining “green report, no evidence” path without changing the proposed instrument.
+
+2. **P0 must actually run the miner’s endpoint tests.**
+
+   Its gate still names only `bun test packages/site`, while the consumed-endpoint tests live in [presto.bun.test.ts](/home/homelab/Projects/elixir/.claude/worktrees/e2e-lanes/packages/web-miner/tests/presto.bun.test.ts:19). Add that file and the mutation check to P0’s required commands.
+
+   Also, the existing endpoint assertion compares against the imported `PRESTO_DEFAULT`; that assertion alone does not independently establish `httpsOnly: true`. The following exact-URL allowlist test supplies stronger evidence. Preserve it and explicitly assert the consumed endpoint’s HTTPS-only property.
+
+The other corrections hold: production-only artifact checks, the observed second poll, combined inventory preservation, corrected timing attribution, and delivery dependencies are sufficiently specified for implementation. No further architectural change is needed.
+
+Minor editorial leftovers remain: the historical paragraph still says **2.6 minutes**, an older ledger row still says **every deploy path**, and the document says **five phases** despite P0–P5. These are cleanup, not reasons to restart planning.
+
+conditional approve (with conditions: P1 fails on missing or malformed expected browser proof events; P0 explicitly runs the consumed-endpoint tests and mutation check)

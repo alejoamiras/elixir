@@ -35,3 +35,15 @@ node has always installed `TestCircuitVerifier`, which answers valid to everythi
 One of its findings was itself wrong, and the third pass caught it: it reported `packages/web-miner/e2e` as
 untypechecked from `tsconfig.tests.json`, but the root `tsconfig.json` includes `packages/*/e2e` and
 `miner-core.yml` runs it on every pull request.
+
+---
+
+# The fourth read
+
+A different reviewer (Fable 5.1), checking the third version against the last green CI run rather than the
+plan's prose. Verdict: **conditional approve**. Its corrections — the 26.5-minute baseline with its small fixed
+cost, the softening of the `YACANA_SITE_MODE` finding against `assemble.ts`'s guard, P0's forbidden list, a
+numeric rule for proverless, a spike and a named running cost for the replay lane, two asks answered — were
+then sent through codex, which rejected them twice and approved on the third round. The most instructive
+rejection: the read had cited the run log's proof durations as the browser's, and they were the deployer's and
+the burst miner's. Its own estimate was withdrawn and replaced by a measurement.

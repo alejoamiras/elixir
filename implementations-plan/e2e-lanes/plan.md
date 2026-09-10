@@ -5,7 +5,7 @@ driver: claude-code
 tier: mid
 eli5_mode: artifact
 code_review: off
-status: fourth read's corrections reviewed by codex and folded in; awaiting the owner
+status: approved by codex with two conditions, both folded in; awaiting the owner
 ```
 
 ## What this is
@@ -60,9 +60,9 @@ Recorded because the corrections are the plan.
   not. Nothing to add.
 - **Timeouts are not durations, and I made that mistake twice.** After correcting it for `BOOT_MS` I still
   called the lost-race spec a thirty-minute test and the switch spec a twenty-minute one. Those are
-  `test.setTimeout` values. The measured durations from the last green run are: lost race 2.6 min, withdraw
-  1.9 min, node-away 1.7 min, first visit 1.5 min, power changes 1.4 min, switch 53 s. The suite's sixteen local
-  minutes are spread more evenly than the timeouts suggest, which weakens the case for pinning specs to their
+  `test.setTimeout` values. The measured durations from the last green run are: lost race 2.0 min, withdraw
+  1.9 min, node-away 1.7 min, first visit 1.5 min, power changes 1.4 min, passkey 60 s, switch 53 s. The suite's
+  sixteen local minutes are spread more evenly than the timeouts suggest, which weakens the case for pinning specs to their
   own jobs and strengthens the case for measuring before sharding at all.
 
 ## What a fourth read corrected
@@ -130,8 +130,8 @@ it. It also genuinely reduces what the suite proves, so it gets its own decision
 
 ## Phases
 
-Five phases. Two of them — the flag hygiene and the measurement — depend on nothing and can land in either
-order; the rest follow the measurement. The last is conditional and may never be built.
+Six phases, P0 to P5. Two of them — the flag hygiene and the measurement — depend on nothing and can land in
+either order; the rest follow the measurement. The last is conditional and may never be built.
 
 **P0 · Flag hygiene, independent of everything else.** Validate `YACANA_SITE_MODE` against its three literals and
 throw otherwise — an early, clear failure where today `assemble.ts` catches the same mistake later with a less
@@ -153,8 +153,10 @@ literals and the config — not that it is clean in general; a URL built from pi
 contain either literal, which is why the resolved config is checked alongside the strings. Normalise `out` inside `assemble()` rather than trusting callers to pass the
 canonical path. `packages/web-miner`'s own `build` is on no deploy path; note that in its script rather than
 guarding it.
-Gate: `bun run lint` · `bun test packages/site`, including a test that writes a loopback origin into the
-inspected output and requires assembly to fail, an invalid mode refused, a `YACANA_SITE_MODE=e2e` assembly into
+Gate: `bun run lint` · `bun test packages/site` · `bun test packages/web-miner/tests/presto.bun.test.ts`, which
+holds the consumed-endpoint checks — extended so that the production-input case asserts `httpsOnly: true` on the
+endpoint itself rather than equality with an imported default, plus the mutation test above · in the site
+suite, a test that writes a loopback origin into the inspected output and requires assembly to fail, an invalid mode refused, a `YACANA_SITE_MODE=e2e` assembly into
 the production directory still refused, a missing `_headers` or `build.json` failing, and the intended e2e
 output still allowed · `bun run site:build` clean.
 Layers: lint · unit.
@@ -172,8 +174,13 @@ proving specifically — **browser** proving, from the `client-ivc-proof-generat
 off the page's console, summed per spec and kept apart from the deployer's and the burst miner's native proofs
 (which are what the run logs show today) and from the surrounding sync, submission and inclusion time, which
 are reported as their own lines — because P5's decision rule rests on that number and no other phase collects
-it. One validation is built in: a run with `aztec_sendTx` deliberately delayed must show submission time rising
-while measured proving time stays put, or the instrument is measuring the wrong thing. Pass
+it. Two validations are built in. A run with `aztec_sendTx` deliberately delayed must show submission time rising
+while measured proving time stays put, or the instrument is measuring the wrong thing. And **absence of
+evidence fails the measurement**: every test that necessarily completes a browser proof — each claim, the
+lost-race spec's reverted claim, the withdraw spec's two transfers — must yield that many well-formed events
+with positive durations, read from the console message's structured arguments rather than its text, or the
+report is rejected rather than recording zero; tests that legitimately prove nothing are listed as such so a
+silent collector cannot hide among them. Pass
 criterion: the breakdown exists, reconciles to within a stated margin of the job clock, and answers "is the claim
 transaction proof the bulk?" in one sentence with a number behind it. No optimisation ships here.
 Layers: lint · e2e · CI.
@@ -387,7 +394,7 @@ lane; two booleans deliver the rig saving.
 | P5's artifact check "in assemble.ts" | third review | **Specified**: after assembly, over emitted chunks and headers |
 | The proverless canary as "a negative case" | third review | **Specified**: real-proving build, fault injected at the claim boundary, other causes excluded |
 | "Forty minutes in CI" | fourth read | **Corrected** to the measured 26.5, with a small fixed cost; the sharding maths flips |
-| "One variable opens the front door" | fourth read | **Softened**: `assemble.ts` already refuses it on every deploy path; P0 is early failure, not a closed hole |
+| "One variable opens the front door" | fourth read | **Softened**: `assemble.ts` already refuses it on the supported routes; P0 is early failure, not a closed hole |
 | P0's "forbidden content" | fourth read | **Defined**: loopback origins in `dist/**/*.js` and `_headers`; a non-production `build.json` |
 | Proverless as an open ask | fourth read | **A rule**: built only above 30% of test time; the estimate withdrawn — the logged proofs were not the browser's |
 | P3 straight into arc C | fourth read | **A spike first**, timeboxed; the maintenance cost named |
@@ -401,6 +408,8 @@ lane; two booleans deliver the rig saving.
 | P0 asserting an HTTPS-only "field" | codex, round 2 | **Bound to the consumed endpoint**: `prestoEndpointFor` under production inputs, plus a mutation test |
 | P3 "wait past the poll" | codex, round 2 | **Observe a completed poll**; and the inventory invariant spans both suites |
 | Six passages the corrections had not reached | codex, round 2 | **Rewritten in place** |
+| A collector that records zero proving | codex, round 3 | **Fails the measurement**: expected proofs must yield positive-duration events |
+| P0's gate naming only the site suite | codex, round 3 | **Runs the miner's endpoint tests** and asserts `httpsOnly` on the consumed endpoint |
 
 ## Delivery
 
@@ -445,10 +454,13 @@ green and before `gh stack add` opens the next:
 ELI5 companion: `implementations-plan/e2e-lanes/eli5.html`, published as the Artifact **Faster Miner Tests**:
 https://claude.ai/code/artifact/373de523-aadb-4cb3-9da9-354a97d20e8e
 
-Audit trail: `audit-codex.md` (two passes, plus the review of the fourth read's corrections) and
-`audit-fable.md` (the first-draft audit, and the fourth read). Three rejections on the first two versions; the
-fourth read, by a different reviewer against the last green CI run, gave a conditional approve whose conditions
-are folded into this version.
+Audit trail: `audit-codex.md` (two passes on the early versions, then three rounds on the fourth read's
+corrections) and `audit-fable.md` (the first-draft audit, and the fourth read). Three rejections on the first two
+versions; the fourth read, by a different reviewer against the last green CI run, gave a conditional approve;
+codex then rejected that read's corrections twice — once for citing the deployer's proofs as the browser's, once
+for a measurement interval that spanned more than proving — and on the third round returned
+**conditional approve (with conditions: P1 fails on missing or malformed expected browser proof events; P0
+explicitly runs the consumed-endpoint tests and mutation check)**. Both conditions are in this version.
 
 ## Seeds
 
