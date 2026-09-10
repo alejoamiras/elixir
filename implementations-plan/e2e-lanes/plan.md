@@ -137,7 +137,7 @@ it. It also genuinely reduces what the suite proves, so it gets its own decision
 Six phases, P0 to P5. Two of them — the flag hygiene and the measurement — depend on nothing and can land in
 either order; the rest follow the measurement. The last is conditional and may never be built.
 
-**P0 · Flag hygiene, independent of everything else.** Validate `YACANA_SITE_MODE` against its three literals and
+**P0 ✓ · Flag hygiene, independent of everything else.** (2026-09-10, PR #30, `lessons/phase-0.md`.) Validate `YACANA_SITE_MODE` against its three literals and
 throw otherwise — an early, clear failure where today `assemble.ts` catches the same mistake later with a less
 specific one. Decide the fate of the unreachable assertions in `assertProductionConfig`: delete them, or make
 them assertions over an independently constructed config with tests that fail when a guard is removed; either is
