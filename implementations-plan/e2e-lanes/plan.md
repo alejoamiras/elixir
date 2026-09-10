@@ -165,7 +165,7 @@ the production directory still refused, a missing `_headers` or `build.json` fai
 output still allowed · `bun run site:build` clean.
 Layers: lint · unit.
 
-**P1 · Measure, and change nothing else.** The coarse numbers are already known (26.5 min CI, 24.9 in the e2e
+**P1 ✓ · Measure, and change nothing else.** (2026-09-10, `lessons/phase-1.md`: browser proving is **30.3% of test time / 27.3% of the e2e step in CI** (446.8 s of 1472.2 s; the job 30 min 9 s), 29.0% / 26.0% locally; the rig is under 10%; the delayed-`aztec_sendTx` run moved submission by the hold and proving by 0.2 s. The claim proof is not the bulk; it clears P5's bar.) The coarse numbers are already known (26.5 min CI, 24.9 in the e2e
 step; 16.6 min locally, 16.2 in Playwright); this phase produces the fine ones. Time the **whole** run, not just
 `run-setup.ts`: the isolated network starts inside `e2e:agent` before Playwright launches, so instrumenting
 setup alone misses it. Emit a
