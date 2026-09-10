@@ -1,6 +1,14 @@
 import { describe, expect, test } from 'bun:test';
 import { EXPECTED_PROOFS, type ProofMeter, proofShortfall } from '../e2e/proof-inventory.ts';
-import { breakdown, coverageGap, executedTitles, type JsonReport, type SpecRow } from '../e2e/report.ts';
+import {
+  breakdown,
+  coverageGap,
+  executedTitles,
+  type JsonReport,
+  type SpecRow,
+  shardJobMinutes,
+  specRows,
+} from '../e2e/report.ts';
 
 const meter = (m: ProofMeter) => Buffer.from(JSON.stringify(m)).toString('base64');
 const spec = (file: string, title: string, duration: number, m?: ProofMeter) => ({
@@ -119,6 +127,51 @@ describe('the breakdown', () => {
     expect(executed).toEqual(['a', 'b', 'e']);
     expect(coverageGap(executed, ['a', 'b', 'c', 'd'])).toEqual({ missing: ['c', 'd'], unexpected: ['e'] });
     expect(coverageGap(['a'], ['a'])).toEqual({ missing: [], unexpected: [] });
+  });
+
+  test('a retried spec charges every attempt to the run and keeps the last verdict', () => {
+    const attempt = (status: string, duration: number, m: ProofMeter) => ({
+      status,
+      duration,
+      attachments: [{ name: 'proofs.json', body: meter(m) }],
+    });
+    const failed = attempt('failed', 20_000, { proofs: [{ durationMs: 9_000, at: 1 }], sends: [] });
+    const passed = attempt('passed', 10_000, { proofs: [{ durationMs: 8_000, at: 2 }], sends: [] });
+    const [row] = specRows({
+      stats: { startTime: '', duration: 0 },
+      suites: [{ specs: [{ title: 't', file: 'x.e2e.ts', tests: [{ results: [failed, passed] }] }] }],
+    });
+    expect(row).toMatchObject({ status: 'passed', ms: 30_000, proofs: 2, provingMs: 17_000 });
+  });
+
+  test('shard job minutes count only the named, completed shard jobs', () => {
+    const jobs = [
+      {
+        name: 'web-miner · cockpit',
+        status: 'completed',
+        startedAt: '2026-09-10T19:04:30Z',
+        completedAt: '2026-09-10T19:17:40Z',
+      },
+      {
+        name: 'web-miner · chain',
+        status: 'in_progress',
+        startedAt: '2026-09-10T19:04:31Z',
+        completedAt: '0001-01-01T00:00:00Z',
+      },
+      {
+        name: 'web-miner · the whole suite',
+        status: 'in_progress',
+        startedAt: '2026-09-10T19:19:16Z',
+        completedAt: '0001-01-01T00:00:00Z',
+      },
+      {
+        name: 'web-stats on an isolated network',
+        status: 'completed',
+        startedAt: '2026-09-10T19:04:23Z',
+        completedAt: '2026-09-10T19:10:01Z',
+      },
+    ];
+    expect(shardJobMinutes(jobs, ['cockpit', 'chain'])).toEqual([{ name: 'cockpit', minutes: 13 + 10 / 60 }]);
   });
 
   test('outside the isolated runner the outer clock is unknown, not zero', () => {

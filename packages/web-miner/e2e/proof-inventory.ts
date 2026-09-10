@@ -1,10 +1,8 @@
-// The suite's inventory: every spec file, every test title in it, and the minimum number of browser
-// transaction proofs that test completes when it passes. Three things read it: the meter
-// (fixtures.ts) fails a passing test that shows fewer proof events than listed, or a title not
-// listed, so a collector that silently stops seeing events cannot hide behind zeros; the runner
-// (run-suite.ts) requires a shard's executed tests to equal its files' titles, since Playwright
-// says nothing when a shard matches no tests and a skipped test leaves a job green; and a unit test
-// holds the titles to the sources. Keep it free of imports: bun and Playwright's loader both read it.
+// The suite's inventory: each spec file's test titles and the browser transaction proofs a pass
+// necessarily makes. The meter fails a passing test under its floor or off the list; the runner and
+// the merge compare executed titles against it; a unit test holds it to the sources. Titles are the
+// identity, so they must be unique across files (the unit test asserts it). No imports: bun and
+// Playwright's loader both read this file.
 
 export interface ProofEvent {
   /** The prover's own duration for the proof; NaN when the event carried none. */

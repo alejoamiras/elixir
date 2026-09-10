@@ -1,7 +1,5 @@
-// The specs' `test`: Playwright's, with a meter on every page that reads the prover's
-// `client-ivc-proof-generation` events off the console (the structured first argument, not the
-// text) and times each `aztec_sendTx` round trip. The meter is attached to the result as
-// `proofs.json` for report.ts and checked against the inventory when the test passes.
+// The specs' `test`: Playwright's, with the page metered — the prover's proof events and every
+// `aztec_sendTx` — and the meter attached to the result and held to the inventory on a pass.
 // E2E_DELAY_SENDTX_MS holds every submission that long first: proving must not move with it.
 import { test as base, type ConsoleMessage, type Page, type Request } from '@playwright/test';
 import { type ProofMeter, proofShortfall } from './proof-inventory.ts';

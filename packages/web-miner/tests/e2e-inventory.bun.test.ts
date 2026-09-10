@@ -28,6 +28,11 @@ describe('the shard lists and the inventory follow the spec files', () => {
     for (const f of onDisk) expect(Object.keys(INVENTORY[f] ?? {}).sort(), f).toEqual(titlesIn(f).sort());
   });
 
+  test('titles are unique across files: the coverage check and the floors key on them', () => {
+    const titles = Object.values(INVENTORY).flatMap((t) => Object.keys(t));
+    expect(new Set(titles).size).toBe(titles.length);
+  });
+
   test('no spec is narrowed with .only', () => {
     for (const f of onDisk) expect(source(f), f).not.toMatch(/\b(test|describe)\.only\(/);
   });

@@ -79,7 +79,7 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
         closing = closeEpochFromOutside(r).finally(release);
         await held;
       }
-      await route.continue();
+      await route.fallback();
     },
   );
   await expect(page.getByTestId('claim-stepper')).toBeVisible({ timeout: 10 * 60_000 });

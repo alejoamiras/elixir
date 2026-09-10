@@ -11,7 +11,7 @@ import { type RigTimings, TIMINGS_FILE } from './run.ts';
 
 const pkg = resolve(import.meta.dirname, '..');
 export const REPORT_FILE = resolve(pkg, 'e2e/.report.json');
-const BREAKDOWN_FILE = resolve(pkg, 'e2e/.breakdown.json');
+export const BREAKDOWN_FILE = resolve(pkg, 'e2e/.breakdown.json');
 
 interface JsonAttachment {
   name: string;
@@ -56,29 +56,30 @@ export interface Clocks {
   playwrightMs: number;
 }
 
+const sum = (xs: number[]) => xs.reduce((n, x) => n + x, 0);
 const specsOf = (s: JsonSuite): JsonSpec[] => [...(s.specs ?? []), ...(s.suites ?? []).flatMap(specsOf)];
 
-const meterOf = (result: JsonResult | undefined): ProofMeter => {
-  const body = result?.attachments.find((a) => a.name === 'proofs.json')?.body;
+const meterOf = (result: JsonResult): ProofMeter => {
+  const body = result.attachments.find((a) => a.name === 'proofs.json')?.body;
   return body
     ? (JSON.parse(Buffer.from(body, 'base64').toString('utf8')) as ProofMeter)
     : { proofs: [], sends: [] };
 };
 
-/** One row per spec from its last result (a retry replaces its predecessor). */
+/** One row per spec: the last attempt's status, every attempt's time and proofs (a retry cost the run too). */
 export function specRows(report: JsonReport): SpecRow[] {
   return report.suites.flatMap(specsOf).map((spec) => {
-    const result = spec.tests.at(-1)?.results.at(-1);
-    const meter = meterOf(result);
-    const proofs = meter.proofs.filter(wellFormed);
+    const attempts = spec.tests.flatMap((t) => t.results);
+    const meters = attempts.map(meterOf);
+    const proofs = meters.flatMap((m) => m.proofs).filter(wellFormed);
     return {
       file: spec.file,
       title: spec.title,
-      status: result?.status ?? 'missing',
-      ms: result?.duration ?? 0,
+      status: attempts.at(-1)?.status ?? 'missing',
+      ms: sum(attempts.map((a) => a.duration)),
       proofs: proofs.length,
-      provingMs: proofs.reduce((n, p) => n + p.durationMs, 0),
-      submissionMs: meter.sends.reduce((n, s) => n + (s.endedAt - s.startedAt), 0),
+      provingMs: sum(proofs.map((p) => p.durationMs)),
+      submissionMs: sum(meters.flatMap((m) => m.sends).map((s) => s.endedAt - s.startedAt)),
     };
   });
 }
@@ -98,8 +99,6 @@ export function coverageGap(executed: readonly string[], expected: readonly stri
   };
 }
 
-const sum = (xs: number[]) => xs.reduce((n, x) => n + x, 0);
-
 export function breakdown(report: JsonReport, rig: RigTimings | null, clocks: Clocks) {
   const specs = specRows(report);
   const testsMs = sum(specs.map((r) => r.ms));
@@ -112,9 +111,11 @@ export function breakdown(report: JsonReport, rig: RigTimings | null, clocks: Cl
     rigMs,
     testsMs,
     playwrightRunMs: report.stats.duration,
-    // Playwright's process minus what setup and the tests account for: launch, teardown, the gaps.
+    // Launch, teardown and the gaps between serial tests — and anything inside Playwright that the
+    // rig laps and the test durations fail to attribute; it cannot tell those apart.
     playwrightOverheadMs: clocks.playwrightMs - rigMs - testsMs,
-    // The outer clock minus every part measured: what the instrument did not see.
+    // Zero means the wrapper's three clocks tile the outer one, nothing more: the outer clock stops
+    // at the report, before the isolated network's teardown.
     unattributedMs: clocks.outerMs === null ? null : clocks.outerMs - accounted,
     provingMs,
     submissionMs: sum(specs.map((r) => r.submissionMs)),
@@ -186,23 +187,64 @@ const findBreakdowns = (dir: string): string[] =>
         : [],
   );
 
-/** The shard jobs' wall clock from the Actions API, when a token is at hand; null otherwise. */
-function shardJobMinutes(): { name: string; minutes: number }[] | null {
+/** The budgets the sharding was sized against: the slowest shard job, and the matrix's runner minutes. */
+export const SHARD_BUDGET = { slowestMin: 15, totalMin: 45 };
+
+export interface ActionsJob {
+  name: string;
+  status: string;
+  startedAt: string;
+  completedAt: string;
+}
+
+/**
+ * The named shards' job clocks. Only completed jobs count: the report job asks while it is itself
+ * running, and `gh` prints an unfinished job's end as year 1, which parses.
+ */
+export const shardJobMinutes = (
+  jobs: readonly ActionsJob[],
+  shards: readonly string[],
+): { name: string; minutes: number }[] => {
+  const wanted = new Set(shards.map((s) => `web-miner · ${s}`));
+  return jobs
+    .filter((j) => wanted.has(j.name) && j.status === 'completed')
+    .map((j) => ({
+      name: j.name.replace('web-miner · ', ''),
+      minutes: (Date.parse(j.completedAt) - Date.parse(j.startedAt)) / 60_000,
+    }));
+};
+
+/** The run's jobs from the Actions API, when a token is at hand; null otherwise. */
+function actionsJobs(): ActionsJob[] | null {
   const run = process.env.GITHUB_RUN_ID;
   if (!run || !process.env.GH_TOKEN) return null;
   try {
     const out = execFileSync('gh', ['run', 'view', run, '--json', 'jobs'], { encoding: 'utf8' });
-    const jobs = (JSON.parse(out) as { jobs: { name: string; startedAt: string; completedAt: string }[] })
-      .jobs;
-    return jobs
-      .filter((j) => j.name.startsWith('web-miner · ') && j.completedAt)
-      .map((j) => ({
-        name: j.name,
-        minutes: (Date.parse(j.completedAt) - Date.parse(j.startedAt)) / 60_000,
-      }));
+    return (JSON.parse(out) as { jobs: ActionsJob[] }).jobs;
   } catch {
     return null;
   }
+}
+
+/** The budget line, with a workflow warning when a budget is over: evidence, not a gate. */
+function budgetLine(jobs: { name: string; minutes: number }[]): string {
+  const total = sum(jobs.map((j) => j.minutes));
+  const slowest = Math.max(...jobs.map((j) => j.minutes));
+  const over = [
+    ...(slowest > SHARD_BUDGET.slowestMin
+      ? [`slowest shard ${slowest.toFixed(1)} > ${SHARD_BUDGET.slowestMin} min`]
+      : []),
+    ...(total > SHARD_BUDGET.totalMin
+      ? [`runner minutes ${total.toFixed(1)} > ${SHARD_BUDGET.totalMin}`]
+      : []),
+  ];
+  if (over.length) console.log(`::warning::e2e shards over budget: ${over.join('; ')}`);
+  return (
+    `Runner minutes: **${total.toFixed(1)}** over the shard jobs (budget ${SHARD_BUDGET.totalMin}); ` +
+    `slowest **${slowest.toFixed(1)} min** (budget ${SHARD_BUDGET.slowestMin}): ` +
+    `${jobs.map((j) => `${j.name} ${j.minutes.toFixed(1)}`).join(', ')}.` +
+    (over.length ? ` **Over budget**: ${over.join('; ')}.` : '')
+  );
 }
 
 /** Every shard's breakdown under `dir` as one table; the executed tests must be the whole inventory. */
@@ -214,7 +256,9 @@ export function mergeShards(dir: string): { ok: boolean; text: string } {
   const gap = coverageGap(executedTitles(specs), titlesOf(SPEC_FILES));
   const testsMs = sum(specs.map((r) => r.ms));
   const provingMs = sum(specs.map((r) => r.provingMs));
-  const jobs = shardJobMinutes();
+  const shardNames = shards.map((x) => x.file.match(/web-miner-e2e-([^/]+)\//)?.[1] ?? '');
+  const apiJobs = actionsJobs();
+  const jobs = apiJobs && shardJobMinutes(apiJobs, shardNames);
   const lines = [
     '## e2e · the whole suite',
     '',
@@ -226,11 +270,7 @@ export function mergeShards(dir: string): { ok: boolean; text: string } {
     ),
     '',
     `${shards.length} shard(s), ${specs.length} tests: tests **${s(testsMs)}**, browser proving **${s(provingMs)}** (${pct(provingMs, testsMs)} of test time).`,
-    ...(jobs
-      ? [
-          `Runner minutes: **${sum(jobs.map((j) => j.minutes)).toFixed(1)}** over the shard jobs; slowest **${Math.max(...jobs.map((j) => j.minutes)).toFixed(1)} min** (${jobs.map((j) => `${j.name.replace('web-miner · ', '')} ${j.minutes.toFixed(1)}`).join(', ')}).`,
-        ]
-      : ['Runner minutes: not read (no GH_TOKEN / GITHUB_RUN_ID).']),
+    jobs?.length ? budgetLine(jobs) : 'Runner minutes: not read (no GH_TOKEN / GITHUB_RUN_ID).',
     gap.missing.length || gap.unexpected.length
       ? `**Coverage gap** — not executed: ${gap.missing.map((t) => `"${t}"`).join(', ') || 'none'}; unexpected: ${gap.unexpected.map((t) => `"${t}"`).join(', ') || 'none'}.`
       : `Coverage: every one of the inventory's ${titlesOf(SPEC_FILES).length} tests executed, nothing else.`,
