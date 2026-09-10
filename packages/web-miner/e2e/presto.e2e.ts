@@ -1,6 +1,6 @@
 // The miner against the run's headless Presto (scripts/run/presto.ts): native proving shown and
-// proven, a claim whose winner came from Presto, the billboard when nothing answers, the update row
-// when an old Presto answers — with the 1280/1440 renders of each state.
+// proven, a claim whose winner came from Presto, the billboard when nothing answers — with the
+// 1280/1440 renders of each state. The old Presto's update row is the replay lane's.
 
 import { mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';

@@ -1,4 +1,4 @@
-// `bun run test:replay [playwright args…]`: prebuild, then the replay lane; no node is started.
+// `bun run test:replay [playwright args…]`
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 

@@ -21,6 +21,7 @@ jobs:
           - 'packages/miner-core/src/**'
           # The replay recording is bound to these: a change must re-run the lane, which refuses a stale one.
           - 'packages/miner-core/fixtures/storage-layout.json'
+          - 'packages/miner-core/scripts/**'
           - 'packages/contracts/artifacts/**'
           - 'scripts/run/**'
           - 'packages/site/**'
@@ -58,7 +59,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.relevant == 'true'
     runs-on: ubuntu-latest
-    # No network, no proving: the whole lane is a build, a preview and three short specs.
+    # No Aztec node, no proving: a build, a preview and a few short specs.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -69,12 +70,13 @@ jobs:
       - run: grep -rl dl.google.com /etc/apt/sources.list.d /etc/apt/sources.list 2>/dev/null | xargs -r sudo rm -f
       - run: bunx playwright install --with-deps chromium
       - run: bun run --cwd packages/web-miner test:replay
-      - name: Keep the traces
-        if: failure()
+      - name: Keep the renders and, on a failure, the traces
+        if: always()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: web-miner-replay
           path: |
+            packages/web-miner/e2e/.renders
             packages/web-miner/test-results
             packages/web-miner/e2e/replay/.vite.log
           if-no-files-found: ignore

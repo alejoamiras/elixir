@@ -1,18 +1,47 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
-import { RECORDING_FILE, type Recording } from '../e2e/replay/run.ts';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { RECORDING_FILE, type Recording, type ReplayBinding } from '../e2e/replay/run.ts';
 import { bindingDrift, currentBinding } from '../e2e/replay/setup.ts';
 
-describe('the replay recording is bound to the tree it was taken from', () => {
-  const recording = JSON.parse(readFileSync(RECORDING_FILE, 'utf8')) as Recording;
+const pkg = resolve(import.meta.dir, '..');
+const recording = JSON.parse(readFileSync(RECORDING_FILE, 'utf8')) as Recording;
+const FIELDS = Object.keys(recording.binding) as (keyof ReplayBinding)[];
 
+describe('the replay recording is bound to the tree it was taken from', () => {
   test('the committed recording matches the committed artifacts, layouts and SDK', () => {
+    expect(FIELDS.map(String).sort()).toEqual(
+      ['aztecVersion', 'layoutsSha256', 'minerArtifactSha256', 'tokenArtifactSha256'].sort(),
+    );
     expect(bindingDrift(recording.binding, currentBinding())).toEqual([]);
   });
 
-  test('one moved input names itself, and the lane would refuse the recording', () => {
+  test('each moved input names itself', () => {
     const current = currentBinding();
-    expect(bindingDrift({ ...current, layoutsSha256: 'deadbeef' }, current)).toEqual(['layoutsSha256']);
-    expect(bindingDrift({ ...current, aztecVersion: '5.1.0' }, current)).toEqual(['aztecVersion']);
+    for (const field of FIELDS)
+      expect(bindingDrift({ ...current, [field]: 'moved' }, current)).toEqual([field]);
+  });
+
+  test('serve refuses a stale recording, naming the field, before it builds anything', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'yacana-replay-'));
+    try {
+      const stale = join(dir, 'recording.json');
+      writeFileSync(
+        stale,
+        JSON.stringify({ ...recording, binding: { ...recording.binding, minerArtifactSha256: 'moved' } }),
+      );
+      const r = spawnSync('bun', ['e2e/replay/setup.ts', 'serve'], {
+        cwd: pkg,
+        encoding: 'utf8',
+        env: { ...process.env, YACANA_REPLAY_RECORDING: stale },
+      });
+      expect(r.status).not.toBe(0);
+      expect(r.stderr).toMatch(/taken against other inputs \(minerArtifactSha256\)/);
+      expect(r.stderr).not.toMatch(/vite/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

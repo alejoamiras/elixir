@@ -1,6 +1,4 @@
-// A Vite build and `vite preview` of one app for one run, on a registry-claimed port: the pieces
-// every fixture-only lane shares (the stats screenshot gate, the miner's replay lane), bound to a
-// package directory by the caller.
+// A Vite build and `vite preview` of one app on a registry-claimed port, bound to a package by the caller.
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { lanePortBase, runPortWindowBase } from './port-window.ts';

@@ -1,5 +1,3 @@
-// The signed-out page from the recording: a node that answers nonsense, an old Presto's row, and
-// the public epoch poll reading again from the same recording.
 import { mkdirSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { resolve } from 'node:path';
@@ -18,17 +16,21 @@ async function render(page: Page, name: string): Promise<void> {
   await page.setViewportSize({ width: 1280, height: 720 });
 }
 
-// A node origin of its own, so the garbage never meets the recording's handler.
+// A node origin of its own, apart from the recording's. The page route runs before the fixture's
+// context route and fulfills, so the garbage never reaches the network or the accounting; the
+// count proves the page got it, rather than a refused connection producing the same boot error.
 const NONSENSE_NODE = 'http://127.0.0.1:2';
 
 test('a malformed RPC payload is rejected, not acted on', async ({ page, replay }) => {
-  replay.allow(NONSENSE_NODE);
-  await page.route(`${NONSENSE_NODE}/**`, (route) =>
-    route.fulfill({ json: { jsonrpc: '2.0', id: 1, result: { not: 'a field' } } }),
-  );
+  let answered = 0;
+  await page.route(`${NONSENSE_NODE}/**`, (route) => {
+    answered += 1;
+    return route.fulfill({ json: { jsonrpc: '2.0', id: 1, result: { not: 'a field' } } });
+  });
   await page.goto(replay.url({ node: NONSENSE_NODE }));
   await expect(page.getByTestId('boot-error')).toBeVisible({ timeout: BOOT_MS });
   await expect(page.getByTestId('key-screen')).toHaveCount(0);
+  expect(answered).toBeGreaterThan(0);
 });
 
 /** An old Presto: answers health without the UltraHonk route; the second answer has it. */
@@ -84,13 +86,18 @@ test('the public epoch poll reads again from the recording, and nothing else', a
   await expect(page.getByTestId('cockpit')).toBeVisible({ timeout: BOOT_MS });
   await expect(page.getByTestId('epoch-claims')).toHaveText(/\d+ of \d+/);
   // A poll is five storage reads (the open epoch, its three params, its claims); the next one comes
-  // 30 s after the first. Served twice is a completed second read, not a timer that merely fired.
+  // 30 s after the first. Five more answers delivered is a second read the page received, not a
+  // timer that merely fired; the pause lets the page parse them, since a read that fails is
+  // swallowed into its log rather than thrown, and the log is what is checked.
   const afterFirst = replay.served('aztec_getPublicStorageAt');
   await expect
     .poll(() => replay.served('aztec_getPublicStorageAt'), { timeout: 45_000 })
     .toBeGreaterThanOrEqual(afterFirst + 5);
+  await page.waitForTimeout(2_000);
   await expect(page.getByTestId('epoch-claims')).toHaveText(/\d+ of \d+/);
-  // A read that failed is swallowed into the page's log, never thrown: the log must not hold one.
-  const log = await page.evaluate(() => window.yacana?.log() ?? []);
+  const log = await page.evaluate(() => {
+    if (!window.yacana) throw new Error('the page exposes no e2e hooks');
+    return window.yacana.log();
+  });
   expect(log.filter((l) => l.includes('public epoch:'))).toEqual([]);
 });

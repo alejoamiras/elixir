@@ -60,11 +60,7 @@ export const INVENTORY: Readonly<Record<string, Readonly<Record<string, number>>
 
 export const SPEC_FILES: readonly string[] = Object.keys(INVENTORY);
 
-/**
- * The replay lane's tests (`e2e/replay/*.replay.ts`): the signed-out page against a recording, no
- * node, no account, no proving. The first three left the sharded suite by name; the last exists only
- * here. A unit test holds sharded + moved to the suite's original nineteen.
- */
+/** The replay lane's tests (`e2e/replay/*.replay.ts`); sharded + `MOVED_TO_REPLAY` is the suite's original nineteen. */
 export const REPLAYED: Readonly<Record<string, readonly string[]>> = {
   'dialog-geometry.replay.ts': ['the sign-in screens and their error state fit the dialog at 720 px tall'],
   'signed-out.replay.ts': [

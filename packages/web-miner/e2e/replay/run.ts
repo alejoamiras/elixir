@@ -37,7 +37,9 @@ export interface ReplayRun {
 }
 
 export const REPLAY_RUN_FILE = new URL('./.run.json', import.meta.url).pathname;
-export const RECORDING_FILE = new URL('./recording.json', import.meta.url).pathname;
+/** The committed recording; `YACANA_REPLAY_RECORDING` points a test at another one. */
+export const RECORDING_FILE =
+  process.env.YACANA_REPLAY_RECORDING ?? new URL('./recording.json', import.meta.url).pathname;
 
 export const rpcKey = (c: { method: string; params?: unknown[] }): string =>
   `${c.method} ${JSON.stringify(c.params ?? [])}`;

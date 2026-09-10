@@ -1,12 +1,6 @@
 // The replay lane's fixture-only build and server, and the one-off recording it replays.
-//   bun run e2e:agent -- bun e2e/replay/setup.ts record   # deploys on the isolated network, drives the
-//                                                         # signed-out page once, keeps every JSON-RPC
-//                                                         # answer in recording.json with the deployment
-//                                                         # and what it is bound to
-//   bun e2e/replay/setup.ts serve                         # builds e2e/replay/.dist for the recorded
-//                                                         # deployment (refused when a bound input moved)
-//                                                         # and serves it; no node is involved
-//   bun e2e/replay/setup.ts teardown
+//   bun run e2e:agent -- bun packages/web-miner/e2e/replay/setup.ts record   # on the isolated network
+//   bun e2e/replay/setup.ts serve|teardown                                    # no node involved
 import type { ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -60,7 +54,6 @@ export function currentBinding(): ReplayBinding {
   };
 }
 
-/** The keys whose values differ between the recording's binding and the tree's. */
 export const bindingDrift = (recorded: ReplayBinding, current: ReplayBinding): string[] =>
   (Object.keys(current) as (keyof ReplayBinding)[]).filter((k) => recorded[k] !== current[k]);
 
@@ -195,7 +188,7 @@ if (command === 'record') {
   if (drift.length)
     throw new Error(
       `e2e/replay/recording.json was taken against other inputs (${drift.join(', ')}): re-record with ` +
-        '`bun run e2e:agent -- bun e2e/replay/setup.ts record`',
+        '`bun run e2e:agent -- bun packages/web-miner/e2e/replay/setup.ts record`',
     );
   const run = await serve(recording.deployment, Number(process.env.E2E_OWNER_PID ?? process.ppid));
   console.log(`replay: ${run.baseURL} (recorded ${recording.recordedAt})`);
