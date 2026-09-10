@@ -452,7 +452,7 @@ green and before `gh stack add` opens the next:
 ## Approval
 
 ELI5 companion: `implementations-plan/e2e-lanes/eli5.html`, published as the Artifact **Faster Miner Tests**:
-https://claude.ai/code/artifact/373de523-aadb-4cb3-9da9-354a97d20e8e
+https://claude.ai/code/artifact/bb5030c3-30d5-426c-afa4-8af0a3642e3b
 
 Audit trail: `audit-codex.md` (two passes on the early versions, then three rounds on the fourth read's
 corrections) and `audit-fable.md` (the first-draft audit, and the fourth read). Three rejections on the first two
