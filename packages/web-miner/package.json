@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test:components": "vitest run",
     "test:e2e": "bun e2e/run-suite.ts",
+    "test:replay": "bun e2e/replay/lane.ts",
     "typecheck": "tsc -b"
   },
   "dependencies": {

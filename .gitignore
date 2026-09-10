@@ -22,6 +22,9 @@ packages/web-miner/e2e/.renders/
 packages/web-miner/e2e/.report.json
 packages/web-miner/e2e/.timings.json
 packages/web-miner/e2e/.breakdown.json
+packages/web-miner/e2e/replay/.run.json
+packages/web-miner/e2e/replay/.dist/
+packages/web-miner/e2e/replay/.vite.log
 packages/web-miner/playwright-report/
 deployments/.launch-*.json
 

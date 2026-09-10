@@ -50,7 +50,7 @@ describe('the proof inventory', () => {
   test('what is expected passes, more than expected passes, and a zero entry passes on nothing', () => {
     expect(proofShortfall('a poisoned CRS cache is purged before proving', one)).toBeNull();
     expect(
-      proofShortfall('a malformed RPC payload is rejected, not acted on', {
+      proofShortfall('the pop-out draws with the page fonts and its own loop', {
         proofs: [
           one.proofs[0] as ProofMeter['proofs'][number],
           one.proofs[0] as ProofMeter['proofs'][number],
@@ -58,7 +58,7 @@ describe('the proof inventory', () => {
         sends: [],
       }),
     ).toBeNull();
-    expect(proofShortfall('a malformed RPC payload is rejected, not acted on', none)).toBeNull();
+    expect(proofShortfall('the pop-out draws with the page fonts and its own loop', none)).toBeNull();
     expect(Object.values(EXPECTED_PROOFS).filter((n) => n > 0).length).toBeGreaterThanOrEqual(6);
   });
 });

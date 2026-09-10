@@ -8,6 +8,7 @@ declare global {
   interface Window {
     yacana?: {
       crashProver(): void;
+      log(): string[];
       session: { publicBalance(owner: string): Promise<bigint> };
       controller():
         | {

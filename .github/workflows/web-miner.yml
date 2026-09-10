@@ -19,6 +19,11 @@ jobs:
           - 'packages/web-miner/**'
           - '!packages/web-miner/**/*.md'
           - 'packages/miner-core/src/**'
+          # The replay recording is bound to these: a change must re-run the lane, which refuses a stale one.
+          - 'packages/miner-core/fixtures/storage-layout.json'
+          - 'packages/miner-core/scripts/**'
+          - 'packages/contracts/artifacts/**'
+          - 'scripts/run/**'
           - 'packages/site/**'
           - 'packages/ui/**'
           - 'yacana.params.json'
@@ -48,3 +53,32 @@ jobs:
       - run: bun test packages/web-miner
       # The pinned CRS must still be what the CDN serves.
       - run: bun packages/site/scripts/fetch-crs.ts packages/web-miner/public
+
+  replay:
+    name: Signed-out page against the recording
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
+    runs-on: ubuntu-latest
+    # No Aztec node, no proving: a build, a preview and a few short specs.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup-bun
+      # The runner image carries Google's Chrome apt source; when that repo is mid-publish its index fails
+      # the `apt-get update` inside --with-deps and the job dies before any test. Chromium comes from
+      # Playwright's own CDN, so the source is not needed here.
+      - run: grep -rl dl.google.com /etc/apt/sources.list.d /etc/apt/sources.list 2>/dev/null | xargs -r sudo rm -f
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run --cwd packages/web-miner test:replay
+      - name: Keep the renders and, on a failure, the traces
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: web-miner-replay
+          path: |
+            packages/web-miner/e2e/.renders
+            packages/web-miner/test-results
+            packages/web-miner/e2e/replay/.vite.log
+          if-no-files-found: ignore
+          include-hidden-files: true
+          retention-days: 14

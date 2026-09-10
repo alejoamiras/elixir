@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { INVENTORY, SPEC_FILES } from '../e2e/proof-inventory.ts';
+import { INVENTORY, MOVED_TO_REPLAY, REPLAYED, SPEC_FILES } from '../e2e/proof-inventory.ts';
 
 const e2e = resolve(import.meta.dir, '../e2e');
 const onDisk = readdirSync(e2e)
@@ -34,6 +34,30 @@ describe('the shard lists and the inventory follow the spec files', () => {
   });
 
   test('no spec is narrowed with .only', () => {
-    for (const f of onDisk) expect(source(f), f).not.toMatch(/\b(test|describe)\.only\(/);
+    for (const f of [...onDisk, ...replayOnDisk.map((f) => `replay/${f}`)])
+      expect(source(f), f).not.toMatch(/\b(test|describe)\.only\(/);
+  });
+});
+
+const replayOnDisk = readdirSync(resolve(e2e, 'replay'))
+  .filter((f) => f.endsWith('.replay.ts'))
+  .sort();
+
+describe('the replay lane took exactly the tests it was given', () => {
+  test('its files and titles are the declared ones', () => {
+    expect(Object.keys(REPLAYED).sort()).toEqual(replayOnDisk);
+    for (const f of replayOnDisk)
+      expect([...(REPLAYED[f] ?? [])].sort(), f).toEqual(titlesIn(`replay/${f}`).sort());
+  });
+
+  test('the sharded suite plus the moved tests are the original nineteen, the moved ones by name', () => {
+    const sharded = Object.values(INVENTORY).flatMap((t) => Object.keys(t));
+    const replayed = Object.values(REPLAYED).flat();
+    for (const title of MOVED_TO_REPLAY) {
+      expect(sharded, title).not.toContain(title);
+      expect(replayed, title).toContain(title);
+    }
+    expect(sharded.length + MOVED_TO_REPLAY.length).toBe(19);
+    expect(new Set([...sharded, ...replayed]).size).toBe(sharded.length + replayed.length);
   });
 });

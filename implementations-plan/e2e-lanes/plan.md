@@ -202,7 +202,7 @@ minutes stay under **45** — both set from the measured baseline (26.5 min on o
 loosened, if P1's finer numbers allow.
 Layers: lint · unit · e2e · CI.
 
-**P3 · A record-and-replay lane, on pull requests.** Clone the stats visual lane's shape for the miner. Scope it
+**P3 ✓ · A record-and-replay lane, on pull requests.** (2026-09-10, `lessons/phase-3.md`: the spike passed inside the box and the lane is built on `e2e-lanes-replay`; four tests in ~42 s locally with no node, the `replay` job green in CI in under two minutes, the stats lane still green, the binding mutation refused by name, codex converged in three rounds.) Clone the stats visual lane's shape for the miner. Scope it
 honestly: the three tests that never open an account — dialog geometry, the malformed-RPC rejection, and the
 old-Presto notice. The pop-out and missing-passkey tests call `bootPage()`, which opens an account and a PXE, so
 they are not candidates.

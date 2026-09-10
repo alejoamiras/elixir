@@ -194,17 +194,6 @@ test('a poisoned CRS cache is purged before proving', async ({ page }) => {
   await page.getByTestId('stop').click();
 });
 
-// The page is pointed at a mock origin (allowlisted by the e2e build) that answers nonsense.
-test('a malformed RPC payload is rejected, not acted on', async ({ page }) => {
-  const r = run();
-  await page.route('http://127.0.0.1:1/**', (route) =>
-    route.fulfill({ json: { jsonrpc: '2.0', id: 1, result: { not: 'a field' } } }),
-  );
-  await page.goto(pageUrl(r, { node: 'http://127.0.0.1:1' }));
-  await expect(page.getByTestId('boot-error')).toBeVisible({ timeout: BOOT_MS });
-  await expect(page.getByTestId('key-screen')).toHaveCount(0);
-});
-
 // Power changes rebuild bb.js in place; the job resumes at its next nonce. The process tree must
 // not keep the old backends: growth above 300 MiB over three rebuilds means a leak (then the
 // fallback is a Worker respawn per change).
