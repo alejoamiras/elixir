@@ -63,8 +63,20 @@ function buildApp(name: string, base: string, outDir: string, env: NodeJS.Proces
   });
 }
 
-export async function assemble(outDir: string, env: NodeJS.ProcessEnv = process.env): Promise<BuildRecord> {
-  // Resolved here, not trusted from the caller: the production check below compares paths.
+/** The minutes-long steps of an assembly, replaceable so a test can drive the rest in milliseconds. */
+export interface AssemblySteps {
+  buildApp: typeof buildApp;
+  fetchCrs: typeof fetchCrs;
+  copyArtifacts: typeof copyArtifacts;
+  copySlots: typeof copySlots;
+}
+const STEPS: AssemblySteps = { buildApp, fetchCrs, copyArtifacts, copySlots };
+
+export async function assemble(
+  outDir: string,
+  env: NodeJS.ProcessEnv = process.env,
+  steps: AssemblySteps = STEPS,
+): Promise<BuildRecord> {
   const out = resolve(outDir);
   // The config is loaded once here so a production build fails before any app is built.
   const config = siteConfig('build', env);
@@ -73,10 +85,10 @@ export async function assemble(outDir: string, env: NodeJS.ProcessEnv = process.
     throw new Error(`a ${config.mode} build may not land in ${out}: production builds only`);
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
-  for (const app of APPS) buildApp(app.name, app.base, resolve(out, app.base.slice(1)), env);
-  await fetchCrs(out);
-  await copyArtifacts(out);
-  console.log(await copySlots(out));
+  for (const app of APPS) steps.buildApp(app.name, app.base, resolve(out, app.base.slice(1)), env);
+  await steps.fetchCrs(out);
+  await steps.copyArtifacts(out);
+  console.log(await steps.copySlots(out));
   cpSync(resolve(repo, 'packages/web-landing/public/og.png'), resolve(out, 'og.png'));
   writeFileSync(
     resolve(out, '_headers'),
@@ -85,7 +97,6 @@ export async function assemble(outDir: string, env: NodeJS.ProcessEnv = process.
   writeFileSync(resolve(out, '_redirects'), `${REDIRECTS.join('\n')}\n`);
   const record = buildRecord(config);
   writeFileSync(resolve(out, 'build.json'), `${JSON.stringify(record, null, 2)}\n`);
-  // The emitted files, not the config: the last look before anything is deployed.
   if (config.mode === 'production') assertProductionArtifact(out, config);
   return record;
 }

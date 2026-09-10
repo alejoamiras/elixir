@@ -40,7 +40,7 @@ const sourceCommit = (env: NodeJS.ProcessEnv): string =>
     env.GITHUB_SHA ??
     execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim());
 
-/** Loads the config for the build at hand; `YACANA_SITE_MODE` picks e2e, otherwise the Vite command decides. */
+/** Loads the config for the build at hand; an explicit `YACANA_SITE_MODE` overrides the command's default. */
 export function siteConfig(command: 'build' | 'serve', env: NodeJS.ProcessEnv = process.env): SiteConfig {
   const mode = siteModeFrom(env.YACANA_SITE_MODE, command === 'serve' ? 'dev' : 'production');
   const profile = env.YACANA_PROFILE ?? 'testnet';

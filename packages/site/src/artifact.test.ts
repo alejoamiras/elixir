@@ -2,12 +2,11 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { assertProductionArtifact } from './artifact.ts';
+import { assertProductionArtifact, plaintextLoopback } from './artifact.ts';
 import { renderHeaders } from './headers.ts';
 
 const production = { mode: 'production', queryOverrides: false, prestoE2ePort: '' } as const;
 
-/** The smallest assembly that passes: a record, a header map, one nested app with a script and its own headers. */
 function assembly(): string {
   const out = mkdtempSync(join(tmpdir(), 'yacana-artifact-'));
   const headers = renderHeaders({ mode: 'production' });
@@ -30,19 +29,42 @@ afterEach(() => {
   for (const out of made.splice(0)) rmSync(out, { recursive: true, force: true });
 });
 
+describe('plaintextLoopback', () => {
+  test('finds a loopback URL in any case or spelling, and ignores https and other hosts', () => {
+    for (const bad of [
+      'http://127.0.0.1:24567/rpc',
+      'HTTP://LOCALHOST:1/health',
+      'http://[::1]:1',
+      'http://127.0.0.2:1',
+      'http://127.1:1',
+      'x="http://localhost"',
+    ])
+      expect(plaintextLoopback(bad), bad).not.toBeNull();
+    for (const fine of [
+      'https://127.0.0.1:59834/health',
+      'https://localhost/x',
+      'http://node.example/rpc',
+      'http://10.0.0.1/x',
+      'localhost',
+      'the string http:// alone',
+    ])
+      expect(plaintextLoopback(fine), fine).toBeNull();
+  });
+});
+
 describe('the production artifact contract', () => {
   test('a clean assembly passes', () => {
     expect(() => assertProductionArtifact(fresh(), production)).not.toThrow();
   });
 
-  test('a script naming a plaintext loopback origin fails, wherever it sits', () => {
+  test('a script naming a plaintext loopback origin fails, wherever it sits and however spelled', () => {
     const out = fresh();
     writeFileSync(join(out, 'mine/assets/worker-def.js'), 'const node="http://127.0.0.1:24567/rpc"');
     expect(() => assertProductionArtifact(out, production)).toThrow(
       /worker-def\.js names a plaintext loopback/,
     );
     writeFileSync(join(out, 'mine/assets/worker-def.js'), 'x');
-    writeFileSync(join(out, 'mine/assets/index-abc.js'), 'presto("http://localhost:59833/health")');
+    writeFileSync(join(out, 'mine/assets/index-abc.js'), 'presto("HTTP://[::1]:59833/health")');
     expect(() => assertProductionArtifact(out, production)).toThrow(
       /index-abc\.js names a plaintext loopback/,
     );
@@ -54,6 +76,14 @@ describe('the production artifact contract', () => {
     expect(() => assertProductionArtifact(out, production)).toThrow(
       /mine\/_headers is not the production header map/,
     );
+  });
+
+  test('the root _headers is required; a nested copy does not stand in for it', () => {
+    const out = fresh();
+    rmSync(join(out, '_headers'));
+    expect(() => assertProductionArtifact(out, production)).toThrow(/no root _headers/);
+    writeFileSync(join(out, 'backup_headers'), 'not a policy file');
+    expect(() => assertProductionArtifact(out, production)).toThrow(/no root _headers/);
   });
 
   test('missing or wrong pieces fail rather than pass by absence', () => {
@@ -68,11 +98,6 @@ describe('the production artifact contract', () => {
     const e2eRecord = fresh();
     writeFileSync(join(e2eRecord, 'build.json'), JSON.stringify({ mode: 'e2e' }));
     expect(() => assertProductionArtifact(e2eRecord, production)).toThrow(/reports mode "e2e"/);
-
-    const noHeaders = fresh();
-    rmSync(join(noHeaders, '_headers'));
-    rmSync(join(noHeaders, 'mine/_headers'));
-    expect(() => assertProductionArtifact(noHeaders, production)).toThrow(/no _headers/);
 
     const noScripts = fresh();
     rmSync(join(noScripts, 'mine/assets'), { recursive: true });

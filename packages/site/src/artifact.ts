@@ -1,13 +1,7 @@
-// What a production assembly must look like, checked over the files it emitted rather than the
-// config that was meant to produce them. Assembly is the last step every supported deploy takes, so
-// a contaminated build that got past the config is stopped here or not at all.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { basename, join, relative } from 'node:path';
 import type { SiteConfig } from './config.ts';
 import { renderHeaders } from './headers.ts';
-
-/** The e2e lane's node and Presto speak plaintext on loopback; nothing that ships may name either. */
-const PLAINTEXT_LOOPBACK = /http:\/\/(127\.0\.0\.1|localhost)\b/;
 
 export class ArtifactError extends Error {}
 
@@ -17,6 +11,26 @@ const walk = (dir: string): string[] =>
   readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
     e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)],
   );
+
+/** Anything that resolves to this machine: `localhost`, all of 127/8 (`127.1` included, once parsed), `::1`. */
+const isLoopback = (hostname: string): boolean =>
+  hostname === 'localhost' || hostname === '[::1]' || /^127\.\d+\.\d+\.\d+$/.test(hostname);
+
+const URL_LITERAL = /https?:\/\/[^\s"'`<>)\\]+/gi;
+
+/** A plaintext URL to a loopback host in `text`, in whatever case and spelling, or null. */
+export function plaintextLoopback(text: string): string | null {
+  for (const candidate of text.match(URL_LITERAL) ?? []) {
+    let url: URL;
+    try {
+      url = new URL(candidate);
+    } catch {
+      continue;
+    }
+    if (url.protocol === 'http:' && isLoopback(url.hostname)) return candidate;
+  }
+  return null;
+}
 
 function checkRecord(out: string, fail: Fail): void {
   const record = join(out, 'build.json');
@@ -30,29 +44,28 @@ function checkRecord(out: string, fail: Fail): void {
   if (mode !== 'production') fail(`build.json reports mode ${JSON.stringify(mode)}`);
 }
 
-/** Every `_headers` — the root's and each nested app's — is the production map, byte for byte. */
 function checkHeaders(out: string, files: string[], fail: Fail): void {
-  const headers = files.filter((f) => f.endsWith('_headers'));
-  if (headers.length === 0) fail('no _headers');
+  // Cloudflare applies the root file to every path; a nested app's copy is documentation, not policy.
+  if (!existsSync(join(out, '_headers'))) fail('no root _headers');
   const production = renderHeaders({ mode: 'production' });
-  for (const h of headers)
+  for (const h of files.filter((f) => basename(f) === '_headers'))
     if (readFileSync(h, 'utf8') !== production) fail(`${relative(out, h)} is not the production header map`);
 }
 
 function checkScripts(out: string, files: string[], fail: Fail): void {
   const scripts = files.filter((f) => /\.m?js$/.test(f));
   if (scripts.length === 0) fail('no scripts');
-  for (const s of scripts)
-    if (PLAINTEXT_LOOPBACK.test(readFileSync(s, 'utf8')))
-      fail(`${relative(out, s)} names a plaintext loopback origin`);
+  for (const s of scripts) {
+    const hit = plaintextLoopback(readFileSync(s, 'utf8'));
+    if (hit) fail(`${relative(out, s)} names a plaintext loopback origin (${hit})`);
+  }
 }
 
 /**
- * Throws unless `out` holds a production assembly: a `build.json` that says so, every `_headers` equal
- * to the production header map (no local `connect-src`), and no script naming a plaintext loopback
- * origin. Missing or unreadable pieces fail. This finds the contamination an e2e build would leave —
- * the literals and the mode — not every way a bundle could misbehave; a URL assembled from parts at
- * runtime contains neither literal, which is why the resolved config is refused alongside.
+ * Throws unless `out` holds a production assembly: `build.json` says so, the root `_headers` exists
+ * and every `_headers` is the production map, and no script names a plaintext loopback URL. This
+ * catches what an e2e build leaves behind; a URL assembled from parts at runtime carries no literal
+ * to find, which is why the resolved config is refused alongside.
  */
 export function assertProductionArtifact(
   out: string,

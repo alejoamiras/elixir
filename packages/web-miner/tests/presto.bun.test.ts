@@ -34,11 +34,9 @@ describe('the endpoint per mode', () => {
   });
 
   test('a production build reaches Presto over HTTPS only, and httpsOnly is what makes it so', () => {
-    // The endpoint the shipped miner consumes, from production-resolved inputs: no e2e port, no overrides.
     const shipped = prestoEndpointFor({ e2ePort: '', overrides: false }, new URLSearchParams(''));
     expect(shipped?.httpsOnly).toBe(true);
     for (const url of acceleratorUrls(shipped as PrestoEndpoint)) expect(url).toMatch(/^https:\/\//);
-    // The property is load-bearing: the same endpoint with the flag off admits plaintext at once.
     const flipped = acceleratorUrls({ ...(shipped as PrestoEndpoint), httpsOnly: false });
     expect(flipped.some((u) => u.startsWith('http://'))).toBe(true);
   });

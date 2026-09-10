@@ -177,9 +177,8 @@ function assertExampleClaim(c: SiteConfig): void {
 const IP_OR_LOCAL = /^(localhost|127\.\d+\.\d+\.\d+|\[?::1\]?|\d+\.\d+\.\d+\.\d+)$/;
 
 /**
- * What may never reach Cloudflare: a local or plaintext node, a foreign relying party. The e2e hooks
- * (`queryOverrides`, `prestoE2ePort`) are not checked here because production never resolves them —
- * the environment is discarded above — and the emitted artifact is checked for them at assembly.
+ * What may never reach Cloudflare: a local or plaintext node, a foreign relying party. Production
+ * construction disables the e2e hooks; assembly rechecks the resolved values.
  */
 export function assertProductionConfig(c: SiteConfig, siteEnv: Record<string, string>): void {
   const u = new URL(c.nodeUrl);
