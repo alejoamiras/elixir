@@ -5,14 +5,14 @@ driver: claude-code
 tier: mid
 eli5_mode: artifact
 code_review: off
-status: reworked three times; three audits and a fourth read on the record; awaiting the owner
+status: fourth read's corrections reviewed by codex and folded in; awaiting the owner
 ```
 
 ## What this is
 
 The miner's browser suite is nineteen tests. Measured on the last green run: 16.6 minutes on the homelab, 16.2
-of them inside Playwright; 26.5 minutes in CI on one runner, 24.9 of them in the e2e step, every step before it
-under twenty seconds because the toolchain is cached. The forty minutes in `e2e.yml`'s header is stale. It runs on
+of them inside Playwright; 26.5 minutes in CI on one runner, 24.9 of them in the e2e step and the rest in cached
+setup steps of under a minute each. The forty minutes in `e2e.yml`'s header is stale. It runs on
 `workflow_dispatch` only, so nothing about the miner is checked on an ordinary push. This plan
 makes it faster and gives it a lane that can run on every push. The first draft of this plan was rejected twice,
 by both reviewers, on findings that turned out to be correct; what follows is the design the evidence supports,
@@ -70,24 +70,33 @@ Recorded because the corrections are the plan.
 A different reviewer, checking the third version against the last green CI run rather than against the plan's
 own prose.
 
-- **The baseline was wrong by a third, in the direction that mattered.** The job is 26.5 minutes, not forty, and
-  the fixed cost outside the tests is small: the pre-test steps are cached and take seconds, the node starts in
-  under a minute, and locally the whole rig outside Playwright is under half a minute. Test time is the whole
-  problem. That reverses the plan's biggest fear about sharding — three shards cost roughly a third more runner
-  minutes for roughly half the wall clock — and it answers Ask 1 without waiting for P1.
-- **"One environment variable disables all of it" was true of the config and false of the deploy.**
+- **The baseline was wrong by a third, in the direction that mattered.** The job is 26.5 minutes, not forty.
+  From the CI log's own timestamps: the node is up 31 s into the e2e step, setup reports the preview ready at
+  2:43, tests run from 2:43 to 24:52 — about 22 minutes of tests against about 4.4 minutes of everything else,
+  the pre-steps included. Test time is the problem. Three shards therefore cost about a third more runner
+  minutes (22 + 3 × 4.4 ≈ 35) for roughly half the wall clock (the slowest file bucket, split on this run's
+  durations, is about 7.6 min of tests, so about 12 min per job). That answers Ask 1 without waiting for P1 —
+  with the caveat that fresh deployments, random mining and runner variance move these numbers, which is why
+  P2's gate carries budgets looser than the estimate.
+- **"One environment variable disables all of it" was true of the config and overstated for the deploy.**
   `assemble.ts:69-70` refuses any non-production mode into the production directory or a Cloudflare build, and
-  both `site:deploy` and Workers Builds go through `assemble`. A misspelled `YACANA_SITE_MODE` cannot ship
-  today. P0 buys an early, clear failure and closes the one path `assemble` does not see —
-  `packages/web-miner`'s own `vite build`, which is on no deploy path anyway. Worth doing; not a hole.
+  the supported scripts — `site:deploy`, and Workers Builds' configured build step — go through `assemble`. So a
+  misspelled `YACANA_SITE_MODE` is rejected by every *supported* route. It is not rejected by a bare
+  `wrangler deploy` of an existing `dist`, which `wrangler.jsonc` permits and no script guards. Nor does an
+  invalid mode enable *every* override: the query overrides need the exact mode `e2e`. P0 buys an early, clear
+  failure; the unguarded route is named rather than closed, because guarding `wrangler` itself is out of scope.
 - **P0 had no definition of "forbidden".** There is no proverless marker yet, so an artifact inspection needs a
   concrete list or it tests nothing in particular. The list is below.
-- **Proverless can be estimated now.** The last green run logged its client-side transaction proofs at 4.9 to
-  8.0 seconds each, mean about six. The suite makes roughly eleven of them — nine claims, plus the withdraw
-  spec's two transfers — so a little over a minute of a 14.6-minute test total, about 7%. Block waits and PXE note
-  sync are the rest of a claim's cost and proverless does not touch them. That minute is the only thing in the
-  suite exercising the claim circuit's in-circuit verification of the mining proof. The plan now carries a
-  decision rule instead of an open question, and the estimate says the answer is no.
+- **Proverless cannot be estimated from the logs we have — and I tried twice.** The proof durations in the run
+  logs (7–12 s in CI, 5–8 s locally) belong to the deployer's setup transactions and to the burst miner's native
+  `bb`, not to the browser; the page's own proving time is not logged to the e2e output. What is countable: the
+  specs make at least twelve browser transaction proofs — nine successful claims, one deliberately reverted claim
+  in the lost-race spec, and the withdraw spec's two transfers — plus whatever extra wins mining produces. What
+  each costs in a headless browser is unknown until P1 measures it, which P1 now does specifically: the
+  controller logs `claiming in epoch N: proving the claim in-page…` and `claim … sent` with timestamps, and the
+  spec can read that log through the page's hook. The 30% rule is therefore a policy, not a derivation: browser
+  proving is the only thing exercising the claim circuit's in-circuit verification of the mining proof, and it is
+  not given up for less than a third of the suite.
 - **The replay lane's running cost was unnamed.** Any change to the miner's boot-time RPC surface breaks the
   lane until someone re-records on a machine with the toolchain — exactly how the stats lane already behaves.
   P3 says so, and runs as a timeboxed spike before anything is built on it.
@@ -124,14 +133,21 @@ throw otherwise — an early, clear failure where today `assemble.ts` catches th
 specific one. Decide the fate of the unreachable assertions in `assertProductionConfig`: delete them, or make
 them assertions over an independently constructed config with tests that fail when a guard is removed; either is
 honest, neither adds a barrier. Add an artifact inspection to `assemble()` **after assembly, before it reports
-success** (lines 69-70 run before any artifact exists). What it forbids, concretely: any plaintext loopback
-origin (`http://127.0.0.1`, `http://localhost`) in `dist/**/*.js` or in the emitted `_headers`; a `build.json`
-whose mode is not `production`. Normalise `out` inside `assemble()` rather than trusting callers to pass the
+success** (lines 69-70 run before any artifact exists). What it checks, over the **actual assembly
+destination** including worker chunks and every emitted `_headers`: no plaintext loopback origin
+(`http://127.0.0.1`, `http://localhost`) in any emitted JavaScript or header file; the production CSP present
+and without the local `connect-src` entries; `build.json` present, well-formed, and reporting `production`;
+and the resolved config it was built from carrying `queryOverrides: false`, an empty `prestoE2ePort`, and
+Presto's HTTPS-only policy. Missing or unreadable output, headers or `build.json` fail the check. This proves
+the artifact carries no *known* contamination — the two literals and the config — not that it is clean in
+general; a URL built from pieces at runtime would not contain either literal, which is why the resolved config
+is checked alongside the strings. Normalise `out` inside `assemble()` rather than trusting callers to pass the
 canonical path. `packages/web-miner`'s own `build` is on no deploy path; note that in its script rather than
 guarding it.
 Gate: `bun run lint` · `bun test packages/site`, including a test that writes a loopback origin into the
 inspected output and requires assembly to fail, an invalid mode refused, a `YACANA_SITE_MODE=e2e` assembly into
-the production directory still refused, and the intended e2e output still allowed · `bun run site:build` clean.
+the production directory still refused, a missing `_headers` or `build.json` failing, and the intended e2e
+output still allowed · `bun run site:build` clean.
 Layers: lint · unit.
 
 **P1 · Measure, and change nothing else.** The coarse numbers are already known (26.5 min CI, 24.9 in the e2e
@@ -143,7 +159,9 @@ machine-readable per-spec report (`json` or `blob` beside `list`, which writes n
 unattributed time is visible rather than hidden.
 Gate: `bun run lint` · one local run and one CI run, each producing a breakdown that separates network startup,
 deployments, bundle build, and per-spec time, states what share of the total is rig, and attributes claim
-proving specifically — because P5's decision rule rests on that number and no other phase collects it. Pass
+proving specifically — **browser** proving, from the page's own `proving the claim in-page…` → `sent`
+timestamps, kept apart from the deployer's and the burst miner's native proofs, which is what the run logs show
+today — because P5's decision rule rests on that number and no other phase collects it. Pass
 criterion: the breakdown exists, reconciles to within a stated margin of the job clock, and answers "is the claim
 transaction proof the bulk?" in one sentence with a number behind it. No optimisation ships here.
 Layers: lint · e2e · CI.
@@ -166,6 +184,15 @@ they are not candidates.
 **A spike comes first, timeboxed to one working session**: record the three tests' RPC under `e2e:agent`, replay
 it with no node, and run them. If that does not pass cleanly within the box, the arc is abandoned, the three
 tests stay in the sharded suite, and the plan records why. Nothing below is built until the spike passes.
+What the spike must get right, known in advance: the miner's preflight calls `aztec_getBlockNumber` first,
+which the stats recording never captured; its public-epoch reads fetch the seed slot, which stats never read; the
+replay build must set `VITE_E2E_QUERY_OVERRIDES=1` — the stats `visualEnv` does not, and without it the
+old-Presto test's `?presto=<port>` is silently ignored; the fake Presto is a stateful HTTP server the spec starts
+itself and must stay one (its `GET /health` changes after `upgrade()`, so it cannot be a recording); the dialog
+test needs an explicit Presto disposition (`presto=off`) so the default probe is not left to time out; the
+malformed-RPC test's garbage must not be recorded under the shared mock origin; and the spike deliberately runs
+past the 30-second public poll, because a broken poll is caught and logged rather than failing the page, so a
+green geometry assertion would not reveal it.
 **The running cost, stated now**: the lane fails whenever the miner's boot-time RPC surface changes — a new call,
 a changed parameter, a contract redeploy — until someone re-records on a machine with the toolchain. The stats
 lane already works this way; this doubles that maintenance surface.
@@ -179,8 +206,9 @@ Gate: `bun run lint` · `bun run lint:actions` · the lane green locally with no
 stats visual lane still green after the helpers move · a compatibility mutation: change one bound input and
 require the lane to fail rather than replay a stale-but-consistent fixture · strict network accounting, so
 unexpected traffic through the end of the test fails the lane, with explicit allowances for the deliberately
-malformed response and the fake Presto endpoint · green in CI on the agreed trigger inside a budget named before
-implementation. Layers: lint · e2e · CI.
+malformed response and the fake Presto endpoint · green in CI on `pull_request` inside **8 minutes** for the job, a
+10-minute timeout, and a change filter covering the miner's sources, the stats helpers it imports, the run
+scripts, the recording files and the contract artifacts. Layers: lint · e2e · CI.
 
 **P4 · Trim the rig, if P1 says it is worth it.** Two environment booleans in `run-setup.ts`: skip the
 impossible-target deployment, skip Presto. Both dependencies must fail loudly rather than degrade — a missing
@@ -190,10 +218,11 @@ Gate: `bun run lint` · `bun test packages/web-miner` · a run with each depende
 named error rather than a skip · a successful trimmed run recording the saving against P1. Layers: lint · unit ·
 e2e.
 
-**P5 · Proverless — conditional, last, and probably never.** The decision rule, fixed now: **built only if P1
-shows client-side transaction proving above 30% of test time.** The measured estimate is about 7% — eleven
-proofs at about six seconds in a 14.6-minute test total — and that 7% is the only thing exercising the claim
-circuit's in-circuit verification of the mining proof. At 7% it is not built. Note also that the flag would sit
+**P5 · Proverless — conditional, last, and possibly never.** The decision rule, fixed now: **built only if P1
+shows browser-side transaction proving above 30% of test time** (denominator: the per-spec durations summed,
+not the job clock). No honest estimate exists yet — see above — so the rule is a policy: that proving is the
+only thing exercising the claim circuit's in-circuit verification of the mining proof, and it is not traded for
+less than a third of the suite. Note also that the flag would sit
 at the wallet (`wallet.ts:65`), so it would fake every transaction the embedded PXE proves — withdrawals and rolls
 too — not claims alone. If P1 clears the bar, the owner
 still decides how much coverage goes (Ask 3), with the number in hand. The flag
@@ -282,17 +311,18 @@ lane; two booleans deliver the rig saving.
 9. Playwright 1.62.1 has `--shard`, `--grep`, `--grep-invert`, `--project`, and assigns whole files to shards.
 10. `run-setup.ts` always runs two deployments, builds the bundle into a shared `e2e/.dist` with
     `--emptyOutDir`, starts two proxies, and starts Presto when installed.
-11. CI run 34395322513's miner job: 26.5 min total, 24.9 in the e2e step, every earlier step under twenty seconds
-    (the toolchain, contracts and Playwright are cached). Locally: 16.6 min wall, 16.2 reported by Playwright, and
+11. CI run 34395322513's miner job: 26.5 min total, 24.9 in the e2e step, the earlier steps cached and under a
+    minute each (codegen 21 s, Playwright install 32 s). Inside the e2e step: node ready at 0:31, preview ready at
+    2:43, tests 2:43–24:52. Locally: 16.6 min wall, 16.2 reported by Playwright, and
     the per-spec durations sum to 14.6 — so Playwright's total includes its global setup (the two deployments and
     the bundle build, about 1.6 min) and the node's start and stop sit outside it (about 0.4). Fixed cost is
     about two of the sixteen-and-a-half minutes. Scaling by the CI/local ratio: per shard about 4.6 min fixed
     (1.6 of pre-steps, 3 inside Playwright) against about 22 min of tests; the best three-way file split has a
     slowest bucket near 5.7 local minutes, about 8.6 in CI, so the slowest shard lands near 13 min and the matrix
     near 36 runner-minutes — under the 15 and 45 the P2 gate names.
-12. Measured local durations, last green run: lost race 2.6 min, passkey 2.0, withdraw 1.9, node-away 1.7, first
-    visit 1.5, power changes 1.4, presto claim 0.9, switch 0.9; the rest under a minute each. Claim specs total
-    about ten minutes of the sixteen.
+12. Measured local durations, last green run (the one at the head commit): lost race 2.0 min, withdraw 1.9,
+    node-away 1.7, first visit 1.5, power changes 1.4, passkey 60 s, switch 53 s, presto claim 52 s, prover crash
+    47 s, CRS purge 43 s, words 42 s; the rest under twenty seconds. Per-spec total 14.6 min.
 
 **Inferences** (attack these)
 
@@ -303,9 +333,9 @@ lane; two booleans deliver the rig saving.
    early, and if replay cannot cover a spec, that spec stays in the sharded suite.
 3. That two booleans capture the rig saving. If P1 shows the second deployment is cheap and the network is
    everything, P4 is not worth building.
-4. That the ~7% estimate for client-side transaction proving is right within a factor of two. It comes from
-   the logged proof durations of the last run (4.9-8.0 s) and a count of the proofs the specs make; P1 attributes
-   it properly. Even at double, the 30% rule is not close.
+4. That browser-side transaction proving is a minority of test time. Unmeasured: the logged proofs are the
+   deployer's and the burst miner's, not the page's. P1 measures it from the page's own log timestamps; until
+   then the 30% rule stands as policy and P5 is not planned.
 
 **Asks** — two answered by the measured baseline, one converted to a rule
 
@@ -314,8 +344,9 @@ lane; two booleans deliver the rig saving.
    (45 runner-minutes for the matrix, slowest job under 15).
 2. **The push lane's trigger — answered: `pull_request`.** It matches `web-miner.yml`'s existing change filter;
    every-push would need `_changes.yml` reworked for a `push` event and would run on unfinished branches.
-3. **Proverless — a rule, not a question.** Built only if P1 shows client-side transaction proving above 30% of
-   test time; the measured estimate is 7%. If it clears the bar, the owner decides the coverage trade then.
+3. **Proverless — a rule, not a question.** Built only if P1 shows browser-side transaction proving above 30%
+   of test time. No estimate is claimed; P1 produces the number. If it clears the bar, the owner decides the
+   coverage trade then.
 
 ## Decision ledger
 
@@ -340,23 +371,32 @@ lane; two booleans deliver the rig saving.
 | "Forty minutes in CI" | fourth read | **Corrected** to the measured 26.5, with a small fixed cost; the sharding maths flips |
 | "One variable opens the front door" | fourth read | **Softened**: `assemble.ts` already refuses it on every deploy path; P0 is early failure, not a closed hole |
 | P0's "forbidden content" | fourth read | **Defined**: loopback origins in `dist/**/*.js` and `_headers`; a non-production `build.json` |
-| Proverless as an open ask | fourth read | **A rule**: built only above 30% of test time; measured estimate 7% |
+| Proverless as an open ask | fourth read | **A rule**: built only above 30% of test time; the estimate withdrawn — the logged proofs were not the browser's |
 | P3 straight into arc C | fourth read | **A spike first**, timeboxed; the maintenance cost named |
 | Asks 1 and 2 | fourth read | **Answered** from the measured baseline: yes to sharding; `pull_request` |
+| "Every deploy path goes through assemble" | codex on the fourth read | **Narrowed** to the supported scripts; a bare `wrangler deploy` of an existing `dist` is named as unguarded |
+| The 7% proverless estimate | codex on the fourth read | **Withdrawn**: the logged proofs were the deployer's and the burst miner's; P1 measures the browser's |
+| P0's two-string grep as "the artifact is clean" | codex on the fourth read | **Reframed** as a contamination check plus a resolved-config check, with missing output failing |
+| P3's replay premise | codex on the fourth read | **Six concrete obstacles named** for the spike; an 8-minute budget; the change filter's scope |
+| D stacked on C | codex on the fourth read | **Unstacked**: proverless needs the measurement and P0, not the replay lane |
 
 ## Delivery
 
 Four arcs, one of them conditional and probably never opened. The flag hygiene ships as its own pull request
 first, since it depends on nothing. The measurement is the first phase of the sharding arc rather than a pull
 request of its own: its code is a reporter and some timestamps, and its numbers land in `lessons/phase-1.md`
-before P2's split is chosen. The replay lane is its own arc because its spike may kill it.
+before P2's split is chosen. The replay lane is its own arc because its spike may kill it. P1's CI measurement runs through the dispatchable
+workflow on the feature branch, since no pull request exists until the loops converge; and the unoptimised
+local and CI numbers are recorded in `lessons/phase-1.md` before P2's split is chosen — the boundary that matters
+is the measurement, not the pull request. After the last arc built, the coverage and timing gates run once more
+on the combined system, since each arc changes what the earlier evidence described.
 
 | Arc | Phases | Stacks on | Independently useful? |
 |---|---|---|---|
 | A · flag hygiene | P0 | main (its own PR) | Yes — early, clear failure on a misconfigured build |
 | B · measure, shard, trim | P1, P2, P4 | main | Yes — the wall-clock win |
-| C · replay lane | P3 (spike, then lane) | arc B | Yes — the miner checked on every pull request |
-| D · proverless | P5 | arc C | Only if P1 clears the 30% bar |
+| C · replay lane | P3 (spike, then lane) | arc B — it changes B's inventory check to exclude the replayed tests | Yes — the miner checked on every pull request |
+| D · proverless | P5 | arc B, if ever — it needs the measurement and P0's safeguards, not the replay lane | Only if P1 clears the 30% bar |
 
 ## Post-implementation
 
