@@ -37,6 +37,7 @@ describe('plaintextLoopback', () => {
       'http://[::1]:1',
       'http://127.0.0.2:1',
       'http://127.1:1',
+      'http://localhost.:59833/health',
       'x="http://localhost"',
     ])
       expect(plaintextLoopback(bad), bad).not.toBeNull();
@@ -83,6 +84,8 @@ describe('the production artifact contract', () => {
     rmSync(join(out, '_headers'));
     expect(() => assertProductionArtifact(out, production)).toThrow(/no root _headers/);
     writeFileSync(join(out, 'backup_headers'), 'not a policy file');
+    expect(() => assertProductionArtifact(out, production)).toThrow(/no root _headers/);
+    mkdirSync(join(out, '_headers'));
     expect(() => assertProductionArtifact(out, production)).toThrow(/no root _headers/);
   });
 

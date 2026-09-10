@@ -12,9 +12,14 @@ const walk = (dir: string): string[] =>
     e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)],
   );
 
-/** Anything that resolves to this machine: `localhost`, all of 127/8 (`127.1` included, once parsed), `::1`. */
-const isLoopback = (hostname: string): boolean =>
-  hostname === 'localhost' || hostname === '[::1]' || /^127\.\d+\.\d+\.\d+$/.test(hostname);
+/**
+ * Anything that resolves to this machine: `localhost` (a trailing dot is the same name, absolute),
+ * all of 127/8 (`127.1` included, once parsed), `::1`.
+ */
+const isLoopback = (hostname: string): boolean => {
+  const host = hostname.replace(/\.$/, '');
+  return host === 'localhost' || host === '[::1]' || /^127\.\d+\.\d+\.\d+$/.test(host);
+};
 
 const URL_LITERAL = /https?:\/\/[^\s"'`<>)\\]+/gi;
 
@@ -46,7 +51,8 @@ function checkRecord(out: string, fail: Fail): void {
 
 function checkHeaders(out: string, files: string[], fail: Fail): void {
   // Cloudflare applies the root file to every path; a nested app's copy is documentation, not policy.
-  if (!existsSync(join(out, '_headers'))) fail('no root _headers');
+  const root = join(out, '_headers');
+  if (!existsSync(root) || !statSync(root).isFile()) fail('no root _headers');
   const production = renderHeaders({ mode: 'production' });
   for (const h of files.filter((f) => basename(f) === '_headers'))
     if (readFileSync(h, 'utf8') !== production) fail(`${relative(out, h)} is not the production header map`);
