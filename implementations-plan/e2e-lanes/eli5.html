@@ -68,7 +68,7 @@
     <table>
       <thead><tr><th>I planned to</th><th>Instead</th></tr></thead>
       <tbody>
-        <tr><td class="was">Build a lane that skips the chain entirely, for the tests that never touch it</td><td>Impossible. The page refuses to show its sign-in screen until it has checked a real node and a real deployment. Those tests need a chain even though they never use one.</td></tr>
+        <tr><td class="was">Build a lane that skips the chain entirely, for the tests that never touch it</td><td>Impossible without changing the page. It refuses to show its sign-in screen until it has checked a real node and a real deployment — on purpose, so nobody creates a key against the wrong one. A test-only bypass would be another switch that must never ship, and would test a page users never see. Recording the chain's answers keeps the real page.</td></tr>
         <tr><td class="was">Invent a way to run the app with no node behind it</td><td>You already have one. The stats screenshot gate records every answer the page needs once, then replays them with no node at all — and it runs on every pull request today. The miner's fast lane copies it.</td></tr>
         <tr><td class="was">Sort every test into categories and build a machine to serve each category</td><td>Dropped. Both reviewers worked out that the machinery could only ever skip one deployment, two proxies and one helper process. Two switches do that. The categories bought nothing.</td></tr>
         <tr><td class="was">Turn off the slow proof in most tests, early, as the third of four steps</td><td>Moved to last, made optional, and might never happen. Nobody has measured whether that proof is actually where the time goes.</td></tr>
@@ -113,7 +113,7 @@
   </div>
   <div class="phase cond">
     <h3><span class="num">P5</span> Turn off the slow proof — <span class="warnline">only if the numbers justify it</span></h3>
-    <p>This is the one that trades coverage for speed, so it is last and conditional, with the rule fixed now: it is built only if the measurement shows the browser's proving is more than a third of the suite. No one knows that number yet. If it clears the bar, one test keeps proving for real and must include the honest case: break the mining proof on purpose and require the claim to fail — set up so that nothing else can explain the failure.</p>
+    <p>You've said real proving must survive somewhere and need not run everywhere — so the coverage question is settled: one test keeps proving for real, and the rest may stop. What is left is whether the saving earns a switch that must never ship. The rule: built only if the measurement shows the browser's proving is more than 15% of the suite. No one knows that number yet. If it clears the bar, one test keeps proving for real and must include the honest case: break the mining proof on purpose and require the claim to fail — set up so that nothing else can explain the failure.</p>
     <p class="gate">proves itself by: the switch provably absent from a real build · the broken-proof test failing for the right reason, shown by passing when the proof is intact</p>
   </div>
 

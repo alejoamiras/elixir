@@ -122,6 +122,10 @@ taught it.
 
 **The fast lane is record-and-replay, cloned from the stats visual lane.** It is the only shape that satisfies
 the mandatory deployment probe without a chain, and it is already proven in this repo on every pull request.
+The owner asked whether the page could instead skip the preflight under test. It could, and it should not: the
+preflight is the product refusing to open a key against the wrong deployment, a bypass would be one more
+build flag that must never ship, and the tests would then exercise a page users never see. Replay keeps the
+real boot path and changes nothing in the app.
 
 **Proverless is optional, last, and may never be built.** It removes the browser's transaction proving —
 claims, withdrawals and rolls alike, since the flag sits at the wallet — and nothing else: the mining proofs, the
@@ -240,11 +244,13 @@ Gate: `bun run lint` · `bun test packages/web-miner` · a run with each depende
 named error rather than a skip · a successful trimmed run recording the saving against P1. Layers: lint · unit ·
 e2e.
 
-**P5 · Proverless — conditional, last, and possibly never.** The decision rule, fixed now: **built only if P1
-shows browser-side transaction proving above 30% of test time** (denominator: the per-spec durations summed,
-not the job clock). No honest estimate exists yet — see above — so the rule is a policy: that proving is the
-only thing exercising the claim circuit's in-circuit verification of the mining proof, and it is not traded for
-less than a third of the suite. Note also that the flag would sit
+**P5 · Proverless — conditional, last, and possibly never.** The owner's position, 2026-09-10: real proving
+must survive somewhere in the suite, and need not run everywhere. So coverage is not the objection; the canary
+with its negative case stays real regardless, and the rest may go. What remains is cost against benefit — a
+wallet-level flag with a production-adjacent risk surface against the minutes it saves — and the rule is:
+**built only if P1 shows browser-side transaction proving above 15% of test time** (denominator: the per-spec
+durations summed, not the job clock). Below that it saves under three CI minutes per shard and does not earn
+the flag. No honest estimate exists yet; P1 produces the number. Note also that the flag would sit
 at the wallet (`wallet.ts:65`), so it would fake every transaction the embedded PXE proves — withdrawals and rolls
 too — not claims alone. If P1 clears the bar, the owner
 still decides how much coverage goes (Ask 3), with the number in hand. The flag
@@ -369,9 +375,9 @@ lane; two booleans deliver the rig saving.
    (45 runner-minutes for the matrix, slowest job under 15).
 2. **The push lane's trigger — answered: `pull_request`.** It matches `web-miner.yml`'s existing change filter;
    every-push would need `_changes.yml` reworked for a `push` event and would run on unfinished branches.
-3. **Proverless — a rule, not a question.** Built only if P1 shows browser-side transaction proving above 30%
-   of test time. No estimate is claimed; P1 produces the number. If it clears the bar, the owner decides the
-   coverage trade then.
+3. **Proverless — a rule, not a question.** Built only if P1 shows browser-side transaction proving above 15%
+   of test time. The owner has already accepted the coverage trade provided a real-proving canary remains; the
+   bar is about whether the saving earns the flag.
 
 ## Decision ledger
 
@@ -410,6 +416,8 @@ lane; two booleans deliver the rig saving.
 | Six passages the corrections had not reached | codex, round 2 | **Rewritten in place** |
 | A collector that records zero proving | codex, round 3 | **Fails the measurement**: expected proofs must yield positive-duration events |
 | P0's gate naming only the site suite | codex, round 3 | **Runs the miner's endpoint tests** and asserts `httpsOnly` on the consumed endpoint |
+| A test-only preflight bypass | the owner's question | **Rejected**: a product guard, a flag that must never ship, and a page users never see; replay instead |
+| The 30% coverage bar | the owner's position | **Lowered to 15% and reframed**: coverage accepted with a real canary; the bar is cost against the flag |
 
 ## Delivery
 
@@ -427,7 +435,7 @@ on the combined system, since each arc changes what the earlier evidence describ
 | A · flag hygiene | P0 | main (its own PR) | Yes — early, clear failure on a misconfigured build |
 | B · measure, shard, trim | P1, P2, P4 | main | Yes — the wall-clock win |
 | C · replay lane | P3 (spike, then lane) | arc B — it changes B's inventory check to exclude the replayed tests | Yes — the miner checked on every pull request |
-| D · proverless | P5 | arc B, if ever — it needs the measurement and P0's safeguards, not the replay lane | Only if P1 clears the 30% bar |
+| D · proverless | P5 | arc B, if ever — it needs the measurement and P0's safeguards, not the replay lane | Only if P1 clears the 15% bar |
 
 ## Post-implementation
 
