@@ -39,6 +39,7 @@ const e2eEnv = (d: Deployment, prestoPort: number | null): NodeJS.ProcessEnv => 
   VITE_AZTEC_NODE_URL: nodeUrl,
   VITE_RP_ID: 'localhost',
   VITE_E2E_QUERY_OVERRIDES: '1',
+  VITE_E2E_PROVERLESS: process.env.E2E_PROVERLESS === '1' ? '1' : '',
   VITE_CHAIN_ID: d.chainId,
   VITE_ROLLUP_VERSION: d.rollupVersion,
   VITE_ROLLUP_ADDRESS: d.rollupAddress,

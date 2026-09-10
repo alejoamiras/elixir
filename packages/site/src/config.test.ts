@@ -38,6 +38,7 @@ describe('site config', () => {
     expect(c.launchMode).toBe(false);
     expect(c.explorerUrl).toBe('https://testnet.aztecscan.xyz');
     expect(viteDefine(c)['import.meta.env.VITE_E2E_QUERY_OVERRIDES']).toBe('""');
+    expect(viteDefine(c)['import.meta.env.VITE_E2E_PROVERLESS']).toBe('""');
     expect(viteDefine(c)['import.meta.env.VITE_EXPLORER_URL']).toBe('"https://testnet.aztecscan.xyz"');
   });
 
@@ -54,11 +55,14 @@ describe('site config', () => {
         VITE_LAUNCH_MODE: '1',
         VITE_EXPLORER_URL: 'off',
         VITE_PRESTO_E2E_PORT: '24996',
+        VITE_E2E_PROVERLESS: '1',
       },
     });
     expect(c.launchMode).toBe(true);
     expect(c.prestoE2ePort).toBe('24996');
     expect(viteDefine(c)['import.meta.env.VITE_PRESTO_E2E_PORT']).toBe('"24996"');
+    expect(c.proverless).toBe(true);
+    expect(viteDefine(c)['import.meta.env.VITE_E2E_PROVERLESS']).toBe('"1"');
     expect(c.explorerUrl).toBe('off');
     expect(c.nodeUrl).toBe('http://localhost:8080');
     expect(c.rollupAddress).toBe('0x00000000000000000000000000000000000000aa');

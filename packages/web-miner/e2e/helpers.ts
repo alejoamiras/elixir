@@ -9,6 +9,8 @@ declare global {
     yacana?: {
       crashProver(): void;
       log(): string[];
+      proverless: boolean;
+      tamperNextClaim(): void;
       session: { publicBalance(owner: string): Promise<bigint> };
       controller():
         | {

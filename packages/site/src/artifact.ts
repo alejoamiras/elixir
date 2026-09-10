@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, relative } from 'node:path';
-import type { SiteConfig } from './config.ts';
+import { PROVERLESS_MARKER, type SiteConfig } from './config.ts';
 import { renderHeaders } from './headers.ts';
 
 export class ArtifactError extends Error {}
@@ -62,8 +62,10 @@ function checkScripts(out: string, files: string[], fail: Fail): void {
   const scripts = files.filter((f) => /\.m?js$/.test(f));
   if (scripts.length === 0) fail('no scripts');
   for (const s of scripts) {
-    const hit = plaintextLoopback(readFileSync(s, 'utf8'));
+    const text = readFileSync(s, 'utf8');
+    const hit = plaintextLoopback(text);
     if (hit) fail(`${relative(out, s)} names a plaintext loopback origin (${hit})`);
+    if (text.includes(PROVERLESS_MARKER)) fail(`${relative(out, s)} carries the proverless branch`);
   }
 }
 
@@ -75,13 +77,14 @@ function checkScripts(out: string, files: string[], fail: Fail): void {
  */
 export function assertProductionArtifact(
   out: string,
-  config: Pick<SiteConfig, 'mode' | 'queryOverrides' | 'prestoE2ePort'>,
+  config: Pick<SiteConfig, 'mode' | 'queryOverrides' | 'prestoE2ePort' | 'proverless'>,
 ): void {
   const fail: Fail = (why) => {
     throw new ArtifactError(`production artifact ${out}: ${why}`);
   };
   if (config.mode !== 'production') fail(`built in ${config.mode} mode`);
-  if (config.queryOverrides || config.prestoE2ePort) fail('built with an e2e override resolved');
+  if (config.queryOverrides || config.prestoE2ePort || config.proverless)
+    fail('built with an e2e override resolved');
   if (!existsSync(out) || !statSync(out).isDirectory()) fail('no output directory');
   const files = walk(out);
   checkRecord(out, fail);

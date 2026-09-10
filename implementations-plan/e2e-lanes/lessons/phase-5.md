@@ -1,0 +1,17 @@
+# Phase 5 lessons — proverless, conditional, last (arc D)
+
+**Why it is built**: P1 measured browser transaction proving at 30.3% of test time in CI (27.3% of the e2e step), against the 15% bar. The owner's position stands: real proving survives in one place, the canary, and need not run everywhere.
+
+**Gate (plan, P5)**: `bun run lint` · `bun test packages/site` (the flag dropped in production, asserted through `viteDefine`) · a flagged build proving the marker present and a production build proving it absent · the negative canary failing for the specified reason, demonstrated by showing it passes when the input is untampered · the claim lane green with its measured saving. Result: see **Evidence**.
+
+## What was built
+
+- **The flag** follows the `config.ts` template: `proverless: mode === 'e2e' && env.VITE_E2E_PROVERLESS === '1'`, emitted as `VITE_E2E_PROVERLESS`; production construction discards the environment, so it is `''` there by the same mechanism as the other e2e hooks. `wallet.ts` reads it once (`PROVERLESS`) and passes `proverEnabled: !PROVERLESS` to the embedded PXE — the one place the page proves transactions, so the flag fakes every transaction the wallet makes (claims, withdrawals, rolls), as the plan said it would.
+- **The marker is inseparable from the flag**: `PROVERLESS_MARKER` (`yacana:proverless`, exported from `config.ts`) is only ever referenced inside `if (PROVERLESS) console.warn(...)`. Under the production define the condition folds to `false` and the branch — string included — is dropped; a flagged build keeps it. `tests/proverless-marker.bun.test.ts` runs three real Vite builds into temp dirs (flagged e2e: marker present; unflagged e2e and production: absent) — about 6 s in all. Arc A's artifact inspector (`artifact.ts`) now also fails a production assembly whose scripts carry the marker, and refuses a resolved `proverless` config.
+- **The canary** (`e2e/canary.e2e.ts`, its own shard `canary`, the only one CI runs without `E2E_PROVERLESS`): boots on the real-proving build, asserts `window.yacana.proverless === false`, arms `tamperNextClaim()`, mines at the easy target. The controller flips the lowest bit of the winning ticket's `out` before `sendClaim`: the ticket digest (over the proof fields), the epoch and the nullifier stay valid, and `out` is used by the claim circuit only as a public input of `verify_honk_proof_non_zk` — which the ACVM treats as a black box, so simulation passes and the claim fails at ClientIVC proving. The spec requires the failure's kind `other`, a prover's message, none of the other explanations (`epoch is not open`, `ticket above target`, reverted, expired), zero claims — then presses Start again and requires the untampered claim to mint (the positive control). A proverless build would send the tampered claim for the local network's `TestCircuitVerifier` to mint, which is why this shard alone keeps the prover.
+- **The meter under proverless**: `proofShortfall(title, meter, proverless)` ignores the floors and fails any test that produced a proof event at all — a build meant to skip proving that proved is as wrong as a real build that did not.
+- **CI**: `e2e.yml` sets `E2E_PROVERLESS: ${{ matrix.shard != 'canary' && '1' || '' }}`; `run-setup.ts` forwards it into the build as `VITE_E2E_PROVERLESS`. The inventory test holds sharded (17) + moved (3) = 19 + the canary.
+
+## Evidence
+
+_(filled from the local canary and proverless-shard runs and the CI run)_

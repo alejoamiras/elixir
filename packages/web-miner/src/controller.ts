@@ -133,6 +133,8 @@ export class MinerController {
     prover: ProverKind;
   } | null = null;
   private timer: ReturnType<typeof setInterval> | undefined;
+  /** The e2e canary's fault: the next claim goes out with a bound public input altered. */
+  private tamperNext = false;
   private pauseTimer: ReturnType<typeof setTimeout> | undefined;
   private domain: string | undefined;
   private prover: Prover;
@@ -252,6 +254,10 @@ export class MinerController {
   /** Test hook: makes the Worker throw, which takes the same path as any real crash. */
   crashProver() {
     this.prover.worker.postMessage({ type: 'crash' } satisfies ToWorker);
+  }
+
+  tamperNextClaim() {
+    this.tamperNext = true;
   }
 
   log(line: string) {
@@ -553,6 +559,13 @@ export class MinerController {
     const secret = p && this.secrets.get(p.secretId);
     if (!p || !secret) return this.dispatch({ type: 'failed', error: 'no pending ticket' });
     this.pending = null;
+    if (this.tamperNext) {
+      // The lowest bit of `out`: the ticket, the epoch and the nullifier stay valid, only the proof's
+      // public inputs no longer match it — which simulation cannot see and real proving must.
+      p.out = `0x${(BigInt(p.out) ^ 1n).toString(16).padStart(64, '0')}`;
+      this.tamperNext = false;
+      this.log('e2e: this claim goes out with a bound public input altered');
+    }
     const before = this.store.get(epochAtom)?.claims ?? 0;
     this.log(`claiming in epoch ${p.epoch}: proving the claim in-page…`);
     try {
