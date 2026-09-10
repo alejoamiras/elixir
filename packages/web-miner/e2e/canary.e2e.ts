@@ -1,8 +1,6 @@
-// The one place real client proving is shown to be real: on this build the PXE proves, and a claim
-// whose proof no longer matches one of its bound public inputs is refused at proving — simulation
-// cannot tell (the recursive verifier is a black box to the ACVM), and a proverless build would
-// send it for the local network, which verifies nothing, to mint. The page's next claim, on the
-// same build, epoch and account, then mints: the build proves and the network mints what proves.
+// A claim whose proof no longer matches one of its bound public inputs is refused at proving:
+// simulation cannot tell (the recursive verifier is a black box to the ACVM), and a proverless build
+// would send it for the local network, which verifies nothing, to mint.
 import { expect, test } from './fixtures.ts';
 import { bootPage, pageUrl, run } from './helpers.ts';
 

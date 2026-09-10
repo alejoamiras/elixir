@@ -184,7 +184,7 @@ const IP_OR_LOCAL = /^(localhost|127\.\d+\.\d+\.\d+|\[?::1\]?|\d+\.\d+\.\d+\.\d+
 
 /**
  * What may never reach Cloudflare: a local or plaintext node, a foreign relying party. Production
- * construction disables the e2e hooks; assembly rechecks the resolved values.
+ * construction discards the build-time overrides; assembly rechecks the resolved values.
  */
 export function assertProductionConfig(c: SiteConfig, siteEnv: Record<string, string>): void {
   const u = new URL(c.nodeUrl);

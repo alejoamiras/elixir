@@ -45,7 +45,7 @@ bun test               # all bun:test suites (packages + scripts)
 bun run contracts:compile / contracts:test
 bun run e2e:agent -- <cmd>   # run <cmd> against a fresh isolated local network (AZTEC_NODE_URL set)
 bun run e2e:agent -- bun test packages/miner-core                        # live miner-core suite
-bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e           # web miner in headless Chromium (production build; E2E_SERVER=dev for the dev server); with presto-server installed the run gets a headless Presto and presto.e2e.ts runs; every run ends with a breakdown (rig, per spec, browser proving from the prover's console events) in e2e/.breakdown.json
+bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e           # web miner in headless Chromium (a Vite build in e2e mode; E2E_SERVER=dev for the dev server); with presto-server installed the run gets a headless Presto and presto.e2e.ts runs; every run ends with a breakdown (rig, per spec, browser proving from the prover's console events) in e2e/.breakdown.json
 E2E_SHARD=cockpit bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e   # one shard of e2e/shards.json (CI runs them as a matrix); the shard must execute exactly its files' inventory (e2e/proof-inventory.ts)
 E2E_PROVERLESS=1 E2E_SHARD=cockpit …                                     # the shard on a build whose PXE skips transaction proving (CI does this for every shard but `canary`); the meter then fails any test that proves
 E2E_SHARD=canary bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e    # the real-proving canary: a claim with a bound public input altered is refused at proving, the untampered one mints

@@ -1,9 +1,10 @@
 // The replay specs' `test`: the browser context's HTTP and WebSocket traffic is routed — the app
 // passes, the recorded node answers from the recording, allowed origins pass, the rest is refused
 // and fails the test at its end. A test's own `page.route` runs first: `fulfill()` and `continue()`
-// there bypass this, `fallback()` reaches it. Workers are refused too: this page spawns none signed out.
+// there bypass this, `fallback()` reaches it. A spawned worker is recorded as a failure: this page
+// spawns none signed out.
 import { readFileSync } from 'node:fs';
-import { test as base, type Page, type Route } from '@playwright/test';
+import { test as base, type Route } from '@playwright/test';
 import {
   RECORDING_FILE,
   REPLAY_NODE_ORIGIN,
@@ -27,8 +28,6 @@ export interface Replay {
   allow(origin: string): void;
   /** Changes what a recorded key answers from now on. */
   override(key: string, result: unknown): void;
-  /** How many recorded answers of `method` have been delivered to the page so far. */
-  served(method: string): number;
   /** The page URL with the query the test needs; `presto` defaults to off. */
   url(query?: Record<string, string>): string;
 }
@@ -42,7 +41,6 @@ export const test = base.extend<{ replay: Replay }>({
       const app = new URL(run.baseURL).origin;
       const allowed = new Set<string>();
       const unexpected: string[] = [];
-      const served = new Map<string, number>();
       const answer = async (route: Route) => {
         const body = route.request().postDataJSON() as RpcCall | RpcCall[];
         const calls = Array.isArray(body) ? body : [body];
@@ -53,7 +51,6 @@ export const test = base.extend<{ replay: Replay }>({
         }
         const out = calls.map((c) => ({ jsonrpc: '2.0', id: c.id, result: answers[rpcKey(c)] }));
         await route.fulfill({ json: Array.isArray(body) ? out : out[0] });
-        for (const c of calls) served.set(c.method, (served.get(c.method) ?? 0) + 1);
       };
       const context = page.context();
       await context.route(
@@ -81,7 +78,6 @@ export const test = base.extend<{ replay: Replay }>({
         override: (key, result) => {
           answers[key] = result;
         },
-        served: (method) => served.get(method) ?? 0,
         url: (query = {}) => `${run.baseURL}/?${new URLSearchParams({ presto: 'off', ...query })}`,
       });
       // Nothing the pages do while they go away can land after the check.
@@ -92,5 +88,4 @@ export const test = base.extend<{ replay: Replay }>({
   ],
 });
 
-export type { Page as ReplayPage } from '@playwright/test';
 export { expect, type Page } from '@playwright/test';

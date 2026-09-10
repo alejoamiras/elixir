@@ -1,11 +1,8 @@
-# Evidence, not a gate: the web-miner E2E on an isolated local network proves for real and runs on
-# demand; its artifacts are the record. The miner's suite runs as shards named in
-# packages/web-miner/e2e/shards.json, each on its own network, and a last job merges the breakdowns
-# and requires the executed tests to equal the inventory — a green shard that skipped tests is not
-# green. Every shard but `canary` runs a proverless build (the PXE skips transaction proving; the
-# meter then fails any test that proves); `canary` keeps the real prover, shows a tampered claim
-# refused by it, and carries the specs that never prove on either build. The local run (`bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e`) stays
-# mandatory before a PR.
+# Evidence, not a gate: the web-miner E2E on isolated local networks, on demand; its artifacts are the
+# record. Shards come from packages/web-miner/e2e/shards.json; the merge job requires the executed
+# tests to equal the inventory. Only `canary` keeps the real prover; the others build proverless.
+# The local run (`bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e`) stays mandatory
+# before a PR.
 name: e2e
 
 on:

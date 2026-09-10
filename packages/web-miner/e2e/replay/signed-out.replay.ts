@@ -87,9 +87,7 @@ test('the public epoch poll reads again from the recording, and nothing else', a
   const shown = await page.getByTestId('epoch-claims').textContent();
   const claims = Number(/^(\d+) of/.exec(shown ?? '')?.[1]);
   expect(Number.isInteger(claims)).toBe(true);
-  // The next poll comes 30 s after the first. Its claims read now answers one more; the count on
-  // the tile can only change if that read was made, parsed and published — a stopped timer, a hung
-  // read or a swallowed error all leave the old number, and the log carries the error.
+  // The changed count proves the next poll (30 s after the first) was read, parsed and published.
   replay.override(replay.recording.claimsKey, `0x${(claims + 1).toString(16).padStart(64, '0')}`);
   await expect(page.getByTestId('epoch-claims')).toHaveText(new RegExp(`^${claims + 1} of`), {
     timeout: 45_000,

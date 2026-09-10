@@ -74,7 +74,8 @@ other than `site.env`'s fails (`packages/site/src/config.ts`), `YACANA_SITE_MODE
 `e2e`, `dev` or the build refuses to start, and a non-production mode can land neither in `packages/site/dist`
 nor in a Cloudflare build (`CF_PAGES`). After a production assembly, the emitted files are checked as well
 (`packages/site/src/artifact.ts`): `build.json` must say `production`, every `_headers` must be the production
-map, and no script may name a plaintext loopback origin. These guards sit on the supported routes —
+map, and no script may name a plaintext loopback origin or carry the proverless marker (`VITE_E2E_PROVERLESS`,
+an e2e-only flag that turns off the wallet's proving). These guards sit on the supported routes —
 `site:deploy` and Workers Builds' build step both assemble first; a bare `wrangler deploy` of an existing `dist`
 is not guarded, and `packages/web-miner`'s own `build` writes `packages/web-miner/dist`, which nothing deploys.
 

@@ -71,9 +71,9 @@ function checkScripts(out: string, files: string[], fail: Fail): void {
 
 /**
  * Throws unless `out` holds a production assembly: `build.json` says so, the root `_headers` exists
- * and every `_headers` is the production map, and no script names a plaintext loopback URL. This
- * catches what an e2e build leaves behind; a URL assembled from parts at runtime carries no literal
- * to find, which is why the resolved config is refused alongside.
+ * and every `_headers` is the production map, and no script names a plaintext loopback URL or
+ * carries the proverless marker. This catches what an e2e build leaves behind; a URL assembled from
+ * parts at runtime carries no literal to find, which is why the resolved config is refused alongside.
  */
 export function assertProductionArtifact(
   out: string,
