@@ -1,6 +1,9 @@
-# Evidence, not a gate: the web-miner E2E on an isolated local network takes about 40 minutes
-# and 3 GB on ubuntu-latest, so it runs on demand and its artifacts are the record. The local run
-# (`bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e`) stays mandatory before a PR.
+# Evidence, not a gate: the web-miner E2E on an isolated local network proves for real and runs on
+# demand; its artifacts are the record. The miner's suite runs as shards named in
+# packages/web-miner/e2e/shards.json, each on its own network, and a last job merges the breakdowns
+# and requires the executed tests to equal the inventory — a green shard that skipped tests is not
+# green. The local run (`bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e`) stays
+# mandatory before a PR.
 name: e2e
 
 on:
@@ -10,10 +13,26 @@ permissions:
   contents: read
 
 jobs:
-  web-miner:
-    name: web-miner on an isolated network
+  shards:
+    name: The miner's shards
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 2
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - id: plan
+        run: |
+          echo "matrix=$(jq -c '{shard: keys}' packages/web-miner/e2e/shards.json)" >> "$GITHUB_OUTPUT"
+
+  web-miner:
+    name: web-miner · ${{ matrix.shard }}
+    needs: shards
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.shards.outputs.matrix) }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-bun
@@ -27,11 +46,13 @@ jobs:
       - run: grep -rl dl.google.com /etc/apt/sources.list.d /etc/apt/sources.list 2>/dev/null | xargs -r sudo rm -f
       - run: bunx playwright install --with-deps chromium
       - run: bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e
+        env:
+          E2E_SHARD: ${{ matrix.shard }}
       - name: Keep the report
         if: always()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
-          name: web-miner-e2e
+          name: web-miner-e2e-${{ matrix.shard }}
           path: |
             packages/web-miner/playwright-report
             packages/web-miner/test-results
@@ -43,6 +64,27 @@ jobs:
             packages/web-miner/e2e/.presto-home/*/server.log
           if-no-files-found: ignore
           retention-days: 14
+
+  web-miner-report:
+    name: web-miner · the whole suite
+    needs: web-miner
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup-bun
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          pattern: web-miner-e2e-*
+          path: shards
+      # Every shard's breakdown into one table; the union of executed tests must be the inventory.
+      - run: bun packages/web-miner/e2e/report.ts merge shards
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   web-stats:
     name: web-stats on an isolated network

@@ -1,8 +1,10 @@
-// What each test must have proved in the browser, by title. The meter (fixtures.ts) counts the
-// prover's `client-ivc-proof-generation` events off the page console; a passing test that shows
-// fewer well-formed events than listed here fails, and a title missing from the list fails too, so
-// a collector that silently stops seeing events cannot hide behind zeros. Keep it free of imports:
-// bun's unit tests and Playwright's Node loader both read it.
+// The suite's inventory: every spec file, every test title in it, and the minimum number of browser
+// transaction proofs that test completes when it passes. Three things read it: the meter
+// (fixtures.ts) fails a passing test that shows fewer proof events than listed, or a title not
+// listed, so a collector that silently stops seeing events cannot hide behind zeros; the runner
+// (run-suite.ts) requires a shard's executed tests to equal its files' titles, since Playwright
+// says nothing when a shard matches no tests and a skipped test leaves a job green; and a unit test
+// holds the titles to the sources. Keep it free of imports: bun and Playwright's loader both read it.
 
 export interface ProofEvent {
   /** The prover's own duration for the proof; NaN when the event carried none. */
@@ -19,35 +21,66 @@ export interface ProofMeter {
   sends: SendRecord[];
 }
 
-/** The minimum number of browser transaction proofs each test completes when it passes. */
-export const EXPECTED_PROOFS: Readonly<Record<string, number>> = {
-  // miner.e2e.ts
-  'first visit creates an account, mines at the easy target, claims and shows the balance': 2,
-  'a poisoned CRS cache is purged before proving': 1,
-  'a malformed RPC payload is rejected, not acted on': 0,
-  'three power changes keep mining, the ledger grows, memory stays bounded': 0,
-  'a prover crash surfaces as an error and mining restarts on the next start': 0,
-  'the pop-out draws with the page fonts and its own loop': 0,
-  // passkey.e2e.ts
-  'a passkey account: create, mine, claim, reload with one touch, the balance follows the account': 1,
-  'a known account whose passkey is gone does not open; the record stays': 0,
-  // states.e2e.ts: the reverted claim, then the one that mints, after the first
-  'the node going away pauses mining after a minute; its return resumes it': 0,
-  'a lost race: the claim reverts, the chain view is rebuilt, the next claim mints, the balance survives': 3,
-  // withdraw.e2e.ts: one claim, two transfers
-  'withdraw: private to a second key on this device, public to an address': 3,
-  // words.e2e.ts, opening.e2e.ts, dialog-geometry.e2e.ts: the impossible target or no mining at all
-  'a words account: create, quiz, mine, sign out, restore, same address': 0,
-  'a cancel mid-opening returns to signed out; the account opens on the next try': 0,
-  'the sign-in screens and their error state fit the dialog at 720 px tall': 0,
-  // switch.e2e.ts
-  'a live switch A → B while mining, a claim after it, and the banner on a dead node': 1,
-  // presto.e2e.ts: the claim is the page's, whichever prover found the ticket
-  'through Presto: the pill says ✦ presto after the first native proof, and power is Presto’s': 0,
-  'a win Presto proved is verified in the browser before it shows, then claimed; the proof went over the wire': 1,
-  'nothing answers: the billboard invites the install and the browser proves without the suffix': 0,
-  'an old Presto answers: the update row, and Retry re-asks': 0,
+/** Spec file → test title → the browser proofs a pass necessarily made (a floor: the easy target keeps winning). */
+export const INVENTORY: Readonly<Record<string, Readonly<Record<string, number>>>> = {
+  'miner.e2e.ts': {
+    'first visit creates an account, mines at the easy target, claims and shows the balance': 2,
+    'a poisoned CRS cache is purged before proving': 1,
+    'a malformed RPC payload is rejected, not acted on': 0,
+    'three power changes keep mining, the ledger grows, memory stays bounded': 0,
+    'a prover crash surfaces as an error and mining restarts on the next start': 0,
+    'the pop-out draws with the page fonts and its own loop': 0,
+  },
+  'passkey.e2e.ts': {
+    'a passkey account: create, mine, claim, reload with one touch, the balance follows the account': 1,
+    'a known account whose passkey is gone does not open; the record stays': 0,
+  },
+  // The reverted claim, then the one that mints, after the first.
+  'states.e2e.ts': {
+    'the node going away pauses mining after a minute; its return resumes it': 0,
+    'a lost race: the claim reverts, the chain view is rebuilt, the next claim mints, the balance survives': 3,
+  },
+  // One claim, two transfers.
+  'withdraw.e2e.ts': {
+    'withdraw: private to a second key on this device, public to an address': 3,
+  },
+  'words.e2e.ts': {
+    'a words account: create, quiz, mine, sign out, restore, same address': 0,
+  },
+  'opening.e2e.ts': {
+    'a cancel mid-opening returns to signed out; the account opens on the next try': 0,
+  },
+  'dialog-geometry.e2e.ts': {
+    'the sign-in screens and their error state fit the dialog at 720 px tall': 0,
+  },
+  'switch.e2e.ts': {
+    'a live switch A → B while mining, a claim after it, and the banner on a dead node': 1,
+  },
+  // The claim is the page's, whichever prover found the ticket.
+  'presto.e2e.ts': {
+    'through Presto: the pill says ✦ presto after the first native proof, and power is Presto’s': 0,
+    'a win Presto proved is verified in the browser before it shows, then claimed; the proof went over the wire': 1,
+    'nothing answers: the billboard invites the install and the browser proves without the suffix': 0,
+    'an old Presto answers: the update row, and Retry re-asks': 0,
+  },
 };
+
+export const SPEC_FILES: readonly string[] = Object.keys(INVENTORY);
+
+/** Title → floor, over every file. */
+export const EXPECTED_PROOFS: Readonly<Record<string, number>> = Object.assign(
+  {},
+  ...Object.values(INVENTORY),
+) as Record<string, number>;
+
+/** The titles the given spec files hold; a file outside the inventory throws. */
+export function titlesOf(files: readonly string[]): string[] {
+  return files.flatMap((f) => {
+    const titles = INVENTORY[f];
+    if (!titles) throw new Error(`${f} is not in the inventory (e2e/proof-inventory.ts)`);
+    return Object.keys(titles);
+  });
+}
 
 export const wellFormed = (p: ProofEvent): boolean => Number.isFinite(p.durationMs) && p.durationMs > 0;
 

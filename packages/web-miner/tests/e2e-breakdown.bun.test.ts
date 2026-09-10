@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { EXPECTED_PROOFS, type ProofMeter, proofShortfall } from '../e2e/proof-inventory.ts';
-import { breakdown, type JsonReport } from '../e2e/report.ts';
+import { breakdown, coverageGap, executedTitles, type JsonReport, type SpecRow } from '../e2e/report.ts';
 
 const meter = (m: ProofMeter) => Buffer.from(JSON.stringify(m)).toString('base64');
 const spec = (file: string, title: string, duration: number, m?: ProofMeter) => ({
@@ -97,6 +97,28 @@ describe('the breakdown', () => {
     expect(b.provingShareOfRun).toBeCloseTo(0.15);
     expect(b.playwrightOverheadMs).toBe(150_000 - 20_000 - 90_000);
     expect(b.unattributedMs).toBe(200_000 - 30_000 - 5_000 - 150_000);
+  });
+
+  test('a skipped or never-run test is not executed; the gap names both directions', () => {
+    const row = (title: string, status: string): SpecRow => ({
+      file: 'x.e2e.ts',
+      title,
+      status,
+      ms: 0,
+      proofs: 0,
+      provingMs: 0,
+      submissionMs: 0,
+    });
+    const executed = executedTitles([
+      row('a', 'passed'),
+      row('b', 'failed'),
+      row('c', 'skipped'),
+      row('d', 'missing'),
+      row('e', 'timedOut'),
+    ]);
+    expect(executed).toEqual(['a', 'b', 'e']);
+    expect(coverageGap(executed, ['a', 'b', 'c', 'd'])).toEqual({ missing: ['c', 'd'], unexpected: ['e'] });
+    expect(coverageGap(['a'], ['a'])).toEqual({ missing: [], unexpected: [] });
   });
 
   test('outside the isolated runner the outer clock is unknown, not zero', () => {

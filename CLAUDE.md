@@ -45,7 +45,9 @@ bun test               # all bun:test suites (packages + scripts)
 bun run contracts:compile / contracts:test
 bun run e2e:agent -- <cmd>   # run <cmd> against a fresh isolated local network (AZTEC_NODE_URL set)
 bun run e2e:agent -- bun test packages/miner-core                        # live miner-core suite
-bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e           # web miner in headless Chromium (production build; E2E_SERVER=dev for the dev server); with presto-server installed the run gets a headless Presto and presto.e2e.ts runs
+bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e           # web miner in headless Chromium (production build; E2E_SERVER=dev for the dev server); with presto-server installed the run gets a headless Presto and presto.e2e.ts runs; every run ends with a breakdown (rig, per spec, browser proving from the prover's console events) in e2e/.breakdown.json
+E2E_SHARD=cockpit bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e   # one shard of e2e/shards.json (CI runs them as a matrix); the shard must execute exactly its files' inventory (e2e/proof-inventory.ts)
+E2E_DELAY_SENDTX_MS=20000 …                                              # hold every aztec_sendTx: the breakdown's submission column must rise while proving stays put
 bash scripts/run/install-presto-server.sh   # the pinned headless Presto (1.1.1, digest committed) into ~/.local/bin; PRESTO_URL=http://127.0.0.1:<port> bun test packages/web-miner/tests/presto-live.bun.test.ts against one you started
 bun run test:components        # every package's Vitest specs (ui, web-miner, web-stats, web-landing)
 bun run e2e:agent -- bun run --cwd packages/web-stats test:e2e          # stats page in headless Chromium (production build)
