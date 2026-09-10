@@ -225,8 +225,12 @@ export async function startIsolatedNode(opts: IsolatedNodeOptions = {}): Promise
 }
 
 async function runWithNode(cmd: string[]): Promise<number> {
+  const startedAt = Date.now();
   const node = await startIsolatedNode();
-  console.info(`isolated node ready: ${node.nodeUrl} (L1 ${node.l1RpcUrl}, run ${node.runId})`);
+  const nodeReadyMs = Date.now() - startedAt;
+  console.info(
+    `isolated node ready in ${(nodeReadyMs / 1000).toFixed(1)}s: ${node.nodeUrl} (L1 ${node.l1RpcUrl}, run ${node.runId})`,
+  );
   try {
     const [bin, ...args] = cmd;
     if (!bin) return 0;
@@ -237,6 +241,9 @@ async function runWithNode(cmd: string[]): Promise<number> {
         AZTEC_NODE_URL: node.nodeUrl,
         L1_RPC_URL: node.l1RpcUrl,
         YACANA_RUN_ID: node.runId,
+        // The command's clock started here, not at its own launch: what it reports can reconcile to it.
+        YACANA_RUN_STARTED_AT: String(startedAt),
+        YACANA_NODE_READY_MS: String(nodeReadyMs),
       },
     });
     return await new Promise<number>((res) => {

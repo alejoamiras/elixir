@@ -27,3 +27,13 @@ export interface E2eRun {
 }
 
 export const RUN_FILE = new URL('./.run.json', import.meta.url).pathname;
+
+/** What run-setup spent, step by step, left in e2e/.timings.json for report.ts. */
+export interface RigStep {
+  name: string;
+  ms: number;
+}
+export interface RigTimings {
+  steps: RigStep[];
+}
+export const TIMINGS_FILE = new URL('./.timings.json', import.meta.url).pathname;

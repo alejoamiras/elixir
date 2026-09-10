@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from './fixtures.ts';
 import { bootPage, pageUrl, run } from './helpers.ts';
 
 const nodeOrigin = (url: string) => new URL(url).origin;

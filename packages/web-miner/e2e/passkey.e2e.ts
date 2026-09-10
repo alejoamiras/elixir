@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.ts';
 import { BOOT_MS, bootPage, pageUrl, run, virtualAuthenticator } from './helpers.ts';
 
 const HEX64 = /0x[0-9a-f]{64}/gi;

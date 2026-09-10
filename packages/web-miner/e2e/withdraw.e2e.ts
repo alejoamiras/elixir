@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from './fixtures.ts';
 import { BOOT_MS, bootPage, pageUrl, run } from './helpers.ts';
 
 const openKey = async (page: Page, address: string) => {

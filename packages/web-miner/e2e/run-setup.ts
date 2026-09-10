@@ -21,7 +21,7 @@ import {
 } from '../../../scripts/run/presto.ts';
 import { claim, release } from '../../../scripts/run/registry.ts';
 import { type Deployment, deployYacana } from '../../deploy/src/deploy.ts';
-import { type E2eRun, type E2eServer, RUN_FILE } from './run.ts';
+import { type E2eRun, type E2eServer, type RigStep, RUN_FILE, TIMINGS_FILE } from './run.ts';
 
 const nodeUrl = process.env.AZTEC_NODE_URL;
 if (!nodeUrl) throw new Error('AZTEC_NODE_URL is not set: run through `bun run e2e:agent -- …`');
@@ -95,23 +95,35 @@ const closedPort = await claim({ ...lane, service: 'presto-closed' });
 let spawned: ChildProcess | undefined;
 let proxies: ChildProcess | undefined;
 let presto: PrestoLane | null = null;
+const steps: RigStep[] = [];
+let lapStart = Date.now();
+const lap = (name: string) => {
+  const now = Date.now();
+  steps.push({ name, ms: now - lapStart });
+  lapStart = now;
+};
 try {
   // The run's headless Presto: absent only where none is installed (presto.e2e.ts then skips); an
   // installed one that fails to start fails the run.
   if (prestoServerBinary())
     presto = await startPrestoServer({ lane, home: resolve(pkg, 'e2e/.presto-home', runId) });
   else console.log('e2e: presto-server is not installed; the Presto spec will skip');
+  lap('presto start');
   const target = BigInt(process.env.YACANA_E2E_TARGET ?? String(1n << 127n));
   const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: target });
+  lap('deploy (easy target)');
   const hard = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: 1n << 64n });
+  lap('deploy (impossible target)');
   const log = openSync(resolve(pkg, 'e2e/.vite.log'), 'w');
   const env = e2eEnv(deployed, presto?.port ?? null);
   if (server === 'preview') buildForRun(log, env);
+  lap(`bundle build (${server})`);
   spawned = startServer(log, port, env);
   const vite = spawned;
   const baseURL = `http://localhost:${port}`;
   if (!(await waitUntilUp(baseURL, vite)))
     throw new Error(`vite ${server} did not start on ${baseURL} (see e2e/.vite.log)`);
+  lap('server up');
   proxies = spawn('bun', ['e2e/node-proxy.ts', nodeUrl, ...proxyPorts.map(String)], {
     cwd: pkg,
     stdio: ['ignore', log, log],
@@ -128,6 +140,8 @@ try {
     if (up) break;
     await delay(250);
   }
+  lap('proxies up');
+  await Bun.write(TIMINGS_FILE, JSON.stringify({ steps }, null, 2));
   const run: E2eRun = {
     baseURL,
     nodeUrl,

@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from './fixtures.ts';
 import { BOOT_MS, bootPage, pageUrl, passKeyScreen, run } from './helpers.ts';
 
 // RSS of the browser's process tree, sampled from `ps`; Playwright's Chromium is the one whose

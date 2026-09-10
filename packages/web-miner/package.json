@@ -9,7 +9,7 @@
     "dev": "bun scripts/prebuild.ts && vite",
     "preview": "vite preview",
     "test:components": "vitest run",
-    "test:e2e": "bun scripts/prebuild.ts && playwright test",
+    "test:e2e": "bun e2e/run-suite.ts",
     "typecheck": "tsc -b"
   },
   "dependencies": {
