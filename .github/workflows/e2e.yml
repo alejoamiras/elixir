@@ -63,6 +63,8 @@ jobs:
             packages/web-miner/e2e/.renders
             packages/web-miner/e2e/.presto-home/*/server.log
           if-no-files-found: ignore
+          # The reports are dotfiles (`e2e/.breakdown.json`, `.vite.log`), which the action skips by default.
+          include-hidden-files: true
           retention-days: 14
 
   web-miner-report:
@@ -111,6 +113,8 @@ jobs:
             packages/web-stats/test-results
             packages/web-stats/e2e/.vite.log
           if-no-files-found: ignore
+          # `.vite.log` is a dotfile, which the action skips by default.
+          include-hidden-files: true
           retention-days: 14
 
   web-landing:
@@ -138,4 +142,6 @@ jobs:
             packages/web-landing/test-results
             packages/web-landing/e2e/.vite.log
           if-no-files-found: ignore
+          # `.vite.log` is a dotfile, which the action skips by default.
+          include-hidden-files: true
           retention-days: 14
