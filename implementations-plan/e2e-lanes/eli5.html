@@ -1,0 +1,157 @@
+<title>Faster Miner Tests</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #f2efe9; --panel: #e8e4dc; --panel-2: #dfdad1;
+    --ink: #0a0a0b; --ink-2: rgba(10,10,11,.68); --ink-3: rgba(10,10,11,.46);
+    --line: rgba(10,10,11,.12); --uv: #5b3fe0; --uv-dim: rgba(91,63,224,.1);
+    --ok: #1f8a4c; --warn: #9a6b00; --bad: #a4361f;
+    --sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0a0a0b; --panel: #17171b; --panel-2: #1e1e24;
+      --ink: #f2efe9; --ink-2: rgba(242,239,233,.64); --ink-3: rgba(242,239,233,.4);
+      --line: rgba(242,239,233,.1); --uv: #8c6bff; --uv-dim: rgba(140,107,255,.16);
+      --ok: #58c98b; --warn: #e8b54d; --bad: #f08a70;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0a0a0b; --panel: #17171b; --panel-2: #1e1e24;
+    --ink: #f2efe9; --ink-2: rgba(242,239,233,.64); --ink-3: rgba(242,239,233,.4);
+    --line: rgba(242,239,233,.1); --uv: #8c6bff; --uv-dim: rgba(140,107,255,.16);
+    --ok: #58c98b; --warn: #e8b54d; --bad: #f08a70;
+  }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 400 16px/1.55 var(--sans); }
+  main { max-width: 730px; margin: 0 auto; padding: 48px 24px 88px; }
+  h1, h2, h3 { font-weight: 600; letter-spacing: -.02em; text-wrap: balance; margin: 0; }
+  h1 { font-size: 33px; line-height: 1.1; }
+  h2 { font-size: 21px; margin-top: 46px; padding-top: 16px; border-top: 1px solid var(--line); }
+  h3 { font-size: 16.5px; margin-top: 18px; }
+  p { margin: 12px 0; max-width: 66ch; }
+  .eyebrow { font: 500 11.5px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--uv); margin-bottom: 14px; }
+  .lede { font-size: 18px; color: var(--ink-2); }
+  code { font-family: var(--mono); font-size: .88em; }
+  pre { font: 400 12.5px/1.5 var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; overflow-x: auto; white-space: pre-wrap; margin: 12px 0; }
+  .phase { margin: 14px 0; padding: 13px 18px; border-left: 2px solid var(--line); }
+  .phase.cond { border-left-color: var(--warn); }
+  .phase h3 { margin-top: 0; }
+  .gate { font: 400 13px/1.5 var(--mono); color: var(--ink-3); margin: 8px 0 0; }
+  .num { font: 500 11px/1.6 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  ul { padding-left: 20px; } li { margin: 7px 0; max-width: 66ch; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 500 11px/1.6 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  td.was { color: var(--ink-3); }
+  .wrap { overflow-x: auto; }
+  .approval { background: var(--uv-dim); border-left: 2px solid var(--uv); padding: 14px 18px; margin: 22px 0; }
+  .approval h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 18px; }
+  .rec { border-color: var(--uv); background: var(--panel); }
+  .muted { color: var(--ink-3); font-size: 14px; }
+  .warnline { color: var(--warn); font-weight: 500; }
+  .verdicts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 16px 0; }
+  .verdict { border: 1px solid var(--line); border-radius: 6px; padding: 11px 14px; background: var(--panel); font-size: 14px; }
+  .verdict b { display: block; font: 500 11px/1.6 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--bad); }
+  a { color: var(--uv); }
+</style>
+
+<main>
+  <p class="eyebrow">Plan · mid tier · e2e-lanes · approved 2026-09-10 · implementing</p>
+  <h1>Faster miner tests</h1>
+  <p class="lede">The miner's browser suite is nineteen tests. It takes about seventeen minutes here and twenty-six in CI, on one machine, and it only runs when someone asks for it by hand — so nothing about the Mine page is checked when you push. This plan makes it faster and gives it a small lane quick enough to run on every push. It also does something less comfortable: it says plainly which of the speed-ups cost you test coverage, and puts that decision in front of you with a number attached instead of burying it.</p>
+
+  <h2>The short version of what happened</h2>
+  <p>A plan was written. Two reviewers rejected it, for reasons that held up against the code. It was rewritten; a third reader called the rewrite sound in shape but too vague in its promises, and it was tightened. Then a different reviewer checked that version against the last real CI run rather than against its own prose, corrected its numbers, and sent those corrections back through review — which caught two more mistakes, including one in the corrections themselves. What follows is the version those rounds produced. Most of what makes it good came from being wrong, on the record, and having it caught.</p>
+
+  <div class="wrap">
+    <table>
+      <thead><tr><th>I planned to</th><th>Instead</th></tr></thead>
+      <tbody>
+        <tr><td class="was">Build a lane that skips the chain entirely, for the tests that never touch it</td><td>Impossible without changing the page. It refuses to show its sign-in screen until it has checked a real node and a real deployment — on purpose, so nobody creates a key against the wrong one. A test-only bypass would be another switch that must never ship, and would test a page users never see. Recording the chain's answers keeps the real page.</td></tr>
+        <tr><td class="was">Invent a way to run the app with no node behind it</td><td>You already have one. The stats screenshot gate records every answer the page needs once, then replays them with no node at all — and it runs on every pull request today. The miner's fast lane copies it.</td></tr>
+        <tr><td class="was">Sort every test into categories and build a machine to serve each category</td><td>Dropped. Both reviewers worked out that the machinery could only ever skip one deployment, two proxies and one helper process. Two switches do that. The categories bought nothing.</td></tr>
+        <tr><td class="was">Turn off the slow proof in most tests, early, as the third of four steps</td><td>Moved to last, made optional, and might never happen. Nobody has measured whether that proof is actually where the time goes.</td></tr>
+        <tr><td class="was">Claim four safety barriers keep that switch out of the real site</td><td>There is one before the build, and one at the point of shipping. Two of the four share a single condition, one is unreachable code that can never fire, and the test whose name says it covers them does not.</td></tr>
+        <tr><td class="was">Estimate that the slow proof is 7% of the suite, from the run's logs</td><td>Withdrawn. Those logged proof times belonged to the deployer and a helper miner, not to the browser. Nobody has measured the browser's proving time yet; the plan now measures it rather than guessing.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Two things worth knowing regardless of this plan</h2>
+  <p><strong>A single misspelling is caught late, not early.</strong> The site decides whether it is a production build by reading one environment variable and trusting it without checking. Any value other than the exact word <em>production</em> — a typo, a stray capital — re-enables most test-only overrides and loosens the security policy in that build. Every supported way of shipping refuses such a build at the last step, so it cannot reach the site through the scripts you use — but the refusal is late and unspecific, and one unsupported route (hand-running the deploy tool on a folder that already exists) has no guard at all. Validating the variable is a three-line fix; this plan does it first, on its own, whether or not the rest is ever built.</p>
+  <p><strong>Your test network has never checked a proof.</strong> The local chain the tests run against is configured to accept fake proofs, and it installs a verifier that answers "valid" to everything. So the value of the slow real proving in your tests was never that the network checked the work — it is that the claim's own circuit has to hold together mathematically, which is what catches a bad mining proof. That makes the case for keeping some real proving stronger and more specific than I first wrote, and it means the honest test for it is not "a claim worked" but "a deliberately broken proof was refused".</p>
+
+  <h2>Why this tier</h2>
+  <p>Scored against the six risks: nothing novel, small blast radius, nothing irreversible, no migration, no outside dependency — and one genuinely high one, which is that this plan touches the switch that turns proving off. One high dimension means <code>mid</code>: a plan, a competing alternative, two independent reviews, and a final fresh read. All four happened, and all three verdicts were rejections until the last rewrite.</p>
+
+  <h2>The plan</h2>
+  <div class="phase">
+    <h3><span class="num">P0</span> Fix the front door</h3>
+    <p>Check that environment variable against the three words it is allowed to be. Sort out the guard that cannot fire. Inspect what actually gets built, after it is built, rather than inspecting the settings that were meant to produce it. Depends on nothing; useful alone.</p>
+    <p class="gate">proves itself by: a test that sneaks forbidden content into the built output and demands the build fail · a build that lies about its mode being refused · the ordinary build still clean</p>
+  </div>
+  <div class="phase">
+    <h3><span class="num">P1</span> Measure, and change nothing</h3>
+    <p>The coarse numbers are known from the last CI run: about twenty-two minutes of tests and four of everything else. This phase produces the fine ones — and in particular the one nobody has: how long the browser itself spends proving a claim, read from the page's own log, kept apart from the deployer's and the helper miner's proofs, which is what the logs show today.</p>
+    <p class="gate">proves itself by: a breakdown that adds up to the clock on the wall, and the browser's proving share as a number</p>
+  </div>
+  <div class="phase">
+    <h3><span class="num">P2</span> Split across machines</h3>
+    <p>Run the suite on three machines instead of one, splitting by naming files rather than letting the runner guess. On the last run's numbers that is about twelve minutes per machine for about a third more machine-time in total. The subtlety: the test runner stays quiet when a split is misconfigured and runs nothing, so the check is that the tests which actually ran match the list of tests that exist.</p>
+    <p class="gate">proves itself by: the tests that ran equalling the tests that exist · the slowest machine under fifteen minutes · the three together under forty-five machine-minutes</p>
+  </div>
+  <div class="phase">
+    <h3><span class="num">P3</span> The fast lane, on every push</h3>
+    <p>Record what the page asks for once; replay it forever, with no chain running. Three tests move there to begin with — the ones that never sign in. It starts as a one-session experiment with six known traps written down in advance; if the experiment does not pass cleanly, the lane is dropped and the three tests stay where they are. Its running cost is stated too: whenever the page's start-up conversation with the chain changes, someone has to re-record on a machine with the toolchain, exactly as the stats lane already works.</p>
+    <p class="gate">proves itself by: running green with no chain anywhere, under eight minutes · the stats lane it borrows from still green · a deliberately outdated recording failing rather than passing</p>
+  </div>
+  <div class="phase">
+    <h3><span class="num">P4</span> Stop building what a run does not need</h3>
+    <p>Two switches: skip the second deployment, skip the native prover. Only worth building if the measurement says so. Anything skipped must make the tests that need it fail loudly — today a missing prover makes them quietly skip, and the run goes green having tested nothing.</p>
+    <p class="gate">proves itself by: each missing piece causing a named failure rather than a skip · the saving measured against the baseline</p>
+  </div>
+  <div class="phase cond">
+    <h3><span class="num">P5</span> Turn off the slow proof — <span class="warnline">only if the numbers justify it</span></h3>
+    <p>You've said real proving must survive somewhere and need not run everywhere — so the coverage question is settled: one test keeps proving for real, and the rest may stop. What is left is whether the saving earns a switch that must never ship. The rule: built only if the measurement shows the browser's proving is more than 15% of the suite. No one knows that number yet. If it clears the bar, one test keeps proving for real and must include the honest case: break the mining proof on purpose and require the claim to fail — set up so that nothing else can explain the failure.</p>
+    <p class="gate">proves itself by: the switch provably absent from a real build · the broken-proof test failing for the right reason, shown by passing when the proof is intact</p>
+  </div>
+
+  <h2>What the reviewers actually said</h2>
+  <div class="verdicts">
+    <div class="verdict"><b>Review 1 · reject</b>The lane could not work, the barriers were fewer than claimed, one variable disabled all of them.</div>
+    <div class="verdict"><b>Review 2 · reject</b>Same conclusions independently, plus: the fast lane already exists in this repo and the plan reimplemented a worse one.</div>
+    <div class="verdict"><b>Review 3 · reject</b>"Materially responsive" — but the gates could still pass while proving nothing. Those are now tightened.</div>
+    <div class="verdict"><b>Review 4 · conditional</b>A different reviewer, against the real CI run: the baseline was a third too high, one finding overstated, one phase undefined.</div>
+    <div class="verdict"><b>Review 5 · reject, reject, then approve</b>On review 4's corrections, three rounds: one cited the wrong proofs; one proposed a measurement that timed more than proving; the third approved with two small conditions, both now in.</div>
+  </div>
+  <p class="muted">Seven verdicts is normally a sign that the work is bigger than the plan admits. Here it was mostly that a plan about testing kept making claims it had not tested — including in its corrections. Everything is in the plan, and the reviews are on the record beside it.</p>
+
+  <h2>Three decisions, two of them now answered by the numbers</h2>
+  <ul>
+    <li><strong>Machine time — yes.</strong> On the last run's numbers, three machines bill about a third more and finish in about half the time. The plan carries budgets looser than that estimate — under fifteen minutes each, under forty-five together — because fresh deployments and runner variance move these numbers.</li>
+    <li><strong>When the fast lane runs — on pull requests.</strong> That is how the miner's checks already trigger; every-push would need the change filters reworked and would run on unfinished branches.</li>
+    <li><strong>Whether to do the last step at all — a rule, not a guess.</strong> Only if the browser's proving turns out to be more than a third of the suite, which nothing so far suggests. If it does, the coverage trade comes back to you with the number.</li>
+  </ul>
+
+  <div class="approval">
+    <h2>What I need from you</h2>
+    <ul>
+      <li>Approve the scope, or cut it — P0 alone is a defensible answer, and so is stopping after P3.</li>
+      <li>Confirm the delivery shape: the front-door fix as its own pull request; then measure-shard-trim; then the fast lane if its experiment passes; the last step only if the measurement demands it.</li>
+      <li>Say whether the two answered decisions stand.</li>
+      <li>Say approve, approve with conditions, or reject.</li>
+    </ul>
+  </div>
+
+  <h2>Starting the work</h2>
+  <p class="muted">One per session; they don't combine. Final, as approved.</p>
+  <div class="phase rec">
+    <h3>Recommended: /goal</h3>
+    <pre><code>/goal Every phase P0–P4 marked ✓ in implementations-plan/e2e-lanes/plan.md (the per-phase headers in the file), each ✓ backed by its gate as written there reported passing in the transcript — P1's breakdown quoted with the browser-proving share as a number and the reconciliation to the job clock, P2's executed-identities-equal-inventory check and its 15-minute / 45-runner-minute budgets shown from a CI run, P3's spike verdict recorded (lane built, or abandoned with the reason) and if built its observed second poll and staleness mutation shown, P0's and P4's failing-when-withheld tests shown; P5 built only if P1's number exceeds 15% and otherwise marked 'not built: N%' in plan.md; `LESSONS_FILE=implementations-plan/e2e-lanes/lessons/phase-N.md` printed per phase; `/code-review` NOT run; the codex fix loop converged per arc and a fresh cross-arc pass converged, each quoted; the PRs exist per the Delivery table, created only after the loops converged (`gh pr view` output in the transcript); `bun run lint` and `bun test` both exit 0 in the transcript.</code></pre>
+  </div>
+  <h3>Alternative: /loop 15m</h3>
+  <pre><code>/loop 15m Drive implementations-plan/e2e-lanes forward. Never idle. Each firing: read plan.md and lessons/, rebuild the task list from plan.md, check git and CI; take the next pending phase; run lint and the touched tests after each edit, commit, push; consult /codex high on decisions rather than waiting for me; a phase is green only when its gate in plan.md passes — run it, paste it, mark ✓, print LESSONS_FILE; at each arc boundary run the codex loop until nothing material; never merge, deploy, or push to main; P5 stays unbuilt until I approve it against P1's numbers.</code></pre>
+
+  <p class="muted">The full plan, the recon and the audit transcripts live in <code>implementations-plan/e2e-lanes/</code>.</p>
+</main>

@@ -13,7 +13,8 @@ export default defineConfig({
   expect: { timeout: 60_000 },
   workers: 1,
   retries: 0,
-  reporter: [['list']],
+  // The JSON report is what e2e/report.ts turns into the run's breakdown.
+  reporter: [['list'], ['json', { outputFile: 'e2e/.report.json' }]],
   use: {
     headless: true,
     trace: 'retain-on-failure',

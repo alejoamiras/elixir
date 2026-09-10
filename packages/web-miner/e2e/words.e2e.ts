@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from './fixtures.ts';
 import { BOOT_MS, pageUrl, run } from './helpers.ts';
 
 /** The twelve words as shown, read once from the grid before it is hidden. */

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.ts';
 import { BOOT_MS, run, virtualAuthenticator } from './helpers.ts';
 
 /**

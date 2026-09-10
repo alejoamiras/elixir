@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.ts';
 import { BOOT_MS, run } from './helpers.ts';
 
 const stats = async (proxy: string) => (await (await fetch(`${proxy}/__stats`)).json()) as { count: number };

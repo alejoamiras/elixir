@@ -5,7 +5,7 @@
 import { mkdirSync, readFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { resolve } from 'node:path';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from './fixtures.ts';
 import { BOOT_MS, bootPage, pageUrl, run } from './helpers.ts';
 
 const RENDERS = resolve(import.meta.dirname, '.renders');

@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from './fixtures.ts';
 import { bootPage, pageUrl, run } from './helpers.ts';
 
 const nodeOrigin = (url: string) => new URL(url).origin;
@@ -79,7 +79,7 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
         closing = closeEpochFromOutside(r).finally(release);
         await held;
       }
-      await route.continue();
+      await route.fallback();
     },
   );
   await expect(page.getByTestId('claim-stepper')).toBeVisible({ timeout: 10 * 60_000 });
