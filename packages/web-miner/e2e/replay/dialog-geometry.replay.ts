@@ -1,5 +1,5 @@
+import { BOOT_MS, virtualAuthenticator } from '../helpers.ts';
 import { expect, type Page, test } from './fixtures.ts';
-import { BOOT_MS, run, virtualAuthenticator } from './helpers.ts';
 
 /**
  * The sign-in dialog is 480 px wide and the page needs 900 px to be a desktop, so the window is
@@ -26,11 +26,10 @@ async function fits(page: Page, primary: string) {
   await expect(button).toBeInViewport();
 }
 
-test('the sign-in screens and their error state fit the dialog at 720 px tall', async ({ page }) => {
-  test.setTimeout(5 * 60_000);
+test('the sign-in screens and their error state fit the dialog at 720 px tall', async ({ page, replay }) => {
   await page.setViewportSize({ width: 900, height: 720 });
   await virtualAuthenticator(page); // no credential on it: "I already have a passkey" fails, honestly
-  await page.goto(`${run().baseURL}/`);
+  await page.goto(replay.url());
   await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
   await fits(page, 'create-passkey');
 

@@ -1,11 +1,9 @@
-// Bun-side pieces the two setups share: the fixture's public storage on a deployment, a Vite
-// build and preview of the app for one run, the registry-claimed port the preview binds.
-import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
+// Bun-side pieces the two setups share: the fixture's public storage on a deployment, and the
+// build / preview / port helpers of scripts/run/preview.ts bound to this package.
+import type { ChildProcess } from 'node:child_process';
 import { resolve } from 'node:path';
-import { setTimeout as delay } from 'node:timers/promises';
 import { Fr } from '@aztec/aztec.js/fields';
-import { lanePortBase, runPortWindowBase } from '../../../scripts/run/port-window.ts';
-import { claim } from '../../../scripts/run/registry.ts';
+import * as preview from '../../../scripts/run/preview.ts';
 import type { Deployment } from '../../deploy/src/deploy.ts';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { rowsFromJson } from '../../miner-core/src/reader.ts';
@@ -41,64 +39,18 @@ export async function mockStorage(d: Deployment): Promise<Record<string, Record<
   return { [d.miner]: miner, [d.token]: { [supplySlot.toString()]: hex(claims * PARAMS.REWARD) } };
 }
 
-export function buildApp(outDir: string, log: number, env: NodeJS.ProcessEnv): void {
-  execFileSync('bunx', ['vite', 'build', '--outDir', outDir, '--emptyOutDir'], {
-    cwd: pkg,
-    stdio: ['ignore', log, log],
-    env,
-  });
-}
+export const buildApp = (outDir: string, log: number, env: NodeJS.ProcessEnv): void =>
+  preview.buildApp(pkg, outDir, log, env);
 
-/** `vite preview` in its own process group, so a teardown can kill exactly it. */
-export function startPreview(
+export const startPreview = (
   outDir: string,
   log: number,
   port: number,
   env: NodeJS.ProcessEnv,
-): ChildProcess {
-  const args = [
-    'vite',
-    'preview',
-    '--outDir',
-    outDir,
-    '--port',
-    String(port),
-    '--strictPort',
-    '--host',
-    'localhost',
-  ];
-  const child = spawn('bunx', args, { cwd: pkg, stdio: ['ignore', log, log], detached: true, env });
-  child.unref();
-  return child;
-}
+): ChildProcess => preview.startPreview(pkg, outDir, log, port, env);
 
-/**
- * `localhost` can bind one loopback family while this process resolves the other (a container):
- * the probe tries both addresses; the page's own `localhost` URL reaches whichever is bound.
- */
-export async function waitUntilUp(baseURL: string, child: ChildProcess): Promise<boolean> {
-  const { hostname, port } = new URL(baseURL);
-  const probes =
-    hostname === 'localhost' ? [`http://127.0.0.1:${port}/`, `http://[::1]:${port}/`] : [`${baseURL}/`];
-  const up = (url: string) =>
-    fetch(url).then(
-      (r) => r.ok,
-      () => false,
-    );
-  for (let i = 0; i < 120 && child.exitCode === null; i++) {
-    for (const probe of probes) if (await up(probe)) return true;
-    await delay(500);
-  }
-  return false;
-}
+export const waitUntilUp = preview.waitUntilUp;
 
 /** The stats lane (4) of this run's port window, owned by `ownerPid`. */
 export const claimPreviewPort = (runId: string, ownerPid: number): Promise<number> =>
-  claim({
-    runId,
-    service: 'vite',
-    ownerPid,
-    worktree: resolve(pkg, '../..'),
-    base: lanePortBase(runPortWindowBase(runId), 4, 8),
-    span: 8,
-  });
+  preview.claimPreviewPort({ runId, ownerPid, worktree: resolve(pkg, '../..'), laneIndex: 4 });

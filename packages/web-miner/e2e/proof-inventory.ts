@@ -24,7 +24,6 @@ export const INVENTORY: Readonly<Record<string, Readonly<Record<string, number>>
   'miner.e2e.ts': {
     'first visit creates an account, mines at the easy target, claims and shows the balance': 2,
     'a poisoned CRS cache is purged before proving': 1,
-    'a malformed RPC payload is rejected, not acted on': 0,
     'three power changes keep mining, the ledger grows, memory stays bounded': 0,
     'a prover crash surfaces as an error and mining restarts on the next start': 0,
     'the pop-out draws with the page fonts and its own loop': 0,
@@ -48,9 +47,6 @@ export const INVENTORY: Readonly<Record<string, Readonly<Record<string, number>>
   'opening.e2e.ts': {
     'a cancel mid-opening returns to signed out; the account opens on the next try': 0,
   },
-  'dialog-geometry.e2e.ts': {
-    'the sign-in screens and their error state fit the dialog at 720 px tall': 0,
-  },
   'switch.e2e.ts': {
     'a live switch A → B while mining, a claim after it, and the banner on a dead node': 1,
   },
@@ -59,11 +55,29 @@ export const INVENTORY: Readonly<Record<string, Readonly<Record<string, number>>
     'through Presto: the pill says ✦ presto after the first native proof, and power is Presto’s': 0,
     'a win Presto proved is verified in the browser before it shows, then claimed; the proof went over the wire': 1,
     'nothing answers: the billboard invites the install and the browser proves without the suffix': 0,
-    'an old Presto answers: the update row, and Retry re-asks': 0,
   },
 };
 
 export const SPEC_FILES: readonly string[] = Object.keys(INVENTORY);
+
+/**
+ * The replay lane's tests (`e2e/replay/*.replay.ts`): the signed-out page against a recording, no
+ * node, no account, no proving. The first three left the sharded suite by name; the last exists only
+ * here. A unit test holds sharded + moved to the suite's original nineteen.
+ */
+export const REPLAYED: Readonly<Record<string, readonly string[]>> = {
+  'dialog-geometry.replay.ts': ['the sign-in screens and their error state fit the dialog at 720 px tall'],
+  'signed-out.replay.ts': [
+    'a malformed RPC payload is rejected, not acted on',
+    'an old Presto answers: the update row, and Retry re-asks',
+    'the public epoch poll reads again from the recording, and nothing else',
+  ],
+};
+export const MOVED_TO_REPLAY: readonly string[] = [
+  'the sign-in screens and their error state fit the dialog at 720 px tall',
+  'a malformed RPC payload is rejected, not acted on',
+  'an old Presto answers: the update row, and Retry re-asks',
+];
 
 /** Title → floor, over every file. */
 export const EXPECTED_PROOFS: Readonly<Record<string, number>> = Object.assign(

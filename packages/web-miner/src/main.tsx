@@ -9,7 +9,7 @@ import { App } from './App';
 import { loadConnection } from './config';
 import type { MinerController } from './controller';
 import { Session } from './session';
-import { claimsAtom, crsAtom, nowAtom } from './state';
+import { claimsAtom, crsAtom, logAtom, nowAtom } from './state';
 
 const store = createStore();
 // The proving keys download from the first moment, off the preflight's path: the wallet and the
@@ -53,6 +53,8 @@ declare global {
       controller: () => MinerController | undefined;
       ready: Promise<unknown>;
       crashProver: () => void;
+      /** The page's own log lines, the ones the About tile copies as diagnostics. */
+      log: () => string[];
     };
   }
 }
@@ -62,6 +64,7 @@ window.yacana = {
   controller: () => session.controller,
   ready: session.ready,
   crashProver: () => session.controller?.crashProver(),
+  log: () => store.get(logAtom),
 };
 
 const root = document.getElementById('root');

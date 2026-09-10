@@ -3,7 +3,6 @@
 // when an old Presto answers — with the 1280/1440 renders of each state.
 
 import { mkdirSync, readFileSync } from 'node:fs';
-import { createServer, type Server } from 'node:http';
 import { resolve } from 'node:path';
 import { expect, type Page, test } from './fixtures.ts';
 import { BOOT_MS, bootPage, pageUrl, run } from './helpers.ts';
@@ -101,50 +100,4 @@ test('nothing answers: the billboard invites the install and the browser proves 
   await expect(page.getByRole('slider')).toBeEnabled();
   await page.getByTestId('stop').click();
   await auth.remove();
-});
-
-/** An old Presto: answers health without the UltraHonk route; the second answer has it. */
-function oldPresto(): Promise<{ server: Server; port: number; upgrade: () => void }> {
-  let schemes = ['chonk'];
-  const server = createServer((req, res) => {
-    res.setHeader('access-control-allow-origin', '*');
-    res.setHeader('access-control-allow-private-network', 'true');
-    if (req.method === 'OPTIONS') return void res.writeHead(204).end();
-    if (req.url?.startsWith('/health')) {
-      res.setHeader('content-type', 'application/json');
-      return void res.end(JSON.stringify({ status: 'ok', api_version: 1, schemes, version: '1.0.0' }));
-    }
-    res.writeHead(404).end();
-  });
-  return new Promise((ok) =>
-    server.listen(0, '127.0.0.1', () => {
-      const port = (server.address() as { port: number }).port;
-      ok({
-        server,
-        port,
-        upgrade: () => {
-          schemes = ['chonk', 'ultra_honk'];
-        },
-      });
-    }),
-  );
-}
-
-test('an old Presto answers: the update row, and Retry re-asks', async ({ page }) => {
-  const r = run();
-  const fake = await oldPresto();
-  try {
-    await page.goto(pageUrl(r, { presto: String(fake.port) }));
-    await expect(page.getByTestId('cockpit')).toBeVisible({ timeout: BOOT_MS });
-    const notice = page.getByTestId('presto-notice');
-    await expect(notice).toContainText('needs an update', { timeout: 60_000 });
-    await expect(page.getByTestId('presto-billboard')).toHaveCount(0);
-    await page.getByTestId('not-now').click();
-    await render(page, 'row');
-    fake.upgrade();
-    await page.getByTestId('presto-retry').click();
-    await expect(notice).toHaveCount(0, { timeout: 30_000 });
-  } finally {
-    fake.server.close();
-  }
 });

@@ -1,0 +1,42 @@
+# Phase 3 lessons — a record-and-replay lane, on pull requests (arc C)
+
+**Spike verdict (2026-09-10): passed inside the box — the lane is built.** The three signed-out tests run against a recording with no node, in under a minute of tests; the branch `e2e-lanes-replay` stacks on arc B.
+
+**Gate (plan, P3)**: `bun run lint` · `bun run lint:actions` · the lane green locally with no isolated network running · the stats visual lane still green after the helpers move · a compatibility mutation (one bound input changed → the lane refuses the recording) · strict network accounting with explicit allowances · green in CI on `pull_request` inside 8 minutes, a 10-minute timeout, a change filter over the bound inputs. Result: see **Evidence** below.
+
+## What was built
+
+- **`scripts/run/preview.ts`** — the stats lane's `buildApp` / `startPreview` / `waitUntilUp` / `claimPreviewPort`, taking the package directory and the port lane as arguments. `packages/web-stats/e2e/serve.ts` keeps its signatures by binding them to its package (its two callers untouched); `mockStorage` stays there. The miner's replay lane imports the shared module directly.
+- **`packages/web-miner/e2e/replay/`** — `setup.ts record|serve|teardown` (the shape of the stats `visual-setup.ts`), `run.ts` (import-free types and the recording's location), `fixtures.ts` (the specs' `test`), `dialog-geometry.replay.ts` and `signed-out.replay.ts`, `recording.json` (committed), `global-setup.ts` / `global-teardown.ts`; `playwright.replay.config.ts` at the package root with `testDir: e2e/replay` and `testMatch: *.replay.ts`, so the full suite's `*.e2e.ts` match never sweeps them in; `test:replay` runs prebuild then the lane. The three tests left `miner.e2e.ts`, `presto.e2e.ts` and `dialog-geometry.e2e.ts` (the file is gone), and `shards.json` no longer lists it.
+- **The recording** is what one signed-out visit asks a fresh deployment: 12 answers — `getChainId`, `getNodeInfo`, `getBlockNumber` (the preflight), `getContract` ×2 and the miner's `token` slot (the probe), `getBlockData("latest")` (the latest block), and the public poll's five slots (`open_epoch`, the epoch's target / seed / opened_at, its claims). The public poll's second read asks for the same keys, so the recording answers it too. Beside the answers: the deployment identity the build is made for, and a **binding** — sha256 of the committed miner artifact, of the token artifact from aztec-standards, of `storage-layout.json`, and the aztec.js version. `serve` recomputes it and refuses a drifted recording by name; `tests/replay-binding.bun.test.ts` asserts the committed recording matches the tree, so a bound input moving fails `bun test` before any lane runs.
+- **Strict accounting** in `fixtures.ts`: one `page.route` over everything — the app's origin passes, the recorded node origin (`http://127.0.0.1:1`) answers from the recording or refuses an unrecorded key, origins a test `allow()`s pass (the fake old Presto's port, over https and http — the SDK tries HTTPS first; the malformed test's own nonsense origin `http://127.0.0.1:2`, kept apart from the recording's so the garbage never meets its handler) — and anything else is aborted and recorded; the fixture's teardown fails the test if the list is not empty. `presto=off` is the default query, so the dialog test does not wait on the production Presto probe.
+- **The completed second poll is observed, not assumed**: a fourth test counts the recorded `getPublicStorageAt` answers served after the cockpit rendered and waits until five more were served (the next poll, ~30 s later), then reads the page's own log through the e2e hook (`window.yacana.log()`, added beside `crashProver` — the log lines never reach the console, they are what the About tile copies as diagnostics) and requires no `public epoch:` line in it.
+- **`web-miner.yml` gains a `replay` job** on `pull_request`: bun, Chromium, `test:replay`; 10-minute timeout; no Aztec toolchain, no Presto. Its change filter adds `storage-layout.json`, `packages/contracts/artifacts/**` and `scripts/run/**` to the miner's paths.
+- **The inventory invariant** (`tests/e2e-inventory.bun.test.ts`): the replay files on disk and their titles equal `REPLAYED`; each of the three `MOVED_TO_REPLAY` titles is absent from the sharded inventory and present in the replay one; sharded (16) + moved (3) = the original 19; no title repeats across both.
+
+## The six obstacles named in advance
+
+| obstacle | what happened |
+|---|---|
+| `aztec_getBlockNumber` first | recorded, as `getBlockNumber []` |
+| the seed slot | recorded: the poll reads the epoch's seed with its target and opened_at |
+| `VITE_E2E_QUERY_OVERRIDES=1` | set in `replayEnv`; the old-Presto `?presto=<port>` is honoured |
+| a stateful fake Presto | stays the spec's own HTTP server; the fixture `allow()`s its origin |
+| an explicit Presto disposition for the dialog | `presto=off` is the fixture URL's default |
+| the malformed response outside the recording | its own origin (`127.0.0.1:2`), fulfilled by the test's route |
+
+## Evidence
+
+- **The recording** (2026-09-10, one isolated network): `recorded 12 answers`, one deployment, ~150 lines of JSON.
+- **The lane locally, no network running** (`pgrep aztec start` → none): `4 passed (41.6s)`, 43 s wall including prebuild, build and preview — dialog 2.5 s, malformed RPC 0.7 s, old Presto 1.7 s, the second poll 31.8 s. The same three tests cost 3.2 + 0.9 + 2.3 s inside a 30-minute job before.
+- **The stats screenshot gate after the helper move**: `4 passed (5.7s)` in the pinned image.
+- **The compatibility mutation**: with `minerArtifactSha256` in the recording's binding overwritten, `setup.ts serve` exits 1 with `e2e/replay/recording.json was taken against other inputs (minerArtifactSha256): re-record with …`, and `bun test packages/web-miner/tests/replay-binding.bun.test.ts` fails on the same line. The recording was restored byte for byte.
+- **Strict accounting held on every run**: no request outside the app origin, the recording and the two allowed fakes — including the SDK's HTTPS-first probe of the fake Presto, which is why both schemes of its port are allowed.
+- **CI**: _(the `pull_request` job's first run, filled below)_
+
+## What it taught
+
+- 2026-09-10 · The page's log lines never reach the console (they are what the About tile copies as diagnostics), so "no swallowed poll error" needed a hook: `window.yacana.log()` beside `crashProver`. One line of product code, on the e2e surface that already existed.
+- 2026-09-10 · Bun's `--filter`-less `bun test` runs `setup.ts`'s module body when the binding test imports it; the command switch ends with `else if (command !== undefined)` so an import is a no-op rather than a usage error.
+- 2026-09-10 · `presto=off` as the fixture URL's default is what keeps the dialog test at 2.5 s: without it the SDK probes the production Presto default over HTTPS on loopback and the accounting sees a request outside the recording.
+- 2026-09-10 · The plan's estimate that the lane needs "under 8 minutes" was conservative by an order of magnitude locally; the CI number is what the gate reads.
