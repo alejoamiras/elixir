@@ -236,6 +236,7 @@ malformed response and the fake Presto endpoint · green in CI on `pull_request`
 10-minute timeout, and a change filter covering the miner's sources, the stats helpers it imports, the run
 scripts, the recording files and the contract artifacts. Layers: lint · e2e · CI.
 
+**P4 · not built (2026-09-10): P1 says it is not worth it.** The rig is 10% of the run and its bulk is the two deployments (85 s local, 115 s CI); Presto's start is 0.5 s, and every shard of `e2e/shards.json` needs the impossible-target deployment (the power, node-away, words and two Presto tests are spread over three files), so neither flag saves anything. Deploying both in parallel was tried and collides at the node (`NULLIFIER_CONFLICT`: both publish the same contract classes); reverted. The silent-skip half is closed by P2's inventory check instead. `lessons/phase-4.md`. The original phase text follows for the record.
 **P4 · Trim the rig, if P1 says it is worth it.** Two environment booleans in `run-setup.ts`: skip the
 impossible-target deployment, skip Presto. Both dependencies must fail loudly rather than degrade — a missing
 Presto silently skips today (`presto.e2e.ts:27`), and a missing hard deployment would stringify into a URL that
@@ -416,6 +417,8 @@ lane; two booleans deliver the rig saving.
 | Six passages the corrections had not reached | codex, round 2 | **Rewritten in place** |
 | A collector that records zero proving | codex, round 3 | **Fails the measurement**: expected proofs must yield positive-duration events |
 | P0's gate naming only the site suite | codex, round 3 | **Runs the miner's endpoint tests** and asserts `httpsOnly` on the consumed endpoint |
+| P4's two rig flags | P1's numbers, implementation | **Not built**: Presto costs 0.5 s; every shard needs the second deployment; parallel deployments collide on class publication |
+| Artifact uploads in `e2e.yml` | implementation (P1's CI run archived nothing) | **Fixed**: `include-hidden-files: true` — the reports are dotfiles the action skipped by default |
 | A test-only preflight bypass | the owner's question | **Rejected**: a product guard, a flag that must never ship, and a page users never see; replay instead |
 | The 30% coverage bar | the owner's position | **Lowered to 15% and reframed**: coverage accepted with a real canary; the bar is cost against the flag |
 
