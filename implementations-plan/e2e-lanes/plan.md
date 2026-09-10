@@ -82,10 +82,12 @@ own prose.
   `packages/web-miner`'s own `vite build`, which is on no deploy path anyway. Worth doing; not a hole.
 - **P0 had no definition of "forbidden".** There is no proverless marker yet, so an artifact inspection needs a
   concrete list or it tests nothing in particular. The list is below.
-- **Proverless can be estimated now.** From the measured local durations, the claim specs are about ten of the
-  sixteen minutes and contain about nine claims, each with a ~12 s transaction proof: roughly two minutes, about
-  12% of the suite. That is the only thing in the suite exercising the claim circuit's in-circuit verification of
-  the mining proof. The plan now carries a decision rule instead of an open question.
+- **Proverless can be estimated now.** The last green run logged its client-side transaction proofs at 4.9 to
+  8.0 seconds each, mean about six. The suite makes roughly eleven of them — nine claims, plus the withdraw
+  spec's two transfers — so a little over a minute of a 14.6-minute test total, about 7%. Block waits and PXE note
+  sync are the rest of a claim's cost and proverless does not touch them. That minute is the only thing in the
+  suite exercising the claim circuit's in-circuit verification of the mining proof. The plan now carries a
+  decision rule instead of an open question, and the estimate says the answer is no.
 - **The replay lane's running cost was unnamed.** Any change to the miner's boot-time RPC surface breaks the
   lane until someone re-records on a machine with the toolchain — exactly how the stats lane already behaves.
   P3 says so, and runs as a timeboxed spike before anything is built on it.
@@ -189,9 +191,11 @@ named error rather than a skip · a successful trimmed run recording the saving 
 e2e.
 
 **P5 · Proverless — conditional, last, and probably never.** The decision rule, fixed now: **built only if P1
-shows the claim transaction proof above 30% of test time.** The back-of-envelope from measured durations puts it
-near 12% — nine claims at ~12 s in a sixteen-minute suite — and it is the only thing exercising the claim
-circuit's in-circuit verification of the mining proof. At 12% it is not built. If P1 clears the bar, the owner
+shows client-side transaction proving above 30% of test time.** The measured estimate is about 7% — eleven
+proofs at about six seconds in a 14.6-minute test total — and that 7% is the only thing exercising the claim
+circuit's in-circuit verification of the mining proof. At 7% it is not built. Note also that the flag would sit
+at the wallet (`wallet.ts:65`), so it would fake every transaction the embedded PXE proves — withdrawals and rolls
+too — not claims alone. If P1 clears the bar, the owner
 still decides how much coverage goes (Ask 3), with the number in hand. The flag
 follows the `config.ts` template; its marker must be inseparable from the flag, since a marker that is merely
 defined is tree-shaken and one emitted as its own asset proves nothing about the code.
@@ -279,7 +283,13 @@ lane; two booleans deliver the rig saving.
 10. `run-setup.ts` always runs two deployments, builds the bundle into a shared `e2e/.dist` with
     `--emptyOutDir`, starts two proxies, and starts Presto when installed.
 11. CI run 34395322513's miner job: 26.5 min total, 24.9 in the e2e step, every earlier step under twenty seconds
-    (the toolchain, contracts and Playwright are cached). Locally: 16.6 min wall, 16.2 in Playwright.
+    (the toolchain, contracts and Playwright are cached). Locally: 16.6 min wall, 16.2 reported by Playwright, and
+    the per-spec durations sum to 14.6 — so Playwright's total includes its global setup (the two deployments and
+    the bundle build, about 1.6 min) and the node's start and stop sit outside it (about 0.4). Fixed cost is
+    about two of the sixteen-and-a-half minutes. Scaling by the CI/local ratio: per shard about 4.6 min fixed
+    (1.6 of pre-steps, 3 inside Playwright) against about 22 min of tests; the best three-way file split has a
+    slowest bucket near 5.7 local minutes, about 8.6 in CI, so the slowest shard lands near 13 min and the matrix
+    near 36 runner-minutes — under the 15 and 45 the P2 gate names.
 12. Measured local durations, last green run: lost race 2.6 min, passkey 2.0, withdraw 1.9, node-away 1.7, first
     visit 1.5, power changes 1.4, presto claim 0.9, switch 0.9; the rest under a minute each. Claim specs total
     about ten minutes of the sixteen.
@@ -293,9 +303,9 @@ lane; two booleans deliver the rig saving.
    early, and if replay cannot cover a spec, that spec stays in the sharded suite.
 3. That two booleans capture the rig saving. If P1 shows the second deployment is cheap and the network is
    everything, P4 is not worth building.
-4. That the ~12% estimate for the claim transaction proof is right within a factor of two. It comes from nine
-   claims at ~12 s each against a 16-minute suite; block waits and PXE note sync are the other costs inside a
-   claim and are not removed by proverless. P1 attributes it properly; the decision rule has headroom.
+4. That the ~7% estimate for client-side transaction proving is right within a factor of two. It comes from
+   the logged proof durations of the last run (4.9-8.0 s) and a count of the proofs the specs make; P1 attributes
+   it properly. Even at double, the 30% rule is not close.
 
 **Asks** — two answered by the measured baseline, one converted to a rule
 
@@ -304,8 +314,8 @@ lane; two booleans deliver the rig saving.
    (45 runner-minutes for the matrix, slowest job under 15).
 2. **The push lane's trigger — answered: `pull_request`.** It matches `web-miner.yml`'s existing change filter;
    every-push would need `_changes.yml` reworked for a `push` event and would run on unfinished branches.
-3. **Proverless — a rule, not a question.** Built only if P1 shows the claim transaction proof above 30% of test
-   time; the estimate is 12%. If it clears the bar, the owner decides the coverage trade then.
+3. **Proverless — a rule, not a question.** Built only if P1 shows client-side transaction proving above 30% of
+   test time; the measured estimate is 7%. If it clears the bar, the owner decides the coverage trade then.
 
 ## Decision ledger
 
@@ -330,7 +340,7 @@ lane; two booleans deliver the rig saving.
 | "Forty minutes in CI" | fourth read | **Corrected** to the measured 26.5, with a small fixed cost; the sharding maths flips |
 | "One variable opens the front door" | fourth read | **Softened**: `assemble.ts` already refuses it on every deploy path; P0 is early failure, not a closed hole |
 | P0's "forbidden content" | fourth read | **Defined**: loopback origins in `dist/**/*.js` and `_headers`; a non-production `build.json` |
-| Proverless as an open ask | fourth read | **A rule**: built only above 30% of test time; estimated at 12% |
+| Proverless as an open ask | fourth read | **A rule**: built only above 30% of test time; measured estimate 7% |
 | P3 straight into arc C | fourth read | **A spike first**, timeboxed; the maintenance cost named |
 | Asks 1 and 2 | fourth read | **Answered** from the measured baseline: yes to sharding; `pull_request` |
 
