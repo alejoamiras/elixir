@@ -57,7 +57,7 @@
 </style>
 
 <main>
-  <p class="eyebrow">Plan · mid tier · e2e-lanes · awaiting your approval</p>
+  <p class="eyebrow">Plan · mid tier · e2e-lanes · approved 2026-09-10 · implementing</p>
   <h1>Faster miner tests</h1>
   <p class="lede">The miner's browser suite is nineteen tests. It takes about seventeen minutes here and twenty-six in CI, on one machine, and it only runs when someone asks for it by hand — so nothing about the Mine page is checked when you push. This plan makes it faster and gives it a small lane quick enough to run on every push. It also does something less comfortable: it says plainly which of the speed-ups cost you test coverage, and puts that decision in front of you with a number attached instead of burying it.</p>
 
@@ -145,10 +145,10 @@
   </div>
 
   <h2>Starting the work</h2>
-  <p class="muted">One per session; they don't combine. Drafts until you approve.</p>
+  <p class="muted">One per session; they don't combine. Final, as approved.</p>
   <div class="phase rec">
     <h3>Recommended: /goal</h3>
-    <pre><code>/goal Every phase marked ✓ in implementations-plan/e2e-lanes/plan.md, each backed by its gate reported passing in the transcript; `LESSONS_FILE=implementations-plan/e2e-lanes/lessons/phase-N.md` printed per phase; P1's breakdown quoted in the transcript with the claim-proof share as a number; the codex fix loop converged per arc, quoted; the PRs exist, created only after the loops converged; `bun run lint` and `bun test` both exit 0 in the transcript.</code></pre>
+    <pre><code>/goal Every phase P0–P4 marked ✓ in implementations-plan/e2e-lanes/plan.md (the per-phase headers in the file), each ✓ backed by its gate as written there reported passing in the transcript — P1's breakdown quoted with the browser-proving share as a number and the reconciliation to the job clock, P2's executed-identities-equal-inventory check and its 15-minute / 45-runner-minute budgets shown from a CI run, P3's spike verdict recorded (lane built, or abandoned with the reason) and if built its observed second poll and staleness mutation shown, P0's and P4's failing-when-withheld tests shown; P5 built only if P1's number exceeds 15% and otherwise marked 'not built: N%' in plan.md; `LESSONS_FILE=implementations-plan/e2e-lanes/lessons/phase-N.md` printed per phase; `/code-review` NOT run; the codex fix loop converged per arc and a fresh cross-arc pass converged, each quoted; the PRs exist per the Delivery table, created only after the loops converged (`gh pr view` output in the transcript); `bun run lint` and `bun test` both exit 0 in the transcript.</code></pre>
   </div>
   <h3>Alternative: /loop 15m</h3>
   <pre><code>/loop 15m Drive implementations-plan/e2e-lanes forward. Never idle. Each firing: read plan.md and lessons/, rebuild the task list from plan.md, check git and CI; take the next pending phase; run lint and the touched tests after each edit, commit, push; consult /codex high on decisions rather than waiting for me; a phase is green only when its gate in plan.md passes — run it, paste it, mark ✓, print LESSONS_FILE; at each arc boundary run the codex loop until nothing material; never merge, deploy, or push to main; P5 stays unbuilt until I approve it against P1's numbers.</code></pre>

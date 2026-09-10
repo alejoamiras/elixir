@@ -5,7 +5,7 @@ driver: claude-code
 tier: mid
 eli5_mode: artifact
 code_review: off
-status: approved by codex with two conditions, both folded in; awaiting the owner
+status: approved by the owner 2026-09-10; implementing
 ```
 
 ## What this is
@@ -472,4 +472,17 @@ explicitly runs the consumed-endpoint tests and mutation check)**. Both conditio
 
 ## Seeds
 
-Drafted; finalised after approval.
+Finalised at approval, 2026-09-10. Use exactly one per session; they do not compose. Start the session inside
+this worktree (`agent-worktree resume e2e-lanes`).
+
+**Recommended: `/goal`**
+
+```
+/goal Every phase P0–P4 marked ✓ in implementations-plan/e2e-lanes/plan.md (the per-phase headers in the file), each ✓ backed by its gate as written there reported passing in the transcript — P1's breakdown quoted with the browser-proving share as a number and the reconciliation to the job clock, P2's executed-identities-equal-inventory check and its 15-minute / 45-runner-minute budgets shown from a CI run, P3's spike verdict recorded (lane built, or abandoned with the reason) and if built its observed second poll and staleness mutation shown, P0's and P4's failing-when-withheld tests shown; P5 built only if P1's number exceeds 15% and otherwise marked 'not built: N%' in plan.md; `LESSONS_FILE=implementations-plan/e2e-lanes/lessons/phase-N.md` printed per phase; `/code-review` NOT run; the codex fix loop converged per arc and a fresh cross-arc pass converged, each quoted; the PRs exist per the Delivery table, created only after the loops converged (`gh pr view` output in the transcript); `bun run lint` and `bun test` both exit 0 in the transcript.
+```
+
+**Alternative: `/loop 15m`**
+
+```
+/loop 15m Drive implementations-plan/e2e-lanes forward. Never idle. Each firing: read plan.md and lessons/ (authoritative), rebuild the task list from plan.md if empty, git status and log, CI state if a run exists; take the next pending phase in Delivery order (A: P0 as its own PR; B: P1 then P2 then P4; C: P3 spike then lane; D: P5 only if P1's number exceeds 15%); after each edit run lint and the touched tests, commit, push; consult /codex high on decisions rather than waiting; a phase is green only when its gate in plan.md passes — run it, paste it, mark ✓, print LESSONS_FILE, agent-worktree status; at each arc boundary the codex loop until nothing material, then gh stack add; never merge, deploy, or push to main; P1's CI measurement goes through the dispatchable workflow on the branch.
+```
