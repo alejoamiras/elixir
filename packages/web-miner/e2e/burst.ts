@@ -1,6 +1,7 @@
 // A second miner for the lost-race spec: claims in the open epoch from a fresh account until that
-// epoch closes, with the native bb backend. Prints one JSON line per event; exits 0 once closed.
-//   AZTEC_NODE_URL=… YACANA_MINER=0x… YACANA_TOKEN=0x… bun packages/web-miner/e2e/burst.ts
+// epoch closes — or until YACANA_BURST_CLAIMS claims landed — with the native bb backend. Prints one
+// JSON line per event; exits 0.
+//   AZTEC_NODE_URL=… YACANA_MINER=0x… YACANA_TOKEN=0x… [YACANA_BURST_CLAIMS=2] bun packages/web-miner/e2e/burst.ts
 import { cpus } from 'node:os';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Contract, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
@@ -70,12 +71,14 @@ const api = await Barretenberg.new({ threads, backend: BackendType.NativeUnixSoc
 );
 const prover = new BbJsWorkProver(await loadWorkArtifact(), api);
 const start = await readOpenEpoch(miner, from);
+const maxClaims = Number(process.env.YACANA_BURST_CLAIMS ?? Number.POSITIVE_INFINITY);
 say({ event: 'start', epoch: start.epoch.toString(), claims: start.claims, account: from.toString() });
 try {
   let nonce = 1n;
+  let landed = 0;
   for (;;) {
     const view = await readOpenEpoch(miner, from);
-    if (view.epoch !== start.epoch) break;
+    if (view.epoch !== start.epoch || landed >= maxClaims) break;
     const epochSecret = newEpochSecret();
     const winner = await mineEpoch(prover, {
       domain,
@@ -98,6 +101,7 @@ try {
       recipient: from,
     }).send({ from, fee, wait: { timeout: 600, dontThrowOnRevert: true } });
     const receipt = (sent as { receipt?: { executionResult?: string; blockNumber?: number } }).receipt;
+    if (receipt?.executionResult === 'success') landed += 1;
     say({
       event: receipt?.executionResult === 'success' ? 'claim' : 'reverted',
       epoch: view.epoch.toString(),
@@ -105,10 +109,12 @@ try {
       ms: Date.now() - t0,
     });
   }
+  const open = (await readOpenEpoch(miner, from)).epoch.toString();
   say({
-    event: 'closed',
+    event: open === start.epoch.toString() ? 'stopped' : 'closed',
     epoch: start.epoch.toString(),
-    open: (await readOpenEpoch(miner, from)).epoch.toString(),
+    open,
+    landed,
   });
 } finally {
   await api.destroy().catch(() => {});

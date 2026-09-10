@@ -22,12 +22,18 @@ test('the node going away pauses mining after a minute; its return resumes it', 
   await page.getByTestId('stop').click();
 });
 
-/** A second miner that closes the open epoch; resolves once it has. */
-const closeEpochFromOutside = (r: ReturnType<typeof run>): Promise<void> =>
+/** A second miner claiming in the open epoch — `claims` of them, or until it closes; resolves when done. */
+const burst = (r: ReturnType<typeof run>, claims?: number): Promise<void> =>
   new Promise((resolve, reject) => {
     const child = spawn('bun', ['e2e/burst.ts'], {
       cwd: new URL('..', import.meta.url).pathname,
-      env: { ...process.env, AZTEC_NODE_URL: r.nodeUrl, YACANA_MINER: r.miner, YACANA_TOKEN: r.token },
+      env: {
+        ...process.env,
+        AZTEC_NODE_URL: r.nodeUrl,
+        YACANA_MINER: r.miner,
+        YACANA_TOKEN: r.token,
+        ...(claims === undefined ? {} : { YACANA_BURST_CLAIMS: String(claims) }),
+      },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     child.stdout.on('data', (d: Buffer) => console.log(`[burst] ${String(d).trim()}`));
@@ -66,7 +72,10 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
   await expect(page.getByTestId('minted')).toContainText(/minted, privately · block \d+/);
 
   // The next claim's send is held at the wire until another miner has closed its epoch, so the
-  // transaction is real and reverts in public ("stale claim") when it finally lands.
+  // transaction is real and reverts in public ("stale claim") when it finally lands. The hold must
+  // end inside the page's own request deadline (NODE_REQUEST_MS), so the outside miner makes two of
+  // the three closing claims now, while this page mines and proves, and only the closer under the hold.
+  const warm = burst(r, 2);
   let release: () => void = () => {};
   const held = new Promise<void>((res) => {
     release = res;
@@ -76,7 +85,7 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
     (url) => url.origin === origin,
     async (route) => {
       if (!closing && (route.request().postData() ?? '').includes('aztec_sendTx')) {
-        closing = closeEpochFromOutside(r).finally(release);
+        closing = warm.then(() => burst(r)).finally(release);
         await held;
       }
       await route.fallback();
