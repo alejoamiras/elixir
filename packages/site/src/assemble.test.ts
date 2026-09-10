@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { relative } from 'node:path';
 import { assemble, buildRecord, PRODUCTION_OUT, REDIRECTS } from './assemble.ts';
 import type { SiteConfig } from './config.ts';
 
@@ -13,10 +14,20 @@ describe('assembly', () => {
     for (const rule of REDIRECTS) expect(rule).toMatch(/^\/[a-z/]+ \/(mine|stats)\/ 200$/);
   });
 
+  test('a mode that is not one of the three is refused before anything is built', async () => {
+    await expect(assemble('/tmp/never-written', { YACANA_SITE_MODE: 'Production' })).rejects.toThrow(
+      /YACANA_SITE_MODE="Production"/,
+    );
+  });
+
   test('an e2e build can land neither in the production directory nor on Cloudflare', async () => {
     await expect(assemble(PRODUCTION_OUT, { YACANA_SITE_MODE: 'e2e' })).rejects.toThrow(
       /production builds only/,
     );
+    // The same directory by a relative spelling is still the production directory.
+    await expect(
+      assemble(relative(process.cwd(), PRODUCTION_OUT), { YACANA_SITE_MODE: 'e2e' }),
+    ).rejects.toThrow(/production builds only/);
     await expect(assemble('/tmp/never-written', { YACANA_SITE_MODE: 'e2e', CF_PAGES: '1' })).rejects.toThrow(
       /production builds only/,
     );

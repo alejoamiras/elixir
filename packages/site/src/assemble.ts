@@ -10,6 +10,7 @@ import type { Route as StatsRoute } from '../../web-stats/src/routes.ts';
 import { copyArtifacts } from '../scripts/copy-artifacts.ts';
 import { copySlots } from '../scripts/copy-slots.ts';
 import { fetchCrs } from '../scripts/fetch-crs.ts';
+import { assertProductionArtifact } from './artifact.ts';
 import type { SiteConfig } from './config.ts';
 import { renderHeaders } from './headers.ts';
 import { siteConfig } from './vite-base.ts';
@@ -62,7 +63,9 @@ function buildApp(name: string, base: string, outDir: string, env: NodeJS.Proces
   });
 }
 
-export async function assemble(out: string, env: NodeJS.ProcessEnv = process.env): Promise<BuildRecord> {
+export async function assemble(outDir: string, env: NodeJS.ProcessEnv = process.env): Promise<BuildRecord> {
+  // Resolved here, not trusted from the caller: the production check below compares paths.
+  const out = resolve(outDir);
   // The config is loaded once here so a production build fails before any app is built.
   const config = siteConfig('build', env);
   // What Cloudflare serves is `dist` of a Cloudflare build: neither may hold anything but production.
@@ -82,6 +85,8 @@ export async function assemble(out: string, env: NodeJS.ProcessEnv = process.env
   writeFileSync(resolve(out, '_redirects'), `${REDIRECTS.join('\n')}\n`);
   const record = buildRecord(config);
   writeFileSync(resolve(out, 'build.json'), `${JSON.stringify(record, null, 2)}\n`);
+  // The emitted files, not the config: the last look before anything is deployed.
+  if (config.mode === 'production') assertProductionArtifact(out, config);
   return record;
 }
 

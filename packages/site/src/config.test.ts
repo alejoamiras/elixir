@@ -6,6 +6,7 @@ import {
   type ExampleClaim,
   loadSiteConfig,
   parseEnvFile,
+  siteModeFrom,
   viteDefine,
 } from './config.ts';
 
@@ -116,6 +117,14 @@ describe('site config', () => {
     expect(attempt({ VITE_AZTEC_NODE_URL: 'https://10.0.0.1' })).toThrow(/is local/);
     expect(attempt({ VITE_EXPLORER_URL: 'http://explorer.example' })).toThrow(/explorer .* not https/);
     expect(attempt({ VITE_EXPLORER_URL: 'off' })).not.toThrow();
+  });
+
+  test('the mode is one of three words or an error, never a fourth mode by typo', () => {
+    expect(siteModeFrom(undefined, 'production')).toBe('production');
+    expect(siteModeFrom('', 'dev')).toBe('dev');
+    expect(siteModeFrom('e2e', 'production')).toBe('e2e');
+    for (const bad of ['Production', 'prod', 'e2e ', 'test'])
+      expect(() => siteModeFrom(bad, 'production')).toThrow(/YACANA_SITE_MODE=/);
   });
 
   test('parseEnvFile ignores comments and rejects a line without a key', () => {
