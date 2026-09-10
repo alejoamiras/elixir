@@ -17,7 +17,7 @@ import { markRead } from '../../site/src/browser/node-health.ts';
 import { type Deployment, type Fee, readBalance, readEpoch, sendClaim, sendRoll } from './chain';
 import { chime } from './chime';
 import { amount } from './lib/format';
-import { type Command, type Event, reduce } from './lib/reducer';
+import { type Command, type Event, type MinerState, reduce } from './lib/reducer';
 import { type PrestoEndpoint, type ProverKind, prestoAtom } from './presto';
 import { settingsAtom } from './settings';
 import { balanceAtom, claimsAtom, epochAtom, logAtom, minerAtom } from './state';
@@ -133,6 +133,10 @@ export class MinerController {
     prover: ProverKind;
   } | null = null;
   private timer: ReturnType<typeof setInterval> | undefined;
+  /** The e2e canary's fault: the next claim goes out with a bound public input altered. */
+  private tamperNext = false;
+  /** The tampered claim as it was before the fault, kept only while its refusal is the last thing that happened. */
+  private retained: NonNullable<MinerController['pending']> | null = null;
   private pauseTimer: ReturnType<typeof setTimeout> | undefined;
   private domain: string | undefined;
   private prover: Prover;
@@ -252,6 +256,10 @@ export class MinerController {
   /** Test hook: makes the Worker throw, which takes the same path as any real crash. */
   crashProver() {
     this.prover.worker.postMessage({ type: 'crash' } satisfies ToWorker);
+  }
+
+  tamperNextClaim() {
+    this.tamperNext = true;
   }
 
   log(line: string) {
@@ -454,6 +462,7 @@ export class MinerController {
         // Only the current secret is kept: a past epoch's tickets are worthless.
         this.secrets.clear();
         this.secrets.set(c.secretId, secret);
+        this.retained = null;
         const key = `${c.epoch}:${c.secretId}`;
         const job: MineJob = {
           epoch: c.epoch,
@@ -553,6 +562,16 @@ export class MinerController {
     const secret = p && this.secrets.get(p.secretId);
     if (!p || !secret) return this.dispatch({ type: 'failed', error: 'no pending ticket' });
     this.pending = null;
+    // The tampered claim keeps its ticket: the canary resubmits it with the input restored.
+    let restore: NonNullable<MinerController['pending']> | null = null;
+    if (this.tamperNext) {
+      // The lowest bit of `out`: the ticket, the epoch and the nullifier stay valid, only the proof's
+      // public inputs no longer match it — which simulation cannot see and real proving must.
+      restore = { ...p };
+      p.out = `0x${(BigInt(p.out) ^ 1n).toString(16).padStart(64, '0')}`;
+      this.tamperNext = false;
+      this.log('e2e: this claim goes out with a bound public input altered');
+    }
     const before = this.store.get(epochAtom)?.claims ?? 0;
     this.log(`claiming in epoch ${p.epoch}: proving the claim in-page…`);
     try {
@@ -584,8 +603,20 @@ export class MinerController {
       this.announceWin(block);
       this.start();
     } catch (e) {
+      this.retained = restore;
       await this.claimFailed(e);
     }
+  }
+
+  /** The refused claim again, its input restored; false unless that refusal is what the page is idle on. */
+  retryPendingClaim(): boolean {
+    const claim = this.retained;
+    if (!retryEligible(claim, this.secrets, this.store.get(minerAtom).phase)) return false;
+    this.retained = null;
+    this.pending = claim;
+    this.log('e2e: the refused claim goes out again, its input restored');
+    this.dispatch({ type: 'retry', at: Date.now() });
+    return true;
   }
 
   /** Never an amount: the notification and the tab are the only things another app can read. */
@@ -745,3 +776,15 @@ export class MinerController {
     this.pauseTimer = setTimeout(() => this.release('lost-race'), until - Date.now());
   }
 }
+
+/**
+ * A retained tampered claim can go out again only while the page is idle on its refusal and its
+ * secret is still the current one: Start rotates the secret and drops the claim; a winner that
+ * arrived after Stop is not a refusal and is never retained.
+ */
+export const retryEligible = (
+  retained: { secretId: number } | null,
+  secrets: ReadonlyMap<number, string>,
+  phase: MinerState['phase'],
+): retained is { secretId: number } =>
+  retained !== null && phase === 'idle' && secrets.has(retained.secretId);

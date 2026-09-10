@@ -13,8 +13,12 @@ import type { Tx } from '@aztec/stdlib/tx';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { claimGasLimits } from '../../miner-core/src/claim.ts';
 import type { AccountFields } from '../../miner-core/src/keys/derive.ts';
+import { PROVERLESS_MARKER } from '../../site/src/config.ts';
 import type { Fee, Node } from './chain';
 import { MemoryKvStore } from './wallet/memory-store';
+
+/** An e2e build may ask the PXE to skip proving; `PROVERLESS_MARKER` must stay inside this flag's branch. */
+export const PROVERLESS = import.meta.env.VITE_E2E_PROVERLESS === '1';
 
 /** A transaction as it left for the node; the expiry (unix s) is the one the sequencer enforces. */
 export interface SentTx {
@@ -61,8 +65,9 @@ export async function openWallet(node: Node, chainId: bigint): Promise<OpenedWal
   });
   let wallet: EmbeddedWallet | undefined;
   try {
+    if (PROVERLESS) console.warn(`${PROVERLESS_MARKER}: this build sends transactions unproved`);
     wallet = await EmbeddedWallet.create(observed, {
-      pxe: { proverEnabled: true, store: pxeStore },
+      pxe: { proverEnabled: !PROVERLESS, store: pxeStore },
       walletDb: { store: new MemoryKvStore() },
     });
     const fpc = await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {

@@ -120,6 +120,8 @@ export type Event =
   | ({ type: 'claimed'; reward: string } & Omit<Minted, 'at'> & Partial<Clock>)
   | ({ type: 'failed'; error: string; kind?: ClaimFailure } & Partial<Clock>)
   | { type: 'recovered'; at?: number }
+  /** A claim that failed at proving, submitted again from idle (the e2e canary's control). */
+  | { type: 'retry'; at?: number }
   /** The honest pause after a recovery that did not unblock the key. */
   | { type: 'paused'; until: number; at?: number }
   | { type: 'offline'; since: number }
@@ -283,6 +285,18 @@ export function reduce(state: MinerState, event: Event): [MinerState, Command[]]
       ];
     case 'stop':
       return [{ ...state, phase: 'idle', job: null }, state.phase === 'idle' ? [] : [{ type: 'halt' }]];
+    case 'retry':
+      return state.phase === 'idle'
+        ? [
+            {
+              ...state,
+              phase: 'claiming',
+              claim: { step: 'proving', since: now(event.at), done: [] },
+              notice: null,
+            },
+            [{ type: 'submit' }],
+          ]
+        : [state, []];
     case 'epoch':
       return epochSwitch(state, event);
     case 'attempt':

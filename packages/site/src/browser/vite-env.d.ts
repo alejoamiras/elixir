@@ -17,6 +17,8 @@ interface ImportMetaEnv {
   readonly VITE_E2E_QUERY_OVERRIDES: string;
   /** The e2e lane's headless Presto port (plaintext); empty in production. */
   readonly VITE_PRESTO_E2E_PORT: string;
+  /** '1' when the wallet's PXE must not prove (e2e builds only); '' otherwise. */
+  readonly VITE_E2E_PROVERLESS: string;
   readonly VITE_LAUNCH_MODE: string;
   readonly VITE_EXPLORER_URL: string;
   /** The recorded example claim as JSON, or '' when the profile has none. */

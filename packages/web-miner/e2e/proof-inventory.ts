@@ -50,6 +50,10 @@ export const INVENTORY: Readonly<Record<string, Readonly<Record<string, number>>
   'switch.e2e.ts': {
     'a live switch A → B while mining, a claim after it, and the banner on a dead node': 1,
   },
+  // The real-proving canary: a tampered claim refused at proving, then the same claim minting restored.
+  'canary.e2e.ts': {
+    'a claim with a bound public input altered is refused at proving before it is sent; restored, the same claim mints': 1,
+  },
   // The claim is the page's, whichever prover found the ticket.
   'presto.e2e.ts': {
     'through Presto: the pill says ✦ presto after the first native proof, and power is Presto’s': 0,
@@ -60,7 +64,7 @@ export const INVENTORY: Readonly<Record<string, Readonly<Record<string, number>>
 
 export const SPEC_FILES: readonly string[] = Object.keys(INVENTORY);
 
-/** The replay lane's tests (`e2e/replay/*.replay.ts`); sharded + `MOVED_TO_REPLAY` is the suite's original nineteen. */
+/** The replay lane's tests (`e2e/replay/*.replay.ts`); sharded + `MOVED_TO_REPLAY` is the original nineteen plus the canary. */
 export const REPLAYED: Readonly<Record<string, readonly string[]>> = {
   'dialog-geometry.replay.ts': ['the sign-in screens and their error state fit the dialog at 720 px tall'],
   'signed-out.replay.ts': [
@@ -92,10 +96,17 @@ export function titlesOf(files: readonly string[]): string[] {
 
 export const wellFormed = (p: ProofEvent): boolean => Number.isFinite(p.durationMs) && p.durationMs > 0;
 
-/** Why a passed test's meter does not satisfy the inventory, or null when it does. */
-export function proofShortfall(title: string, meter: ProofMeter): string | null {
+/**
+ * Why a passed test's meter does not satisfy the inventory, or null when it does. Under a proverless
+ * build the floors do not apply and any proof event at all means the build proved after all.
+ */
+export function proofShortfall(title: string, meter: ProofMeter, proverless = false): string | null {
   const expected = EXPECTED_PROOFS[title];
   if (expected === undefined) return `"${title}" is not in the proof inventory (e2e/proof-inventory.ts)`;
+  if (proverless)
+    return meter.proofs.length
+      ? `"${title}": ${meter.proofs.length} proof event(s) from a build that was to skip proving`
+      : null;
   const good = meter.proofs.filter(wellFormed).length;
   const malformed = meter.proofs.length - good;
   if (malformed > 0)

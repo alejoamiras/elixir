@@ -33,12 +33,10 @@ test('the sign-in screens and their error state fit the dialog at 720 px tall', 
   await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
   await fits(page, 'create-passkey');
 
-  // The error state: the failed restore's alert on the same screen.
   await page.getByTestId('restore-passkey').click();
   await expect(page.getByTestId('key-error')).toBeVisible({ timeout: 30_000 });
   await fits(page, 'create-passkey');
 
-  // The twelve words: the backup grid, then the quiz under it.
   await page.getByTestId('use-words').click();
   await expect(page.getByTestId('words-backup')).toBeVisible();
   await fits(page, 'words-done');
@@ -46,7 +44,6 @@ test('the sign-in screens and their error state fit the dialog at 720 px tall', 
   await expect(page.getByTestId('quiz')).toBeVisible();
   await fits(page, 'words-done');
 
-  // The restore screen, with its host alert.
   await page.reload();
   await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
   await page.getByTestId('restore-words').click();

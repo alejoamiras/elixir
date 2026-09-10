@@ -22,12 +22,18 @@ test('the node going away pauses mining after a minute; its return resumes it', 
   await page.getByTestId('stop').click();
 });
 
-/** A second miner that closes the open epoch; resolves once it has. */
-const closeEpochFromOutside = (r: ReturnType<typeof run>): Promise<void> =>
+/** A second miner claiming in the open epoch — `claims` of them, or until it closes; resolves when done. */
+const burst = (r: ReturnType<typeof run>, claims?: number): Promise<void> =>
   new Promise((resolve, reject) => {
     const child = spawn('bun', ['e2e/burst.ts'], {
       cwd: new URL('..', import.meta.url).pathname,
-      env: { ...process.env, AZTEC_NODE_URL: r.nodeUrl, YACANA_MINER: r.miner, YACANA_TOKEN: r.token },
+      env: {
+        ...process.env,
+        AZTEC_NODE_URL: r.nodeUrl,
+        YACANA_MINER: r.miner,
+        YACANA_TOKEN: r.token,
+        ...(claims === undefined ? {} : { YACANA_BURST_CLAIMS: String(claims) }),
+      },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     child.stdout.on('data', (d: Buffer) => console.log(`[burst] ${String(d).trim()}`));
@@ -66,7 +72,20 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
   await expect(page.getByTestId('minted')).toContainText(/minted, privately · block \d+/);
 
   // The next claim's send is held at the wire until another miner has closed its epoch, so the
-  // transaction is real and reverts in public ("stale claim") when it finally lands.
+  // transaction is real and reverts in public ("stale claim") when it finally lands. The hold must
+  // end inside the page's request deadline (NODE_REQUEST_MS), so the outside miner first brings the
+  // epoch to N − 1 claims while this page is stopped — the count comes from the tile, since an
+  // unsharded run's earlier specs claim in the same epoch — and only the closer runs under the hold.
+  await page.getByTestId('stop').click();
+  const shown = ((await page.getByTestId('epoch-claims').textContent()) ?? '').trim();
+  const counts = /^(\d+)\s+of\s+(\d+)$/.exec(shown);
+  if (!counts) throw new Error(`unreadable epoch claims: ${shown}`);
+  const [have, n] = [Number(counts[1]), Number(counts[2])];
+  if (have < n - 1) await burst(r, n - 1 - have);
+  // The poll keeps running while stopped; the count is checked here, while the epoch is still stable.
+  await expect(page.getByTestId('epoch-claims')).toHaveText(new RegExp(`^${n - 1}\\s+of\\s+${n}$`), {
+    timeout: 60_000,
+  });
   let release: () => void = () => {};
   const held = new Promise<void>((res) => {
     release = res;
@@ -76,12 +95,13 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
     (url) => url.origin === origin,
     async (route) => {
       if (!closing && (route.request().postData() ?? '').includes('aztec_sendTx')) {
-        closing = closeEpochFromOutside(r).finally(release);
+        closing = burst(r).finally(release);
         await held;
       }
       await route.fallback();
     },
   );
+  await page.getByTestId('start').click();
   await expect(page.getByTestId('claim-stepper')).toBeVisible({ timeout: 10 * 60_000 });
   await expect(page.getByTestId('notice-reverted')).toBeVisible({ timeout: 15 * 60_000 });
   await closing;

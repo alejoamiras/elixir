@@ -5,7 +5,12 @@ import { join } from 'node:path';
 import { assertProductionArtifact, plaintextLoopback } from './artifact.ts';
 import { renderHeaders } from './headers.ts';
 
-const production = { mode: 'production', queryOverrides: false, prestoE2ePort: '' } as const;
+const production = {
+  mode: 'production',
+  queryOverrides: false,
+  prestoE2ePort: '',
+  proverless: false,
+} as const;
 
 function assembly(): string {
   const out = mkdtempSync(join(tmpdir(), 'yacana-artifact-'));
@@ -71,6 +76,14 @@ describe('the production artifact contract', () => {
     );
   });
 
+  test('a script carrying the proverless branch fails', () => {
+    const out = fresh();
+    writeFileSync(join(out, 'mine/assets/index-abc.js'), 'console.warn("yacana:proverless: unproved")');
+    expect(() => assertProductionArtifact(out, production)).toThrow(
+      /index-abc\.js carries the proverless branch/,
+    );
+  });
+
   test('a header map that admits local nodes fails, even in a nested app', () => {
     const out = fresh();
     writeFileSync(join(out, 'mine/_headers'), renderHeaders({ mode: 'e2e' }));
@@ -119,6 +132,7 @@ describe('the production artifact contract', () => {
     expect(() => assertProductionArtifact(out, { ...production, prestoE2ePort: '24567' })).toThrow(
       /e2e override/,
     );
+    expect(() => assertProductionArtifact(out, { ...production, proverless: true })).toThrow(/e2e override/);
     expect(() => assertProductionArtifact(out, { ...production, mode: 'e2e' })).toThrow(/built in e2e mode/);
   });
 });

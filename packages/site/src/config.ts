@@ -33,6 +33,8 @@ export interface SiteConfig {
   queryOverrides: boolean;
   /** A headless Presto's plaintext port for the e2e lane; empty in production (Presto is then the SDK's HTTPS default). */
   prestoE2ePort: string;
+  /** The wallet's PXE skips proving (`VITE_E2E_PROVERLESS=1`, e2e builds only): every transaction leaves unproved. */
+  proverless: boolean;
   /** The landing's hero is the launch lottery (mainnet's launch week); `VITE_LAUNCH_MODE=1`. */
   launchMode: boolean;
   /** The block explorer's origin, or `off`: every address, block and transaction the pages show links there. */
@@ -69,6 +71,9 @@ export interface DeploymentRecord {
 }
 
 type Env = Record<string, string | undefined>;
+
+/** Logged inside the proverless flag's own branch and nowhere else; the artifact check refuses a bundle carrying it. */
+export const PROVERLESS_MARKER = 'yacana:proverless';
 
 /** KEY=value lines; `#` comments and blank lines ignored; no quoting or interpolation. */
 export const parseEnvFile = (text: string): Record<string, string> => {
@@ -122,6 +127,7 @@ export function loadSiteConfig(opts: {
     tokenClassId: pick('VITE_YACANA_TOKEN_CLASS', deployment.tokenClassId),
     queryOverrides: mode === 'e2e' && env.VITE_E2E_QUERY_OVERRIDES === '1',
     prestoE2ePort: mode === 'production' ? '' : (env.VITE_PRESTO_E2E_PORT ?? ''),
+    proverless: mode === 'e2e' && env.VITE_E2E_PROVERLESS === '1',
     launchMode: pick('VITE_LAUNCH_MODE', siteEnv.VITE_LAUNCH_MODE ?? '') === '1',
     explorerUrl: pick('VITE_EXPLORER_URL', siteEnv.VITE_EXPLORER_URL ?? 'off'),
     record: deployment,
@@ -178,7 +184,7 @@ const IP_OR_LOCAL = /^(localhost|127\.\d+\.\d+\.\d+|\[?::1\]?|\d+\.\d+\.\d+\.\d+
 
 /**
  * What may never reach Cloudflare: a local or plaintext node, a foreign relying party. Production
- * construction disables the e2e hooks; assembly rechecks the resolved values.
+ * construction discards the build-time overrides; assembly rechecks the resolved values.
  */
 export function assertProductionConfig(c: SiteConfig, siteEnv: Record<string, string>): void {
   const u = new URL(c.nodeUrl);
@@ -209,6 +215,7 @@ export const viteDefine = (c: SiteConfig): Record<string, string> =>
       VITE_YACANA_TOKEN_CLASS: c.tokenClassId,
       VITE_E2E_QUERY_OVERRIDES: c.queryOverrides ? '1' : '',
       VITE_PRESTO_E2E_PORT: c.prestoE2ePort,
+      VITE_E2E_PROVERLESS: c.proverless ? '1' : '',
       VITE_LAUNCH_MODE: c.launchMode ? '1' : '',
       VITE_EXPLORER_URL: c.explorerUrl,
       VITE_DEPLOYMENT_RECORD: JSON.stringify(c.record),

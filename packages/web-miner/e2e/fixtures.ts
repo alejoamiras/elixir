@@ -74,7 +74,7 @@ export const test = base.extend<{ proofMeter: ProofMeter }>({
       await testInfo.attach('proofs.json', { body: JSON.stringify(meter), contentType: 'application/json' });
       // A failed or skipped test reports its own reason; the inventory judges the ones that passed.
       if (testInfo.status !== 'passed') return;
-      const shortfall = proofShortfall(testInfo.title, meter);
+      const shortfall = proofShortfall(testInfo.title, meter, process.env.E2E_PROVERLESS === '1');
       if (shortfall) throw new Error(shortfall);
     },
     { auto: true },

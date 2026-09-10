@@ -129,6 +129,26 @@ describe('miner reducer', () => {
     expect(s.minted).toBeNull();
   });
 
+  test('a claim refused at proving can be submitted again from idle, and only from idle', () => {
+    let s = initial;
+    [s] = reduce(s, { type: 'start', epoch: epoch(0n) });
+    [s] = reduce(s, { type: 'winner', epoch: 0n, secretId: s.job?.secretId ?? -1 });
+    let cmds: unknown[];
+    [s, cmds] = reduce(s, { type: 'failed', error: 'Failed to verify the generated proof!', kind: 'other' });
+    expect(s.phase).toBe('idle');
+    expect(cmds).toEqual([{ type: 'halt' }]);
+    [s, cmds] = reduce(s, { type: 'retry' });
+    expect(s.phase).toBe('claiming');
+    expect(s.claim?.step).toBe('proving');
+    expect(s.notice).toBeNull();
+    expect(cmds).toEqual([{ type: 'submit' }]);
+    // Not while claiming, and not while mining: a retry is only for a claim that already failed.
+    expect(reduce(s, { type: 'retry' })).toEqual([s, []]);
+    let m = initial;
+    [m] = reduce(m, { type: 'start', epoch: epoch(0n) });
+    expect(reduce(m, { type: 'retry' })).toEqual([m, []]);
+  });
+
   test('an expired claim goes idle with its card, which survives the restart that follows', () => {
     let [s] = reduce(initial, { type: 'start', epoch: epoch(3n) });
     [s] = reduce(s, { type: 'winner', epoch: 3n, secretId: 1 });

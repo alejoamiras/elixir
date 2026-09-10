@@ -22,6 +22,7 @@ jobs:
           - 'packages/ui/**'
           - 'packages/miner-core/src/**'
           - 'packages/miner-core/scripts/**'
+          - 'scripts/run/**'
           - 'packages/miner-core/fixtures/**'
           - 'packages/work-circuit/src/generated/vk.ts'
           - 'biome.json'

@@ -3,10 +3,11 @@
 // e2e/.run.json for the spec. Deploy needs Bun (artifacts are read with Bun.file). The server
 // binds `localhost`, not 127.0.0.1: WebAuthn refuses an IP literal as an RP ID.
 //
-// E2E_SERVER=preview (default) builds the production bundle for this run into e2e/.dist and serves
-// it with `vite preview`, so the Workers, CSP and allowlist under test are the ones that ship; the
-// dev server injects Node globals and accepts local nodes on its own, which hid a Worker without
-// `Buffer` once. E2E_SERVER=dev keeps the dev server for debugging with readable stacks.
+// E2E_SERVER=preview (default) makes a Vite build in e2e mode for this run into e2e/.dist and
+// serves it with `vite preview`: the Workers and the bundle are built as they ship, the CSP and the
+// allowlist carry the local additions of e2e mode, and E2E_PROVERLESS=1 turns off transaction
+// proving. The dev server injects Node globals and accepts local nodes on its own, which hid a
+// Worker without `Buffer` once. E2E_SERVER=dev keeps it for debugging with readable stacks.
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { openSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -19,6 +20,7 @@ import {
   startPrestoServer,
   stopPrestoServer,
 } from '../../../scripts/run/presto.ts';
+import { waitUntilUp } from '../../../scripts/run/preview.ts';
 import { claim, release } from '../../../scripts/run/registry.ts';
 import { type Deployment, deployYacana } from '../../deploy/src/deploy.ts';
 import { type E2eRun, type E2eServer, type RigStep, RUN_FILE, TIMINGS_FILE } from './run.ts';
@@ -39,6 +41,7 @@ const e2eEnv = (d: Deployment, prestoPort: number | null): NodeJS.ProcessEnv => 
   VITE_AZTEC_NODE_URL: nodeUrl,
   VITE_RP_ID: 'localhost',
   VITE_E2E_QUERY_OVERRIDES: '1',
+  VITE_E2E_PROVERLESS: process.env.E2E_PROVERLESS === '1' ? '1' : '',
   VITE_CHAIN_ID: d.chainId,
   VITE_ROLLUP_VERSION: d.rollupVersion,
   VITE_ROLLUP_ADDRESS: d.rollupAddress,
@@ -62,18 +65,6 @@ function startServer(log: number, port: number, env: NodeJS.ProcessEnv): ChildPr
   const child = spawn('bunx', args, { cwd: pkg, stdio: ['ignore', log, log], detached: true, env });
   child.unref();
   return child;
-}
-
-async function waitUntilUp(baseURL: string, child: ChildProcess): Promise<boolean> {
-  for (let i = 0; i < 120 && child.exitCode === null; i++) {
-    const ok = await fetch(`${baseURL}/`).then(
-      (r) => r.ok,
-      () => false,
-    );
-    if (ok) return true;
-    await delay(500);
-  }
-  return false;
 }
 
 const ownerPid = Number(process.env.E2E_OWNER_PID ?? process.ppid);

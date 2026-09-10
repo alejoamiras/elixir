@@ -5,7 +5,7 @@ driver: claude-code
 tier: mid
 eli5_mode: artifact
 code_review: off
-status: approved by the owner 2026-09-10; implementing
+status: approved by the owner 2026-09-10; implemented 2026-09-10 — P0 P1 P2 P3 P5 ✓, P4 not built; every arc's codex loop and the cross-arc pass converged; delivered and merged as stack #34: #30 (A) → #31 (B) → #32 (C) → #33 (D)
 ```
 
 ## What this is
@@ -245,6 +245,7 @@ Gate: `bun run lint` · `bun test packages/web-miner` · a run with each depende
 named error rather than a skip · a successful trimmed run recording the saving against P1. Layers: lint · unit ·
 e2e.
 
+**P5 ✓ · Proverless — built, because P1 measured 30% (2026-09-10, `lessons/phase-5.md`).** The flag `VITE_E2E_PROVERLESS` (e2e only) turns off the embedded PXE's proving; its marker lives inside the flag's own branch and the artifact inspector refuses a production bundle carrying it (three real builds prove presence and absence); the canary shard keeps the real prover and shows a claim with `out` flipped refused at proving before it is sent (`Failed to verify the generated proof!`, zero sends) and the next claim minting. The measured saving was not minutes on the old layout — the canary's job cost what proverless saved elsewhere, 46.3 runner-minutes against 40.6 — but room to run three jobs instead of four (words and opening beside the canary, five files in two proverless shards); the regrouped run: three jobs, 33.6 runner-minutes against 40.6 before P5, slowest 14.2 min. Codex converged in three rounds. On the same branch, the lost-race flake the sharding exposed (a hold longer than the page's request deadline) is fixed. The original phase text follows.
 **P5 · Proverless — conditional, last, and possibly never.** The owner's position, 2026-09-10: real proving
 must survive somewhere in the suite, and need not run everywhere. So coverage is not the objection; the canary
 with its negative case stays real regardless, and the rest may go. What remains is cost against benefit — a
@@ -419,6 +420,10 @@ lane; two booleans deliver the rig saving.
 | P0's gate naming only the site suite | codex, round 3 | **Runs the miner's endpoint tests** and asserts `httpsOnly` on the consumed endpoint |
 | P4's two rig flags | P1's numbers, implementation | **Not built**: Presto costs 0.5 s; every shard needs the second deployment; parallel deployments collide on class publication |
 | Artifact uploads in `e2e.yml` | implementation (P1's CI run archived nothing) | **Fixed**: `include-hidden-files: true` — the reports are dotfiles the action skipped by default |
+| D stacked on B, not C | plan | **Stacked on C after all**: D needs the `log()` hook and the per-file inventory C changed; a linear stack A → B → C → D avoids duplicate product edits |
+| The lost-race spec's three-claim hold | two of three sharded CI runs | **Fixed in arc D**: the hold outlived `NODE_REQUEST_MS`; the outside miner now warms the epoch to N − 1 while the page is stopped and only the closer runs under the hold |
+| The canary's positive control on the same ticket | codex, arc D round 1 | **Kept as the next claim**: retrying the identical ticket needs a reducer transition that does not exist; the title says what is shown |
+| Four shards after P5 | the first arc D CI run (46.3 runner-minutes) | **Regrouped to three**: the canary job carries the specs that never prove; proverless lets five files fit two shards |
 | A test-only preflight bypass | the owner's question | **Rejected**: a product guard, a flag that must never ship, and a page users never see; replay instead |
 | The 30% coverage bar | the owner's position | **Lowered to 15% and reframed**: coverage accepted with a real canary; the bar is cost against the flag |
 

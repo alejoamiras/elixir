@@ -10,6 +10,7 @@ import { loadConnection } from './config';
 import type { MinerController } from './controller';
 import { Session } from './session';
 import { claimsAtom, crsAtom, logAtom, nowAtom } from './state';
+import { PROVERLESS } from './wallet';
 
 const store = createStore();
 // The proving keys download from the first moment, off the preflight's path: the wallet and the
@@ -55,6 +56,12 @@ declare global {
       crashProver: () => void;
       /** The page's own log lines, the ones the About tile copies as diagnostics. */
       log: () => string[];
+      /** Whether this build's PXE skips proving. */
+      proverless: boolean;
+      /** The next claim goes out with a bound public input altered: real proving must refuse it. */
+      tamperNextClaim: () => void;
+      /** The refused claim again with its input restored; false when there is none. */
+      retryPendingClaim: () => boolean;
     };
   }
 }
@@ -65,6 +72,9 @@ window.yacana = {
   ready: session.ready,
   crashProver: () => session.controller?.crashProver(),
   log: () => store.get(logAtom),
+  proverless: PROVERLESS,
+  tamperNextClaim: () => session.controller?.tamperNextClaim(),
+  retryPendingClaim: () => session.controller?.retryPendingClaim() ?? false,
 };
 
 const root = document.getElementById('root');

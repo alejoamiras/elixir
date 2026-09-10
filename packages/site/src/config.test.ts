@@ -25,9 +25,11 @@ describe('site config', () => {
         VITE_AZTEC_NODE_URL: 'http://localhost:1',
         VITE_E2E_QUERY_OVERRIDES: '1',
         VITE_PRESTO_E2E_PORT: '59833',
+        VITE_E2E_PROVERLESS: '1',
       },
     });
     expect(c.nodeUrl).toBe(siteEnv.VITE_AZTEC_NODE_URL);
+    expect(c.proverless).toBe(false);
     // A hostile e2e environment cannot hand production a plaintext Presto port.
     expect(c.prestoE2ePort).toBe('');
     expect(viteDefine(c)['import.meta.env.VITE_PRESTO_E2E_PORT']).toBe('""');
@@ -38,6 +40,7 @@ describe('site config', () => {
     expect(c.launchMode).toBe(false);
     expect(c.explorerUrl).toBe('https://testnet.aztecscan.xyz');
     expect(viteDefine(c)['import.meta.env.VITE_E2E_QUERY_OVERRIDES']).toBe('""');
+    expect(viteDefine(c)['import.meta.env.VITE_E2E_PROVERLESS']).toBe('""');
     expect(viteDefine(c)['import.meta.env.VITE_EXPLORER_URL']).toBe('"https://testnet.aztecscan.xyz"');
   });
 
@@ -54,11 +57,18 @@ describe('site config', () => {
         VITE_LAUNCH_MODE: '1',
         VITE_EXPLORER_URL: 'off',
         VITE_PRESTO_E2E_PORT: '24996',
+        VITE_E2E_PROVERLESS: '1',
       },
     });
+    // The proverless flag needs the exact mode `e2e`: a dev build with it set still proves.
+    expect(loadSiteConfig({ ...base, mode: 'dev', env: { VITE_E2E_PROVERLESS: '1' } }).proverless).toBe(
+      false,
+    );
     expect(c.launchMode).toBe(true);
     expect(c.prestoE2ePort).toBe('24996');
     expect(viteDefine(c)['import.meta.env.VITE_PRESTO_E2E_PORT']).toBe('"24996"');
+    expect(c.proverless).toBe(true);
+    expect(viteDefine(c)['import.meta.env.VITE_E2E_PROVERLESS']).toBe('"1"');
     expect(c.explorerUrl).toBe('off');
     expect(c.nodeUrl).toBe('http://localhost:8080');
     expect(c.rollupAddress).toBe('0x00000000000000000000000000000000000000aa');
