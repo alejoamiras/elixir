@@ -26,6 +26,8 @@ export interface Recording {
   recordedAt: string;
   deployment: ReplayDeployment;
   binding: ReplayBinding;
+  /** The key of the open epoch's claims read: the answer a test changes to see a later poll land. */
+  claimsKey: string;
   /** `method JSON(params)` → the result the node gave. */
   answers: Record<string, unknown>;
 }

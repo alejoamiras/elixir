@@ -10,7 +10,7 @@ import { type Browser, chromium, type Route } from '@playwright/test';
 import { buildApp, claimPreviewPort, startPreview, waitUntilUp } from '../../../../scripts/run/preview.ts';
 import { release } from '../../../../scripts/run/registry.ts';
 import { deployYacana } from '../../../deploy/src/deploy.ts';
-import { LAYOUTS_PATH } from '../../../miner-core/src/slots.ts';
+import { deriveSlotTable, LAYOUTS_PATH, loadLayouts } from '../../../miner-core/src/slots.ts';
 import { COMMITTED } from '../../../site/scripts/commit-artifacts.ts';
 import { BOOT_MS } from '../helpers.ts';
 import {
@@ -56,6 +56,14 @@ export function currentBinding(): ReplayBinding {
 
 export const bindingDrift = (recorded: ReplayBinding, current: ReplayBinding): string[] =>
   (Object.keys(current) as (keyof ReplayBinding)[]).filter((k) => recorded[k] !== current[k]);
+
+/** The recorded deployment's claims slot for epoch 0, the epoch a fresh deployment opens on. */
+export async function claimsKeyFor(miner: string): Promise<string> {
+  const table = await deriveSlotTable((await loadLayouts()).miner, 0);
+  const slot = table.claims[0];
+  if (!slot) throw new Error('the slot table has no claims slot for epoch 0');
+  return rpcKey({ method: 'aztec_getPublicStorageAt', params: ['latest', miner, slot.toString()] });
+}
 
 const replayEnv = (d: ReplayDeployment): NodeJS.ProcessEnv => ({
   ...process.env,
@@ -161,10 +169,13 @@ async function record(nodeUrl: string): Promise<void> {
     await browser?.close();
     await teardown();
   }
+  const claimsKey = await claimsKeyFor(d.miner);
+  if (!(claimsKey in answers)) throw new Error("the visit never read the open epoch's claims");
   const recording: Recording = {
     recordedAt: new Date().toISOString(),
     deployment: d,
     binding: currentBinding(),
+    claimsKey,
     answers: Object.fromEntries(
       Object.keys(answers)
         .sort()

@@ -84,17 +84,16 @@ test('an old Presto answers: the update row, and Retry re-asks', async ({ page, 
 test('the public epoch poll reads again from the recording, and nothing else', async ({ page, replay }) => {
   await page.goto(replay.url());
   await expect(page.getByTestId('cockpit')).toBeVisible({ timeout: BOOT_MS });
-  await expect(page.getByTestId('epoch-claims')).toHaveText(/\d+ of \d+/);
-  // A poll is five storage reads (the open epoch, its three params, its claims); the next one comes
-  // 30 s after the first. Five more answers delivered is a second read the page received, not a
-  // timer that merely fired; the pause lets the page parse them, since a read that fails is
-  // swallowed into its log rather than thrown, and the log is what is checked.
-  const afterFirst = replay.served('aztec_getPublicStorageAt');
-  await expect
-    .poll(() => replay.served('aztec_getPublicStorageAt'), { timeout: 45_000 })
-    .toBeGreaterThanOrEqual(afterFirst + 5);
-  await page.waitForTimeout(2_000);
-  await expect(page.getByTestId('epoch-claims')).toHaveText(/\d+ of \d+/);
+  const shown = await page.getByTestId('epoch-claims').textContent();
+  const claims = Number(/^(\d+) of/.exec(shown ?? '')?.[1]);
+  expect(Number.isInteger(claims)).toBe(true);
+  // The next poll comes 30 s after the first. Its claims read now answers one more; the count on
+  // the tile can only change if that read was made, parsed and published — a stopped timer, a hung
+  // read or a swallowed error all leave the old number, and the log carries the error.
+  replay.override(replay.recording.claimsKey, `0x${(claims + 1).toString(16).padStart(64, '0')}`);
+  await expect(page.getByTestId('epoch-claims')).toHaveText(new RegExp(`^${claims + 1} of`), {
+    timeout: 45_000,
+  });
   const log = await page.evaluate(() => {
     if (!window.yacana) throw new Error('the page exposes no e2e hooks');
     return window.yacana.log();

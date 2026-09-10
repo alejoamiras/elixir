@@ -1,7 +1,7 @@
-// The replay specs' `test`: every request is routed at the context — the app's own origin passes,
-// the recorded node answers from recording.json, origins a test allows pass — and anything else,
-// a recorded key the recording lacks included, is refused and fails the test at its end. A test's
-// own `page.route` runs first: `fulfill()` and `continue()` there bypass this, `fallback()` reaches it.
+// The replay specs' `test`: the browser context's HTTP and WebSocket traffic is routed — the app
+// passes, the recorded node answers from the recording, allowed origins pass, the rest is refused
+// and fails the test at its end. A test's own `page.route` runs first: `fulfill()` and `continue()`
+// there bypass this, `fallback()` reaches it. Workers are refused too: this page spawns none signed out.
 import { readFileSync } from 'node:fs';
 import { test as base, type Page, type Route } from '@playwright/test';
 import {
@@ -25,6 +25,8 @@ export interface Replay {
   recording: Recording;
   /** Lets requests to `origin` through to the network (a fake Presto the test itself serves). */
   allow(origin: string): void;
+  /** Changes what a recorded key answers from now on. */
+  override(key: string, result: unknown): void;
   /** How many recorded answers of `method` have been delivered to the page so far. */
   served(method: string): number;
   /** The page URL with the query the test needs; `presto` defaults to off. */
@@ -36,6 +38,7 @@ export const test = base.extend<{ replay: Replay }>({
     async ({ page }, use) => {
       const run = JSON.parse(readFileSync(REPLAY_RUN_FILE, 'utf8')) as ReplayRun;
       const recording = JSON.parse(readFileSync(RECORDING_FILE, 'utf8')) as Recording;
+      const answers = { ...recording.answers };
       const app = new URL(run.baseURL).origin;
       const allowed = new Set<string>();
       const unexpected: string[] = [];
@@ -43,12 +46,12 @@ export const test = base.extend<{ replay: Replay }>({
       const answer = async (route: Route) => {
         const body = route.request().postDataJSON() as RpcCall | RpcCall[];
         const calls = Array.isArray(body) ? body : [body];
-        const missing = calls.map(rpcKey).filter((k) => !(k in recording.answers));
+        const missing = calls.map(rpcKey).filter((k) => !(k in answers));
         if (missing.length) {
           unexpected.push(...missing.map((k) => `${REPLAY_NODE_ORIGIN} ${k}`));
           return route.abort();
         }
-        const out = calls.map((c) => ({ jsonrpc: '2.0', id: c.id, result: recording.answers[rpcKey(c)] }));
+        const out = calls.map((c) => ({ jsonrpc: '2.0', id: c.id, result: answers[rpcKey(c)] }));
         await route.fulfill({ json: Array.isArray(body) ? out : out[0] });
         for (const c of calls) served.set(c.method, (served.get(c.method) ?? 0) + 1);
       };
@@ -63,22 +66,26 @@ export const test = base.extend<{ replay: Replay }>({
           return route.abort();
         },
       );
-      await page.routeWebSocket(
+      await context.routeWebSocket(
         () => true,
         (ws) => {
           unexpected.push(`websocket ${ws.url()}`);
           ws.close();
         },
       );
+      page.on('worker', (w) => unexpected.push(`worker ${w.url()}`));
       await use({
         run,
         recording,
         allow: (origin) => allowed.add(origin),
+        override: (key, result) => {
+          answers[key] = result;
+        },
         served: (method) => served.get(method) ?? 0,
         url: (query = {}) => `${run.baseURL}/?${new URLSearchParams({ presto: 'off', ...query })}`,
       });
-      // Nothing the page does while it goes away can land after the check.
-      await page.close();
+      // Nothing the pages do while they go away can land after the check.
+      await context.close();
       if (unexpected.length) throw new Error(`requests outside the recording:\n${unexpected.join('\n')}`);
     },
     { auto: true },

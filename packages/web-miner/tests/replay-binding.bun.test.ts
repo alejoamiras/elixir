@@ -24,7 +24,7 @@ describe('the replay recording is bound to the tree it was taken from', () => {
       expect(bindingDrift({ ...current, [field]: 'moved' }, current)).toEqual([field]);
   });
 
-  test('serve refuses a stale recording, naming the field, before it builds anything', () => {
+  test('serve refuses a stale recording, naming the field, before it reaches the preview helpers', () => {
     const dir = mkdtempSync(join(tmpdir(), 'yacana-replay-'));
     try {
       const stale = join(dir, 'recording.json');
@@ -32,14 +32,21 @@ describe('the replay recording is bound to the tree it was taken from', () => {
         stale,
         JSON.stringify({ ...recording, binding: { ...recording.binding, minerArtifactSha256: 'moved' } }),
       );
-      const r = spawnSync('bun', ['e2e/replay/setup.ts', 'serve'], {
-        cwd: pkg,
-        encoding: 'utf8',
-        env: { ...process.env, YACANA_REPLAY_RECORDING: stale },
-      });
+      // The preload turns any reach into the preview helpers into a sentinel error, so a regressed
+      // guard fails here instead of claiming a port and leaving a preview running.
+      const r = spawnSync(
+        'bun',
+        ['--preload', resolve(pkg, 'tests/replay-refusal.preload.ts'), 'e2e/replay/setup.ts', 'serve'],
+        {
+          cwd: pkg,
+          encoding: 'utf8',
+          timeout: 20_000,
+          env: { ...process.env, YACANA_REPLAY_RECORDING: stale },
+        },
+      );
       expect(r.status).not.toBe(0);
       expect(r.stderr).toMatch(/taken against other inputs \(minerArtifactSha256\)/);
-      expect(r.stderr).not.toMatch(/vite/);
+      expect(r.stderr).not.toMatch(/PREVIEW_REACHED/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

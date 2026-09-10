@@ -15,6 +15,7 @@
     "layoutsSha256": "7c976bf9b260f7f3ec04668167109176f5f04ed0d8ce7336b0eb5946b753ddff",
     "aztecVersion": "5.2.0"
   },
+  "claimsKey": "aztec_getPublicStorageAt [\"latest\",\"0x281ff010282fb103a72b5d431887a739cc1f80ceda414990a3728f1f374083f8\",\"0x035e3b6ba5d690a33845814e334a4bc18c8b6600cd65d7f1948cbaf3ace02331\"]",
   "answers": {
     "aztec_getBlockData [\"latest\"]": {
       "header": {
