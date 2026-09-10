@@ -59,10 +59,10 @@
 <main>
   <p class="eyebrow">Plan · mid tier · e2e-lanes · awaiting your approval</p>
   <h1>Faster miner tests</h1>
-  <p class="lede">The miner's browser suite is nineteen tests. It takes about sixteen minutes here and forty in CI, on one machine, and it only runs when someone asks for it by hand — so nothing about the Mine page is checked when you push. This plan makes it faster and gives it a small lane quick enough to run on every push. It also does something less comfortable: it says plainly which of the speed-ups cost you test coverage, and puts that decision in front of you with a number attached instead of burying it.</p>
+  <p class="lede">The miner's browser suite is nineteen tests. It takes about seventeen minutes here and twenty-six in CI, on one machine, and it only runs when someone asks for it by hand — so nothing about the Mine page is checked when you push. This plan makes it faster and gives it a small lane quick enough to run on every push. It also does something less comfortable: it says plainly which of the speed-ups cost you test coverage, and puts that decision in front of you with a number attached instead of burying it.</p>
 
   <h2>The short version of what happened</h2>
-  <p>I wrote a plan. Two reviewers read it and both rejected it, for reasons that turned out to be right when I checked them against the code. I rewrote it. A third reader called the rewrite sound in shape but too vague in its promises, and I tightened it. The plan below is the third version, and most of what makes it good came from being wrong twice.</p>
+  <p>A plan was written. Two reviewers rejected it, for reasons that held up against the code. It was rewritten; a third reader called the rewrite sound in shape but too vague in its promises, and it was tightened. Then a different reviewer checked that version against the last real CI run rather than against its own prose, corrected its numbers, and sent those corrections back through review — which caught two more mistakes, including one in the corrections themselves. What follows is the fifth version. Most of what makes it good came from being wrong, on the record, five times.</p>
 
   <div class="wrap">
     <table>
@@ -72,13 +72,14 @@
         <tr><td class="was">Invent a way to run the app with no node behind it</td><td>You already have one. The stats screenshot gate records every answer the page needs once, then replays them with no node at all — and it runs on every pull request today. The miner's fast lane copies it.</td></tr>
         <tr><td class="was">Sort every test into categories and build a machine to serve each category</td><td>Dropped. Both reviewers worked out that the machinery could only ever skip one deployment, two proxies and one helper process. Two switches do that. The categories bought nothing.</td></tr>
         <tr><td class="was">Turn off the slow proof in most tests, early, as the third of four steps</td><td>Moved to last, made optional, and might never happen. Nobody has measured whether that proof is actually where the time goes.</td></tr>
-        <tr><td class="was">Claim four safety barriers keep that switch out of the real site</td><td>There is one. Two of the four share a single condition, one of them is unreachable code that can never fire, and the test whose name says it covers them does not.</td></tr>
+        <tr><td class="was">Claim four safety barriers keep that switch out of the real site</td><td>There is one before the build, and one at the point of shipping. Two of the four share a single condition, one is unreachable code that can never fire, and the test whose name says it covers them does not.</td></tr>
+        <tr><td class="was">Estimate that the slow proof is 7% of the suite, from the run's logs</td><td>Withdrawn. Those logged proof times belonged to the deployer and a helper miner, not to the browser. Nobody has measured the browser's proving time yet; the plan now measures it rather than guessing.</td></tr>
       </tbody>
     </table>
   </div>
 
   <h2>Two things worth knowing regardless of this plan</h2>
-  <p><strong>A single misspelling would open the front door.</strong> The site decides whether it is a production build by reading one environment variable and trusting it without checking. Any value other than the exact word <em>production</em> — a typo, a stray capital — re-enables every test-only override and loosens the security policy the real site ships with. That is a three-line fix, and this plan now does it first, on its own, whether or not the rest is ever built.</p>
+  <p><strong>A single misspelling is caught late, not early.</strong> The site decides whether it is a production build by reading one environment variable and trusting it without checking. Any value other than the exact word <em>production</em> — a typo, a stray capital — re-enables most test-only overrides and loosens the security policy in that build. Every supported way of shipping refuses such a build at the last step, so it cannot reach the site through the scripts you use — but the refusal is late and unspecific, and one unsupported route (hand-running the deploy tool on a folder that already exists) has no guard at all. Validating the variable is a three-line fix; this plan does it first, on its own, whether or not the rest is ever built.</p>
   <p><strong>Your test network has never checked a proof.</strong> The local chain the tests run against is configured to accept fake proofs, and it installs a verifier that answers "valid" to everything. So the value of the slow real proving in your tests was never that the network checked the work — it is that the claim's own circuit has to hold together mathematically, which is what catches a bad mining proof. That makes the case for keeping some real proving stronger and more specific than I first wrote, and it means the honest test for it is not "a claim worked" but "a deliberately broken proof was refused".</p>
 
   <h2>Why this tier</h2>
@@ -92,18 +93,18 @@
   </div>
   <div class="phase">
     <h3><span class="num">P1</span> Measure, and change nothing</h3>
-    <p>Time the whole run — including the chain starting up, which happens before the test runner even launches, and which every previous estimate missed. Produce a breakdown that says where the forty minutes go, and answers one question with a number: is the slow claim proof actually the bulk?</p>
-    <p class="gate">proves itself by: a breakdown that adds up to the clock on the wall, and one sentence with a number behind it</p>
+    <p>The coarse numbers are known from the last CI run: about twenty-two minutes of tests and four of everything else. This phase produces the fine ones — and in particular the one nobody has: how long the browser itself spends proving a claim, read from the page's own log, kept apart from the deployer's and the helper miner's proofs, which is what the logs show today.</p>
+    <p class="gate">proves itself by: a breakdown that adds up to the clock on the wall, and the browser's proving share as a number</p>
   </div>
   <div class="phase">
     <h3><span class="num">P2</span> Split across machines</h3>
-    <p>Run the suite on three machines instead of one, splitting by naming files rather than letting the runner guess. The subtlety: the test runner stays quiet when a split is misconfigured and runs nothing, so the check is that the tests which actually ran match the list of tests that exist.</p>
-    <p class="gate">proves itself by: the tests that ran equalling the tests that exist · the slowest machine beating a target set from the measurement · the total machine-time staying under a ceiling you approve</p>
+    <p>Run the suite on three machines instead of one, splitting by naming files rather than letting the runner guess. On the last run's numbers that is about twelve minutes per machine for about a third more machine-time in total. The subtlety: the test runner stays quiet when a split is misconfigured and runs nothing, so the check is that the tests which actually ran match the list of tests that exist.</p>
+    <p class="gate">proves itself by: the tests that ran equalling the tests that exist · the slowest machine under fifteen minutes · the three together under forty-five machine-minutes</p>
   </div>
   <div class="phase">
     <h3><span class="num">P3</span> The fast lane, on every push</h3>
-    <p>Record what the page asks for once; replay it forever, with no chain running. Three tests move there to begin with — the ones that never sign in. The trap is a recording that goes stale and still passes, so the recording is tied to the contracts and layout it was taken against, and the lane must fail when they change.</p>
-    <p class="gate">proves itself by: running green with no chain anywhere · the stats lane it borrows from still green · a deliberately outdated recording failing rather than passing</p>
+    <p>Record what the page asks for once; replay it forever, with no chain running. Three tests move there to begin with — the ones that never sign in. It starts as a one-session experiment with six known traps written down in advance; if the experiment does not pass cleanly, the lane is dropped and the three tests stay where they are. Its running cost is stated too: whenever the page's start-up conversation with the chain changes, someone has to re-record on a machine with the toolchain, exactly as the stats lane already works.</p>
+    <p class="gate">proves itself by: running green with no chain anywhere, under eight minutes · the stats lane it borrows from still green · a deliberately outdated recording failing rather than passing</p>
   </div>
   <div class="phase">
     <h3><span class="num">P4</span> Stop building what a run does not need</h3>
@@ -112,7 +113,7 @@
   </div>
   <div class="phase cond">
     <h3><span class="num">P5</span> Turn off the slow proof — <span class="warnline">only if the numbers justify it</span></h3>
-    <p>This is the one that trades coverage for speed, so it is last, conditional, and yours to approve separately. If it happens, one test keeps proving for real and must include the honest case: break the mining proof on purpose and require the claim to fail — set up so that nothing else can explain the failure.</p>
+    <p>This is the one that trades coverage for speed, so it is last and conditional, with the rule fixed now: it is built only if the measurement shows the browser's proving is more than a third of the suite. No one knows that number yet. If it clears the bar, one test keeps proving for real and must include the honest case: break the mining proof on purpose and require the claim to fail — set up so that nothing else can explain the failure.</p>
     <p class="gate">proves itself by: the switch provably absent from a real build · the broken-proof test failing for the right reason, shown by passing when the proof is intact</p>
   </div>
 
@@ -121,22 +122,24 @@
     <div class="verdict"><b>Review 1 · reject</b>The lane could not work, the barriers were fewer than claimed, one variable disabled all of them.</div>
     <div class="verdict"><b>Review 2 · reject</b>Same conclusions independently, plus: the fast lane already exists in this repo and the plan reimplemented a worse one.</div>
     <div class="verdict"><b>Review 3 · reject</b>"Materially responsive" — but the gates could still pass while proving nothing. Those are now tightened.</div>
+    <div class="verdict"><b>Review 4 · conditional</b>A different reviewer, against the real CI run: the baseline was a third too high, one finding overstated, one phase undefined.</div>
+    <div class="verdict"><b>Review 5 · reject</b>On review 4's corrections: one of them cited the wrong proofs. Withdrawn; measured instead.</div>
   </div>
-  <p class="muted">Three rejections is normally a sign that the work is bigger than the plan admits. Here it was mostly that a plan about testing was making claims it had not tested. The corrections are all in the plan, and the reviews are on the record beside it.</p>
+  <p class="muted">Five rounds is normally a sign that the work is bigger than the plan admits. Here it was mostly that a plan about testing kept making claims it had not tested — including in its corrections. Everything is in the plan, and the reviews are on the record beside it.</p>
 
-  <h2>Three decisions I did not make for you</h2>
+  <h2>Three decisions, two of them now answered by the numbers</h2>
   <ul>
-    <li><strong>Machine time.</strong> Three machines finish sooner but bill more, because each one starts its own chain and does its own build. The measurement will say by how much; the number becomes a ceiling you approve before the split ships.</li>
-    <li><strong>When the fast lane runs.</strong> Every push on every branch catches more and is noisier on unfinished work; pull requests only is quieter. Your test filters are written for pull requests today, so "every push" is a real change rather than a line.</li>
-    <li><strong>Whether to do the last step at all.</strong> Turning off the slow proof means most claim tests stop exercising it. I would not decide that on a guess, which is why nothing in the plan depends on it and it sits last.</li>
+    <li><strong>Machine time — yes.</strong> On the last run's numbers, three machines bill about a third more and finish in about half the time. The plan carries budgets looser than that estimate — under fifteen minutes each, under forty-five together — because fresh deployments and runner variance move these numbers.</li>
+    <li><strong>When the fast lane runs — on pull requests.</strong> That is how the miner's checks already trigger; every-push would need the change filters reworked and would run on unfinished branches.</li>
+    <li><strong>Whether to do the last step at all — a rule, not a guess.</strong> Only if the browser's proving turns out to be more than a third of the suite, which nothing so far suggests. If it does, the coverage trade comes back to you with the number.</li>
   </ul>
 
   <div class="approval">
     <h2>What I need from you</h2>
     <ul>
       <li>Approve the scope, or cut it — P0 alone is a defensible answer, and so is stopping after P3.</li>
-      <li>Confirm the tier and the delivery shape: four pull requests, two of them independent of the rest.</li>
-      <li>Answer the three decisions above, or say "decide after the measurement" for any of them.</li>
+      <li>Confirm the delivery shape: the front-door fix as its own pull request; then measure-shard-trim; then the fast lane if its experiment passes; the last step only if the measurement demands it.</li>
+      <li>Say whether the two answered decisions stand.</li>
       <li>Say approve, approve with conditions, or reject.</li>
     </ul>
   </div>

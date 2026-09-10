@@ -92,9 +92,13 @@ own prose.
   `bb`, not to the browser; the page's own proving time is not logged to the e2e output. What is countable: the
   specs make at least twelve browser transaction proofs — nine successful claims, one deliberately reverted claim
   in the lost-race spec, and the withdraw spec's two transfers — plus whatever extra wins mining produces. What
-  each costs in a headless browser is unknown until P1 measures it, which P1 now does specifically: the
-  controller logs `claiming in epoch N: proving the claim in-page…` and `claim … sent` with timestamps, and the
-  spec can read that log through the page's hook. The 30% rule is therefore a policy, not a derivation: browser
+  each costs in a headless browser is unknown until P1 measures it. The controller's own log is the wrong
+  instrument: its `proving the claim in-page…` → `sent` interval spans PXE sync and simulation, proving,
+  submission and — in the lost-race spec — the route that deliberately holds `aztec_sendTx`. The right one is
+  the prover's own event: bb-prover emits `client-ivc-proof-generation` with a duration when it finishes a
+  proof, in the browser as anywhere, and Playwright captures the page's console. That is per proof, covers
+  withdrawals and rolls as well as claims, and survives reloads because it is collected as it happens rather
+  than scraped from a bounded UI log. The 30% rule is therefore a policy, not a derivation: browser
   proving is the only thing exercising the claim circuit's in-circuit verification of the mining proof, and it is
   not given up for less than a third of the suite.
 - **The replay lane's running cost was unnamed.** Any change to the miner's boot-time RPC surface breaks the
@@ -111,16 +115,17 @@ saving — while the isolated network, the production build and at least one dep
 test that opens the app. Two environment booleans in `run-setup.ts` deliver that saving without a taxonomy.
 
 **Sharding by explicit file lists, not `--shard`.** Playwright assigns whole files to shards by cumulative test
-count, which is a proxy for cost that this suite does not honour: measured, its slowest spec is 2.6 minutes and
-its fastest is under a second, and the counts do not track that. Naming files keeps the split under control.
+count, which is a proxy for cost that this suite does not honour: measured, its slowest spec is 2.0 minutes and
+its fastest is under three seconds, and the counts do not track that. Naming files keeps the split under control.
 nulo pins its heavy files to their own jobs for the same reason, and its comment records the deadlock that
 taught it.
 
 **The fast lane is record-and-replay, cloned from the stats visual lane.** It is the only shape that satisfies
 the mandatory deployment probe without a chain, and it is already proven in this repo on every pull request.
 
-**Proverless is optional, last, and may never be built.** It removes only the claim transaction proof; the
-mining proof runs in a worker and is untouched. Whether that is most of the time is unknown until P1 measures
+**Proverless is optional, last, and may never be built.** It removes the browser's transaction proving —
+claims, withdrawals and rolls alike, since the flag sits at the wallet — and nothing else: the mining proofs, the
+block waits and the note sync all stay. Whether that is most of the time is unknown until P1 measures
 it. It also genuinely reduces what the suite proves, so it gets its own decision, with numbers, after P1.
 
 ## Phases
@@ -137,11 +142,15 @@ success** (lines 69-70 run before any artifact exists). What it checks, over the
 destination** including worker chunks and every emitted `_headers`: no plaintext loopback origin
 (`http://127.0.0.1`, `http://localhost`) in any emitted JavaScript or header file; the production CSP present
 and without the local `connect-src` entries; `build.json` present, well-formed, and reporting `production`;
-and the resolved config it was built from carrying `queryOverrides: false`, an empty `prestoE2ePort`, and
-Presto's HTTPS-only policy. Missing or unreadable output, headers or `build.json` fail the check. This proves
-the artifact carries no *known* contamination — the two literals and the config — not that it is clean in
-general; a URL built from pieces at runtime would not contain either literal, which is why the resolved config
-is checked alongside the strings. Normalise `out` inside `assemble()` rather than trusting callers to pass the
+and the resolved config it was built from carrying `queryOverrides: false` and an empty `prestoE2ePort`.
+Presto's HTTPS-only policy is not a `SiteConfig` field — it lives in the miner's `prestoEndpointFor` — so it is
+checked where it is consumed: the existing unit test that production-resolved inputs (`e2ePort: ''`,
+`overrides: false`) yield the HTTPS-only default, plus a mutation test that flipping the consumed endpoint to
+`httpsOnly: false` fails even with an empty `prestoE2ePort` and no loopback literal anywhere. Missing or
+unreadable output, headers or `build.json` fail the check. The contract applies to production assembly only;
+an e2e assembly violates it by design. It proves the artifact carries no *known* contamination — the two
+literals and the config — not that it is clean in general; a URL built from pieces at runtime would not
+contain either literal, which is why the resolved config is checked alongside the strings. Normalise `out` inside `assemble()` rather than trusting callers to pass the
 canonical path. `packages/web-miner`'s own `build` is on no deploy path; note that in its script rather than
 guarding it.
 Gate: `bun run lint` · `bun test packages/site`, including a test that writes a loopback origin into the
@@ -159,9 +168,12 @@ machine-readable per-spec report (`json` or `blob` beside `list`, which writes n
 unattributed time is visible rather than hidden.
 Gate: `bun run lint` · one local run and one CI run, each producing a breakdown that separates network startup,
 deployments, bundle build, and per-spec time, states what share of the total is rig, and attributes claim
-proving specifically — **browser** proving, from the page's own `proving the claim in-page…` → `sent`
-timestamps, kept apart from the deployer's and the burst miner's native proofs, which is what the run logs show
-today — because P5's decision rule rests on that number and no other phase collects it. Pass
+proving specifically — **browser** proving, from the `client-ivc-proof-generation` events Playwright captures
+off the page's console, summed per spec and kept apart from the deployer's and the burst miner's native proofs
+(which are what the run logs show today) and from the surrounding sync, submission and inclusion time, which
+are reported as their own lines — because P5's decision rule rests on that number and no other phase collects
+it. One validation is built in: a run with `aztec_sendTx` deliberately delayed must show submission time rising
+while measured proving time stays put, or the instrument is measuring the wrong thing. Pass
 criterion: the breakdown exists, reconciles to within a stated margin of the job clock, and answers "is the claim
 transaction proof the bulk?" in one sentence with a number behind it. No optimisation ships here.
 Layers: lint · e2e · CI.
@@ -171,7 +183,9 @@ the reports. Assert coverage: Playwright suppresses "no tests found" under `--sh
 having skipped tests, so the gate compares the executed test identities against the inventory rather than
 trusting exit codes.
 Gate: `bun run lint` · `bun run lint:actions` · `bun test packages/web-miner` with a unit test that the job file
-lists cover every `*.e2e.ts` exactly once · a check that no spec carries `.only` · CI green where **the executed
+lists cover every `*.e2e.ts` exactly once — and, once P3 exists, that the sharded inventory plus the replayed
+tests equal the original nineteen minus any exclusion declared by name, so a failed migration cannot hide
+behind a shrunken expectation · a check that no spec carries `.only` · CI green where **the executed
 identities equal the inventory**, the slowest job finishes under **15 minutes**, and the matrix's total runner
 minutes stay under **45** — both set from the measured baseline (26.5 min on one runner) and tightened, not
 loosened, if P1's finer numbers allow.
@@ -190,9 +204,10 @@ replay build must set `VITE_E2E_QUERY_OVERRIDES=1` — the stats `visualEnv` doe
 old-Presto test's `?presto=<port>` is silently ignored; the fake Presto is a stateful HTTP server the spec starts
 itself and must stay one (its `GET /health` changes after `upgrade()`, so it cannot be a recording); the dialog
 test needs an explicit Presto disposition (`presto=off`) so the default probe is not left to time out; the
-malformed-RPC test's garbage must not be recorded under the shared mock origin; and the spike deliberately runs
-past the 30-second public poll, because a broken poll is caught and logged rather than failing the page, so a
-green geometry assertion would not reveal it.
+malformed-RPC test's garbage must not be recorded under the shared mock origin; and the spike does not merely wait
+past the 30-second public poll but **observes one complete**: the replay handler records a second
+public-epoch read served after the first, and the page's log carries no swallowed poll error — a stopped timer
+produces no unexpected traffic, so silence would prove nothing.
 **The running cost, stated now**: the lane fails whenever the miner's boot-time RPC surface changes — a new call,
 a changed parameter, a contract redeploy — until someone re-records on a machine with the toolchain. The stats
 lane already works this way; this doubles that maintenance surface.
@@ -272,14 +287,17 @@ lane; two booleans deliver the rig saving.
 
 - **The one real pre-build barrier is `config.ts:92`.** Everything else the first draft claimed shares its
   predicate, is unreachable, or cannot fire in production. P0 fixes that inventory rather than building on it.
-- **`YACANA_SITE_MODE` is unvalidated, and `assemble.ts:69-70` is what stops that mattering.** An unvalidated
-  string re-enables the overrides, skips the assertion and loosens the CSP in the *build* — but every deploy path
-  (`site:deploy`, Workers Builds) goes through `assemble`, which refuses a non-production mode into the production
-  directory or a Cloudflare build. So the exposure today is a confusing late failure, not a shipped artifact. P0
-  makes the failure early and specific, and adds the artifact inspection at the same chokepoint.
+- **`YACANA_SITE_MODE` is unvalidated, and `assemble.ts:69-70` is what stops that mattering on the supported
+  routes.** An unvalidated string re-enables most overrides (the query overrides need the exact mode `e2e`),
+  skips the assertion and loosens the CSP in the *build*. `site:deploy` and Workers Builds' configured build
+  step both go through `assemble`, which refuses a non-production mode into the production directory or a
+  Cloudflare build — so on those routes the exposure is a confusing late failure. A bare `wrangler deploy` of
+  an existing `dist` has no such guard; it is named, not closed. P0 makes the failure early and specific, and
+  adds the artifact inspection at the same chokepoint.
 - **The threat model for a build flag is whoever controls the build environment.** That is the same actor who
   could edit the source, so a build flag is a guard against mistakes more than against attackers; the inspection
-  in P0 is what turns "we set the config right" into "the artifact is clean".
+  in P0 is what turns "we set the config right" into "the artifact carries none of the contamination we know
+  to look for".
 - **A proverless flag reaching production would not by itself let an attacker mint** — the attacker already
   controls their own browser, and the network is the boundary. It would break transaction submission for real
   visitors and invalidate the suite. That is the honest framing; my draft overstated it.
@@ -300,8 +318,8 @@ lane; two booleans deliver the rig saving.
    does not test those branches, `:19` proves the dropping.
 4. `vite-base.ts:45` casts `YACANA_SITE_MODE` without validation; `headers.ts:19` widens `connect-src` outside
    production; `assemble.ts:69-70` refuses a non-production build into the production directory or a Cloudflare
-   build, and `site:deploy` and Workers Builds both go through `assemble`, so a misspelled mode cannot ship
-   today.
+   build, and `site:deploy` and Workers Builds' build step both go through `assemble`, so a misspelled mode is
+   refused on every supported route; a bare `wrangler deploy` of an existing `dist` is not guarded.
 5. The toolchain's local network defaults `realProofs` to false (`local-network.ts:138`), so the node installs
    `TestCircuitVerifier` (`factory.ts:219-228`), which always answers valid.
 6. `states.e2e.ts:75-84` synthesises its race by holding `aztec_sendTx` at a route.
@@ -316,10 +334,9 @@ lane; two booleans deliver the rig saving.
     2:43, tests 2:43–24:52. Locally: 16.6 min wall, 16.2 reported by Playwright, and
     the per-spec durations sum to 14.6 — so Playwright's total includes its global setup (the two deployments and
     the bundle build, about 1.6 min) and the node's start and stop sit outside it (about 0.4). Fixed cost is
-    about two of the sixteen-and-a-half minutes. Scaling by the CI/local ratio: per shard about 4.6 min fixed
-    (1.6 of pre-steps, 3 inside Playwright) against about 22 min of tests; the best three-way file split has a
-    slowest bucket near 5.7 local minutes, about 8.6 in CI, so the slowest shard lands near 13 min and the matrix
-    near 36 runner-minutes — under the 15 and 45 the P2 gate names.
+    about two of the sixteen-and-a-half minutes locally; the CI projection is the one made from the CI log's own
+    timestamps above (about 22 min of tests, 4.4 of everything else; three shards near 35 runner-minutes with
+    the slowest job near 12).
 12. Measured local durations, last green run (the one at the head commit): lost race 2.0 min, withdraw 1.9,
     node-away 1.7, first visit 1.5, power changes 1.4, passkey 60 s, switch 53 s, presto claim 52 s, prover crash
     47 s, CRS purge 43 s, words 42 s; the rest under twenty seconds. Per-spec total 14.6 min.
@@ -328,9 +345,10 @@ lane; two booleans deliver the rig saving.
 
 1. That sharding's wall-clock win survives the fixed rig each job pays again — its own network, deployments and
    build. P1 measures it; P2's pass criterion is derived from that measurement rather than assumed.
-2. That the miner's boot RPC is recordable the way the stats page's was. The stats page only reads storage; the
-   miner also opens a wallet and a PXE, which may make far more calls, some of them stateful. P3 finds out
-   early, and if replay cannot cover a spec, that spec stays in the sharded suite.
+2. That the three signed-out tests' boot RPC is recordable the way the stats page's was. None of them opens a
+   wallet or a PXE, so the surface is preflight, the public-epoch poll and the Presto probe; the six known
+   obstacles are listed in P3, and the spike finds any seventh. If replay cannot cover a test, it stays in the
+   sharded suite.
 3. That two booleans capture the rig saving. If P1 shows the second deployment is cheap and the network is
    everything, P4 is not worth building.
 4. That browser-side transaction proving is a minority of test time. Unmeasured: the logged proofs are the
@@ -379,6 +397,10 @@ lane; two booleans deliver the rig saving.
 | P0's two-string grep as "the artifact is clean" | codex on the fourth read | **Reframed** as a contamination check plus a resolved-config check, with missing output failing |
 | P3's replay premise | codex on the fourth read | **Six concrete obstacles named** for the spike; an 8-minute budget; the change filter's scope |
 | D stacked on C | codex on the fourth read | **Unstacked**: proverless needs the measurement and P0, not the replay lane |
+| P1 measuring the controller's log interval | codex, round 2 | **Replaced**: the prover's own `client-ivc-proof-generation` events off the page console, with a delayed-`sendTx` validation |
+| P0 asserting an HTTPS-only "field" | codex, round 2 | **Bound to the consumed endpoint**: `prestoEndpointFor` under production inputs, plus a mutation test |
+| P3 "wait past the poll" | codex, round 2 | **Observe a completed poll**; and the inventory invariant spans both suites |
+| Six passages the corrections had not reached | codex, round 2 | **Rewritten in place** |
 
 ## Delivery
 
