@@ -163,3 +163,45 @@ Two small documentation corrections remain:
 No asks need to return to the owner.
 
 conditional approve (with conditions: document the same-account Worker-name ambiguity as an accepted namespace trust assumption; narrow unknown-host tests to guarded creation/restoration paths and assert their actual error behavior; specify and test production-only suffix loading).
+
+# Post-implementation fix loop
+
+Session `01a09045-39ee-78c3-a842-f8099375f886`, high.
+
+## Round 1 — changes required (one P2)
+
+Adopted: the env restore (assigning undefined to process.env stores "undefined"); the comment cuts in host.ts and the two tests; "treat preview code as unreviewed". Rejected: nothing.
+
+One required fix; no production regression found. Confidence: **high**.
+
+The implementation matches the agreed security rules:
+
+- [host.ts:9](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/site/src/browser/host.ts:9) requires the exact suffix and a nonempty `[a-z0-9-]+` prefix without dots. Foreign tenants, nested labels, Pages and `www` remain locked. Apex eligibility and RP selection are preserved.
+- [config.ts:99](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/site/src/config.ts:99) loads the committed suffix only in production; the existing production guards remain intact. The inspector, build-record selection and CSP are unchanged.
+- All three session calls use injected ceremonies and `this.rpId`: [creation:268](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/web-miner/src/session.ts:268), [known-record assertion:310](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/web-miner/src/session.ts:310), [restore:321](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/web-miner/src/session.ts:321). Creation’s internal fallback forwards the same options at [passkey.ts:89](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/web-miner/src/keys/passkey.ts:89). Exact-host RP selection follows the [WebAuthn RP rules](https://www.w3.org/TR/webauthn-3/#relying-party-identifier).
+
+The tests cover the promised host matrix, production-only loading, three preview ceremonies, and unknown-host refusal through `bootAtom` with zero ceremony calls. Known-record `open()` remains unguarded as explicitly agreed. No material coverage hole beyond the cleanup defect below.
+
+The banner strings and guard match the approved wording. [deployments.md:105](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/docs/deployments.md:105) and [threat-model.md:42](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/docs/threat-model.md:42) correctly distinguish RP-scoped passkeys, origin-scoped storage and portable words. Minor copy precision: replace “a branch is code nobody has reviewed yet” with “treat preview code as unreviewed.”
+
+Nonblocking comment cleanup:
+
+- [host.ts:1](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/site/src/browser/host.ts:1): replace the four-line introduction with the non-obvious constraint: “This gate steers honest bundles; the suffix trusts the account’s matching namespace, not code provenance.”
+- [host.ts:22](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/site/src/browser/host.ts:22): “may use” overstates authorization—unknown hosts also receive the configured RP. Clarify that callers enforce eligibility. Delete the line-38 comment, which repeats the predicate.
+- [shell.vitest.tsx:80](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/web-miner/src/shell.vitest.tsx:80) and [session-rp.bun.test.ts:8](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/web-miner/tests/session-rp.bun.test.ts:8) repeat the cases/test structure. At line 60, use the actual constraint: “Keep this record unsealed so `open()` reaches WebAuthn.”
+
+Independent validation: focused Bun suites **10 passed, 77 assertions**. Vitest startup was blocked by the read-only filesystem; E2E and physical-authenticator validation remain outstanding.
+
+changes required:
+
+1. **[P2] Restore absent environment variables by deleting them.** [session-rp.bun.test.ts:25](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/web-miner/tests/session-rp.bun.test.ts:25) assigns saved `undefined` values into `process.env`. Verified on Bun 1.4.0: this produces the literal string `"undefined"` and leaves the property present, contaminating subsequent tests. For each saved variable, delete it when the original value was `undefined`; otherwise restore its string value.
+
+## Round 2 — approve (no new material findings)
+
+No new material findings. Confidence: **high**.
+
+The [environment cleanup](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/web-miner/tests/session-rp.bun.test.ts:24) correctly deletes absent variables and restores existing values. Comment and documentation changes resolve the review points without changing production behavior.
+
+Independent validation: **20 tests passed, 110 assertions** across session RP, session opening and site configuration. Cockpit E2E remains pending.
+
+approve

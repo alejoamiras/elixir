@@ -4,7 +4,7 @@ tier: light
 driver: claude-code
 eli5_mode: artifact
 code_review: off
-status: approved to implement (codex round 1 → conditional approve, round 2 → conditional approve; every condition folded in; the owner delegated the open questions to this loop)
+status: implemented 2026-09-11, P1 ✓, fix loop converged, PR open (codex plan audit: round 1 → conditional approve, round 2 → conditional approve, every condition folded in; the owner delegated the open questions to the loop)
 created: 2026-09-11
 base: main @ cd2c888
 ---
@@ -109,7 +109,10 @@ define), `config.test.ts`, `browser/vite-env.d.ts`, `browser/host.ts`, `web-mine
 
 ## Phases
 
-### P1 — the named preview host, the relying party, the copy, the tests (one phase)
+### P1 ✓ — the named preview host, the relying party, the copy, the tests (one phase)
+
+Gate passed 2026-09-11: lint 0 · `bun test` 333/0 · web-miner Vitest 70/70 · cockpit e2e shard 7/7 (6.3 min).
+Codex fix loop converged in two rounds (`audit-codex.md`). Lessons: `lessons/phase-1.md`.
 
 1. `site.env` + `config.ts` + `vite-env.d.ts`: `VITE_PREVIEW_HOST_SUFFIX`; production check (empty or the
    suffix shape); `config.test.ts` covers accepted / refused shapes, production taking the committed value over a
