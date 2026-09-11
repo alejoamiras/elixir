@@ -1,0 +1,117 @@
+<title>Preview Keys</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #f3f5f7; --paper: #ffffff; --ink: #15212b; --ink-2: #4b5a67; --line: #d6dde3;
+    --accent: #0e7c86; --accent-ink: #ffffff; --warn-bg: #fff6e0; --warn-ink: #7a5300; --warn-line: #e6c98a;
+    --ok-bg: #e6f4f3; --ok-ink: #0b5f66; --mono-bg: #eef1f4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101418; --paper: #171d23; --ink: #e6ebef; --ink-2: #a5b1bb; --line: #2b353e;
+      --accent: #3fb3bc; --accent-ink: #08161a; --warn-bg: #2a2310; --warn-ink: #f0cf7a; --warn-line: #5a4a1e;
+      --ok-bg: #12282a; --ok-ink: #8fd6dc; --mono-bg: #1f272e;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101418; --paper: #171d23; --ink: #e6ebef; --ink-2: #a5b1bb; --line: #2b353e;
+    --accent: #3fb3bc; --accent-ink: #08161a; --warn-bg: #2a2310; --warn-ink: #f0cf7a; --warn-line: #5a4a1e;
+    --ok-bg: #12282a; --ok-ink: #8fd6dc; --mono-bg: #1f272e;
+  }
+  body { background: var(--bg); color: var(--ink); font: 16px/1.6 "IBM Plex Sans", system-ui, sans-serif; padding-inline: 20px; padding-block: 40px 64px; }
+  main { max-width: 720px; margin: 0 auto; display: grid; gap: 40px; }
+  h1, h2, h3 { text-wrap: balance; line-height: 1.2; margin: 0; font-weight: 600; }
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.25rem; padding-top: 8px; border-top: 1px solid var(--line); padding-top: 20px; }
+  h3 { font-size: 1rem; }
+  p { margin: 0; }
+  section { display: grid; gap: 14px; }
+  .eyebrow { font: 500 0.75rem/1 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+  code, pre { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.9em; }
+  code { background: var(--mono-bg); padding: 1px 5px; border-radius: 3px; }
+  pre { background: var(--mono-bg); padding: 14px 16px; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+  ul { margin: 0; padding-left: 1.2rem; display: grid; gap: 8px; }
+  .hosts { display: grid; gap: 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--paper); }
+  .host { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--line); }
+  .host:first-child { border-top: 0; }
+  .host code { background: transparent; padding: 0; }
+  .pill { font: 500 0.72rem/1 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: 0.04em; padding: 5px 8px; border-radius: 999px; white-space: nowrap; }
+  .pill.ok { background: var(--ok-bg); color: var(--ok-ink); }
+  .pill.no { background: var(--mono-bg); color: var(--ink-2); }
+  .pill.prod { background: var(--accent); color: var(--accent-ink); }
+  .warn { background: var(--warn-bg); color: var(--warn-ink); border: 1px solid var(--warn-line); border-radius: 6px; padding: 12px 14px; }
+  .decision { background: var(--paper); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 6px; padding: 16px 18px; display: grid; gap: 10px; }
+  .muted { color: var(--ink-2); font-size: 0.92rem; }
+  @media (max-width: 480px) { .host { grid-template-columns: 1fr; } }
+</style>
+<main>
+  <section>
+    <p class="eyebrow">yacana · implementations-plan/preview-keys · light</p>
+    <h1>Preview Keys</h1>
+    <p>Let a reviewer actually use the miner on a branch's Cloudflare preview: sign up, mine, claim, withdraw on the testnet. Today every preview shows a banner and greys out sign-up, so a PR that touches the miner can only be reviewed from a local checkout.</p>
+  </section>
+
+  <section>
+    <h2>What changes, in one breath</h2>
+    <p>The page already asks "where am I being served from?" before it lets anyone make a key. Right now the only answer that unlocks keys is <code>yacana.network</code>. After this change, this project's own preview addresses unlock keys too, and a passkey made on a preview is tied by the browser to that exact preview address. Everything else stays locked.</p>
+    <div class="hosts">
+      <div class="host"><code>yacana.network</code><span class="pill prod">production · unchanged</span></div>
+      <div class="host"><code>e2e-lanes-proverless-yacana.alejo-amiras.workers.dev</code><span class="pill ok">preview · keys allowed</span></div>
+      <div class="host"><code>252abc2b-yacana.alejo-amiras.workers.dev</code><span class="pill ok">preview (one version) · keys allowed</span></div>
+      <div class="host"><code>x-yacana.someone-else.workers.dev</code><span class="pill no">locked</span></div>
+      <div class="host"><code>anything.pages.dev</code><span class="pill no">locked (was "preview" before)</span></div>
+      <div class="host"><code>www.yacana.network</code>, any other host<span class="pill no">locked</span></div>
+    </div>
+    <p class="muted">The preview address pattern lives next to the production domain in the site's one public config file. Test builds leave it empty, so nothing is a preview there.</p>
+  </section>
+
+  <section>
+    <h2>What you get as a reviewer</h2>
+    <ul>
+      <li>Open the branch's preview link from the Cloudflare check, go to <code>/mine/</code>, sign up with a passkey or twelve words, mine, claim, send. Same bundle, same testnet, same node rules as production.</li>
+      <li>Use the branch address (the one with the branch name in it), not the per-push one: each address is its own browser origin with its own vault and its own passkeys.</li>
+      <li>Treat preview accounts as disposable. The banner says so.</li>
+    </ul>
+    <div class="warn"><strong>The one thing to remember:</strong> twelve words are the same account everywhere. Never type your yacana.network words into a preview, and never carry preview words to yacana.network. A branch is code you have not reviewed yet; the page cannot stop it from reading what you type. Passkeys do not have this problem: a production passkey simply cannot be used from a preview, and vice versa.</div>
+  </section>
+
+  <section>
+    <h2>Why light, and what codex said</h2>
+    <p>Rubric: no novelty (the host rule and passkey plumbing exist), small blast radius (one function, one getter, copy), reversible, no migration, no new external coupling. Security sensitivity is the one dimension that is real, and it is why the plan went through a codex round that changed it: the first draft would have unlocked keys on <em>any</em> workers.dev address, including a stranger's copy of the site. The final rule names this project's addresses only.</p>
+    <div class="decision">
+      <h3>Settled between me and codex (not sent back to you)</h3>
+      <ul>
+        <li><strong>Passkeys on previews, tied to the exact preview address.</strong> Words-only would have left the default sign-up path untested.</li>
+        <li><strong>Words stay portable.</strong> Making preview words derive a different account would not stop a bad branch from reading the phrase, which is the real risk; it would only add a second key scheme. The banner warns in both directions instead.</li>
+        <li><strong>No new build mode.</strong> A preview is the production bundle; the address decides at runtime.</li>
+        <li><strong>No fake-domain browser test.</strong> A real preview domain needs real TLS to test passkeys; instead the rule gets a full table of addresses in unit tests, the miner session gets a test proving which address reaches the passkey call, and the existing local browser suite stays as the net. The first live sign-up on this branch's own preview is recorded in the PR.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>The one phase</h2>
+    <div class="decision" style="border-left-color: var(--line)">
+      <h3>P1 — the named preview address, the passkey domain, the copy, the tests, the docs</h3>
+      <p>Proves itself by: lint clean, the miner's component tests (the address table) green, the unit tests for site config and the miner session green, and the miner's cockpit browser shard still green on localhost.</p>
+    </div>
+    <p class="muted">Then the codex fix loop on the diff until a round finds nothing material, then one PR. Merging stays your call.</p>
+  </section>
+
+  <section>
+    <h2>Approval decision needed from you</h2>
+    <ul>
+      <li>Scope: previews of this project only; production, localhost and every other host unchanged.</li>
+      <li>Tier light, one PR, no <code>/code-review</code>, no <code>/harden</code> scheduled.</li>
+      <li>Accept the documented residual: words typed into a preview are visible to that branch's code.</li>
+    </ul>
+    <p class="muted">You asked for this to run through to a green PR without a stop, so this page is the record of what was decided rather than a gate.</p>
+  </section>
+
+  <section>
+    <h2>Implementation seed</h2>
+    <p class="muted">Use exactly one per session; <code>/goal</code> is the one for this plan (completion is visible in the transcript).</p>
+<pre>/goal P1 marked ✓ in implementations-plan/preview-keys/plan.md with its validation gate (lint, the web-miner Vitest host matrix, bun test for site + web-miner, the cockpit e2e shard) reported passing in the transcript; `LESSONS_FILE=implementations-plan/preview-keys/lessons/phase-1.md` printed; the codex fix loop converged (a resumed codex pass reporting no new material findings, quoted); the PR exists (`gh pr view` output) created only after convergence; `bun run lint` and `bun test` exit 0 in the transcript.</pre>
+    <p class="muted">Full plan: <code>implementations-plan/preview-keys/plan.md</code> in the repo.</p>
+  </section>
+</main>

@@ -1,6 +1,7 @@
 import { useAtomValue, useSetAtom } from 'jotai';
 import type * as React from 'react';
 import { useEffect, useState } from 'react';
+import { relyingParty } from '../../../site/src/browser/host.ts';
 import {
   Button,
   KvRow,
@@ -66,7 +67,7 @@ function AboutTile({ log }: { log: string[] }) {
       <KvRow label="source" value={import.meta.env.VITE_SOURCE_COMMIT.slice(0, 12)} />
       <KvRow label="build" value={import.meta.env.VITE_SITE_MODE} />
       <KvRow label="bb.js" value={import.meta.env.VITE_BB_VERSION} />
-      <KvRow label="relying party" value={import.meta.env.VITE_RP_ID} />
+      <KvRow label="relying party" value={relyingParty(location.hostname)} />
       <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-line pt-3">
         <Button
           size="sm"

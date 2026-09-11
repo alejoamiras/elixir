@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { hostKind, keysAllowed } from '../../site/src/browser/host.ts';
+import { hostKind, keysAllowed, previewNotice, relyingParty } from '../../site/src/browser/host.ts';
 import { queryOverridesAllowed } from './config';
 import { isDesktop } from './desktop';
 import { navigate, pathFor, routeFromPath, useRoute } from './routes';
@@ -59,19 +59,51 @@ describe('query overrides', () => {
 });
 
 describe('host rules', () => {
-  test('production, preview, local', () => {
+  const SUFFIX = '-yacana.alejo-amiras.workers.dev';
+  const alias = `feature-x${SUFFIX}`;
+  const version = `252abc2b${SUFFIX}`;
+
+  test("production bundle: the apex, this project's previews, and everything else", () => {
     vi.stubEnv('VITE_RP_ID', 'yacana.network');
-    vi.stubEnv('VITE_SITE_MODE', 'e2e');
-    expect(hostKind('yacana.network')).toBe('production');
-    expect(hostKind('abc12345-yacana.someone.workers.dev')).toBe('preview');
-    expect(hostKind('abc123.yacana.pages.dev')).toBe('preview');
-    expect(hostKind('localhost')).toBe('local');
-    expect(hostKind('evil.example')).toBe('unknown');
-    expect(keysAllowed('yacana.network')).toBe(true);
-    expect(keysAllowed('abc12345-yacana.someone.workers.dev')).toBe(false);
-    expect(keysAllowed('localhost')).toBe(true);
+    vi.stubEnv('VITE_PREVIEW_HOST_SUFFIX', SUFFIX);
     vi.stubEnv('VITE_SITE_MODE', 'production');
+    expect(hostKind('yacana.network')).toBe('production');
+    expect(relyingParty('yacana.network')).toBe('yacana.network');
+    expect(keysAllowed('yacana.network')).toBe(true);
+    expect(previewNotice('yacana.network')).toBeNull();
+    for (const h of [alias, version]) {
+      expect(hostKind(h)).toBe('preview');
+      expect(relyingParty(h)).toBe(h);
+      expect(keysAllowed(h)).toBe(true);
+      expect(previewNotice(h)).toContain(`Preview on ${h}`);
+    }
+    for (const h of [
+      'x-yacana.other.workers.dev',
+      'x-other.alejo-amiras.workers.dev',
+      'abc123.yacana.pages.dev',
+      `x${SUFFIX}.evil.example`,
+      `deep.x${SUFFIX}`,
+      SUFFIX.slice(1),
+      'www.yacana.network',
+      'evil.example',
+    ]) {
+      expect(hostKind(h)).toBe('unknown');
+      expect(relyingParty(h)).toBe('yacana.network');
+      expect(keysAllowed(h)).toBe(false);
+      expect(previewNotice(h)).toContain('cannot be created or restored');
+    }
+    expect(hostKind('localhost')).toBe('local');
     expect(keysAllowed('localhost')).toBe(false);
+    expect(previewNotice('localhost')).toBeNull();
+  });
+
+  test('no suffix, no previews; localhost may make keys outside production', () => {
+    vi.stubEnv('VITE_RP_ID', 'yacana.network');
+    vi.stubEnv('VITE_PREVIEW_HOST_SUFFIX', '');
+    vi.stubEnv('VITE_SITE_MODE', 'e2e');
+    expect(hostKind(alias)).toBe('unknown');
+    expect(hostKind('localhost')).toBe('local');
+    expect(keysAllowed('localhost')).toBe(true);
   });
 });
 

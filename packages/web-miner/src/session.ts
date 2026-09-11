@@ -11,7 +11,7 @@ import {
   masterFromMnemonic,
   normaliseWords,
 } from '../../miner-core/src/keys/mnemonic.ts';
-import { keysAllowed } from '../../site/src/browser/host.ts';
+import { keysAllowed, relyingParty } from '../../site/src/browser/host.ts';
 import { type NodeProbe, probeNode } from '../../site/src/browser/node.ts';
 import { nodeHealth, waitTurn } from '../../site/src/browser/node-health.ts';
 import { expectedOf, type Preflighted, preflight, type Started, startSession, switchNodeLive } from './boot';
@@ -81,15 +81,24 @@ export class Session {
 
   private readonly startImpl: typeof startSession;
   private readonly preflightImpl: typeof preflight;
+  private readonly createPasskey: typeof createPasskey;
+  private readonly assertPasskey: typeof assertPasskey;
 
   constructor(
     private readonly store: Store,
     private readonly connection: Connection,
-    // Injectable for tests: the real ones open the wallet / run the preflight against a node.
-    deps: { startImpl?: typeof startSession; preflightImpl?: typeof preflight } = {},
+    // Injectable for tests: the real ones open the wallet / run the preflight against a node / touch WebAuthn.
+    deps: {
+      startImpl?: typeof startSession;
+      preflightImpl?: typeof preflight;
+      createPasskey?: typeof createPasskey;
+      assertPasskey?: typeof assertPasskey;
+    } = {},
   ) {
     this.startImpl = deps.startImpl ?? startSession;
     this.preflightImpl = deps.preflightImpl ?? preflight;
+    this.createPasskey = deps.createPasskey ?? createPasskey;
+    this.assertPasskey = deps.assertPasskey ?? assertPasskey;
     this.ready = this.runPreflight();
   }
 
@@ -106,12 +115,14 @@ export class Session {
   }
 
   private get rpId(): string {
-    return import.meta.env.VITE_RP_ID;
+    return relyingParty(location.hostname);
   }
 
   private guardHost(): void {
     if (!keysAllowed(location.hostname))
-      throw new Error(`accounts can only be created or restored on ${this.rpId}`);
+      throw new Error(
+        `Accounts cannot be created or restored on this host. Open ${import.meta.env.VITE_RP_ID}.`,
+      );
   }
 
   /** Back to the signed-out cockpit with the error; `id` names the attempt speaking, if any. */
@@ -254,7 +265,7 @@ export class Session {
       const known = (await listRecords()).flatMap((r) =>
         r.credentialId ? [fromBase64url(r.credentialId)] : [],
       );
-      const { credentialId, prf } = await createPasskey({
+      const { credentialId, prf } = await this.createPasskey({
         rpId: this.rpId,
         userName: 'Yacana account',
         exclude: known,
@@ -296,7 +307,10 @@ export class Session {
   private async masterFromCeremony(record: MasterRecord): Promise<Uint8Array> {
     if (record.method !== 'passkey' || !record.credentialId)
       throw new Error('this account needs its twelve words to open');
-    const { prf } = await assertPasskey({ rpId: this.rpId, allow: [fromBase64url(record.credentialId)] });
+    const { prf } = await this.assertPasskey({
+      rpId: this.rpId,
+      allow: [fromBase64url(record.credentialId)],
+    });
     return masterFromPrf(prf);
   }
 
@@ -304,7 +318,7 @@ export class Session {
   async restoreWithPasskey(): Promise<void> {
     return this.runAttempt('passkey', async () => {
       this.guardHost();
-      const { credentialId, prf } = await assertPasskey({ rpId: this.rpId });
+      const { credentialId, prf } = await this.assertPasskey({ rpId: this.rpId });
       const master = await masterFromPrf(prf);
       return owning(master, async () => {
         const address = await addressOf(master, 0);

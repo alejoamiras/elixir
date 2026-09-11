@@ -34,6 +34,10 @@ describe('site config', () => {
     expect(c.prestoE2ePort).toBe('');
     expect(viteDefine(c)['import.meta.env.VITE_PRESTO_E2E_PORT']).toBe('""');
     expect(c.rpId).toBe('yacana.network');
+    expect(c.previewHostSuffix).toBe('-yacana.alejo-amiras.workers.dev');
+    expect(viteDefine(c)['import.meta.env.VITE_PREVIEW_HOST_SUFFIX']).toBe(
+      '"-yacana.alejo-amiras.workers.dev"',
+    );
     expect(c.miner).toBe(deployment.miner);
     expect(c.minerClassId).toBe(deployment.minerClassId);
     expect(c.queryOverrides).toBe(false);
@@ -127,6 +131,32 @@ describe('site config', () => {
     expect(attempt({ VITE_AZTEC_NODE_URL: 'https://10.0.0.1' })).toThrow(/is local/);
     expect(attempt({ VITE_EXPLORER_URL: 'http://explorer.example' })).toThrow(/explorer .* not https/);
     expect(attempt({ VITE_EXPLORER_URL: 'off' })).not.toThrow();
+  });
+
+  test('the preview suffix: production takes the committed shape or none; other modes never have one', () => {
+    const production = (VITE_PREVIEW_HOST_SUFFIX: string) =>
+      loadSiteConfig({
+        ...base,
+        mode: 'production',
+        siteEnv: { ...siteEnv, VITE_PREVIEW_HOST_SUFFIX },
+        env: { VITE_PREVIEW_HOST_SUFFIX: '-yacana.attacker.workers.dev' },
+      });
+    expect(production('').previewHostSuffix).toBe('');
+    expect(production('-yacana.alejo-amiras.workers.dev').previewHostSuffix).toBe(
+      '-yacana.alejo-amiras.workers.dev',
+    );
+    for (const bad of [
+      'yacana.alejo-amiras.workers.dev',
+      '-yacana.alejo-amiras.pages.dev',
+      '.workers.dev',
+      '-a.b.c.workers.dev',
+    ])
+      expect(() => production(bad)).toThrow(/preview host suffix/);
+    for (const mode of ['e2e', 'dev'] as const) {
+      const c = loadSiteConfig({ ...base, mode, env: { VITE_PREVIEW_HOST_SUFFIX: '-yacana.x.workers.dev' } });
+      expect(c.previewHostSuffix).toBe('');
+      expect(viteDefine(c)['import.meta.env.VITE_PREVIEW_HOST_SUFFIX']).toBe('""');
+    }
   });
 
   test('the mode is one of three words or an error, never a fourth mode by typo', () => {
