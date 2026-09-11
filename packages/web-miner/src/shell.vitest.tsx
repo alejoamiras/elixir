@@ -77,7 +77,6 @@ describe('host rules', () => {
       expect(keysAllowed(h)).toBe(true);
       expect(previewNotice(h)).toContain(`Preview on ${h}`);
     }
-    // Another tenant, another Worker, Pages, a deceptive suffix, a nested label, the www redirect, anything.
     for (const h of [
       'x-yacana.other.workers.dev',
       'x-other.alejo-amiras.workers.dev',

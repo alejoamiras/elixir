@@ -5,8 +5,7 @@ import type { MasterRecord } from '../src/keys/store.ts';
 import { Session } from '../src/session.ts';
 import { bootAtom } from '../src/state.ts';
 
-// Which relying party reaches WebAuthn, per host: the three ceremonies through the real methods, the
-// ceremonies themselves faked to capture their options and stop the attempt there.
+// The ceremonies are faked to capture their options and stop the attempt there.
 const RP = 'yacana.network';
 const SUFFIX = '-yacana.alejo-amiras.workers.dev';
 const PREVIEW = `feature-x${SUFFIX}`;
@@ -23,8 +22,11 @@ beforeEach(() => {
   process.env.VITE_PREVIEW_HOST_SUFFIX = SUFFIX;
 });
 afterEach(() => {
-  process.env.VITE_RP_ID = env.VITE_RP_ID;
-  process.env.VITE_PREVIEW_HOST_SUFFIX = env.VITE_PREVIEW_HOST_SUFFIX;
+  // Assigning undefined to process.env stores the string "undefined": absent variables are deleted instead.
+  for (const [k, v] of Object.entries(env)) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
   Object.defineProperty(globalThis, 'location', { value: savedLocation, configurable: true, writable: true });
 });
 
@@ -57,7 +59,7 @@ function harness() {
   return { store, session, seen };
 }
 
-/** A known passkey record in ask-every-open mode: opening it needs the ceremony. */
+/** Unsealed, so `open()` reaches WebAuthn instead of the device key. */
 const knownPasskey: MasterRecord = {
   v: 1,
   id: 'k',

@@ -109,8 +109,8 @@ with the exact preview host as the WebAuthn relying party. What that means for a
 not the per-push version URL — each hostname is its own origin, with its own vault and its own passkeys (a
 passkey made on the alias cannot be used on `yacana.network`, on another preview, or, should the alias ever
 change, on the new name); twelve words are the same account on every host, so never enter production words on
-a preview or carry preview words to production — a branch is code nobody has reviewed yet and the page cannot
-stop it from reading what is typed. Treat preview accounts as disposable. The suffix names the account's
+a preview or carry preview words to production — treat preview code as unreviewed; the page cannot stop it from
+reading what is typed. Treat preview accounts as disposable. The suffix names the account's
 namespace, not this Worker: another Worker in the same account would match it too; it is trusted the way the
 production RP ID is. Any other host — `www.yacana.network`, someone else's `workers.dev`, a `pages.dev` name —
 stays locked. Dev and e2e builds carry an empty suffix: nothing is a preview there. Whether a PRF passkey

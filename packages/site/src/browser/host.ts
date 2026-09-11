@@ -1,7 +1,5 @@
-// Where the page is served decides what it may do. Keys exist on the production hostname and on this
-// project's own Workers previews (`<label>` + the committed suffix: version ids and branch aliases),
-// where the relying party is the exact preview host. The rule steers an honest bundle; code that
-// controls the page can drop it, so it must never be read as authenticating the code.
+// Where the page is served decides whether it may make keys. This gate steers honest bundles: the
+// preview suffix trusts the account's matching workers.dev namespace, not the code's provenance.
 export type HostKind = 'production' | 'preview' | 'local' | 'unknown';
 
 const LABEL = /^[a-z0-9-]+$/;
@@ -19,7 +17,7 @@ export const hostKind = (hostname: string): HostKind => {
   return 'unknown';
 };
 
-/** The WebAuthn relying party this host may use: the pinned production RP ID, or the preview host itself. */
+/** The WebAuthn relying party for this host: the preview host itself, else the pinned production RP ID (eligibility is `keysAllowed`). */
 export const relyingParty = (hostname: string): string =>
   hostKind(hostname) === 'preview' ? hostname : import.meta.env.VITE_RP_ID;
 
@@ -35,7 +33,6 @@ export const previewNotice = (hostname: string): string | null => {
   }
 };
 
-/** Passkeys and words may be created or restored in production, on a preview, or on localhost outside production builds. */
 export const keysAllowed = (hostname: string): boolean => {
   const kind = hostKind(hostname);
   if (kind === 'production' || kind === 'preview') return true;
