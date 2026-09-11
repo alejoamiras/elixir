@@ -19,6 +19,8 @@ export interface SiteConfig {
   /** The default node; a user may pick another from the miner's settings (the guard bounds requests to it). */
   nodeUrl: string;
   rpId: string;
+  /** `<label>` + this suffix are this project's Workers previews, where keys may be made; '' outside production. */
+  previewHostSuffix: string;
   sourceCommit: string;
   bbVersion: string;
   chainId: string;
@@ -94,6 +96,10 @@ const required = (source: Record<string, string | undefined>, key: string, where
   return v;
 };
 
+/** Only the committed value, only in production: a dev or e2e build has no preview hosts. */
+const previewSuffixOf = (mode: SiteMode, siteEnv: Record<string, string>): string =>
+  mode === 'production' ? (siteEnv.VITE_PREVIEW_HOST_SUFFIX ?? '') : '';
+
 export function loadSiteConfig(opts: {
   mode: SiteMode;
   siteEnv: Record<string, string>;
@@ -116,6 +122,7 @@ export function loadSiteConfig(opts: {
     mode,
     nodeUrl,
     rpId: pick('VITE_RP_ID', required(siteEnv, 'VITE_RP_ID', 'site.env')),
+    previewHostSuffix: previewSuffixOf(mode, siteEnv),
     sourceCommit: opts.sourceCommit,
     bbVersion: opts.bbVersion,
     chainId: pick('VITE_CHAIN_ID', deployment.chainId),
@@ -181,6 +188,8 @@ function assertExampleClaim(c: SiteConfig): void {
 }
 
 const IP_OR_LOCAL = /^(localhost|127\.\d+\.\d+\.\d+|\[?::1\]?|\d+\.\d+\.\d+\.\d+)$/;
+/** `-<worker>.<account>.workers.dev`: the shape of a Workers preview suffix (ownership is the committed value). */
+const PREVIEW_SUFFIX = /^-[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev$/;
 
 /**
  * What may never reach Cloudflare: a local or plaintext node, a foreign relying party. Production
@@ -195,6 +204,8 @@ export function assertProductionConfig(c: SiteConfig, siteEnv: Record<string, st
     throw new Error(`production explorer ${c.explorerUrl} is not https`);
   if (IP_OR_LOCAL.test(c.rpId) || !c.rpId.includes('.'))
     throw new Error(`RP ID ${c.rpId} is not a production hostname`);
+  if (c.previewHostSuffix && !PREVIEW_SUFFIX.test(c.previewHostSuffix))
+    throw new Error(`preview host suffix ${c.previewHostSuffix} is not -<worker>.<account>.workers.dev`);
 }
 
 /** Vite `define` entries: every VITE_* the apps read, as JSON literals. */
@@ -204,6 +215,7 @@ export const viteDefine = (c: SiteConfig): Record<string, string> =>
       VITE_SITE_MODE: c.mode,
       VITE_AZTEC_NODE_URL: c.nodeUrl,
       VITE_RP_ID: c.rpId,
+      VITE_PREVIEW_HOST_SUFFIX: c.previewHostSuffix,
       VITE_SOURCE_COMMIT: c.sourceCommit,
       VITE_BB_VERSION: c.bbVersion,
       VITE_CHAIN_ID: c.chainId,

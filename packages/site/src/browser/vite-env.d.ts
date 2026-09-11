@@ -5,6 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_SITE_MODE: 'production' | 'e2e' | 'dev';
   readonly VITE_AZTEC_NODE_URL: string;
   readonly VITE_RP_ID: string;
+  /** `<label>` + this suffix are this project's Workers previews; '' outside production builds. */
+  readonly VITE_PREVIEW_HOST_SUFFIX: string;
   readonly VITE_SOURCE_COMMIT: string;
   readonly VITE_BB_VERSION: string;
   readonly VITE_CHAIN_ID: string;

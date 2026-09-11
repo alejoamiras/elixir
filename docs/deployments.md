@@ -83,7 +83,7 @@ is not guarded, and `packages/web-miner`'s own `build` writes `packages/web-mine
 (`yacana.network`, whose DNS record and certificate Cloudflare creates on the first deploy; the zone must be in the
 same account), the assets directory (`dist`) and the SPA fallback; no Worker script runs, the assets service applies
 `_headers` and `_redirects`. `workers_dev` is off (no second production origin); versions get preview URLs under
-`workers.dev`, which the apps treat as previews (banner, no key creation).
+`workers.dev`, which the apps treat as this project's previews (see below).
 
 Deploy (owner, from a machine authenticated with `wrangler login`, or with `CLOUDFLARE_API_TOKEN` in the shell and
 never in the repo):
@@ -99,9 +99,22 @@ and `npx wrangler versions upload` on the "Deploy non-production branches" trigg
 `PATCH /accounts/{account}/builds/triggers/{trigger}` with a token holding Workers Builds Configuration edits it
 without the dashboard). Bun 1.4.0 comes from the root `packageManager`, no variable needed. Every push to `main`
 assembles and deploys; every other branch gets a version with a `workers.dev` preview URL and a branch alias
-(`<branch>-yacana.<subdomain>.workers.dev`), both in the build log the commit's check run links to; the apps show
-the preview banner there and offer no keys. Connected on 2026-09-07; nothing else is configured there, the file
-carries the rest. `bun run e2e:agent -- bun run site:e2e` serves an e2e assembly with `wrangler dev` and asserts
+(`<branch>-yacana.alejo-amiras.workers.dev`), both in the build log the commit's check run links to. Connected on
+2026-09-07; nothing else is configured there, the file carries the rest.
+
+Previews are usable for review, `/mine/` included. A host of the form `<label>` + `VITE_PREVIEW_HOST_SUFFIX`
+(`site.env`: `-yacana.alejo-amiras.workers.dev`; version ids and branch aliases both fit) is a `preview` to the
+apps (`packages/site/src/browser/host.ts`): the banner names it, and accounts may be created or restored there
+with the exact preview host as the WebAuthn relying party. What that means for a reviewer: use the branch alias,
+not the per-push version URL — each hostname is its own origin, with its own vault and its own passkeys (a
+passkey made on the alias cannot be used on `yacana.network`, on another preview, or, should the alias ever
+change, on the new name); twelve words are the same account on every host, so never enter production words on
+a preview or carry preview words to production — a branch is code nobody has reviewed yet and the page cannot
+stop it from reading what is typed. Treat preview accounts as disposable. The suffix names the account's
+namespace, not this Worker: another Worker in the same account would match it too; it is trusted the way the
+production RP ID is. Any other host — `www.yacana.network`, someone else's `workers.dev`, a `pages.dev` name —
+stays locked. Dev and e2e builds carry an empty suffix: nothing is a preview there. Whether a PRF passkey
+works on a `workers.dev` host with real authenticators is checked by hand on a preview, not by the suites. `bun run e2e:agent -- bun run site:e2e` serves an e2e assembly with `wrangler dev` and asserts
 every path's app, identical headers, `build.json` and the landing's proof.
 
 First production deploy: 2026-09-06, Worker version `ea00520a-65bf-415a-b524-4235442159c6`, commit `aef4edd`
@@ -114,7 +127,7 @@ promise is no trackers, so it is turned off in the Worker's Observability settin
 
 `www.yacana.network` is a second, five-line Worker (`packages/site/www/`, `bun run --cwd packages/site deploy:www`)
 that answers 301 to the apex with HSTS; its custom domain and DNS record are created by that deploy. It is never a
-second host of the site: the apps treat any host other than `yacana.network` as a preview.
+second host of the site: to the apps it is an unknown host, locked like any other.
 
 Zone settings (owner, once):
 **Always Use HTTPS on** (SSL/TLS → Edge Certificates: the edge redirects a plain-http first visit, which would
