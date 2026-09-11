@@ -507,6 +507,7 @@ export class MinerController {
           proveMs: m.proveMs,
           score: m.score,
           win: m.win,
+          bar: difficulty(m.target),
           at: Date.now(),
           t: performance.now(),
         });

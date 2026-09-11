@@ -5,7 +5,6 @@ import {
   axis,
   axisTo,
   axisTop,
-  barOf,
   barSegments,
   clearOf,
   difficultyLabel,
@@ -82,7 +81,7 @@ interface Frame {
 
 const yOf = (f: Frame, fraction: number) => f.h - f.pad - fraction * (f.h - f.pad * 2);
 
-/** The bar as the step the window saw: a retarget shows as a break, so every proof sits against its own bar. */
+/** The bar as the step the window saw, so every proof sits against the bar that judged it. */
 function strokeBar(f: Frame, right: number, props: ScoreLoopProps, difficulty: number, now: number) {
   const { ctx } = f;
   const span = props.spanMs ?? 60_000;
@@ -227,7 +226,7 @@ function tick(f: Frame, x: number, y: number, color: string, width: number, alph
 }
 
 /** Calm: a win is the ringed dot, with its score beside it when there is room for type. */
-function drawCalmWin(f: Frame, right: number, x: number, y: number, score: number, yBar: number) {
+function drawCalmWin(f: Frame, right: number, x: number, y: number, score: number, yBar: number | null) {
   const { ctx } = f;
   const tall = f.h > 80;
   tick(f, x, y, f.p.uv2, 1.5);
@@ -243,7 +242,7 @@ function drawCalmWin(f: Frame, right: number, x: number, y: number, score: numbe
   const flip = x > right - 90;
   // The bar's caption sits above the bar at the right edge: a win up there labels itself under the bar.
   const underCaption =
-    x > right - 220 && Math.abs(y - yBar) < 2.5 * f.fontPx && y + 2 * f.fontPx < f.h - f.pad;
+    yBar !== null && x > right - 220 && Math.abs(y - yBar) < 2.5 * f.fontPx && y + 2 * f.fontPx < f.h - f.pad;
   const text = `★ ${score.toFixed(1)} · a win`;
   const width = ctx.measureText(text).width;
   const x0 = flip ? x - 14 - width : x + 14;
@@ -264,13 +263,14 @@ function drawCalmDots(f: Frame, right: number, props: ScoreLoopProps, now: numbe
   const { ctx } = f;
   const span = props.spanMs ?? 180_000;
   const base = f.h - f.pad;
+  // The caption a win's label must clear belongs to the current bar, whatever bar the win was scored against.
+  const yCaption = props.difficulty === null ? null : yOf(f, f.scale(props.difficulty));
   for (const s of props.samples) {
     const age = (now - s.t) / span;
     if (age > 1 || age < 0) continue;
     const x = right - age * (right - f.left);
     const y = base - (base - yOf(f, f.scale(s.score))) * rise(now, s.t, reduced);
-    const bar = barOf(s, props.difficulty);
-    if (bar !== null && won(s, props.difficulty)) drawCalmWin(f, right, x, y, s.score, yOf(f, f.scale(bar)));
+    if (won(s, props.difficulty)) drawCalmWin(f, right, x, y, s.score, yCaption);
     else tick(f, x, y, f.p.ink3, 2, 0.55);
   }
   if (f.h <= 80) return;

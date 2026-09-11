@@ -1,7 +1,7 @@
 /**
- * One dot: a proof that finished at `t` (ms, performance.now() clock) with its score. `bar` is the
- * difficulty it was scored against and `win` that verdict; a retarget must not re-judge old proofs, so a
- * sample without them is judged against the current bar only as a fallback.
+ * One dot: a proof that finished at `t` (ms, performance.now() clock) with its score, the difficulty it
+ * was scored against and that verdict. A retarget re-judges nothing; only a sample lacking them falls
+ * back to the current bar.
  */
 export interface Sample {
   t: number;
@@ -10,8 +10,7 @@ export interface Sample {
   win?: boolean;
 }
 
-/** The bar a sample was scored against, else the one in force now. */
-export const barOf = (s: Sample, difficulty: number | null): number | null => s.bar ?? difficulty;
+const barOf = (s: Sample, difficulty: number | null): number | null => s.bar ?? difficulty;
 
 /** The verdict recorded with the sample, else the score against its bar. */
 export const won = (s: Sample, difficulty: number | null): boolean => {
@@ -29,7 +28,8 @@ export interface BarSegment {
 
 /**
  * The bar as a step through the window: each visible sample's bar holds up to that sample, the current
- * bar from the last sample to now, equal neighbours merged. Samples must be oldest first.
+ * bar from the last sample to now, equal neighbours merged. The retarget's instant is unknown, so a change
+ * is placed right after the last sample of the old bar. Samples must be oldest first.
  */
 export function barSegments(
   samples: readonly Sample[],
@@ -135,7 +135,7 @@ export class ScoreLoopModel {
     public readonly spanMs = 60_000,
   ) {}
 
-  /** Judged against the bar in force now and recorded with it: a later retarget leaves the verdict alone. */
+  /** Recorded with its bar and verdict (defaulting to the bar in force now): a later retarget leaves both alone. */
   push(sample: Sample): void {
     const bar = sample.bar ?? this.difficulty;
     const win = sample.win ?? sample.score >= bar;

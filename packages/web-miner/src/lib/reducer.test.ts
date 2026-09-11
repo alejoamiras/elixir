@@ -18,8 +18,8 @@ const MINTED = {
   claims: [1, 2] as [number, number],
 };
 
-const attempt = (score: number, t = 0, win = false) =>
-  ({ type: 'attempt', proveMs: 3000, score, win, at: 1_700_000_000_000 + t, t }) as const;
+const attempt = (score: number, t = 0, win = false, bar = 64) =>
+  ({ type: 'attempt', proveMs: 3000, score, win, bar, at: 1_700_000_000_000 + t, t }) as const;
 
 describe('miner reducer', () => {
   test('start mines the open epoch with a fresh secret; stop halts', () => {
@@ -44,8 +44,10 @@ describe('miner reducer', () => {
     ]);
     expect(s2).toMatchObject({ tickets: 0, best: null, proofs: 2 });
     expect(s2.job?.secretId).toBe(2);
-    // The samples keep the bar and the verdict of the job that scored them.
-    expect(s2.samples.map((x) => [x.bar, x.win])).toEqual([
+    // A proof scored by the old job can land after the switch: it keeps that job's bar and verdict.
+    const [s3] = reduce(s2, attempt(40, 1, false, 64));
+    expect(s3.samples.map((x) => [x.bar, x.win])).toEqual([
+      [64, false],
       [64, false],
       [64, false],
     ]);

@@ -74,6 +74,7 @@ export async function mineFrom(
           proveMs,
           score: score(digest),
           win,
+          target: job.target,
         };
         // `lastProver` is what made this very proof: a WASM proof under a native prover goes out at once.
         if (win && native?.lastProver === 'presto') held = attempt;
