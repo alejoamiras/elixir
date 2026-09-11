@@ -5,6 +5,8 @@ import {
   axis,
   axisTo,
   axisTop,
+  barOf,
+  barSegments,
   clearOf,
   difficultyLabel,
   flash,
@@ -13,6 +15,7 @@ import {
   marginFor,
   rise,
   type Sample,
+  won,
 } from '../score-loop-model.ts';
 import { DARK, ink } from '../tokens.ts';
 
@@ -79,6 +82,20 @@ interface Frame {
 
 const yOf = (f: Frame, fraction: number) => f.h - f.pad - fraction * (f.h - f.pad * 2);
 
+/** The bar as the step the window saw: a retarget shows as a break, so every proof sits against its own bar. */
+function strokeBar(f: Frame, right: number, props: ScoreLoopProps, difficulty: number, now: number) {
+  const { ctx } = f;
+  const span = props.spanMs ?? 60_000;
+  const xAt = (fraction: number) => f.left + fraction * (right - f.left);
+  ctx.beginPath();
+  for (const seg of barSegments(props.samples, difficulty, now, span)) {
+    const y = yOf(f, f.scale(seg.bar));
+    ctx.lineTo(xAt(seg.x0), y);
+    ctx.lineTo(xAt(seg.x1), y);
+  }
+  ctx.stroke();
+}
+
 function drawGrid(f: Frame, right: number) {
   const { ctx } = f;
   ctx.font = `${f.fontPx}px "JetBrains Mono Variable", monospace`;
@@ -96,16 +113,14 @@ function drawGrid(f: Frame, right: number) {
   }
 }
 
-function drawBar(f: Frame, right: number, difficulty: number | null, glow: number) {
+function drawBar(f: Frame, right: number, props: ScoreLoopProps, now: number, glow: number) {
+  const difficulty = props.difficulty;
   if (difficulty === null) return;
   const { ctx } = f;
   const y = yOf(f, f.scale(difficulty));
   ctx.strokeStyle = glow > 0 ? f.p.uv2 : f.p.uv;
   ctx.lineWidth = 1.5 + glow * 1.5;
-  ctx.beginPath();
-  ctx.moveTo(f.left, y);
-  ctx.lineTo(right, y);
-  ctx.stroke();
+  strokeBar(f, right, props, difficulty, now);
   ctx.lineWidth = 1;
   ctx.fillStyle = f.p.uv2;
   ctx.textAlign = 'left';
@@ -141,7 +156,7 @@ function drawDots(f: Frame, right: number, props: ScoreLoopProps, now: number, r
     if (age > 1 || age < 0) continue;
     const x = right - age * (right - f.left);
     const y = base - (base - yOf(f, f.scale(s.score))) * rise(now, s.t, reduced);
-    drawDot(f, x, y, base, props.difficulty !== null && s.score >= props.difficulty, age);
+    drawDot(f, x, y, base, won(s, props.difficulty), age);
   }
 }
 
@@ -149,7 +164,7 @@ function drawLabels(f: Frame, right: number, props: ScoreLoopProps) {
   const { ctx } = f;
   const last = props.samples[props.samples.length - 1];
   if (last) {
-    const win = props.difficulty !== null && last.score >= props.difficulty;
+    const win = won(last, props.difficulty);
     ctx.fillStyle = win ? f.p.uv2 : f.p.ink;
     ctx.textAlign = 'right';
     const y = Math.max(f.pad - 6, yOf(f, f.scale(last.score)) - 12);
@@ -163,8 +178,9 @@ function drawLabels(f: Frame, right: number, props: ScoreLoopProps) {
 }
 
 /** Calm: the baseline at score 1 and the bar, each labelled once on the axis; no grid. */
-function drawCalmLines(f: Frame, right: number, difficulty: number | null, glow: number) {
+function drawCalmLines(f: Frame, right: number, props: ScoreLoopProps, now: number, glow: number) {
   const { ctx } = f;
+  const difficulty = props.difficulty;
   ctx.font = `${f.fontPx}px "JetBrains Mono Variable", monospace`;
   ctx.textBaseline = 'middle';
   const base = f.h - f.pad;
@@ -189,10 +205,7 @@ function drawCalmLines(f: Frame, right: number, difficulty: number | null, glow:
   }
   ctx.strokeStyle = glow > 0 ? f.p.uv2 : f.p.uv;
   ctx.lineWidth = 2 + glow * 1.5;
-  ctx.beginPath();
-  ctx.moveTo(f.left, y);
-  ctx.lineTo(right, y);
-  ctx.stroke();
+  strokeBar(f, right, { ...props, spanMs: props.spanMs ?? 180_000 }, difficulty, now);
   ctx.lineWidth = 1;
   ctx.fillStyle = f.p.uv2;
   ctx.fillText(difficultyLabel(difficulty), f.left - 8, y);
@@ -256,8 +269,8 @@ function drawCalmDots(f: Frame, right: number, props: ScoreLoopProps, now: numbe
     if (age > 1 || age < 0) continue;
     const x = right - age * (right - f.left);
     const y = base - (base - yOf(f, f.scale(s.score))) * rise(now, s.t, reduced);
-    if (props.difficulty !== null && s.score >= props.difficulty)
-      drawCalmWin(f, right, x, y, s.score, yOf(f, f.scale(props.difficulty)));
+    const bar = barOf(s, props.difficulty);
+    if (bar !== null && won(s, props.difficulty)) drawCalmWin(f, right, x, y, s.score, yOf(f, f.scale(bar)));
     else tick(f, x, y, f.p.ink3, 2, 0.55);
   }
   if (f.h <= 80) return;
@@ -340,12 +353,12 @@ function draw(canvas: HTMLCanvasElement, props: ScoreLoopProps, now: number, red
   const right = f.w - 14;
   const glow = flash(now, props.winAt ?? null);
   if (props.calm) {
-    drawCalmLines(f, right, props.difficulty, glow);
+    drawCalmLines(f, right, props, now, glow);
     drawCalmDots(f, right, { ...props, spanMs: props.spanMs ?? 180_000 }, now, reduced);
     return;
   }
   drawGrid(f, right);
-  drawBar(f, right, props.difficulty, glow);
+  drawBar(f, right, props, now, glow);
   drawDots(f, right, props, now, reduced);
   drawLabels(f, right, props);
 }

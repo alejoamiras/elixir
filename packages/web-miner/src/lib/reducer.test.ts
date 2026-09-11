@@ -44,6 +44,11 @@ describe('miner reducer', () => {
     ]);
     expect(s2).toMatchObject({ tickets: 0, best: null, proofs: 2 });
     expect(s2.job?.secretId).toBe(2);
+    // The samples keep the bar and the verdict of the job that scored them.
+    expect(s2.samples.map((x) => [x.bar, x.win])).toEqual([
+      [64, false],
+      [64, false],
+    ]);
     expect(s2.ledger[0]).toMatchObject({ kind: 'epoch', text: 'epoch 4 opened (×0.96) · new secret' });
     // The same epoch reported again is a no-op.
     expect(reduce(s2, { type: 'epoch', epoch: epoch(4n, 99n) })[1]).toEqual([]);

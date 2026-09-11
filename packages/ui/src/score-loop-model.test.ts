@@ -3,6 +3,7 @@ import {
   axis,
   axisTo,
   axisTop,
+  barSegments,
   clearOf,
   difficultyLabel,
   flash,
@@ -10,6 +11,7 @@ import {
   marginFor,
   rise,
   ScoreLoopModel,
+  won,
 } from './score-loop-model.ts';
 
 describe('ScoreLoopModel', () => {
@@ -32,6 +34,36 @@ describe('ScoreLoopModel', () => {
     expect(flash(100, m.winAt)).toBe(1);
     expect(flash(1_000, m.winAt)).toBe(0);
     expect(flash(550, m.winAt)).toBeCloseTo(0.5);
+  });
+
+  test('a retarget re-judges nothing: each dot keeps the bar it was scored against', () => {
+    const m = new ScoreLoopModel(109.5, 10_000);
+    m.push({ t: 1_000, score: 40 });
+    m.push({ t: 2_000, score: 120 });
+    m.difficulty = 27.4; // the epoch closed at ×0.25
+    m.push({ t: 3_000, score: 30 });
+    expect(m.dots(3_000, true).map((d) => d.win)).toEqual([false, true, true]);
+    expect(m.samples.map((s) => s.bar)).toEqual([109.5, 109.5, 27.4]);
+    expect(won({ t: 0, score: 40 }, 27.4)).toBe(true); // no record: judged against the bar in force
+    expect(won({ t: 0, score: 40, bar: 109.5 }, 27.4)).toBe(false);
+    expect(won({ t: 0, score: 40, win: true }, null)).toBe(true);
+  });
+
+  test('the bar steps through the window at the samples that saw it change; the current bar runs to now', () => {
+    const samples = [
+      { t: 1_000, score: 1, bar: 109.5 },
+      { t: 2_000, score: 1, bar: 109.5 },
+      { t: 3_000, score: 1, bar: 27.4 },
+    ];
+    expect(barSegments(samples, 27.4, 4_000, 4_000)).toEqual([
+      { x0: 0, x1: 0.5, bar: 109.5 },
+      { x0: 0.5, x1: 1, bar: 27.4 },
+    ]);
+    // Nothing in view, or samples without a bar: one flat line at the current bar.
+    expect(barSegments([], 5, 0, 1_000)).toEqual([{ x0: 0, x1: 1, bar: 5 }]);
+    expect(barSegments([{ t: 500, score: 2 }], 5, 1_000, 1_000)).toEqual([{ x0: 0, x1: 1, bar: 5 }]);
+    // An old bar in view keeps the calm ceiling high enough for it.
+    expect(axisTop(27.4, samples)).toBeCloseTo(2.5 * 109.5);
   });
 
   test('the axis is log 1–1000, clamped, and a fresh dot rises over 420 ms unless motion is reduced', () => {
