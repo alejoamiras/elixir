@@ -1,7 +1,57 @@
-/** One dot: a proof that finished at `t` (ms, performance.now() clock) with its score. */
+/**
+ * One dot: a proof that finished at `t` (ms, performance.now() clock) with its score, the difficulty it
+ * was scored against and that verdict. A retarget re-judges nothing; only a sample lacking them falls
+ * back to the current bar.
+ */
 export interface Sample {
   t: number;
   score: number;
+  bar?: number;
+  win?: boolean;
+}
+
+const barOf = (s: Sample, difficulty: number | null): number | null => s.bar ?? difficulty;
+
+/** The verdict recorded with the sample, else the score against its bar. */
+export const won = (s: Sample, difficulty: number | null): boolean => {
+  if (s.win !== undefined) return s.win;
+  const bar = barOf(s, difficulty);
+  return bar !== null && s.score >= bar;
+};
+
+export interface BarSegment {
+  /** x fractions of the window (0 = span ago, 1 = now). */
+  x0: number;
+  x1: number;
+  bar: number;
+}
+
+/**
+ * The bar as a step through the window: each visible sample's bar holds up to that sample, the current
+ * bar from the last sample to now, equal neighbours merged. The retarget's instant is unknown, so a change
+ * is placed right after the last sample of the old bar. Samples must be oldest first.
+ */
+export function barSegments(
+  samples: readonly Sample[],
+  difficulty: number,
+  now: number,
+  spanMs: number,
+): BarSegment[] {
+  const out: BarSegment[] = [];
+  let x0 = 0;
+  const step = (x1: number, bar: number) => {
+    const last = out[out.length - 1];
+    if (last && last.bar === bar) last.x1 = x1;
+    else out.push({ x0, x1, bar });
+    x0 = x1;
+  };
+  for (const s of samples) {
+    const age = (now - s.t) / spanMs;
+    if (age > 1 || age < 0) continue;
+    step(1 - age, s.bar ?? difficulty);
+  }
+  step(1, difficulty);
+  return out;
 }
 
 export const LOG_MAX = 3; // the axis tops out at 1000
@@ -12,13 +62,17 @@ export const FLASH_MS = 900;
 export const axis = (score: number): number => Math.min(LOG_MAX, Math.max(0, Math.log10(score))) / LOG_MAX;
 
 /**
- * The calm axis's ceiling: high enough that the bar sits low-middle and the best score in view still fits,
- * never below 2.5× the bar so an empty window still shows room above it.
+ * The calm axis's ceiling: high enough that every bar in view sits low-middle and the best score in view
+ * still fits, never below 2.5× the bar so an empty window still shows room above it.
  */
 export const axisTop = (difficulty: number, samples: readonly Sample[]): number => {
   let best = 0;
-  for (const s of samples) if (s.score > best) best = s.score;
-  return Math.max(2.5 * difficulty, 1.25 * best, 2);
+  let bar = difficulty;
+  for (const s of samples) {
+    if (s.score > best) best = s.score;
+    if (s.bar !== undefined && s.bar > bar) bar = s.bar;
+  }
+  return Math.max(2.5 * bar, 1.25 * best, 2);
 };
 
 /** Log axis 1–`top`: 0 at the floor, 1 at the ceiling; clamped. */
@@ -81,9 +135,12 @@ export class ScoreLoopModel {
     public readonly spanMs = 60_000,
   ) {}
 
+  /** Recorded with its bar and verdict (defaulting to the bar in force now): a later retarget leaves both alone. */
   push(sample: Sample): void {
-    this.samples.push(sample);
-    if (sample.score >= this.difficulty) this.winAt = sample.t;
+    const bar = sample.bar ?? this.difficulty;
+    const win = sample.win ?? sample.score >= bar;
+    this.samples.push({ ...sample, bar, win });
+    if (win) this.winAt = sample.t;
     this.trim(sample.t);
   }
 
@@ -101,7 +158,7 @@ export class ScoreLoopModel {
       .map((s) => ({
         x: 1 - (now - s.t) / this.spanMs,
         y: axis(s.score) * rise(now, s.t, reduced),
-        win: s.score >= this.difficulty,
+        win: won(s, this.difficulty),
         age: (now - s.t) / this.spanMs,
       }));
   }

@@ -205,3 +205,46 @@ The [environment cleanup](/home/homelab/Projects/elixir/.claude/worktrees/previe
 Independent validation: **20 tests passed, 110 assertions** across session RP, session opening and site configuration. Cockpit E2E remains pending.
 
 approve
+
+# bar-steps follow-up (score-loop bar fix, session `01a0906c-7ff4-7d02-8273-d99f6629a723`, high)
+
+## Round 1 — changes required (three P2)
+
+Adopted all: the worker attempt carries its job's target so a late attempt keeps the old bar; calm wins gated on `won()` alone; caption avoidance on the current bar. Comments trimmed as asked.
+
+Three fixes are needed; confidence **high**.
+
+The original recoloring is fixed: grid dots, “clears the bar,” and model dots use `won()`. Complete `{bar, win}` samples retain their verdict in calm mode and the 48 px strip. Legacy samples intentionally retain the current-bar fallback. [score-loop.tsx:159](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/ui/src/components/score-loop.tsx:159), [score-loop-model.ts:161](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/ui/src/score-loop-model.ts:161)
+
+Other edge cases:
+
+- Historical bars expand the calm ceiling correctly; grid mode retains its existing clamp at 1000. With null difficulty, historical bars disappear by the documented prop contract, while complete samples retain their verdict.
+- The step convention is reasonable **as an approximation** (moderate confidence). Add that the retarget timestamp is unknown; transitions are placed immediately after the preceding sample. The existing oldest-first constraint deserves to stay. [score-loop-model.ts:30](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/ui/src/score-loop-model.ts:30)
+- The left label is acceptable as an axis value at the current difficulty’s correct y. Following the historical left endpoint would make it cease reporting current difficulty; I would leave it.
+
+Comment audit: remove the redundant `barOf` comment and `strokeBar`’s duplicate description; shorten the `Sample` paragraph while retaining clock units and historical semantics. The `push()` comment incorrectly says “bar in force now” despite respecting an explicit historical bar. The added reducer-test comment merely narrates its assertion. No added plan/phase/review references. [score-loop-model.ts:1](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/ui/src/score-loop-model.ts:1), [score-loop-model.ts:138](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/ui/src/score-loop-model.ts:138), [score-loop.tsx:85](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/ui/src/components/score-loop.tsx:85), [reducer.test.ts:47](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/web-miner/src/lib/reducer.test.ts:47)
+
+Validation: lint passes; the two changed test files pass **20/20**. Full gate reproduction was blocked by socket/filesystem restrictions. In-memory reducer and canvas-call reproductions confirmed the following issues.
+
+changes required:
+
+1. **P2 — Late attempts record the replacement job’s bar.** [`reducer.ts:162`](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/web-miner/src/lib/reducer.ts:162) reads `state.job`, but the worker posts an in-flight attempt **before** checking whether it should stop. After an epoch switch, an old difficulty-64 loss with score 40 becomes `{bar:16, win:false}`. The verdict survives, but its historical line is wrong. Carry the scoring job’s bar in the worker attempt through the controller into the reducer; test a late attempt after retarget. [worker-mine.ts:80](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/web-miner/src/worker-mine.ts:80)
+
+2. **P2 — Calm mode suppresses recorded wins without a known bar.** [`score-loop.tsx:273`](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/ui/src/components/score-loop.tsx:273) requires `bar !== null` as well as `won()`. With `{score:300, win:true}` and null difficulty, grid draws a winner; calm and the strip draw a losing tick. Gate win styling solely on `won()` and skip bar-caption avoidance when no bar exists.
+
+3. **P2 — Historical-bar anchoring breaks caption avoidance.** [`score-loop.tsx:245`](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/ui/src/components/score-loop.tsx:245) uses `yBar` to avoid the **current** bar’s caption. Passing the sample’s historical bar defeats that check after an upward retarget. Reproduced with historical bar 64, current bar 256, score 300: overlapping labels at y≈38.8 and y≈41.3. Use the current caption’s y for this collision check; historical scoring remains independent.
+
+## Round 2 — approve (two non-blocking nits, both applied: a discriminating retarget in the reducer test, the strokeBar comment removed)
+
+All three correctness issues are fixed. **Confidence: high.** No new blocking bugs found.
+
+Verified the worker carries its job’s target through the controller into the sample; calm wins no longer require a bar; caption avoidance uses the current bar. The previous reproductions now pass, including null-difficulty wins at both 230 px and 48 px.
+
+Two nonblocking improvements:
+
+- **Make the regression test change difficulty.** Both epochs still use target `1n << 122n`, so the late-attempt assertion would also pass with the old `state.job` lookup. Give the replacement epoch a different target and keep the late attempt’s bar at 64. [reducer.test.ts:40](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/web-miner/src/lib/reducer.test.ts:40)
+- **The `strokeBar` comment was shortened, not removed.** It still duplicates `barSegments`’ contract; delete it. The new timing and caption comments explain useful constraints and should stay. [score-loop.tsx:84](/home/homelab/Projects/elixir/.claude/worktrees/preview-keys/packages/ui/src/components/score-loop.tsx:84)
+
+Locally verified: lint clean, UI typecheck passes, affected tests **24/24**, and all three targeted reproductions pass.
+
+approve

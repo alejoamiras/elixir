@@ -113,7 +113,7 @@ export type Event =
   | { type: 'start'; epoch: EpochInfo }
   | { type: 'stop' }
   | ({ type: 'epoch'; epoch: EpochInfo; difficultyRatio?: number } & Partial<Clock>)
-  | ({ type: 'attempt'; proveMs: number; score: number; win: boolean } & Clock)
+  | ({ type: 'attempt'; proveMs: number; score: number; win: boolean; bar: number } & Clock)
   | { type: 'winner'; epoch: bigint; secretId: number; at?: number }
   | { type: 'sent'; txHash: string; expiresAt?: number; at?: number }
   | { type: 'included'; block: number; at?: number }
@@ -157,7 +157,10 @@ function startJob(state: MinerState, epoch: EpochInfo): [MinerState, Command[]] 
 function attempt(state: MinerState, e: Extract<Event, { type: 'attempt' }>): MinerState {
   const tickets = state.tickets + 1;
   const best = state.best === null || e.score > state.best ? e.score : state.best;
-  const samples = [...state.samples.filter((s) => e.t - s.t <= SAMPLE_SPAN_MS), { t: e.t, score: e.score }];
+  const samples = [
+    ...state.samples.filter((s) => e.t - s.t <= SAMPLE_SPAN_MS),
+    { t: e.t, score: e.score, bar: e.bar, win: e.win },
+  ];
   const l: ProofLine = e.win
     ? { kind: 'win', time: clock(e.at), n: tickets, score: e.score, proveMs: e.proveMs }
     : {

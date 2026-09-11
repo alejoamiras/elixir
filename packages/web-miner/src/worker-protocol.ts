@@ -41,6 +41,8 @@ export type FromWorker =
       proveMs: number;
       score: number;
       win: boolean;
+      /** The target that judged this proof: an attempt can land after its job was replaced. */
+      target: bigint;
     }
   | {
       type: 'winner';

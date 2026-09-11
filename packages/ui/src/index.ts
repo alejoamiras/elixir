@@ -50,6 +50,7 @@ export { cn } from './lib/cn.ts';
 export { faviconDataUrl, type MarkState, markSvg } from './mark.ts';
 export {
   axis,
+  barSegments,
   difficultyLabel,
   FLASH_MS,
   flash,
@@ -57,6 +58,7 @@ export {
   rise,
   type Sample,
   ScoreLoopModel,
+  won,
 } from './score-loop-model.ts';
 export { type Theme, ThemeProvider, useTheme } from './theme-provider.tsx';
 export { DARK, ink } from './tokens.ts';
