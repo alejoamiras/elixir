@@ -81,7 +81,6 @@ interface Frame {
 
 const yOf = (f: Frame, fraction: number) => f.h - f.pad - fraction * (f.h - f.pad * 2);
 
-/** The bar as the step the window saw, so every proof sits against the bar that judged it. */
 function strokeBar(f: Frame, right: number, props: ScoreLoopProps, difficulty: number, now: number) {
   const { ctx } = f;
   const span = props.spanMs ?? 60_000;

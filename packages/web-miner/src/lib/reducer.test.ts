@@ -2,10 +2,10 @@ import { describe, expect, test } from 'vitest';
 import { proofsPerMinute } from '../../../miner-core/src/metrics.ts';
 import { type EpochInfo, initial, MINTED_FRESH_MS, mintedFresh, reduce, SAMPLE_SPAN_MS } from './reducer';
 
-const epoch = (n: bigint, seed = 7n): EpochInfo => ({
+const epoch = (n: bigint, seed = 7n, target = 1n << 122n): EpochInfo => ({
   epoch: n,
   seed,
-  target: 1n << 122n,
+  target,
   openedAt: 0n,
   claims: 0,
 });
@@ -37,10 +37,11 @@ describe('miner reducer', () => {
     [s] = reduce(s, attempt(3.9));
     [s] = reduce(s, attempt(29.8));
     expect(s).toMatchObject({ tickets: 2, proofs: 2, best: 29.8 });
-    const [s2, cmds] = reduce(s, { type: 'epoch', epoch: epoch(4n, 99n), difficultyRatio: 0.96 });
+    // The retarget eases the bar from 64 to 16.
+    const [s2, cmds] = reduce(s, { type: 'epoch', epoch: epoch(4n, 99n, 1n << 124n), difficultyRatio: 0.25 });
     expect(cmds).toEqual([
       { type: 'halt' },
-      { type: 'mine', epoch: 4n, seed: 99n, target: 1n << 122n, secretId: 2 },
+      { type: 'mine', epoch: 4n, seed: 99n, target: 1n << 124n, secretId: 2 },
     ]);
     expect(s2).toMatchObject({ tickets: 0, best: null, proofs: 2 });
     expect(s2.job?.secretId).toBe(2);
@@ -51,7 +52,7 @@ describe('miner reducer', () => {
       [64, false],
       [64, false],
     ]);
-    expect(s2.ledger[0]).toMatchObject({ kind: 'epoch', text: 'epoch 4 opened (×0.96) · new secret' });
+    expect(s2.ledger[0]).toMatchObject({ kind: 'epoch', text: 'epoch 4 opened (×0.25) · new secret' });
     // The same epoch reported again is a no-op.
     expect(reduce(s2, { type: 'epoch', epoch: epoch(4n, 99n) })[1]).toEqual([]);
   });
