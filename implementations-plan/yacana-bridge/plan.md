@@ -358,7 +358,7 @@ Added: `packages/contracts/yacana_bridge_hashes/**`, `packages/contracts/yacana_
 `packages/harness/**`, `scripts/run/upgrade-rig.ts`, `scripts/run/toolchain.ts`; `packages/deploy/src/bridge/*`,
 `packages/deploy/scripts/l1-deploy.ts`; `packages/web-miner/src/bridge/*`, `features/{MigrationCard,ArrivalCard,
 SendAheadSheet,DepositSheet,BridgeTile,TakingLongDialog,EthRpcTile,OldTabNotice}.tsx`, `routes/Retired.tsx`,
-`tests/vault.bun.test.ts`, `e2e/bridge.e2e.ts`; `packages/site/src/browser/eth-rpc.ts`,
+`tests/vault.bun.test.ts`, `e2e/bridge.e2e.ts`, `e2e/helpers/l1-wallet.ts`; `packages/site/src/browser/eth-rpc.ts`,
 `packages/site/v5/wrangler.jsonc`; `packages/web-stats/src/routes/Bridge.tsx`, `features/Bridge*.tsx`;
 `packages/web-landing/src/routes/Faq.tsx`; `docs/bridge.md`, `docs/upgrades.md`; `.github/workflows/portal.yml`,
 `.github/workflows/harness.yml`; `deployments/witnesses/<profile>.jsonl`.
@@ -412,7 +412,11 @@ hoisted, Aztec's own `Outbox`/`Inbox` under test rather than mocks.
   V5 rollup's key for the account's V5 address and shows "last seen … may still be there". The old origin has
   neither the vault nor the snapshots: passkeys restore, words are retyped (C).
 - **Address per class id**: `addresses` filled at open after the fingerprint check; the sealed record's AAD is
-  unchanged; the arrival card explains the new address.
+  unchanged; the arrival card explains the new address. A send-ahead never names a V6 address: the K2 carries a
+  secret hash and a redeem key, both derived from the seed, and `claim_from_l1` takes its `recipient` on V6 at
+  claim time from whoever presents the secret — the same seed re-derives the secret under the source version's
+  label whatever address the new account class yields. The Ethereum side is the same: forward and redeem are
+  authorised by the seed-derived redeem key's signature, never by an Aztec address.
 - **Proof deadline**: `getTimestampForEpoch(e + proofSubmissionEpochs + 1)` on the version's Rollup over the RPC
   (`TimeLib.sol:73`, exposed through `RollupAbi`).
 - **The versioned origin**: a build with `VITE_APP_ROLE=old` from the last V5 commit, served by the `yacana-v5`
@@ -456,6 +460,9 @@ hoisted, Aztec's own `Outbox`/`Inbox` under test rather than mocks.
   the automine sequencer owns L1 time.
 - A one-way `closeDeposits` (Fable round 2) over pausing the old version before the flip: a pause would also hold
   its exits in the critical window.
+- An injected Node-answered L1 test wallet for the browser e2e (the owner, after approval; nulo's tools fixture as
+  the model) over a browser-extension wallet (none runs headless) or a mocked wagmi connector (it would skip the
+  picker and the real signing path).
 
 ## 4. Security & Adversarial Considerations
 
@@ -584,6 +591,12 @@ YACA on Ethereum, balances on each Aztec version, the seed.
   fires on site/ui/web changes (`:29-41`); `site.yml` watches `deployments/**` (`:25`); `site:deploy` is `wrangler
   deploy` to production and Workers Builds deploys `main` (`docs/deployments.md:92-99`); `node_modules/viem` is the
   hoisted `@aztec/viem` 2.38.2.
+- nulo's tools app carries the reference e2e L1 wallet fixture
+  (`~/Projects/nulo/.claude/worktrees/tools-readiness/apps/tools/tests/browser/fixtures/l1-wallet.ts`, on that
+  branch): an init-script `window.ethereum` forwarding over `exposeFunction` to a viem wallet client in Node,
+  wallet-side methods handled there, other reads proxied to anvil, events pushed back, `rejectNext`/`holdNext`/
+  `setChainId`/`setAccount` controls; wired as a worker-scoped fixture per spec file. Yacana copies the shape, not
+  the code.
 
 **Inferences (unverified — the audits attack these)**
 - A pinned node whose genesis the rig computed from the exported constituents passes its own check (by
@@ -741,10 +754,24 @@ time"; the send sheet's switch, its consent copy and "arrives by itself" dropped
 card; the held card says who may forward a send and why ("only you, with this device's key, or Yacana's listed key:
 a stranger could push it into a rollup about to stop"); "over the cap" reads "waiting for headroom" before the flip
 and "the version's exit capacity is used up" after it. Vitest specs per feature; the browser
-migration e2e on the rig: `e2e/bridge.e2e.ts` in the `RIG_ONLY` inventory section (a V5-profile build and server:
-sign in, send ahead; the flip; a V6-profile build and server: sign in, land — real proving, the proof inventory
-updated; the run builds twice because the expected deployment is build-time) plus proverless state specs in a
-`bridge` shard.
+e2e on the rig, every crossing through the page and none through the script: `e2e/helpers/l1-wallet.ts` — an
+injected EIP-1193 provider answered from Node, modelled on nulo's tools fixture (D51): `installL1Wallet(context, {
+rpcUrl, privateKey, chainId })` defines the page's provider in a context init script and forwards every `request`
+over `context.exposeFunction` to a viem wallet client signing with a rig anvil key, wallet-side methods handled in
+Node (`eth_requestAccounts`, `eth_accounts`, `eth_chainId`, `wallet_switchEthereumChain`, `eth_sendTransaction`,
+`eth_signTypedData_v4`, `personal_sign`), reads proxied to the rig's anvil, `chainChanged`/`accountsChanged` pushed
+back into the page, an EIP-6963 announcement so wagmi's picker lists it as "Yacana test wallet", and the controls
+`rejectNext(kind)`, `holdNext(kind, { to })`, `setChainId`, `setAccount`, `calls(method)`; the key never enters the
+page. `e2e/bridge.e2e.ts` in the `RIG_ONLY` inventory section (the run builds twice because the expected
+deployment is build-time): a V5-profile build and server — sign in, one real W claim for the balance, exit to
+Ethereum from the Send sheet, the portal forward, the YACA balance on the bridge tile; deposit from the Deposit
+sheet through the picker, the arrival card's Claim; send ahead; the flip; a V6-profile build and server — sign
+in, self-forward from the page with the holder's signature, Claim on the arrival card; a second send-ahead on V5
+redeemed from the page — real proving throughout, the proof inventory updated (two burns and three claims). State
+cells through the same wallet: wrong chain (the sheet asks to switch and continues), a rejected signature (the
+sheet returns to its form with the reason), an open prompt left unanswered (`holdNext`: the sheet shows "waiting
+for your wallet", a reload recovers the crossing from the journal), an account change mid-flow (the sheet
+re-checks the address). Proverless state specs stay in a `bridge` shard.
 Gate: `bun run test:components && bun run rig -- browser && bun run e2e:agent -- bun run --cwd packages/web-miner
 test:e2e` (the existing shards untouched; the shard merge ignores `RIG_ONLY`).
 
@@ -859,6 +886,7 @@ codex (CC), fable (FC); audit round 1: codex (CA1), fable (FA1); audit round 2: 
 | D45 | The witness archive is committed under `deployments/witnesses/` and served by the site at `/witnesses/`; a fresh device forwards a held K2 from it once the source node is gone; a K2 not yet archived needs the source node or the operator | FA2 | an archive nobody can reach (round 1) |
 | D46 | Foundry tests run against Aztec's real `Outbox`/`Inbox` (vendored, the test as their rollup); only the Registry is mocked | FA2 | thin box mocks (the drafts) |
 | D47 | `bridge.e2e.ts` lives in a `RIG_ONLY` inventory section the shard merge ignores | FA2 | a shard file (round 1 — the merge would stay red) |
+| D51 | The browser e2e drives every crossing through the page against the rig's real portal, with an injected EIP-1193 test wallet answered from Node (the shape of nulo's tools fixture: Node-side signing, `rejectNext`/`holdNext`/`setChainId`/`setAccount`), announced over EIP-6963 for wagmi's picker; state cells for wrong chain, rejection, an open prompt and an account change | O (after approval) | script-only coverage of exit, deposit, self-forward and redeem (the approved plan); a browser-extension wallet (none runs headless); a mocked wagmi connector (skips the picker) |
 | D48 | `closeDeposits(version)` (operators, one-way) the day before an announced flip; the UI's 24 h close mirrors it | FA2 | a UI-only close (the drafts); pausing the old version (holds its exits) |
 | D49 | The turnstile as designed: cap + inbound, pause, deadline, no per-crossing delay; the cap immutable (A3) | O (at approval) | no cap (the owner's first instinct — inflates the next version through send-ahead); a raise-only dial; a 24 h queue on Ethereum-bound mints |
 | D50 | Sepolia's operator and forwarder are EOAs; the Safe comes with the mainnet plan (A4) | O (at approval) | a Safe on Sepolia now |
@@ -930,6 +958,11 @@ assembled site (the Worker's SPA fallback, no intercepting redirect); removing t
 authorization the security section relies on; all three earlier conditions correctly resolved. Its one note:
 P6 must prove wagmi's dependency resolution, not only typecheck — folded in (`bun pm ls viem`). Two prose
 remnants it spotted are fixed.
+
+**Post-approval addition (2026-09-12, the owner).** P7's browser e2e now drives every crossing through the page —
+exit to Ethereum, deposit, send ahead, self-forward, claim, redeem — with an injected Node-answered L1 test wallet
+modelled on nulo's tools fixture (D51), plus the wrong-chain, rejection, open-prompt and account-change cells. The
+proof inventory grows by two burns and three claims. No other change.
 
 ## 10. Post-implementation (self-contained — the implementing session executes this from here)
 
