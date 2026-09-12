@@ -9,15 +9,19 @@ use crate::launch::commitment_of;
 use crate::retarget::next_target;
 use crate::ticket::{low128, ticket_digest};
 use aztec::{
-    protocol::{address::AztecAddress, traits::ToField},
-    test::helpers::test_environment::TestEnvironment,
+    protocol::{address::{AztecAddress, EthAddress}, traits::ToField},
+    test::helpers::{authwit as authwit_cheatcodes, test_environment::TestEnvironment},
 };
 use bb_proof_verification::RECURSIVE_PROOF_LENGTH;
+use yacana_bridge_hashes::{claim_content, retire_content};
 use yacana_work_lib::DOM_SEED;
 use poseidon::poseidon2::Poseidon2;
 use token_contract::Token;
+use crate::bridge::continuation_seed;
 
 global INITIAL_TARGET: u128 = 1 << 122;
+global PORTAL: EthAddress = EthAddress::from_field(0xbeef);
+global OTHER_L1: EthAddress = EthAddress::from_field(0xdead);
 
 pub struct Setup {
     pub env: TestEnvironment,
@@ -41,7 +45,7 @@ unconstrained fn setup_unlaunched(launch_at: u64) -> Setup {
     let deployer = env.create_light_account();
     let miner = env.deploy("YacanaMiner").with_public_initializer(
         deployer,
-        YacanaMiner::interface().constructor(INITIAL_TARGET, 1234, launch_at),
+        YacanaMiner::interface().constructor(INITIAL_TARGET, 1234, launch_at, 0, PORTAL),
     );
     let token = env.deploy("@token_contract/Token").with_public_initializer(
         deployer,
@@ -133,7 +137,7 @@ unconstrained fn bind_token_rejects_non_deployer() {
     let stranger = env.create_light_account();
     let miner = env.deploy("YacanaMiner").with_public_initializer(
         deployer,
-        YacanaMiner::interface().constructor(INITIAL_TARGET, 1, 0),
+        YacanaMiner::interface().constructor(INITIAL_TARGET, 1, 0, 0, PORTAL),
     );
     env.call_public(stranger, YacanaMiner::at(miner).bind_token(stranger));
 }
@@ -150,7 +154,7 @@ unconstrained fn claim_before_binding_fails() {
     let deployer = env.create_light_account();
     let miner = env.deploy("YacanaMiner").with_public_initializer(
         deployer,
-        YacanaMiner::interface().constructor(INITIAL_TARGET, 1, 0),
+        YacanaMiner::interface().constructor(INITIAL_TARGET, 1, 0, 0, PORTAL),
     );
     env.mine_block();
     let (proof, _) = winning_proof(1);
@@ -291,7 +295,7 @@ unconstrained fn launch_requires_a_bound_token() {
     let deployer = env.create_light_account();
     let miner = env.deploy("YacanaMiner").with_public_initializer(
         deployer,
-        YacanaMiner::interface().constructor(INITIAL_TARGET, 1, 0),
+        YacanaMiner::interface().constructor(INITIAL_TARGET, 1, 0, 0, PORTAL),
     );
     env.call_public(deployer, YacanaMiner::at(miner).launch());
 }
@@ -375,7 +379,7 @@ unconstrained fn bind_token_rejects_a_token_minted_by_someone_else() {
     let deployer = env.create_light_account();
     let miner = env.deploy("YacanaMiner").with_public_initializer(
         deployer,
-        YacanaMiner::interface().constructor(INITIAL_TARGET, 1, 0),
+        YacanaMiner::interface().constructor(INITIAL_TARGET, 1, 0, 0, PORTAL),
     );
     let token = env.deploy("@token_contract/Token").with_public_initializer(
         deployer,
@@ -396,7 +400,7 @@ unconstrained fn bind_token_rejects_zero() {
     let deployer = env.create_light_account();
     let miner = env.deploy("YacanaMiner").with_public_initializer(
         deployer,
-        YacanaMiner::interface().constructor(INITIAL_TARGET, 1, 0),
+        YacanaMiner::interface().constructor(INITIAL_TARGET, 1, 0, 0, PORTAL),
     );
     env.call_public(deployer, YacanaMiner::at(miner).bind_token(AztecAddress::zero()));
 }
@@ -430,4 +434,246 @@ unconstrained fn rolls_and_instant_fills_cancel_exactly() {
     }
     assert_eq(open_epoch(s), 2);
     assert_eq(target_of(s, 2), t0);
+}
+
+// ---- the bridge ----------------------------------------------------------------------------
+
+// A holder with one reward minted; the miner burns on their behalf through an authwit, which only
+// a contract account can answer (a light account has no code to verify it).
+unconstrained fn setup_with_balance() -> Setup {
+    let mut env = TestEnvironment::new();
+    let deployer = env.create_contract_account();
+    let miner = env.deploy("YacanaMiner").with_public_initializer(
+        deployer,
+        YacanaMiner::interface().constructor(INITIAL_TARGET, 1234, 0, 0, PORTAL),
+    );
+    let token = env.deploy("@token_contract/Token").with_public_initializer(
+        deployer,
+        Token::interface().constructor_with_minter(
+            "Yacana0000000000000000000000000",
+            "YACA000000000000000000000000000",
+            18,
+            miner,
+            AztecAddress::zero(),
+        ),
+    );
+    env.call_public(deployer, YacanaMiner::at(miner).bind_token(token));
+    env.mine_block();
+    env.call_public(deployer, YacanaMiner::at(miner).launch());
+    env.mine_block();
+    let s = Setup { env, deployer, miner, token };
+    let _ = claim(s, 0, 1000);
+    s
+}
+
+unconstrained fn allow_burn(s: Setup, amount: u128, nonce: Field) {
+    let burn = Token::at(s.token).burn_private(s.deployer, amount, nonce);
+    authwit_cheatcodes::add_private_authwit_from_call(s.env, s.deployer, s.miner, burn);
+}
+
+unconstrained fn private_balance(s: Setup) -> u128 {
+    s.env.execute_utility(Token::at(s.token).balance_of_private(s.deployer))
+}
+
+unconstrained fn bridge_state(s: Setup) -> (EthAddress, u64, bool, u64, u128, u128) {
+    s.env.view_public(YacanaMiner::at(s.miner).bridge_state())
+}
+
+// The version the TXE runs under, as the miner's retire() will read it.
+unconstrained fn rollup_version(s: Setup) -> Field {
+    s.env.utility_context(|context| context.version())
+}
+
+#[test]
+unconstrained fn send_ahead_burns_and_records_the_exit() {
+    let s = setup_with_balance();
+    allow_burn(s, REWARD, 1);
+    s.env.call_private(
+        s.deployer,
+        YacanaMiner::at(s.miner).send_ahead(REWARD, 0x5ec2e7, EthAddress::from_field(0xff), 1),
+    );
+    s.env.mine_block();
+    assert_eq(private_balance(s), 0);
+    let (portal, first, retired, count, exited, inbound) = bridge_state(s);
+    assert_eq(portal, PORTAL);
+    assert_eq(first, 0);
+    assert_eq(retired, false);
+    assert_eq(count, 1);
+    assert_eq(exited, REWARD);
+    assert_eq(inbound, 0);
+}
+
+#[test]
+unconstrained fn exit_to_l1_burns_and_records_the_exit() {
+    let s = setup_with_balance();
+    let half = REWARD / 2;
+    allow_burn(s, half, 2);
+    s.env.call_private(
+        s.deployer,
+        YacanaMiner::at(s.miner).exit_to_l1(half, EthAddress::from_field(0xc0de), 0x7a9, 2),
+    );
+    s.env.mine_block();
+    assert_eq(private_balance(s), REWARD - half);
+    let (_, _, _, count, exited, _) = bridge_state(s);
+    assert_eq(count, 1);
+    assert_eq(exited, half);
+}
+
+#[test(should_fail)]
+unconstrained fn send_ahead_without_an_authwit_fails() {
+    let s = setup_with_balance();
+    s.env.call_private(
+        s.deployer,
+        YacanaMiner::at(s.miner).send_ahead(REWARD, 0x5ec2e7, EthAddress::from_field(0xff), 1),
+    );
+}
+
+#[test(should_fail_with = "amount is zero")]
+unconstrained fn send_ahead_rejects_zero() {
+    let s = setup_with_balance();
+    s.env.call_private(
+        s.deployer,
+        YacanaMiner::at(s.miner).send_ahead(0, 0x5ec2e7, EthAddress::from_field(0xff), 1),
+    );
+}
+
+#[test]
+unconstrained fn claim_from_l1_consumes_the_portal_message_and_mints() {
+    let s = setup();
+    let amount: u128 = 12;
+    let secret = 7;
+    let leaf = s.env.send_l1_to_l2_message(claim_content(amount), secret, PORTAL, s.miner);
+    s.env.mine_block();
+    s.env.call_private(s.deployer, YacanaMiner::at(s.miner).claim_from_l1(amount, secret, s.deployer, leaf));
+    s.env.mine_block();
+    assert_eq(private_balance(s), amount);
+    let (_, _, _, _, _, inbound) = bridge_state(s);
+    assert_eq(inbound, amount);
+}
+
+#[test(should_fail)]
+unconstrained fn claim_from_l1_twice_fails() {
+    let s = setup();
+    let leaf = s.env.send_l1_to_l2_message(claim_content(12), 7, PORTAL, s.miner);
+    s.env.mine_block();
+    s.env.call_private(s.deployer, YacanaMiner::at(s.miner).claim_from_l1(12, 7, s.deployer, leaf));
+    s.env.mine_block();
+    s.env.call_private(s.deployer, YacanaMiner::at(s.miner).claim_from_l1(12, 7, s.deployer, leaf));
+}
+
+#[test(should_fail)]
+unconstrained fn claim_from_l1_from_another_sender_fails() {
+    let s = setup();
+    let leaf = s.env.send_l1_to_l2_message(claim_content(12), 7, OTHER_L1, s.miner);
+    s.env.mine_block();
+    s.env.call_private(s.deployer, YacanaMiner::at(s.miner).claim_from_l1(12, 7, s.deployer, leaf));
+}
+
+unconstrained fn retire(s: Setup) {
+    let leaf = s.env.send_l1_to_l2_message(retire_content(rollup_version(s)), 0, PORTAL, s.miner);
+    s.env.mine_block();
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).retire(leaf));
+    s.env.mine_block();
+}
+
+#[test]
+unconstrained fn retire_stops_claims_but_not_arrivals() {
+    let s = setup_with_balance();
+    retire(s);
+    let (_, _, retired, _, _, _) = bridge_state(s);
+    assert_eq(retired, true);
+    // Arrivals still land after retirement.
+    let leaf = s.env.send_l1_to_l2_message(claim_content(5), 9, PORTAL, s.miner);
+    s.env.mine_block();
+    s.env.call_private(s.deployer, YacanaMiner::at(s.miner).claim_from_l1(5, 9, s.deployer, leaf));
+    s.env.mine_block();
+    assert_eq(private_balance(s), REWARD + 5);
+}
+
+#[test(should_fail_with = "mining has ended on this version")]
+unconstrained fn claim_after_retirement_is_refused() {
+    let s = setup();
+    retire(s);
+    let _ = claim(s, 0, 2000);
+}
+
+#[test(should_fail)]
+unconstrained fn retire_from_another_sender_fails() {
+    let s = setup();
+    let leaf = s.env.send_l1_to_l2_message(retire_content(rollup_version(s)), 0, OTHER_L1, s.miner);
+    s.env.mine_block();
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).retire(leaf));
+}
+
+#[test(should_fail)]
+unconstrained fn retire_twice_fails() {
+    let s = setup();
+    let leaf = s.env.send_l1_to_l2_message(retire_content(rollup_version(s)), 0, PORTAL, s.miner);
+    s.env.mine_block();
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).retire(leaf));
+    s.env.mine_block();
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).retire(leaf));
+}
+
+#[test(should_fail)]
+unconstrained fn record_exit_is_only_self() {
+    let s = setup();
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).record_exit(1, 1, 1, 1));
+}
+
+// A continuation: starts at the source's last epoch + 1 with a seed derived from the source's
+// last seed and the opening time, no lottery, and mines from there.
+#[test]
+unconstrained fn a_continuation_starts_at_its_first_epoch_with_the_chained_seed() {
+    let mut env = TestEnvironment::new();
+    let deployer = env.create_light_account();
+    let source_last_seed = 0xabc;
+    let first: u64 = 42;
+    let miner = env.deploy("YacanaMiner").with_public_initializer(
+        deployer,
+        YacanaMiner::interface().constructor(INITIAL_TARGET, source_last_seed, 0, first, PORTAL),
+    );
+    let token = env.deploy("@token_contract/Token").with_public_initializer(
+        deployer,
+        Token::interface().constructor_with_minter(
+            "Yacana0000000000000000000000000",
+            "YACA000000000000000000000000000",
+            18,
+            miner,
+            AztecAddress::zero(),
+        ),
+    );
+    env.call_public(deployer, YacanaMiner::at(miner).bind_token(token));
+    env.mine_block();
+    env.call_public(deployer, YacanaMiner::at(miner).launch());
+    env.mine_block();
+    let s = Setup { env, deployer, miner, token };
+    assert_eq(open_epoch(s), first);
+    let params = s.env.view_public(YacanaMiner::at(s.miner).epoch_params(first));
+    assert_eq(params.seed, continuation_seed(source_last_seed, first, params.opened_at));
+    let (_, first_epoch, _, _, _, _) = bridge_state(s);
+    assert_eq(first_epoch, first);
+    let _ = claim(s, first, 1000);
+    assert_eq(s.env.view_public(YacanaMiner::at(s.miner).claims_in(first)), 1);
+}
+
+#[test(should_fail_with = "a continuation has no lottery")]
+unconstrained fn a_continuation_refuses_lottery_commits() {
+    let mut env = TestEnvironment::new();
+    let deployer = env.create_light_account();
+    let miner = env.deploy("YacanaMiner").with_public_initializer(
+        deployer,
+        YacanaMiner::interface().constructor(INITIAL_TARGET, 1, 0, 42, PORTAL),
+    );
+    env.call_public(deployer, YacanaMiner::at(miner).commit_launch(1));
+}
+
+#[test(should_fail_with = "portal is zero")]
+unconstrained fn constructor_rejects_a_zero_portal() {
+    let mut env = TestEnvironment::new();
+    let deployer = env.create_light_account();
+    let _ = env.deploy("YacanaMiner").with_public_initializer(
+        deployer,
+        YacanaMiner::interface().constructor(INITIAL_TARGET, 1, 0, 0, EthAddress::zero()),
+    );
 }

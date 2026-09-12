@@ -5,7 +5,7 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { TokenContract } from '@aztec-foundation/aztec-standards/artifacts/src/artifacts/Token.js';
-import { deployYacana } from '../../deploy/src/deploy.ts';
+import { deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
 import { loadMinerArtifact } from './artifacts.ts';
 import { PARAMS } from './generated/params.ts';
 import {
@@ -25,8 +25,14 @@ describe.skipIf(!nodeUrl)('assertDeployment against a live node', () => {
   test('accepts the deployment it was built for and refuses every drift', async () => {
     const node = createAztecNodeClient(nodeUrl);
     const layout = (await loadMinerArtifact()).storageLayout;
-    const d = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: 1n << 127n });
-    const other = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: 1n << 127n });
+    const d = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
+      initialTarget: 1n << 127n,
+      portal: TEST_PORTAL,
+    });
+    const other = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
+      initialTarget: 1n << 127n,
+      portal: TEST_PORTAL,
+    });
     const expected = expectedFromStrings(d);
     await assertDeployment(node, expected, layout);
     await expect(assertDeployment(node, { ...expected, chainId: 1n }, layout)).rejects.toThrow(/on chain/);
@@ -52,7 +58,10 @@ describe.skipIf(!nodeUrl)('the epoch reader against a live node', () => {
   test('epoch 0 through the slot table matches the deployment record; genesis, lottery and supply read', async () => {
     const node = createAztecNodeClient(nodeUrl);
     const layout = (await loadMinerArtifact()).storageLayout;
-    const d = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: 1n << 120n });
+    const d = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
+      initialTarget: 1n << 120n,
+      portal: TEST_PORTAL,
+    });
     const miner = AztecAddress.fromStringUnsafe(d.miner);
     expect(await readOpenEpochNumber(node, miner, layout)).toBe(0);
     const load = (chunk: number) => deriveSlotTable(layout, chunk);

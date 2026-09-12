@@ -661,7 +661,7 @@ Gate: `bun run lint && bun run codegen && git diff --exit-code && bun test packa
 scripts && bun run contracts:compile && bun run contracts:test` (the Noir vector `#[test]`s pass; the TS vectors
 match, the exit log tag included; the toolchain test passes with the three new hashes).
 
-**P2 — the miner's bridge functions, counters, logs, continuation constructor** (`bridge.nr`, `main.nr`,
+**P2 ✓ — the miner's bridge functions, counters, logs, continuation constructor** (green 2026-09-12; `lessons/phase-2.md`) (`bridge.nr`, `main.nr`,
 `deploy.ts`, the record). TXE: send_ahead burns via an authwit and emits both logs (the event tag and the per-exit
 tag); exit_to_l1 likewise; `claim_from_l1` via `env.send_l1_to_l2_message`; `retire` from the portal stops claims,
 from another sender fails, twice fails; `claim` after retirement reverts in public and leaves no mint;

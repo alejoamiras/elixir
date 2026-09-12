@@ -9,7 +9,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { type Browser, chromium, type Route } from '@playwright/test';
 import { buildApp, claimPreviewPort, startPreview, waitUntilUp } from '../../../../scripts/run/preview.ts';
 import { release } from '../../../../scripts/run/registry.ts';
-import { deployYacana } from '../../../deploy/src/deploy.ts';
+import { deployYacana, TEST_PORTAL } from '../../../deploy/src/deploy.ts';
 import { deriveSlotTable, LAYOUTS_PATH, loadLayouts } from '../../../miner-core/src/slots.ts';
 import { COMMITTED } from '../../../site/scripts/commit-artifacts.ts';
 import { BOOT_MS } from '../helpers.ts';
@@ -126,7 +126,10 @@ async function teardown(): Promise<void> {
  * deployment probe, the public epoch read — and keeps every answer under its method and params.
  */
 async function record(nodeUrl: string): Promise<void> {
-  const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: 1n << 127n });
+  const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
+    initialTarget: 1n << 127n,
+    portal: TEST_PORTAL,
+  });
   const d: ReplayDeployment = {
     chainId: deployed.chainId,
     rollupVersion: deployed.rollupVersion,

@@ -22,7 +22,7 @@ import {
 } from '../../../scripts/run/presto.ts';
 import { waitUntilUp } from '../../../scripts/run/preview.ts';
 import { claim, release } from '../../../scripts/run/registry.ts';
-import { type Deployment, deployYacana } from '../../deploy/src/deploy.ts';
+import { type Deployment, deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
 import { type E2eRun, type E2eServer, type RigStep, RUN_FILE, TIMINGS_FILE } from './run.ts';
 
 const nodeUrl = process.env.AZTEC_NODE_URL;
@@ -101,9 +101,15 @@ try {
   else console.log('e2e: presto-server is not installed; the Presto spec will skip');
   lap('presto start');
   const target = BigInt(process.env.YACANA_E2E_TARGET ?? String(1n << 127n));
-  const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: target });
+  const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
+    initialTarget: target,
+    portal: TEST_PORTAL,
+  });
   lap('deploy (easy target)');
-  const hard = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: 1n << 64n });
+  const hard = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
+    initialTarget: 1n << 64n,
+    portal: TEST_PORTAL,
+  });
   lap('deploy (impossible target)');
   const log = openSync(resolve(pkg, 'e2e/.vite.log'), 'w');
   const env = e2eEnv(deployed, presto?.port ?? null);

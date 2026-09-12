@@ -11,7 +11,7 @@ import { resolve } from 'node:path';
 import { Fr } from '@aztec/aztec.js/fields';
 import { type Browser, chromium, type Route } from '@playwright/test';
 import { release } from '../../../scripts/run/registry.ts';
-import { deployYacana } from '../../deploy/src/deploy.ts';
+import { deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
 import { slotTableToJson } from '../../miner-core/src/reader.ts';
 import { deriveSlotTable, LAYOUTS_PATH, loadLayouts } from '../../miner-core/src/slots.ts';
 import { MOCK_NODE_ORIGIN } from './helpers.ts';
@@ -124,7 +124,10 @@ async function teardown(): Promise<void> {
  * everything else goes to the real node, and every answer is kept under its method and params.
  */
 async function record(nodeUrl: string): Promise<void> {
-  const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: 1n << 127n });
+  const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
+    initialTarget: 1n << 127n,
+    portal: TEST_PORTAL,
+  });
   const d: VisualDeployment = {
     chainId: deployed.chainId,
     rollupVersion: deployed.rollupVersion,

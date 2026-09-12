@@ -59,7 +59,7 @@ bun run artifacts:commit       # refresh the committed miner + work-circuit arti
 bun run site:build             # assemble the production site into packages/site/dist (Cloudflare's build command)
 bun run e2e:agent -- bun run site:e2e   # the assembled site under wrangler dev: paths, headers, build.json, the demo
 bun run site:deploy            # assemble the production site and `wrangler deploy` it (needs a Cloudflare login)
-AZTEC_NODE_URL=… YACANA_DEPLOYER_SECRET=… [YACANA_LAUNCH_AT=<unix s>] bun run deploy   # deploy the generated profile → deployments/<profile>.json (announce before launch_at)
+AZTEC_NODE_URL=… YACANA_DEPLOYER_SECRET=… YACANA_PORTAL=0x… [YACANA_LAUNCH_AT=<unix s>] [YACANA_CONTINUE_FROM=deployments/<old>.json] bun run deploy   # deploy the generated profile → deployments/<profile>.json (announce before launch_at; a continuation starts after the source's last epoch)
 AZTEC_NODE_URL=… bun run launch -- commit|reveal|open   # launch lottery of the recorded deployment (anyone; see docs/deployments.md)
 AZTEC_NODE_URL=… bun run soak -- --hours 2 --epochs 24     # headless soak miner with a hashrate schedule
 bun run epoch:stats            # epoch history of deployments/<profile>.json from public storage (--json <file> keeps the rows)
