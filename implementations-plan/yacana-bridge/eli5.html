@@ -62,7 +62,7 @@
 </style>
 
 <main>
-  <p class="eyebrow">Plan · mega-deep tier · yacana-bridge · drafted 2026-09-12 · awaiting your approval</p>
+  <p class="eyebrow">Plan · mega-deep tier · yacana-bridge · drafted and approved 2026-09-12</p>
   <h1>Yacana survives the next Aztec upgrade</h1>
   <p class="lede">When Aztec ships V6, everything on V5 stays on V5: balances, the miner, the token. This plan gives every holder a way out and a way forward, through Ethereum, one holder at a time — and a way for Yacana's mining schedule to continue on V6 as if nothing happened. It ships an Ethereum token (YACA), a portal that moves coins between versions, a rehearsal rig that upgrades a local Aztec network on demand, the app screens you picked on the design canvas, and the runbook you will follow on the day.</p>
 
@@ -72,7 +72,7 @@
 <b>V5</b>  to Ethereum ──▶  YACA          <b>YACA</b>  deposit ──▶  the version that is live</p>
 
   <h2>Where it stands</h2>
-  <p>Three independent drafts (this session, Codex, a fresh Fable agent) were consolidated into one plan, then checked for contradictions, then audited twice by both model families. Every finding was verified against the Aztec 5.2.0 sources and the repo before it was accepted; the plan changed materially each round. The biggest reversals: the portal now records an upgrade the moment anyone touches it instead of trusting a timestamp Aztec's contracts cannot vouch for; the issuance cap became a fixed policy the multisig cannot dial; sends into a new version can only be pushed by their owner or by a key you list; the rehearsal never touches the live site. The final fresh-context verdict is recorded at the end of this page.</p>
+  <p>Three independent drafts (this session, Codex, a fresh Fable agent) were consolidated into one plan, then checked for contradictions, then audited twice by both model families. Every finding was verified against the Aztec 5.2.0 sources and the repo before it was accepted; the plan changed materially each round. The biggest reversals: the portal now records an upgrade the moment anyone touches it instead of trusting a timestamp Aztec's contracts cannot vouch for; the issuance cap became a fixed policy the multisig cannot dial; sends into a new version can only be pushed by their owner or by a key you list; the rehearsal never touches the live site. The final fresh-context verdict and your decisions are recorded below; the delta went back to the reviewer once more for a clean verdict.</p>
 
   <h2>Why this tier</h2>
   <p>The rubric scored six of six dimensions high: <span class="num">novelty</span> (a cross-rollup migration nobody has built on Aztec), blast radius (every holder's balance), irreversibility (an ERC-20 and a portal on Ethereum, a rollup that stops), migration cost (the whole point), external coupling (Aztec governance, the Registry, Ethereum), security sensitivity (a mint on Ethereum). Two or more high plus high novelty is the rule for mega-deep: research agents before drafting, three drafts, two audit rounds with a split second round, a final fresh pass. Budget spent as agreed: four recon agents, Codex at high, Fable legs on Fable 5.1, no <code>/code-review</code>.</p>
@@ -100,39 +100,37 @@
   <div class="phase"><h3>P4 · The flip alone</h3><p>The local network upgrades itself from V5 to V6 to V7 with no Yacana involved: proposal, vote, execution, the old node stopped, the new node pinned and settling. Its wall time is measured and becomes the CI budget.</p><p class="gate">proves itself by: the flip case green locally; its pull-request check is written now and proves itself on the first pull request</p></div>
   <div class="phase"><h3>P5 · Every migration case</h3><p>Eleven scenarios end to end through the operator script, including the migration in the runbook's exact order, a send that is never settled and gets undone, a send when V6 is never registered, and a skipped version.</p><p class="gate">proves itself by: the full rig suite green locally, runnable on demand from CI</p></div>
   <p class="arc">Arc 3 — the app</p>
-  <div class="phase"><h3>P6 · The plumbing in the miner</h3><p>The Ethereum RPC setting, the bridge journal and its single queue, the wallet vault's fingerprint, the consent record, the fee payer abstraction.</p><p class="gate">proves itself by: unit and component tests, typecheck, the replay lane, a vault test on an existing sealed record</p></div>
-  <div class="phase"><h3>P7 · The guided path</h3><p>The screens from the canvas: the migration card, the send-ahead sheet with its one switch, the arrival card, To Ethereum, Deposit from Ethereum, the exceptions. Copy updated for no relayer and no waiting period.</p><p class="gate">proves itself by: component specs and a browser run on the rig that signs in on V5, sends ahead, flips, signs in on V6 and lands with real proofs</p></div>
+  <div class="phase"><h3>P6 · The plumbing in the miner</h3><p>The Ethereum RPC setting, the bridge journal and its single queue, the wagmi wallet connection with its picker of installed wallets, the wallet vault's fingerprint, the fee payer abstraction.</p><p class="gate">proves itself by: unit and component tests, typecheck, the replay lane, a vault test on an existing sealed record</p></div>
+  <div class="phase"><h3>P7 · The guided path</h3><p>The screens from the canvas: the migration card, the send-ahead sheet, the arrival card with its one-tap Claim, To Ethereum, Deposit from Ethereum, the exceptions. Copy updated for no relayer, no waiting period, no automatic sends, and the held card says who may forward a send and why.</p><p class="gate">proves itself by: component specs and a browser run on the rig that signs in on V5, sends ahead, flips, signs in on V6 and lands with real proofs</p></div>
   <div class="phase"><h3>P8 · The old app</h3><p>A single-purpose build at <code>v5.yacana.network</code> that can restore keys, send ahead and nothing else, with its role checked against where it runs.</p><p class="gate">proves itself by: both builds passing the site checks, a mismatched role refused, one passkey working on both origins</p></div>
   <p class="arc">Arc 4 — stats, docs, rehearsal</p>
-  <div class="phase"><h3>P9 · Stats, the announcement, the FAQ</h3><p>The bridge page under stats, Etherscan links, the landing's announcement line and the FAQ section with the six panels.</p><p class="gate">proves itself by: component specs, the screenshot gate, the stats and landing browser runs</p></div>
+  <div class="phase"><h3>P9 · Stats, the announcement, the FAQ</h3><p>The bridge page under stats, Etherscan links, the landing's announcement line and the standalone FAQ page with the six panels, linked from the miner and the stats page.</p><p class="gate">proves itself by: component specs, the screenshot gate, the stats and landing browser runs</p></div>
   <div class="phase"><h3>P10 · Docs and CI</h3><p>The design doc and the operator runbook for the day Aztec announces V6, written for a session that knows nothing, step by step, each step a command the rig already ran.</p><p class="gate">proves itself by: lint on docs, workflows and shell; every runbook step naming a tested entrypoint</p></div>
   <div class="phase"><h3>P11 · The testnet rehearsal</h3><p>YACA and the portal on Sepolia, the testnet miner redeployed with the bridge, one exit to Ethereum, one deposit back, one send held — all verified on explorers from the branch's preview site. Nothing goes live on the apex until you merge.</p><p class="gate">proves itself by: explorer links in the deployment record, the status command reporting the three crossings</p></div>
 
-  <h2>Your open questions</h2>
-  <p>Nine questions only you can answer. Each has a recommendation; say "as recommended" or change any.</p>
+  <h2>Your decisions (taken 2026-09-12)</h2>
   <div class="wrap"><table>
-    <tr><th>ask</th><th>the question</th><th>recommended</th></tr>
-    <tr><td>A1</td><td>V6 skips the launch lottery and continues V5's seed. The seed is public for the notice period, so someone could pre-mine V6's first epoch — at most one epoch's reward, made harder by mixing in the exact opening time.</td><td>Accept</td></tr>
-    <tr><td>A2</td><td>The in-app Ethereum wallet connection uses viem alone through the browser's injected wallet. You said "wagmi"; the capability is the same with fewer dependencies.</td><td>viem only</td></tr>
-    <tr><td>A3</td><td>The cap policy, as one decision. The numbers: growth 3× the schedule, one day's allowance up front, exits close 180 days after a flip, pauses 30 days a call and 60 in total, a version's start time within a week back or 90 days ahead. And what it is: a tripwire, not a promise — if mining booms far beyond the schedule, honest exits can be delayed and, after the flip, refused once the frozen cap is used up. Accept, or raise the multiplier (each extra ×1 is one more schedule's worth an attacker could drain).</td><td>Accept, 3×</td></tr>
-    <tr><td>A4</td><td>Who signs the Safe on Sepolia and mainnet and with what threshold; who holds the forwarder key.</td><td>Your call</td></tr>
-    <tr><td>A5</td><td>The FAQ as a section of the landing reached at /faq, or the standalone page the canvas drew.</td><td>Landing section</td></tr>
-    <tr><td>A6</td><td>A held send forwards into whatever version is live and registered, even if Yacana skipped one, instead of only the strict next version.</td><td>The live version</td></tr>
-    <tr><td>A7</td><td>Only the sender, or a key you list, may push a held send into a new version — a stranger cannot shove it into a rollup about to stop. The listed key keeps that power, so its custody matters as much as the Safe's: accept that.</td><td>Accept</td></tr>
-    <tr><td>A8</td><td>The hourly automatic sends publish each hour's winnings as an amount on Ethereum. Keep hourly, go daily, or manual only.</td><td>Hourly, disclosed</td></tr>
-    <tr><td>A9</td><td>YACA's only minter is the portal, forever: a portal bug would mean a new token. The alternative hands the no-timelock multisig a one-way minter switch.</td><td>Immutable</td></tr>
+    <tr><th>ask</th><th>the question</th><th>you chose</th></tr>
+    <tr><td>A1</td><td>V6 skips the launch lottery and continues V5's seed; someone could pre-mine V6's first epoch, at most one epoch's reward, made harder by mixing in the exact opening time.</td><td>Accept</td></tr>
+    <tr><td>A2</td><td>The in-app Ethereum wallet connection. The picker of installed wallets (Rabby, Frame, MetaMask) comes from the browser's wallet-discovery standard either way; wagmi brings the connector layer and the option of mobile wallets later.</td><td>wagmi</td></tr>
+    <tr><td>A3</td><td>The cap policy: growth 3× the schedule, one day's allowance up front, exits close 180 days after a flip, pauses 30 days a call and 60 in total, a version's start time within a week back or 90 days ahead; everything bridged or deposited into a version is credited one for one, so a version's allowance chains from its predecessors. A tripwire, not a promise, and no per-crossing delay. You weighed "no cap": without it a compromised V5 would inflate V6 through send-ahead, not only YACA.</td><td>As designed, immutable</td></tr>
+    <tr><td>A4</td><td>Who operates the portal on Sepolia and holds the forwarder key.</td><td>Plain accounts for now; the Safe with the mainnet plan</td></tr>
+    <tr><td>A5</td><td>The FAQ as a section of the landing or a standalone page.</td><td>Standalone page</td></tr>
+    <tr><td>A6</td><td>A held send forwards into whatever version is live and registered, even if Yacana skipped one.</td><td>Yes</td></tr>
+    <tr><td>A7</td><td>Only the sender, or a key you list, may push a held send into a new version. Why not anyone: a stranger could push every held send into a rollup about to stop, in the same block as the governance vote that replaces it, and take away the holder's option to redeem. The rule and the reason go into the bridge doc, the FAQ and the held card.</td><td>Accept, documented</td></tr>
+    <tr><td>A8</td><td>The hourly automatic send of new wins.</td><td>Dropped; deferred as a future feature</td></tr>
+    <tr><td>A9</td><td>YACA's only minter is the portal, forever; a portal bug would mean a new token.</td><td>Immutable</td></tr>
   </table></div>
   <p class="muted">Settled by the plan after the final pass, not asked: the flip case as a pull-request check with a measured budget; the app stopping V5 mining on any one positive "V6 is live" signal (your earlier instruction); the rehearsal on preview sites with the live switch requested when it is ready; the default Sepolia RPC.</p>
 
   <div class="approval">
-    <h2>What you are approving</h2>
+    <h2>Approved</h2>
     <ul>
       <li><strong>Scope</strong>: the five deliverables above — miner functions, YACA + portal, the rig and its suite, the app screens and the old origin, the docs and runbook — rehearsed on testnet, mainnet-launch grade.</li>
-      <li><strong>Out of scope, documented</strong>: a relayer bot (forwarding stays by hand and self-serve), the mainnet fee path for claims, rig runs against Sepolia.</li>
+      <li><strong>Out of scope, documented</strong>: a relayer bot (forwarding stays by hand and self-serve), the mainnet fee path for claims, rig runs against Sepolia, the hourly automatic send.</li>
       <li><strong>Tier and delivery</strong>: mega-deep; four stacked pull requests opened only after the review loops converge; merges and the two production deploys are yours.</li>
       <li><strong>Review loop</strong>: Codex fix loops per arc plus a cross-arc pass; no <code>/code-review</code>.</li>
       <li><strong>Hardening</strong>: not scheduled here. Recommended before the mainnet launch plan: <code>/harden security</code> over the portal, the vault changes and the CI.</li>
-      <li><strong>The nine asks</strong> above, as recommended or as you change them.</li>
     </ul>
   </div>
 
@@ -142,10 +140,11 @@
     <dt>Round 1</dt><dd>Codex "reject pending blockers" (seven), Fable "ship after fixes" (four): every finding verified and adopted; the upgrade-time oracle reversed, the cap made a fixed policy, sends made owner-controlled, a real queue in the app.</dd>
     <dt>Round 2</dt><dd>Codex self-critique: two blockers (the rig's clock must be the node's; a vault record cannot vouch for itself), adopted. Fable, hostile: the cap's start time was still a dial — bounded; the old app's preview host would have refused keys — fixed; no more waiting period on redeem; the audit's own round-one advice retracted where it under-funded honest exits.</dd>
     <dt>Final pass</dt><dd id="final-verdict"><span class="ok">Approve with conditions</span> — a fresh-context Codex session over the finished plan: "no additional fund-loss or unbounded-issuance blocker beyond the risks already disclosed for owner acceptance." Its three conditions are folded in: the rehearsal's governance vote spans five slots instead of one minute (the local network's clock only moves in slot steps), the never-settled scenario runs its prune while the old node is stopped, and a wallet record from before this release is verified on the main site against the previous account format rather than at the old app. It also trimmed your questions to the ones only you can answer.</dd>
+    <dt>Re-check</dt><dd id="recheck-verdict"><span class="warn">Pending</span> — the same session is re-reading the plan with your decisions folded in.</dd>
   </div>
   <p class="muted">The full record: <code>implementations-plan/yacana-bridge/plan.md</code> (§8 the decision ledger, §9 the verdicts), <code>audit-codex.md</code>, <code>audit-fable.md</code>.</p>
 
-  <h2>Implementation seeds (draft — finalized after approval)</h2>
+  <h2>Implementation seeds (final)</h2>
   <p>Two options for the autonomous implementation session. <span class="warn">Use exactly one per session — they don't compose.</span> <code>/goal</code> survives <code>claude --resume</code> and is the primitive for "work until the condition holds"; <code>/loop</code> re-fires on a cadence and is the fallback when the session needs a metronome.</p>
   <div class="phase rec">
     <h3>Recommended: /goal</h3>
