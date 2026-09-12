@@ -694,7 +694,16 @@ packages/deploy/scripts/l1-deploy.ts --anvil` (its own `aztec-anvil`; deploys, v
 run lint:actions`.
 — arc 1 boundary: the codex loop, then `gh stack add bridge-harness` —
 
-**P4 — the flip alone** (`scripts/run/upgrade-rig.ts`, `packages/harness` H0, `harness.yml`). No Yacana: boot with a
+**P4 ✓ — the flip alone** (green 2026-09-12; `lessons/phase-4.md`; `bun run rig -- flip` 50 s wall on the homelab
+box: network boot ≈ 20 s, both flips and the pinned node's boot, sponsored transaction and settlement in the rest;
+proof-window headroom after each node warp — V5: +61 s → 9 slots, +373 s → 11, +288 s → 10; V6: +360 s → 12,
++61 s → 9, +373 s → 11 — against a 2-epoch (8-slot) submission window, i.e. every warp left the pending chain at
+least one epoch clear of a prune. As built: the pinned node is `scripts/run/pinned-node.mjs`, the local network's
+node construction on the toolchain's packages without its deployment — a plain `aztec start --node --sequencer`
+has no settable clock for the automine sequencer and `--local-network` deploys unless p2p is on, which this
+toolchain's libp2p cannot bind; the sponsored FPC needs no publication (it is in the genesis prefund, as on the
+local network); each pinned node takes two lanes, 4–5 then 6–7.)
+(`scripts/run/upgrade-rig.ts`, `packages/harness` H0, `harness.yml`). No Yacana: boot with a
 five-slot vote, fund the rig's signer under a paused sequencer, `deployNext` (the genesis root from the exported
 constituents), the payload, deposit ≥ 2e24, propose, warp through the node, vote, warp, execute; assert the
 Registry, distinct versions and boxes; pause and stop V5, start the pinned V6 node (compare its logged genesis root

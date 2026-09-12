@@ -23,6 +23,7 @@
     "portal:test": "bun run --cwd packages/portal test",
     "prepare": "husky",
     "record-rollup-address": "bun packages/deploy/scripts/record-rollup-address.ts",
+    "rig": "bun scripts/run/rig.ts",
     "site:build": "bun packages/site/src/assemble.ts",
     "site:deploy": "bun run --cwd packages/site deploy",
     "site:e2e": "bun run --cwd packages/site test:e2e",

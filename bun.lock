@@ -54,6 +54,28 @@
         "vite-plugin-node-polyfills": "^0.28.0",
       },
     },
+    "packages/harness": {
+      "name": "@yacana/harness",
+      "version": "0.0.0",
+      "dependencies": {
+        "@aztec/accounts": "5.2.0",
+        "@aztec/aztec.js": "5.2.0",
+        "@aztec/constants": "5.2.0",
+        "@aztec/ethereum": "5.2.0",
+        "@aztec/foundation": "5.2.0",
+        "@aztec/l1-artifacts": "5.2.0",
+        "@aztec/noir-contracts.js": "5.2.0",
+        "@aztec/noir-protocol-circuits-types": "5.2.0",
+        "@aztec/protocol-contracts": "5.2.0",
+        "@aztec/stdlib": "5.2.0",
+        "@aztec/wallets": "5.2.0",
+        "@aztec/world-state": "5.2.0",
+        "@yacana/bridge": "workspace:*",
+        "@yacana/deploy": "workspace:*",
+        "@yacana/miner-core": "workspace:*",
+        "viem": "npm:@aztec/viem@2.38.2",
+      },
+    },
     "packages/miner-core": {
       "name": "@yacana/miner-core",
       "version": "0.0.0",
@@ -973,6 +995,8 @@
     "@yacana/contracts": ["@yacana/contracts@workspace:packages/contracts"],
 
     "@yacana/deploy": ["@yacana/deploy@workspace:packages/deploy"],
+
+    "@yacana/harness": ["@yacana/harness@workspace:packages/harness"],
 
     "@yacana/miner-core": ["@yacana/miner-core@workspace:packages/miner-core"],
 

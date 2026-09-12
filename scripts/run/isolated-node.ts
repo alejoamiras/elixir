@@ -19,9 +19,13 @@ import { jsonRpcReady, killOwned, type Owned, repoRoot, spawnDetached, toolchain
 
 export interface IsolatedNode {
   nodeUrl: string;
+  /** The node's admin API (sequencer pause/resume); unauthenticated on the local network. */
+  adminUrl: string;
   l1RpcUrl: string;
   runId: string;
   runRoot: string;
+  /** Kills the aztec node alone; anvil, the ports and the run dir stay for a successor node. */
+  stopNode: () => void;
   teardown: () => Promise<void>;
 }
 
@@ -80,6 +84,9 @@ function aztecArgs(ports: Ports, runRoot: string, l1RpcUrl: string): string[] {
     // expires CLAIM_TTL_SECONDS after it, so an idle chain would reject every claim as already expired.
     '--sequencer.minTxsPerBlock',
     '0',
+    // The rig pauses the sequencer through the admin API before stopping a node; no key on a run
+    // nobody else can reach.
+    '--disable-admin-api-key',
   ];
 }
 
@@ -96,6 +103,7 @@ export async function startIsolatedNode(opts: IsolatedNodeOptions = {}): Promise
   mkdirSync(childTmp, { recursive: true });
   const l1RpcUrl = `http://127.0.0.1:${ports.anvil}`;
   const nodeUrl = `http://127.0.0.1:${ports.aztec}`;
+  const adminUrl = `http://127.0.0.1:${ports.admin}`;
   const owned: Owned[] = [];
   let torn = false;
   const teardown = async (): Promise<void> => {
@@ -137,7 +145,11 @@ export async function startIsolatedNode(opts: IsolatedNodeOptions = {}): Promise
     await teardown();
     throw e;
   }
-  return { nodeUrl, l1RpcUrl, runId, runRoot, teardown };
+  const stopNode = () => {
+    const aztec = owned.find((o) => o.name === 'aztec');
+    if (aztec) killOwned(aztec);
+  };
+  return { nodeUrl, adminUrl, l1RpcUrl, runId, runRoot, stopNode, teardown };
 }
 
 async function runWithNode(cmd: string[]): Promise<number> {
