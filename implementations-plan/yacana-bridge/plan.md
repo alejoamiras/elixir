@@ -670,7 +670,7 @@ Gate: `bun run contracts:compile && bun run contracts:test && bun packages/miner
 git diff --exit-code && bun run artifacts:commit && git diff --exit-code && bun run spike:gates && bun test
 packages/deploy`.
 
-**P3 — the portal, YACA, the L1 deploy script, the record** (`packages/portal` with its npm deps, remappings and the
+**P3 ✓ — the portal, YACA, the L1 deploy script, the record** (green 2026-09-12; `lessons/phase-3.md`) (`packages/portal` with its npm deps, remappings and the
 vendored boxes under `test/aztec/`, `packages/deploy/src/bridge/portal.ts`, `packages/deploy/scripts/l1-deploy.ts
 --anvil`, `portal.yml` incl. the ABI diff). Foundry, against the real `Outbox`/`Inbox` with the test as their rollup
 and a mocked Registry: the hash vectors incl. `RETIRE_SECRET_HASH`; register write-once with the index check (out of

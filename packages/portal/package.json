@@ -1,0 +1,14 @@
+{
+  "name": "@yacana/portal",
+  "version": "0.0.0",
+  "private": true,
+  "description": "YACA on Ethereum and the portal that moves Yacana between rollup versions and to Ethereum (Foundry)",
+  "type": "module",
+  "scripts": {
+    "build": "bun scripts/forge.ts build",
+    "test": "bun scripts/forge.ts test"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "5.6.1"
+  }
+}
