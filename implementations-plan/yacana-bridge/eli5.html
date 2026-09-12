@@ -1,0 +1,164 @@
+<title>Yacana Bridge Blueprint</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #f2efe9; --panel: #e8e4dc; --panel-2: #dfdad1;
+    --ink: #0a0a0b; --ink-2: rgba(10,10,11,.68); --ink-3: rgba(10,10,11,.46);
+    --line: rgba(10,10,11,.12); --uv: #5b3fe0; --uv-dim: rgba(91,63,224,.12);
+    --ok: #1f8a4c; --warn: #9a6b00;
+    --sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0a0a0b; --panel: #17171b; --panel-2: #1e1e24;
+      --ink: #f2efe9; --ink-2: rgba(242,239,233,.64); --ink-3: rgba(242,239,233,.4);
+      --line: rgba(242,239,233,.1); --uv: #8c6bff; --uv-dim: rgba(140,107,255,.18);
+      --ok: #58c98b; --warn: #e8b54d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0a0a0b; --panel: #17171b; --panel-2: #1e1e24;
+    --ink: #f2efe9; --ink-2: rgba(242,239,233,.64); --ink-3: rgba(242,239,233,.4);
+    --line: rgba(242,239,233,.1); --uv: #8c6bff; --uv-dim: rgba(140,107,255,.18);
+    --ok: #58c98b; --warn: #e8b54d;
+  }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 400 16px/1.55 var(--sans); }
+  main { max-width: 720px; margin: 0 auto; padding-block: 48px 80px; padding-inline: 24px; }
+  h1, h2, h3 { font-weight: 600; letter-spacing: -.02em; text-wrap: balance; margin: 0; }
+  h1 { font-size: 34px; line-height: 1.1; }
+  h2 { font-size: 22px; margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--line); }
+  h3 { font-size: 17px; margin-top: 20px; }
+  p { margin: 12px 0; max-width: 65ch; }
+  .eyebrow { font: 500 11.5px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--uv); margin-bottom: 14px; }
+  .lede { font-size: 18px; color: var(--ink-2); }
+  code { font-family: var(--mono); font-size: .9em; }
+  pre { font: 400 12.5px/1.5 var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; overflow-x: auto; white-space: pre-wrap; margin: 12px 0; }
+  .route { font: 500 13px/1.7 var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px 18px; margin: 18px 0; overflow-x: auto; white-space: pre; }
+  .route b { color: var(--uv); font-weight: 500; }
+  .phase { margin: 16px 0; padding: 14px 18px; border-left: 2px solid var(--line); }
+  .phase h3 { margin-top: 0; }
+  .gate { font: 400 13px/1.5 var(--mono); color: var(--ink-3); margin: 8px 0 0; }
+  .arc { font: 500 11.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); margin-top: 28px; }
+  ul { padding-left: 20px; } li { margin: 6px 0; max-width: 65ch; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 12px 0; }
+  th, td { text-align: left; padding: 7px 10px 7px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 500 11px/1.3 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  tr:last-child td { border-bottom: 0; }
+  td:first-child { font-family: var(--mono); font-size: 12.5px; white-space: nowrap; color: var(--ink-3); }
+  .wrap { overflow-x: auto; }
+  .approval { background: var(--uv-dim); border-left: 2px solid var(--uv); padding: 14px 18px; margin: 24px 0; }
+  .approval h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 18px; }
+  .rec { border-color: var(--uv); background: var(--panel); }
+  .warn { color: var(--warn); font-weight: 500; }
+  .ok { color: var(--ok); font-weight: 500; }
+  .muted { color: var(--ink-3); font-size: 14px; }
+  .kv { display: grid; grid-template-columns: 150px 1fr; gap: 6px 16px; font-size: 14px; margin: 10px 0; }
+  .kv dt { font: 500 11px/1.6 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  .kv dd { margin: 0; }
+  .num { font-variant-numeric: tabular-nums; }
+  a { color: var(--uv); }
+  @media (max-width: 480px) { .kv { grid-template-columns: 1fr; gap: 2px 0; } .kv dt { margin-top: 8px; } h1 { font-size: 28px; } }
+</style>
+
+<main>
+  <p class="eyebrow">Plan · mega-deep tier · yacana-bridge · drafted 2026-09-12 · awaiting your approval</p>
+  <h1>Yacana survives the next Aztec upgrade</h1>
+  <p class="lede">When Aztec ships V6, everything on V5 stays on V5: balances, the miner, the token. This plan gives every holder a way out and a way forward, through Ethereum, one holder at a time — and a way for Yacana's mining schedule to continue on V6 as if nothing happened. It ships an Ethereum token (YACA), a portal that moves coins between versions, a rehearsal rig that upgrades a local Aztec network on demand, the app screens you picked on the design canvas, and the runbook you will follow on the day.</p>
+
+  <p class="route"><b>V5</b>  send ahead ──▶  <b>Ethereum</b>  ── forward ──▶  <b>V6</b>  land
+                                │
+                                └── redeem ──▶  YACA in your wallet
+<b>V5</b>  to Ethereum ──▶  YACA          <b>YACA</b>  deposit ──▶  the version that is live</p>
+
+  <h2>Where it stands</h2>
+  <p>Three independent drafts (this session, Codex, a fresh Fable agent) were consolidated into one plan, then checked for contradictions, then audited twice by both model families. Every finding was verified against the Aztec 5.2.0 sources and the repo before it was accepted; the plan changed materially each round. The biggest reversals: the portal now records an upgrade the moment anyone touches it instead of trusting a timestamp Aztec's contracts cannot vouch for; the issuance cap became a fixed policy the multisig cannot dial; sends into a new version can only be pushed by their owner or by a key you list; the rehearsal never touches the live site. The final fresh-context verdict is recorded at the end of this page.</p>
+
+  <h2>Why this tier</h2>
+  <p>The rubric scored six of six dimensions high: <span class="num">novelty</span> (a cross-rollup migration nobody has built on Aztec), blast radius (every holder's balance), irreversibility (an ERC-20 and a portal on Ethereum, a rollup that stops), migration cost (the whole point), external coupling (Aztec governance, the Registry, Ethereum), security sensitivity (a mint on Ethereum). Two or more high plus high novelty is the rule for mega-deep: research agents before drafting, three drafts, two audit rounds with a split second round, a final fresh pass. Budget spent as agreed: four recon agents, Codex at high, Fable legs on Fable 5.1, no <code>/code-review</code>.</p>
+
+  <h2>Human context</h2>
+  <h3>What an upgrade does</h3>
+  <p>Aztec's Alpha rollups are replaced, not migrated. A governance vote adds a new rollup to a registry on Ethereum; from then on the new one is "canonical". The old one keeps running only as long as its operators keep it running, with no notice when it stops. Nothing crosses by itself.</p>
+  <h3>Why Ethereum is the road</h3>
+  <p>Both versions can send messages to Ethereum and receive messages from it. A portal on Ethereum can consume a "burned 12 YACA" message from V5 and send a "mint 12 YACA" message into V6, in one transaction. That is the whole bridge. The same portal also mints an ordinary ERC-20, YACA, for anyone who would rather hold on Ethereum.</p>
+  <h3>Send ahead</h3>
+  <p>Before or after the flip, a holder burns their balance on V5 with a secret only they know. The burn is held on Ethereum until V6's miner exists, then forwarded; on V6 the holder claims it privately at sign-in. If V6 never comes, or they change their mind, the same held coins become YACA in their Ethereum wallet. A held coin is never stranded.</p>
+  <h3>What can be lost</h3>
+  <p>A send is safe once V5 has settled the epoch that contains it on Ethereum. Each send shows a deadline for that; a missed deadline undoes the burn (the coins are back on V5, unsent). Balances still sitting on V5 when V5 stops are lost — the app says so in plain words, stops mining on V5 the moment V6 is live, and the old app keeps a one-button page at <code>v5.yacana.network</code> for as long as V5 runs.</p>
+  <h3>The guard rails on Ethereum</h3>
+  <p>A compromised old rollup could try to fake burns. The portal limits what each version may ever issue: three times what its mining schedule could have produced, frozen the moment the upgrade is observed, minus nothing you deposited. The multisig can pause a version for up to 30 days at a time (60 in total) and every version's exits close for good six months after its flip or once the version after next is live, whichever is later. The multisig cannot change the cap, cannot repoint an old version, and holds no timelock — by your choice.</p>
+  <h3>The rig</h3>
+  <p>A local Aztec network is booted, a second rollup is deployed, a governance proposal is voted and executed with a time-warped clock, the old node is stopped, a new node is pinned to the new version, Yacana is deployed on it continuing V5's epoch count, and every crossing is exercised: to Ethereum, back from Ethereum, ahead into V6, ahead across two upgrades, a send that never settles, a send when V6 never comes. The runbook's commands are the rig's commands, so the day you need them they have already run.</p>
+
+  <h2>Phases</h2>
+  <p class="arc">Arc 1 — contracts</p>
+  <div class="phase"><h3>P1 · The protocol</h3><p>The message formats, the per-send secrets and redeem keys, the test vectors shared by Noir, Solidity and TypeScript, and the toolchain pins for the Foundry binaries.</p><p class="gate">proves itself by: the same vectors passing in all three languages, lint, the toolchain hash test</p></div>
+  <div class="phase"><h3>P2 · The miner learns to bridge</h3><p>Send ahead, exit to Ethereum, claim from Ethereum, retire (mining ends when the portal says so), and a constructor that continues the previous version's schedule.</p><p class="gate">proves itself by: the Noir test suite, the storage layouts and committed artifacts unchanged except where intended, the gate-count check</p></div>
+  <div class="phase"><h3>P3 · YACA and the portal</h3><p>The ERC-20 and the portal on Ethereum, tested against Aztec's real message boxes rather than stand-ins: every crossing, the cap, the pauses, the deadlines, the signatures, the accounting invariants.</p><p class="gate">proves itself by: the Foundry suite, the committed ABI unchanged, a deploy on a throwaway local chain</p></div>
+  <p class="arc">Arc 2 — the rig</p>
+  <div class="phase"><h3>P4 · The flip alone</h3><p>The local network upgrades itself from V5 to V6 to V7 with no Yacana involved: proposal, vote, execution, the old node stopped, the new node pinned and settling. Its wall time is measured and becomes the CI budget.</p><p class="gate">proves itself by: the flip case green locally; its pull-request check is written now and proves itself on the first pull request</p></div>
+  <div class="phase"><h3>P5 · Every migration case</h3><p>Eleven scenarios end to end through the operator script, including the migration in the runbook's exact order, a send that is never settled and gets undone, a send when V6 is never registered, and a skipped version.</p><p class="gate">proves itself by: the full rig suite green locally, runnable on demand from CI</p></div>
+  <p class="arc">Arc 3 — the app</p>
+  <div class="phase"><h3>P6 · The plumbing in the miner</h3><p>The Ethereum RPC setting, the bridge journal and its single queue, the wallet vault's fingerprint, the consent record, the fee payer abstraction.</p><p class="gate">proves itself by: unit and component tests, typecheck, the replay lane, a vault test on an existing sealed record</p></div>
+  <div class="phase"><h3>P7 · The guided path</h3><p>The screens from the canvas: the migration card, the send-ahead sheet with its one switch, the arrival card, To Ethereum, Deposit from Ethereum, the exceptions. Copy updated for no relayer and no waiting period.</p><p class="gate">proves itself by: component specs and a browser run on the rig that signs in on V5, sends ahead, flips, signs in on V6 and lands with real proofs</p></div>
+  <div class="phase"><h3>P8 · The old app</h3><p>A single-purpose build at <code>v5.yacana.network</code> that can restore keys, send ahead and nothing else, with its role checked against where it runs.</p><p class="gate">proves itself by: both builds passing the site checks, a mismatched role refused, one passkey working on both origins</p></div>
+  <p class="arc">Arc 4 — stats, docs, rehearsal</p>
+  <div class="phase"><h3>P9 · Stats, the announcement, the FAQ</h3><p>The bridge page under stats, Etherscan links, the landing's announcement line and the FAQ section with the six panels.</p><p class="gate">proves itself by: component specs, the screenshot gate, the stats and landing browser runs</p></div>
+  <div class="phase"><h3>P10 · Docs and CI</h3><p>The design doc and the operator runbook for the day Aztec announces V6, written for a session that knows nothing, step by step, each step a command the rig already ran.</p><p class="gate">proves itself by: lint on docs, workflows and shell; every runbook step naming a tested entrypoint</p></div>
+  <div class="phase"><h3>P11 · The testnet rehearsal</h3><p>YACA and the portal on Sepolia, the testnet miner redeployed with the bridge, one exit to Ethereum, one deposit back, one send held — all verified on explorers from the branch's preview site. Nothing goes live on the apex until you merge.</p><p class="gate">proves itself by: explorer links in the deployment record, the status command reporting the three crossings</p></div>
+
+  <h2>Your open questions</h2>
+  <p>Nine questions only you can answer. Each has a recommendation; say "as recommended" or change any.</p>
+  <div class="wrap"><table>
+    <tr><th>ask</th><th>the question</th><th>recommended</th></tr>
+    <tr><td>A1</td><td>V6 skips the launch lottery and continues V5's seed. The seed is public for the notice period, so someone could pre-mine V6's first epoch — at most one epoch's reward, made harder by mixing in the exact opening time.</td><td>Accept</td></tr>
+    <tr><td>A2</td><td>The in-app Ethereum wallet connection uses viem alone through the browser's injected wallet. You said "wagmi"; the capability is the same with fewer dependencies.</td><td>viem only</td></tr>
+    <tr><td>A3</td><td>The cap policy, as one decision. The numbers: growth 3× the schedule, one day's allowance up front, exits close 180 days after a flip, pauses 30 days a call and 60 in total, a version's start time within a week back or 90 days ahead. And what it is: a tripwire, not a promise — if mining booms far beyond the schedule, honest exits can be delayed and, after the flip, refused once the frozen cap is used up. Accept, or raise the multiplier (each extra ×1 is one more schedule's worth an attacker could drain).</td><td>Accept, 3×</td></tr>
+    <tr><td>A4</td><td>Who signs the Safe on Sepolia and mainnet and with what threshold; who holds the forwarder key.</td><td>Your call</td></tr>
+    <tr><td>A5</td><td>The FAQ as a section of the landing reached at /faq, or the standalone page the canvas drew.</td><td>Landing section</td></tr>
+    <tr><td>A6</td><td>A held send forwards into whatever version is live and registered, even if Yacana skipped one, instead of only the strict next version.</td><td>The live version</td></tr>
+    <tr><td>A7</td><td>Only the sender, or a key you list, may push a held send into a new version — a stranger cannot shove it into a rollup about to stop. The listed key keeps that power, so its custody matters as much as the Safe's: accept that.</td><td>Accept</td></tr>
+    <tr><td>A8</td><td>The hourly automatic sends publish each hour's winnings as an amount on Ethereum. Keep hourly, go daily, or manual only.</td><td>Hourly, disclosed</td></tr>
+    <tr><td>A9</td><td>YACA's only minter is the portal, forever: a portal bug would mean a new token. The alternative hands the no-timelock multisig a one-way minter switch.</td><td>Immutable</td></tr>
+  </table></div>
+  <p class="muted">Settled by the plan after the final pass, not asked: the flip case as a pull-request check with a measured budget; the app stopping V5 mining on any one positive "V6 is live" signal (your earlier instruction); the rehearsal on preview sites with the live switch requested when it is ready; the default Sepolia RPC.</p>
+
+  <div class="approval">
+    <h2>What you are approving</h2>
+    <ul>
+      <li><strong>Scope</strong>: the five deliverables above — miner functions, YACA + portal, the rig and its suite, the app screens and the old origin, the docs and runbook — rehearsed on testnet, mainnet-launch grade.</li>
+      <li><strong>Out of scope, documented</strong>: a relayer bot (forwarding stays by hand and self-serve), the mainnet fee path for claims, rig runs against Sepolia.</li>
+      <li><strong>Tier and delivery</strong>: mega-deep; four stacked pull requests opened only after the review loops converge; merges and the two production deploys are yours.</li>
+      <li><strong>Review loop</strong>: Codex fix loops per arc plus a cross-arc pass; no <code>/code-review</code>.</li>
+      <li><strong>Hardening</strong>: not scheduled here. Recommended before the mainnet launch plan: <code>/harden security</code> over the portal, the vault changes and the CI.</li>
+      <li><strong>The nine asks</strong> above, as recommended or as you change them.</li>
+    </ul>
+  </div>
+
+  <h2>What the reviewers said</h2>
+  <div class="kv">
+    <dt>Contradiction</dt><dd>Codex: six blockers, all adopted. Fable: three blockers, adopted or superseded by later rounds.</dd>
+    <dt>Round 1</dt><dd>Codex "reject pending blockers" (seven), Fable "ship after fixes" (four): every finding verified and adopted; the upgrade-time oracle reversed, the cap made a fixed policy, sends made owner-controlled, a real queue in the app.</dd>
+    <dt>Round 2</dt><dd>Codex self-critique: two blockers (the rig's clock must be the node's; a vault record cannot vouch for itself), adopted. Fable, hostile: the cap's start time was still a dial — bounded; the old app's preview host would have refused keys — fixed; no more waiting period on redeem; the audit's own round-one advice retracted where it under-funded honest exits.</dd>
+    <dt>Final pass</dt><dd id="final-verdict"><span class="ok">Approve with conditions</span> — a fresh-context Codex session over the finished plan: "no additional fund-loss or unbounded-issuance blocker beyond the risks already disclosed for owner acceptance." Its three conditions are folded in: the rehearsal's governance vote spans five slots instead of one minute (the local network's clock only moves in slot steps), the never-settled scenario runs its prune while the old node is stopped, and a wallet record from before this release is verified on the main site against the previous account format rather than at the old app. It also trimmed your questions to the ones only you can answer.</dd>
+  </div>
+  <p class="muted">The full record: <code>implementations-plan/yacana-bridge/plan.md</code> (§8 the decision ledger, §9 the verdicts), <code>audit-codex.md</code>, <code>audit-fable.md</code>.</p>
+
+  <h2>Implementation seeds (draft — finalized after approval)</h2>
+  <p>Two options for the autonomous implementation session. <span class="warn">Use exactly one per session — they don't compose.</span> <code>/goal</code> survives <code>claude --resume</code> and is the primitive for "work until the condition holds"; <code>/loop</code> re-fires on a cadence and is the fallback when the session needs a metronome.</p>
+  <div class="phase rec">
+    <h3>Recommended: /goal</h3>
+    <pre><code>/goal All eleven phases marked ✓ in implementations-plan/yacana-bridge/plan.md (the per-phase headers in the file — not the chat, not the task list), each ✓ backed by its phase's validation gate as written in plan.md §6 reported passing in the transcript; for each phase the agent has printed `LESSONS_FILE=implementations-plan/yacana-bridge/lessons/phase-N.md`; at each of the four arc boundaries the codex fix loop of plan.md §10 (steps 2–3, `/codex high`, both verbatim rules, resumed until a round yields nothing material, hard stop at 3) has converged with its rounds logged in lessons; the final cross-arc codex pass over `git diff main...HEAD` has converged; then Delivery per §10 step 5: `gh stack submit --auto`, each PR body ending with the attribution line, `gh pr checks --watch` green on every PR in the stack. Never merge, never deploy production (`site:deploy`, the v5 Worker's custom domain), never expand scope beyond plan.md; the testnet rehearsal (P11) runs on preview deployments only. Fast layers after every meaningful edit: `bun run lint` and `bun test` for the touched packages; `bun run lint:actions` before any workflow push.</code></pre>
+  </div>
+  <h3>Fallback: /loop 15m</h3>
+  <pre><code>/loop 15m Drive implementations-plan/yacana-bridge forward. Never idle waiting for my input. Each firing:
+1. Reality check: read implementations-plan/yacana-bridge/plan.md and lessons/ (authoritative state — not the chat); native task list empty? rebuild it from plan.md §6's phase headers plus one task per arc fix loop, the cross-arc pass and Delivery; run `git status` and `git log --oneline -5`; with a stack open, `gh stack view`.
+2. Waiting on CI is fine — confirm it is progressing (`gh run watch <run-id>` up to 10 minutes; stuck past that → inspect logs, log it as blocked in lessons). Use the wait: review the diff, prep the next phase, strengthen tests. Do not start work that conflicts with the in-flight change.
+3. No task in hand? Pick the next pending step from plan.md and start it. After each meaningful edit run `bun run lint` and `bun test` for the touched packages (`bun run lint:actions` for workflows). Commit → push (`gh stack push`; `gh stack sync` if trunk or a lower arc moved).
+4. Stuck, or facing a decision you would normally bring to me? Do not wait. Call `/codex high` with full context and go back and forth until you reach a defensible decision, then act on it. Log every consult + verdict in lessons/phase-N.md. Hard limits stay hard: never merge, never deploy production, never expand scope beyond plan.md; P11 runs on preview deployments only.
+5. Same step failed 5 times? Stop retrying; reassess with codex, then continue down the agreed path.
+6. Phase green? Green means the phase's validation gate as written in plan.md §6 passes. Run the full gate, paste the result, mark ✓ in plan.md, file the lessons entry, print `LESSONS_FILE=implementations-plan/yacana-bridge/lessons/phase-N.md`, advance. Arc boundary crossed (P3, P5, P8, P11)? Run plan.md §10 steps 2–3 on that arc's diff before `gh stack add` opens the next arc.
+7. All phases ✓? Close out per plan.md §10: the fresh cross-arc codex pass over `git diff main...HEAD`, then Delivery (`gh stack submit --auto`, PR bodies with the attribution line, `gh pr checks --watch`). Merging and the two production deploys are mine.
+Keep the native task list current (plan.md stays the source of truth).</code></pre>
+</main>

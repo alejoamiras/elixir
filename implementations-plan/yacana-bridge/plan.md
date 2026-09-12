@@ -5,7 +5,7 @@ driver: claude-code
 eli5_mode: artifact
 code_review: off
 budget: "recon 4 agents (1 reuse sweep, 3 subsystem mappers); codex at high (GPT-6 Astra); fable legs on Fable 5.1"
-status: audit round 2 folded in, awaiting the final codex pass
+status: final codex pass "approve with conditions" — conditions folded in; awaiting the owner's approval
 created: 2026-09-12
 ---
 
@@ -76,7 +76,7 @@ claims (a fee-payer function ships; the sponsored FPC stays on testnet), Sepolia
   deposited into it — three times what its schedule could have minted, plus a week — before its deadline closes;
   the pause defers, the deadline ends. The cap is a tripwire, not a proof of honesty: in a competitive boom honest
   production can exceed the schedule (epochs close on N claims with no minimum duration, `main.nr:188-193`), so an
-  honest exit can be delayed and, once the cap is frozen and exhausted, refused (Ask A7).
+  honest exit can be delayed and, once the cap is frozen and exhausted, refused (Ask A3).
 - **Safety**: a send is safe once its epoch is settled on L1 (each epoch has a proof deadline the UI shows); a missed
   deadline prunes the epoch and the burn is undone onto V5; V5 keeps producing and settling after the flip only
   while its operators keep it running, without a lifetime signal; balances left on a stopped chain are lost.
@@ -129,7 +129,7 @@ for nothing the portal cannot already do (M, C, F unanimous). New, in `src/bridg
 
 **L1, once — `packages/portal` (Foundry; `aztec-forge` 1.4.1 from the toolchain, its binary hash added to
 `toolchain.lock.json` with `anvil` and `cast`).** `src/YACA.sol` (OpenZeppelin ERC20; `mint`/`burnFrom` portal-only;
-the portal deploys it in its constructor, no circular init — C; the minter is immutable, Ask A13),
+the portal deploys it in its constructor, no circular init — C; the minter is immutable, Ask A9),
 `src/YacanaPortal.sol`, `src/YacanaHashes.sol` (the encodings, plus the pinned constant `RETIRE_SECRET_HASH =
 compute_secret_hash([0])` with a vector — never computed on L1), `src/aztec/` (tag-pinned copies of `IRegistry`,
 `IHaveVersion`, `IInbox`, `IOutbox`, `DataStructures`, `Hash`, `Epoch`, the Outbox/Inbox errors; source commit in
@@ -143,7 +143,7 @@ as submodules (no `.gitmodules` exists and checkout fetches none). `bun run port
 `toolchainBin('aztec-forge')` from `scripts/run/toolchain.ts` (extracted in P1).
 
 Portal storage: `IRegistry immutable registry`, `YACA immutable yaca`, `address operators` (the Safe, threshold per
-Ask A5), the immutable policy `PER_HOUR`, `ALLOWANCE`, `EXIT_FLOOR = 180 d`, `PAUSE_MAX = 30 d`, `PAUSE_BUDGET =
+Ask A4), the immutable policy `PER_HOUR`, `ALLOWANCE`, `EXIT_FLOOR = 180 d`, `PAUSE_MAX = 30 d`, `PAUSE_BUDGET =
 60 d`, `LAUNCH_BACKDATE = 7 d`, `LAUNCH_AHEAD = 90 d`, `LEAF_GAS`; `mapping(address ⇒ bool) forwarders`;
 `uint256[] registeredVersions`; `mapping(uint256 index ⇒ uint64 observedAt) transitions` (when the portal first
 saw the Registry hold a version at that index; 0 = unseen); per version `VersionInfo { bytes32 miner; uint64
@@ -197,8 +197,11 @@ Functions:
 nested in `e2e:agent`), and it never moves L1 time itself while an automine node runs: the automine sequencer owns
 L1 time and serialises builds, warps and settlement in one queue, so every warp goes through the running node's debug
 `warpL2TimeAtLeastTo` / `warpL2TimeAtLeastBy`; anvil's cheat codes are used only when no node is alive.
-`startUpgradeRig({ votingDuration: 60 })` boots the isolated network through the exported `startIsolatedNode` with
-`AZTEC_GOVERNANCE_VOTING_DURATION=60`, records the genesis inputs, addresses and config, and funds its own L1 signer
+`startUpgradeRig({ votingDuration: 360 })` boots the isolated network through the exported `startIsolatedNode` with
+`AZTEC_GOVERNANCE_VOTING_DURATION=360` (five 72 s slots: the node's warp rounds its target up to the next slot
+boundary and publishes an empty checkpoint there, `automine_sequencer.ts:586-602`, so a one-minute window can close
+between the warp's landing and the vote's inclusion; the rig asserts every governance transaction lands inside its
+window), records the genesis inputs, addresses and config, and funds its own L1 signer
 (anvil account 1) with the staking asset by one deployer `mint` while the sequencer is paused (the deployer key is
 the live node's publisher; two clients on one EOA would race nonces); `deployNext({ bump })` calls
 `deployRollupForUpgrade` under the rig's key with the current canonical's config from `getL1Config` and exactly one
@@ -209,8 +212,8 @@ lag 2, a genesis root computed with the pinned node's own formula composed from 
 funds the new FeeJuicePortal through `FeeAssetHandler`, and reads the new version from the deployed Rollup's
 `getVersion()` (never computes it: the Solidity and TS formulas differ, `RollupConfiguration.sol:132-145`);
 `flip(next)` deploys the payload from the shipped ABI/bytecode, deposits ≥ 2e24 of the staking asset,
-`proposeWithLock`, warps through the running node to `creation + votingDelay + 1`, votes, warps past
-`votingDuration + executionDelay`, executes, and asserts `getCanonicalRollup`, `numberOfVersions`, `getVersion(i)`,
+`proposeWithLock`, warps through the running node past `creation + votingDelay` (the warp lands on the next slot
+boundary), votes inside the window, warps past `votingDuration + executionDelay`, executes, and asserts `getCanonicalRollup`, `numberOfVersions`, `getVersion(i)`,
 distinct versions and boxes — repeatable for a second flip, and needing no node for the new version;
 `postFlipWindow()` keeps the old node building and settling; `stopNode(v)` pauses the sequencer, then stops the
 node (anvil and the run dir stay); `startNode(v, { autoProve })` runs `aztec start --node --sequencer
@@ -279,8 +282,12 @@ the master like the vault's records and disclosed in the review); `keys/store.ts
 ciphertext untouched (the AAD includes `v`), adds a master fingerprint (`HKDF(master, "yacana.master.fp.v1")`,
 written only after the address check passed under the current class) and an optional `account.addresses:
 {[classId]: address}` filled at open by re-deriving with the build's class (a record whose stored address matches
-no class migrates only after the fingerprint matches; one with neither is refused with "sign in once at the old
-origin, whose build still derives the old address, or restore again"); `wallet.ts` extracts `feePayer.ts` (a
+no class migrates only after the fingerprint matches; one with neither is verified against the legacy class on the
+apex — the build pins the previous account class id and recomputes the legacy address with
+`computeContractAddressFromInstance`; a match writes the fingerprint and migrates, a mismatch is refused as a wrong
+phrase; should a future SDK change make that recomputation impossible, the app offers a fresh restore on the apex
+with the disclosure that a fresh restore has nothing to compare against — the old origin's vault is a separate
+store and can fix nothing here); `wallet.ts` extracts `feePayer.ts` (a
 `FeeProvider(operation)`); features `MigrationCard`, `ArrivalCard`, `SendAheadSheet`, `ToEthereumSheet` (the Send
 sheet gains the destination row), `DepositSheet`, `BridgeTile`, `TakingLongDialog` (opens for a `held`/`ready`
 crossing older than a stated age, not on a bot's silence), `EthRpcTile`, `OldTabNotice` (compares `/build.json`'s
@@ -410,8 +417,7 @@ hoisted, Aztec's own `Outbox`/`Inbox` under test rather than mocks.
   The passkey's RP ID is the apex, so the old origin can obtain the same master after user verification
   (`passkey.ts:93-96`): it is a fully trusted sibling, built by the same pipeline with the same headers, maintained
   with the apex until its version's deadline passes, then taken down; the role/origin check guards deployments,
-  not secrets. Its build still derives the previous account class's address, which is what lets a legacy vault
-  record acquire its fingerprint there.
+  not secrets. Its vault is its own per-origin store: nothing signed in there reaches the apex's records.
 
 ### 3.6 Trade-offs and alternatives not taken
 
@@ -460,17 +466,17 @@ YACA on Ethereum, balances on each Aztec version, the seed.
   at most a week — ever leaves a version, and `redeem` is under the same cap, pause and deadline (F). The cap grows
   until the first portal call after the true flip records it: the runbook's minute-one call bounds that gap. An
   honest holder is never confiscated by the cap's growth rule, but a competitive boom can delay honest exits and
-  the frozen cap can end them (Ask A7).
+  the frozen cap can end them (Ask A3).
 - **Post-flip mining**: the retire message ends claims on chain; until it is consumed the UI's flip signal stops
   mining; the deadline closes a version's exits at the later of the version after next and 180 days.
 - **The operators**: write-once registration per version (cannot repoint an old version's exits), the policy
   immutable and `launchAt` bounded (they never choose how much a version may issue beyond a week's growth), no
   timelock by the owner's choice, pause bounded, `closeDeposits` one-way; the record page discloses who they are (a
-  Safe; threshold per A5), the forwarders, and what a wrong first registration does: it lets that miner issue up to
+  Safe; threshold per A4), the forwarders, and what a wrong first registration does: it lets that miner issue up to
   the version's cap *and* strands every K2 forwarded into that version (the K4 names the registered miner and the
   leaf is nullified), which is why the forwarder script and the app refuse a target whose registered miner differs
-  from the announced record. A listed forwarder holds the griefing power D37 removed from strangers (Ask A10). The
-  token's minter is the portal, immutably (Ask A13). Keys never in the repo or CI; the Sepolia deployer key is
+  from the announced record. A listed forwarder holds the griefing power D37 removed from strangers (Ask A7). The
+  token's minter is the portal, immutably (Ask A9). Keys never in the repo or CI; the Sepolia deployer key is
   `YACANA_L1_PRIVATE_KEY` and the forwarder key `YACANA_L1_FORWARDER_KEY`, env only, never echoed, never on a
   command line. `retire` and `noteTransition` are permissionless and can be censored only by Ethereum itself.
 - **Front-running and griefing**: redemption and K2 forwarding sign `(version, epoch, leafId, contentHash, target or
@@ -489,7 +495,7 @@ YACA on Ethereum, balances on each Aztec version, the seed.
   renders "unknown" and holds back new Ethereum-bound sends; the page fetches event ranges and matches locally,
   never per hash; the node can waste work, never move funds.
 - **Privacy**: amounts, secret hashes, redeem addresses and timing are public on Ethereum and, through the token's
-  public supply and the exit logs, on both rollups; the hourly sends publish per-hour win amounts (Ask A11); the
+  public supply and the exit logs, on both rollups; the hourly sends publish per-hour win amounts (Ask A8); the
   review says so; nothing names the account; the K1 tag is a hash; one redeem address per exit; the last-seen
   balance is sealed on the device and named in the review; the witness archive holds only public leaves.
 - **Cryptography**: Aztec's `compute_secret_hash` / `sha256_to_field` for contents (three-way vectors); secrets and
@@ -544,7 +550,11 @@ YACA on Ethereum, balances on each Aztec version, the seed.
   one serial queue (`:282-299, 340`); the node's debug API exposes `mineBlock`, `prove`, `warpL2TimeAtLeastTo`,
   `warpL2TimeAtLeastBy` (`stdlib/src/interfaces/aztec-node-debug.ts:14-72`); the admin `pauseSequencer` calls that
   `pause()` (`server.ts:954-956`); its "proving" is synthetic settlement (Outbox roots + the proven tip), not proof
-  validation.
+  validation; its `runWarp` rounds the target up to the next slot boundary and publishes an empty checkpoint there
+  (`automine_sequencer.ts:586-602`); a propose prunes first when the proof window has passed
+  (`ProposeLib.sol:172-175`); governance's pending phase ends at `creation + votingDelay` and voting at
+  `+ votingDuration` (`ProposalLib.sol:162`); `computeContractAddressFromInstance` is exported by
+  `@aztec/stdlib/contract`.
 - The installed 5.2.0 packages export `deployRollupForUpgrade` (any signing key), `getDeployRollupForUpgradeEnvVars`,
   the `RegisterNewRollupVersionPayload` ABI + bytecode, `EthCheatCodes`, `RollupCheatCodes`, `upgrade_utils`,
   `createAztecNodeDebugClient`; the node path takes `USE_AUTOMINE_SEQUENCER`, `AUTOMINE_ENABLE_PROVE_EPOCH`;
@@ -590,26 +600,28 @@ YACA on Ethereum, balances on each Aztec version, the seed.
 **Asks (owner; resolved at the gate)**
 - A1 The V6 continuation skips the launch lottery: its seed is public from deployment and mixes the actual open
   timestamp, so a head start is bounded to one epoch's reward per candidate slot rather than removed.
-- A2 viem-only in-app Ethereum wallet (injected provider) instead of wagmi.
-- A3 The flip-only rig case in the PR gate of `harness.yml` (paths: `scripts/run/**`, `packages/{harness,portal,
-  contracts,deploy}/**`), its budget set from P4's measurement; the full suite on `workflow_dispatch`.
-- A4 The cap constants: `PER_HOUR = REWARD × N_CLAIMS × 3600 / EXPECTED_EPOCH_SECONDS × 3`, `ALLOWANCE = REWARD ×
-  N_CLAIMS × 24`; the bounds 180 d / 30 d / 60 d and the `launchAt` window −7 d / +90 d; the 24 h deposit close.
-- A5 The Safe's signers and threshold on Sepolia and mainnet; the forwarder key's custody; the default Sepolia RPC.
-- A6 The FAQ as a landing section with a `/faq` rewrite (the canvas drew a standalone page with the landing's header).
-- A7 The issuance bound as §2 states it: 3× the schedule plus at most a week, frozen at the observed flip, net of
-  deposits; honest exits can be delayed in a competitive boom and refused once the frozen cap is exhausted. Accept,
-  or raise the multiplier (each ×1 adds one schedule's worth of attacker headroom).
-- A8 The forward target: the canonical version if Yacana registered it (D18) rather than the strict successor.
-- A9 Flip detection by any positive signal (D33); the old page keeps "or to Ethereum".
-- A10 K2 forwarding by the holder's signature or an operator-listed forwarder (D37) — a listed forwarder can still
-  forward a K2 into a version about to stop — or permissionless with that griefing open to anyone.
-- A11 The hourly send cadence publishes per-hour win amounts on Ethereum; keep hourly (disclosed), or daily, or
+- A2 viem-only in-app Ethereum wallet (injected provider) instead of wagmi (the owner's literal answer named wagmi).
+- A3 The cap policy, all of it: `PER_HOUR = REWARD × N_CLAIMS × 3600 / EXPECTED_EPOCH_SECONDS × 3`, `ALLOWANCE =
+  REWARD × N_CLAIMS × 24`, exits closing 180 d after a flip, pauses 30 d a call and 60 d in total, the `launchAt`
+  window −7 d / +90 d, the 24 h deposit close; and what the cap is: a tripwire, not a proof of honesty — 3× the
+  schedule plus at most a week, frozen at the observed flip, net of deposits; honest exits can be delayed in a
+  competitive boom and refused once the frozen cap is exhausted. Accept, or raise the multiplier (each ×1 adds one
+  schedule's worth of attacker headroom).
+- A4 The Safe's signers and threshold on Sepolia and mainnet, and who holds the forwarder key.
+- A5 The FAQ as a landing section with a `/faq` rewrite (D29), or the standalone page the canvas drew.
+- A6 The forward target: the canonical version if Yacana registered it (D18) rather than the strict successor.
+- A7 K2 forwarding by the holder's signature or an operator-listed forwarder (D37): accept that a listed forwarder
+  keeps the power to forward a K2 into a version about to stop, so its custody matters as much as the Safe's.
+- A8 The hourly send cadence publishes per-hour win amounts on Ethereum; keep hourly (disclosed), or daily, or
   manual only.
-- A12 The rehearsal runs on the branch's preview site and never deploys production; the apex switch and the `v5`
-  Worker's custom domain go live after merge on the owner's call.
-- A13 YACA's minter is the portal, immutably: a portal bug means a new token. Accept, or a one-way `setMinter`
+- A9 YACA's minter is the portal, immutably: a portal bug means a new token. Accept, or a one-way `setMinter`
   under the Safe (which hands the no-timelock multisig the mint).
+
+Settled by the plan, not asked (the final pass's call): the flip job in `harness.yml`'s PR gate with a measured
+budget (D41); flip detection by any positive signal and the old page's "or to Ethereum" (D33, the owner's earlier
+instruction that mining on V5 stops once V6 is live); the preview-only rehearsal (D31 — the production deploys are
+requested when they are ready, not pre-approved); the default Sepolia RPC (engineering: P6's probe and
+`docs/deployments.md`).
 
 ## 6. Phases with validation gates
 
@@ -658,14 +670,15 @@ run lint:actions`.
 — arc 1 boundary: the codex loop, then `gh stack add bridge-harness` —
 
 **P4 — the flip alone** (`scripts/run/upgrade-rig.ts`, `packages/harness` H0, `harness.yml`). No Yacana: boot with a
-60 s vote, fund the rig's signer under a paused sequencer, `deployNext` (the genesis root from the exported
+five-slot vote, fund the rig's signer under a paused sequencer, `deployNext` (the genesis root from the exported
 constituents), the payload, deposit ≥ 2e24, propose, warp through the node, vote, warp, execute; assert the
 Registry, distinct versions and boxes; pause and stop V5, start the pinned V6 node (compare its logged genesis root
 with the rig's), publish the sponsored FPC, one sponsored transaction, V6 settles a checkpoint (a non-zero Outbox
 root); `flip` twice (V7) in one run with V6 as the running node; the run's wall time and the proof-window headroom
-of every warp recorded in the case's output and copied into this plan (A3's budget).
-Gate: `bun run rig -- flip` green locally and as `harness.yml`'s PR job, filtered on `scripts/run/**` and
-`packages/{harness,portal,contracts,deploy}/**`, `workflow_dispatch` for `all`.
+of every warp recorded in the case's output and copied into this plan (the CI budget, D41).
+Gate: `bun run rig -- flip` green locally; `harness.yml` written (the flip job filtered on `scripts/run/**` and
+`packages/{harness,portal,contracts,deploy}/**`, `workflow_dispatch` for `all`) and `bun run lint:actions` clean —
+its first green run is verified on the arc-2 PR at Delivery (§10 step 5), since no PR exists before then.
 
 **P5 — the migration cases and the operator script** (`packages/deploy/src/bridge/*`, `packages/harness` H1–H11).
 H1 K1 round trip on V5 (replay refused) — real proving once for the mined balance, simulation on reruns; H2 K3
@@ -676,10 +689,11 @@ on V5) → pause and stop V5 → start V6 → deploy the V6 miner + token from V
 one K2 forwarded by the forwarder key, one by the holder's signature → `claim_from_l1` on V6 → one real W claim on
 V6 at the continued index; H4 send_ahead after the flip while V5 still settles; H5 never settled, on V6 → V7 (V6
 pinned with auto-prove off; the V6 deployment and the mined balance settled by `prove` first and recorded as the
-baseline; send_ahead on V6; stop V6 before it settles; flip to V7 (no V7 node); restart V6 pinned to warp past the
-proof window; `clock.prune` on V6's Rollup; L1 assertions: roots zero, forward reverts
-`Outbox__NothingToConsumeAtEpoch`, the pending tip rewound to the baseline; then, time-boxed, the wallet's balance
-back on the restarted V6 — the UX claim only when it is); H6 no registered canonical → redeem at once (under
+baseline; send_ahead on V6; stop V6 before it settles; with no node alive the rig's cheat codes own the clock: flip to V7,
+warp past the proof window and `prune` V6's Rollup — a running V6 would publish a checkpoint on every warp and its
+own propose would prune first (`ProposeLib.sol:172-175`), defeating the assertions; L1 assertions with V6 still
+stopped: roots zero, forward reverts `Outbox__NothingToConsumeAtEpoch`, the pending tip rewound to the baseline;
+only then restart V6 pinned and, time-boxed, see the wallet's balance back — the UX claim only when it is); H6 no registered canonical → redeem at once (under
 cap/pause/deadline), then a late register + forward reverts nullified; H7 V5 → V7 with V6 in the Registry but
 unregistered by Yacana → forward into V7, and V5's deadline from V7's observed activation; H8 Ethereum round trip
 accounting (`totalSupply`, net allowance); H9 pause / limit / deadline boundaries on the live portal incl.
@@ -697,8 +711,9 @@ fingerprint + `addresses`, `feePayer.ts`, `controller.ts` pause reason, `main.ts
 `tests/vault.bun.test.ts`).
 Gate: `bun run lint && bun test packages/site packages/web-miner packages/bridge && bun run test:components &&
 bun run --cwd packages/web-miner typecheck && bun run --cwd packages/web-miner test:replay` — the vault test opens
-an existing sealed v1 record, adds the fingerprint, refuses a wrong phrase under a changed class, refuses a legacy
-record without a fingerprint under a changed class with the old-origin message, migrates `addresses` both with an
+an existing sealed v1 record, adds the fingerprint, refuses a wrong phrase under a changed class, verifies a legacy
+record without a fingerprint under a changed class against the pinned previous class (a match migrates, a mismatch
+is refused), migrates `addresses` both with an
 unchanged and a changed class; a queue test proves two concurrent sends and two tabs (`fake-indexeddb`) get
 distinct indices with more than 20 prior exits on the version.
 
@@ -786,7 +801,7 @@ codex (CC), fable (FC); audit round 1: codex (CA1), fable (FA1); audit round 2: 
 | D6 | Retire message instead of an epoch cutoff | C1 | lazy cutoff |
 | D7 | Successor by Registry history index | C1 | `N+1` arithmetic on ids |
 | D8 | Exit deadline = later of (observed activation of Registry index i+2, flip + 180 d) + paused time; K6 redemption; transitions recorded lazily by every succeeding entrypoint and by `noteTransition` | C1, C, CC, CA1, CA2 | one hop (confiscation); a Yacana-registered-based deadline (FC S2); records only through `retire` (M) |
-| D9 | The cap grows on wall time from `launchAt`, saturates before it, and freezes at the observed flip: the net bound `exited − inbound ≤ cap(flipAt)` is 3× the schedule plus at most a week for every version; pauses extend the deadline, never the cap; before the flip an over-cap leaf waits, after it the frozen remainder is final; honest exits can be delayed in a boom and refused once exhausted (Ask A7) | FA1 (resolving CA1), CA2, FA2 | growth to `flipAt + 180 d` minus paused time (FC B2 — retracted by FA1); frozen at `flipAt` minus paused time (draft 3, F); a finite competitive allowance (C); "never refused" (M) |
+| D9 | The cap grows on wall time from `launchAt`, saturates before it, and freezes at the observed flip: the net bound `exited − inbound ≤ cap(flipAt)` is 3× the schedule plus at most a week for every version; pauses extend the deadline, never the cap; before the flip an over-cap leaf waits, after it the frozen remainder is final; honest exits can be delayed in a boom and refused once exhausted (Ask A3) | FA1 (resolving CA1), CA2, FA2 | growth to `flipAt + 180 d` minus paused time (FC B2 — retracted by FA1); frozen at `flipAt` minus paused time (draft 3, F); a finite competitive allowance (C); "never refused" (M) |
 | D10 | Deposits carry expectedVersion + deadline; refused while the version is paused or its deposits are closed | C1, FA1, FA2 | plain deposit |
 | D11 | Verb "Send ahead" | FU, C2 | "Commit" |
 | D12 | One switch: hourly sends + landing at sign-in; consent scoped `{account, deployment, operation, expiresAt}`; Claim always offered | FU (adapted by M), CA1 | auto-commit at the flip (C2 rejected) |
@@ -795,7 +810,7 @@ codex (CC), fable (FC); audit round 1: codex (CA1), fable (FA1); audit round 2: 
 | D15 | K4 content = `claim_from_l1(uint256)` ‖ amount | F | `H(4, amount, secretHash)` |
 | D16 | K6 by EIP-712 over `(version, epoch, leafId, contentHash, recipient, expiry)` with a per-exit redeem key; under the same cap, pause and deadline as a forward; no waiting period | C2, C, F, CC, FC B3, FA2 | a bearer secret; `(version, leafId, recipient, expiry)`; one wallet-wide key; 30 days after the flip (the drafts — undefined before a flip, protects nobody under D37) |
 | D17 | Transitions by observation: the first succeeding portal call that sees the Registry above an index records `now` for the version's own index, the next and the one after; `noteTransition` permissionless and the persisted step; no GSE | C, CA1, CA2, FA2 | the GSE trace with a fallback (M + F, CC, FC B1); a sandwich rule on the trace (FA1 — defeated by a split payload) |
-| D18 | K2 forwards into the canonical version if Yacana registered it (index greater); K6 for "no registered canonical" or a change of mind (Ask A8) | M | strict successor (F, C, FC conceded) |
+| D18 | K2 forwards into the canonical version if Yacana registered it (index greater); K6 for "no registered canonical" or a change of mind (Ask A6) | M | strict successor (F, C, FC conceded) |
 | D19 | `retired` checked in private for feedback and in public `record_claim` authoritatively | C, F | private only |
 | D20 | `packages/bridge` as the shared TS client, `bridge → miner-core` only; vectors codegen'd into the Noir crate; `hkdf` exported from `keys/derive.ts` | C, FC, CA1 | bridge code inside `miner-core` (M, F) |
 | D21 | viem (`import 'viem'`, the hoisted alias) through the injected provider; no wagmi (Ask A2) | F, FA1 | wagmi (O's literal answer) |
@@ -805,16 +820,16 @@ codex (CC), fable (FC); audit round 1: codex (CA1), fable (FA1); audit round 2: 
 | D25 | While an automine node runs, every warp goes through its debug `warpL2TimeAtLeastTo/By` (the sequencer owns L1 time and serialises builds, warps and settlement); anvil cheat codes only when no node is alive; `pauseSequencer` only before `stopNode`; prove a pinned node accepts a sponsored tx before deploying Yacana; the flip job's budget measured | CA2 (over C, CA1) | pause alone (M); pause + `syncPoint` (CA1 — the settle tick is not suspendable) |
 | D26 | Each exit emits two public logs: the `ExitRecorded` event under its type tag (the operator's paginated enumeration) and the same payload under `compute_log_tag(hash_or_tag, DOM_EXIT_LOG)` (the owner's one-call scan); the landing scan uses the portal's events | F, FA1, FA2 | one event log (M — 20 per tag per call, a full walk per send); a storage log |
 | D27 | Continuation constructor `(target, seed, launch_at, first_epoch, portal)`, lottery bypassed when `first_epoch > 0`, the first seed mixing the actual open timestamp; a versioned record | M, C, FA2 | carrying supply; a seed fixed at deployment (pre-minable for the whole notice) |
-| D28 | `MasterRecord` keeps `v: 1` and its AAD; a master fingerprint written after the address check under the current class and required before any migration; a legacy record without one under a new class is refused towards the old origin or a fresh restore; optional `addresses: {[classId]}`; the snapshot key `yacana.balance.v1.<chainId>.<rollupVersion>.<token>.<account>`, sealed under the master | FA, F, CC, FA1, CA2, FA2 | bumping `v` (breaks decryption); the address check alone; accepting a supplied master's fingerprint at bootstrap (CA2 — trusts the master blindly); a plaintext snapshot |
+| D28 | `MasterRecord` keeps `v: 1` and its AAD; a master fingerprint written after the address check under the current class and required before any migration; a legacy record without one under a new class is verified against the pinned previous class on the apex, else offered a fresh restore; optional `addresses: {[classId]}`; the snapshot key `yacana.balance.v1.<chainId>.<rollupVersion>.<token>.<account>`, sealed under the master | FA, F, CC, FA1, CA2, FA2 | bumping `v` (breaks decryption); the address check alone; accepting a supplied master's fingerprint at bootstrap (CA2 — trusts the master blindly); a plaintext snapshot |
 | D29 | The FAQ as a landing section + `/faq` rewrite | F, C | a fourth app; a second Vite entry (M) |
 | D30 | The old app is a build with `VITE_APP_ROLE=old` on a second Worker with its own preview suffix; `versioned` = the host of `VITE_OLD_APP_ORIGIN`; the role runs on `versioned`, `preview` and `local`, never on the apex; keys create/restore split; the origin is a fully trusted sibling, maintained then retired | F, FC S3, CA1, CA2, FA2 | runtime hostname role only (M); treating the role check as secret protection; `role old ⇔ versioned` strictly (round 1 — refuses its own preview) |
-| D31 | Operator script in arc 2; deploy-script/record changes in arc 1; K2 landing on testnet = pending validation; the rehearsal from the arc-4 branch on preview deployments; production deploys after merge on the owner's call (Ask A12) | C, F, CC, FA1 | a merge precondition (M); `site:deploy` from the branch (the drafts — overwrites the apex) |
+| D31 | Operator script in arc 2; deploy-script/record changes in arc 1; K2 landing on testnet = pending validation; the rehearsal from the arc-4 branch on preview deployments; production deploys after merge, requested from the owner when ready | C, F, CC, FA1 | a merge precondition (M); `site:deploy` from the branch (the drafts — overwrites the apex) |
 | D32 | Fee payer abstracted (`FeeProvider`); mainnet decides later | O | Yacana FPC now; fee juice |
-| D33 | Flip detection by precedence: a Registry departure, the node's version or the `retired` slot → `flipped`; a `/build.json` mismatch → `stale` (reload); `unknown` only when the Registry read is silent with nothing positive; readiness and retirement are separate states (Ask A9) | CC, FC S1, FA2 | a conjunction (M); `build.json` as a flip signal (round 1 — a same-rollup redeploy is not an upgrade) |
+| D33 | Flip detection by precedence: a Registry departure, the node's version or the `retired` slot → `flipped`; a `/build.json` mismatch → `stale` (reload); `unknown` only when the Registry read is silent with nothing positive; readiness and retirement are separate states | CC, FC S1, FA2 | a conjunction (M); `build.json` as a flip signal (round 1 — a same-rollup redeploy is not an upgrade) |
 | D34 | H3's order: retire and stop V5 before V6's miner exists; register after deploying it; forward after registering | CC | register before deploy (M) |
 | D35 | `RETIRE_SECRET_HASH` pinned in Solidity with a vector; a second L1 `retire` sends no leaf; `retire` allowed while paused | FC nits | — |
 | D36 | Announcing (`VITE_MIGRATION`) is a site redeploy; the runbook says so | FC nit | a runtime config fetch |
-| D37 | K2 forwarding by the holder's redeem-key signature (`Forward`, a distinct struct from `Redeem`) or an operator-listed forwarder, the original caller carried through `forwardOne`, the portal never a forwarder; K1 permissionless (Ask A10) | CA1, CA2 | permissionless K2 forwarding (the drafts) |
+| D37 | K2 forwarding by the holder's redeem-key signature (`Forward`, a distinct struct from `Redeem`) or an operator-listed forwarder, the original caller carried through `forwardOne`, the portal never a forwarder; K1 permissionless (Ask A7) | CA1, CA2 | permissionless K2 forwarding (the drafts) |
 | D38 | `PER_HOUR`, `ALLOWANCE` and the day bounds immutable in the portal; `registerVersion(version, index, miner, launchAt)` with the index checked against the Registry and `launchAt ∈ [now − 7 d, now + 90 d]`; the cap saturates before `launchAt` | CA1, FA1, CA2, FA2 | operator-set caps per version (the drafts); an index scan (M); a free `launchAt` (round 1 — the cap's real dial); `launchAt ≥ observed activation` (FA2 — under-funds a late registration) |
 | D39 | Pauses per version: `pausedUntil = max(now, pausedUntil) + s`, `pausedSeconds += s`, `unpause` refunds `max(pausedUntil − now, 0)`; `pauseAll` loops the registered versions and skips an exhausted one | CA1, CA2, FA2 | a global scalar with lazy unions (M) |
 | D40 | Every bridge operation in the app runs through one queue; the exit index is read and incremented inside the store's transaction (tabs share it) after a one-call scan of the account's candidate tags; abandoned reservations kept; a cross-origin or cross-device collision links two exits and loses nothing (disclosed as "one active origin per device") | CA1, CA2, FA2 | serialisation through `track` (M — it is a drain join); a full log walk per send |
@@ -827,7 +842,8 @@ codex (CC), fable (FC); audit round 1: codex (CA1), fable (FA1); audit round 2: 
 | D47 | `bridge.e2e.ts` lives in a `RIG_ONLY` inventory section the shard merge ignores | FA2 | a shard file (round 1 — the merge would stay red) |
 | D48 | `closeDeposits(version)` (operators, one-way) the day before an announced flip; the UI's 24 h close mirrors it | FA2 | a UI-only close (the drafts); pausing the old version (holds its exits) |
 
-Disputed items surfaced as Asks A7–A13 rather than resolved silently (CC, FC, CA1, FA1, CA2, FA2).
+Disputed items surfaced as Asks A3–A9 rather than resolved silently (CC, FC, CA1, FA1, CA2, FA2); the final pass
+settled D31, D33 and D41 as plan decisions and merged the two cap asks into A3.
 
 ## 9. Audit verdicts
 
@@ -864,10 +880,21 @@ window rather than its `≥ observed activation` rule (which under-funds a late 
 (D33), no redeem wait (D16), the real boxes under Foundry (D46), the rig's own signer (D23), the `RIG_ONLY`
 inventory (D47), `closeDeposits` (D48), the served witness archive (D45), the version's own index in `_sync`
 (D17), the open-time seed (D27), the sealed snapshot, the two-label landing scan, saturation, `registered` first,
-per-leaf gas, `pauseAll` skip. New Ask A13. Both legs agreed the round-1 choices stand: observation time, the
-frozen cap with A7, the genesis by construction, D24, D42, D37 with A10's custody note.
+per-leaf gas, `pauseAll` skip. A new ask on the immutable minter (A9). Both legs agreed the round-1 choices stand:
+observation time, the frozen cap with A3, the genesis by construction, D24, D42, D37 with A7's custody note.
 
-_The final fresh-context codex verdict follows here._
+**Final fresh-context pass.** Codex, a new session over the finished plan and both audit files
+(`audit-codex.md`, final section): **APPROVE WITH CONDITIONS** — "I found no additional fund-loss or
+unbounded-issuance blocker beyond the risks already disclosed for owner acceptance." Three conditions, all verified
+and folded in: (1) the node's warp rounds up to a slot boundary and publishes a checkpoint, so a one-minute vote
+window can be missed — the rig votes over five slots and asserts every governance transaction lands inside its
+window; (2) H5's warp and prune run while V6 is stopped, because a running node's propose prunes first and every
+warp publishes a checkpoint — V6 restarts only for the wallet reconciliation; (3) a legacy vault record cannot
+acquire its fingerprint at the old origin (a separate per-origin store) — the apex verifies it against the pinned
+previous account class, else offers a fresh restore. Also adopted: P4's gate is the local run, its CI job verified
+on the arc-2 PR at Delivery (no PR exists earlier); Asks reduced to the owner's genuine decisions (D31, D33, D41
+settled; the cap asks merged; A7 rephrased to accept the forwarder's custody rather than reopen permissionless
+griefing). Every gate is otherwise executable in order; the runtime inferences of §5 remain to be run.
 
 ## 10. Post-implementation (self-contained — the implementing session executes this from here)
 
@@ -891,8 +918,9 @@ Delivery.
    asking for cross-arc issues (seams between arcs, duplication across arcs, drift from this plan), same loop.
 5. **Delivery**: only now. `gh stack sync` (if main moved), `gh stack submit --auto`, then `gh pr edit` each PR with a
    proper body ending in "🤖 Generated with [Claude Code](https://claude.com/claude-code)", then
-   `gh pr checks --watch`. `gh stack merge` is the owner's call, and so are the two production deploys after it (§7).
-   Then mark `implementations-plan/index.md`.
+   `gh pr checks --watch` (the arc-2 PR's `harness.yml` flip job is P4's CI verification — its first run happens
+   here). `gh stack merge` is the owner's call, and so are the two production deploys after it (§7). Then mark
+   `implementations-plan/index.md`.
 
 **The no-over-engineering rule** (verbatim in every post-impl codex prompt, initial and resumed): *"Report bugs and
 small, targeted improvements only. Do not propose speculative abstractions, extra configuration surface, new layers,
@@ -910,4 +938,6 @@ At each phase-gate pass: `agent-worktree status yacana-bridge "phase N green: <n
 
 ## Seeds (DRAFT until the approval gate)
 
-_Finalized post-approval; see the ELI5 companion._
+ELI5 companion (Artifact mode): https://claude.ai/code/artifact/e51eba92-5d79-4506-8124-4ca750522962 — source
+`implementations-plan/yacana-bridge/eli5.html` (republish the same file to keep the URL). The draft `/goal`
+(recommended) and `/loop 15m` seeds live there; they are finalized here and in the Artifact after approval.

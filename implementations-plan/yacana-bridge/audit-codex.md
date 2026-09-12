@@ -104,4 +104,53 @@ My round-1 verification is otherwise satisfied **at plan level**: consent/manual
 | preview hostname vs the role check | Yes (`host.ts:13-18`: the preview's RP ID is the preview host). | **Adopted**: role `old` is allowed on `versioned`, `preview` and `local` hosts and refused on the production apex; `assertProductionArtifact` checks the production pairing only; apex-passkey continuity across origins is the P8 e2e with one virtual authenticator, not the preview rehearsal. |
 | the "minutes" wording | — | **Adopted**: "bounded by the first call". |
 
-Rejected: none. Divergences retained with Codex's agreement: D17, D9/A7, the genesis by construction, D24, D42, D37 (with A10's custody note).
+Rejected: none. Divergences retained with Codex's agreement: D17, D9/A7, the genesis by construction, D24, D42, D37 (with A10's custody note). (Ask numbers as of round 2; the final pass renumbered them: A7 → A3, A10 → A7.)
+
+## Final pass (2026-09-12) — a fresh-context session over the finished plan (session `01a093d6…`, `~/.cache/tmp/codex-VbIwqahB/response.md`)
+
+### Codex's response (verbatim; local links rewritten as repo and source paths)
+
+APPROVE WITH CONDITIONS
+
+- Correct P4/P5's clock handling and pruning assertions below.
+- Move P4's PR-job verification to Delivery so phase ordering is executable.
+- Replace the old-origin fingerprint recovery instruction with a recovery path that updates the apex vault.
+
+Confidence: **high** on these source-level findings.
+
+**Blockers**
+
+- [§3.1/P4] A 60-second vote window is incompatible with unrestricted slot-rounded warps: relative to a slot boundary, creation at 12 requests 73, lands at 144, but voting closes at 132 — `automine_sequencer.ts:595`, `ProposalLib.sol:162` — lengthen the window to cover rounding and transaction inclusion, and verify the mined vote remains inside it.
+- [P5/H5] Restarting V6 and debug-warping past expiry also publishes a checkpoint; proposal execution automatically prunes, defeating the subsequent explicit-prune sequence and exact "pending tip equals baseline" assertion — `automine_sequencer.ts:598`, `ProposeLib.sol:173` — warp and prune while V6 remains stopped, assert L1 restoration, then restart for wallet reconciliation.
+
+I found no additional fund-loss or unbounded-issuance blocker beyond the risks already disclosed for owner acceptance.
+
+**Audit dispositions**
+
+- Codex round 2's D25 fix correctly serializes warps, but overlooks their slot rounding and checkpoint production; those effects cause both blockers above.
+- Both round-2 fingerprint dispositions leave an ineffective recovery instruction: signing in at the old origin cannot update the apex's IndexedDB record. The plan itself acknowledges separate stores — `plan.md` (§3.2), `packages/web-miner/src/keys/store.ts:32`. Use legacy-class verification on the apex or specify an explicit fresh-restore flow there.
+- No other recorded disposition appears materially wrong or incomplete from the checks performed.
+
+**A1–A13**
+
+A3, A6 and A9 are implementation decisions the plan should settle. A12 already follows the recorded deployment constraints; ask for authorization when the concrete production deployment is ready. A5's RPC selection is engineering work; signer, threshold and custody choices remain owner decisions.
+
+A10 should ask the owner to accept listed-forwarder custody risk, rather than reopen permissionless griefing as an equivalent implementation option. Keep A2 because the record says the owner explicitly requested wagmi. A8 can remain because destination policy changes where funds go. A1, A4/A7, A11 and A13 cover substantive economic, privacy or authority choices; consolidate A4/A7's overlapping cap approval.
+
+No additional owner decision identified.
+
+**Implementability**
+
+Section 6 is **not executable strictly in order as written**. P4 requires its PR job green, while §7 prohibits opening PRs until all phases and review loops finish — `plan.md` (P4's gate, §7). Make local execution P4's phase gate and require PR verification at Delivery. P4's voting sequence and P5/H5 also need the corrections above; the remaining gates are implementable, with their explicitly identified runtime inferences still requiring execution.
+
+### Verification and disposition (the driver)
+
+| finding | verified | disposition |
+|---|---|---|
+| the 60 s vote window vs slot-rounded warps | Yes: `runWarp` rounds up to the next slot boundary and builds an empty checkpoint there (`automine_sequencer.ts:586-602`); the pending phase ends at `creation + votingDelay` (`ProposalLib.sol:162`). | **Adopted**: `AZTEC_GOVERNANCE_VOTING_DURATION=360` (five slots); the rig asserts each governance transaction's block is inside its window. |
+| H5's restart defeats the prune assertions | Yes: a propose prunes first when the window has passed (`ProposeLib.sol:172-175`), and every warp publishes a checkpoint. | **Adopted**: with V6 stopped the rig's cheat codes own the clock — flip, warp, `prune`, assert; V6 restarts only for the wallet reconciliation. |
+| the old-origin fingerprint recovery cannot reach the apex's store | Yes (per-origin vault, `store.ts:27-41`; the plan's own §3.2). | **Adopted**: the apex pins the previous account class id and recomputes the legacy address with `computeContractAddressFromInstance` (`@aztec/stdlib/contract`); a match writes the fingerprint and migrates, a mismatch is refused; a fresh restore on the apex is the fallback, disclosed. |
+| P4's PR-job gate precedes any PR | Yes (§7). | **Adopted**: the local run is P4's gate; `harness.yml` is written and linted in P4 and verified green on the arc-2 PR at Delivery (§10 step 5). |
+| the Asks | — | **Adopted**: A3, A6, A9, A12 settled as D41, D29-with-an-ask-kept, D33, D31 (the FAQ placement stays an ask: the owner asked for a FAQ page and the canvas drew one); the RPC default is engineering; A4/A7 merged; A10 rephrased as accepting the forwarder's custody; renumbered A1–A9. |
+
+Rejected: none.
