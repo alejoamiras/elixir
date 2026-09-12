@@ -154,3 +154,16 @@ Section 6 is **not executable strictly in order as written**. P4 requires its PR
 | the Asks | — | **Adopted**: A3, A6, A9, A12 settled as D41, D29-with-an-ask-kept, D33, D31 (the FAQ placement stays an ask: the owner asked for a FAQ page and the canvas drew one); the RPC default is engineering; A4/A7 merged; A10 rephrased as accepting the forwarder's custody; renumbered A1–A9. |
 
 Rejected: none.
+
+### Re-check after approval (the same session, `response-1.md`)
+
+APPROVE — "No new blockers found. Confidence: high at plan level; runtime gates remain unexecuted." Wallet
+integration: the existing `Session` is created outside React and passed into `App`, so bridge-scoped wagmi
+providers coexist with it and the Jotai store (`main.tsx:49`); P6 must verify actual dependency resolution, typecheck
+alone does not prove wagmi uses the hoisted alias. FAQ routing: the landing builds at `/`, the Worker enables the
+SPA fallback, the exact redirects do not intercept `/faq` (`assemble.ts:24`, `wrangler.jsonc:14`). Manual actions:
+§4 requires a tap and keeps the queue, the atomic allocation and the registered-miner check; removing the stored
+consent removes no required authorization. All three prior conditions correctly resolved. Nonblocking: §3.3 still
+mentioned consent and the hourly scheduler, P11 still said "the Safe" on Sepolia.
+
+Disposition: the two remnants fixed; P6's gate names `bun pm ls viem`. Nothing else.

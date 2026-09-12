@@ -5,7 +5,7 @@ driver: claude-code
 eli5_mode: artifact
 code_review: off
 budget: "recon 4 agents (1 reuse sweep, 3 subsystem mappers); codex at high (GPT-6 Astra); fable legs on Fable 5.1"
-status: approved 2026-09-12 — the owner's nine answers folded in; final codex re-check on the delta pending
+status: approved 2026-09-12 — the owner's nine answers folded in; final codex re-check APPROVE; implementing from P1
 created: 2026-09-12
 ---
 
@@ -344,9 +344,9 @@ and the proof deadline → `proven` when `getBlockNumber('proven') ≥ block` an
 Outbox witness (retried) stored → `held` (K2) / `ready` (K1). Forward (operator or self): `forward(version, args)`
 → `Forwarded` → `forwarded`; or `redeem` → `redeemed`. On V6 at sign-in: `landing.scan` matches
 `Forwarded`/`Deposited` events by the account's own secret hashes → `waitForL1ToL2MessageReady(node, msgHash, {
-chainTip: 'proven' })` → `claim_from_l1` if the consent allows it, else the Claim action → `landed`. Flip detection
+chainTip: 'proven' })` → the Claim tap → `claim_from_l1` → `landed`. Flip detection
 (`flip.ts`), by precedence, not conjunction (C, F): a confirmed Registry departure over the RPC → `flipped` (mining
-stops, the hourly scheduler stops); the node's `rollupVersion` moved or the miner's `retired` slot set → `flipped`
+stops); the node's `rollupVersion` moved or the miner's `retired` slot set → `flipped`
 too; `/build.json`'s deployment ≠ the tab's → `stale` (reload; a same-rollup redeploy is not an upgrade); the
 Registry read silent with nothing positive → `unknown` (new Ethereum-bound sends held back); deployment readiness
 (Yacana registered on the new version) and retirement (K5 consumed) are separate states shown on the flip card.
@@ -719,7 +719,8 @@ packages/deploy packages/harness` (unit parts) green.
 **P6 — the site layer and the bridge modules in the miner** (`eth-rpc.ts`, the guard's second slot,
 `connection.ts`, `host.ts` (create/restore split, `versioned`, the per-role preview suffix), `config.ts`,
 `site.env`, `packages/web-miner/src/bridge/*` with `queue.ts` and the in-transaction index, wagmi and its provider
-wiring (the install and typecheck prove its `viem` peer resolves to the hoisted alias), `keys/store.ts`
+wiring (`bun pm ls viem` shows the single hoisted alias and typecheck passes — typecheck alone proves nothing about
+resolution), `keys/store.ts`
 fingerprint + `addresses`, `feePayer.ts`, `controller.ts` pause reason, `main.tsx` scoping, the sealed snapshot,
 `tests/vault.bun.test.ts`).
 Gate: `bun run lint && bun test packages/site packages/web-miner packages/bridge && bun run test:components &&
@@ -774,8 +775,8 @@ CLAUDE.md, `implementations-plan/index.md`; `contracts.yml` filter, `harness.yml
 Gate: `bun run lint && bun run lint:actions && bun run lint:shell`; every runbook step names an operator-script
 entrypoint the rig exercised (no prose-matching test).
 
-**P11 — the testnet rehearsal** (from the arc-4 branch, no merge and no production deploy: Sepolia — the Safe, YACA
-+ portal deployed and verified on Etherscan, a forwarder set; the testnet profile redeployed with the bridge and
+**P11 — the testnet rehearsal** (from the arc-4 branch, no merge and no production deploy: Sepolia — an operator EOA, YACA
++ portal deployed and verified on Etherscan, a forwarder EOA set; the testnet profile redeployed with the bridge and
 launched per `docs/deployments.md` (a new record; the previous deployment keeps running); the branch's preview site
 verified against the new record; the `v5` Worker's preview version serving the frozen record (proves role, headers
 and a preview-RP sign-in only: that miner has no bridge functions and a preview host is its own RP); one K1 minted
@@ -921,7 +922,14 @@ griefing). Every gate is otherwise executable in order; the runtime inferences o
 forwarding rule with its reason documented, the hourly auto-send dropped (D12), the immutable minter, the lottery
 skip. Two questions raised at the gate and answered in the plan: a send-ahead passes the same turnstile as an exit
 (§3.6, `docs/bridge.md`), and a version's bound chains from its predecessors through `inbound` (A3). The delta was
-sent back to the final Codex session for a clean verdict — recorded below.
+sent back to the final Codex session for a clean verdict.
+
+**Re-check (2026-09-12).** The same session over the approved delta: **APPROVE** — "No new blockers found."
+wagmi's providers coexist with the session created outside React; the `/faq` page is compatible with the
+assembled site (the Worker's SPA fallback, no intercepting redirect); removing the consent removed no
+authorization the security section relies on; all three earlier conditions correctly resolved. Its one note:
+P6 must prove wagmi's dependency resolution, not only typecheck — folded in (`bun pm ls viem`). Two prose
+remnants it spotted are fixed.
 
 ## 10. Post-implementation (self-contained — the implementing session executes this from here)
 
