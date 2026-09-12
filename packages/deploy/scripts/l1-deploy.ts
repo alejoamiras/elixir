@@ -171,6 +171,9 @@ if (import.meta.main) {
     if (recordPath) {
       const path = resolve(repoRoot, recordPath);
       const record = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+      // The miner trusts one portal, immutably: a record naming another cannot take this one.
+      if (typeof record.portal === 'string' && record.portal.toLowerCase() !== bridge.portal.toLowerCase())
+        throw new Error(`${recordPath}'s miner trusts portal ${record.portal}, not ${bridge.portal}`);
       if (record.chainId !== bridge.chainId)
         throw new Error(`${recordPath} is on chain ${record.chainId}, the portal on ${bridge.chainId}`);
       writeFileSync(path, `${JSON.stringify({ ...record, bridge }, null, 2)}\n`);

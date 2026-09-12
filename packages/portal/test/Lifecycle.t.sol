@@ -145,7 +145,7 @@ contract LifecycleTest is Harness {
     portal.redeem(V1, a, alice, expiry, sig);
   }
 
-  function testARedeemedLeafCannotBeForwardedAndViceVersa() public {
+  function testARedeemedLeafCannotBeForwarded() public {
     YacanaPortal.ForwardArgs memory a = publishedAhead(v1, MINER, 5 ether, 3);
     registerV2(flipTo(V2));
     uint64 expiry = uint64(block.timestamp + 1 hours);
@@ -155,7 +155,18 @@ contract LifecycleTest is Harness {
     portal.forward(V1, a);
   }
 
-  function testRedeemIsUnderTheCapThePauseAndTheDeadline() public {
+  function testAForwardedLeafCannotBeRedeemed() public {
+    YacanaPortal.ForwardArgs memory a = publishedAhead(v1, MINER, 5 ether, 3);
+    registerV2(flipTo(V2));
+    vm.prank(forwarder);
+    portal.forward(V1, a);
+    uint64 expiry = uint64(block.timestamp + 1 hours);
+    bytes memory sig = signRedeem(redeemKey, V1, a, alice, expiry);
+    vm.expectRevert();
+    portal.redeem(V1, a, alice, expiry, sig);
+  }
+
+  function testRedeemIsUnderTheCapAndThePause() public {
     YacanaPortal.ForwardArgs memory a = publishedAhead(v1, MINER, ALLOWANCE + 1, 3);
     uint64 expiry = uint64(block.timestamp + 10 days);
     bytes memory sig = signRedeem(redeemKey, V1, a, alice, expiry);
@@ -167,6 +178,35 @@ contract LifecycleTest is Harness {
     portal.pause(V1, 1 days);
     vm.expectRevert(abi.encodeWithSelector(YacanaPortal.VersionPaused.selector, V1));
     portal.redeem(V1, a, alice, expiry, sig);
+  }
+
+  function testRedeemClosesPastTheDeadline() public {
+    YacanaPortal.ForwardArgs memory a = publishedAhead(v1, MINER, 1 ether, 3);
+    flipTo(V2);
+    portal.noteTransition(1);
+    flipTo(V3);
+    portal.noteTransition(2);
+    vm.warp(portal.deadline(V1) + 1);
+    uint64 expiry = uint64(block.timestamp + 1 hours);
+    bytes memory sig = signRedeem(redeemKey, V1, a, alice, expiry);
+    vm.expectRevert(abi.encodeWithSelector(YacanaPortal.DeadlinePassed.selector, V1));
+    portal.redeem(V1, a, alice, expiry, sig);
+  }
+
+  function testARejectedInboxSendRestoresTheDepositorsBalanceAndInbound() public {
+    // A deposit whose Inbox send reverts (a secret hash past the field) undoes the burn too.
+    portal.forward(V1, publishedExit(v1, MINER, 5 ether, 3));
+    vm.prank(alice);
+    vm.expectRevert();
+    portal.deposit(2 ether, bytes32(type(uint256).max), V1, block.timestamp + 1 hours);
+    assertEq(portal.YACA_TOKEN().balanceOf(alice), 5 ether);
+    assertEq(portal.versionInfo(V1).inbound, 0);
+  }
+
+  function testOperatorsCannotBeZero() public {
+    vm.prank(operators);
+    vm.expectRevert(YacanaPortal.ZeroOperators.selector);
+    portal.setOperators(address(0));
   }
 
   function testRedeemWorksBeforeAnyFlip() public {

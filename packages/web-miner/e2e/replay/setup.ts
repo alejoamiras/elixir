@@ -1,7 +1,7 @@
 // The replay lane's fixture-only build and server, and the one-off recording it replays.
 //   bun run e2e:agent -- bun packages/web-miner/e2e/replay/setup.ts record   # on the isolated network
 //   bun e2e/replay/setup.ts serve|teardown                                    # no node involved
-import type { ChildProcess } from 'node:child_process';
+import { type ChildProcess, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -126,6 +126,9 @@ async function teardown(): Promise<void> {
  * deployment probe, the public epoch read — and keeps every answer under its method and params.
  */
 async function record(nodeUrl: string): Promise<void> {
+  // The build below is a bare `vite build`: the page's CRS, artifacts and slot table come from prebuild.
+  const prebuild = spawnSync('bun', ['scripts/prebuild.ts'], { cwd: pkg, stdio: 'inherit' });
+  if (prebuild.status !== 0) throw new Error('prebuild failed');
   const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
     initialTarget: 1n << 127n,
     portal: TEST_PORTAL,
@@ -145,6 +148,11 @@ async function record(nodeUrl: string): Promise<void> {
   try {
     browser = await chromium.launch();
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+    // A boot that never reaches the cockpit only explains itself through the page's own errors.
+    page.on('pageerror', (e) => console.error(`page error: ${e.message}`));
+    page.on('console', (m) => {
+      if (m.type() === 'error' || m.type() === 'warning') console.error(`page ${m.type()}: ${m.text()}`);
+    });
     await page.route(
       (url) => url.origin === REPLAY_NODE_ORIGIN,
       async (route: Route) => {

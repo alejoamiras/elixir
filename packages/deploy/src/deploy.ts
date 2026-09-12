@@ -53,7 +53,7 @@ export interface Deployment {
    * A continuation of an earlier version: the epoch it starts at (the source's last + 1) and the
    * source's last seed, both public on the source, so anyone can check the announcement.
    */
-  continuation?: { firstEpoch: string; sourceSeed: string; source: string };
+  continuation?: { firstEpoch: string; sourceSeed: string; sourceTarget: string; source: string };
 }
 
 export interface DeployOverrides {
@@ -63,8 +63,9 @@ export interface DeployOverrides {
   launchAt?: bigint;
   /** The portal on Ethereum; the constructor refuses zero. */
   portal?: EthAddress;
-  /** Continue an earlier version's schedule instead of running the launch lottery. */
-  continuation?: { firstEpoch: bigint; sourceSeed: Fr; source: string };
+  /** Continue an earlier version's schedule instead of running the launch lottery: its first
+   *  epoch, the source's last seed and the source's last target, so difficulty carries over. */
+  continuation?: { firstEpoch: bigint; sourceSeed: Fr; sourceTarget: bigint; source: string };
 }
 
 // The record must describe what is on chain, not what the local artifact was compiled with.
@@ -141,10 +142,12 @@ export async function deployYacana(
     const seed = overrides.continuation?.sourceSeed ?? new Fr(PARAMS.GENESIS_SEED);
     const firstEpoch = overrides.continuation?.firstEpoch ?? 0n;
     if (overrides.continuation && firstEpoch === 0n) throw new Error('a continuation starts after epoch 0');
+    // A continuation opens at the source's last target: the schedule continues, difficulty included.
+    const target = overrides.continuation?.sourceTarget ?? overrides.initialTarget ?? PARAMS.INITIAL_TARGET;
     const minerDeploy = Contract.deploy(
       wallet,
       minerArtifact,
-      [overrides.initialTarget ?? PARAMS.INITIAL_TARGET, seed, overrides.launchAt ?? 0n, firstEpoch, portal],
+      [target, seed, overrides.launchAt ?? 0n, firstEpoch, portal],
       'constructor',
       { deployer, salt },
     );
@@ -169,18 +172,11 @@ export async function deployYacana(
     // An announced launch is opened later by whoever calls launch() (scripts/launch.ts).
     const launchNow = (overrides.launchAt ?? 0n) === 0n;
     if (launchNow) await miner.methods.launch().send({ from: deployer, fee, wait: { timeout: 600 } });
-    const launch = await verifyOnChain(
-      miner,
-      token,
-      deployer,
-      overrides.initialTarget ?? PARAMS.INITIAL_TARGET,
-      launchNow,
-      {
-        portal,
-        firstEpoch,
-        seed,
-      },
-    );
+    const launch = await verifyOnChain(miner, token, deployer, target, launchNow, {
+      portal,
+      firstEpoch,
+      seed,
+    });
     const info = await createAztecNodeClient(nodeUrl).getNodeInfo();
     return {
       profile: PROFILE,
@@ -202,7 +198,7 @@ export async function deployYacana(
       launchAt: launch.launchAt.toString(),
       ...(launch.openedAt === undefined ? {} : { launchedAt: launch.openedAt.toString() }),
       deployedAt: new Date().toISOString(),
-      ...bridgeRecord(portal, firstEpoch, seed, overrides.continuation?.source),
+      ...bridgeRecord(portal, firstEpoch, seed, target, overrides.continuation?.source),
     };
   } finally {
     await wallet.stop().catch(() => {});
@@ -213,19 +209,28 @@ const bridgeRecord = (
   portal: EthAddress,
   firstEpoch: bigint,
   seed: Fr,
+  target: bigint,
   source: string | undefined,
 ): Pick<Deployment, 'portal' | 'continuation'> => ({
   portal: portal.toString(),
   ...(source === undefined
     ? {}
-    : { continuation: { firstEpoch: firstEpoch.toString(), sourceSeed: seed.toString(), source } }),
+    : {
+        continuation: {
+          firstEpoch: firstEpoch.toString(),
+          sourceSeed: seed.toString(),
+          sourceTarget: target.toString(),
+          source,
+        },
+      }),
 });
 
 /**
  * What a continuation needs from its source: the source record names the node and the miner, and
  * the miner's last epoch and its seed are read from the source chain's public storage. The
  * source's node must still answer; once it is gone, the announced values are passed by hand
- * (YACANA_CONTINUE_FIRST_EPOCH + YACANA_CONTINUE_SEED) and checked against the announcement.
+ * (YACANA_CONTINUE_FIRST_EPOCH + YACANA_CONTINUE_SEED + YACANA_CONTINUE_TARGET) and checked against
+ * the announcement.
  */
 export async function continuationOf(
   sourceRecord: string,
@@ -233,8 +238,19 @@ export async function continuationOf(
   const source = (await Bun.file(resolve(repo, sourceRecord)).json()) as Deployment;
   const first = process.env.YACANA_CONTINUE_FIRST_EPOCH;
   const seed = process.env.YACANA_CONTINUE_SEED;
-  if (first && seed)
-    return { firstEpoch: BigInt(first), sourceSeed: Fr.fromString(seed), source: sourceRecord };
+  const target = process.env.YACANA_CONTINUE_TARGET;
+  if (first && seed && target) {
+    return {
+      firstEpoch: BigInt(first),
+      sourceSeed: Fr.fromString(seed),
+      sourceTarget: BigInt(target),
+      source: sourceRecord,
+    };
+  }
+  if (first || seed || target)
+    throw new Error(
+      'YACANA_CONTINUE_FIRST_EPOCH, YACANA_CONTINUE_SEED and YACANA_CONTINUE_TARGET go together',
+    );
   // The source's open epoch and its seed, straight from its public storage through the read path.
   const { readEpochs, readOpenEpochNumber } = await import('../../miner-core/src/reader.ts');
   const { deriveSlotTable, loadLayouts } = await import('../../miner-core/src/slots.ts');
@@ -245,7 +261,12 @@ export async function continuationOf(
   const load = (chunk: number) => deriveSlotTable(layout, chunk);
   const [row] = await readEpochs(node, miner, { from: last, to: last }, load, { withSeed: true });
   if (row?.seed === undefined) throw new Error(`could not read epoch ${last} of the source miner`);
-  return { firstEpoch: BigInt(last) + 1n, sourceSeed: new Fr(row.seed), source: sourceRecord };
+  return {
+    firstEpoch: BigInt(last) + 1n,
+    sourceSeed: new Fr(row.seed),
+    sourceTarget: row.target,
+    source: sourceRecord,
+  };
 }
 
 /** A fixed, non-zero portal for local runs that never touch Ethereum; the miner refuses zero. */

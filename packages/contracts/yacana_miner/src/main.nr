@@ -81,9 +81,7 @@ pub contract YacanaMiner {
         claims: Map<u64, PublicMutable<u32, Context>, Context>,
         last_digest: Map<u64, PublicMutable<Field, Context>, Context>,
         open_epoch: PublicMutable<u64, Context>,
-        // The bridge: the only Ethereum sender the miner trusts, the epoch this version starts at
-        // (0 for a genesis, the source's last + 1 for a continuation), the retire flag and the
-        // public counters stats read.
+        // Appended after the pre-bridge slots so every earlier fixed slot keeps its number.
         portal: PublicImmutable<EthAddress, Context>,
         first_epoch: PublicImmutable<u64, Context>,
         retired: PublicMutable<bool, Context>,

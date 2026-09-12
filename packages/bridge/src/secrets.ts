@@ -36,7 +36,7 @@ export interface CrossingSecrets {
   redeemAddress: EthAddress;
 }
 
-/** Decimal chain id, checksummed portal, decimal version, decimal index: one canonical spelling. */
+/** Decimal chain id, lowercase hex portal, decimal version, decimal index: one canonical spelling. */
 const label = (info: string, s: CrossingScope, index: number): string =>
   `${info}:${s.chainId}:${s.portal.toString().toLowerCase()}:${s.version}:${index}`;
 

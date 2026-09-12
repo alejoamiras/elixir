@@ -177,6 +177,14 @@ const out: [string, string][] = [
   ['packages/miner-core/src/generated/params.ts', ts],
 ];
 interface BridgeVectors {
+  edge: {
+    recipient: string;
+    amount: string;
+    tag: string;
+    exitValue: string;
+    sendAheadValue: string;
+    claimValue: string;
+  };
   exit: { recipient: string; amount: string; tag: string; value: string };
   sendAhead: { amount: string; secretHash: string; redeemKey: string; value: string };
   claim: { amount: string; value: string };
@@ -217,6 +225,14 @@ fn claim_content_matches_bridge() {
 #[test]
 fn retire_content_matches_bridge() {
     assert_eq(retire_content(${v.retire.version}), ${v.retire.value});
+}
+
+#[test]
+fn edge_contents_match_bridge() {
+    let recipient = EthAddress::from_field(${v.edge.recipient});
+    assert_eq(exit_content(recipient, ${v.edge.amount}, ${v.edge.tag}), ${v.edge.exitValue});
+    assert_eq(send_ahead_content(${v.edge.amount}, ${v.edge.tag}, recipient), ${v.edge.sendAheadValue});
+    assert_eq(claim_content(${v.edge.amount}), ${v.edge.claimValue});
 }
 
 #[test]

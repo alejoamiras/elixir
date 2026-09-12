@@ -113,6 +113,7 @@ contract YacanaPortal is EIP712 {
   event Retired(uint256 indexed version, uint256 inboxIndex);
   event Forwarded(
     uint256 indexed version,
+    Epoch indexed epoch,
     uint256 indexed leafId,
     uint8 kind,
     uint256 amount,
@@ -121,14 +122,16 @@ contract YacanaPortal is EIP712 {
     uint256 inboxIndex
   );
   event Deposited(uint256 indexed version, address indexed sender, uint256 amount, bytes32 secretHash, uint256 inboxIndex);
-  event Redeemed(uint256 indexed version, uint256 indexed leafId, address recipient, uint256 amount);
+  event Redeemed(uint256 indexed version, Epoch indexed epoch, uint256 indexed leafId, address recipient, uint256 amount);
   event Paused(uint256 indexed version, uint64 until);
   event PauseSkipped(uint256 indexed version);
   event Unpaused(uint256 indexed version);
   event DepositsClosed(uint256 indexed version);
   event ForwarderSet(address indexed forwarder, bool listed);
   event OperatorsSet(address indexed operators);
-  event LeafFailed(uint256 indexed version, uint256 indexed leafId, bytes reason);
+  /// A batch position, not a leaf id: the id is derived from the leaf's own path and may not be
+  /// computable for a malformed entry.
+  event LeafFailed(uint256 indexed version, uint256 indexed position, Epoch epoch, bytes reason);
 
   // ---- errors -----------------------------------------------------------------------------------
 
@@ -152,6 +155,7 @@ contract YacanaPortal is EIP712 {
   error PauseTooLong(uint64 seconds_);
   error PauseBudgetExhausted(uint256 version);
   error NotSelf();
+  error ZeroOperators();
 
   modifier onlyOperators() {
     require(msg.sender == operators, NotOperators(msg.sender));
@@ -161,6 +165,7 @@ contract YacanaPortal is EIP712 {
   constructor(IRegistry registry, address operators_, Policy memory p, string memory name_, string memory symbol_)
     EIP712("YacanaPortal", "1")
   {
+    require(operators_ != address(0), ZeroOperators());
     REGISTRY = registry;
     operators = operators_;
     PER_HOUR = p.perHour;
@@ -249,12 +254,13 @@ contract YacanaPortal is EIP712 {
   }
 
   /// Open until the later of the version after next arriving and the flip plus the floor, both
-  /// extended by every second the version was paused; type(uint256).max while no flip is recorded.
+  /// extended by every second the version was paused. Unseen means open: while the flip or the
+  /// version after next is unrecorded the deadline is type(uint256).max, never the floor alone.
   function deadline(uint256 version) public view returns (uint256) {
     uint64 flip = flipAt(version);
-    if (flip == 0) return type(uint256).max;
-    uint256 floor = uint256(flip) + EXIT_FLOOR;
     uint64 next = afterNextAt(version);
+    if (flip == 0 || next == 0) return type(uint256).max;
+    uint256 floor = uint256(flip) + EXIT_FLOOR;
     uint256 later = next > floor ? next : floor;
     return later + versions[version].pausedSeconds;
   }
@@ -301,13 +307,14 @@ contract YacanaPortal is EIP712 {
     _forward(msg.sender, version, args);
   }
 
-  /// Each leaf under its own gas bound; a failed leaf is logged and the batch continues.
+  /// Each leaf under its own gas bound; a failed leaf is logged and the batch continues. A leaf's
+  /// writes roll back with its failure; the outer `_sync` record survives every leaf.
   function forwardMany(uint256 version, ForwardArgs[] calldata batch) external {
     _sync(version);
     for (uint256 i = 0; i < batch.length; i++) {
       try this.forwardOne{gas: LEAF_GAS}(msg.sender, version, batch[i]) {}
       catch (bytes memory reason) {
-        emit LeafFailed(version, (1 << batch[i].path.length) + batch[i].leafIndex, reason);
+        emit LeafFailed(version, i, batch[i].epoch, reason);
       }
     }
   }
@@ -347,7 +354,7 @@ contract YacanaPortal is EIP712 {
       versions[target].inbound += args.amount.toUint128();
       inboxIndex = _sendClaim(target, args.amount, args.aux);
     }
-    emit Forwarded(version, leafId, args.kind, args.amount, args.aux, target, inboxIndex);
+    emit Forwarded(version, args.epoch, leafId, args.kind, args.amount, args.aux, target, inboxIndex);
   }
 
   /// The live version if Yacana registered it and it comes after this one; a skipped version never
@@ -443,7 +450,7 @@ contract YacanaPortal is EIP712 {
     _consume(version, v.miner, content, args);
     v.exited += args.amount.toUint128();
     YACA_TOKEN.mint(recipient, args.amount);
-    emit Redeemed(version, leafId, recipient, args.amount);
+    emit Redeemed(version, args.epoch, leafId, recipient, args.amount);
   }
 
   // ---- operators --------------------------------------------------------------------------------
@@ -458,6 +465,7 @@ contract YacanaPortal is EIP712 {
   function pauseAll(uint64 seconds_) external onlyOperators {
     for (uint256 i = 0; i < registeredVersions.length; i++) {
       uint256 version = registeredVersions[i];
+      _sync(version);
       if (versions[version].pausedSeconds + seconds_ > PAUSE_BUDGET) {
         emit PauseSkipped(version);
         continue;
@@ -470,6 +478,7 @@ contract YacanaPortal is EIP712 {
     require(seconds_ <= PAUSE_MAX, PauseTooLong(seconds_));
     VersionInfo storage v = versions[version];
     require(v.registered, NotRegistered(version));
+    _sync(version);
     require(v.pausedSeconds + seconds_ <= PAUSE_BUDGET, PauseBudgetExhausted(version));
     uint64 from = v.pausedUntil > block.timestamp ? v.pausedUntil : uint64(block.timestamp);
     v.pausedUntil = from + seconds_;
@@ -479,6 +488,7 @@ contract YacanaPortal is EIP712 {
 
   function unpause(uint256 version) external onlyOperators {
     VersionInfo storage v = versions[version];
+    _sync(version);
     if (v.pausedUntil > block.timestamp) {
       v.pausedSeconds -= v.pausedUntil - uint64(block.timestamp);
       v.pausedUntil = uint64(block.timestamp);
@@ -489,6 +499,7 @@ contract YacanaPortal is EIP712 {
   /// One way: the runbook's step the day before an announced flip.
   function closeDeposits(uint256 version) external onlyOperators {
     require(versions[version].registered, NotRegistered(version));
+    _sync(version);
     versions[version].depositsClosed = true;
     emit DepositsClosed(version);
   }
@@ -499,6 +510,7 @@ contract YacanaPortal is EIP712 {
   }
 
   function setOperators(address next) external onlyOperators {
+    require(next != address(0), ZeroOperators());
     operators = next;
     emit OperatorsSet(next);
   }

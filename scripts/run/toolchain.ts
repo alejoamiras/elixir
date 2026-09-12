@@ -3,7 +3,7 @@
 // a detached child in its own process group, and a JSON-RPC readiness probe that races the child's
 // exit so a foreign process on a claimed port is never mistaken for ours.
 import { type ChildProcess, spawn } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -93,4 +93,15 @@ export async function jsonRpcReady(
     await delay(500);
   }
   throw new Error(`${url} (${method}) not ready in ${timeoutMs}ms: ${lastError}`);
+}
+
+/** One digest over a directory's files (sorted relative paths and contents), for pinning vendored source trees. */
+export function treeDigest(dir: string): string {
+  const hasher = new Bun.CryptoHasher('sha256');
+  for (const rel of readdirSync(dir, { recursive: true, encoding: 'utf8' }).sort()) {
+    const path = join(dir, rel);
+    if (!statSync(path).isFile()) continue;
+    hasher.update(`${rel}\0`).update(readFileSync(path)).update('\0');
+  }
+  return hasher.digest('hex');
 }

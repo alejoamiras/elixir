@@ -1,6 +1,6 @@
 // `forge` from the pinned Aztec toolchain (never whatever PATH provides), run in this package with
 // forge-std resolved from the same toolchain: `@aztec/l1-artifacts` ships it under l1-contracts/lib,
-// covered by the installer's hash, so the tests add no dependency edge of their own.
+// and toolchain.lock.json pins that tree's digest, so the tests add no dependency edge of their own.
 //   bun scripts/forge.ts build | test [forge args…]
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';

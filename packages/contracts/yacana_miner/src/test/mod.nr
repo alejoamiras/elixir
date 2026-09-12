@@ -677,3 +677,34 @@ unconstrained fn constructor_rejects_a_zero_portal() {
         YacanaMiner::interface().constructor(INITIAL_TARGET, 1, 0, 0, EthAddress::zero()),
     );
 }
+
+// The public re-check stands on its own: a claim whose private side ran before the retirement
+// (an older anchor) still fails at record_claim.
+#[test(should_fail_with = "mining has ended on this version")]
+unconstrained fn record_claim_after_retirement_is_refused_as_self() {
+    let s = setup();
+    retire(s);
+    s.env.call_public(s.miner, YacanaMiner::at(s.miner).record_claim(0, 1));
+}
+
+#[test(should_fail)]
+unconstrained fn record_inbound_is_only_self() {
+    let s = setup();
+    s.env.call_public(s.deployer, YacanaMiner::at(s.miner).record_inbound(1));
+}
+
+#[test(should_fail)]
+unconstrained fn claim_from_l1_rejects_a_wrong_secret() {
+    let s = setup();
+    let leaf = s.env.send_l1_to_l2_message(claim_content(12), 7, PORTAL, s.miner);
+    s.env.mine_block();
+    s.env.call_private(s.deployer, YacanaMiner::at(s.miner).claim_from_l1(12, 8, s.deployer, leaf));
+}
+
+#[test(should_fail)]
+unconstrained fn claim_from_l1_rejects_a_wrong_amount() {
+    let s = setup();
+    let leaf = s.env.send_l1_to_l2_message(claim_content(12), 7, PORTAL, s.miner);
+    s.env.mine_block();
+    s.env.call_private(s.deployer, YacanaMiner::at(s.miner).claim_from_l1(13, 7, s.deployer, leaf));
+}

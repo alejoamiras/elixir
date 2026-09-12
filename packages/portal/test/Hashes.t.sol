@@ -36,6 +36,15 @@ contract HashesTest is Test {
     assertEq(YacanaHashes.retireContent(vm.parseJsonUint(json, ".retire.version")), field(".retire.value"));
   }
 
+  function testEdgeContents() public view {
+    address recipient = vm.parseJsonAddress(json, ".edge.recipient");
+    uint256 amount = vm.parseJsonUint(json, ".edge.amount");
+    bytes32 tag = field(".edge.tag");
+    assertEq(YacanaHashes.exitContent(recipient, amount, tag), field(".edge.exitValue"));
+    assertEq(YacanaHashes.sendAheadContent(amount, tag, recipient), field(".edge.sendAheadValue"));
+    assertEq(YacanaHashes.claimContent(amount), field(".edge.claimValue"));
+  }
+
   function testRetireSecretHash() public view {
     assertEq(YacanaHashes.RETIRE_SECRET_HASH, field(".retireSecretHash"));
   }

@@ -10,6 +10,14 @@ import { claimContent, exitContent, MAX_AMOUNT, retireContent, sendAheadContent 
 import { deriveCrossingSecrets, exitLogTag } from './secrets.ts';
 
 const v = (await Bun.file(resolve(import.meta.dir, '../fixtures/bridge-vectors.json')).json()) as {
+  edge: {
+    recipient: string;
+    amount: string;
+    tag: string;
+    exitValue: string;
+    sendAheadValue: string;
+    claimValue: string;
+  };
   exit: { recipient: string; amount: string; tag: string; value: string };
   sendAhead: { amount: string; secretHash: string; redeemKey: string; value: string };
   claim: { amount: string; value: string };
@@ -43,6 +51,17 @@ describe('bridge vectors', () => {
     expect(retireContent(BigInt(v.retire.version)).toString()).toBe(fr(v.retire.value).toString());
     expect((await computeSecretHash(new Fr(0n))).toString()).toBe(fr(v.retireSecretHash).toString());
     expect((await exitLogTag(fr(v.exitLogTag.hashOrTag))).toString()).toBe(fr(v.exitLogTag.value).toString());
+  });
+
+  test('the edges: max u128, a high-bit tag, a high-bit address', () => {
+    const e = v.edge;
+    expect(exitContent(eth(e.recipient), BigInt(e.amount), fr(e.tag)).toString()).toBe(
+      fr(e.exitValue).toString(),
+    );
+    expect(sendAheadContent(BigInt(e.amount), fr(e.tag), eth(e.recipient)).toString()).toBe(
+      fr(e.sendAheadValue).toString(),
+    );
+    expect(claimContent(BigInt(e.amount)).toString()).toBe(fr(e.claimValue).toString());
   });
 
   test('one crossing derives to the pinned secrets, tag and redeem key', async () => {

@@ -27,7 +27,21 @@ const scope = {
 const master = await masterFromPrf(new Uint8Array(32).map((_, i) => i));
 const crossing = await deriveCrossingSecrets(master, scope, 3);
 
+// The edges: the largest amount, a tag and an address with their top bits set, so every side's
+// word encoding is exercised at full width.
+const MAX_U128 = (1n << 128n) - 1n;
+const highTag = Fr.fromString('0x2000000000000000000000000000000000000000000000000000000000000001');
+const highRecipient = EthAddress.fromString('0x8000000000000000000000000000000000000001');
+
 const vectors = {
+  edge: {
+    recipient: highRecipient.toString(),
+    amount: MAX_U128.toString(),
+    tag: hex(highTag),
+    exitValue: hex(exitContent(highRecipient, MAX_U128, highTag)),
+    sendAheadValue: hex(sendAheadContent(MAX_U128, highTag, highRecipient)),
+    claimValue: hex(claimContent(MAX_U128)),
+  },
   exit: {
     recipient: recipient.toString(),
     amount: amount.toString(),

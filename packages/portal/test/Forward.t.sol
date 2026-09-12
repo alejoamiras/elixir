@@ -133,6 +133,26 @@ contract ForwardTest is Harness {
     assertEq(portal.YACA_TOKEN().balanceOf(alice), 4 ether);
   }
 
+  function testAMalformedLeafCannotRevertEarlierBatchSuccess() public {
+    YacanaPortal.ForwardArgs[] memory batch = new YacanaPortal.ForwardArgs[](2);
+    batch[0] = publishedExit(v1, MINER, 1 ether, 3);
+    batch[1] = publishedExit(v1, MINER, 2 ether, 4);
+    batch[1].leafIndex = type(uint256).max;
+    portal.forwardMany(V1, batch);
+    assertEq(portal.YACA_TOKEN().balanceOf(alice), 1 ether);
+  }
+
+  function testAFailedLeafRollsBackButTheOuterSyncSurvives() public {
+    YacanaPortal.ForwardArgs[] memory batch = new YacanaPortal.ForwardArgs[](1);
+    batch[0] = publishedExit(v1, MINER, ALLOWANCE + 1, 3); // over the cap: the leaf reverts
+    flipTo(V2);
+    assertEq(portal.transitions(1), 0);
+    portal.forwardMany(V1, batch);
+    assertGt(portal.transitions(1), 0);
+    assertEq(portal.versionInfo(V1).exited, 0);
+    assertFalse(v1.OUTBOX().hasMessageBeenConsumedAtEpoch(Epoch.wrap(3), 2));
+  }
+
   function testForwardOneIsSelfOnly() public {
     YacanaPortal.ForwardArgs memory a = publishedExit(v1, MINER, 1 ether, 3);
     vm.expectRevert(YacanaPortal.NotSelf.selector);

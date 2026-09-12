@@ -4,8 +4,8 @@ pragma solidity 0.8.30;
 import {YacanaPortal} from "../src/YacanaPortal.sol";
 import {FakeRollup, Harness} from "./Harness.sol";
 
-/// The cap, the pauses and the deadline: what bounds a version's issuance and how honest exits
-/// wait rather than lose.
+/// The cap, the pauses and the deadline: what bounds a version's issuance — a leaf over the cap
+/// waits while the cap still grows, and is final once the cap is frozen and spent.
 contract BoundTest is Harness {
   function testTheCapStartsAtTheAllowanceAndGrowsPerHour() public {
     assertEq(portal.cap(V1), ALLOWANCE);
@@ -107,19 +107,43 @@ contract BoundTest is Harness {
     assertEq(portal.deadline(V1), portal.afterNextAt(V1));
   }
 
-  function testExitsClosePastTheDeadline() public {
+  function testExitsStayOpenAfterTheFloorWhileTheVersionAfterNextIsUnseen() public {
     YacanaPortal.ForwardArgs memory a = publishedExit(v1, MINER, 1 ether, 3);
     flipTo(V2);
     portal.noteTransition(1);
+    assertEq(portal.deadline(V1), type(uint256).max);
+    vm.warp(block.timestamp + EXIT_FLOOR + 365 days);
+    portal.forward(V1, a);
+    assertEq(portal.YACA_TOKEN().balanceOf(alice), 1 ether);
+  }
+
+  function testExitsClosePastTheDeadlineOnceTheVersionAfterNextIsSeen() public {
+    YacanaPortal.ForwardArgs memory a = publishedExit(v1, MINER, 1 ether, 3);
+    flipTo(V2);
+    portal.noteTransition(1);
+    flipTo(V3);
+    portal.noteTransition(2);
     vm.warp(portal.deadline(V1) + 1);
     vm.expectRevert(abi.encodeWithSelector(YacanaPortal.DeadlinePassed.selector, V1));
     portal.forward(V1, a);
+  }
+
+  function testAPauseAsTheFirstPostFlipCallFreezesTheCap() public {
+    vm.warp(block.timestamp + 10 hours);
+    flipTo(V2);
+    vm.prank(operators);
+    portal.pause(V1, 1 days);
+    assertEq(portal.cap(V1), ALLOWANCE + 10 * PER_HOUR);
+    vm.warp(block.timestamp + 2 days);
+    assertEq(portal.cap(V1), ALLOWANCE + 10 * PER_HOUR);
   }
 
   function testAPauseHoldsExitsAndExtendsTheDeadline() public {
     YacanaPortal.ForwardArgs memory a = publishedExit(v1, MINER, 1 ether, 3);
     flipTo(V2);
     portal.noteTransition(1);
+    flipTo(V3);
+    portal.noteTransition(2);
     uint256 before = portal.deadline(V1);
     vm.prank(operators);
     portal.pause(V1, 10 days);

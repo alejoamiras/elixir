@@ -30,7 +30,7 @@ const content = (signature: string, words: Buffer[]): Fr =>
 export const exitContent = (recipient: EthAddress, amount: bigint, tag: Fr): Fr =>
   content(EXIT_SIGNATURE, [recipient.toBuffer32(), amountWord(amount), tag.toBuffer()]);
 
-/** K2: burn on Aztec, hold on Ethereum for the next version; `redeemKey` alone may forward or redeem it. */
+/** K2: burn on Aztec, hold on Ethereum for the next version; `redeemKey` signs its forward or redeem. */
 export const sendAheadContent = (amount: bigint, secretHash: Fr, redeemKey: EthAddress): Fr =>
   content(SEND_AHEAD_SIGNATURE, [amountWord(amount), secretHash.toBuffer(), redeemKey.toBuffer32()]);
 

@@ -28,7 +28,8 @@
 ## Lessons
 
 - npm's `forge-std` is an abandoned unofficial mirror (1.1.2, imports `ds-test`): not usable. The pinned toolchain
-  ships the real forge-std under `@aztec/l1-artifacts/l1-contracts/lib/forge-std`, covered by the installer's hash,
+  ships the real forge-std under `@aztec/l1-artifacts/l1-contracts/lib/forge-std`, pinned by a tree digest in
+  `toolchain.lock.json` (the installer's hash covers only the installer script, not the npm packages it fetches),
   so `scripts/forge.ts` and `l1-deploy.ts` remap `forge-std/` to it through `FOUNDRY_REMAPPINGS`. OpenZeppelin comes
   from npm (5.6.1) under the 7-day gate. D42 amended in spirit: "vendored if missing" became "from the toolchain".
 - `solc` 0.8.30 downloads on first use; forge fetched it fine here (no cached svm).
@@ -46,3 +47,38 @@
 ## Consults
 
 None: the design followed plan.md §3.1 as written.
+
+## Arc 1 fix loop (plan.md §10 steps 2–3)
+
+**Round 1** — `/codex high` (GPT-6 Astra), session `01a0978b-662d-7350-bb67-e6e2806cf9fd`, over `git diff main...HEAD`
+(P1–P3), plan.md, §8, the arc map, the adversarial ask and both verbatim rules. Verdict: confidence high, one
+blocker, ten should-fix, two nits, "a second round is needed after these fixes". Every claim was verified against the
+repo; all were real. Applied:
+
+- **Blocker** — `deadline()` treated an unseen `afterNextAt` as 0, so exits closed at `flip + 180d` instead of
+  staying open until index `i+2` is observed (D8). Now `if (flip == 0 || next == 0) return max`; the test that
+  asserted the bug was replaced and `testExitsRemainOpenAfter180DaysWithoutAfterNext` added.
+- Continuation deployments reset difficulty: `continuationOf()` dropped the source's target. `sourceTarget` is now
+  carried, deployed with, verified and recorded; `YACANA_CONTINUE_TARGET` is required alongside epoch and seed by
+  hand.
+- `pause`/`pauseAll`/`unpause`/`closeDeposits` never `_sync`ed, so a pause right after a flip left the cap growing
+  through the pause (D17). All four sync first; `pauseAll` covers every registered version.
+- One malformed leaf reverted a whole `forwardMany` batch: the catch recomputed the overflowing `leafId`.
+  `LeafFailed` now carries `(version, position, epoch, reason)`, computed without the shift.
+- `l1-deploy.ts` attached a portal to a record whose top-level `portal` differed. It refuses the mismatch.
+- `Forwarded`/`Redeemed`/`LeafFailed` lacked the epoch, though leaf ids repeat across epochs. Added.
+- `setOperators(0)` and a zero-operator constructor bricked administration. Both reject (`ZeroOperators`).
+- Supply chain: the installer's hash covers the installer script, not the npm packages it fetches, so forge-std was
+  unpinned. `toolchain.lock.json` gains a `trees` digest of `l1-artifacts/.../forge-std/src` (checked by
+  `toolchain.test.ts` through `treeDigest`), and `noir-lang/keccak256/v0.1.3` a commit entry.
+- The replay gate failed on artifact + layouts drift: re-recorded `recording.json` on the isolated network.
+- Test names overstated coverage; the named tests were added (forward-then-redeem, redeem past the observed
+  deadline, rejected-inbox refund, batch partial failure, saturation).
+- TXE: retirement was mined before `claim`, so only the private anchor check was exercised. Added
+  `record_claim_after_retirement_is_refused_as_self`, `record_inbound_is_only_self`,
+  `claim_from_l1_rejects_a_wrong_secret` / `_amount` (contract-account setup for authwits).
+- Vectors: an `edge` set (max-u128 amount, a tag with bit 253 set, an address with bit 159 set) pinned and asserted
+  in TS, Foundry and Noir.
+- Comments trimmed or corrected where they narrated declarations or misstated the forwarder rule.
+
+Gate after the fixes: Foundry 71/71 · Noir 74 + 7 · bridge/deploy/scripts bun tests · lint + typecheck ✓.
