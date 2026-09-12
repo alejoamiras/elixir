@@ -25,4 +25,10 @@ export const DOMAINS = {
   DOM_NULL: 0x594143412f6e756c6cn, // "YACA/null"
   DOM_SEED: 0x594143412f73656564n, // "YACA/seed"
   DOM_LAUNCH: 0x594143412f6c6e6368n, // "YACA/lnch"
+  DOM_EXIT: 0x594143412f65786974n, // "YACA/exit"
+  DOM_REDEEM: 0x594143412f72646dn, // "YACA/rdm"
+} as const;
+/** u32 log-tag separators for poseidon2HashWithSeparator; identical to the Noir globals. */
+export const SEPARATORS = {
+  SEP_EXIT_LOG: 1498958919, // "YXLG"
 } as const;

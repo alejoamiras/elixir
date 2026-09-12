@@ -8,7 +8,13 @@
     "TICKET": "YACA/tick",
     "NULL": "YACA/null",
     "SEED": "YACA/seed",
-    "LAUNCH": "YACA/lnch"
+    "LAUNCH": "YACA/lnch",
+    "EXIT": "YACA/exit",
+    "REDEEM": "YACA/rdm"
+  },
+  "$separators": "u32 domain separators for poseidon2_hash_with_separator (the protocol's log-tag form): the ASCII tag as a big-endian u32. Generated next to the domains.",
+  "separators": {
+    "EXIT_LOG": "YXLG"
   },
   "profiles": {
     "testnet": {

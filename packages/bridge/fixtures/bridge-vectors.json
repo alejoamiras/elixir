@@ -1,0 +1,41 @@
+{
+  "exit": {
+    "recipient": "0x1e5700000000000000000000000000000000c0de",
+    "amount": "12000000000000000000",
+    "tag": "0x7a9",
+    "value": "0x9d521abdd01ba95415f102370235aa7299ef405b8070fe3c0117b79725efa4"
+  },
+  "sendAhead": {
+    "amount": "12000000000000000000",
+    "secretHash": "0x5ec2e7",
+    "redeemKey": "0x00000000000000000000000000000000000000ff",
+    "value": "0xd5075c13e11e8056aeb7a5eeec2e81b8dbd195d5cb4ec9ed8bb19972010e32"
+  },
+  "claim": {
+    "amount": "12000000000000000000",
+    "value": "0x234bb8b9b2e1813ba0125f6ff3f2c5e40daf585dac658510e7ae73fc4ccd73"
+  },
+  "retire": {
+    "version": "1821665230",
+    "value": "0xe10105d3905b39b11e6d7e69f871df586fb38bcaef1cff8f3bcfa2caa8250f"
+  },
+  "retireSecretHash": "0x1f8eff65d91ed781c2e7a28a2ff99b7f7506b7293121b5ffcf3cd339c84d2250",
+  "exitLogTag": {
+    "hashOrTag": "0x7a9",
+    "value": "0x28018c6f7ea31a9e18d31c772ac6382def994fb9a345587c6489002353c5aad6"
+  },
+  "crossing": {
+    "masterPrf": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "scope": {
+      "chainId": "31337",
+      "portal": "0x000000000000000000000000000000000000beef",
+      "version": "1821665230"
+    },
+    "index": 3,
+    "secret": "0x99cb117ee1a69f282619571e2fa1cacd8844e6e5313868dc049c6a448951961",
+    "secretHash": "0x182c41cc83b2d8137ee5f9d28cfcf64b969dd8e3618ab6dea7edc9a61b334096",
+    "tag": "0x205632d79330224cadab665ee105433a9d8f6b5992dc08687ed40af9316cbf39",
+    "redeemKey": "0xad4eb2f5c88f022931584c96f06e7fe6abbc0c31d0aee8a681202403643dc3a5",
+    "redeemAddress": "0xd78f7bc0e042515d826a818107669da3f20c97fa"
+  }
+}

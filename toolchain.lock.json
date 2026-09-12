@@ -7,7 +7,10 @@
   "binaries": {
     "linux-x64": {
       "node_modules/@aztec/bb.js/build/amd64-linux/bb": "5a1c1ccd835e257217880936f837847fd74c8d5993497527f070fb2308f9145b",
-      "internal-bin/nargo": "b22dbfac734182440ca92647c8b97a5bc59e099bf5f0602782dbabdca1d98325"
+      "internal-bin/nargo": "b22dbfac734182440ca92647c8b97a5bc59e099bf5f0602782dbabdca1d98325",
+      "internal-bin/forge": "ddf84da591756ebc58fa4cdad8cf28576fb01c9d3fc561f2349a15503ba1fcc3",
+      "internal-bin/anvil": "bffff16e087003cb510e8fcdbc7db644f343e652fb68fe9eaff6d6875e602c73",
+      "internal-bin/cast": "17b2720b6019cfad9678b143613b9e0673bee37117b059bf6dacc70484747cee"
     }
   },
   "bbjs": {

@@ -7,17 +7,15 @@
 //   const node = await startIsolatedNode();  …  await node.teardown();
 //   bun scripts/run/isolated-node.ts --smoke            boot → probe → teardown
 //   bun scripts/run/isolated-node.ts -- <cmd> [args…]   run <cmd> with AZTEC_NODE_URL / L1_RPC_URL set
-import { type ChildProcess, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import type { EventEmitter } from 'node:events';
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { setTimeout as delay } from 'node:timers/promises';
 import { lanePortBase, runPortWindowBase } from './port-window.ts';
 import { claim, release } from './registry.ts';
-
-const repoRoot = resolve(import.meta.dir, '../..');
+import { jsonRpcReady, killOwned, type Owned, repoRoot, spawnDetached, toolchainBin } from './toolchain.ts';
 
 export interface IsolatedNode {
   nodeUrl: string;
@@ -32,88 +30,6 @@ export interface IsolatedNodeOptions {
   env?: Record<string, string>;
   /** Forward child stdout/stderr to ours (also YACANA_NODE_VERBOSE=1). */
   verbose?: boolean;
-}
-
-interface Owned {
-  name: string;
-  child: ChildProcess;
-  pgid: number;
-  hasExited: () => boolean;
-}
-
-// `.aztecrc` pins the toolchain version; `~/.aztec/current` is a machine-global symlink that
-// any agent may move, so resolve the pinned version's binaries directly when they exist.
-function toolchainBin(name: string): string {
-  let pin = '';
-  try {
-    pin = readFileSync(join(repoRoot, '.aztecrc'), 'utf8').trim();
-  } catch {
-    return name; // no pin: whatever PATH provides
-  }
-  const bin = join(homedir(), '.aztec', 'versions', pin, 'bin', name);
-  if (!existsSync(bin)) throw new Error(`aztec ${pin} is pinned by .aztecrc but ${bin} is missing`);
-  return bin;
-}
-
-function spawnDetached(
-  name: string,
-  cmd: string,
-  args: string[],
-  env: Record<string, string>,
-  verbose: boolean,
-): Owned {
-  const child = spawn(cmd, args, {
-    cwd: repoRoot,
-    env: { ...process.env, ...env },
-    detached: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  const onData = (b: Buffer) => {
-    if (verbose) process.stdout.write(`[${name}] ${b.toString()}`);
-  };
-  child.stdout?.on('data', onData);
-  child.stderr?.on('data', onData);
-  let exited = false;
-  child.on('exit', () => {
-    exited = true;
-  });
-  child.on('error', () => {
-    exited = true;
-  });
-  return { name, child, pgid: child.pid ?? -1, hasExited: () => exited };
-}
-
-function killOwned(o: Owned): void {
-  try {
-    // pgid <= 1 means the spawn failed: never kill(-1)/kill(-0).
-    if (o.pgid > 1) process.kill(-o.pgid, 'SIGKILL');
-    else o.child.kill('SIGKILL');
-  } catch {
-    /* already gone */
-  }
-}
-
-async function jsonRpcReady(url: string, method: string, timeoutMs: number, owned: Owned): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  let lastError = '';
-  while (Date.now() < deadline) {
-    if (owned.hasExited())
-      throw new Error(`${owned.name} exited before readiness (port in use or spawn failed)`);
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', method, params: [], id: 1 }),
-      });
-      const body = (await res.json()) as { result?: unknown; error?: unknown };
-      if (res.ok && body.result !== undefined) return;
-      lastError = body.error ? JSON.stringify(body.error) : `${res.status}`;
-    } catch (e) {
-      lastError = e instanceof Error ? e.message : String(e);
-    }
-    await delay(500);
-  }
-  throw new Error(`${url} (${method}) not ready in ${timeoutMs}ms: ${lastError}`);
 }
 
 interface Ports {

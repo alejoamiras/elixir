@@ -1,0 +1,18 @@
+{
+  "name": "@yacana/bridge",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The bridge protocol shared by the miner app, the operator script and stats: message contents, seed-derived secrets and redeem keys, the crossing journal",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@aztec/constants": "5.2.0",
+    "@aztec/foundation": "5.2.0",
+    "@aztec/stdlib": "5.2.0",
+    "@yacana/miner-core": "workspace:*",
+    "viem": "npm:@aztec/viem@2.38.2"
+  }
+}

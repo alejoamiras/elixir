@@ -653,7 +653,7 @@ requested when they are ready, not pre-approved); the default Sepolia RPC (engin
 Every gate includes the fast layers for the touched packages (`bun run lint`, typecheck, unit); heavier layers appear
 where they matter. A phase is ✓ only when its gate passed and this file says so.
 
-**P1 — the protocol: encodings, secrets, redeem keys, vectors, the toolchain module** (`packages/contracts/
+**P1 ✓ — the protocol: encodings, secrets, redeem keys, vectors, the toolchain module** (green 2026-09-12; `lessons/phase-1.md`) (`packages/contracts/
 yacana_bridge_hashes` + `Nargo.toml`, `packages/bridge`, `keys/derive.ts` exporting `hkdf`, `yacana.params.json`
 domains incl. `EXIT_LOG`, `params-codegen` incl. the vector codegen into the Noir crate, `scripts/run/toolchain.ts`
 extracted, `toolchain.lock.json` + `toolchain.test.ts` covering `forge`/`anvil`/`cast`).
