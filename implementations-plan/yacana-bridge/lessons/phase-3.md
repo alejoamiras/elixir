@@ -96,4 +96,7 @@ page's console errors. Committed as `e072352`.
   Outbox was consumed, so its "rolled back" assertions were vacuous. It now fails at the mint — a zero recipient,
   `ERC20InvalidReceiver` — after consumption and the counter write, and asserts the `LeafFailed` reason.
 
-Verdict: "ANOTHER ROUND". Committed as the round-2 fix.
+Verdict: "ANOTHER ROUND". Committed as `4d83e18`.
+
+**Round 3** — resumed with the round-2 commit. Findings: none. Verdict: "CONVERGED: nothing material remains".
+The arc-1 loop closed in three rounds (1: 13 findings, 2: 2, 3: 0).
