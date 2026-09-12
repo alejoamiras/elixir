@@ -1056,6 +1056,12 @@
         "internalType": "uint256"
       },
       {
+        "name": "epoch",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "Epoch"
+      },
+      {
         "name": "leafId",
         "type": "uint256",
         "indexed": true,
@@ -1124,10 +1130,16 @@
         "internalType": "uint256"
       },
       {
-        "name": "leafId",
+        "name": "position",
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"
+      },
+      {
+        "name": "epoch",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "Epoch"
       },
       {
         "name": "reason",
@@ -1192,6 +1204,12 @@
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"
+      },
+      {
+        "name": "epoch",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "Epoch"
       },
       {
         "name": "leafId",
@@ -1588,5 +1606,10 @@
         "internalType": "uint256"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "ZeroOperators",
+    "inputs": []
   }
 ]

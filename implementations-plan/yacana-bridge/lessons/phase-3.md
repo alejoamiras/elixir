@@ -82,3 +82,18 @@ repo; all were real. Applied:
 - Comments trimmed or corrected where they narrated declarations or misstated the forwarder rule.
 
 Gate after the fixes: Foundry 71/71 · Noir 74 + 7 · bridge/deploy/scripts bun tests · lint + typecheck ✓.
+
+Found on the way: the replay recorder ran a bare `vite build` without the miner's prebuild, so in a fresh worktree
+(no `public/` CRS, artifacts or slot table) the page could never reach the cockpit and `record` timed out after
+8 minutes with nothing to show; the replay lane always ran prebuild. `record()` runs it too now and surfaces the
+page's console errors. Committed as `e072352`.
+
+**Round 2** — resumed the same session with the fix diff. Two should-fix, both real:
+
+- The committed ABI (`packages/portal/abi/YacanaPortal.json`) still carried the old event signatures and lacked
+  `ZeroOperators`: regenerated. (`portal.yml` would have caught it, but only on the PR.)
+- `testAFailedLeafRollsBackButTheOuterSyncSurvives` failed its leaf at `_requireOpen` (over the cap), before the
+  Outbox was consumed, so its "rolled back" assertions were vacuous. It now fails at the mint — a zero recipient,
+  `ERC20InvalidReceiver` — after consumption and the counter write, and asserts the `LeafFailed` reason.
+
+Verdict: "ANOTHER ROUND". Committed as the round-2 fix.

@@ -3,6 +3,8 @@ pragma solidity 0.8.30;
 
 import {Errors} from "@aztec/Errors.sol";
 import {Epoch} from "@aztec/TimeLib.sol";
+import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
+import {YacanaHashes} from "../src/YacanaHashes.sol";
 import {YacanaPortal} from "../src/YacanaPortal.sol";
 import {FakeRollup, Harness} from "./Harness.sol";
 
@@ -143,10 +145,22 @@ contract ForwardTest is Harness {
   }
 
   function testAFailedLeafRollsBackButTheOuterSyncSurvives() public {
+    // Under the cap and correctly proven: the leaf fails only at the mint, after the Outbox
+    // consumed it and the counter moved, so the whole leaf must roll back.
+    bytes32 tag = keccak256("to nobody");
+    bytes32[] memory path = publish(
+      v1,
+      Epoch.wrap(3),
+      leafOf(messageOf(v1.VERSION(), MINER, YacanaHashes.exitContent(address(0), 1 ether, tag)))
+    );
     YacanaPortal.ForwardArgs[] memory batch = new YacanaPortal.ForwardArgs[](1);
-    batch[0] = publishedExit(v1, MINER, ALLOWANCE + 1, 3); // over the cap: the leaf reverts
+    batch[0] = exitArgs(address(0), 1 ether, tag, Epoch.wrap(3), path);
     flipTo(V2);
     assertEq(portal.transitions(1), 0);
+    vm.expectEmit(true, true, true, true);
+    emit YacanaPortal.LeafFailed(
+      V1, 0, Epoch.wrap(3), abi.encodeWithSelector(IERC20Errors.ERC20InvalidReceiver.selector, address(0))
+    );
     portal.forwardMany(V1, batch);
     assertGt(portal.transitions(1), 0);
     assertEq(portal.versionInfo(V1).exited, 0);
