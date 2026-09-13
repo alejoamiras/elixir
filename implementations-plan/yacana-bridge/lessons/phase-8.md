@@ -17,7 +17,11 @@
 
 ## Gate
 
-(pending)
+`bun test packages/site` 75/75 ✓ · `bun run site:build` ✓ (`dist`, `build.json.role = apex`) · `YACANA_APP_ROLE=old
+bun run site:build` ✓ (`dist-old`, role `old`) · `bun run e2e:agent -- bun run site:e2e` 3/3 ✓ (both roles under
+`wrangler dev` on `localhost` and `v5.localhost`: one header policy, `build.json.role`, the retired head and the
+restore-only key screen on the old role, the old-tab notice on a same-rollup redeploy) · `bun run rig -- origin` ✓
+(20.9 s: one passkey registered on `https://yacana.test`, signed in on `https://v5.yacana.test`, the same account).
 
 ## Lessons
 

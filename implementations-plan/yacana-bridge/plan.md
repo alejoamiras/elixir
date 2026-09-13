@@ -801,13 +801,14 @@ re-checks the address). Proverless state specs stay in a `bridge` shard.
 Gate: `bun run test:components && bun run rig -- browser && bun run e2e:agent -- bun run --cwd packages/web-miner
 test:e2e` (the existing shards untouched; the shard merge ignores `RIG_ONLY`).
 
-**P8 — the versioned origin** (`Retired.tsx`, `VITE_APP_ROLE=old`, `assemble.ts` role/out + the fail-closed
-production pairing, `v5/wrangler.jsonc`, `build.json.{role,miner}`, `hostKind === 'versioned'`, the old-role
-preview suffix, `OldTabNotice` on deployment identity).
-Gate: `bun test packages/site && bun run site:build && YACANA_APP_ROLE=old bun run site:build && bun run e2e:agent --
-bun run site:e2e` (both roles: identical headers, `build.json.role`, a mismatched production pairing refused, the
-old role accepted on a preview host; the old-tab notice on a same-rollup redeploy) `&& bun run rig -- origin` (one
-virtual authenticator across the apex and the versioned origin: the same PRF account on both).
+**P8 ✓ — the versioned origin** (green 2026-09-13; `lessons/phase-8.md`; `bun test packages/site` 75/75, `bun run
+site:build` (dist, role apex), `YACANA_APP_ROLE=old bun run site:build` (dist-old, role old), `bun run e2e:agent --
+bun run site:e2e` 3/3: both roles under one policy, `build.json.role`, the retired head and the restore-only key
+screen on the old role, the old-tab notice on a same-rollup redeploy; `bun run rig -- origin` 20.9 s: one passkey
+across the apex and the versioned origin, served as `yacana.test` and `v5.yacana.test` over a run certificate —
+WebAuthn refuses `localhost` as a shared suffix.) (`Retired.tsx`, `VITE_APP_ROLE=old`, `assemble.ts` role/out + the
+fail-closed production pairing, `v5/wrangler.jsonc`, `build.json.{role,miner}`, `hostKind === 'versioned'`, the
+old-role preview suffix, `OldTabNotice` on deployment identity).
 — arc 3 boundary: the codex loop, then `gh stack add bridge-stats-docs` —
 
 **P9 — stats, the announcement lines, the FAQ** (`/stats/bridge`, the bridge beat, Etherscan links, Verify's new
