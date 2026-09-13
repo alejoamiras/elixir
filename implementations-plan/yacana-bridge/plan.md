@@ -778,7 +778,10 @@ proving throughout; `bun run e2e:agent -- bun run --cwd packages/web-miner test:
 `bridge` shard among them. What the gate forced: the local network builds blocks only on transactions or warps, so
 the browser case warps a slot a minute; a deposit the wallet never answered is offered again; the words backup's
 quiz survives StrictMode; e2e bundles are built as production; signature expiries and deadlines are dated by
-Ethereum's clock, not the device's; a restored file's ended crossings replace what a fresh device rediscovered.)
+Ethereum's clock, not the device's. After the arc-3 codex loop (`lessons/phase-8.md`: three rounds, thirty-four
+findings applied — the journal per account, claims read from the nullifier tree on the version they land on,
+arrivals adopted in one transaction, a file's states as hints, no deposit re-sent under its secret) the gate ran
+again on the final tree: `rig -- browser` 3/3 in 370 s, the suite 18/18 in 17.7 min, the components 84.)
 (`MigrationCard`, `SendAheadSheet`, `ArrivalCard` with its one-tap Claim, `ToEthereumSheet`, `DepositSheet`,
 `BridgeTile`, `TakingLongDialog`, `EthRpcTile`, `OldTabNotice`, Settings, the wallet picker). Copy overrides of `ux-brief.md` (D22, D16, D12, A7): "usually under an hour to
 Ethereum" → "when V5 settles the epoch, usually within a few epochs"; "the relayer forwards it within the hour" →
@@ -814,7 +817,8 @@ site:build` (dist, role apex), `YACANA_APP_ROLE=old bun run site:build` (dist-ol
 bun run site:e2e` 3/3: both roles under one policy, `build.json.role`, the retired head and the restore-only key
 screen on the old role, the old-tab notice on a same-rollup redeploy; `bun run rig -- origin` 20.9 s: one passkey
 across the apex and the versioned origin, served as `yacana.test` and `v5.yacana.test` over a run certificate —
-WebAuthn refuses `localhost` as a shared suffix.) (`Retired.tsx`, `VITE_APP_ROLE=old`, `assemble.ts` role/out + the
+WebAuthn refuses `localhost` as a shared suffix. After the arc-3 codex loop the site tests (75), `site:e2e` 3/3
+and `rig -- origin` ran green again on the final tree.) (`Retired.tsx`, `VITE_APP_ROLE=old`, `assemble.ts` role/out + the
 fail-closed production pairing, `v5/wrangler.jsonc`, `build.json.{role,miner}`, `hostKind === 'versioned'`, the
 old-role preview suffix, `OldTabNotice` on deployment identity).
 — arc 3 boundary: the codex loop, then `gh stack add bridge-stats-docs` —
