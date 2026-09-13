@@ -49,7 +49,7 @@ const LINES: Record<CrossingState, Line> = {
   }),
   'proven-pending': (c, now, v) => ({
     word: 'proving to Ethereum',
-    sentence: `In a block; Ethereum learns of it when V${v} proves epoch ${c.epoch ?? '?'}${
+    sentence: `In a block; Ethereum learns of it when V${v} proves ${c.epoch ? `epoch ${c.epoch}` : 'its epoch'}${
       c.proofDeadline ? ` — due ${untilOrAgo(BigInt(c.proofDeadline), now)}` : ''
     }, usually within a few epochs.`,
     tone: 'busy',
@@ -61,7 +61,7 @@ const LINES: Record<CrossingState, Line> = {
   }),
   'never-proven': (c, _now, v) => ({
     word: 'undone',
-    sentence: `V${v} never proved epoch ${c.epoch ?? '?'} in time: the burn was undone and the balance is back on V${v}.`,
+    sentence: `V${v} never proved ${c.epoch ? `epoch ${c.epoch}` : 'its epoch'} in time: the burn was undone and the balance is back on V${v}.`,
     tone: 'warn',
     action: 'send-again',
   }),
