@@ -11,7 +11,7 @@ import { Tag } from '@aztec/stdlib/logs';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 import type { Hex } from 'viem';
 import { claimLeaf } from '../../../bridge/src/inbox.ts';
-import { advance, type Crossing, crossingId } from '../../../bridge/src/journal.ts';
+import { advance, type Crossing, type CrossingKind, crossingId } from '../../../bridge/src/journal.ts';
 import type { OperationQueue } from '../../../bridge/src/queue.ts';
 import { type CrossingSecrets, deriveCrossingSecrets, exitLogTag } from '../../../bridge/src/secrets.ts';
 import { signForward, signRedeem } from '../../../bridge/src/signatures.ts';
@@ -93,7 +93,13 @@ export const nextIndexFromChain = (ctx: BridgeContext): Promise<number> =>
     return indices.map((_, i) => (logs[2 * i]?.length ?? 0) > 0 || (logs[2 * i + 1]?.length ?? 0) > 0);
   });
 
-const fresh = (ctx: BridgeContext, kind: 1 | 2, index: number, amount: bigint, ethAddress: Hex): Crossing => {
+const fresh = (
+  ctx: BridgeContext,
+  kind: CrossingKind,
+  index: number,
+  amount: bigint,
+  ethAddress: Hex,
+): Crossing => {
   const now = ctx.now?.() ?? Date.now();
   const base = {
     kind,
@@ -227,7 +233,7 @@ export function deposit(
       : await ctx.store.create(
           ctx.version.toString(),
           () => nextIndexFromChain(ctx),
-          (index) => ({ ...fresh(ctx, 1, index, amount, `0x${'00'.repeat(20)}`), kind: 3 }),
+          (index) => fresh(ctx, 3, index, amount, `0x${'00'.repeat(20)}`),
         );
     const secrets = await secretsFor(ctx, c.index);
     const done = await depositOnEthereum(

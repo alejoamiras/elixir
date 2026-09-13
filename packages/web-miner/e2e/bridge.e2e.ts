@@ -168,8 +168,9 @@ test('on V5 after the flip: the migration card says mining has ended and what is
   expect(await restoreWords(page, words)).toBe(account);
   const card = page.getByTestId('migration-card');
   await expect(card).toHaveAttribute('data-moment', 'flipped', { timeout: 2 * 60_000 });
-  await expect(page.getByTestId('flipped-alert')).toContainText('Mining has ended on V5.');
-  await expect(card).toContainText('Anything still on V5 when it goes quiet is lost.');
+  // The rig's rollup version is whatever the network minted: the copy names it, the spec does not assume it.
+  await expect(page.getByTestId('flipped-alert')).toContainText(/Mining has ended on V\d+\./);
+  await expect(card).toContainText(/Anything still on V\d+ when it goes quiet is lost\./);
   await expect(page.getByTestId('send-ahead')).toBeEnabled();
   await expect(page.getByTestId('sent-ahead-status')).toContainText('2 tYACA sent ahead');
 });

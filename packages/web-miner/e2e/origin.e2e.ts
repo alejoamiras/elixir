@@ -5,6 +5,13 @@
 import { expect, test } from './fixtures.ts';
 import { BOOT_MS, bootPage, pageUrl, run } from './helpers.ts';
 
+// On a failure, the page's own log lines: what the session saw that the screen did not say.
+test.afterEach(async ({ page }, info) => {
+  if (info.status === 'passed') return;
+  const lines = await page.evaluate(() => window.yacana?.log().slice(-40) ?? []).catch(() => [] as string[]);
+  for (const l of lines) console.log(`[page log] ${l}`);
+});
+
 test('the versioned origin: the same passkey restores the apex’s account there, creates nothing, and mines nothing', async ({
   page,
 }) => {
@@ -30,7 +37,11 @@ test('the versioned origin: the same passkey restores the apex’s account there
   await expect(page.getByTestId('create-passkey')).toBeDisabled();
   await expect(page.getByTestId('host-note')).toContainText('restored here, not created');
   await page.getByTestId('restore-passkey').click();
-  await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
+  await expect(page.getByTestId('key-error').or(page.getByTestId('account'))).toBeVisible({
+    timeout: BOOT_MS,
+  });
+  await expect(page.getByTestId('key-error')).toHaveCount(0);
+  await expect(page.getByTestId('account')).toBeVisible();
   expect(await page.getByTestId('account').getAttribute('title')).toBe(account);
   await expect(page.getByTestId('retired')).toContainText('send ahead');
 });
