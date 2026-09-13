@@ -14,7 +14,6 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { type Browser, chromium, type Page, type Route } from '@playwright/test';
 import { release } from '../../../scripts/run/registry.ts';
 import type { BridgeRecord } from '../../bridge/src/record.ts';
-import { deployBridgeForRun, registerForRun } from '../../deploy/src/bridge/run.ts';
 import { deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
 import { slotTableToJson } from '../../miner-core/src/reader.ts';
 import { deriveSlotTable, LAYOUTS_PATH, loadLayouts } from '../../miner-core/src/slots.ts';
@@ -172,6 +171,8 @@ function recordOrigin(
  * answer is kept under its method and params.
  */
 async function record(nodeUrl: string, l1RpcUrl: string | undefined): Promise<void> {
+  // Loaded here, not at the top: the bridge deploy names the pinned forge on import, which the replaying gate on CI does not have.
+  const { deployBridgeForRun, registerForRun } = await import('../../deploy/src/bridge/run.ts');
   const bridge = l1RpcUrl ? await deployBridgeForRun(nodeUrl, l1RpcUrl) : undefined;
   const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
     initialTarget: 1n << 127n,

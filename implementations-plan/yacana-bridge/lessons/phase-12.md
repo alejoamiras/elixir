@@ -80,6 +80,13 @@ the version comparison (f658b19, 84e9970).
 - **A sheet slides in over 200 ms; a screenshot taken on the next tick is half a sheet.** `shot()` waits
   400 ms before the picture. The pictures are documentation, not assertions, so the wait costs nothing in
   the gate's semantics.
+- **`tsc --noEmit -p packages/<pkg>` on a web package checks nothing.** Their `tsconfig.json` is a solution
+  file; the package's `typecheck` script is `tsc -b`, which is what CI runs and what found the gallery's
+  incomplete `MasterRecord` fixture after every local "typecheck" had passed. Run the package's own script.
+- **CI has no aztec toolchain in the screenshot gate's image.** Importing the bridge deploy at the top of
+  `visual-setup.ts` pulled in `l1-deploy.ts`, which names the pinned forge on import; the replaying gate
+  died before serving anything. The import is now inside `record()`. The rename guard also scans the
+  landing's copy: "same keys" became "same secrets".
 - **Production builds take nothing from the process environment.** To picture the announcement bars, the
   landing's e2e second build (`.dist-claim`, `VITE_MIGRATION` set) and a stats build under
   `YACANA_SITE_MODE=e2e` were served statically and screenshotted; `--mode e2e` alone does nothing, the

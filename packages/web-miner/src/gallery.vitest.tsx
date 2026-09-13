@@ -63,7 +63,15 @@ const standing = {
 const session = {
   bridge: { claim: () => Promise.resolve(), reader: { blockTime: () => Promise.resolve(BigInt(SECONDS)) } },
 } as unknown as Session;
-const ready: MasterRecord = { v: 1, id: 'k', method: 'words', createdAt: NOW };
+const ready: MasterRecord = {
+  v: 1,
+  id: 'k',
+  method: 'words',
+  createdAt: NOW,
+  askEveryOpen: false,
+  backedUp: true,
+  account: { address: '0xacc', index: 0 },
+};
 
 const OUT = process.env.GALLERY_DIR;
 const keep = (name: string, html: string) => {

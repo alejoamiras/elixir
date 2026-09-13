@@ -66,7 +66,7 @@ export const faq = {
         },
         {
           q: 'Is it the same account on the next version?',
-          a: 'Same passkey or words, same keys; a new address, because Aztec derives addresses from the account contract of each version. What you sent ahead lands under the new address; nothing on the old version knows it.',
+          a: 'Same passkey or words, same secrets; a new address, because Aztec derives addresses from the account contract of each version. What you sent ahead lands under the new address; nothing on the old version knows it.',
         },
         linked('Who may forward a held send, and why the rule?'),
         linked('What is public?'),
