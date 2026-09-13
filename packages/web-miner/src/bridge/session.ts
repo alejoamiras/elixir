@@ -23,11 +23,13 @@ import { asHint, parseRecoveryFile, type RecoveryFile, recoveryFile } from '../.
 import { exitLogTag } from '../../../bridge/src/secrets.ts';
 import { leafIdOf } from '../../../bridge/src/signatures.ts';
 import {
+  type ArchivedExit,
   archiveEntry,
   type ExitScope,
   exitMessageContent,
   fetchWitness,
   outboxLeaf,
+  readArchive,
 } from '../../../bridge/src/witness.ts';
 import { readBalanceSnapshot, saveBalanceSnapshot } from '../bridge/snapshot.ts';
 import type { Connection } from '../config';
@@ -71,6 +73,17 @@ const REFRESH_MS = 15_000;
 const L1_CLOCK_MS = 2_000;
 /** The portal's events are scanned again every so many refreshes: a forward by Yacana lands while the page is open. */
 const LANDING_EVERY = 4;
+
+/** The archive the site serves for `version`, or null when it serves none (a 404, or no site). */
+async function fetchArchive(version: string): Promise<string | null> {
+  const root = (import.meta.env.BASE_URL ?? '/').replace(/\/mine\/?$/, '/');
+  try {
+    const res = await fetch(`${root}witnesses/${version}.jsonl`, { cache: 'no-store' });
+    return res.ok ? res.text() : null;
+  } catch {
+    return null;
+  }
+}
 /** One scan derives at most this many indices per version, whatever a file or a counter claims. */
 const MAX_LANDING_INDICES = 2_000;
 
@@ -86,6 +99,8 @@ export class BridgeSession {
   private constants: Promise<{ epochDuration: number }> | undefined;
   private l1Clock: { at: number; value: Promise<bigint> } | undefined;
   private readonly rollups = new Map<string, Promise<RollupReads>>();
+  /** The served witness archives, by version, fetched once per session; null when the site has none. */
+  private readonly archives = new Map<string, Promise<string | null>>();
   private refreshes = 0;
 
   private constructor(
@@ -180,6 +195,24 @@ export class BridgeSession {
     };
   }
 
+  /**
+   * An earlier version's witness from the archive the site serves (`/witnesses/<version>.jsonl`,
+   * committed by the operator once the exits settled): the only source once that version's node is
+   * gone. The entry must carry the aux the master derives, or it is someone else's exit.
+   */
+  private async archivedWitness(c: Crossing): Promise<ArchivedExit | undefined> {
+    if (c.kind === 3) return undefined;
+    const text = await (this.archives.get(c.version) ??
+      (this.archives.set(c.version, fetchArchive(c.version)).get(c.version) as Promise<string | null>));
+    if (!text) return undefined;
+    const secrets = await secretsFor(this.ctx, c.index, BigInt(c.version));
+    const aux = (c.kind === 1 ? secrets.tag : secrets.secretHash).toString().toLowerCase();
+    return readArchive(text).find(
+      (e) =>
+        e.version === c.version && e.index === c.index && e.kind === c.kind && e.aux.toLowerCase() === aux,
+    );
+  }
+
   /** The siloed nullifier the miner's claim of this message leaves in the tree. */
   private async claimNullifier(
     c: Crossing,
@@ -228,7 +261,7 @@ export class BridgeSession {
       proofDeadline: async (c, epoch) => proofDeadline(await this.rollupFor(c.version), epoch),
       epochProven: async (c, epoch) => epochProven(await this.rollupFor(c.version), epoch),
       witness: async (c) => {
-        if (!this.servesVersion(c)) return undefined;
+        if (!this.servesVersion(c)) return this.archivedWitness(c);
         const exit = await recorded(c);
         const leaf = outboxLeaf(
           { ...scope, rollupVersion: BigInt(c.version) },

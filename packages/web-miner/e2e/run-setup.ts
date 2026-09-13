@@ -9,7 +9,7 @@
 // proving. The dev server injects Node globals and accepts local nodes on its own, which hid a
 // Worker without `Buffer` once. E2E_SERVER=dev keeps it for debugging with readable stacks.
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
-import { openSync, rmSync, writeFileSync } from 'node:fs';
+import { openSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -25,7 +25,7 @@ import {
 import { waitUntilUp } from '../../../scripts/run/preview.ts';
 import { claim, release } from '../../../scripts/run/registry.ts';
 import { deployBridgeForRun, RUN_OPERATORS_KEY, registerForRun } from '../../deploy/src/bridge/run.ts';
-import { type BridgeRecord, type Deployment, deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
+import { deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
 import { e2eBuildEnv } from './build-env.ts';
 import { type E2eBridge, type E2eRun, type E2eServer, type RigStep, RUN_FILE, TIMINGS_FILE } from './run.ts';
 

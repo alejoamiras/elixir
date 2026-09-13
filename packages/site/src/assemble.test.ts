@@ -10,6 +10,7 @@ import {
   PRODUCTION_OUT,
   productionOutFor,
   REDIRECTS,
+  witnessFiles,
 } from './assemble.ts';
 import type { SiteConfig } from './config.ts';
 
@@ -65,6 +66,17 @@ describe('assembly inspects what it emitted', () => {
 });
 
 describe('assembly', () => {
+  test('the witness archives are served by rollup version, only for profiles with a record', () => {
+    const repoDir = scratch();
+    mkdirSync(join(repoDir, 'deployments/witnesses'), { recursive: true });
+    writeFileSync(join(repoDir, 'deployments/testnet.json'), JSON.stringify({ rollupVersion: '1821665230' }));
+    writeFileSync(join(repoDir, 'deployments/witnesses/testnet.jsonl'), '');
+    writeFileSync(join(repoDir, 'deployments/witnesses/orphan.jsonl'), '');
+    writeFileSync(join(repoDir, 'deployments/witnesses/notes.txt'), '');
+    expect(witnessFiles(repoDir).map((w) => w.to)).toEqual(['witnesses/1821665230.jsonl']);
+    expect(witnessFiles(join(repoDir, 'nowhere'))).toEqual([]);
+  });
+
   test('the rewrites are exact sources to directory targets: no splat, no .html', () => {
     expect(REDIRECTS).toEqual([
       '/mine/wallet /mine/ 200',

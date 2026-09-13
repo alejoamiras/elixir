@@ -3,7 +3,7 @@
 // Worker) or, under YACANA_APP_ROLE=old, packages/site/dist-old (the versioned origin's Worker,
 // v5/wrangler.jsonc); an e2e run passes its own out dir.
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Route as MinerRoute } from '../../web-miner/src/routes.ts';
@@ -30,6 +30,26 @@ export const APPS = [
   { name: 'web-miner', base: '/mine/' },
   { name: 'web-stats', base: '/stats/' },
 ] as const;
+
+/**
+ * The witness archives the operator commits (`deployments/witnesses/<profile>.jsonl`), served at
+ * `/witnesses/<rollupVersion>.jsonl`: a later version's page reads an earlier version's settled
+ * exits from here once that version's node is gone. A profile without a record is skipped.
+ */
+export function witnessFiles(repoDir: string): { from: string; to: string }[] {
+  const dir = resolve(repoDir, 'deployments/witnesses');
+  if (!existsSync(dir)) return [];
+  const out: { from: string; to: string }[] = [];
+  for (const file of readdirSync(dir)) {
+    if (!file.endsWith('.jsonl')) continue;
+    const record = resolve(repoDir, 'deployments', `${file.slice(0, -'.jsonl'.length)}.json`);
+    if (!existsSync(record)) continue;
+    const { rollupVersion } = JSON.parse(readFileSync(record, 'utf8')) as { rollupVersion?: string };
+    if (rollupVersion && /^\d+$/.test(rollupVersion))
+      out.push({ from: resolve(dir, file), to: `witnesses/${rollupVersion}.jsonl` });
+  }
+  return out;
+}
 
 /**
  * The nested apps' deep links as exact 200 rewrites to each app's directory: Cloudflare evaluates
@@ -108,6 +128,10 @@ export async function assemble(
   await steps.copyArtifacts(out);
   console.log(await steps.copySlots(out));
   cpSync(resolve(repo, 'packages/web-landing/public/og.png'), resolve(out, 'og.png'));
+  for (const w of witnessFiles(repo)) {
+    mkdirSync(resolve(out, 'witnesses'), { recursive: true });
+    cpSync(w.from, resolve(out, w.to));
+  }
   writeFileSync(
     resolve(out, '_headers'),
     renderHeaders({ mode: config.mode === 'production' ? 'production' : 'e2e' }),

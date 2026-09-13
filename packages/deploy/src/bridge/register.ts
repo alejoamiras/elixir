@@ -22,3 +22,7 @@ export async function registerVersion(op: Operator): Promise<RegisterResult> {
   );
   return { version, index, txHash };
 }
+
+/** Lists (or unlists) an address that may forward held send-aheads without the holder's signature. */
+export const setForwarder = (op: Operator, forwarder: Hex, listed: boolean): Promise<Hex> =>
+  confirmed(op, () => op.portal.write.setForwarder([forwarder, listed], writeOpts(op)));

@@ -9,8 +9,8 @@ import type { Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { deployL1 } from '../../scripts/l1-deploy.ts';
 import type { BridgeRecord, Deployment } from '../deploy.ts';
-import { confirmed, openOperator, writeOpts } from './operator.ts';
-import { registerVersion } from './register.ts';
+import { openOperator } from './operator.ts';
+import { registerVersion, setForwarder } from './register.ts';
 
 /** Anvil account 1: the portal's operators and the run's listed forwarder. */
 export const RUN_OPERATORS_KEY: Hex = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
@@ -42,7 +42,5 @@ export async function registerForRun(
   if (files.archiveFile) rmSync(resolve(repo, files.archiveFile), { force: true });
   const op = await openOperator({ record: files.recordFile, rpcUrl: l1RpcUrl, key: RUN_OPERATORS_KEY });
   await registerVersion(op);
-  await confirmed(op, () =>
-    op.portal.write.setForwarder([privateKeyToAccount(RUN_OPERATORS_KEY).address, true], writeOpts(op)),
-  );
+  await setForwarder(op, privateKeyToAccount(RUN_OPERATORS_KEY).address, true);
 }
