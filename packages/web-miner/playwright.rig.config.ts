@@ -5,8 +5,10 @@ import { defineConfig } from '@playwright/test';
 // global setup here. Real proving across a flip: the stages are long.
 export default defineConfig({
   testDir: './e2e',
-  testMatch: /bridge\.e2e\.ts$/,
-  timeout: 45 * 60_000,
+  // The rig-only specs: the migration through the page, the versioned origin.
+  testMatch: /(bridge|origin)\.e2e\.ts$/,
+  // A diagnostic run may shorten a stage (RIG_STAGE_TIMEOUT_MS): the failure hook then prints the page's log.
+  timeout: Number(process.env.RIG_STAGE_TIMEOUT_MS ?? 45 * 60_000),
   expect: { timeout: 60_000 },
   workers: 1,
   retries: 0,

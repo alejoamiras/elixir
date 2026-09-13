@@ -42,7 +42,10 @@ const pkg = resolve(import.meta.dir, '..');
 const OUT_DIR = 'e2e/.dist';
 
 // Bridge mode: the portal on the network's anvil, the version registered, the control server up.
-const bridgeMode = process.env.E2E_BRIDGE === '1' || process.env.E2E_SHARD === 'bridge';
+// On by default (the whole suite holds the bridge spec) and for the `bridge` shard; the other
+// shards skip the twenty seconds of forge.
+const shard = process.env.E2E_SHARD;
+const bridgeMode = process.env.E2E_BRIDGE === '1' || shard === undefined || shard === 'bridge';
 /** Anvil account 1: the run's operators key (account 0 publishes the node's blocks). */
 const OPERATORS_KEY: Hex = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
 /** Anvil account 3: the holder the test wallet signs with. */

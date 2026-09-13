@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test';
+import { RIG_ONLY } from './e2e/proof-inventory.ts';
 
 // Runs under scripts/run/agent.sh (AZTEC_NODE_URL set): global setup deploys the contracts at an
 // easy target on that network and starts Vite on a registry-claimed port; the spec reads both
@@ -7,8 +8,8 @@ export default defineConfig({
   testDir: './e2e',
   // Not *.spec.ts / *.test.ts: the root `bun test` would pick those up.
   testMatch: /.*\.e2e\.ts$/,
-  // The rig's spec needs the rig's flip and two builds: playwright.rig.config.ts, never this suite.
-  testIgnore: /bridge\.e2e\.ts$/,
+  // The rig's specs need its flip, its second origin, its builds: playwright.rig.config.ts, never this suite.
+  testIgnore: Object.keys(RIG_ONLY).map((f) => new RegExp(`${f.replace('.', '\\.')}$`)),
   globalSetup: './e2e/global-setup.ts',
   globalTeardown: './e2e/global-teardown.ts',
   timeout: 20 * 60_000,

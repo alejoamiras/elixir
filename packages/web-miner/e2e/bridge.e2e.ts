@@ -15,15 +15,7 @@ import { BOOT_MS, pageUrl, run } from './helpers.ts';
 // On a failure, the page's own bridge log lines: what the session saw that the screen did not say.
 test.afterEach(async ({ page }, info) => {
   if (info.status === 'passed') return;
-  const lines = await page
-    .evaluate(
-      () =>
-        window.yacana
-          ?.log()
-          .filter((l) => /bridge|portal|witness/i.test(l))
-          .slice(-25) ?? [],
-    )
-    .catch(() => [] as string[]);
+  const lines = await page.evaluate(() => window.yacana?.log().slice(-40) ?? []).catch(() => [] as string[]);
   for (const l of lines) console.log(`[page log] ${l}`);
 });
 

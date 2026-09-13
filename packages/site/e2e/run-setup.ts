@@ -39,8 +39,20 @@ const e2eEnv = (d: Deployment, role: 'apex' | 'old', oldAppOrigin: string): Node
   VITE_DEPLOYMENT_RECORD: JSON.stringify(d),
 });
 
-function startServer(log: number, port: number, dir: string): ChildProcess {
-  const args = ['wrangler', 'dev', '--assets', dir, '--port', String(port), '--ip', 'localhost'];
+/** Two wranglers side by side: each needs its own inspector port, or the second dies on 9229. */
+function startServer(log: number, port: number, inspector: number, dir: string): ChildProcess {
+  const args = [
+    'wrangler',
+    'dev',
+    '--assets',
+    dir,
+    '--port',
+    String(port),
+    '--inspector-port',
+    String(inspector),
+    '--ip',
+    'localhost',
+  ];
   const child = spawn('bunx', args, {
     cwd: pkg,
     stdio: ['ignore', log, log],
@@ -74,6 +86,8 @@ const lane = {
 };
 const port = await claim({ ...lane, service: 'wrangler' });
 const oldPort = await claim({ ...lane, service: 'wrangler-old' });
+const inspector = await claim({ ...lane, service: 'wrangler-inspector' });
+const oldInspector = await claim({ ...lane, service: 'wrangler-inspector-old' });
 let spawned: ChildProcess | undefined;
 let spawnedOld: ChildProcess | undefined;
 try {
@@ -86,13 +100,13 @@ try {
   await assemble(OUT_DIR, e2eEnv(deployed, 'apex', oldBaseURL));
   await assemble(OLD_OUT_DIR, e2eEnv(deployed, 'old', oldBaseURL));
   const log = openSync(resolve(pkg, 'e2e/.wrangler.log'), 'w');
-  spawned = startServer(log, port, OUT_DIR);
-  spawnedOld = startServer(log, oldPort, OLD_OUT_DIR);
+  spawned = startServer(log, port, inspector, OUT_DIR);
+  spawnedOld = startServer(log, oldPort, oldInspector, OLD_OUT_DIR);
   const baseURL = `http://localhost:${port}`;
   if (!(await waitUntilUp(baseURL, spawned)))
     throw new Error(`wrangler dev did not start on ${baseURL} (see e2e/.wrangler.log)`);
-  // Node need not resolve `v5.localhost`: the readiness probe goes to the loopback address.
-  if (!(await waitUntilUp(`http://127.0.0.1:${oldPort}`, spawnedOld)))
+  // Node need not resolve `v5.localhost`: the readiness probe goes to `localhost` like the apex's.
+  if (!(await waitUntilUp(`http://localhost:${oldPort}`, spawnedOld)))
     throw new Error(`wrangler dev did not start on ${oldBaseURL} (see e2e/.wrangler.log)`);
   const run: E2eRun = {
     baseURL,

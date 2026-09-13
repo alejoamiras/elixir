@@ -119,13 +119,31 @@ export interface ClaimOptions {
   span: number;
 }
 
+/**
+ * Whether something already listens on `port` on either loopback address: a run this registry never
+ * heard of (another project's sandbox, a tool started by hand). A bind that fails for any other
+ * reason counts as busy too — the service would fail the same way.
+ */
+export function listening(port: number): boolean {
+  for (const hostname of ['127.0.0.1', '::1']) {
+    try {
+      Bun.listen({ hostname, port, socket: { data() {} } }).stop(true);
+    } catch (e) {
+      // No IPv6 loopback on this box is not a listener.
+      if (hostname === '::1' && /EAFNOSUPPORT|EADDRNOTAVAIL/.test(String(e))) continue;
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Reserve the first free port in [base, base + span) for one service of one run. */
 export const claim = (o: ClaimOptions): Promise<number> =>
   withLock(() => {
     const rows = read().filter((r) => alive(r.pid));
     const taken = new Set(rows.map((r) => r.port));
     let port = o.base;
-    while (taken.has(port)) {
+    while (taken.has(port) || listening(port)) {
       if (++port >= o.base + o.span) {
         throw new Error(`run-registry: no free port in ${o.base}-${o.base + o.span} for ${o.service}`);
       }

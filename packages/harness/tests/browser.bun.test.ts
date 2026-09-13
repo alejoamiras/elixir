@@ -70,10 +70,30 @@ describe.skipIf(!enabled)('the migration through the page (browser)', () => {
   let controlPort: number;
   let handoff: string;
   let runFile: string;
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
 
-  const settle = async () => {
-    await rig.warpBy(72 * 5);
-    await rig.prove();
+  // The rig's warps and the controls the spec calls share the node's clock: one at a time.
+  let chain: Promise<unknown> = Promise.resolve();
+  const serial = <T>(fn: () => Promise<T>): Promise<T> => {
+    const next = chain.then(fn, fn);
+    chain = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
+  };
+  const settle = () =>
+    serial(async () => {
+      await rig.warpBy(72 * 5);
+      await rig.prove();
+    });
+  /**
+   * The local network builds a block only on a transaction or a warp, and a claim anchors on the
+   * latest block for ten minutes: while a page mines and proves for minutes on end, a slot a minute
+   * keeps its anchor young — what a real network's steady blocks do for free.
+   */
+  const startHeartbeat = () => {
+    heartbeat = setInterval(() => void serial(() => rig.warpBy(72)).catch(() => {}), 60_000);
   };
 
   /** A V5- or V6-profile build of the miner, served on the run's port; the spec's run file rewritten. */
@@ -174,16 +194,18 @@ describe.skipIf(!enabled)('the migration through the page (browser)', () => {
     control = serveControl(controlPort, {
       ping: async () => 'pong',
       settle,
-      nudge: () => rig.nudge(),
-      forward: async () => {
-        const report = await forwardAll(forwarder, {
-          source: v5.deployment,
-          sourceNodeUrl: node5.nodeUrl,
-          archive,
-        });
-        return { forwarded: report.forwarded.length, failed: report.failed.length };
-      },
+      nudge: () => serial(() => rig.nudge()),
+      forward: () =>
+        serial(async () => {
+          const report = await forwardAll(forwarder, {
+            source: v5.deployment,
+            sourceNodeUrl: node5.nodeUrl,
+            archive,
+          });
+          return { forwarded: report.forwarded.length, failed: report.failed.length };
+        }),
     });
+    startHeartbeat();
     // The pinned CRS, the artifacts and the slot table the build reads.
     if ((await exec('bun', ['scripts/prebuild.ts'], { cwd: minerPkg })) !== 0)
       throw new Error('prebuild failed');
@@ -191,6 +213,8 @@ describe.skipIf(!enabled)('the migration through the page (browser)', () => {
   }, 1_200_000);
 
   afterAll(async () => {
+    if (heartbeat) clearInterval(heartbeat);
+    await chain.catch(() => {});
     if (preview?.pid) {
       try {
         process.kill(-preview.pid, 'SIGKILL');
@@ -216,17 +240,20 @@ describe.skipIf(!enabled)('the migration through the page (browser)', () => {
   test(
     'the flip: V5 retired on Ethereum and on its own chain; the page says mining has ended',
     async () => {
-      v6v = await rig.deployNext({ bump: 1n });
-      await rig.flip(v6v);
-      expect(await noteAllTransitions(v5.operator)).toEqual([1n]);
-      const sent = await retireOnL1(v5.operator, BigInt(v5.deployment.rollupVersion));
-      await rig.nudge();
-      const user = await openUser(v5.deployment, node5.nodeUrl);
-      try {
-        await retireOnL2(user, bridge.portal as Hex, sent, 300);
-      } finally {
-        await user.stop();
-      }
+      // The flip's vote and the retire own the clock for their duration: no heartbeat between their warps.
+      await serial(async () => {
+        v6v = await rig.deployNext({ bump: 1n });
+        await rig.flip(v6v);
+        expect(await noteAllTransitions(v5.operator)).toEqual([1n]);
+        const sent = await retireOnL1(v5.operator, BigInt(v5.deployment.rollupVersion));
+        await rig.nudge();
+        const user = await openUser(v5.deployment, node5.nodeUrl);
+        try {
+          await retireOnL2(user, bridge.portal as Hex, sent, 300);
+        } finally {
+          await user.stop();
+        }
+      });
       expect(await stage('v5-flipped', 'on V5 after the flip:')).toBe(0);
     },
     STAGE_MS,
@@ -235,12 +262,14 @@ describe.skipIf(!enabled)('the migration through the page (browser)', () => {
   test(
     'on V6: restore, the recovery file, the holder’s own forward and claim, the redeem — through the page',
     async () => {
-      const continuation = await continuationOf(v5.recordPath);
-      await rig.stopNode();
-      const node6 = await rig.startNode(v6v);
-      const v6 = await deployMiner(rig, node6, bridge, { continuation });
-      await registerVersion(v6.operator);
-      await serve(v6, node6, 'e2e/.rig-dist-v6', false);
+      await serial(async () => {
+        const continuation = await continuationOf(v5.recordPath);
+        await rig.stopNode();
+        const node6 = await rig.startNode(v6v);
+        const v6 = await deployMiner(rig, node6, bridge, { continuation });
+        await registerVersion(v6.operator);
+        await serve(v6, node6, 'e2e/.rig-dist-v6', false);
+      });
       expect(await stage('v6', 'on V6:')).toBe(0);
     },
     STAGE_MS,
