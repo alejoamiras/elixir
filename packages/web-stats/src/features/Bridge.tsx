@@ -1,7 +1,5 @@
-// The bridge page's tiles: the six figures, the version's life as a timeline, where the
-// coins are, a card per registered version with its bar and its turnstile in plain words, the
-// portal's state, and the bridge on Ethereum with its keys and its rules. Flows per version, never
-// balances: the portal knows what left and what arrived, not who holds what.
+// The bridge page's tiles. The portal knows what left each version and what arrived, not who
+// holds what: every figure here is a flow or this build's own supply.
 
 import type { VersionFlows } from '../../../bridge/src/portal-reader.ts';
 import type { MigrationRecord } from '../../../bridge/src/record.ts';
@@ -125,19 +123,28 @@ export function BridgeCoins({
   snapshot: BridgeSnapshot;
   now: number;
 }) {
-  const points = snapshot.extras ? coinsSeries(rows, snapshot.extras.events, chainNow(snapshot, now)) : [];
-  const from = rows.reduce((a, r) => Math.min(a, r.epoch), Number.POSITIVE_INFINITY);
-  const since = from <= FIRST ? 'since launch' : `since epoch ${from} · earlier epochs still loading`;
+  // The emission is exact only over every epoch since this version's first, with no gap: a window
+  // loaded beside the latest one would draw a false total.
+  const last = rows.reduce((a, r) => Math.max(a, r.epoch), -1);
+  const complete = rows.length > 0 && rows.length === last - FIRST + 1 && rows.every((r) => r.epoch >= FIRST);
+  const own = snapshot.extras?.events.filter(
+    (e) => e.version.toString() === import.meta.env.VITE_ROLLUP_VERSION,
+  );
+  const points = complete && own ? coinsSeries(rows, own, chainNow(snapshot, now)) : [];
   return (
     <Tile data-testid="bridge-coins">
-      <TileHeader aside={`${since} · violet on Aztec · grey on Ethereum`}>where the coins are</TileHeader>
+      <TileHeader aside="since launch · each epoch's claims at its open · violet on Aztec · grey on Ethereum">
+        where the coins are
+      </TileHeader>
       {points.length > 1 ? (
         <CoinsChart points={points} symbol={PARAMS.TOKEN_SYMBOL} />
       ) : (
         <p className="text-xs text-ink-3">
-          {snapshot.extras
-            ? 'the epochs held so far draw nothing yet'
-            : 'the portal’s events could not be read'}
+          {!snapshot.extras
+            ? 'the portal’s events could not be read'
+            : complete
+              ? 'the epochs held so far draw nothing yet'
+              : `drawn once every epoch since launch is held · ${rows.length} of ${Math.max(0, last - FIRST + 1)} so far`}
         </p>
       )}
     </Tile>

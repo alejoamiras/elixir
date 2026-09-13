@@ -58,20 +58,21 @@ function FromAnywhere({ call }: { call: ReturnType<typeof forwardCall> }) {
 export function TakingLongDialog({ onSettings, onWallet }: { onSettings: () => void; onWallet: () => void }) {
   const journal = useAtomValue(journalAtom);
   const now = useAtomValue(nowAtom);
-  const [dismissed, setDismissed] = useState<string>();
+  const [dismissed, setDismissed] = useState<ReadonlySet<string>>(new Set());
   const slow = journal.filter((c) => takingLong(c, now));
-  const first = slow.find((c) => c.id !== dismissed);
+  const first = slow.find((c) => !dismissed.has(c.id));
+  const dismiss = (ids: string[]) => setDismissed((was) => new Set([...was, ...ids]));
   if (!first) return null;
   const held = first.state === 'held';
   const waited = duration(Math.round((now - first.updatedAt) / 1000));
   const call = forwardCall(first);
-  // The dialog would stay over the destination: it closes for this crossing before the page moves.
+  // The dialog would stay over the destination: every slow crossing's is dismissed before the page moves.
   const leave = (go: () => void) => {
-    setDismissed(first.id);
+    dismiss(slow.map((c) => c.id));
     go();
   };
   return (
-    <Dialog open onOpenChange={(o) => !o && setDismissed(first.id)}>
+    <Dialog open onOpenChange={(o) => !o && dismiss([first.id])}>
       <DialogContent data-testid="taking-long" className="max-w-[540px]">
         <span className="label-mono">taking long</span>
         <DialogTitle className="text-[22px] leading-[1.2] tracking-[-0.02em]">
@@ -120,7 +121,7 @@ export function TakingLongDialog({ onSettings, onWallet }: { onSettings: () => v
         </Note>
         <div className="flex items-center justify-between gap-3">
           <span className="text-xs text-ink-3">Waiting is fine too.</span>
-          <Button variant="ghost" size="sm" onClick={() => setDismissed(first.id)}>
+          <Button variant="ghost" size="sm" onClick={() => dismiss([first.id])}>
             Wait
           </Button>
         </div>

@@ -269,13 +269,14 @@ export const forwardingLine = (lastForwardAt: number | null | undefined, nowSeco
       ? `forwarded ${duration(Math.max(0, nowSeconds - lastForwardAt))} ago`
       : 'nothing forwarded yet';
 
-const ethereumKpi = (f: BridgeFigures, chain: string): Kpi => ({
+/** YACA on Ethereum is one pool across versions; its share of all minted is known only while one version has minted. */
+const ethereumKpi = (f: BridgeFigures, chain: string, onlyVersion: boolean): Kpi => ({
   id: 'ethereum',
   label: 'on Ethereum',
   value: figure(f.onEthereum),
   unit: 'YACA',
   sub: `an ERC-20 on ${chain}${
-    f.onEthereum !== undefined && f.mined !== undefined && f.mined > 0n
+    onlyVersion && f.onEthereum !== undefined && f.mined !== undefined && f.mined > 0n
       ? ` · ${percent(f.onEthereum, f.mined)} of all minted`
       : ''
   }`,
@@ -352,7 +353,7 @@ export function kpisOf(
   const f = figuresOf(s, live, miner, supply);
   const v = live ? `V${live.version}` : 'this version';
   return [
-    ethereumKpi(f, chain),
+    ethereumKpi(f, chain, s.versions.length === 1),
     aztecKpi(f, miner, supply, v),
     transitKpi(f),
     waitingKpi(f),

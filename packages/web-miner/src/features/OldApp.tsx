@@ -234,13 +234,13 @@ export function OldApp({ session }: { session?: Session }) {
         </span>
         <h1 className="mt-2 text-balance text-[36px] font-semibold leading-[1.05] tracking-[-0.025em]">
           {m === 'quiet'
-            ? `V${version} no longer proves. Nothing can leave.`
+            ? `V${version}’s exits have closed. Nothing can leave.`
             : 'Send what is still here ahead.'}
         </h1>
         <p className="mt-3 text-pretty text-base leading-[1.55] text-ink-2 [&_b]:font-medium [&_b]:text-ink">
           {m === 'quiet' ? (
             <>
-              Mining has ended on this version and V{version} stopped proving epochs. Balances still here
+              Mining has ended on this version and V{version}’s exit deadline has passed. Balances still here
               cannot leave any more, and sends in epochs it never proved were undone back onto it:{' '}
               <b>they are lost</b>. Sends proven to Ethereum in time are safe and arrive at {apexHost()}.
             </>

@@ -323,4 +323,20 @@ describe('taking long', () => {
     act(() => store.set(journalAtom, [crossing({ id: 'r', state: 'ready', updatedAt: NOW - 1000 })]));
     expect(screen.queryByTestId('taking-long')).toBeNull();
   });
+
+  test('two slow crossings: Wait shows the next; leaving for the wallet dismisses every one', () => {
+    const onWallet = vi.fn();
+    const old = NOW - TAKING_LONG_AFTER_MS - 1;
+    mount(<TakingLongDialog onSettings={() => {}} onWallet={onWallet} />, (s) =>
+      s.set(journalAtom, [
+        crossing({ id: 'a', kind: 2, state: 'held', updatedAt: old }),
+        crossing({ id: 'b', kind: 2, state: 'held', updatedAt: old }),
+      ]),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Wait' }));
+    expect(screen.getByTestId('taking-long')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Open the bridge tile' }));
+    expect(onWallet).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('taking-long')).toBeNull();
+  });
 });

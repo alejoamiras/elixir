@@ -283,7 +283,7 @@ describe('the old app', () => {
     keep('old-app-sent', container.innerHTML);
   });
 
-  test('once the version no longer proves: what is lost, and what was safe', () => {
+  test('once exits closed: what is lost, and what was safe', () => {
     const { container } = old((s) => {
       s.set(bridgeAtom, {
         verdict: { kind: 'flipped', by: ['registry', 'retired'] },
@@ -296,7 +296,7 @@ describe('the old app', () => {
         crossing('safe', { kind: 2, state: 'held', ...settled, amount: (48n * ONE).toString() }),
       ]);
     });
-    expect(screen.getByTestId('retired').textContent).toContain('V5 no longer proves. Nothing can leave.');
+    expect(screen.getByTestId('retired').textContent).toContain('V5’s exits have closed. Nothing can leave.');
     expect(screen.getByTestId('old-quiet').textContent).toContain('cannot leave');
     keep('old-app-quiet', container.innerHTML);
   });

@@ -4,6 +4,7 @@ import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import {
   chainNow,
   exitLimitLine,
+  kpisOf,
   pauseLine,
   phasesOf,
   readBridge,
@@ -181,5 +182,26 @@ describe('where a version’s coins are', () => {
     expect(here(whereOf(v6, s, miner, 10n * ONE, '6'), 'transit')).toBe('1');
     expect(here(whereOf(v5, s, miner, 10n * ONE, '6'), 'here')).toBe('—');
     expect(here(whereOf(v5, s, miner, 10n * ONE, '6'), 'transit')).toBe('—');
+  });
+});
+
+describe('the share on Ethereum', () => {
+  test('is of all minted while one version has minted, and unsaid once YACA spans versions', async () => {
+    const reader = (versions: bigint[]) => ({
+      registered: async () => versions,
+      flows: async (v: bigint) => ({ ...live, version: v }),
+      canonical: async () => ({ version: versions.at(-1) as bigint, index: 1n }),
+      policy: async () => policy,
+      operators: async () => `0x${'aa'.repeat(20)}` as const,
+      forwarders: async () => [],
+      blockTime: async () => BigInt(NOW),
+    });
+    const extras = { yacaSupply: 40n * ONE, events: [], lastForwardAt: null };
+    const miner = { exited: 40n * ONE, claimedFromL1: 0n };
+    const one = { ...(await readBridge(reader([5n]), 7)), extras };
+    const ethereum = (s: typeof one) => kpisOf(s, s.versions[0], miner, 60n * ONE, NOW, 'anvil')[0]?.sub;
+    expect(ethereum(one)).toContain('40 % of all minted');
+    const two = { ...(await readBridge(reader([5n, 6n]), 7)), extras };
+    expect(ethereum(two)).not.toContain('%');
   });
 });
