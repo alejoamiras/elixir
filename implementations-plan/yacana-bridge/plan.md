@@ -833,7 +833,11 @@ tile; the landing `Alert` and the standalone `/faq` page (`routes/Faq.tsx`, the 
 rule and its reason), linked from the miner's migration card and the stats bridge page. The viem-only portal
 reader moved to `packages/bridge/src/portal-reader.ts`, with the per-version flows and the policy.)
 
-**P10 — docs, CI, records** (`docs/bridge.md` — the mechanism, the turnstile stated plainly (no per-crossing
+**P10 ✓ — docs, CI, records** (green 2026-09-13; `lessons/phase-10.md`; `bun run lint && bun run lint:actions &&
+bun run lint:shell` ✓, `bun test packages/deploy packages/site packages/bridge` 109/109, root typecheck clean;
+every runbook step names an operator-script entrypoint the rig exercised, `set-forwarder` added for the one that
+had none; the witness archive served at `/witnesses/<rollupVersion>.jsonl` and read by the miner for an earlier
+version.) (`docs/bridge.md` — the mechanism, the turnstile stated plainly (no per-crossing
 delay; the cap is a cumulative bound net of what came in; the pause stops what comes after it; the deadline ends a
 version) and the forwarding rule with its reason; `docs/upgrades.md` written as the rig's steps with the operator
 script's entrypoints — the day before: `closeDeposits`; minute one: `noteTransition` and `retire`; announcing is a

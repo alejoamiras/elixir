@@ -14,6 +14,32 @@ backlog that the plan defers.
 | 4 | Web miner (React + Vite + shadcn, Worker-hosted bb.js, embedded wallet, sponsored FPC, pinned CRS, Playwright E2E) | done |
 | 5 | Testnet soak on the `testnet` profile (2 h, 21 epochs closed, `docs/soak-report.md`), docs, mainnet-readiness notes | done |
 
+## The bridge and the migration (`implementations-plan/yacana-bridge/plan.md` §6; arcs 1–4)
+
+| Phase | What | Status |
+|---|---|---|
+| P1 | The protocol: message contents, secrets and redeem keys from the master, the three-way vectors (Noir, Solidity, TS), the toolchain module (`aztec-forge`, `anvil`, `cast` pinned) | done |
+| P2 | The miner's bridge functions (`exit_to_l1`, `send_ahead`, `claim_from_l1`, the retire message), the counters and exit logs, the continuation constructor | done |
+| P3 | `YACA`, `YacanaPortal` (the cap, the pause, the deadline, forwarding, redeem, deposit), the L1 deploy script, the record's `bridge` block | done |
+| P4 | The upgrade rig: the local network flips itself (H0), `harness.yml` | done |
+| P5 | The migration cases H1–H11 on the rig and the operator script (`bun run bridge -- …`) | done |
+| P6 | The site layer (the record's blocks into the apps, the Ethereum RPC as a second guarded slot) and the miner's bridge modules (journal, queue, facts, landing, recovery) | done |
+| P7 | The guided path: the migration card, Send ahead, the arrival card's one-tap Claim, exits and deposits, the recovery file | done |
+| P8 | The versioned origin: the `old` role, the `yacana-v5` Worker, one passkey across both origins | done |
+| P9 | `/stats/bridge`, the announcement lines, Verify's Ethereum tile, the standalone `/faq` | done |
+| P10 | `docs/bridge.md`, the runbook `docs/upgrades.md`, the threat-model rows, CI filters, the witness archive served with the site | done |
+| P11 | The testnet rehearsal: Sepolia (EOAs), the testnet profile redeployed with the bridge, the preview site, one crossing of each kind; preview deployments only | pending |
+
+Deferred by that plan's decisions (`plan.md` §5, §8):
+
+- The hourly automatic send-ahead of new wins (A8, D12): sends are manual and landing is a one-tap Claim.
+- The Safe as the operators (A4, D50): Sepolia runs with EOAs; the Safe, its signers and threshold arrive with the
+  mainnet plan, which also decides the policy figures for mainnet.
+- An indexer or a relayer: the page reads the portal's events and the miner's logs itself and matches locally;
+  Yacana forwards by hand from the operator script.
+- The old origin's take-down after a version's deadline and the apex switch are post-merge production steps, run
+  by the owner (`docs/upgrades.md`).
+
 ## Deferred (later plans)
 
 - Native / CLI mining via aztec-accelerator on top of miner-core.

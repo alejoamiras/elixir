@@ -26,6 +26,8 @@ jobs:
           - 'scripts/run/**'
           - 'packages/site/**'
           - 'packages/ui/**'
+          - 'packages/bridge/**'
+          - 'packages/portal/abi/**'
           - 'yacana.params.json'
           - 'scripts/params-codegen.ts'
           - 'biome.json'

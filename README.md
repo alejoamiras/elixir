@@ -11,6 +11,8 @@ time, clamped to [¼, 4] — Bitcoin-style difficulty without a native hash to g
 | Mechanism, security, phases | `implementations-plan/elixir-core/plan.md` |
 | Threat model with the measured figures | `docs/threat-model.md` |
 | Deployments (public testnet) | `docs/deployments.md` |
+| The bridge to Ethereum and between Aztec versions | `docs/bridge.md` |
+| The runbook for the day Aztec moves on | `docs/upgrades.md` |
 | Web miner | `packages/web-miner/README.md` |
 | Roadmap and deferred work | `docs/roadmap.md` |
 | Working conventions | `CLAUDE.md` |
@@ -19,9 +21,13 @@ time, clamped to [¼, 4] — Bitcoin-style difficulty without a native hash to g
 
 `packages/work-circuit` (the Noir work circuit `W` and its VK), `packages/contracts` (`YacanaMiner` and the
 aztec-standards token), `packages/miner-core` (platform-agnostic TypeScript: proof → ticket, retarget mirror,
-epoch reader, claim builder, mining loop), `packages/web-miner` (React page with an embedded wallet),
-`packages/deploy` (deploy, soak and epoch-stats scripts), `scripts/run` (run isolation for parallel local
-networks).
+epoch reader, claim builder, mining loop), `packages/portal` (`YACA` and `YacanaPortal` on Ethereum, Foundry),
+`packages/bridge` (the crossing protocol shared by the contracts' vectors, the operator script and the page:
+contents, secrets, witnesses, the journal, the recovery file, the portal reader), `packages/harness` (the upgrade
+rig's cases: a rollup upgrade of the local network with the bridge across it), `packages/web-miner` (React page
+with an embedded wallet), `packages/web-stats` and `packages/web-landing` (the observatory and the landing),
+`packages/site` (the three apps as one origin), `packages/ui` (the design system), `packages/deploy` (deploy,
+bridge, soak and epoch-stats scripts), `scripts/run` (run isolation for parallel local networks, the upgrade rig).
 
 ## Quick start
 
@@ -32,4 +38,5 @@ bun run lint && bun test                        # unit suites
 bun run e2e:agent -- bun test packages/miner-core                     # live suite on an isolated network
 bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e        # web miner in headless Chromium
 bun run --cwd packages/web-miner dev                                  # the miner against the public testnet
+bun run portal:build && bun run rig -- flip                           # the local network upgrades itself (the bridge's rig)
 ```

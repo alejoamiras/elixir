@@ -140,6 +140,36 @@ Zone state on 2026-09-06: Always Use HTTPS on; HSTS from `_headers`; CAA `issue`
 augments them with `issuewild` and its own entries); DNSSEC enabled, the DS at Cloudflare Registrar (key tag 2371), the
 TLD's publication pending; Web Analytics automatic setup off.
 
+### The bridge (Sepolia) and the versioned origin
+
+The record carries two more blocks once the bridge exists (`packages/bridge/src/record.ts`): `bridge` (`chainId`,
+`portal`, `yaca`, `registry`, `operators`, `l1RpcUrl`, `deployBlock`), written by
+`bun packages/deploy/scripts/l1-deploy.ts deployments/<profile>.json` with `YACANA_L1_RPC_URL`,
+`YACANA_L1_PRIVATE_KEY`, `YACANA_REGISTRY` (Aztec's Registry on that chain) and `YACANA_OPERATORS` in the shell
+(the policy comes from `yacana.params.json` through `packages/bridge/src/policy.ts`; the script refuses a record
+whose miner trusts another portal), and `migration` (`toIndex`, `announcedAt`, `expectedFlipAt`), written by hand
+when Aztec announces the next version. A miner is deployed with `YACANA_PORTAL` naming the portal it trusts,
+immutably, so the portal comes first; then `bun run bridge -- register` and `bun run bridge -- set-forwarder`
+(`docs/upgrades.md`, step 0). The site builds both blocks into the apps (`VITE_BRIDGE`, `VITE_MIGRATION`; production
+refuses a plaintext or local RPC); `bun run bridge -- status` reads the portal's view of every registered version.
+
+Sepolia: **not deployed yet**. The rehearsal (plan `yacana-bridge`, P11) deploys YACA and the portal on Sepolia
+with an operator EOA and a forwarder EOA, redeploys the testnet profile with the bridge as a new record (the
+deployment above keeps running), verifies the branch's preview site against it, and records the addresses, the
+Etherscan links and the preview URLs here. The Safe, its signers and threshold come with the mainnet plan.
+
+The versioned origin: a retired version's last build, assembled with `YACANA_APP_ROLE=old bun run site:build` into
+`packages/site/dist-old` and deployed to the `yacana-v5` Worker (`packages/site/v5/wrangler.jsonc`, custom domain
+`v5.yacana.network`, versions at `<id>-yacana-v5.<account>.workers.dev`). It restores accounts and never creates
+one, sends ahead and exits; mining there has ended. It is kept until the version's deadline has passed
+(`docs/upgrades.md`). Its custom domain is created by its first production deploy, after the merge, never from a
+branch; before that a version of the Worker serving the frozen record proves the role and the headers on a preview
+host.
+
+The witness archive: `deployments/witnesses/<profile>.jsonl`, written by `bun run bridge -- forward` from a
+version's settled exits, committed, and served by the site at `/witnesses/<rollupVersion>.jsonl` for the profiles
+that have a record.
+
 ## Mainnet
 
 Not deployed. The `mainnet` profile (N = 24, 1 h epochs, target 2^122, `YACA`) exists in `yacana.params.json`;
