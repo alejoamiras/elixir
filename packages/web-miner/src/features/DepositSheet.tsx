@@ -5,7 +5,7 @@
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import type { Hex } from 'viem';
-import { useAccount, useChainId, useConnect, useConnectors, useDisconnect, useReadContract } from 'wagmi';
+import { useAccount, useConnect, useConnectors, useDisconnect, useReadContract } from 'wagmi';
 import type { Crossing } from '../../../bridge/src/journal.ts';
 import { yacaAbi } from '../../../bridge/src/portal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
@@ -50,32 +50,32 @@ const chain = () => chainName(bridgeRecord()?.chainId);
 /** The connected wallet as one row: the avatar, the address and the network, the YACA it holds there. */
 function ConnectedWallet({
   address,
-  name,
-  chainId,
   yaca,
   onDisconnect,
 }: {
   address: Hex;
-  name?: string;
-  chainId: number;
   yaca: bigint | undefined;
   onDisconnect: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2" data-testid="eth-account">
-      <span className="inline-flex h-[34px] items-center gap-2 rounded-md border border-line-2 px-3 text-[12.5px] font-medium">
+      <span className="inline-flex h-[34px] items-center gap-2 rounded-md border border-line-2 pr-1 pl-3 text-[12.5px] font-medium">
         <i aria-hidden className="size-3 rounded-full bg-[linear-gradient(135deg,var(--uv),var(--warn))]" />
         <span className="font-mono">{shortAddress(address)}</span>
-        <span className="text-ink-3">· {name ?? `chain ${chainId}`}</span>
+        <button
+          type="button"
+          onClick={onDisconnect}
+          aria-label="Disconnect this wallet"
+          title="Disconnect"
+          className="ml-0.5 grid size-6 place-items-center rounded-sm text-ink-3 hover:bg-panel-2 hover:text-ink"
+          data-testid="eth-disconnect"
+        >
+          ×
+        </button>
       </span>
-      <span className="flex items-center gap-3 whitespace-nowrap font-mono text-2xs text-ink-2">
-        <span>
-          <span data-testid="yaca-balance">{yaca === undefined ? '…' : fmt(yaca, PARAMS.DECIMALS)}</span> YACA
-          there
-        </span>
-        <Button size="sm" variant="ghost" onClick={onDisconnect} data-testid="eth-disconnect">
-          Disconnect
-        </Button>
+      <span className="whitespace-nowrap font-mono text-2xs text-ink-2">
+        <span data-testid="yaca-balance">{yaca === undefined ? '…' : fmt(yaca, PARAMS.DECIMALS)}</span> YACA
+        there
       </span>
     </div>
   );
@@ -87,7 +87,6 @@ export function WalletPicker({ yaca }: { yaca?: bigint } = {}) {
   const { connect, isPending, error } = useConnect();
   const account = useAccount();
   const { disconnect } = useDisconnect();
-  const chainId = useChainId();
   // wagmi is still asking the wallets the page connected before: no picker until it knows.
   if (account.status === 'reconnecting')
     return (
@@ -96,15 +95,7 @@ export function WalletPicker({ yaca }: { yaca?: bigint } = {}) {
       </p>
     );
   if (account.isConnected && account.address)
-    return (
-      <ConnectedWallet
-        address={account.address}
-        name={account.connector?.name}
-        chainId={chainId}
-        yaca={yaca}
-        onDisconnect={() => disconnect()}
-      />
-    );
+    return <ConnectedWallet address={account.address} yaca={yaca} onDisconnect={() => disconnect()} />;
   return (
     <div className="flex flex-col gap-3" data-testid="wallet-picker">
       <div className="flex flex-wrap items-center gap-3">
@@ -230,7 +221,7 @@ function Done({ display, sent, onDone }: { display: string; sent?: Crossing; onD
             state: 'done',
             right: tx ? (
               <ExternalLink href={l1Links.tx(tx)} full={tx}>
-                {shortAddress(tx)} ↗
+                {shortAddress(tx)}
               </ExternalLink>
             ) : undefined,
           },

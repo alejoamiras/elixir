@@ -3,9 +3,10 @@ import type * as React from 'react';
 import { cn } from '../lib/cn.ts';
 
 /**
- * `indeterminate` keeps the finished fill (`value`) and moves a stripe only inside the slice after it
- * — `indeterminateSpan` percent wide (the rest of the track by default) — so a step whose fraction is
- * unknown never reads as a fake percentage; under reduced motion the stripe is a static half of it.
+ * `indeterminate` keeps the finished fill (`value`) and moves a stripe inside the slice after it —
+ * `indeterminateSpan` percent wide (the rest of the track by default), or the whole track at 100 — so
+ * a step whose fraction is unknown never reads as a fake percentage; under reduced motion the stripe
+ * is a static half of it.
  */
 function Progress({
   className,
@@ -40,7 +41,7 @@ function Progress({
           aria-hidden
           data-slot="progress-stripe"
           className="absolute inset-y-0 overflow-hidden"
-          style={{ left: `${done}%`, width: `${span}%` }}
+          style={{ left: `${span >= 100 ? 0 : done}%`, width: `${span}%` }}
         >
           <span className="block h-full w-1/2 bg-uv/70 motion-safe:animate-[progress-slide_1.2s_ease-in-out_infinite]" />
         </span>

@@ -49,6 +49,7 @@ function Form({
 }) {
   return (
     <div className="flex flex-col gap-4">
+      <p className="label-mono">to ethereum · step 1 of 2</p>
       <AmountInput
         id="exit-amount"
         value={draft.amount}
@@ -93,7 +94,6 @@ function Form({
         <Button variant="primary" onClick={onReview} data-testid="exit-review">
           Review
         </Button>
-        <span className="text-xs text-ink-3">Mining pauses while it is proved.</span>
       </div>
     </div>
   );
@@ -101,13 +101,11 @@ function Form({
 
 function Review({
   snap,
-  balance,
   busy,
   onSend,
   onBack,
 }: {
   snap: EthSnapshot;
-  balance: bigint;
   busy: boolean;
   onSend: () => void;
   onBack: () => void;
@@ -124,10 +122,6 @@ function Review({
       />
       <div>
         <KvRow label="to" value={`Ξ ${shortAddress(snap.to)}`} />
-        <KvRow
-          label="from"
-          value={`this account's private balance · ${fmt(balance, PARAMS.DECIMALS)} → ${fmt(balance - snap.amount, PARAMS.DECIMALS)}`}
-        />
         <KvRow
           label="fees"
           value="Aztec: the sponsor · Ethereum: whoever forwards it, Yacana by hand or you"
@@ -257,8 +251,7 @@ export function ToEthereumSheet({
           <>
             <SheetTitle className="text-[22px] leading-[1.2] tracking-[-0.02em]">To Ethereum</SheetTitle>
             <SheetDescription>
-              From this account’s private balance of {money(balance)}, as YACA on{' '}
-              {chainName(bridgeRecord()?.chainId)}.
+              From this account’s private balance to a public {chainName(bridgeRecord()?.chainId)} address.
             </SheetDescription>
           </>
         )}
@@ -273,7 +266,6 @@ export function ToEthereumSheet({
         {step.kind === 'review' && (
           <Review
             snap={step.snap}
-            balance={balance}
             busy={busy}
             onSend={() => void send(step.snap)}
             onBack={() => setStep({ kind: 'form' })}

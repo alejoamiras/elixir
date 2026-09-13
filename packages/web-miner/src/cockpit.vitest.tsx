@@ -5,7 +5,7 @@ import { ClaimSlot, slotState } from './features/ClaimSlot';
 import { initial, type MinerState } from './lib/reducer';
 import { pillStatus } from './lib/status';
 import { Mine } from './routes/Mine';
-import { epochAtom, minerAtom, nowAtom, rulesAtom } from './state';
+import { bootAtom, epochAtom, minerAtom, nowAtom, rulesAtom } from './state';
 
 afterEach(cleanup);
 // jsdom has no matchMedia; the score loop's reduced-motion hook reads it.
@@ -127,5 +127,37 @@ describe('the claim slot', () => {
     expect(slotState({ ...initial, minted: MINTED }, 110_000)).toBe('idle');
     expect(pillStatus({ ...initial, minted: MINTED }, 105_000)).toBe('minted');
     expect(pillStatus({ ...initial, minted: MINTED }, 110_000)).toBe('idle');
+  });
+});
+
+describe('the start and stop buttons', () => {
+  test('Stop stays on the cockpit while a claim is in flight', () => {
+    const store = createStore();
+    store.set(bootAtom, {
+      phase: 'ready',
+      account: '0xacc',
+      threads: 1,
+      record: {
+        v: 1,
+        id: 'k',
+        method: 'words',
+        createdAt: 0,
+        askEveryOpen: false,
+        backedUp: true,
+        account: { address: '0xacc', index: 0 },
+      },
+    });
+    store.set(minerAtom, {
+      ...initial,
+      phase: 'claiming',
+      claim: { step: 'sent', since: 50_000, done: [12_400], txHash: '0xab' },
+    });
+    store.set(nowAtom, 60_000);
+    const { getByTestId } = render(
+      <Provider store={store}>
+        <Mine controller={() => undefined} />
+      </Provider>,
+    );
+    expect(getByTestId('stop').getAttribute('title')).toContain('does not resume');
   });
 });

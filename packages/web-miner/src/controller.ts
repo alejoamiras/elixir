@@ -165,6 +165,8 @@ export class MinerController {
   /** Why mining is paused by the page itself (not the user); it resumes when the reason clears. */
   private pausedBy = new Set<PauseReason>();
   private resumeWhenClear = false;
+  /** Stop pressed while a claim was in flight: the claim finishes, mining does not resume after it. */
+  private stopAfterClaim = false;
   private retired = false;
   lastClaim: LastClaim | undefined;
 
@@ -294,6 +296,7 @@ export class MinerController {
   /** Under a page-side pause the intent is kept: mining starts when the last reason clears. */
   start() {
     if (this.retired) return;
+    this.stopAfterClaim = false;
     if (this.pausedBy.size) {
       this.resumeWhenClear = true;
       return;
@@ -306,6 +309,7 @@ export class MinerController {
   stop() {
     this.stops++;
     this.resumeWhenClear = false;
+    if (this.store.get(minerAtom).phase === 'claiming') this.stopAfterClaim = true;
     this.dispatch({ type: 'stop' });
   }
 
@@ -610,7 +614,7 @@ export class MinerController {
         at: Date.now(),
       });
       this.announceWin(block);
-      this.start();
+      this.resumeAfterClaim();
     } catch (e) {
       this.retained = restore;
       await this.claimFailed(e);
@@ -639,13 +643,21 @@ export class MinerController {
       });
   }
 
+  private resumeAfterClaim() {
+    if (this.stopAfterClaim) {
+      this.stopAfterClaim = false;
+      return;
+    }
+    this.start();
+  }
+
   private async claimFailed(e: unknown) {
     const kind = classifyClaimFailure(e);
     const message = claimFailureMessage(e);
     this.log(`claim failed (${kind}): ${message}`);
     this.dispatch({ type: 'failed', error: message, kind, at: Date.now() });
     // Nothing was spent by an expired claim: mining goes on, on whatever epoch is open now.
-    if (kind === 'expired') return this.start();
+    if (kind === 'expired') return this.resumeAfterClaim();
     if (kind !== 'reverted' && kind !== 'delivery-blocked') return;
     // A delivery still blocked after a rebuild is the PXE waiting for L1: only time helps.
     const rebuilt = this.rebuiltAt !== null && Date.now() - this.rebuiltAt < (await this.finalityMs());

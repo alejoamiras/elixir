@@ -59,7 +59,7 @@ function Card({
       <>
         {l1 && c.l1TxHash && (
           <ExternalLink href={l1} full={c.l1TxHash}>
-            Etherscan ↗
+            Etherscan
           </ExternalLink>
         )}
         {forward && (
@@ -174,13 +174,11 @@ const asideOf = (view: BridgeView): string => {
 export function BridgeTile({
   session,
   account,
-  onDeposit,
   onForward,
   onRedeem,
 }: {
   session: Session;
   account: string;
-  onDeposit: () => void;
   onForward: (c: Crossing) => void;
   onRedeem: (c: Crossing) => void;
 }) {
@@ -191,7 +189,6 @@ export function BridgeTile({
   const shown = journal.filter(
     (c) => visible(c, now) && c.kind !== 3 && c.state !== 'claimable' && c.state !== 'minted-l2',
   );
-  const standing = view.standing;
   return (
     <Tile className="md:col-span-2" data-testid="bridge-tile">
       <TileHeader aside={asideOf(view)}>bridge</TileHeader>
@@ -218,26 +215,17 @@ export function BridgeTile({
       </p>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-line pt-3 text-xs">
         <span className="flex flex-wrap items-center gap-4">
-          <Button
-            size="sm"
-            variant="link"
-            className="text-uv-2"
-            disabled={!standing?.registered || standing.depositsClosed}
-            onClick={onDeposit}
-          >
-            Deposit from Ethereum →
-          </Button>
           <Recovery session={session} account={account} />
         </span>
         {record && (
           <span className="font-mono text-2xs text-ink-3">
             YACA on {chainName(record.chainId)}:{' '}
             <ExternalLink href={l1Links.address(record.yaca)} full={record.yaca}>
-              {shortAddress(record.yaca)} ↗
+              {shortAddress(record.yaca)}
             </ExternalLink>
             {' · portal '}
             <ExternalLink href={l1Links.address(record.portal)} full={record.portal}>
-              {shortAddress(record.portal)} ↗
+              {shortAddress(record.portal)}
             </ExternalLink>
           </span>
         )}

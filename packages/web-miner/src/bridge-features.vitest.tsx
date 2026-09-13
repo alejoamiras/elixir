@@ -141,15 +141,7 @@ describe('the bridge tile', () => {
     const onForward = vi.fn();
     const ready = crossing({ id: 'r', state: 'ready', txHash: `0x${'11'.repeat(32)}` });
     const held = crossing({ id: 'h', kind: 2, state: 'held' });
-    const tile = (
-      <BridgeTile
-        session={session}
-        account="0xabc"
-        onDeposit={() => {}}
-        onForward={onForward}
-        onRedeem={onRedeem}
-      />
-    );
+    const tile = <BridgeTile session={session} account="0xabc" onForward={onForward} onRedeem={onRedeem} />;
     const store = mount(tile, (s) =>
       s.set(journalAtom, [ready, held, crossing({ id: 'd', kind: 3, state: 'deposited' })]),
     );
@@ -211,20 +203,13 @@ describe('the balance tile and an empty bridge tile', () => {
     mount(
       <>
         <BalanceTile
-          account="0xabc"
           balance={ONE}
           claims={1}
           onSend={() => {}}
           onToEthereum={() => {}}
           onDeposit={() => {}}
         />
-        <BridgeTile
-          session={session}
-          account="0xabc"
-          onDeposit={() => {}}
-          onForward={() => {}}
-          onRedeem={() => {}}
-        />
+        <BridgeTile session={session} account="0xabc" onForward={() => {}} onRedeem={() => {}} />
       </>,
       (s) => s.set(bridgeAtom, { verdict: { kind: 'unknown' }, standing, readAt: NOW, rpcFailing: true }),
     );

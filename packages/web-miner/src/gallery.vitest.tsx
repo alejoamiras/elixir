@@ -119,15 +119,7 @@ beforeEach(() => {
 
 describe('the journal, every state', () => {
   test('an exit and a send-ahead in each state lead with their word, and nothing promises a relayer', () => {
-    const tile = (
-      <BridgeTile
-        session={session}
-        account="0xacc"
-        onDeposit={() => {}}
-        onForward={() => {}}
-        onRedeem={() => {}}
-      />
-    );
+    const tile = <BridgeTile session={session} account="0xacc" onForward={() => {}} onRedeem={() => {}} />;
     const { container } = mount(tile, (s) =>
       s.set(journalAtom, [
         crossing('proving', { state: 'proving' }),
@@ -166,15 +158,7 @@ describe('the journal, every state', () => {
   });
 
   test('a silent RPC is said on the tile, not on the crossing', () => {
-    const tile = (
-      <BridgeTile
-        session={session}
-        account="0xacc"
-        onDeposit={() => {}}
-        onForward={() => {}}
-        onRedeem={() => {}}
-      />
-    );
+    const tile = <BridgeTile session={session} account="0xacc" onForward={() => {}} onRedeem={() => {}} />;
     const { container } = mount(tile, (s) => {
       s.set(bridgeAtom, {
         verdict: { kind: 'before' },
@@ -224,15 +208,7 @@ describe('the arrivals, every state', () => {
         expectedFlipAt: String(SECONDS + 2 * 86_400),
       }),
     );
-    const tile = (
-      <BridgeTile
-        session={session}
-        account="0xacc"
-        onDeposit={() => {}}
-        onForward={() => {}}
-        onRedeem={() => {}}
-      />
-    );
+    const tile = <BridgeTile session={session} account="0xacc" onForward={() => {}} onRedeem={() => {}} />;
     const { container } = mount(
       <>
         <MigrationCard onSendAhead={() => {}} />
