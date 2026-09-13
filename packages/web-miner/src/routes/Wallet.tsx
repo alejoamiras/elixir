@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { Crossing } from '../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { Badge, Button, ExternalLink, Kpi, Tile, TileBoundary, TileHeader } from '../../../ui/src/index.ts';
+import { bridgeRecord } from '../bridge/env';
 import { links } from '../explorer';
 import { ArrivalCard } from '../features/ArrivalCard';
 import { BridgeProviders } from '../features/BridgeProviders';
@@ -17,19 +18,27 @@ import { amount, shortAddress } from '../lib/format';
 import { useTileLog } from '../lib/tile-log';
 import { takeIntent } from '../routes';
 import type { Session } from '../session';
-import { balanceAtom, bootAtom, claimsAtom } from '../state';
+import { balanceAtom, bootAtom, bridgeAtom, claimsAtom } from '../state';
 
-function BalanceTile({
+/** The balance with its two ways out (Send, To Ethereum) and the way in (Deposit from Ethereum) beside the account. */
+export function BalanceTile({
   account,
   balance,
   claims,
   onSend,
+  onToEthereum,
+  onDeposit,
 }: {
   account: string;
   balance: bigint | null;
   claims: number;
   onSend: () => void;
+  onToEthereum: () => void;
+  onDeposit: () => void;
 }) {
+  const view = useAtomValue(bridgeAtom);
+  const bridge = bridgeRecord() !== null;
+  const standing = view.standing;
   return (
     <Tile>
       <TileHeader aside="private">balance</TileHeader>
@@ -44,12 +53,21 @@ function BalanceTile({
         size="lg"
         sub={`${claims} ${claims === 1 ? 'claim' : 'claims'} · nothing about this balance is public`}
       />
-      <div className="mt-4 flex gap-3">
+      <div className="mt-4 flex flex-wrap gap-2">
         <Button variant="primary" onClick={onSend} disabled={!balance} data-testid="withdraw">
           Send
         </Button>
+        {bridge && (
+          <Button
+            onClick={onToEthereum}
+            disabled={!balance || view.rpcFailing || !standing?.registered}
+            data-testid="to-ethereum"
+          >
+            To Ethereum
+          </Button>
+        )}
       </div>
-      <div className="mt-4 flex items-center gap-2 text-xs">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs">
         <span className="inline-flex items-center gap-1.5 rounded-sm border border-line bg-panel px-2 py-1 font-mono text-2xs text-ink-2">
           <span>account</span>
           <ExternalLink
@@ -62,6 +80,18 @@ function BalanceTile({
             {shortAddress(account)}
           </ExternalLink>
         </span>
+        {bridge && (
+          <Button
+            size="sm"
+            variant="link"
+            className="text-uv-2"
+            disabled={!standing?.registered || standing.depositsClosed}
+            onClick={onDeposit}
+            data-testid="deposit"
+          >
+            Deposit from Ethereum →
+          </Button>
+        )}
       </div>
     </Tile>
   );
@@ -193,6 +223,8 @@ export function Wallet({ session }: { session: Session }) {
           balance={balance}
           claims={claims.length}
           onSend={() => setSend(true)}
+          onToEthereum={() => setExit(true)}
+          onDeposit={() => setDeposit({})}
         />
       </TileBoundary>
       <TileBoundary name="account" onError={onError}>
@@ -210,7 +242,6 @@ export function Wallet({ session }: { session: Session }) {
           <BridgeTile
             session={session}
             account={account}
-            onToEthereum={() => setExit(true)}
             onDeposit={() => setDeposit({})}
             onForward={setForward}
             onRedeem={setRedeem}

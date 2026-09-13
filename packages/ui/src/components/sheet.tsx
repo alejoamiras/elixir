@@ -22,7 +22,7 @@ function SheetContent({
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          'fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col gap-5 overflow-y-auto border-l border-line-2 bg-raised p-6 shadow-xl duration-200 motion-safe:data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right motion-safe:data-[state=open]:animate-in data-[state=open]:slide-in-from-right',
+          'fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col gap-4 overflow-y-auto border-l border-line bg-ground p-6 shadow-xl duration-200 motion-safe:data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right motion-safe:data-[state=open]:animate-in data-[state=open]:slide-in-from-right',
           className,
         )}
         {...props}
