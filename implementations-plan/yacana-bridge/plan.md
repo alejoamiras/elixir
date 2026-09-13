@@ -867,7 +867,8 @@ Gate: the explorer links and the preview URLs in `docs/deployments.md`; `bun run
 switch and the `v5` custom domain are §7's post-merge steps.
 — arc 4 boundary: the codex loop, the cross-arc pass, Delivery —
 
-**P12 — the fidelity pass** (added 2026-09-13 after the owner reviewed the arc-4 preview: the screens carried
+**P12 ✓ — the fidelity pass** (green 2026-09-13; `lessons/phase-12.md`; the gate below on 08c3aec after three codex
+rounds; added 2026-09-13 after the owner reviewed the arc-4 preview: the screens carried
 the canvas's content, copy and flow, not its composition; `lessons/phase-12.md`). The spec is the "Yacana Bridge
 Take Two" canvas, committed as `canvas/` (the 28 artboards' `.dc.html`, `canvas.json`, the `shot-*.png`). Every
 artboard but `Main` gets a row in `fidelity.md`: the component(s) it maps to, what changed, a screenshot of the
@@ -900,7 +901,7 @@ Four arcs, one branch each, stacked with `gh stack` (installed, v0.1.0); `code_r
 | 2 the rig + the migration suite + the operator script | `bridge-harness` | P4–P5 | arc 1 |
 | 3 the web miner: guided path, everyday bridge, versioned origin | `bridge-miner` | P6–P8 | arc 2 |
 | 4 stats, FAQ, docs, CI, the testnet rehearsal | `bridge-stats-docs` | P9–P11 | arc 3 |
-| 5 the fidelity pass over the drawn screens (added 2026-09-13) | `bridge-fidelity` | P12 | arc 4 |
+| 5 the fidelity pass over the drawn screens (added 2026-09-13; P12 ✓) | `bridge-fidelity` | P12 | arc 4 |
 
 Each arc is revertable alone and reviewable in one sitting. PRs are opened only in the Delivery step, after every
 arc's fix loop and the final cross-arc pass converged; the rehearsal (P11) runs from the arc-4 branch on preview
