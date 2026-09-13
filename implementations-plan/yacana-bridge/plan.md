@@ -867,6 +867,29 @@ Gate: the explorer links and the preview URLs in `docs/deployments.md`; `bun run
 switch and the `v5` custom domain are §7's post-merge steps.
 — arc 4 boundary: the codex loop, the cross-arc pass, Delivery —
 
+**P12 — the fidelity pass** (added 2026-09-13 after the owner reviewed the arc-4 preview: the screens carried
+the canvas's content, copy and flow, not its composition; `lessons/phase-12.md`). The spec is the "Yacana Bridge
+Take Two" canvas, committed as `canvas/` (the 28 artboards' `.dc.html`, `canvas.json`, the `shot-*.png`). Every
+artboard but `Main` gets a row in `fidelity.md`: the component(s) it maps to, what changed, a screenshot of the
+built screen beside the artboard; the built screen matches the artboard's composition — layout, hierarchy, the
+amount block, the vertical steps with their timings, the chip trails, the states (form / review / sent, connect /
+form / sent, sent-unproven / undone / waiting / on its way / arriving / arrived / taking long), the KPI strip, the
+dated phases timeline, the "where the coins are" chart, the version cards' stacked bar, the portal and
+bridge-on-Ethereum panels, the FAQ's panels, the old app's one page. Copy: this plan's §6 P7 overrides win over the
+canvas wherever they conflict (no relayer cadence, no hourly switch, "Send ahead", redeem any time, the forwarding
+rule and its reason); everything else reads as drawn. UI only: nothing changes under `packages/bridge`,
+`packages/contracts`, `packages/portal`, `packages/deploy`, `scripts/run`, or the miner's `src/bridge/` session,
+journal, flows and eth modules; `packages/ui` may gain primitives. Every existing spec keeps its behaviour covered
+(adapted, never dropped without a replacement); the e2e `data-testid`s stay, or their specs move with them.
+Gate: `bun run lint`, every typecheck, `bun run test:components`; `bun run --cwd packages/web-stats test:visual`
+with `/stats/bridge` added on a captured portal fixture; the stats, landing and site e2e
+(`bun run e2e:agent -- bun run --cwd packages/web-stats test:e2e`, `… packages/web-landing test:e2e`, `bun run
+e2e:agent -- bun run site:e2e`); the miner's bridge shard (`E2E_PROVERLESS=1 E2E_SHARD=bridge bun run e2e:agent --
+bun run --cwd packages/web-miner test:e2e`); `bun run rig -- browser` 3/3 and `bun run rig -- origin`; the
+branch preview (`bridge-fidelity-yacana.alejo-amiras.workers.dev`) showing the new screens, its URLs in
+`fidelity.md`.
+— arc 5 boundary: the codex loop over `git diff bridge-stats-docs...HEAD`, Delivery (the fifth PR, base #40) —
+
 ## 7. Delivery — arcs → stacked PRs
 
 Four arcs, one branch each, stacked with `gh stack` (installed, v0.1.0); `code_review: off` on every arc.
@@ -877,6 +900,7 @@ Four arcs, one branch each, stacked with `gh stack` (installed, v0.1.0); `code_r
 | 2 the rig + the migration suite + the operator script | `bridge-harness` | P4–P5 | arc 1 |
 | 3 the web miner: guided path, everyday bridge, versioned origin | `bridge-miner` | P6–P8 | arc 2 |
 | 4 stats, FAQ, docs, CI, the testnet rehearsal | `bridge-stats-docs` | P9–P11 | arc 3 |
+| 5 the fidelity pass over the drawn screens (added 2026-09-13) | `bridge-fidelity` | P12 | arc 4 |
 
 Each arc is revertable alone and reviewable in one sitting. PRs are opened only in the Delivery step, after every
 arc's fix loop and the final cross-arc pass converged; the rehearsal (P11) runs from the arc-4 branch on preview
