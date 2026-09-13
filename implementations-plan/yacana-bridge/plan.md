@@ -849,7 +849,12 @@ CLAUDE.md, `implementations-plan/index.md`; `contracts.yml` filter, `harness.yml
 Gate: `bun run lint && bun run lint:actions && bun run lint:shell`; every runbook step names an operator-script
 entrypoint the rig exercised (no prose-matching test).
 
-**P11 — the testnet rehearsal** (from the arc-4 branch, no merge and no production deploy: Sepolia — an operator EOA, YACA
+**P11 ✓ — the testnet rehearsal** (green 2026-09-13; `lessons/phase-11.md`; portal
+`0xD536D74Eedf1d2308bf8556402f37f4102eD63f7` and YACA verified on Sepolia, the testnet miner redeployed with the
+bridge and registered at index 5, the forwarder listed, one K1 minted, one K3 claimed, one K2 held with its
+witness archived and served, the previews verified against the new record, the `yacana-v5` version serving the
+frozen record; `bun run epoch:stats` ✓, `bun run bridge -- status` ✓, both role builds ✓; the K2 landing
+pending validation.) (from the arc-4 branch, no merge and no production deploy: Sepolia — an operator EOA, YACA
 + portal deployed and verified on Etherscan, a forwarder EOA set; the testnet profile redeployed with the bridge and
 launched per `docs/deployments.md` (a new record; the previous deployment keeps running); the branch's preview site
 verified against the new record; the `v5` Worker's preview version serving the frozen record (proves role, headers

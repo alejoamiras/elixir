@@ -172,8 +172,20 @@ Sepolia (2026-09-13, the rehearsal; the policy of `packages/bridge/src/policy.ts
 | Registration of version 1821665230 (index 5) | [`0xff8724ed…9458`](https://sepolia.etherscan.io/tx/0xff8724ed02e7feb9712ca0683d9a7bf78ee8cca27327f71d3d17027ff0cb9458) |
 | Deploy block / RPC in the record | 11695738 / `https://ethereum-sepolia-rpc.publicnode.com` |
 
-The rehearsal's crossings (one exit minted on Sepolia, one deposit claimed, one send-ahead held with its witness
-archived and served) are recorded below as they land; `bun run bridge -- status` reports them.
+The rehearsal's crossings, by a throwaway holder who mined two real claims on the new miner (the second,
+[`0x282fde31…2727`](https://testnet.aztecscan.xyz/tx-effects/0x282fde31d2f705c1a6f68bbb296dae0c704640c7f703f7389104326ea2c22727),
+is the example claim the landing shows):
+
+| crossing | Aztec | Ethereum |
+|---|---|---|
+| K1: 1 tYACA exited to the operators' address | `exit_to_l1` [`0x2645bcbd…f745`](https://testnet.aztecscan.xyz/tx-effects/0x2645bcbda0c12526b448ee3f81154c675a0b08493c2b0bbbe12c532d091bf745) (epoch 2398 of the rollup) | forwarded and minted by [`0xfb5f7fc8…2888`](https://sepolia.etherscan.io/tx/0xfb5f7fc80f1b1d4f0821fb07cbb89b916f6c9db47df356e5bb66ab4decd02888) once the epoch was proven (`bun run bridge -- forward`, twelve minutes after the exit) |
+| K3: 1 tYACA deposited into the live version, claimed to the holder | `claim_from_l1` [`0x0144c7f3…4cb6`](https://testnet.aztecscan.xyz/tx-effects/0x0144c7f3dbcd476ccd42c186b5943ce959592e2362954b2e88f97b3041ac4cb6) (Inbox index 75569152) | `deposit` [`0x4557ebb3…bb35`](https://sepolia.etherscan.io/tx/0x4557ebb341c77a5ba04696e499e2230dcd7843d83a1ab36d5d1c3e496cc4bb35) from the operators' YACA (the rehearsal's script also sent an `approve` the portal never needs; the page sends none) |
+| K2: 1 tYACA sent ahead, held | `send_ahead` [`0x1da46805…5f8c`](https://testnet.aztecscan.xyz/tx-effects/0x1da46805334bd18e597ea272110c28a8f1d3352dfd218f156d1ce4e8592d5f8c) (redeem address `0x60bb1823…6637`) | held by the portal: no later version is registered, so `forward` keeps it ("no target record"); its witness is archived in `deployments/witnesses/testnet.jsonl` and served at `/witnesses/1821665230.jsonl`. Its landing on a next version is **pending validation**: the public testnet has not flipped |
+
+After them `bun run bridge -- status` reads `exited 1 · inbound 1` for version 1821665230, the stats bridge page
+on the branch preview reads the same from the portal, and the miner's wallet page on that preview shows the
+bridge tile against the live headroom. Every step above ran from the arc-4 branch on preview deployments; the
+apex and the `v5` custom domain are untouched.
 
 The versioned origin: a retired version's last build, assembled with `YACANA_APP_ROLE=old bun run site:build` into
 `packages/site/dist-old` and deployed to the `yacana-v5` Worker (`packages/site/v5/wrangler.jsonc`, custom domain
