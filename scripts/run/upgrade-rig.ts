@@ -175,6 +175,9 @@ async function describeVersion(
 }
 
 async function deployNextVersion(ctx: RigContext, bump: bigint): Promise<RigVersion> {
+  // @aztec/ethereum looks for forge under ~/.aztec/current, ~/.foundry and PATH; the pinned
+  // toolchain lives under ~/.aztec/versions/<pin> (the only one CI installs), so name it.
+  process.env.FORGE_BIN ??= toolchainBin('aztec-forge');
   const canonical = ctx.versions[ctx.versions.length - 1] as RigVersion;
   const config = await getL1ContractsConfig(ctx.publicClient, {
     governanceAddress: ctx.addresses.governanceAddress,

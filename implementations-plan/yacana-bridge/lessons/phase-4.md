@@ -61,3 +61,7 @@ launcher's timing config, and the Outbox epoch the assertion read.
   the new rollup's genesis root from.
 - Without the child's output, a node that dies at boot reads as "port in use or spawn failed" and a node that never
   listens reads as a 240 s timeout with no cause: the tail in the error turned two blind reruns into one-look fixes.
+- CI's `setup-aztec` installs only `~/.aztec/versions/<pin>`; `@aztec/ethereum` resolves forge through
+  `$FORGE_BIN`, `~/.aztec/current`, `~/.foundry` and PATH, so the flip failed on the stack's PRs with
+  "forge binary not found" while every local run passed (a moved `~/.aztec/current` had lent 5.1.0's forge).
+  The rig names the pinned `aztec-forge` through `FORGE_BIN` before the second rollup's deploy; local flip green.
