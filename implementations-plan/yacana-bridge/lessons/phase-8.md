@@ -42,3 +42,64 @@ restore-only key screen on the old role, the old-tab notice on a same-rollup red
 ## Consults
 
 None yet.
+
+## Arc 3 fix loop (plan.md §10 steps 2–3)
+
+**Round 1** — `/codex high` (GPT-6 Astra), session `01a099f5-9224-7002-bfad-985a9e5d2ce0`, over
+`git diff bridge-harness...HEAD` (P6–P8, 110 files), plan.md §6 P6–P8, §8, §4, the arc map, the adversarial ask
+and both verbatim rules. Verdict: "changes required — several recovery and authorization gaps survive the
+happy-path gates", confidence high; eight high, six medium, one low; four reproduced with Bun scripts. Every
+claim checked against the code; thirteen real, two overstated. Applied (commit `0caa02d`):
+
+- **High** — the journal keyed rows by crossing id alone (no owner in the key): a second account's first
+  crossing of the same kind replaced the first's. Rows are keyed by `[scope, id]` (IndexedDB version 2, a
+  version-1 store's rows carried over); the store test opens a version-1 database and reads it through.
+- **High** — a crossing restored from a file or found in the portal's events never reserved its index here: a
+  fresh device handed index 0 out again and overwrote its recovered deposit. `reserveThrough(version, index)`
+  moves the counter past every adopted crossing.
+- **High** — a deposit the wallet answered after the page closed stayed `proving` (the landing kept the journal's
+  record whole) and was offered again with the same secret. `matchArrivals` now feeds the event to the reducer for
+  a record that has not reached it (`BEFORE_ARRIVAL`), and leaves a later one alone; the landing walks windows of
+  indices until a silent one, runs every fourth refresh, and keeps only sends forwarded into this version.
+- **High** — a send stored its hash only after inclusion; a page closed during the wait left `proving` without a
+  hash forever. The hash is written the moment the node has it (`NO_WAIT`, then `waitForTx`), and a record still
+  without one is found by its tag in the miner's log (`txByTag`, `Facts.tx.txHash`).
+- **High** — `claimed` always answered undefined; a claim made on another device showed as claimable, and a
+  claim included then pruned with its epoch stayed "minted" for good. The claim is read from the nullifier tree:
+  `siloNullifier(miner, poseidon2([leaf, secret], MESSAGE_NULLIFIER))` — the derivation aztec-nr's
+  `consume_l1_to_l2_message` uses (`aztec/src/hash.nr`), which the SDK ships as
+  `computeFeeJuiceMessageNullifier`. A minted record younger than three hours is asked again and goes back to
+  claimable when its nullifier is gone.
+- **High** — every crossing's proofs and receipts were read from this build's rollup and node whatever its
+  version; an unsettled V5 crossing on V6 could be misread. The rollup is the crossing's own (`rollupOf(version)`
+  from the Registry, `rollupFor` memoised); the node is asked only for this build's version. The served witness
+  archive is arc 4's P10, as planned.
+- **High** — the recovery file was trusted past its parse: no ownership, no witness-versus-card agreement, no
+  size bound; a file's terminal state could hide a live crossing. `parseCrossing` refuses a witness that does
+  not describe its crossing; the import re-derives each witnessed crossing's aux (K1 tag, K2 secret hash) from
+  the master and refuses a foreign file whole; `MAX_RECOVERY_BYTES` bounds the file before it is read; the import
+  adds only what the journal lacks and lets the chain settle states (`supersedes` is gone — the nullifier read
+  makes it unnecessary).
+- **Medium** — a refresh read a record, awaited the network and `put` it back, over an operation that landed
+  meanwhile. `reread` applies its reading through `update` only when the stored record is the one read.
+- **Medium** — wallet writes named neither account nor chain; wagmi skips the chain check without a `chainId`.
+  `pinnedSigner` names both on every write.
+- **Medium** — the flip did not stop mining, `useResumeOnOpen` bypassed the session's Start, and an old-role build
+  on a preview host could create an account. The session stops the controller on `flipped` and refuses every
+  Start; the resume goes through the session; `keysAllowed` restores only under the old role on any host.
+- **Medium** — a stale tab only warned. Every operation begins by fetching the served `build.json` and refusing
+  when this tab's deployment is not the one served; `servedBuild` and `staleTab` moved to `bridge/env.ts`.
+- **Medium** — copy: "it lands when the pause ends" and "keeps its place in line" promised what nothing does;
+  after the flip "waiting for headroom" reads "over the cap: the version's exit capacity is used up"; the
+  send-ahead review names the epoch's proof and the undone burn.
+- **Low** — comments: the plan reference in `copy.ts`, the receipt-interface narration in `flows.ts`, the rig
+  history in the clock's comment.
+- **Also** — a deposit is refused when the portal routes this version to a miner other than this build's; a
+  forward from the page goes only to the announced Registry index when the build announces one.
+
+Not applied, with reasons: the forward's target cannot be checked against "the record" — the migration record
+names the announced Registry index, not the next miner (the next deployment's record does not exist when the old
+build ships), and the portal itself computes the target from the Registry and requires Yacana's registration,
+so a lying RPC can only make the signature fail; the announced-index check is what the page can add. "Track
+claim inclusion separately, finalise after settlement" — done by re-reading the nullifier for three hours
+rather than a new state.
