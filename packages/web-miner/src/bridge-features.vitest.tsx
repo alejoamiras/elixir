@@ -251,8 +251,10 @@ describe('the arrival card', () => {
       ]),
     );
     const buttons = screen.getAllByTestId('arrival-claim');
-    expect(buttons.map((b) => b.textContent)).toEqual(['Claim', 'arrived']);
-    expect((buttons[1] as HTMLButtonElement).disabled).toBe(true);
+    expect(buttons.map((b) => b.textContent)).toEqual(['Claim']);
+    expect(screen.getAllByTestId('arrival-state').map((s) => s.textContent)).toEqual(['arrived']);
+    expect(screen.getAllByTestId('arrival')).toHaveLength(3);
+    expect(screen.getByTestId('arrival-card').textContent).toContain('on its way');
     fireEvent.click(buttons[0] as HTMLElement);
     await waitFor(() => expect(bridge.claim).toHaveBeenCalledWith(claimable));
     fireEvent.click(screen.getByTestId('arrival-resume'));
@@ -309,14 +311,14 @@ describe('the sheets', () => {
 describe('taking long', () => {
   test('a held crossing older than the stated age opens the dialog once; a fresh one does not', () => {
     const onSettings = vi.fn();
-    const store = mount(<TakingLongDialog onSettings={onSettings} />, (s) =>
+    const store = mount(<TakingLongDialog onSettings={onSettings} onWallet={() => {}} />, (s) =>
       s.set(journalAtom, [
         crossing({ id: 'h', kind: 2, state: 'held', updatedAt: NOW - TAKING_LONG_AFTER_MS - 1 }),
       ]),
     );
     expect(screen.getByTestId('taking-long').textContent).toContain('Redeem it to Ethereum');
     expect(screen.getByTestId('taking-long').textContent).not.toMatch(/relayer|bot/i);
-    fireEvent.click(screen.getByRole('button', { name: 'Understood' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Wait' }));
     expect(screen.queryByTestId('taking-long')).toBeNull();
     act(() => store.set(journalAtom, [crossing({ id: 'r', state: 'ready', updatedAt: NOW - 1000 })]));
     expect(screen.queryByTestId('taking-long')).toBeNull();

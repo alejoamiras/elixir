@@ -13,7 +13,7 @@ export function Note({
   className,
   children,
   ...props
-}: React.ComponentProps<'div'> & { title: React.ReactNode; tone?: NoteTone }) {
+}: Omit<React.ComponentProps<'div'>, 'title'> & { title: React.ReactNode; tone?: NoteTone }) {
   return (
     <div
       data-slot="note"

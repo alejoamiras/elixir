@@ -81,6 +81,12 @@ export function Shell({ children }: { children: ReactNode }) {
         <span className="flex items-center gap-2 font-semibold">
           <Mark state={miner.phase === 'idle' ? 'idle' : 'mining'} />
           Yacana
+          <span
+            className="rounded-sm border border-line-2 px-1.5 py-0.5 font-mono text-2xs font-medium tracking-[0.08em] text-ink-3"
+            data-testid="brand-version"
+          >
+            V{import.meta.env.VITE_ROLLUP_VERSION}
+          </span>
         </span>
         <nav className="flex gap-4 text-sm" aria-label="miner">
           {NAV.map((n) =>
@@ -184,7 +190,7 @@ export function App({ connection, session }: { connection: Connection; session: 
       {route !== 'settings' && <SignInDialog session={session} />}
       {open && (
         <BridgeProviders>
-          <TakingLongDialog onSettings={() => navigate('settings')} />
+          <TakingLongDialog onSettings={() => navigate('settings')} onWallet={() => navigate('wallet')} />
         </BridgeProviders>
       )}
       <p className="text-xs text-ink-2">

@@ -1,29 +1,216 @@
-// Send ahead: the amount (the whole balance by default) → the review (a burn here, held on Ethereum
-// under this passkey's key, landing on the next version as a tap on the arrival card) → sent. No
-// switch, no consent line: nothing sends or lands by itself.
+// Send ahead, as drawn: the amount (the whole balance by default) → the sheet that says what the
+// send goes through, station by station, with the note for the day the next version never opens
+// → "Sent ahead." with the burn's block. No switch, no consent line: nothing sends or lands by
+// itself; landing is a tap on the arrival card.
+import { useAtomValue } from 'jotai';
 import { useState } from 'react';
+import type { Crossing } from '../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import {
   Alert,
   AlertDescription,
-  AlertTitle,
+  AmountBlock,
   Button,
-  Input,
-  KvRow,
-  Label,
+  Note,
   Sheet,
   SheetContent,
   SheetDescription,
   SheetTitle,
+  Stepper,
 } from '../../../ui/src/index.ts';
+import { migrationRecord } from '../bridge/env';
 import { reviewAmount } from '../bridge/forms';
 import { amount as fmt } from '../lib/format';
 import type { Session } from '../session';
+import { bootAtom, journalAtom } from '../state';
+import { AmountInput } from './AmountInput';
+import { saveRecoveryFile } from './recovery';
 
 type Step =
   | { kind: 'form' }
   | { kind: 'review'; amount: bigint; display: string }
-  | { kind: 'sent'; display: string };
+  | { kind: 'sent'; display: string; crossing?: Crossing };
+
+const version = () => import.meta.env.VITE_ROLLUP_VERSION;
+const nextVersion = () => migrationRecord()?.toIndex ?? 'the next version';
+const nextDay = () => {
+  const m = migrationRecord();
+  return m ? `~${new Date(Number(m.expectedFlipAt) * 1000).toISOString().slice(5, 10)}` : undefined;
+};
+const hhmm = (unix: string) => new Date(Number(unix) * 1000).toISOString().slice(11, 16);
+
+function Head({ title }: { title: string }) {
+  return (
+    <div>
+      <span className="label-mono">send ahead to aztec v{nextVersion()}</span>
+      <SheetTitle className="mt-1.5 text-[22px] leading-[1.2] tracking-[-0.02em]">{title}</SheetTitle>
+      <SheetDescription className="sr-only">
+        The balance leaves V{version()} once its epoch is proven and lands on the next version with a tap.
+      </SheetDescription>
+    </div>
+  );
+}
+
+function Review({
+  display,
+  busy,
+  onSend,
+  onEdit,
+  onNotNow,
+}: {
+  display: string;
+  busy: boolean;
+  onSend: () => void;
+  onEdit: () => void;
+  onNotNow: () => void;
+}) {
+  const v = version();
+  const n = nextVersion();
+  return (
+    <>
+      <AmountBlock
+        value={display}
+        unit={PARAMS.TOKEN_SYMBOL}
+        tone="quiet"
+        aside={
+          <button
+            type="button"
+            className="text-uv-2 hover:underline"
+            onClick={onEdit}
+            data-testid="ahead-edit"
+          >
+            some of it →
+          </button>
+        }
+      />
+      <Stepper
+        steps={[
+          {
+            id: 'leave',
+            label: 'leaves this account, privately',
+            state: 'pending',
+            right: 'about 20 s',
+            detail: 'Mining pauses while your browser proves it.',
+          },
+          {
+            id: 'prove',
+            label: 'proven to Ethereum with its epoch',
+            state: 'pending',
+            right: 'a few epochs',
+            detail: `V${v} must prove the epoch by its deadline. If it does not, the send is undone and the balance is back here.`,
+          },
+          {
+            id: 'held',
+            label: `held on Ethereum until V${n} opens`,
+            state: 'pending',
+            right: nextDay(),
+            detail:
+              'Out of reach meanwhile, held for this account alone. The amount is visible there, nothing else.',
+          },
+          {
+            id: 'land',
+            label: `lands on V${n}: a tap on the arrival card`,
+            state: 'pending',
+            detail: 'A private claim this page makes when you tap, fee sponsored, about 20 s. Same passkey.',
+          },
+        ]}
+      />
+      <Note title="The amount is public on Ethereum." tone="warn" data-testid="ahead-privacy">
+        The account is not: the send is held under a one-time secret of this account. Round amounts blend in.
+      </Note>
+      <Note title={`If V${n} never opens`}>
+        A send Yacana could not forward can be redeemed on Ethereum as YACA at any time, by this account. The
+        passkey or words are the only thing to keep.
+      </Note>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="uv" disabled={busy} onClick={onSend} data-testid="ahead-send">
+          {busy ? 'Proving and sending…' : `Send ${display} ahead`}
+        </Button>
+        <Button variant="ghost" disabled={busy} onClick={onNotNow}>
+          Not now
+        </Button>
+      </div>
+      <p className="text-xs text-ink-3">
+        Anything still on V{v} when it stops proving is lost. V{v} stops hours or days after the upgrade,
+        without notice.
+      </p>
+    </>
+  );
+}
+
+function Sent({
+  display,
+  sent,
+  session,
+  onDone,
+}: {
+  display: string;
+  sent?: Crossing;
+  session: Session;
+  onDone: () => void;
+}) {
+  const journal = useAtomValue(journalAtom);
+  const boot = useAtomValue(bootAtom);
+  const [note, setNote] = useState<string>();
+  const live = (sent && journal.find((c) => c.id === sent.id)) ?? sent;
+  const v = version();
+  const n = nextVersion();
+  const block = live?.block
+    ? `✓ burned in block ${live.block.toLocaleString('en-US')}`
+    : '✓ burned · waiting for a block';
+  const save = async () => {
+    try {
+      setNote(await saveRecoveryFile(session, boot.phase === 'ready' ? boot.account : 'account'));
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : String(e));
+    }
+  };
+  return (
+    <div className="flex flex-col gap-4" data-testid="ahead-sent">
+      <AmountBlock
+        value={display}
+        unit={PARAMS.TOKEN_SYMBOL}
+        tone="ok"
+        aside={<span className="text-ok">{block}</span>}
+      />
+      <Stepper
+        steps={[
+          { id: 'leave', label: 'burned here, privately', state: 'done' },
+          {
+            id: 'prove',
+            label: 'being proven to Ethereum',
+            state: 'active',
+            right: live?.proofDeadline ? `by ${hhmm(live.proofDeadline)}` : undefined,
+            detail: `${live?.epoch ? `Epoch ${live.epoch}. ` : ''}Usually within a few epochs; safe from then on. If V${v} misses the deadline the send is undone and the balance is back here.`,
+          },
+          { id: 'held', label: `held on Ethereum until V${n} opens`, state: 'pending', right: nextDay() },
+          {
+            id: 'land',
+            label: `lands on V${n} with a tap`,
+            state: 'pending',
+            detail: 'Same passkey. The arrival card there claims it when you tap.',
+          },
+        ]}
+      />
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="primary" onClick={onDone}>
+          Done
+        </Button>
+        <Button
+          variant="link"
+          size="sm"
+          className="text-uv-2"
+          onClick={() => void save()}
+          data-testid="ahead-save"
+        >
+          save a recovery file ⤓
+        </Button>
+        {note && <span className="text-xs text-ink-3">{note}</span>}
+      </div>
+      <p className="text-xs text-ink-3">You can close this; the card on Mine follows it. Mining resumed.</p>
+    </div>
+  );
+}
 
 export function SendAheadSheet({
   session,
@@ -59,97 +246,61 @@ export function SendAheadSheet({
     setBusy(true);
     setError(undefined);
     try {
-      await session.bridge?.sendAhead(amount);
-      setStep({ kind: 'sent', display });
+      const crossing = (await session.bridge?.sendAhead(amount)) ?? undefined;
+      setStep({ kind: 'sent', display, crossing });
     } catch (e) {
       setError(e instanceof Error ? (e.message.split('\n')[0] ?? '') : String(e));
     } finally {
       setBusy(false);
     }
   };
-  const version = import.meta.env.VITE_ROLLUP_VERSION;
+  const v = version();
+  const n = nextVersion();
   return (
     <Sheet open={open} onOpenChange={(o) => (o ? onOpenChange(true) : close())}>
       <SheetContent data-testid="send-ahead-sheet">
-        <SheetTitle>Send ahead</SheetTitle>
-        <SheetDescription>
-          From this account's private balance of {fmt(balance, PARAMS.DECIMALS)} {PARAMS.TOKEN_SYMBOL} on V
-          {version}
-          to the next version, for this same passkey.
-        </SheetDescription>
+        <Head
+          title={
+            step.kind === 'sent'
+              ? 'Sent ahead.'
+              : `Leaves V${v} once its epoch is proven. Lands on V${n} with a tap.`
+          }
+        />
         {error && (
           <Alert variant="bad" data-testid="send-ahead-error">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
         {step.kind === 'form' && (
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="ahead-amount">Amount</Label>
-              <Input
-                id="ahead-amount"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                inputMode="decimal"
-                className="font-mono"
-                data-testid="ahead-amount"
-              />
-              <span className="text-2xs text-ink-3">the whole balance by default</span>
+          <>
+            <AmountInput
+              id="ahead-amount"
+              value={text}
+              onChange={setText}
+              unit={PARAMS.TOKEN_SYMBOL}
+              max={whole}
+              aside={<span>all · {whole}</span>}
+              data-testid="ahead-amount"
+            />
+            <p className="text-xs text-ink-3">the whole balance by default</p>
+            <div>
+              <Button variant="primary" onClick={toReview} data-testid="ahead-review">
+                Review
+              </Button>
             </div>
-            <Button variant="primary" onClick={toReview} data-testid="ahead-review">
-              Review
-            </Button>
-          </div>
+          </>
         )}
         {step.kind === 'review' && (
-          <div className="flex flex-col gap-4">
-            <p className="label-mono">send ahead · step 2 of 2</p>
-            <div>
-              <KvRow label="amount" value={`${step.display} ${PARAMS.TOKEN_SYMBOL}`} />
-              <KvRow label="leaves" value={`V${version}, now (a burn, proved in your browser, about 20 s)`} />
-              <KvRow
-                label="waits"
-                value={`on Ethereum once V${version} proves the epoch (usually within a few epochs; if it never does, the burn is undone), held for this account alone`}
-              />
-              <KvRow
-                label="lands"
-                value="on the next version: a tap on the arrival card, with this passkey"
-              />
-            </div>
-            <Alert variant="warn" data-testid="ahead-privacy">
-              <AlertTitle>The amount is public on Ethereum.</AlertTitle>
-              <AlertDescription>
-                Ethereum sees the amount and when it crossed, not who: the send is held under a one-time
-                secret of this account. Anyone matching amounts and times across the two sides could still
-                link them.
-              </AlertDescription>
-            </Alert>
-            <div className="flex gap-3">
-              <Button
-                variant="uv"
-                disabled={busy}
-                onClick={() => void send(step.amount, step.display)}
-                data-testid="ahead-send"
-              >
-                {busy ? 'Proving and sending…' : 'Send ahead'}
-              </Button>
-              <Button variant="ghost" disabled={busy} onClick={() => setStep({ kind: 'form' })}>
-                Back
-              </Button>
-            </div>
-          </div>
+          <Review
+            display={step.display}
+            busy={busy}
+            onSend={() => void send(step.amount, step.display)}
+            onEdit={() => setStep({ kind: 'form' })}
+            onNotNow={close}
+          />
         )}
         {step.kind === 'sent' && (
-          <div className="flex flex-col gap-4" data-testid="ahead-sent">
-            <p className="text-lg font-semibold">Sent ahead.</p>
-            <p className="text-sm text-ink-2">
-              {step.display} {PARAMS.TOKEN_SYMBOL} left V{version}. Ethereum learns of it when V{version}{' '}
-              proves the epoch; the migration card follows it, and the next version’s arrival card claims it.
-            </p>
-            <Button variant="primary" onClick={close}>
-              Done
-            </Button>
-          </div>
+          <Sent display={step.display} sent={step.crossing} session={session} onDone={close} />
         )}
       </SheetContent>
     </Sheet>

@@ -15,6 +15,7 @@ import { l1Links } from '../explorer';
 import { duration, amount as fmt, shortAddress } from '../lib/format';
 import type { Session } from '../session';
 import { type BridgeView, bridgeAtom, journalAtom, nowAtom } from '../state';
+import { saveRecoveryFile } from './recovery';
 
 const TONE: Record<Tone, string> = {
   quiet: 'text-ink-3',
@@ -104,15 +105,7 @@ function Recovery({ session, account }: { session: Session; account: string }) {
   const [note, setNote] = useState<string>();
   const save = async () => {
     try {
-      const file = await session.bridge?.exportRecovery();
-      if (!file) return;
-      const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `yacana-bridge-${file.chainId}-${account.slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      setNote(`${file.crossings.length} crossings saved`);
+      setNote(await saveRecoveryFile(session, account));
     } catch (e) {
       setNote(e instanceof Error ? e.message : String(e));
     }

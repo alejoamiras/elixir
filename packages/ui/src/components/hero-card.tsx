@@ -25,7 +25,7 @@ export function HeroCard({
   tone = 'uv',
   className,
   ...props
-}: React.ComponentProps<'section'> & {
+}: Omit<React.ComponentProps<'section'>, 'title'> & {
   eyebrow: React.ReactNode;
   title: React.ReactNode;
   trail?: readonly TrailItem[];
