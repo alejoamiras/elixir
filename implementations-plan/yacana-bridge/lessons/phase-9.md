@@ -21,7 +21,14 @@
 
 ## Gate
 
-(pending)
+`bun run test:components` ✓ (ui 49, landing 13, miner 84, stats 75 — the bridge beat, the page and the
+announcement among them) · `bun run --cwd packages/web-stats test:visual` 4/4 ✓ (baselines refreshed for the
+nav's third word, nothing else moved) · `bun run e2e:agent -- bun run --cwd packages/web-stats test:e2e` 6/6 ✓ (the
+bridge page on a live portal: this version registered and live, the limit and pause sentences, four phases,
+five keys, Verify's Ethereum tile) · `bun run e2e:agent -- bun run --cwd packages/web-landing test:e2e` 4/4 ✓
+(`/faq` with its six panels and the questions; the announced build's one line) · `bun run e2e:agent -- bun run
+site:e2e` 3/3 ✓ (`/faq` and `/stats/bridge` under the one policy) · the miner's `bridge` shard 1/1 ✓ on the
+shared run helper · lint, typecheck, `bun test` (398) ✓.
 
 ## Lessons
 

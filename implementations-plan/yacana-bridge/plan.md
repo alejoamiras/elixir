@@ -823,11 +823,15 @@ fail-closed production pairing, `v5/wrangler.jsonc`, `build.json.{role,miner}`, 
 old-role preview suffix, `OldTabNotice` on deployment identity).
 — arc 3 boundary: the codex loop, then `gh stack add bridge-stats-docs` —
 
-**P9 — stats, the announcement lines, the FAQ** (`/stats/bridge`, the bridge beat, Etherscan links, Verify's new
-chips; the landing `Alert` and the standalone `/faq` page (`routes/Faq.tsx`, the six panels incl. the forwarding
-rule and its reason), linked from the miner's migration card and the stats bridge page).
-Gate: `bun run test:components && bun run --cwd packages/web-stats test:visual && bun run e2e:agent -- bun run
---cwd packages/web-stats test:e2e && bun run e2e:agent -- bun run --cwd packages/web-landing test:e2e`.
+**P9 ✓ — stats, the announcement lines, the FAQ** (green 2026-09-13; `lessons/phase-9.md`; `bun run
+test:components` (ui 49, landing 13, miner 84, stats 75), `bun run --cwd packages/web-stats test:visual` 4/4
+(baselines refreshed for the nav's third word), `bun run e2e:agent -- bun run --cwd packages/web-stats test:e2e`
+6/6 with the bridge page read from a live portal on the run's anvil, `bun run e2e:agent -- bun run --cwd
+packages/web-landing test:e2e` 4/4 with `/faq` and the announced build's line; `site:e2e` 3/3 covers `/faq` and
+`/stats/bridge` under the one policy.) (`/stats/bridge`, the bridge beat, Etherscan links, Verify's Ethereum
+tile; the landing `Alert` and the standalone `/faq` page (`routes/Faq.tsx`, the six panels incl. the forwarding
+rule and its reason), linked from the miner's migration card and the stats bridge page. The viem-only portal
+reader moved to `packages/bridge/src/portal-reader.ts`, with the per-version flows and the policy.)
 
 **P10 — docs, CI, records** (`docs/bridge.md` — the mechanism, the turnstile stated plainly (no per-crossing
 delay; the cap is a cumulative bound net of what came in; the pause stops what comes after it; the deadline ends a
