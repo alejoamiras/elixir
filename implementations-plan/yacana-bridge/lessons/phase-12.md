@@ -7,7 +7,32 @@ reviewed code, not artboards. The canvas is now in the repo (`../canvas/`), the 
 
 ## What landed
 
-(filled as the pass proceeds)
+- **P12.1** — `packages/ui`: `HeroCard`, `Trail` (chips / inline), `JournalCard`, `AmountBlock` + `MaxChip`,
+  `Note`, `Timeline`, `StackedBar`; the `Stepper` gains `warn`; the types in `bridge-types.ts` so the pages'
+  pure modules build them without the components. One spec (`bridge-primitives.vitest.tsx`). `fidelity.md`.
+- **P12.2** — the miner's everyday bridge: `ToEthereumSheet` (form / review / sent with the burn's block from the
+  journal), `DepositSheet` (the wallet as one row, the figure with the YACA there as its max, the stations, the
+  pre-flip warning, "On its way." with the deposit's transaction), `BridgeTile` (journal cards on
+  `trailOf`/`whoOf`/`stamp` in `bridge/copy.ts`, "nothing crossing", the foot with the deposit, the recovery
+  file and the contracts), `BalanceTile` with Send · To Ethereum and the deposit link; `AmountInput`; the sheet
+  primitive on the ground colour with a 16 px gap.
+- **P12.3** — the guided path: `MigrationCard` as three hero cards (announced / sent / flipped),
+  `SendAheadSheet` (the figure → the drawn review with the stations, the two notes, Send / Not now → "Sent
+  ahead." + save a recovery file), `ArrivalCard` as one hero per origin with a row per arrival and its own tap
+  (`arrival-claim` only where claimable; `arrival-state` otherwise), `TakingLongDialog` (two columns; the
+  forward call to paste for an exit, from `forward-call.ts`), `OldTabNotice` as the bar, `OldApp` (the
+  versioned origin's one page: signed-out / still-here / sent / quiet) in place of `Retired`, the key screen's
+  restore-only variant as drawn, the header's version stamp.
+- **P12.4** — `/stats/bridge`: `BridgeKpis` (six tiles on `kpisOf`/`figuresOf`), `BridgePhases` on the
+  `Timeline` (five phases: launched · announced · canonical · goes quiet · exits close), `BridgeCoins` (the
+  Plot chart on `coinsSeries`), the version cards with `StackedBar` (`whereOf`), `BridgeTurnstile`, the keys and
+  rules panel; the beat's extras (`readExtras` in `bridge.ts`: YACA's supply, Forwarded / Deposited / Redeemed
+  with their blocks' times, at most 120 blocks read and the rest placed between them) and the miner's two
+  counters in beat one (`readMinerFlows`; `readSlot` exported from miner-core). The announcement bars (stats,
+  landing). The FAQ in three sections (`faq-copy.ts`) with the panels as a strip.
+- **The visual gate** — `visual-setup.ts record` deploys the portal on the run's anvil when it has one,
+  registers, and records the Ethereum RPC's answers beside the node's (`MOCK_ETH_ORIGIN`); the spec replays
+  both origins and captures `/bridge` at the four widths.
 
 ## Gate
 

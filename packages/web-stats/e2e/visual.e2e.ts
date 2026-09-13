@@ -5,8 +5,10 @@ const here = new URL('.', import.meta.url).pathname;
 const run = JSON.parse(readFileSync(`${here}.visual.json`, 'utf8')) as {
   baseURL: string;
   nodeOrigin: string;
+  ethOrigin: string;
 };
 const recorded = JSON.parse(readFileSync(`${here}visual-rpc.json`, 'utf8')) as Record<string, unknown>;
+const deployment = JSON.parse(readFileSync(`${here}visual-deployment.json`, 'utf8')) as { bridge?: unknown };
 const WIDTHS = [1280, 1440, 1024, 390];
 /** Before the recorded block: the page's clock is then the block's, and the freshness reads "0 s ago". */
 const FIXED_TIME = new Date('2020-01-01T00:00:00Z');
@@ -20,16 +22,17 @@ interface Call {
 
 const key = (c: Call) => `${c.method} ${JSON.stringify(c.params ?? [])}`;
 
-/** Every JSON-RPC call answered from the recording; anything else the page asks for is a failure. */
+/** Every JSON-RPC call — the node's and Ethereum's — answered from the recording; anything else the page asks for is a failure. */
 function replay(page: Page): { unexpected: string[] } {
   const unexpected: string[] = [];
   const app = new URL(run.baseURL).origin;
+  const recordedOrigins = new Set([run.nodeOrigin, run.ethOrigin]);
   void page.route(
     () => true,
     async (route: Route) => {
       const url = new URL(route.request().url());
       if (url.origin === app) return route.continue();
-      if (url.origin !== run.nodeOrigin) {
+      if (!recordedOrigins.has(url.origin)) {
         unexpected.push(url.href);
         return route.abort();
       }
@@ -61,6 +64,22 @@ for (const width of WIDTHS) {
     expect(net.unexpected).toEqual([]);
     await expect(page).toHaveScreenshot(`stats-${width}.png`, { fullPage: true });
     // A request the capture itself provoked lands here.
+    expect(net.unexpected).toEqual([]);
+  });
+
+  test(`the bridge page at ${width}`, async ({ page }) => {
+    test.skip(!deployment.bridge, 'the recording run had no Ethereum: no portal to draw');
+    const net = replay(page);
+    await page.clock.setFixedTime(FIXED_TIME);
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`${run.baseURL}/bridge`);
+    await expect(page.getByTestId('kpi-ethereum')).toContainText('YACA');
+    await expect(page.getByTestId('bridge-version')).toHaveCount(1);
+    await expect(page.getByTestId('coins-chart')).toHaveAttribute('data-points', /^[1-9]\d*$/);
+    await expect(page.getByTestId('bridge-portal').locator('[data-slot=chip-link]')).toHaveCount(5);
+    await page.evaluate(() => document.fonts.ready);
+    expect(net.unexpected).toEqual([]);
+    await expect(page).toHaveScreenshot(`bridge-${width}.png`, { fullPage: true });
     expect(net.unexpected).toEqual([]);
   });
 }

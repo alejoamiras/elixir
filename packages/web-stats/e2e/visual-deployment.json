@@ -2,8 +2,17 @@
   "chainId": "31337",
   "rollupVersion": "3685977955",
   "rollupAddress": "0x4ed7c70f96b99c776995fb64377f0d4ab3b0e1c1",
-  "miner": "0x1e6584404d21d946f6f6454b5706e8098ffcdc0259b428c1eeb46e98a67cec8f",
-  "token": "0x27ac94229e190bd34408f923b97d5d3d380ef1f27420b30bae416f5283e8b417",
-  "minerClassId": "0x20680945ecd95004af585e35e78dcfbdc27b559b021d7feb816aa54697bbebb9",
-  "tokenClassId": "0x10fd5603d57b91daa46f9b8f98ff0cbd4516315ce10e423c05dcfe9638bfecbf"
+  "miner": "0x01612de573f589635b0b34a87a8446e85dc81a634b129be95658eb8afe896b32",
+  "token": "0x28b6ee5672a486c6e36a791abd0d158761e23067aef2f78d780695c83de27c1f",
+  "minerClassId": "0x09500c6fc6e6e2731eff89f8c8a9de63fa9915f3aa3b9752d51d7b4b9a1ad63a",
+  "tokenClassId": "0x10fd5603d57b91daa46f9b8f98ff0cbd4516315ce10e423c05dcfe9638bfecbf",
+  "bridge": {
+    "chainId": "31337",
+    "portal": "0x8464135c8F25Da09e49BC8782676a84730C318bC",
+    "yaca": "0x8398bCD4f633C72939F9043dB78c574A91C99c0A",
+    "registry": "0x610178da211fef7d417bc0e6fed39f05609ad788",
+    "operators": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "l1RpcUrl": "http://127.0.0.1:26740",
+    "deployBlock": "42"
+  }
 }
