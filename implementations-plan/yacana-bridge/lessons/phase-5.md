@@ -141,3 +141,24 @@ nits, "ANOTHER ROUND". All real; applied:
   no bind address and the run is for a machine you own. Two narrating comments removed, one shortened.
 
 Gate after round 2: `bun run rig -- all` 9/9 · bun 50 (deploy, harness, bridge, scripts) · lint + typecheck ✓.
+
+**Round 3** — resumed with the round-2 fix diff (`50bc857`). One blocker, two should-fix, one nit, all in the rig's
+node lifecycle that rounds 1–2 introduced; verdict "ANOTHER ROUND". Round 3 is the loop's hard stop (plan.md §10):
+the findings were verified, all real, and applied without a fourth review round — they are small and confined to
+`startPinnedNode` and `warpNodeBy`, not a scope smell. Applied:
+
+- **Blocker** — `stop()` killed and released on every call, so a stale handle stopped after the same version was
+  restarted freed the successor's lanes (the runId is per version). One `dispose` promise now serves every way
+  out — a stop by hand, the network's teardown, a failed start; `stop` disowns and then disposes once.
+- Setup between the lane claims and adoption (`mkdirSync`, `toolchainBin`, `aztecPin`, `spawnDetached`) ran outside
+  the guard: the whole start now sits in one try, and any failure releases the lanes.
+- `getBlockNumber` answers from viem's four-second cache by default, and a warp is faster than that: the prune
+  detector's two boundaries read with `cacheTime: 0`.
+- Two comments trimmed (the CLI header, a test helper's).
+
+Not tested in isolation: a double stop and a stop after teardown (the disposal is internal to `startPinnedNode`;
+the flip and never-settled cases exercise start, stop, restart and teardown on the network). Surfaced to the owner
+with the arc: the loop closed at the hard stop with these residual fixes applied unreviewed.
+
+Gate after round 3: `bun run rig -- flip` and `never-settled` (the cases that start, stop, restart and tear down
+pinned nodes) green · bun 20 (deploy, scripts) · lint + typecheck ✓. The arc-2 loop: 1: 22 findings, 2: 11, 3: 4.

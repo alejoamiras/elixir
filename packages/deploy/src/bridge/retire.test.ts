@@ -3,7 +3,7 @@ import type { L2Side } from './l2.ts';
 import type { Operator } from './operator.ts';
 import { LOG_WINDOW, retireOnL1, retireOnL2 } from './retire.ts';
 
-/** A portal that says version 7 is retired, on an RPC that logged the send 25,000 blocks after the deploy. */
+/** A portal that holds version 7 as retired, on an RPC whose `Retired` log sits at `logAt`. */
 const operatorWithRetiredLog = (deployBlock: bigint, head: bigint, logAt: bigint) => {
   const ranges: [bigint, bigint][] = [];
   const op = {

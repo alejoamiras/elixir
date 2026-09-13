@@ -39,7 +39,7 @@ import { foundry } from 'viem/chains';
 import { type IsolatedNode, startIsolatedNode } from './isolated-node.ts';
 import { lanePortBase, runPortWindowBase } from './port-window.ts';
 import { claim, release } from './registry.ts';
-import { jsonRpcReady, killOwned, repoRoot, spawnDetached, toolchainBin } from './toolchain.ts';
+import { jsonRpcReady, killOwned, type Owned, repoRoot, spawnDetached, toolchainBin } from './toolchain.ts';
 
 /** The local network's deployer and V5 publisher (anvil's mnemonic, index 0). Never reused by the rig. */
 const NETWORK_MNEMONIC = 'test test test test test test test test test test test junk';
@@ -307,49 +307,60 @@ async function claimNodePorts(ctx: RigContext, version: RigVersion): Promise<Nod
 
 async function startPinnedNode(ctx: RigContext, version: RigVersion, autoProve: boolean): Promise<RigNode> {
   const ports = await claimNodePorts(ctx, version);
-  const dataDir = join(ctx.network.runRoot, `node-v${version.registryIndex}`);
-  mkdirSync(dataDir, { recursive: true });
-  // The launcher is the local network's node without its deployment (see the file); it runs on the
-  // toolchain's packages under the same `node` the aztec launcher uses.
-  const child = spawnDetached(
-    `aztec-v${version.registryIndex}`,
-    'node',
-    [join(repoRoot, 'scripts/run/pinned-node.mjs')],
-    {
-      ...ctx.genesis.env,
-      AZTEC_TOOLCHAIN_ROOT: join(toolchainBin('aztec'), '..', '..'),
-      ETHEREUM_HOSTS: ctx.network.l1RpcUrl,
-      L1_CHAIN_ID: String(ctx.chainId),
-      REGISTRY_CONTRACT_ADDRESS: ctx.addresses.registryAddress.toString(),
-      ROLLUP_VERSION: String(version.version),
-      PINNED_NODE_PORT: String(ports.node),
-      PINNED_NODE_ADMIN_PORT: String(ports.admin),
-      DATA_DIRECTORY: dataDir,
-      WS_DATA_DIRECTORY: join(dataDir, 'world-state'),
-      TMPDIR: join(homedir(), '.cache', 'tmp'),
-      AUTOMINE_ENABLE_PROVE_EPOCH: autoProve ? '1' : '0',
-      AZTEC_MANA_TARGET: String(version.manaTarget),
-      // Blocks every slot, txs or not, as the local network runs.
-      SEQ_MIN_TX_PER_BLOCK: '0',
-      MNEMONIC: NETWORK_MNEMONIC,
-      // `bun test` runs with NODE_ENV=test, which the node's logger takes as "silent".
-      LOG_LEVEL: process.env.LOG_LEVEL ?? 'info',
-      // The launcher refuses a toolchain other than the pinned one.
-      AZTEC_VERSION: aztecPin(),
-    },
-    ctx.verbose,
-    join(ctx.network.logDir, `aztec-v${version.registryIndex}.log`),
-  );
-  // Dies with the network from here on: a teardown or a signal reaches it, and frees its lanes.
-  const disown = ctx.network.adopt(child, () => release(ports.runId));
-  const stop = async () => {
+  // One disposal for every way out — a stop by hand, the network's teardown, a failed start — so a
+  // stale handle can never free the lanes a restarted node of the same version holds.
+  let child: Owned | undefined;
+  let disposed: Promise<void> | undefined;
+  const dispose = (): Promise<void> => {
+    disposed ??= (async () => {
+      if (child) killOwned(child);
+      await release(ports.runId).catch(() => {});
+    })();
+    return disposed;
+  };
+  let disown = (): void => {};
+  const stop = async (): Promise<void> => {
     disown();
-    killOwned(child);
-    await release(ports.runId).catch(() => {});
+    await dispose();
   };
   const nodeUrl = `http://127.0.0.1:${ports.node}`;
   const adminUrl = `http://127.0.0.1:${ports.admin}`;
   try {
+    const dataDir = join(ctx.network.runRoot, `node-v${version.registryIndex}`);
+    mkdirSync(dataDir, { recursive: true });
+    // The launcher is the local network's node without its deployment (see the file); it runs on
+    // the toolchain's packages under the same `node` the aztec launcher uses.
+    child = spawnDetached(
+      `aztec-v${version.registryIndex}`,
+      'node',
+      [join(repoRoot, 'scripts/run/pinned-node.mjs')],
+      {
+        ...ctx.genesis.env,
+        AZTEC_TOOLCHAIN_ROOT: join(toolchainBin('aztec'), '..', '..'),
+        ETHEREUM_HOSTS: ctx.network.l1RpcUrl,
+        L1_CHAIN_ID: String(ctx.chainId),
+        REGISTRY_CONTRACT_ADDRESS: ctx.addresses.registryAddress.toString(),
+        ROLLUP_VERSION: String(version.version),
+        PINNED_NODE_PORT: String(ports.node),
+        PINNED_NODE_ADMIN_PORT: String(ports.admin),
+        DATA_DIRECTORY: dataDir,
+        WS_DATA_DIRECTORY: join(dataDir, 'world-state'),
+        TMPDIR: join(homedir(), '.cache', 'tmp'),
+        AUTOMINE_ENABLE_PROVE_EPOCH: autoProve ? '1' : '0',
+        AZTEC_MANA_TARGET: String(version.manaTarget),
+        // Blocks every slot, txs or not, as the local network runs.
+        SEQ_MIN_TX_PER_BLOCK: '0',
+        MNEMONIC: NETWORK_MNEMONIC,
+        // `bun test` runs with NODE_ENV=test, which the node's logger takes as "silent".
+        LOG_LEVEL: process.env.LOG_LEVEL ?? 'info',
+        // The launcher refuses a toolchain other than the pinned one.
+        AZTEC_VERSION: aztecPin(),
+      },
+      ctx.verbose,
+      join(ctx.network.logDir, `aztec-v${version.registryIndex}.log`),
+    );
+    // Dies with the network from here on: a teardown or a signal reaches it and frees its lanes.
+    disown = ctx.network.adopt(child, dispose);
     await jsonRpcReady(nodeUrl, 'node_getNodeInfo', 240_000, child);
     const nodeInfo = await createAztecNodeClient(nodeUrl).getNodeInfo();
     if (BigInt(nodeInfo.rollupVersion) !== version.version)
@@ -407,7 +418,8 @@ async function proofHeadroom(ctx: RigContext, live: RigVersion): Promise<number 
  */
 async function warpNodeBy(ctx: RigContext, rig: UpgradeRig, node: RigNode, seconds: number): Promise<void> {
   const live = ctx.versions.find((v) => v.version === node.version);
-  const fromBlock = (await ctx.publicClient.getBlockNumber()) + 1n;
+  // viem answers `getBlockNumber` from a four-second cache by default; a warp is faster than that.
+  const fromBlock = (await ctx.publicClient.getBlockNumber({ cacheTime: 0 })) + 1n;
   await node.debug.warpL2TimeAtLeastBy(seconds);
   if (live) {
     const pruned = await ctx.publicClient.getContractEvents({
@@ -415,7 +427,7 @@ async function warpNodeBy(ctx: RigContext, rig: UpgradeRig, node: RigNode, secon
       abi: RollupAbi,
       eventName: 'PrunedPending',
       fromBlock,
-      toBlock: await ctx.publicClient.getBlockNumber(),
+      toBlock: await ctx.publicClient.getBlockNumber({ cacheTime: 0 }),
     });
     if (pruned.length > 0)
       throw new Error(

@@ -1,6 +1,5 @@
-// The bridge CLI's arguments: positionals in order, and only the flags a command declares — a flag
-// it does not know, one given twice, `--flag=value`, or a value that is not what the flag takes all
-// stop the command before it opens a connection.
+// The bridge CLI's arguments, checked before any connection is opened: positionals in order, and
+// only the flags a command declares.
 export type FlagKind = 'switch' | 'integer';
 
 export interface CliArgs {
