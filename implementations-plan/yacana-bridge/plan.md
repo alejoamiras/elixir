@@ -750,7 +750,12 @@ Gate: `bun run rig -- all` green locally; `e2e.yml` gains a `rig` job on `workfl
 packages/deploy packages/harness` (unit parts) green.
 — arc 2 boundary: the codex loop, then `gh stack add bridge-miner` —
 
-**P6 — the site layer and the bridge modules in the miner** (`eth-rpc.ts`, the guard's second slot,
+**P6 ✓ — the site layer and the bridge modules in the miner** (green 2026-09-13; `lessons/phase-6.md`; lint, the
+three packages' bun suites 252/252, the Vitest specs of every app, the miner's typecheck and the replay lane 4/4 all
+green; the vault test and the index test as the gate words them; as built: the record's bridge and migration block
+types moved to `packages/bridge/src/record.ts` so the site never imports the deploy package, `queue.ts` lives in
+`packages/bridge`, and the `WagmiProvider` mounts with the bridge features in P7 over `wagmiConfigFor`.)
+(`eth-rpc.ts`, the guard's second slot,
 `connection.ts`, `host.ts` (create/restore split, `versioned`, the per-role preview suffix), `config.ts`,
 `site.env`, `packages/web-miner/src/bridge/*` with `queue.ts` and the in-transaction index, wagmi and its provider
 wiring (`bun pm ls viem` shows the single hoisted alias and typecheck passes — typecheck alone proves nothing about
