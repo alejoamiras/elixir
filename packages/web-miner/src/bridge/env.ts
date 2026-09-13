@@ -9,3 +9,6 @@ export const bridgeRecord = (): BridgeRecord | null =>
 /** The announced upgrade, or null on a quiet version. */
 export const migrationRecord = (): MigrationRecord | null =>
   import.meta.env.VITE_MIGRATION ? (JSON.parse(import.meta.env.VITE_MIGRATION) as MigrationRecord) : null;
+
+/** The versioned origin's build: it restores accounts and moves what is left, and mines nothing. */
+export const isOldRole = (): boolean => import.meta.env.VITE_APP_ROLE === 'old';

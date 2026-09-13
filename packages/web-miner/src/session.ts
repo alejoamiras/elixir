@@ -23,7 +23,7 @@ import { type NodeProbe, probeNode } from '../../site/src/browser/node.ts';
 import { setEthRpcEndpoint } from '../../site/src/browser/node-guard.ts';
 import { nodeHealth, waitTurn } from '../../site/src/browser/node-health.ts';
 import { expectedOf, type Preflighted, preflight, type Started, startSession, switchNodeLive } from './boot';
-import { bridgeRecord } from './bridge/env';
+import { bridgeRecord, isOldRole } from './bridge/env';
 import { BridgeSession } from './bridge/session';
 import {
   loadArtifact,
@@ -603,6 +603,8 @@ export class Session {
    * claim, an expired claim) never come through here.
    */
   startMining(): void {
+    // The versioned origin's build mines nothing: every Start — a button, a key, a setting — is inert.
+    if (isOldRole()) return;
     const c = this.controller;
     c?.start();
     // A Start after the Worker gave up on native brings it back: only a rebuild can, and the config

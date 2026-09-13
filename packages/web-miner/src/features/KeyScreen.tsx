@@ -80,6 +80,14 @@ export function CreateKey({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+      {!canCreate && canRestore && (
+        <Alert variant="warn" data-testid="host-note">
+          <AlertDescription>
+            Accounts are restored here, not created. Create one at {import.meta.env.VITE_RP_ID}; the same
+            passkey or twelve words open it here.
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="flex flex-col gap-3">
         <label className="flex items-start gap-3 text-sm text-ink-2">
           <input

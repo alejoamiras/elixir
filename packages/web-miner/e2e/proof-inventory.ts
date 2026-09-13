@@ -77,6 +77,10 @@ export const RIG_ONLY: Readonly<Record<string, Readonly<Record<string, number>>>
     'on V5 after the flip: the migration card says mining has ended and what is left can still be sent ahead': 0,
     'on V6: the same words restore the account, the recovery file brings the held send-aheads, one is forwarded from the page with the holder’s signature and claimed, the other redeemed to Ethereum': 1,
   },
+  // One passkey, two origins: nothing is proved.
+  'origin.e2e.ts': {
+    'the versioned origin: the same passkey restores the apex’s account there, creates nothing, and mines nothing': 0,
+  },
 };
 
 export const SPEC_FILES: readonly string[] = Object.keys(INVENTORY);

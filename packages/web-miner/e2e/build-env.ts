@@ -11,11 +11,17 @@ export interface BuildOptions {
   migration?: MigrationRecord | null;
   /** A PXE that skips transaction proving (`E2E_PROVERLESS=1`). */
   proverless: boolean;
+  /** `old` builds the versioned origin's app (restore only, no mining); `apex` when absent. */
+  role?: 'apex' | 'old';
+  /** The versioned origin the apex names, and the origin the old build is served from. */
+  oldAppOrigin?: string;
 }
 
 export const e2eBuildEnv = (d: Deployment, o: BuildOptions): NodeJS.ProcessEnv => ({
   ...process.env,
   YACANA_SITE_MODE: 'e2e',
+  YACANA_APP_ROLE: o.role ?? 'apex',
+  ...(o.oldAppOrigin ? { VITE_OLD_APP_ORIGIN: o.oldAppOrigin } : {}),
   VITE_BRIDGE: o.bridge ? JSON.stringify(o.bridge) : '',
   VITE_MIGRATION: o.migration ? JSON.stringify(o.migration) : '',
   VITE_ETH_RPC_URL: o.bridge ? o.bridge.l1RpcUrl : '',

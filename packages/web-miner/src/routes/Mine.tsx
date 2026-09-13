@@ -1,6 +1,7 @@
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import { TileBoundary } from '../../../ui/src/index.ts';
+import { isOldRole } from '../bridge/env';
 import { BalanceCard } from '../components/BalanceCard';
 import type { MinerController } from '../controller';
 import { ArrivalCard } from '../features/ArrivalCard';
@@ -9,6 +10,7 @@ import { LedgerTile } from '../features/LedgerTile';
 import { KpiTiles, LoopTile } from '../features/LoopTile';
 import { MigrationCard } from '../features/MigrationCard';
 import { RailTile } from '../features/RailTile';
+import { Retired } from '../features/Retired';
 import { SendAheadSheet } from '../features/SendAheadSheet';
 import { useTileLog } from '../lib/tile-log';
 import { navigate } from '../routes';
@@ -58,11 +60,15 @@ export function Mine({
     >
       {session && ready && <GuidedPath session={session} />}
       <TileBoundary name="loop" onError={onError} className="md:col-span-2 xl:col-span-3">
-        <LoopTile
-          controller={controller}
-          onStart={onStart ?? (() => controller()?.start())}
-          className="md:col-span-2 xl:col-span-3"
-        />
+        {isOldRole() ? (
+          <Retired className="md:col-span-2 xl:col-span-3" />
+        ) : (
+          <LoopTile
+            controller={controller}
+            onStart={onStart ?? (() => controller()?.start())}
+            className="md:col-span-2 xl:col-span-3"
+          />
+        )}
       </TileBoundary>
       <TileBoundary name="rail" onError={onError} className="md:order-3 xl:order-none xl:row-span-2">
         <RailTile controller={controller} className="md:order-3 xl:order-none xl:row-span-2" />

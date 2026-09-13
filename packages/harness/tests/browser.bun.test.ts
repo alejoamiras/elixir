@@ -3,13 +3,13 @@
 // stage — doing between stages what Yacana does by hand: settle and forward (the control server the
 // spec calls), the flip, the retire, the redeploy as V5's continuation, the V6 build.
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { type ChildProcess, spawnSync } from 'node:child_process';
+import { type ChildProcess, spawn } from 'node:child_process';
 import { mkdirSync, openSync, rmSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import type { Hex } from 'viem';
 import { serveControl } from '../../../scripts/run/control.ts';
 import { lanePortBase, runPortWindowBase } from '../../../scripts/run/port-window.ts';
-import { buildApp, startPreview, waitUntilUp } from '../../../scripts/run/preview.ts';
+import { startPreview, waitUntilUp } from '../../../scripts/run/preview.ts';
 import { claim, release } from '../../../scripts/run/registry.ts';
 import { repoRoot } from '../../../scripts/run/toolchain.ts';
 import {
@@ -28,6 +28,18 @@ import { e2eBuildEnv } from '../../web-miner/e2e/build-env.ts';
 import type { E2eRun } from '../../web-miner/e2e/run.ts';
 import { openUser } from '../src/user.ts';
 import { asForwarder, deployBridge, deployMiner, type MinerOnRig } from '../src/yacana.ts';
+
+/** A child awaited without blocking this process: the rig's node logs through it and the control server answers from it. */
+const exec = (cmd: string, args: string[], opts: { cwd: string; env?: NodeJS.ProcessEnv; log?: number }) =>
+  new Promise<number>((resolve) => {
+    const child = spawn(cmd, args, {
+      cwd: opts.cwd,
+      stdio: opts.log === undefined ? 'inherit' : ['ignore', opts.log, opts.log],
+      env: opts.env ?? process.env,
+    });
+    child.on('exit', (code) => resolve(code ?? 1));
+    child.on('error', () => resolve(127));
+  });
 
 const enabled = process.env.YACANA_RIG === '1';
 /** Anvil account 3: the holder the page's test wallet signs with. */
@@ -89,7 +101,12 @@ describe.skipIf(!enabled)('the migration through the page (browser)', () => {
       migration,
       proverless: false,
     });
-    buildApp(minerPkg, outDir, log, env);
+    const built = await exec('bunx', ['vite', 'build', '--outDir', outDir, '--emptyOutDir'], {
+      cwd: minerPkg,
+      env,
+      log,
+    });
+    if (built !== 0) throw new Error(`vite build into ${outDir} failed (see the run's log)`);
     preview = startPreview(minerPkg, outDir, log, vitePort, env);
     const baseURL = `http://localhost:${vitePort}`;
     if (!(await waitUntilUp(baseURL, preview))) throw new Error(`vite preview did not start on ${baseURL}`);
@@ -124,13 +141,12 @@ describe.skipIf(!enabled)('the migration through the page (browser)', () => {
   }
 
   /** One stage of bridge.e2e.ts under the rig's Playwright config; its exit code is the verdict. */
-  const stage = (name: string, grep: string) => {
-    const r = spawnSync(
+  const stage = (name: string, grep: string) =>
+    exec(
       'bunx',
       ['playwright', 'test', 'e2e/bridge.e2e.ts', '--config', 'playwright.rig.config.ts', '--grep', grep],
       {
         cwd: minerPkg,
-        stdio: 'inherit',
         env: {
           ...process.env,
           E2E_RUN_FILE: runFile,
@@ -140,8 +156,6 @@ describe.skipIf(!enabled)('the migration through the page (browser)', () => {
         },
       },
     );
-    return r.status ?? 1;
-  };
 
   beforeAll(async () => {
     rig = await startUpgradeRig();
@@ -171,8 +185,8 @@ describe.skipIf(!enabled)('the migration through the page (browser)', () => {
       },
     });
     // The pinned CRS, the artifacts and the slot table the build reads.
-    const pre = spawnSync('bun', ['scripts/prebuild.ts'], { cwd: minerPkg, stdio: 'inherit' });
-    if (pre.status !== 0) throw new Error('prebuild failed');
+    if ((await exec('bun', ['scripts/prebuild.ts'], { cwd: minerPkg })) !== 0)
+      throw new Error('prebuild failed');
     await serve(v5, node5, 'e2e/.rig-dist-v5', true);
   }, 1_200_000);
 
@@ -193,8 +207,8 @@ describe.skipIf(!enabled)('the migration through the page (browser)', () => {
 
   test(
     'on V5: mine, exit, deposit, send ahead twice, save the recovery file — through the page',
-    () => {
-      expect(stage('v5', 'on V5:')).toBe(0);
+    async () => {
+      expect(await stage('v5', 'on V5:')).toBe(0);
     },
     STAGE_MS,
   );
@@ -213,7 +227,7 @@ describe.skipIf(!enabled)('the migration through the page (browser)', () => {
       } finally {
         await user.stop();
       }
-      expect(stage('v5-flipped', 'on V5 after the flip:')).toBe(0);
+      expect(await stage('v5-flipped', 'on V5 after the flip:')).toBe(0);
     },
     STAGE_MS,
   );
@@ -227,7 +241,7 @@ describe.skipIf(!enabled)('the migration through the page (browser)', () => {
       const v6 = await deployMiner(rig, node6, bridge, { continuation });
       await registerVersion(v6.operator);
       await serve(v6, node6, 'e2e/.rig-dist-v6', false);
-      expect(stage('v6', 'on V6:')).toBe(0);
+      expect(await stage('v6', 'on V6:')).toBe(0);
     },
     STAGE_MS,
   );

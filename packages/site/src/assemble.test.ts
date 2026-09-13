@@ -2,7 +2,15 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
-import { type AssemblySteps, assemble, buildRecord, PRODUCTION_OUT, REDIRECTS } from './assemble.ts';
+import {
+  type AssemblySteps,
+  assemble,
+  buildRecord,
+  OLD_OUT,
+  PRODUCTION_OUT,
+  productionOutFor,
+  REDIRECTS,
+} from './assemble.ts';
 import type { SiteConfig } from './config.ts';
 
 /** Every app's build writes one script where Vite would; the asset copies do nothing. */
@@ -29,14 +37,23 @@ afterEach(() => {
 describe('assembly inspects what it emitted', () => {
   const production = { YACANA_SITE_MODE: 'production', GITHUB_SHA: 'abc' };
 
-  test('a clean production assembly completes', async () => {
+  test('a clean production assembly completes, in its role’s directory only', async () => {
     const steps = stubbed('fetch("https://node.example/rpc")');
-    await expect(assemble(scratch(), production, steps)).resolves.toMatchObject({ mode: 'production' });
+    // The role directories are real deliverables: they are asserted on the pairing, never written by a test.
+    await expect(assemble(scratch(), production, steps)).rejects.toThrow(/a production apex build lands in/);
+    await expect(assemble(scratch(), { ...production, YACANA_APP_ROLE: 'old' }, steps)).rejects.toThrow(
+      /a production old build lands in .*dist-old/,
+    );
+    expect(productionOutFor('apex')).toBe(PRODUCTION_OUT);
+    expect(productionOutFor('old')).toBe(OLD_OUT);
+    expect(OLD_OUT).not.toBe(PRODUCTION_OUT);
   });
 
   test('a production assembly whose emitted script names a loopback origin fails', async () => {
     const steps = stubbed('const node = "http://127.0.0.1:24567/rpc"');
-    await expect(assemble(scratch(), production, steps)).rejects.toThrow(/names a plaintext loopback origin/);
+    await expect(assemble(PRODUCTION_OUT, production, steps)).rejects.toThrow(
+      /names a plaintext loopback origin/,
+    );
   });
 
   test('an e2e assembly into its own directory is held to no production contract', async () => {
@@ -64,8 +81,11 @@ describe('assembly', () => {
     );
   });
 
-  test('an e2e build can land neither in the production directory nor on Cloudflare', async () => {
+  test('an e2e build can land neither in a production directory nor on Cloudflare', async () => {
     await expect(assemble(PRODUCTION_OUT, { YACANA_SITE_MODE: 'e2e' })).rejects.toThrow(
+      /production builds only/,
+    );
+    await expect(assemble(OLD_OUT, { YACANA_SITE_MODE: 'e2e', YACANA_APP_ROLE: 'old' })).rejects.toThrow(
       /production builds only/,
     );
     await expect(
@@ -76,18 +96,24 @@ describe('assembly', () => {
     );
   });
 
-  test('build.json says what was built and nothing more', () => {
+  test('build.json says what was built and nothing more: the role and the deployment beside the mode', () => {
     const c = {
       mode: 'production',
       sourceCommit: 'abc',
       rpId: 'yacana.network',
       nodeUrl: 'https://node.example',
+      role: 'old',
+      rollupVersion: '5',
+      miner: '0xabc',
     } as SiteConfig;
     expect(buildRecord(c)).toEqual({
       mode: 'production',
       commit: 'abc',
       nodeOrigin: 'https://node.example',
       rpId: 'yacana.network',
+      role: 'old',
+      rollupVersion: '5',
+      miner: '0xabc',
     });
   });
 });

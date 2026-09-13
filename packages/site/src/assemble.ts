@@ -1,6 +1,7 @@
 // Three apps into one origin (`/`, `/mine/`, `/stats/`), the shared assets once at the root,
-// `_headers`, `_redirects`, `build.json`. `bun run site:build` → packages/site/dist; an e2e run
-// passes its own out dir.
+// `_headers`, `_redirects`, `build.json`. `bun run site:build` → packages/site/dist (the apex
+// Worker) or, under YACANA_APP_ROLE=old, packages/site/dist-old (the versioned origin's Worker,
+// v5/wrangler.jsonc); an e2e run passes its own out dir.
 import { execFileSync } from 'node:child_process';
 import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -11,13 +12,17 @@ import { copyArtifacts } from '../scripts/copy-artifacts.ts';
 import { copySlots } from '../scripts/copy-slots.ts';
 import { fetchCrs } from '../scripts/fetch-crs.ts';
 import { assertProductionArtifact } from './artifact.ts';
-import type { SiteConfig } from './config.ts';
+import { type AppRole, appRoleFrom, type SiteConfig } from './config.ts';
 import { renderHeaders } from './headers.ts';
 import { siteConfig } from './vite-base.ts';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const repo = resolve(here, '../../..');
 export const PRODUCTION_OUT = resolve(here, '../dist');
+/** The old role's assembly: what the versioned origin's Worker (`v5/wrangler.jsonc`) serves. */
+export const OLD_OUT = resolve(here, '../dist-old');
+/** Each role's production directory; a production build lands in its own and nowhere else. */
+export const productionOutFor = (role: AppRole): string => (role === 'old' ? OLD_OUT : PRODUCTION_OUT);
 
 /** Where each app lands; the landing goes first because emptying `/` would delete the nested apps. */
 export const APPS = [
@@ -45,6 +50,11 @@ export interface BuildRecord {
   /** The default node's origin; a user may point the pages elsewhere from the miner's settings. */
   nodeOrigin: string;
   rpId: string;
+  /** `apex`, or `old` for the versioned origin a retired version's last build moves to. */
+  role: AppRole;
+  /** The deployment this build carries: an open tab compares them to learn it is behind a redeploy. */
+  rollupVersion: string;
+  miner: string;
 }
 
 export const buildRecord = (c: SiteConfig): BuildRecord => ({
@@ -52,6 +62,9 @@ export const buildRecord = (c: SiteConfig): BuildRecord => ({
   commit: c.sourceCommit,
   nodeOrigin: new URL(c.nodeUrl).origin,
   rpId: c.rpId,
+  role: c.role,
+  rollupVersion: c.rollupVersion,
+  miner: c.miner,
 });
 
 /** An app's bundle without its `public/` copies: the shared assets are materialised once at the root. */
@@ -80,9 +93,14 @@ export async function assemble(
   const out = resolve(outDir);
   // The config is loaded once here so a production build fails before any app is built.
   const config = siteConfig('build', env);
-  // What Cloudflare serves is `dist` of a Cloudflare build: neither may hold anything but production.
-  if (config.mode !== 'production' && (out === PRODUCTION_OUT || env.CF_PAGES))
+  // What Cloudflare serves is a role's directory of a Cloudflare build: none may hold anything but production.
+  if (config.mode !== 'production' && (out === PRODUCTION_OUT || out === OLD_OUT || env.CF_PAGES))
     throw new Error(`a ${config.mode} build may not land in ${out}: production builds only`);
+  // Fail closed on the pairing: the apex Worker must never ship the old app, nor the old Worker the apex.
+  if (config.mode === 'production' && out !== productionOutFor(config.role))
+    throw new Error(
+      `a production ${config.role} build lands in ${productionOutFor(config.role)}, not ${out}: the roles' Workers serve different directories`,
+    );
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
   for (const app of APPS) steps.buildApp(app.name, app.base, resolve(out, app.base.slice(1)), env);
@@ -102,7 +120,7 @@ export async function assemble(
 }
 
 if (import.meta.main) {
-  const out = resolve(process.argv[2] ?? PRODUCTION_OUT);
+  const out = resolve(process.argv[2] ?? productionOutFor(appRoleFrom(process.env.YACANA_APP_ROLE)));
   const record = await assemble(out);
   console.log(`site: ${record.mode} build of ${record.commit.slice(0, 7)} in ${out}`);
 }

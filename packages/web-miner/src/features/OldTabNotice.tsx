@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle, Button } from '../../../ui/src/index.ts';
 
 const EVERY_MS = 5 * 60_000;
+/** The first look, once the page has settled; a redeploy during the boot is caught here. */
+const FIRST_MS = 20_000;
 
 export interface ServedBuild {
   miner?: string;
@@ -36,9 +38,17 @@ export function OldTabNotice({ miner, rollupVersion }: { miner: string; rollupVe
       }
     };
     const timer = setInterval(() => void tick(), EVERY_MS);
+    const first = setTimeout(() => void tick(), FIRST_MS);
+    // A tab brought back to the front asks at once: that is when a stale tab is about to be used.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void tick();
+    };
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       live = false;
       clearInterval(timer);
+      clearTimeout(first);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [miner, rollupVersion]);
   if (!stale) return null;
