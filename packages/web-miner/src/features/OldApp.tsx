@@ -7,8 +7,18 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { useState } from 'react';
 import { type Crossing, inFlight } from '../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { AmountBlock, Button, Kpi, KvRow, Stepper, Tile, TileHeader } from '../../../ui/src/index.ts';
-import { amount as fmt } from '../lib/format';
+import {
+  AmountBlock,
+  Button,
+  ExternalLink,
+  Kpi,
+  KvRow,
+  Stepper,
+  Tile,
+  TileHeader,
+} from '../../../ui/src/index.ts';
+import { links } from '../explorer';
+import { amount as fmt, shortAddress } from '../lib/format';
 import { navigate } from '../routes';
 import type { Session } from '../session';
 import { balanceAtom, bootAtom, bridgeAtom, journalAtom, signInAtom } from '../state';
@@ -55,6 +65,18 @@ function SignedOut() {
         restored here, not created. Whoever serves this page controls it; run your own build if that matters.
       </p>
     </Tile>
+  );
+}
+
+/** The account this page is signed in as, the same address on every origin of this version. */
+function AccountChip({ account }: { account: string }) {
+  return (
+    <span className="chip inline-flex w-fit items-center gap-1.5 rounded-sm border border-line bg-panel px-2 py-1 font-mono text-2xs text-ink-2">
+      <span>account</span>
+      <ExternalLink href={links.address(account)} full={account} className="text-ink" data-testid="account">
+        {shortAddress(account)}
+      </ExternalLink>
+    </span>
   );
 }
 
@@ -237,6 +259,7 @@ export function OldApp({ session }: { session?: Session }) {
       {m === 'still-here' && <StillHere balance={balance} onSendAhead={() => setAhead(true)} />}
       {m === 'sent' && <Sent sent={sent} />}
       {m === 'quiet' && <Quiet balance={balance} safe={safe} />}
+      {boot.phase === 'ready' && <AccountChip account={boot.account} />}
       <div className="flex flex-wrap gap-x-4 gap-y-1.5 font-mono text-2xs text-ink-3">
         <span>advanced ·</span>
         <button type="button" className="text-ink-2 hover:text-ink" onClick={() => navigate('settings')}>
