@@ -9,6 +9,7 @@ import {
   readBridge,
   sampleBlocks,
   versionLine,
+  whereOf,
 } from './bridge-beat';
 
 const ONE = 10n ** BigInt(PARAMS.DECIMALS);
@@ -157,5 +158,28 @@ describe('the block sampler', () => {
       expect(picked.at(-1)).toBe(BigInt(1000 + n - 1));
     }
     expect(sampleBlocks(blocks.slice(0, 50), 120)).toEqual(blocks.slice(0, 50));
+  });
+});
+
+describe('where a version’s coins are', () => {
+  test('the miner’s figures belong to the build’s version; another version’s are unknown, not zero', async () => {
+    const reader = {
+      registered: async () => [5n, 6n],
+      flows: async (v: bigint) => ({ ...live, version: v }),
+      canonical: async () => ({ version: 6n, index: 1n }),
+      policy: async () => policy,
+      operators: async () => `0x${'aa'.repeat(20)}` as const,
+      forwarders: async () => [],
+      blockTime: async () => BigInt(NOW),
+    };
+    const s = await readBridge(reader, 7);
+    const miner = { exited: 41n * ONE, claimedFromL1: 0n };
+    const [v5, v6] = s.versions as [VersionFlows, VersionFlows];
+    const here = (segments: ReturnType<typeof whereOf>, id: string) =>
+      segments.find((x) => x.id === id)?.figure;
+    expect(here(whereOf(v6, s, miner, 10n * ONE, '6'), 'here')).toBe('10');
+    expect(here(whereOf(v6, s, miner, 10n * ONE, '6'), 'transit')).toBe('1');
+    expect(here(whereOf(v5, s, miner, 10n * ONE, '6'), 'here')).toBe('—');
+    expect(here(whereOf(v5, s, miner, 10n * ONE, '6'), 'transit')).toBe('—');
   });
 });

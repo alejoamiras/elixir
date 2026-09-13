@@ -372,7 +372,7 @@ export function whereOf(
   const events = s.extras ? s.extras.events.filter((e) => e.version === v.version) : [];
   const toEth = max0(sum(events, ['exit', 'redeem']) - sum(events, ['deposit']));
   const moved = sum(events, ['send']);
-  const mine = v.version === built;
+  const mine = v.version.toString() === built;
   const here = mine ? supply : undefined;
   const transit = mine && miner ? max0(miner.exited - v.exited) : undefined;
   const n = (raw: bigint | undefined) =>
