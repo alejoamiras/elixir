@@ -8,14 +8,19 @@ import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { TxHash } from '@aztec/stdlib/tx';
 import type { createStore } from 'jotai';
-import { createPublicClient, type Hex, http } from 'viem';
+import { createPublicClient, type Hex, http, type PublicClient } from 'viem';
 import { epochProven, proofDeadline, rollupReads } from '../../../bridge/src/deadline.ts';
 import { flipVerdict } from '../../../bridge/src/flip.ts';
 import { claimLeaf } from '../../../bridge/src/inbox.ts';
 import { advance, type Crossing, inFlight } from '../../../bridge/src/journal.ts';
 import { OperationQueue } from '../../../bridge/src/queue.ts';
 import type { BridgeRecord } from '../../../bridge/src/record.ts';
-import { parseRecoveryFile, type RecoveryFile, recoveryFile } from '../../../bridge/src/recovery.ts';
+import {
+  parseRecoveryFile,
+  type RecoveryFile,
+  recoveryFile,
+  supersedes,
+} from '../../../bridge/src/recovery.ts';
 import { leafIdOf } from '../../../bridge/src/signatures.ts';
 import {
   archiveEntry,
@@ -60,16 +65,20 @@ export interface BridgeSessionDeps {
 }
 
 const REFRESH_MS = 15_000;
+/** One refresh reads the clock for every crossing it holds against a deadline; one block answers them all. */
+const L1_CLOCK_MS = 2_000;
 
 export class BridgeSession {
   readonly config: WagmiConfig;
   readonly reader: PortalReader;
+  private readonly client: PublicClient;
   private readonly ctx: Parameters<typeof sendAhead>[0];
   private readonly journal: BridgeStore;
   private readonly reads: FactReads;
   private timer: ReturnType<typeof setInterval> | undefined;
   private refreshing: Promise<void> | undefined;
   private constants: Promise<{ epochDuration: number }> | undefined;
+  private l1Clock: { at: number; value: Promise<bigint> } | undefined;
 
   private constructor(
     private readonly d: BridgeSessionDeps,
@@ -77,6 +86,7 @@ export class BridgeSession {
   ) {
     const chainId = Number(d.record.chainId);
     const client = createPublicClient({ transport: http(d.connection.ethRpcUrl, { retryCount: 0 }) });
+    this.client = client;
     this.config = wagmiConfigFor({
       chainId,
       rpcUrl: d.connection.ethRpcUrl,
@@ -107,6 +117,7 @@ export class BridgeSession {
             release: (r: 'bridge') => d.controller?.release(r),
           }
         : {}),
+      l1Now: () => this.l1Now(),
       ...(d.now ? { now: d.now } : {}),
     };
     const rollup = rollupReads(client, import.meta.env.VITE_ROLLUP_ADDRESS as Hex);
@@ -170,7 +181,7 @@ export class BridgeSession {
         return {
           paused: standing.paused,
           hasHeadroom: standing.headroom >= BigInt(c.amount),
-          deadlinePassed: BigInt(Math.floor((d.now?.() ?? Date.now()) / 1000)) > standing.deadline,
+          deadlinePassed: (await this.l1Now()) > standing.deadline,
           canonicalIsNewer: canonical.index > standing.registryIndex,
           ...(target ? { canonicalRegistered: target.registered } : {}),
         };
@@ -194,8 +205,26 @@ export class BridgeSession {
         return (await d.node.getL1ToL2MessageMembershipWitness('latest', leaf)) !== undefined;
       },
       claimed: async () => undefined,
-      nowSeconds: () => BigInt(Math.floor((d.now?.() ?? Date.now()) / 1000)),
+      nowSeconds: () => this.l1Now(),
     };
+  }
+
+  /**
+   * Ethereum's clock: the latest block's timestamp, which the portal measures every deadline and
+   * signature expiry against. The device's clock is not consulted — a chain running ahead of it
+   * (the rig's, warped through a flip) would refuse every signature dated from the device.
+   */
+  private l1Now(): Promise<bigint> {
+    if (this.d.now) return Promise.resolve(BigInt(Math.floor(this.d.now() / 1000)));
+    const at = Date.now();
+    if (!this.l1Clock || at - this.l1Clock.at > L1_CLOCK_MS) {
+      const value = this.client.getBlock({ blockTag: 'latest' }).then((b) => b.timestamp);
+      value.catch(() => {
+        this.l1Clock = undefined;
+      });
+      this.l1Clock = { at, value };
+    }
+    return this.l1Clock.value;
   }
 
   /** One per open account: the journal is keyed by the master's fingerprint. */
@@ -332,7 +361,7 @@ export class BridgeSession {
     return this.after(exitToL1(this.ctx, amount, recipient));
   }
   async deposit(amount: bigint, onStep?: (step: 'approve' | 'deposit') => void): Promise<Crossing> {
-    const deadline = BigInt(Math.floor((this.d.now?.() ?? Date.now()) / 1000)) + 3600n;
+    const deadline = (await this.l1Now()) + 3600n;
     return this.after(deposit(this.ctx, this.config, amount, deadline, onStep));
   }
   async claim(c: Crossing): Promise<Crossing> {
@@ -362,17 +391,21 @@ export class BridgeSession {
     );
   }
 
-  /** Restores the file's crossings the journal does not hold; their states refresh from the chain. */
+  /**
+   * Restores the file's crossings the journal does not hold, and the ended ones the journal only
+   * rediscovered from the chain; every other state refreshes from the chain.
+   */
   async importRecovery(text: string): Promise<number> {
     const file = parseRecoveryFile(text, { chainId: this.d.record.chainId, portal: this.ctx.portal });
-    let added = 0;
+    let restored = 0;
     for (const c of file.crossings) {
-      if (await this.journal.get(c.id)) continue;
+      const held = await this.journal.get(c.id);
+      if (held && !supersedes(c, held)) continue;
       await this.journal.put(c);
-      added++;
+      restored++;
     }
     await this.publishJournal();
-    return added;
+    return restored;
   }
 
   /** The balance the previous version's build last saw for this master, if this origin kept one. */

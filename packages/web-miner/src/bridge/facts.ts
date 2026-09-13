@@ -18,7 +18,8 @@ export interface FactReads {
   redeemed(c: Crossing): Promise<Facts['redeemed']>;
   messageReady(c: Crossing): Promise<boolean>;
   claimed(c: Crossing): Promise<Facts['claimed']>;
-  nowSeconds(): bigint;
+  /** Ethereum's clock, which every deadline is measured against; the device's may differ. */
+  nowSeconds(): Promise<bigint>;
 }
 
 const AWAITING_PROOF = new Set<Crossing['state']>(['proven-pending']);
@@ -44,7 +45,7 @@ async function epochFacts(reads: FactReads, c: Crossing, f: Facts): Promise<Fact
   const epochProven = await reads.epochProven(epoch);
   const next: Facts = { ...f, epoch: known, proofDeadline: deadline.toString(), epochProven };
   if (epochProven) next.witness = await reads.witness(c);
-  else next.epochPruned = reads.nowSeconds() > deadline;
+  else next.epochPruned = (await reads.nowSeconds()) > deadline;
   return next;
 }
 

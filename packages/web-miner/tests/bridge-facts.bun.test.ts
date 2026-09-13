@@ -30,7 +30,7 @@ const reads = (over: Partial<FactReads> = {}) => {
     redeemed: async () => undefined,
     messageReady: async () => false,
     claimed: async () => undefined,
-    nowSeconds: () => 1_000n,
+    nowSeconds: async () => 1_000n,
   };
   const r = Object.fromEntries(
     (Object.keys(defaults) as (keyof FactReads)[]).map((name) => [

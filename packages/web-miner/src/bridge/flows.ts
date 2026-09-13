@@ -43,6 +43,9 @@ export interface BridgeContext {
   /** The miner's pause around a proof; absent when no miner runs (the old app). */
   pause?: (reason: 'bridge') => void;
   release?: (reason: 'bridge') => void;
+  /** Ethereum's clock in seconds: what the portal holds a signature's expiry against. */
+  l1Now: () => Promise<bigint>;
+  /** The device's clock, for the journal's timestamps; a test's stand-in. */
   now?: () => number;
 }
 
@@ -269,7 +272,7 @@ export function selfForward(
   return guarded(ctx, async () => {
     if (!c.witness) throw new Error('the send-ahead has no witness yet');
     const secrets = await secretsFor(ctx, c.index, BigInt(c.version));
-    const expiry = BigInt(Math.floor((ctx.now?.() ?? Date.now()) / 1000)) + HOUR;
+    const expiry = (await ctx.l1Now()) + HOUR;
     const args = forwardArgsFromArchive(c.witness);
     const sig = await signForward(
       secrets.redeemKey,
@@ -305,7 +308,7 @@ export function redeem(
   return guarded(ctx, async () => {
     if (!c.witness) throw new Error('the send-ahead has no witness yet');
     const secrets = await secretsFor(ctx, c.index, BigInt(c.version));
-    const expiry = BigInt(Math.floor((ctx.now?.() ?? Date.now()) / 1000)) + HOUR;
+    const expiry = (await ctx.l1Now()) + HOUR;
     const args = forwardArgsFromArchive(c.witness);
     const sig = await signRedeem(
       secrets.redeemKey,

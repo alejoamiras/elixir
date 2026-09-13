@@ -2,7 +2,7 @@
 // a device that lost its journal (or a browser that cleared it) restores the records and refreshes
 // their states from the chain. Nothing secret is in it: secrets re-derive from the master.
 import type { Hex } from 'viem';
-import { type Crossing, type CrossingState, crossingId } from './journal.ts';
+import { type Crossing, type CrossingState, crossingId, FINAL_STATES } from './journal.ts';
 import { type ArchivedExit, parseArchivedExit } from './witness.ts';
 
 export const RECOVERY_VERSION = 1;
@@ -130,3 +130,12 @@ export function parseRecoveryFile(text: string, expected: { chainId: string; por
     crossings: (o.crossings as unknown[]).map((c, i) => parseCrossing(c, `recovery file crossing ${i}`)),
   };
 }
+
+/**
+ * Whether the file's copy of a crossing replaces the journal's: only when the file knows the
+ * crossing ended and the journal does not. A device that lost its journal rediscovers a deposit
+ * from the Inbox alone and cannot tell it was claimed; the file can. Anything still in flight is
+ * left to the chain, which refreshes it either way.
+ */
+export const supersedes = (fromFile: Crossing, inJournal: Crossing): boolean =>
+  FINAL_STATES.has(fromFile.state) && !FINAL_STATES.has(inJournal.state);
