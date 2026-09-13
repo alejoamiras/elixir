@@ -8,8 +8,10 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@aztec-foundation/aztec-standards": "5.2.0",
     "@aztec/accounts": "5.2.0",
     "@aztec/aztec.js": "5.2.0",
+    "@aztec/bb.js": "5.2.0",
     "@aztec/constants": "5.2.0",
     "@aztec/ethereum": "5.2.0",
     "@aztec/foundation": "5.2.0",

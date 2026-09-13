@@ -20,21 +20,13 @@ import {
   spawnDetached,
   toolchainBin,
 } from '../../../scripts/run/toolchain.ts';
+import type { BridgeRecord } from '../src/deploy.ts';
 
 const portalDir = resolve(repoRoot, 'packages/portal');
 const forgeStd = resolve(
   toolchainBin('aztec-forge'),
   '../../node_modules/@aztec/l1-artifacts/l1-contracts/lib/forge-std/src',
 );
-
-export interface BridgeRecord {
-  chainId: string;
-  portal: string;
-  yaca: string;
-  registry: string;
-  operators: string;
-  l1RpcUrl: string;
-}
 
 /** Anvil's first funded account: throwaway, and only ever used on a chain nobody else runs. */
 const ANVIL_KEY: Hex = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';

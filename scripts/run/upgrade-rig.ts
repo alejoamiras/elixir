@@ -75,7 +75,10 @@ export interface WarpRecord {
 
 export interface UpgradeRig {
   l1RpcUrl: string;
+  /** The run's directory under .localnet: data dirs, and whatever a case writes for the run. */
+  runRoot: string;
   registry: EthAddress;
+  publicClient: ViemPublicClient;
   /** The rig's own L1 signer (a viem account) and its private key for helpers that take one. */
   signer: ReturnType<typeof privateKeyToAccount>;
   signerKey: Hex;
@@ -98,6 +101,13 @@ export interface UpgradeRig {
   warpBy(seconds: number): Promise<void>;
   /** Settles the live node up to its latest checkpoint (the debug prove). */
   prove(): Promise<void>;
+  /**
+   * Publishes `checkpoints` more checkpoints on the live node, one slot each: what a message sent
+   * into the Inbox needs before the node serves it as consumable (three, by the Inbox's lag).
+   */
+  nudge(checkpoints?: number): Promise<void>;
+  /** Prunes `version`'s unproven checkpoints once its proof window has passed; false when it has not. */
+  prune(version: RigVersion): Promise<boolean>;
   teardown(): Promise<void>;
 }
 
@@ -423,7 +433,9 @@ export async function startUpgradeRig(
   ctx.versions.push(await describeVersion(ctx, info.l1ContractAddresses.rollupAddress, 0));
   const rig: UpgradeRig = {
     l1RpcUrl,
+    runRoot: network.runRoot,
     registry: info.l1ContractAddresses.registryAddress,
+    publicClient: ctx.publicClient,
     signer: privateKeyToAccount(RIG_KEY),
     signerKey: RIG_KEY,
     genesisRoot: ctx.genesis.root,
@@ -455,6 +467,24 @@ export async function startUpgradeRig(
     async prove() {
       if (!rig.node) throw new Error('no live node to settle');
       await rig.node.debug.prove();
+    },
+    async nudge(checkpoints = 4) {
+      if (!rig.node) throw new Error('no live node to build on');
+      // A message sent while checkpoint N is the tip goes into the Inbox tree of N+3 and is served
+      // once the tip reaches it; a block within the same slot lands in the same checkpoint, a warp
+      // lands on the next slot, so four warps cover it with one to spare.
+      for (let i = 0; i < checkpoints; i++) await rig.warpBy(72);
+    },
+    async prune(version) {
+      const rollup = getContract({
+        address: version.rollup.toString() as Hex,
+        abi: RollupAbi,
+        client: ctx.rigClient,
+      });
+      const now = (await ctx.publicClient.getBlock()).timestamp;
+      if (!(await rollup.read.canPruneAtTime([now]))) return false;
+      await ctx.publicClient.waitForTransactionReceipt({ hash: await rollup.write.prune() });
+      return true;
     },
     async teardown() {
       await rig.stopNode().catch(() => {});

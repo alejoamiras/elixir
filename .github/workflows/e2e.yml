@@ -146,3 +146,25 @@ jobs:
           # `.vite.log` is a dotfile, which the action skips by default.
           include-hidden-files: true
           retention-days: 14
+
+  rig:
+    name: the migration cases on the upgrade rig
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup-bun
+      - uses: ./.github/actions/setup-aztec
+      - run: bun run codegen && git diff --exit-code
+      - run: bun run contracts:compile
+      - run: bun run portal:build
+      # Every case boots its own isolated network and a pinned node; the flip alone is the PR gate in harness.yml.
+      - run: bun run rig
+      - name: Keep the networks' logs
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: rig-logs
+          path: .localnet/**/*.log
+          if-no-files-found: ignore
+          retention-days: 14
