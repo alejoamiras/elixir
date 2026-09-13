@@ -1,5 +1,7 @@
-// The origin case: the apex's build on `localhost` and the old role's build on `v5.localhost`, the
-// same deployment on the rig's node behind both, and origin.e2e.ts driving one passkey across them.
+// The origin case: the apex's build as `yacana.test` and the old role's build as `v5.yacana.test`
+// (both loopback in the browser; WebAuthn wants a registrable domain shared by the two, which
+// `localhost` is not), the same deployment on the rig's node behind both, and origin.e2e.ts
+// driving one passkey across them.
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { type ChildProcess, spawn } from 'node:child_process';
 import { openSync, rmSync } from 'node:fs';
@@ -65,7 +67,7 @@ describe.skipIf(!enabled)('the versioned origin (origin)', () => {
     const log = openSync(join(rig.runRoot, 'origin.log'), 'w');
     apexPort = await claim({ ...lane, service: 'vite' });
     oldPort = await claim({ ...lane, service: 'vite-old' });
-    const oldAppOrigin = `http://v5.localhost:${oldPort}`;
+    const oldAppOrigin = `http://v5.yacana.test:${oldPort}`;
     if ((await exec('bun', ['scripts/prebuild.ts'], { cwd: minerPkg })) !== 0)
       throw new Error('prebuild failed');
     for (const [role, port, outDir] of [
@@ -79,6 +81,7 @@ describe.skipIf(!enabled)('the versioned origin (origin)', () => {
         proverless: false,
         role,
         oldAppOrigin,
+        rpId: 'yacana.test',
       });
       const built = await exec('bunx', ['vite', 'build', '--outDir', outDir, '--emptyOutDir'], {
         cwd: minerPkg,
@@ -92,7 +95,7 @@ describe.skipIf(!enabled)('the versioned origin (origin)', () => {
         throw new Error(`vite preview (${role}) did not start on port ${port}`);
     }
     const run: E2eRun = {
-      baseURL: `http://localhost:${apexPort}`,
+      baseURL: `http://yacana.test:${apexPort}`,
       nodeUrl: node.nodeUrl,
       miner: v5.deployment.miner,
       token: v5.deployment.token,
@@ -133,7 +136,8 @@ describe.skipIf(!enabled)('the versioned origin (origin)', () => {
           env: {
             ...process.env,
             E2E_RUN_FILE: runFile,
-            RIG_OLD_BASE_URL: `http://v5.localhost:${oldPort}`,
+            RIG_OLD_BASE_URL: `http://v5.yacana.test:${oldPort}`,
+            RIG_INSECURE_ORIGINS: `http://yacana.test:${apexPort},http://v5.yacana.test:${oldPort}`,
             E2E_PROVERLESS: '',
           },
         },

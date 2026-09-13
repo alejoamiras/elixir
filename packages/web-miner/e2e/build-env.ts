@@ -15,6 +15,8 @@ export interface BuildOptions {
   role?: 'apex' | 'old';
   /** The versioned origin the apex names, and the origin the old build is served from. */
   oldAppOrigin?: string;
+  /** The WebAuthn relying party; `localhost` unless a case serves the apps under another name. */
+  rpId?: string;
 }
 
 export const e2eBuildEnv = (d: Deployment, o: BuildOptions): NodeJS.ProcessEnv => ({
@@ -30,7 +32,7 @@ export const e2eBuildEnv = (d: Deployment, o: BuildOptions): NodeJS.ProcessEnv =
   VITE_ETH_RPC_URL: o.bridge ? o.bridge.l1RpcUrl : '',
   VITE_PRESTO_E2E_PORT: o.prestoPort === null ? '' : String(o.prestoPort),
   VITE_AZTEC_NODE_URL: o.nodeUrl,
-  VITE_RP_ID: 'localhost',
+  VITE_RP_ID: o.rpId ?? 'localhost',
   VITE_E2E_QUERY_OVERRIDES: '1',
   VITE_E2E_PROVERLESS: o.proverless ? '1' : '',
   VITE_CHAIN_ID: d.chainId,

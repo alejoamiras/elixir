@@ -139,8 +139,9 @@ test('first visit creates an account, mines at the easy target, claims and shows
   expect(await loopHeight()).toBe(idleHeight);
   const ledger = page.getByTestId('ledger');
   await expect(ledger).toContainText('minted, privately');
-  await expect(ledger.getByRole('link', { name: /block/ })).toHaveAttribute('href', /\/blocks\/\d+$/);
-  await expect(ledger.getByRole('link', { name: /effects/ })).toHaveAttribute(
+  // The newest line: at this easy target a second claim can have minted by now, and each line links.
+  await expect(ledger.getByRole('link', { name: /block/ }).first()).toHaveAttribute('href', /\/blocks\/\d+$/);
+  await expect(ledger.getByRole('link', { name: /effects/ }).first()).toHaveAttribute(
     'href',
     /\/tx-effects\/0x[0-9a-f]{64}$/,
   );

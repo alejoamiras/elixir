@@ -16,6 +16,19 @@ export default defineConfig({
   use: {
     headless: true,
     trace: 'retain-on-failure',
-    launchOptions: { args: ['--disable-dev-shm-usage'] },
+    launchOptions: {
+      args: [
+        '--disable-dev-shm-usage',
+        // The origin case serves the apex and the versioned origin as `yacana.test` and `v5.yacana.test`
+        // (WebAuthn refuses `localhost` as a suffix of `v5.localhost`): both resolve to loopback, and
+        // their plain-http origins count as secure so passkeys and cross-origin isolation work there.
+        ...(process.env.RIG_INSECURE_ORIGINS
+          ? [
+              '--host-resolver-rules=MAP yacana.test 127.0.0.1, MAP *.yacana.test 127.0.0.1',
+              `--unsafely-treat-insecure-origin-as-secure=${process.env.RIG_INSECURE_ORIGINS}`,
+            ]
+          : []),
+      ],
+    },
   },
 });

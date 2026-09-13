@@ -151,7 +151,8 @@ export function siteVite(app: SiteAppOptions): (ctx: { command: 'build' | 'serve
         favicon(),
       ],
       server: { headers: dev, fs: { allow: [repo] } },
-      preview: { headers: shipped },
+      // An e2e preview answers any host name: the rig's origin case reaches it as a made-up domain.
+      preview: { headers: shipped, ...(config.mode === 'e2e' ? { allowedHosts: true } : {}) },
       ...proverConfig,
       resolve: {
         ...proverConfig.resolve,
