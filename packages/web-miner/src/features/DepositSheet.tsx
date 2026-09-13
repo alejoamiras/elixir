@@ -50,6 +50,13 @@ export function WalletPicker() {
   const account = useAccount();
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
+  // wagmi is still asking the wallets the page connected before: no picker until it knows.
+  if (account.status === 'reconnecting')
+    return (
+      <p className="text-xs text-ink-2" data-testid="wallet-reconnecting">
+        Reconnecting your Ethereum wallet…
+      </p>
+    );
   if (account.isConnected && account.address)
     return (
       <div

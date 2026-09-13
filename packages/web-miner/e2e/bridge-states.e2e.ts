@@ -7,7 +7,7 @@ import type { Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { control } from './control-client.ts';
 import { expect, type Page, test } from './fixtures.ts';
-import { installL1Wallet, WALLET_NAME } from './helpers/l1-wallet.ts';
+import { connectTestWallet, installL1Wallet } from './helpers/l1-wallet.ts';
 import { BOOT_MS, bootPage, pageUrl, run } from './helpers.ts';
 
 /** Anvil account 4: another account the wallet can switch to. */
@@ -82,7 +82,7 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
 
   // Deposit: the picker lists the test wallet by name; connected, the row shows the YACA the forward minted.
   await page.getByTestId('deposit').click();
-  await page.getByTestId('wallet-option').filter({ hasText: WALLET_NAME }).click();
+  await connectTestWallet(page);
   await expect(page.getByTestId('eth-account')).toContainText(short(l1.address));
   await expect(page.getByTestId('yaca-balance')).toHaveText('1', { timeout: 30_000 });
 
@@ -109,7 +109,7 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   await expect(stuck).toContainText('Waiting for your Ethereum wallet');
   await stuck.getByTestId('arrival-resume').click();
   await expect(page.getByTestId('deposit-amount')).toHaveValue(/^0\.5/);
-  await page.getByTestId('wallet-option').filter({ hasText: WALLET_NAME }).click();
+  await connectTestWallet(page);
 
   // An account change mid-flow: the sheet shows whoever the wallet says now.
   await l1.setAccount(OTHER_KEY);

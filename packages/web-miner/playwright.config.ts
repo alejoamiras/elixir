@@ -7,6 +7,8 @@ export default defineConfig({
   testDir: './e2e',
   // Not *.spec.ts / *.test.ts: the root `bun test` would pick those up.
   testMatch: /.*\.e2e\.ts$/,
+  // The rig's spec needs the rig's flip and two builds: playwright.rig.config.ts, never this suite.
+  testIgnore: /bridge\.e2e\.ts$/,
   globalSetup: './e2e/global-setup.ts',
   globalTeardown: './e2e/global-teardown.ts',
   timeout: 20 * 60_000,

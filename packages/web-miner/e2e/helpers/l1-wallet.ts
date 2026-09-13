@@ -3,7 +3,7 @@
 // function to a viem wallet client over the run's anvil, signing with a key that never enters the
 // page. The wrong-chain, refusal, open-prompt and account-change cells drive it through the control
 // it returns. Modelled on nulo's tools fixture; no code shared.
-import type { BrowserContext } from '@playwright/test';
+import { type BrowserContext, expect, type Page } from '@playwright/test';
 import { type Address, createWalletClient, defineChain, type Hex, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -93,6 +93,9 @@ export async function installL1Wallet(context: BrowserContext, o: L1WalletOption
   let account = privateKeyToAccount(o.privateKey);
   let chainId = o.chainId;
   let client = createWalletClient({ account, chain: chain(chainId), transport: http(o.rpcUrl) });
+  // As a real wallet: `eth_accounts` is empty until the page asked once; from then on (reloads
+  // included) wagmi reconnects on its own, which is what a returning user sees.
+  let authorized = false;
   const rejections = new Set<RejectKind>();
   const holds: { kind: RejectKind; to?: Address }[] = [];
   const counts: Record<string, number> = {};
@@ -127,8 +130,11 @@ export async function installL1Wallet(context: BrowserContext, o: L1WalletOption
 
   /** The wallet-side methods; anything else is a node read, proxied to anvil as-is. */
   const wallet: Record<string, (params: unknown[]) => Promise<unknown>> = {
-    eth_requestAccounts: async () => [account.address],
-    eth_accounts: async () => [account.address],
+    eth_requestAccounts: async () => {
+      authorized = true;
+      return [account.address];
+    },
+    eth_accounts: async () => (authorized ? [account.address] : []),
     eth_chainId: async () => `0x${chainId.toString(16)}`,
     wallet_switchEthereumChain: async (params) => {
       count('wallet_switchEthereumChain');
@@ -140,7 +146,10 @@ export async function installL1Wallet(context: BrowserContext, o: L1WalletOption
       return null;
     },
     wallet_requestPermissions: async () => [{ parentCapability: 'eth_accounts' }],
-    wallet_revokePermissions: async () => null,
+    wallet_revokePermissions: async () => {
+      authorized = false;
+      return null;
+    },
     eth_sendTransaction: (params) => {
       count('eth_sendTransaction');
       refuse('transaction');
@@ -254,6 +263,16 @@ export async function installL1Wallet(context: BrowserContext, o: L1WalletOption
     },
     holdsArmed: () => holds.length,
   };
+}
+
+/** The test wallet connected in the open sheet: picked from the list, or already back through wagmi's reconnect. */
+export async function connectTestWallet(page: Page): Promise<void> {
+  const row = page.getByTestId('eth-account');
+  // wagmi may still be reconnecting a wallet the page connected before: the picker or the row, then.
+  await expect(row.or(page.getByTestId('wallet-picker'))).toBeVisible({ timeout: 30_000 });
+  if (!(await row.isVisible()))
+    await page.getByTestId('wallet-option').filter({ hasText: WALLET_NAME }).click();
+  await expect(row).toContainText(WALLET_NAME);
 }
 
 declare global {

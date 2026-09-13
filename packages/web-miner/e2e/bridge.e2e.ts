@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import type { Hex } from 'viem';
 import { control } from './control-client.ts';
 import { expect, type Page, test } from './fixtures.ts';
-import { installL1Wallet, WALLET_NAME } from './helpers/l1-wallet.ts';
+import { connectTestWallet, installL1Wallet } from './helpers/l1-wallet.ts';
 import { BOOT_MS, pageUrl, run } from './helpers.ts';
 
 // On a failure, the page's own bridge log lines: what the session saw that the screen did not say.
@@ -118,7 +118,7 @@ test('on V5: a words account mines one claim, exits to Ethereum (forwarded and m
 
   // Deposit 0.5 back through the picker; the arrival card claims it.
   await page.getByTestId('deposit').click();
-  await page.getByTestId('wallet-option').filter({ hasText: WALLET_NAME }).click();
+  await connectTestWallet(page);
   await expect(page.getByTestId('yaca-balance')).toHaveText('1', { timeout: 30_000 });
   await page.getByTestId('deposit-amount').fill('0.5');
   await page.getByTestId('deposit-go').click();
@@ -213,7 +213,7 @@ test('on V6: the same words restore the account, the recovery file brings the he
 
   // The first, forwarded into V6 by the holder: the redeem key signs, the wallet pays; then claimed here.
   await rows(page, 2).first().getByTestId('forward-myself').click();
-  await page.getByTestId('wallet-option').filter({ hasText: WALLET_NAME }).click();
+  await connectTestWallet(page);
   await page.getByTestId('forward-go').click();
   await expect(page.getByTestId('forward-done')).toBeVisible({ timeout: 2 * 60_000 });
   await page.getByRole('button', { name: 'Done' }).click();
@@ -233,8 +233,7 @@ test('on V6: the same words restore the account, the recovery file brings the he
   await expect(page.getByTestId('redeem-done')).toBeVisible({ timeout: 2 * 60_000 });
   await expect(page.getByTestId('yaca-balance')).toHaveText('1.5', { timeout: 30_000 });
   await page.getByRole('button', { name: 'Done' }).click();
-  await expect(rows(page, 2).getByTestId('crossing-word')).toHaveText(['minted', 'redeemed'], {
-    timeout: 60_000,
-  });
+  // The claimed one left the tile (it is minted here); the redeemed one stays a week.
+  await expect(rows(page, 2).getByTestId('crossing-word')).toHaveText(['redeemed'], { timeout: 60_000 });
   expect(l1.calls('eth_sendTransaction')).toBe(2);
 });
