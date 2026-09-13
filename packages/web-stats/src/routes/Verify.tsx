@@ -184,7 +184,15 @@ function BridgeRecordTile() {
       {chain('portal', bridge.portal, 'verify-portal')}
       {chain('YACA', bridge.yaca, 'verify-yaca')}
       {chain('registry (Aztec)', bridge.registry, 'verify-registry')}
-      {chain(live ? 'operators (now)' : 'operators (at deployment)', operators, 'verify-operators')}
+      {chain(
+        live
+          ? silent
+            ? 'operators (last read; the RPC is silent)'
+            : 'operators (now)'
+          : 'operators (at deployment)',
+        operators,
+        'verify-operators',
+      )}
       <KvRow
         label={silent ? 'listed forwarders (last read; the RPC is silent)' : 'listed forwarders'}
         value={

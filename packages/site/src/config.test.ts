@@ -228,7 +228,11 @@ describe('site config', () => {
       l1RpcUrl: 'https://rpc.example',
     };
     const migration = { toIndex: '1', announcedAt: '1790000000', expectedFlipAt: '1790600000' };
-    const none = loadSiteConfig({ ...base, mode: 'production' });
+    const none = loadSiteConfig({
+      ...base,
+      mode: 'production',
+      deployment: { ...deployment, bridge: undefined, migration: undefined },
+    });
     expect(none.bridge).toBeNull();
     expect(none.migration).toBeNull();
     expect(viteDefine(none)['import.meta.env.VITE_BRIDGE']).toBe('""');
@@ -250,10 +254,14 @@ describe('site config', () => {
     });
     expect(handed.bridge?.portal).toBe(bridge.portal);
     expect(handed.migration?.toIndex).toBe('1');
-    // Production never takes them from the environment.
-    expect(
-      loadSiteConfig({ ...base, mode: 'production', env: { VITE_BRIDGE: JSON.stringify(bridge) } }).bridge,
-    ).toBeNull();
+    // Production never takes them from the environment: the record's block, or none, whatever the env says.
+    const ignored = loadSiteConfig({
+      ...base,
+      mode: 'production',
+      env: { VITE_BRIDGE: JSON.stringify(bridge) },
+    });
+    expect(ignored.bridge?.portal).not.toBe(bridge.portal);
+    expect(ignored.bridge).toEqual(deployment.bridge ?? null);
     expect(() =>
       loadSiteConfig({
         ...base,

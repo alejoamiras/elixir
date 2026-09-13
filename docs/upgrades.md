@@ -58,22 +58,29 @@ after the flip lands like any other once its epoch is proven (rig case H4). The 
 ## Deploy V6
 
 6. **Move V5's record aside, then deploy the continuation.** `git mv deployments/testnet.json
-   deployments/testnet-v5.json` (any name but the live one; the operator script takes a record by path), commit,
-   then `YACANA_CONTINUE_FROM=deployments/testnet-v5.json YACANA_PORTAL=<portal> AZTEC_NODE_URL=<V6 node>
-   YACANA_DEPLOYER_SECRET=… bun run deploy`: the V6 miner as V5's continuation (it starts at the epoch V5 left off,
-   with V5's last target), bound to the same portal, written to `deployments/testnet.json` with the `bridge`
-   block carried from V5's record. The deploy refuses to write over its own source, and refuses a source whose
-   portal is not `YACANA_PORTAL`.
+   deployments/testnet-v5.json` and `git mv deployments/testnet.example-claim.json
+   deployments/testnet-v5.example-claim.json` (any names but the live ones; the operator script takes a record
+   by path, and a production build refuses an example claim of another deployment), set
+   `VITE_AZTEC_NODE_URL` in `packages/site/site.env` to V6's node (the apps' default node comes from there, not
+   from the deploy's environment), commit, then `YACANA_CONTINUE_FROM=deployments/testnet-v5.json
+   YACANA_PORTAL=<portal> AZTEC_NODE_URL=<V6 node> YACANA_DEPLOYER_SECRET=… bun run deploy`: the V6 miner as
+   V5's continuation (it starts at the epoch V5 left off, with V5's last target), bound to the same portal,
+   written to `deployments/testnet.json` with the `bridge` block carried from V5's record. The deploy refuses to
+   write over its own source, and refuses a source whose portal is not `YACANA_PORTAL`. Once a claim lands on
+   V6, `AZTEC_NODE_URL=<V6 node> bun packages/deploy/scripts/record-example-claim.ts <txHash>` records the
+   example claim the landing shows.
 7. `YACANA_RECORD=deployments/testnet.json bun run bridge -- register`: V6 on the portal, with its miner and the
    record's launch time. Write-once; the portal accepts a launch time from a week behind to 90 days ahead of the
    registration, so register within the week after the deploy. From here the portal forwards held sends into V6.
-8. **The apex, the old origin.** Deploy the V6 site to the apex (`bun run site:deploy`). For the old origin,
-   check out the last commit that carried V5 in `deployments/testnet.json` (before step 6's move), build it
-   with `YACANA_APP_ROLE=old bun run site:build` (into `packages/site/dist-old`) and deploy it to the `yacana-v5`
-   Worker (`wrangler deploy -c v5/wrangler.jsonc` from `packages/site`: `v5.yacana.network`). An open V5 tab
-   learns from `build.json` that it is behind and asks for a reload. The old origin restores accounts (never
-   creates one), sends ahead and exits; mining there has ended. Keep it up until V5's deadline has passed, then
-   take it down.
+8. **The apex, the old origin.** With step 6 and 7 committed on `main`, deploy the V6 site to the apex
+   (`bun run site:deploy`, or the push). The old origin is V5's last build, made from the last commit that
+   carried V5 in `deployments/testnet.json` (the one before step 6's move) in its own worktree so the V6
+   checkout is never touched: `git worktree add ../yacana-v5 <that commit>`, then in `../yacana-v5`
+   `bun install && YACANA_APP_ROLE=old bun run site:build` (into its `packages/site/dist-old`) and, from its
+   `packages/site`, `wrangler deploy -c v5/wrangler.jsonc` (the `yacana-v5` Worker: `v5.yacana.network`); then
+   `git worktree remove ../yacana-v5` and carry on from the V6 checkout. An open V5 tab learns from `build.json`
+   that it is behind and asks for a reload. The old origin restores accounts (never creates one), sends ahead
+   and exits; mining there has ended. Keep it up until V5's deadline has passed, then take it down.
 
 ## Forward
 

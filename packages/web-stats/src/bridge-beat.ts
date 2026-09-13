@@ -22,26 +22,33 @@ export interface BridgeSnapshot {
   policy: PortalPolicy;
   operators: string;
   forwarders: string[];
+  /** Ethereum's clock at the read (unix seconds): what a pause, a launch or a deadline is measured against. */
+  chainTime: bigint;
   /** Wall clock (ms) of the read. */
   readAt: number;
 }
 
 type BridgeReads = Pick<
   PortalReader,
-  'registered' | 'flows' | 'canonical' | 'policy' | 'operators' | 'forwarders'
+  'registered' | 'flows' | 'canonical' | 'policy' | 'operators' | 'forwarders' | 'blockTime'
 >;
 
 export async function readBridge(reader: BridgeReads, now = Date.now()): Promise<BridgeSnapshot> {
-  const [registered, canonical, policy, operators, forwarders] = await Promise.all([
+  const [registered, canonical, policy, operators, forwarders, chainTime] = await Promise.all([
     reader.registered(),
     reader.canonical(),
     reader.policy(),
     reader.operators(),
     reader.forwarders(),
+    reader.blockTime(),
   ]);
   const versions = await Promise.all(registered.map((v) => reader.flows(v)));
-  return { versions, canonical, policy, operators, forwarders, readAt: now };
+  return { versions, canonical, policy, operators, forwarders, chainTime, readAt: now };
 }
+
+/** The chain's clock carried forward by the wall clock since the read: the device's time never decides on its own. */
+export const chainNow = (s: BridgeSnapshot, now: number): number =>
+  Number(s.chainTime) + Math.max(0, Math.floor((now - s.readAt) / 1000));
 
 const yaca = (raw: bigint): string => `${amount(raw, PARAMS.DECIMALS, 2)} ${PARAMS.TOKEN_SYMBOL}`;
 const day = (unix: bigint): string => new Date(Number(unix) * 1000).toISOString().slice(0, 10);

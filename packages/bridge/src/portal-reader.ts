@@ -159,6 +159,8 @@ function registryReads(client: PublicClient, portal: Portal, registry: Registry)
     /** The Rollup contract of `version`: where its epochs' proofs and deadlines are read. */
     rollupOf: (version: bigint) =>
       client.readContract({ ...registry, functionName: 'getRollup', args: [version] }),
+    /** Ethereum's clock: the latest block's timestamp, what the portal measures a pause or a deadline against. */
+    blockTime: async (): Promise<bigint> => (await client.getBlock({ blockTag: 'latest' })).timestamp,
     /** Whether the portal has stamped Registry index `index`. */
     async transitionSeen(index: bigint): Promise<boolean> {
       return (await client.readContract({ ...portal, functionName: 'transitions', args: [index] })) !== 0n;

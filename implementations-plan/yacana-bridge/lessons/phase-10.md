@@ -40,6 +40,37 @@ pass / 1 skip · root `tsc -p tsconfig.json` clean. Every runbook step names an 
 (`docs/upgrades.md`, the last table): `set-forwarder` through the run helper the browser e2e uses; the rest
 through `packages/harness/tests/*.bun.test.ts`.
 
+## The arc-4 codex loop (plan §10 steps 2–3, on `git diff bridge-miner...HEAD`)
+
+Run while P11's chain side was in flight (the Sepolia deploy and the testnet redeploy needed the owner's keys,
+which arrived mid-way); P11's record and docs get their own look in the final cross-arc pass. Session
+`01a09a85-b5e7-77a1-9cdd-656349b0b699`, `/home/homelab/.cache/tmp/codex-8HmqmZdQ`, `/codex high` on Astra.
+
+- **Round 1** (`response.md`, 14 findings, every one verified by reading the code; fixed in `6459c53`): the
+  served archive was matched by the miner's global exit index against the account's derivation index (a
+  holder's first send could be exit 42), believed without a root check (a served file could push a crossing to
+  `minted-l1`), and a miss was cached for the session; the runbook's V6 deploy could not reach `register` as
+  written (the deploy writes `deployments/<profile>.json`, refuses an existing file and carried no bridge
+  block); the assembler named the whole archive after the profile's current version; the docs promised that
+  words alone find an unforwarded send on a gone version; the FAQ and stats said exits "wait, never refused"
+  (the frozen cap and the deadline end them), the allowance was called a day of the schedule (it is 24 epochs'
+  rewards), the pause bound "per pause" (per call, 60 d in total), the operators' registration power was left
+  out, a prune refund was promised to the wallet at once, the retire step said "mining ended" from an L1 send,
+  Verify showed the build's operators, three comments. Applied: all but the archive-based discovery on a fresh
+  device (documented as deferred, `docs/roadmap.md`); `set-forwarder`'s comment kept.
+- **Round 2** (`response-1.md`, 7 findings, all verified): the leaf was rebuilt with this build's miner, not the
+  source version's (an authentic V5 witness could never verify on V6 — the rig's browser case had passed only
+  because the V6 page took V5's witnesses from the recovery file); the runbook left the V6 build on V5's node
+  URL (`site.env`) and V5's example claim (a production build refuses it — P11 hit exactly this); step 8 left
+  the operator in the old checkout; a parsed archive without the entry stayed cached; "may leave right now" on
+  the numbers row and the device clock deciding pause/deadline sentences; the archive's transaction hash taken
+  as fact; stale operators labelled "(now)". Applied: `verifiedArchiveEntry` in `packages/bridge/src/witness.ts`
+  (matched by fields, folded to the source Outbox root with the source miner from `reader.standing`, the
+  crossing's index and hash kept; unit-tested with distinct miners and a global index of 42), the miss evicts
+  the cache, the stats snapshot carries Ethereum's block time and every sentence takes `chainNow`, the row is
+  "headroom under the limit", Verify labels a stale read, the runbook's steps 6 and 8 rewritten (the example
+  claim and `site.env` move with the version; the old origin builds in its own worktree).
+
 ## Lessons
 
 - Docs written from memory of the plan drift from the code: the first draft said the launch time was "within a

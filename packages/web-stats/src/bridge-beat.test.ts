@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import type { VersionFlows } from '../../bridge/src/portal-reader.ts';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
-import { exitLimitLine, pauseLine, phasesOf, readBridge, versionLine } from './bridge-beat';
+import { chainNow, exitLimitLine, pauseLine, phasesOf, readBridge, versionLine } from './bridge-beat';
 
 const ONE = 10n ** BigInt(PARAMS.DECIMALS);
 const NEVER = (1n << 256n) - 1n;
@@ -45,12 +45,17 @@ describe('the bridge read', () => {
       policy: async () => policy,
       operators: async () => `0x${'aa'.repeat(20)}` as const,
       forwarders: async () => [`0x${'bb'.repeat(20)}` as const],
+      blockTime: async () => BigInt(NOW),
     };
     const s = await readBridge(reader, 7);
     expect(s.versions.map((v) => v.version)).toEqual([5n, 6n]);
     expect(s.canonical.version).toBe(6n);
     expect(s.forwarders).toHaveLength(1);
     expect(s.readAt).toBe(7);
+    expect(s.chainTime).toBe(BigInt(NOW));
+    // The chain's clock moves with the wall clock since the read, never backwards.
+    expect(chainNow(s, 7 + 90_000)).toBe(NOW + 90);
+    expect(chainNow(s, 0)).toBe(NOW);
     expect(calls.sort()).toEqual(['flows 5', 'flows 6']);
   });
 });

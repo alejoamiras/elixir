@@ -58,6 +58,7 @@ const snapshot: BridgeSnapshot = {
   },
   operators: BRIDGE.operators,
   forwarders: [`0x${'34'.repeat(20)}`],
+  chainTime: BigInt(Math.floor(NOW / 1000)),
   readAt: NOW,
 };
 

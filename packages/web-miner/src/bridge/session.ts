@@ -2,7 +2,7 @@
 // portal's standing and the flip verdict read through the Ethereum RPC, the arrivals waiting for
 // it, and the operations the sheets call. One instance per open account, started with it and
 // stopped with it; nothing sends or claims on its own — every crossing begins with a tap.
-import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { siloNullifier } from '@aztec/stdlib/hash';
@@ -31,7 +31,7 @@ import {
   outboxLeaf,
   type RecordedExit,
   readArchive,
-  rootOf,
+  verifiedArchiveEntry,
 } from '../../../bridge/src/witness.ts';
 import { readBalanceSnapshot, saveBalanceSnapshot } from '../bridge/snapshot.ts';
 import type { Connection } from '../config';
@@ -201,53 +201,44 @@ export class BridgeSession {
   /**
    * An earlier version's witness from the archive the site serves (`/witnesses/<version>.jsonl`,
    * committed by the operator once the exits settled): the only source once that version's node is
-   * gone. The archive numbers exits as the miner did, for everyone, so a crossing is matched by what
-   * the master derives (the aux) and what the record holds (amount, address), never by its own
-   * index; and a served file is not believed until its path folds to the root the source version's
-   * Outbox holds for that epoch. The witness returned carries the crossing's index.
+   * gone. The leaf names that version's own miner, the one the portal registered for it, not this
+   * build's; the entry is believed only once its fold reaches that version's Outbox root. A miss
+   * drops the cached file, so a republished archive is read at the next refresh.
    */
   private async archivedWitness(c: Crossing): Promise<ArchivedExit | undefined> {
     if (c.kind === 3) return undefined;
-    const exit = await this.recordedExit(c);
-    const entry = (await this.archiveEntries(c.version)).find(
-      (e) =>
-        e.version === c.version &&
-        e.kind === c.kind &&
-        e.amount === c.amount &&
-        e.aux.toLowerCase() === exit.aux.toLowerCase() &&
-        e.recipientOrRedeemKey.toLowerCase() === c.ethAddress.toLowerCase(),
+    const version = BigInt(c.version);
+    const [entries, standing, secrets] = await Promise.all([
+      this.archiveEntries(c.version),
+      this.reader.standing(version),
+      secretsFor(this.ctx, c.index, version),
+    ]);
+    const aux = (c.kind === 1 ? secrets.tag : secrets.secretHash).toString() as Hex;
+    const entry = await verifiedArchiveEntry(
+      entries,
+      { ...c, kind: c.kind },
+      aux,
+      { ...this.scope, rollupVersion: version, miner: AztecAddress.fromStringUnsafe(standing.miner) },
+      (epoch, n) => this.reader.outboxRoot(version, epoch, n),
     );
-    if (!entry) return undefined;
-    const leaf = outboxLeaf(
-      { ...this.scope, rollupVersion: BigInt(c.version) },
-      exitMessageContent(exit, EthAddress.fromString(c.ethAddress)),
-    );
-    const root = await this.reader.outboxRoot(
-      BigInt(c.version),
-      BigInt(entry.epoch),
-      BigInt(entry.numCheckpointsInEpoch),
-    );
-    if (rootOf(leaf, entry.path, BigInt(entry.leafIndex)) !== root) return undefined;
-    return { ...entry, index: c.index };
+    if (!entry) this.archives.delete(c.version);
+    return entry;
   }
 
-  /** The served archive's entries, parsed once; a missing or unreadable file is asked for again next time. */
+  /** The served archive's entries, parsed once and kept until a lookup misses. */
   private archiveEntries(version: string): Promise<ArchivedExit[]> {
     const cached = this.archives.get(version);
     if (cached) return cached;
-    const entries = fetchArchive(version).then((text) => {
-      if (text === null) this.archives.delete(version);
-      return text === null ? [] : readArchive(text);
-    });
+    const entries = fetchArchive(version).then((text) => (text === null ? [] : readArchive(text)));
     entries.catch(() => this.archives.delete(version));
     this.archives.set(version, entries);
     return entries;
   }
 
-  /** For a version no node serves: the archive names the epoch and the transaction of a send that lost them. */
+  /** For a version no node serves: a verified archive entry names the epoch of a send that lost it; the hash stays the record's. */
   private async txFromArchive(c: Crossing): Promise<Facts['tx']> {
     const w = await this.archivedWitness(c);
-    return w ? { status: 'mined', epoch: w.epoch, txHash: w.txHash } : undefined;
+    return w ? { status: 'mined', epoch: w.epoch } : undefined;
   }
 
   /** The exit as the miner logged it, with the aux the master re-derives: the tag (K1) or the secret hash (K2). */

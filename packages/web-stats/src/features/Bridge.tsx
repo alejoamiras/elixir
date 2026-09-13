@@ -16,7 +16,14 @@ import {
   Tile,
   TileHeader,
 } from '../../../ui/src/index.ts';
-import { type BridgeSnapshot, exitLimitLine, pauseLine, phasesOf, versionLine } from '../bridge-beat';
+import {
+  type BridgeSnapshot,
+  chainNow,
+  exitLimitLine,
+  pauseLine,
+  phasesOf,
+  versionLine,
+} from '../bridge-beat';
 import { l1Links } from '../explorer';
 import { FAQ_HREF } from '../routes';
 
@@ -26,12 +33,13 @@ const percent = (part: bigint, whole: bigint) => (whole === 0n ? 0 : Number((par
 export function BridgePhases({
   version,
   migration,
-  now,
+  nowSeconds,
   className,
 }: {
   version: VersionFlows | undefined;
   migration: MigrationRecord | null;
-  now: number;
+  /** The chain's clock (`chainNow`), not the device's. */
+  nowSeconds: number;
   className?: string;
 }) {
   return (
@@ -46,7 +54,7 @@ export function BridgePhases({
         this version's phases
       </TileHeader>
       {version ? (
-        <Stepper steps={phasesOf(version, migration, Math.floor(now / 1000))} />
+        <Stepper steps={phasesOf(version, migration, nowSeconds)} />
       ) : (
         <p className="text-xs text-ink-3">reading the portal…</p>
       )}
@@ -56,6 +64,7 @@ export function BridgePhases({
 
 function VersionCard({ v, snapshot, now }: { v: VersionFlows; snapshot: BridgeSnapshot; now: number }) {
   const live = v.version === snapshot.canonical.version;
+  const nowSeconds = chainNow(snapshot, now);
   return (
     <Tile data-testid="bridge-version" data-version={v.version.toString()} data-live={live ? '1' : '0'}>
       <TileHeader aside={live ? <Badge variant="uv">live</Badge> : undefined}>
@@ -66,7 +75,7 @@ function VersionCard({ v, snapshot, now }: { v: VersionFlows; snapshot: BridgeSn
       </p>
       <KvRow label="left through the portal" value={yaca(v.exited)} />
       <KvRow label="arrived through it" value={yaca(v.inbound)} />
-      <KvRow label="may leave right now" value={yaca(v.headroom)} />
+      <KvRow label="headroom under the limit" value={yaca(v.headroom)} />
       <KvRow label="may ever have left by now" value={yaca(v.cap + v.inbound)} />
       <Progress
         className="mt-3"
@@ -74,10 +83,10 @@ function VersionCard({ v, snapshot, now }: { v: VersionFlows; snapshot: BridgeSn
         aria-label="left, of the limit"
       />
       <p className="mt-3 text-xs text-ink-3" data-testid="exit-limit">
-        {exitLimitLine(v, snapshot.policy, Math.floor(now / 1000))}
+        {exitLimitLine(v, snapshot.policy, nowSeconds)}
       </p>
       <p className="mt-1.5 text-xs text-ink-3" data-testid="pause-line">
-        {pauseLine(v, snapshot.policy, Math.floor(now / 1000))}
+        {pauseLine(v, snapshot.policy, nowSeconds)}
       </p>
     </Tile>
   );

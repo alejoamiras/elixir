@@ -3,6 +3,7 @@
 import { useAtomValue } from 'jotai';
 import type { BridgeRecord, MigrationRecord } from '../../../bridge/src/record.ts';
 import { Alert, AlertDescription, AlertTitle, TileBoundary } from '../../../ui/src/index.ts';
+import { chainNow } from '../bridge-beat';
 import { BridgePhases, BridgePortal, BridgeVersions, NoBridge } from '../features/Bridge';
 import { bridgeAtom, nowAtom } from '../state';
 
@@ -34,7 +35,12 @@ export function Bridge() {
         </Alert>
       )}
       <TileBoundary name="bridge-phases" className="md:col-span-2">
-        <BridgePhases className="md:col-span-2" version={mine} migration={migration()} now={now} />
+        <BridgePhases
+          className="md:col-span-2"
+          version={mine}
+          migration={migration()}
+          nowSeconds={snapshot ? chainNow(snapshot, now) : Math.floor(now / 1000)}
+        />
       </TileBoundary>
       {snapshot && <BridgeVersions snapshot={snapshot} now={now} />}
       {snapshot && (

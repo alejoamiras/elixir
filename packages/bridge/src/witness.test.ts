@@ -59,6 +59,62 @@ describe('the witness archive', () => {
     expect(parseArchivedExit(JSON.parse(archiveLine(entry)), 'x')).toEqual(entry);
   });
 
+  test('an archived entry is the crossing’s by its fields and its fold, never by its index or its hash', async () => {
+    const { AztecAddress } = await import('@aztec/stdlib/aztec-address');
+    const { EthAddress } = await import('@aztec/foundation/eth-address');
+    const { exitMessageContent, outboxLeaf, verifiedArchiveEntry } = await import('./witness.ts');
+    const miner = AztecAddress.fromStringUnsafe(`0x${'0a'.repeat(32)}`);
+    const other = AztecAddress.fromStringUnsafe(`0x${'0b'.repeat(32)}`);
+    const scope = {
+      chainId: 31337n,
+      rollupVersion: 5n,
+      miner,
+      portal: EthAddress.fromString(`0x${'ef'.repeat(20)}`),
+    };
+    const c = {
+      version: '5',
+      index: 7,
+      kind: 2 as const,
+      amount: '5000000000000000000',
+      ethAddress: entry.recipientOrRedeemKey,
+    };
+    const aux = entry.aux;
+    const leaf = outboxLeaf(
+      scope,
+      exitMessageContent(
+        { kind: 2, amount: BigInt(c.amount), aux, recipientOrRedeemKey: c.ethAddress },
+        EthAddress.fromString(c.ethAddress),
+      ),
+    );
+    const sibling = new Fr(9).toBuffer();
+    const root: `0x${string}` = `0x${sha256Trunc(Buffer.concat([leaf.toBuffer(), sibling])).toString('hex')}`;
+    // The archive numbers the exit for everyone (42); the crossing is the account's seventh.
+    const archived: ArchivedExit = {
+      ...entry,
+      version: '5',
+      index: 42,
+      path: [`0x${sibling.toString('hex')}`],
+      leafIndex: '0',
+    };
+    const roots = async () => root;
+    const found = await verifiedArchiveEntry([archived], c, aux, scope, roots);
+    expect(found).toMatchObject({ index: 7, epoch: '3', txHash: entry.txHash });
+    // A crossing that knows its hash keeps it: the file's is metadata.
+    expect(
+      (await verifiedArchiveEntry([archived], { ...c, txHash: `0x${'77'.repeat(32)}` }, aux, scope, roots))
+        ?.txHash,
+    ).toBe(`0x${'77'.repeat(32)}`);
+    // Another version's miner in the scope, a wrong amount, a path that folds elsewhere: not this crossing's.
+    expect(await verifiedArchiveEntry([archived], c, aux, { ...scope, miner: other }, roots)).toBeUndefined();
+    expect(await verifiedArchiveEntry([{ ...archived, amount: '1' }], c, aux, scope, roots)).toBeUndefined();
+    expect(
+      await verifiedArchiveEntry([{ ...archived, leafIndex: '1' }], c, aux, scope, roots),
+    ).toBeUndefined();
+    expect(
+      await verifiedArchiveEntry([archived], c, aux, scope, async () => `0x${'00'.repeat(32)}`),
+    ).toBeUndefined();
+  });
+
   test('the fold reaches the root the Outbox computes: a two-level tree by hand', () => {
     const [l0, l1, l2, l3] = [1, 2, 3, 4].map((n) => new Fr(n)) as [Fr, Fr, Fr, Fr];
     const pair = (a: Buffer, b: Buffer) => sha256Trunc(Buffer.concat([a, b]));
