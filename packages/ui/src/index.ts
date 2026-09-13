@@ -1,4 +1,5 @@
 export { Alert, AlertDescription, AlertTitle } from './components/alert.tsx';
+export { AmountBlock, MaxChip } from './components/amount-block.tsx';
 export { Badge, badgeVariants } from './components/badge.tsx';
 export { Button, buttonVariants } from './components/button.tsx';
 export { Chip } from './components/chip.tsx';
@@ -14,14 +15,17 @@ export {
 } from './components/dialog.tsx';
 export { EpochRail, type EpochRailProps } from './components/epoch-rail.tsx';
 export { ExternalLink } from './components/external-link.tsx';
+export { HeroCard, type HeroTone } from './components/hero-card.tsx';
 export { HoldButton } from './components/hold-button.tsx';
 export { Input, Textarea } from './components/input.tsx';
+export { JournalCard, type JournalTone } from './components/journal-card.tsx';
 export { Kpi } from './components/kpi.tsx';
 export { Label } from './components/label.tsx';
 export { Mark } from './components/mark.tsx';
 export { Marks, shortHash } from './components/marks.tsx';
 export { NodeBanner, type NodeBannerKind, type NodeBannerState } from './components/node-banner.tsx';
 export { NodeWayOut } from './components/node-way-out.tsx';
+export { Note, type NoteTone } from './components/note.tsx';
 export { clampThreads, PowerSlider, powerLabels, powerRange } from './components/power-slider.tsx';
 export { Preflight, type PreflightRow } from './components/preflight.tsx';
 export { Progress } from './components/progress.tsx';
@@ -38,12 +42,15 @@ export {
   SheetTrigger,
 } from './components/sheet.tsx';
 export { Skeleton } from './components/skeleton.tsx';
+export { type BarSegment, StackedBar } from './components/stacked-bar.tsx';
 export { type Status, StatusPill, statusLabel } from './components/status-pill.tsx';
 export { fmtSeconds, type Step, Stepper } from './components/stepper.tsx';
 export { Switch } from './components/switch.tsx';
 export { KvRow, Tile, TileHeader } from './components/tile.tsx';
 export { TileBoundary } from './components/tile-boundary.tsx';
+export { Timeline, type TimelineItem, type TimelineState } from './components/timeline.tsx';
 export { Toaster } from './components/toaster.tsx';
+export { Trail, type TrailItem, type TrailState } from './components/trail.tsx';
 export { useDocumentHidden, useReducedMotion } from './hooks/use-reduced-motion.ts';
 export { useTweenedNumber } from './hooks/use-tweened-number.ts';
 export { cn } from './lib/cn.ts';
