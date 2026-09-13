@@ -162,12 +162,14 @@ const flipPhase = (
     : `${m ? `~${shortDay(BigInt(m.expectedFlipAt))} · ` : ''}mining on V${v.version} ends`,
 });
 
-/** Ethereum knows the message was sent, not that the miner consumed it: the label says as much. */
+/** Going quiet is the version's last proof, which nothing announces; the retire message (mining's end) is only its omen, so the phase is never done. */
 const retirePhase = (v: VersionFlows, flipped: boolean): TimelineItem => ({
   id: 'retire',
-  label: v.retireSent ? 'retire message sent' : `V${v.version} goes quiet`,
-  state: v.retireSent ? 'done' : flipped ? 'on' : 'todo',
-  detail: v.retireSent ? 'mining ends once the miner consumes it' : 'days later · nothing can leave',
+  label: `V${v.version} goes quiet`,
+  state: flipped ? 'on' : 'todo',
+  detail: v.retireSent
+    ? 'retire message sent · mining ends when the miner consumes it · proving may stop any time'
+    : 'days later · nothing can leave',
 });
 
 const closesPhase = (v: VersionFlows, nowSeconds: number): TimelineItem => {
@@ -224,7 +226,8 @@ export interface BridgeFigures {
   /** Through the portal, not yet claimed on the miner. */
   waiting?: bigint;
   forwards?: number;
-  lastForwardAt: number | null;
+  /** Unix seconds of the last forward; null when none happened; undefined when the history could not be read. */
+  lastForwardAt?: number | null;
 }
 
 export function figuresOf(
@@ -241,18 +244,30 @@ export function figuresOf(
     transit: miner && live ? max0(miner.exited - live.exited) : undefined,
     waiting: miner && live ? max0(live.inbound - miner.claimedFromL1) : undefined,
     forwards: x ? x.events.filter((e) => e.kind !== 'deposit' && mine(e)).length : undefined,
-    lastForwardAt: x?.lastForwardAt ?? null,
+    lastForwardAt: x ? x.lastForwardAt : undefined,
   };
 }
 
 const DASH = '—';
+
+/** At most `max` of `sorted`, evenly spaced, the first and the last always among them. */
+export function sampleBlocks(sorted: readonly bigint[], max: number): bigint[] {
+  if (sorted.length <= max) return [...sorted];
+  const step = Math.ceil((sorted.length - 1) / (max - 1));
+  const picked = sorted.filter((_, i) => i % step === 0);
+  const last = sorted[sorted.length - 1] as bigint;
+  if (picked[picked.length - 1] !== last) picked.push(last);
+  return picked;
+}
 const figure = (raw: bigint | undefined): string => (raw === undefined ? DASH : whole(raw));
 
-/** "forwarded 2 min ago" or "nothing forwarded yet". */
-export const forwardingLine = (lastForwardAt: number | null, nowSeconds: number): string =>
-  lastForwardAt
-    ? `forwarded ${duration(Math.max(0, nowSeconds - lastForwardAt))} ago`
-    : 'nothing forwarded yet';
+/** "forwarded 2 min ago", "nothing forwarded yet", or that the history could not be read. */
+export const forwardingLine = (lastForwardAt: number | null | undefined, nowSeconds: number): string =>
+  lastForwardAt === undefined
+    ? 'forwarding history unavailable'
+    : lastForwardAt
+      ? `forwarded ${duration(Math.max(0, nowSeconds - lastForwardAt))} ago`
+      : 'nothing forwarded yet';
 
 const ethereumKpi = (f: BridgeFigures, chain: string): Kpi => ({
   id: 'ethereum',
@@ -260,8 +275,8 @@ const ethereumKpi = (f: BridgeFigures, chain: string): Kpi => ({
   value: figure(f.onEthereum),
   unit: 'YACA',
   sub: `an ERC-20 on ${chain}${
-    f.onEthereum !== undefined && f.mined !== undefined
-      ? ` · ${percent(f.onEthereum, f.mined + f.onEthereum)} of all minted`
+    f.onEthereum !== undefined && f.mined !== undefined && f.mined > 0n
+      ? ` · ${percent(f.onEthereum, f.mined)} of all minted`
       : ''
   }`,
 });
@@ -346,22 +361,25 @@ export function kpisOf(
   ];
 }
 
-/** Where a version's coins are, for its stacked bar: still here, left to Ethereum net, crossing, moved to the next version. */
+/** Where a version's coins are, for its stacked bar: still here, left to Ethereum net, crossing, moved to the next version. The miner read is `built`'s; another version's supply and transit are unknown here, not zero. */
 export function whereOf(
   v: VersionFlows,
   s: BridgeSnapshot,
   miner: MinerFlows | undefined,
   supply: bigint | undefined,
+  built: string,
 ): BarSegment[] {
   const events = s.extras ? s.extras.events.filter((e) => e.version === v.version) : [];
   const toEth = max0(sum(events, ['exit', 'redeem']) - sum(events, ['deposit']));
   const moved = sum(events, ['send']);
-  const live = v.version === s.canonical.version;
-  const here = live && supply !== undefined ? supply : 0n;
-  const transit = live && miner ? max0(miner.exited - v.exited) : 0n;
-  const n = (raw: bigint) => Number(raw / 10n ** BigInt(Math.max(0, PARAMS.DECIMALS - 6)));
+  const mine = v.version === built;
+  const here = mine ? supply : undefined;
+  const transit = mine && miner ? max0(miner.exited - v.exited) : undefined;
+  const n = (raw: bigint | undefined) =>
+    raw === undefined ? 0 : Number(raw / 10n ** BigInt(Math.max(0, PARAMS.DECIMALS - 6)));
+  const shown = (raw: bigint | undefined) => (raw === undefined ? DASH : whole(raw));
   return [
-    { id: 'here', label: `still on V${v.version}`, figure: whole(here), value: n(here), color: 'var(--uv)' },
+    { id: 'here', label: `still on V${v.version}`, figure: shown(here), value: n(here), color: 'var(--uv)' },
     {
       id: 'eth',
       label: 'left to Ethereum, net',
@@ -369,7 +387,7 @@ export function whereOf(
       value: n(toEth),
       color: 'var(--ink-3)',
     },
-    { id: 'transit', label: 'crossing', figure: whole(transit), value: n(transit), color: 'var(--warn)' },
+    { id: 'transit', label: 'crossing', figure: shown(transit), value: n(transit), color: 'var(--warn)' },
     {
       id: 'moved',
       label: 'moved to the next version',
@@ -393,9 +411,10 @@ const tokens = (raw: bigint): number =>
   Number(raw / 10n ** BigInt(Math.max(0, PARAMS.DECIMALS - 4))) / 10 ** Math.min(4, PARAMS.DECIMALS);
 
 /**
- * Where the coins are, since launch: the emission from the epochs held (each epoch's claims at its
- * open, times the reward) split into what is on Ethereum (exits and redeems, less deposits, by
- * then) and the rest on Aztec. One point per epoch open and per crossing, the last at `now`.
+ * Where the coins are: the emission of the epochs held (each epoch's claims counted at its open,
+ * times the reward) against what is on Ethereum by then (exits and redeems, less deposits); the rest
+ * is on Aztec. One point per epoch open and per crossing, the last at `now`. When the rows start
+ * after launch the emission is short by the missing epochs: nothing is clipped, the caller says so.
  */
 export function coinsSeries(
   rows: readonly EpochRow[],
@@ -412,8 +431,7 @@ export function coinsSeries(
     const claims = epochs.filter((r) => r.openedAt <= t).reduce((a, r) => a + BigInt(r.claims), 0n);
     const total = claims * PARAMS.REWARD;
     const onEth = max0(sum(events, ['exit', 'redeem'], t) - sum(events, ['deposit'], t));
-    const eth = onEth > total ? total : onEth;
-    points.push({ t, total: tokens(total), ethereum: tokens(eth), aztec: tokens(total - eth) });
+    points.push({ t, total: tokens(total), ethereum: tokens(onEth), aztec: tokens(max0(total - onEth)) });
   }
   return points;
 }

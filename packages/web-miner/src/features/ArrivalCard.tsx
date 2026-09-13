@@ -1,4 +1,4 @@
-// What arrived for this account, as drawn: one card from wherever it came, "N landed. M on its
+// What arrived for this account: one card from wherever it came, "N landed. M on its
 // way.", a row per arrival with its own tap, the stations they share, a bar for the count. Sends
 // forwarded from an earlier version and deposits from Ethereum, each claimed privately here (about
 // 20 s, the fee sponsored). Nothing claims by itself.

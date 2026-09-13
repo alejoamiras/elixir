@@ -1,4 +1,4 @@
-// The versioned origin's one page (the `old` role), as drawn: this version has ended; what is
+// The versioned origin's one page (the `old` role): this version has ended; what is
 // still here can leave — send it ahead, or to Ethereum — while the version proves. Signed out, the
 // way in; signed in, the balance and the one button; once something was sent, its stations; once
 // the version no longer proves, what is lost and what was safe. Nothing is mined here, and no
@@ -21,7 +21,7 @@ import { links } from '../explorer';
 import { amount as fmt, shortAddress } from '../lib/format';
 import { navigate } from '../routes';
 import type { Session } from '../session';
-import { balanceAtom, bootAtom, bridgeAtom, journalAtom, signInAtom } from '../state';
+import { type BridgeView, balanceAtom, bootAtom, bridgeAtom, journalAtom, signInAtom } from '../state';
 import { BridgeProviders } from './BridgeProviders';
 import { SendAheadSheet } from './SendAheadSheet';
 
@@ -43,10 +43,19 @@ const apexHost = (): string => {
 
 type Moment = 'signed-out' | 'still-here' | 'sent' | 'quiet';
 
-/** Signed out → the way in; a send in flight → its stations; exits closed or a send undone with nothing left → quiet; else the balance. */
-const momentOf = (ready: boolean, sent: Crossing[], closed: boolean, undone: boolean): Moment => {
+/** Proven to Ethereum in time: out of this version's reach whatever it does next. */
+const SAFE = new Set<Crossing['state']>(['held', 'forwarded', 'claimable', 'minted-l2', 'not-registered']);
+
+/** The version's exit deadline has passed: nothing leaves it any more. */
+const exitsClosed = (standing: BridgeView['standing']): boolean =>
+  standing !== undefined &&
+  standing.deadline !== OPEN_ENDED &&
+  BigInt(Math.floor(Date.now() / 1000)) > standing.deadline;
+
+/** Signed out → the way in; exits closed → quiet; a send in flight → its stations; else the balance. An undone send is not the version's end: the balance is back and can be sent again. */
+const momentOf = (ready: boolean, sent: Crossing[], closed: boolean): Moment => {
   if (!ready) return 'signed-out';
-  if (closed || (undone && sent.every((c) => !inFlight(c)))) return 'quiet';
+  if (closed) return 'quiet';
   return sent.some(inFlight) ? 'sent' : 'still-here';
 };
 
@@ -210,21 +219,12 @@ export function OldApp({ session }: { session?: Session }) {
   const [ahead, setAhead] = useState(false);
   const version = import.meta.env.VITE_ROLLUP_VERSION;
   const sent = journal.filter((c) => c.kind === 2 && c.version === version && c.state !== 'dropped');
-  const closed =
-    view.standing !== undefined &&
-    view.standing.deadline !== OPEN_ENDED &&
-    BigInt(Math.floor(Date.now() / 1000)) > view.standing.deadline;
-  const undone = sent.some((c) => c.state === 'never-proven');
-  const m = momentOf(boot.phase === 'ready', sent, closed, undone);
+  const closed = exitsClosed(view.standing);
+  const m = momentOf(boot.phase === 'ready', sent, closed);
+  // What was not sent stays sendable beside the stations of what was.
+  const remainder = m === 'sent' && balance !== null && balance > 0n;
   const flipDay = view.standing && view.standing.flipAt > 0n ? day(view.standing.flipAt) : undefined;
-  const safe = sent.filter(
-    (c) =>
-      c.state === 'held' ||
-      c.state === 'forwarded' ||
-      c.state === 'claimable' ||
-      c.state === 'minted-l2' ||
-      c.state === 'not-registered',
-  );
+  const safe = sent.filter((c) => SAFE.has(c.state));
   return (
     <div className="mx-auto flex max-w-[640px] flex-col gap-[22px] px-5 py-14" data-testid="cockpit">
       <div data-testid="retired">
@@ -256,8 +256,10 @@ export function OldApp({ session }: { session?: Session }) {
         </p>
       </div>
       {m === 'signed-out' && <SignedOut />}
-      {m === 'still-here' && <StillHere balance={balance} onSendAhead={() => setAhead(true)} />}
       {m === 'sent' && <Sent sent={sent} />}
+      {(m === 'still-here' || remainder) && (
+        <StillHere balance={balance} onSendAhead={() => setAhead(true)} />
+      )}
       {m === 'quiet' && <Quiet balance={balance} safe={safe} />}
       {boot.phase === 'ready' && <AccountChip account={boot.account} />}
       <div className="flex flex-wrap gap-x-4 gap-y-1.5 font-mono text-2xs text-ink-3">

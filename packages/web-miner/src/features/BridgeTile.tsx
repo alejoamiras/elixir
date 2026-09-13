@@ -1,4 +1,4 @@
-// The everyday bridge on the wallet page, as drawn: a journal card per crossing while something is
+// The everyday bridge on the wallet page: a journal card per crossing while something is
 // crossing (a finished one fades after a week), each with its stations, its line and its offers;
 // "nothing crossing" otherwise; under it the deposit and the recovery file, and the contracts on
 // Ethereum. Yacana forwards exits by hand: the tile says so and offers the forward to the holder —

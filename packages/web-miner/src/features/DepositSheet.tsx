@@ -1,4 +1,4 @@
-// From Ethereum, as drawn: connect a wallet (every installed one the browser announces, by name)
+// From Ethereum: connect a wallet (every installed one the browser announces, by name)
 // → the figure with the YACA there as its ceiling, the three stations, what is public → one
 // transaction from that wallet → "On its way."; the arrival card's Claim finishes it here. Also the
 // sheet a held send-ahead is forwarded or redeemed from: the same wallet pays the gas.

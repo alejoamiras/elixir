@@ -1,4 +1,4 @@
-// To Ethereum, as drawn: the figure and the address, the three stations with their times, then the
+// To Ethereum: the figure and the address, the three stations with their times, then the
 // review (what is public: the amount and the address; 20 s to prove; Ethereum learns of it when this
 // version proves the epoch), then "On its way." with the burn's block once the journal has it.
 import { useAtomValue } from 'jotai';
@@ -170,7 +170,7 @@ function Sent({
     <div className="flex flex-col gap-4" data-testid="exit-sent">
       <div>
         <span className="label-mono">to ethereum</span>
-        <h2 className="mt-1.5 text-[22px] font-semibold leading-[1.2] tracking-[-0.02em]">On its way.</h2>
+        <SheetTitle className="mt-1.5 text-[22px] leading-[1.2] tracking-[-0.02em]">On its way.</SheetTitle>
       </div>
       <AmountBlock
         value={snap.display}

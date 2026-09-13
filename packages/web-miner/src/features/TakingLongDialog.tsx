@@ -65,6 +65,11 @@ export function TakingLongDialog({ onSettings, onWallet }: { onSettings: () => v
   const held = first.state === 'held';
   const waited = duration(Math.round((now - first.updatedAt) / 1000));
   const call = forwardCall(first);
+  // The dialog would stay over the destination: it closes for this crossing before the page moves.
+  const leave = (go: () => void) => {
+    setDismissed(first.id);
+    go();
+  };
   return (
     <Dialog open onOpenChange={(o) => !o && setDismissed(first.id)}>
       <DialogContent data-testid="taking-long" className="max-w-[540px]">
@@ -87,13 +92,13 @@ export function TakingLongDialog({ onSettings, onWallet }: { onSettings: () => v
                 : 'Connect one on the bridge tile and send it. The wallet pays the gas.'}
             </span>
             <div>
-              <Button size="sm" variant="uv" onClick={onWallet}>
+              <Button size="sm" variant="uv" onClick={() => leave(onWallet)}>
                 Open the bridge tile
               </Button>
             </div>
             <span className="text-xs text-warn">
               That wallet is public as the sender. It pairs with this crossing’s amount, not with your Aztec
-              account. A fresh wallet pairs nothing.
+              account.
             </span>
           </Column>
           <Column title="From anywhere">
@@ -109,7 +114,7 @@ export function TakingLongDialog({ onSettings, onWallet }: { onSettings: () => v
           </Column>
         </div>
         <Note title="A silent Ethereum RPC makes every crossing look stuck.">
-          <Button variant="link" size="sm" onClick={onSettings}>
+          <Button variant="link" size="sm" onClick={() => leave(onSettings)}>
             Check the RPC in Settings
           </Button>
         </Note>

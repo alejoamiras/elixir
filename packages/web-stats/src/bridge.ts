@@ -11,7 +11,7 @@ import type { BridgeRecord } from '../../bridge/src/record.ts';
 import type { Connection } from '../../site/src/browser/connection.ts';
 import { ethRpcClient } from '../../site/src/browser/eth-rpc.ts';
 import { setEthRpcEndpoint } from '../../site/src/browser/node-guard.ts';
-import { type BridgeExtras, type FlowEvent, readBridge } from './bridge-beat';
+import { type BridgeExtras, type FlowEvent, readBridge, sampleBlocks } from './bridge-beat';
 import { POLL_MS } from './chain';
 import { bridgeAtom } from './state';
 
@@ -34,8 +34,7 @@ interface RawEvent {
 /** The time of every block in `blocks`: read for at most BLOCK_TIMES of them, the others placed between the read ones. */
 async function blockTimes(client: PublicClient, blocks: bigint[]): Promise<Map<bigint, number>> {
   const sorted = [...new Set(blocks)].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-  const step = Math.max(1, Math.ceil(sorted.length / BLOCK_TIMES));
-  const picked = sorted.filter((_, i) => i % step === 0 || i === sorted.length - 1);
+  const picked = sampleBlocks(sorted, BLOCK_TIMES);
   const read = new Map<bigint, number>();
   await Promise.all(
     picked.map(async (b) => read.set(b, Number((await client.getBlock({ blockNumber: b })).timestamp))),

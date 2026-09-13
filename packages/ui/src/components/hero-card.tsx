@@ -11,11 +11,7 @@ const BORDER: Record<HeroTone, string> = {
   bad: 'border-bad',
 };
 
-/**
- * The one card of a moment: an eyebrow, a title that says what is so, a body that says what it
- * means, the crossing's trail under it, and on the right the one thing to do (a button, a status, a
- * note). The border names the moment's tone.
- */
+/** One moment's card: what is so, what it means, its trail, and on the right the one thing to do. */
 export function HeroCard({
   eyebrow,
   title,

@@ -1,4 +1,4 @@
-// `/faq`, under the landing's header, as drawn: the eyebrow and the title, three sections of
+// `/faq`, under the landing's header: the eyebrow and the title, three sections of
 // question rows (the question on the left, the answer on the right), the six panels of the
 // upgrade as a strip with their coin marks. Served by the origin's SPA fallback, so a link from
 // any app lands here.

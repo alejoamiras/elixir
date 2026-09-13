@@ -1,7 +1,6 @@
-// The FAQ as drawn: three sections of question rows, the six panels of the upgrade between them.
-// The questions the other pages link to keep their words (`copy.faq.questions`); the rest reads as
-// the canvas has it, under the plan's rules: no relayer, one deposit transaction, a tap to claim,
-// redeem any time.
+// The FAQ: three sections of question rows, the six panels of the upgrade between them. The
+// questions the other pages link to keep their words (`copy.faq.questions`). Yacana forwards by
+// hand, a deposit is one transaction, a claim is a tap, a held send can be redeemed any time.
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { copy } from './copy';
 

@@ -1,4 +1,4 @@
-// Send ahead, as drawn: the amount (the whole balance by default) → the sheet that says what the
+// Send ahead: the amount (the whole balance by default) → the sheet that says what the
 // send goes through, station by station, with the note for the day the next version never opens
 // → "Sent ahead." with the burn's block. No switch, no consent line: nothing sends or lands by
 // itself; landing is a tap on the arrival card.

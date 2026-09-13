@@ -104,7 +104,7 @@ describe('the bridge page', () => {
     // The six figures, the portal's state and the bar on the live card stand without the extras.
     expect(screen.getAllByTestId(/^kpi-/)).toHaveLength(6);
     expect(screen.getByTestId('kpi-bridge').textContent).toContain('open');
-    expect(screen.getByTestId('bridge-turnstile').textContent).toContain('nothing forwarded yet');
+    expect(screen.getByTestId('bridge-turnstile').textContent).toContain('forwarding history unavailable');
     expect(screen.getByTestId('bridge-faq').getAttribute('href')).toBe('/faq');
     // The explorer's base is read when the module loads, so the chips carry no link here: the labels count.
     const chips = screen

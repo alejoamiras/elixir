@@ -1,4 +1,4 @@
-// `/stats/bridge`, as drawn: the six figures, the phases of this build's version, where the coins
+// `/stats/bridge`: the six figures, the phases of this build's version, where the coins
 // are, a card per registered version, the portal's state and the bridge on Ethereum. The portal's
 // side comes from one read over the Ethereum RPC; the miner's side (the supply, its counters, the
 // epochs) from the observatory's own beats.

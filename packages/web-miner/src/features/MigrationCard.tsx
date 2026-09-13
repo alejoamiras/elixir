@@ -1,4 +1,4 @@
-// The guided path, one card, as drawn: announced → the moment's title, the trail of what a send
+// The guided path, one card: announced → the moment's title, the trail of what a send
 // goes through, one large button; sent → the same card as a status while this version still holds
 // something; the flip detected → mining ended here, what is left still crosses while this version
 // proves. Every moment says what is lost and when. Nothing on a quiet version.
@@ -103,7 +103,7 @@ function Announced({
   className?: string;
 }) {
   const sent = ahead.length > 0;
-  const proven = sent && ahead.some((c) => !PAST.has(c.state));
+  const proven = sent && ahead.every((c) => !PAST.has(c.state));
   const sum = ahead.reduce((a, c) => a + BigInt(c.amount), 0n);
   const when = expected > 0 ? `In about ${duration(expected)}` : 'Soon';
   const offer = !sent || (balance !== null && balance > 0n);

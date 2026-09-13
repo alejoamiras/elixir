@@ -64,7 +64,7 @@ export function CreateKey({
         onBack={() => setWords({ mode: 'none' })}
       />
     );
-  // The versioned origin restores and never creates: the way in as drawn, the create buttons kept off.
+  // The versioned origin restores and never creates: the create buttons stay, disabled, so the way in reads the same.
   if (!canCreate && canRestore)
     return (
       <div className="flex flex-col gap-5" data-testid="key-screen">

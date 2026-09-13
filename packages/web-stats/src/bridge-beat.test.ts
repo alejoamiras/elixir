@@ -1,7 +1,15 @@
 import { describe, expect, test } from 'vitest';
 import type { VersionFlows } from '../../bridge/src/portal-reader.ts';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
-import { chainNow, exitLimitLine, pauseLine, phasesOf, readBridge, versionLine } from './bridge-beat';
+import {
+  chainNow,
+  exitLimitLine,
+  pauseLine,
+  phasesOf,
+  readBridge,
+  sampleBlocks,
+  versionLine,
+} from './bridge-beat';
 
 const ONE = 10n ** BigInt(PARAMS.DECIMALS);
 const NEVER = (1n << 256n) - 1n;
@@ -128,13 +136,26 @@ describe('the sentences', () => {
       'launched:done',
       'announced:done',
       'flip:done',
-      'retire:done',
+      'retire:on',
       'closes:on',
     ]);
-    // Ethereum saw the message sent; whether the miner consumed it is the other chain's to say.
+    // Ethereum saw the retire message sent; the last proof, which is the version going quiet, it never announces.
     expect(flipped[3]).toMatchObject({
-      label: 'retire message sent',
-      detail: 'mining ends once the miner consumes it',
+      label: 'V5 goes quiet',
+      detail: 'retire message sent · mining ends when the miner consumes it · proving may stop any time',
     });
+  });
+});
+
+describe('the block sampler', () => {
+  test('keeps at most the bound, the first and the last always among them', () => {
+    const blocks = Array.from({ length: 240 }, (_, i) => BigInt(1000 + i));
+    for (const n of [1, 119, 120, 121, 239, 240]) {
+      const picked = sampleBlocks(blocks.slice(0, n), 120);
+      expect(picked.length).toBeLessThanOrEqual(120);
+      expect(picked[0]).toBe(1000n);
+      expect(picked.at(-1)).toBe(BigInt(1000 + n - 1));
+    }
+    expect(sampleBlocks(blocks.slice(0, 50), 120)).toEqual(blocks.slice(0, 50));
   });
 });

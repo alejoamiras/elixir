@@ -17,6 +17,7 @@ import {
   statusLabel,
   Toaster,
 } from '../../ui/src/index.ts';
+import { isOldRole } from './bridge/env';
 import { DesktopOnly } from './components/DesktopOnly';
 import type { Connection } from './config';
 import { isDesktop } from './desktop';
@@ -183,7 +184,7 @@ export function App({ connection, session }: { connection: Connection; session: 
       )}
       {boot.phase === 'preflight' && <PreflightTile rows={boot.rows} />}
       <OldTabNotice miner={connection.miner} rollupVersion={import.meta.env.VITE_ROLLUP_VERSION} />
-      {chain && route === 'mine' && <PrestoBanner onRetry={onRetry} />}
+      {chain && route === 'mine' && !isOldRole() && <PrestoBanner onRetry={onRetry} />}
       {chain && route === 'mine' && <Mine controller={controller} onStart={onStart} session={session} />}
       {open && route === 'wallet' && <Wallet session={session} />}
       {route === 'settings' && <Settings connection={connection} controller={controller} session={session} />}

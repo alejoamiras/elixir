@@ -1,4 +1,4 @@
-// The one-line announcement the stats pages carry while a migration is announced, as drawn: the
+// The one-line announcement the stats pages carry while a migration is announced: the
 // build's record says which Registry index comes next and when the flip is expected; the lead in
 // bold, the FAQ one link away.
 import type { MigrationRecord } from '../../../bridge/src/record.ts';

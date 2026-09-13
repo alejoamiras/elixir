@@ -1,4 +1,4 @@
-// The bridge page's tiles, as drawn: the six figures, the version's life as a timeline, where the
+// The bridge page's tiles: the six figures, the version's life as a timeline, where the
 // coins are, a card per registered version with its bar and its turnstile in plain words, the
 // portal's state, and the bridge on Ethereum with its keys and its rules. Flows per version, never
 // balances: the portal knows what left and what arrived, not who holds what.
@@ -7,6 +7,7 @@ import type { VersionFlows } from '../../../bridge/src/portal-reader.ts';
 import type { MigrationRecord } from '../../../bridge/src/record.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';
+import { firstEpoch } from '../../../site/src/browser/connection.ts';
 import { amount, duration } from '../../../site/src/browser/format.ts';
 import {
   Badge,
@@ -37,6 +38,8 @@ import {
 import { l1Links } from '../explorer';
 import { FAQ_HREF } from '../routes';
 import { CoinsChart } from './CoinsChart';
+
+const FIRST = firstEpoch();
 
 const yaca = (raw: bigint) => `${amount(raw, PARAMS.DECIMALS, 2)} ${PARAMS.TOKEN_SYMBOL}`;
 const OPEN_ENDED = (1n << 256n) - 1n;
@@ -123,9 +126,11 @@ export function BridgeCoins({
   now: number;
 }) {
   const points = snapshot.extras ? coinsSeries(rows, snapshot.extras.events, chainNow(snapshot, now)) : [];
+  const from = rows.reduce((a, r) => Math.min(a, r.epoch), Number.POSITIVE_INFINITY);
+  const since = from <= FIRST ? 'since launch' : `since epoch ${from} · earlier epochs still loading`;
   return (
     <Tile data-testid="bridge-coins">
-      <TileHeader aside="since launch · violet on Aztec · grey on Ethereum">where the coins are</TileHeader>
+      <TileHeader aside={`${since} · violet on Aztec · grey on Ethereum`}>where the coins are</TileHeader>
       {points.length > 1 ? (
         <CoinsChart points={points} symbol={PARAMS.TOKEN_SYMBOL} />
       ) : (
@@ -155,7 +160,7 @@ function VersionCard({
   const live = v.version === snapshot.canonical.version;
   // Closed, frozen or pre-launch is Ethereum's word at the read; only the pause countdown moves with the clock.
   const chainTime = Number(snapshot.chainTime);
-  const segments = whereOf(v, snapshot, miner, supply);
+  const segments = whereOf(v, snapshot, miner, supply, import.meta.env.VITE_ROLLUP_VERSION);
   const closes =
     v.deadline === OPEN_ENDED
       ? 'the later of the version after next and 180 d after the flip, plus paused days'
@@ -266,8 +271,9 @@ export function BridgeTurnstile({
         value={live ? `${yaca(live.headroom)} may leave now · grows ${yaca(p.perHour)} an hour` : '—'}
       />
       <p className="mt-2 mb-2 text-pretty text-xs text-ink-3">
-        A rate limit on exits, growing with the mining schedule since launch. An exit beyond it waits its
-        turn; it is never refused. Its purpose is to slow a drain long enough for the operators to pause.
+        A rate limit on exits, growing with the mining schedule since launch. An exit beyond it waits for the
+        limit to grow; the flip freezes the limit and the deadline closes exits. Its purpose is to slow a
+        drain long enough for the operators to pause.
       </p>
       <KvRow
         label="pause"
