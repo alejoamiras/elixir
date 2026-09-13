@@ -138,3 +138,39 @@ concurrency fixes remain incomplete", thirteen findings, four reproduced. All th
   operation, and asks the RPC once more.
 - **Medium** — the cap line recommended a redeem the same cap refuses; reworded.
 - Comment: "the burn is real once sent" corrected.
+
+The rig's browser case on the round-2 code: V5 green; the flipped stage failed on an assertion I had added (the
+tile never lists deposit rows — a wrong expectation, removed); the V6 stage failed because the rig built the page
+from the working tree while round 3 was being edited (`holderSignature is not defined`) — no defect; rerun on the
+committed tree.
+
+**Round 3** — resumed session, over `git diff 0caa02d..HEAD`; the hard stop. Verdict: "material issues remain;
+the hard stop should not be treated as approval", eight findings, four reproduced. All eight real. Applied (commit
+`95a521c`):
+
+- **High** — an unanswered deposit could still be sent twice (a reload between the wallet's acceptance and the
+  hash's return): no deposit is ever re-sent under its secret; every deposit takes its own index, and a record
+  still waiting two hours after it was made gives itself up (`DEPOSIT_GIVES_UP_MS` — the deposit's own deadline
+  is an hour) while the landing scan revives it should the event exist.
+- **High** — settlement was read from the stored claim block, so a claim made again after a pruning could be
+  marked settled by the old block's epoch: the block the nullifier is in now is what counts.
+- **Medium** — a settlement read outside the catch could reject `start()` before the timer was set: the whole
+  re-check is caught, and the timer is set in `finally`.
+- **Medium** — a node behind the claim's block answered "absent" and the record was demoted: absence counts
+  only from a node whose tip has reached the claim block.
+- **Medium** — `asHint` could land a record where no read moves it (`proven-pending` without a block or an
+  epoch, `forwarded` without an Inbox index): the furthest state the record's own fields can be read from.
+- **Medium** — the landing floor ignored the source versions; it spans them now.
+- **Medium** — a file's index set an unbounded scan floor: the parser refuses an index past a million, and one
+  scan derives at most two thousand indices per version.
+- **Medium** — this build's own announcement (of its successor) refused a send-ahead forwarded into it: the
+  check is gone; the destination record's miner check is the binding.
+- The comment claiming the portal checks an exit's signature over a zero target was wrong: the portal reads no
+  signature for an exit (`_forward`: the check sits inside `kind == 2`), so the page sends none.
+
+The loop stops here at its hard limit. Three rounds each found material issues in the previous round's fixes —
+the surface (a journal reconciled from four sources: the node, the rollup, the portal's events, a file) is where
+the plan's testing did not reach: the unit tests stub every read, the rig exercises one happy path per stage.
+What remains open for the arc-4 pass and the cross-arc review: the round-3 fixes themselves have only the fast
+gates and the rig behind them; the deposit give-up (`dropped` for kind 3) is not exercised end to end; the
+per-version landing floor's chain scan runs for the current version only.
