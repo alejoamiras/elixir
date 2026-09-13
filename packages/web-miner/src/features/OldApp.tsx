@@ -4,7 +4,7 @@
 // the version no longer proves, what is lost and what was safe. Nothing is mined here, and no
 // account is created here.
 import { useAtomValue, useSetAtom } from 'jotai';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { type Crossing, inFlight } from '../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import {
@@ -46,11 +46,29 @@ type Moment = 'signed-out' | 'still-here' | 'sent' | 'quiet';
 /** Proven to Ethereum in time: out of this version's reach whatever it does next. */
 const SAFE = new Set<Crossing['state']>(['held', 'forwarded', 'claimable', 'minted-l2', 'not-registered']);
 
-/** The version's exit deadline has passed: nothing leaves it any more. */
-const exitsClosed = (standing: BridgeView['standing']): boolean =>
+/** The version's exit deadline has passed on Ethereum's clock; unknown while that clock is unread. */
+const exitsClosed = (standing: BridgeView['standing'], chainNow: bigint | undefined): boolean =>
+  chainNow !== undefined &&
   standing !== undefined &&
   standing.deadline !== OPEN_ENDED &&
-  BigInt(Math.floor(Date.now() / 1000)) > standing.deadline;
+  chainNow > standing.deadline;
+
+/** Ethereum's latest block time, read with every standing: the portal measures the deadline against it, not the device's clock. */
+function useChainNow(session: Session | undefined, readAt: number | null): bigint | undefined {
+  const [chainNow, setChainNow] = useState<bigint>();
+  useEffect(() => {
+    if (readAt === null) return;
+    let live = true;
+    session?.bridge?.reader
+      .blockTime()
+      .then((t) => live && setChainNow(t))
+      .catch(() => live && setChainNow(undefined));
+    return () => {
+      live = false;
+    };
+  }, [session, readAt]);
+  return chainNow;
+}
 
 /** Signed out → the way in; exits closed → quiet; a send in flight → its stations; else the balance. An undone send is not the version's end: the balance is back and can be sent again. */
 const momentOf = (ready: boolean, sent: Crossing[], closed: boolean): Moment => {
@@ -219,7 +237,7 @@ export function OldApp({ session }: { session?: Session }) {
   const [ahead, setAhead] = useState(false);
   const version = import.meta.env.VITE_ROLLUP_VERSION;
   const sent = journal.filter((c) => c.kind === 2 && c.version === version && c.state !== 'dropped');
-  const closed = exitsClosed(view.standing);
+  const closed = exitsClosed(view.standing, useChainNow(session, view.readAt));
   const m = momentOf(boot.phase === 'ready', sent, closed);
   // What was not sent stays sendable beside the stations of what was.
   const remainder = m === 'sent' && balance !== null && balance > 0n;

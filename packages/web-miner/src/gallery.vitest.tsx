@@ -60,7 +60,9 @@ const standing = {
   retireSent: false,
   depositsClosed: false,
 };
-const session = { bridge: { claim: () => Promise.resolve() } } as unknown as Session;
+const session = {
+  bridge: { claim: () => Promise.resolve(), reader: { blockTime: () => Promise.resolve(BigInt(SECONDS)) } },
+} as unknown as Session;
 const ready: MasterRecord = { v: 1, id: 'k', method: 'words', createdAt: NOW };
 
 const OUT = process.env.GALLERY_DIR;
@@ -283,7 +285,7 @@ describe('the old app', () => {
     keep('old-app-sent', container.innerHTML);
   });
 
-  test('once exits closed: what is lost, and what was safe', () => {
+  test('once exits closed: what is lost, and what was safe', async () => {
     const { container } = old((s) => {
       s.set(bridgeAtom, {
         verdict: { kind: 'flipped', by: ['registry', 'retired'] },
@@ -296,8 +298,8 @@ describe('the old app', () => {
         crossing('safe', { kind: 2, state: 'held', ...settled, amount: (48n * ONE).toString() }),
       ]);
     });
+    await waitFor(() => expect(screen.getByTestId('old-quiet').textContent).toContain('cannot leave'));
     expect(screen.getByTestId('retired').textContent).toContain('V5’s exits have closed. Nothing can leave.');
-    expect(screen.getByTestId('old-quiet').textContent).toContain('cannot leave');
     keep('old-app-quiet', container.innerHTML);
   });
 });

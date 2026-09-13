@@ -127,10 +127,13 @@ export function BridgeCoins({
   // loaded beside the latest one would draw a false total.
   const last = rows.reduce((a, r) => Math.max(a, r.epoch), -1);
   const complete = rows.length > 0 && rows.length === last - FIRST + 1 && rows.every((r) => r.epoch >= FIRST);
-  const own = snapshot.extras?.events.filter(
-    (e) => e.version.toString() === import.meta.env.VITE_ROLLUP_VERSION,
-  );
-  const points = complete && own ? coinsSeries(rows, own, chainNow(snapshot, now)) : [];
+  // A send ahead lands on the next version without a claim here: once two versions have minted, no
+  // version's rows and flows add up to a balance, so the split is drawn only while one has.
+  const versions = snapshot.versions.length;
+  const points =
+    complete && versions === 1 && snapshot.extras
+      ? coinsSeries(rows, snapshot.extras.events, chainNow(snapshot, now))
+      : [];
   return (
     <Tile data-testid="bridge-coins">
       <TileHeader aside="since launch · each epoch's claims at its open · violet on Aztec · grey on Ethereum">
@@ -140,11 +143,13 @@ export function BridgeCoins({
         <CoinsChart points={points} symbol={PARAMS.TOKEN_SYMBOL} />
       ) : (
         <p className="text-xs text-ink-3">
-          {!snapshot.extras
-            ? 'the portal’s events could not be read'
-            : complete
-              ? 'the epochs held so far draw nothing yet'
-              : `drawn once every epoch since launch is held · ${rows.length} of ${Math.max(0, last - FIRST + 1)} so far`}
+          {versions > 1
+            ? `YACA is one pool across ${versions} versions: the split is drawn while one version has minted`
+            : !snapshot.extras
+              ? 'the portal’s events could not be read'
+              : complete
+                ? 'the epochs held so far draw nothing yet'
+                : `drawn once every epoch since launch is held · ${rows.length} of ${Math.max(0, last - FIRST + 1)} so far`}
         </p>
       )}
     </Tile>
