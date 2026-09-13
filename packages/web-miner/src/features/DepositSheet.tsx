@@ -1,6 +1,6 @@
 // From Ethereum: connect a wallet (every installed one the browser announces, by name) → amount →
-// approve, deposit (two transactions from that wallet) → it crosses; the arrival card's Claim
-// finishes it here. Also the sheet a held send-ahead is redeemed from: the same wallet pays the gas.
+// deposit (one transaction from that wallet) → it crosses; the arrival card's Claim finishes it
+// here. Also the sheet a held send-ahead is redeemed from: the same wallet pays the gas.
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import type { Hex } from 'viem';
@@ -100,7 +100,7 @@ export function WalletPicker() {
   );
 }
 
-type Step = { kind: 'form' } | { kind: 'approve' } | { kind: 'deposit' } | { kind: 'done' };
+type Step = { kind: 'form' } | { kind: 'deposit' } | { kind: 'done' };
 
 const firstLine = (e: unknown) => (e instanceof Error ? (e.message.split('\n')[0] ?? '') : String(e));
 
@@ -134,7 +134,7 @@ export function DepositSheet({
     try {
       // The Ethereum balance is the wallet's to know; the portal refuses more than it holds.
       const { amount } = reviewAmount(text, (1n << 128n) - 1n, PARAMS.DECIMALS);
-      setStep({ kind: 'approve' });
+      setStep({ kind: 'deposit' });
       await session.bridge?.deposit(amount, (s) => setStep({ kind: s }), resume);
       setStep({ kind: 'done' });
     } catch (e) {
@@ -142,20 +142,15 @@ export function DepositSheet({
       setError(firstLine(e));
     }
   };
-  const busy = step.kind === 'approve' || step.kind === 'deposit';
-  const label =
-    step.kind === 'approve'
-      ? 'Waiting for your wallet · approve…'
-      : step.kind === 'deposit'
-        ? 'Waiting for your wallet · deposit…'
-        : 'Approve and deposit';
+  const busy = step.kind === 'deposit';
+  const label = busy ? 'Waiting for your wallet · deposit…' : 'Deposit';
   return (
     <Sheet open={open} onOpenChange={(o) => (o ? onOpenChange(true) : close())}>
       <SheetContent data-testid="deposit-sheet">
         <SheetTitle>Deposit from Ethereum</SheetTitle>
         <SheetDescription>
-          YACA on Ethereum becomes {PARAMS.TOKEN_SYMBOL} here, privately, once you claim it. Two transactions
-          from your Ethereum wallet: an approval, then the deposit.
+          YACA on Ethereum becomes {PARAMS.TOKEN_SYMBOL} here, privately, once you claim it. One transaction
+          from your Ethereum wallet: the deposit burns the YACA and the portal sends it across.
         </SheetDescription>
         {view.standing?.depositsClosed && (
           <Alert variant="warn" data-testid="deposits-closed">

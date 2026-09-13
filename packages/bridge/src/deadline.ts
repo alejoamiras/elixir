@@ -28,11 +28,20 @@ export async function proofDeadline(r: RollupReads, epoch: bigint): Promise<bigi
   return r.timestampForEpoch(epoch + window + 1n);
 }
 
-/** Whether `epoch` is proven on Ethereum: the proven checkpoint's epoch has reached it. */
+/**
+ * Whether the proven checkpoint's epoch has reached `epoch`. An epoch is proven checkpoint by
+ * checkpoint, so this says a proof of the epoch has begun to land, not that a given block of it is
+ * covered: a block's own settlement is `checkpointProven` of its checkpoint.
+ */
 export async function epochProven(r: RollupReads, epoch: bigint): Promise<boolean> {
   const proven = await r.provenCheckpoint();
   if (proven === 0n) return false;
   return (await r.epochOfCheckpoint(proven)) >= epoch;
+}
+
+/** Whether the rollup's proof on Ethereum covers `checkpoint`: the one settlement a block has. */
+export async function checkpointProven(r: RollupReads, checkpoint: bigint): Promise<boolean> {
+  return checkpoint > 0n && (await r.provenCheckpoint()) >= checkpoint;
 }
 
 /** Past its deadline and still unproven: the epoch is pruned or about to be. */

@@ -12,7 +12,7 @@ do on the day Aztec moves on; the FAQ at `/faq` says it for a holder; `/stats/br
 |---|---|---|---|
 | exit (K1) | Aztec → Ethereum | the holder, from the miner's wallet page (`exit_to_l1`: a private burn of the amount) | once the epoch is proven on Ethereum, anyone may `forward` the leaf: the portal mints YACA to the address the exit named. Yacana forwards exits by hand; the holder may forward their own from the page |
 | send-ahead (K2) | Aztec V*n* → Aztec V*n+1* | the holder, from the migration card (`send_ahead`: a private burn under a one-time secret hash and a per-exit redeem address, both derived from the wallet's master) | once proven, the portal holds it; it is forwarded into the live version's Inbox by its holder (a signature by the redeem key) or by a listed forwarder, then claimed on that version with the secret (`claim_from_l1`, a private mint); or redeemed to YACA on Ethereum by its holder at any time |
-| deposit (K3) | Ethereum → Aztec | the holder, from an injected Ethereum wallet (`approve`, then `deposit` with a secret hash, the version reviewed and a deadline) | the Inbox message is claimed on the version it named, with the secret, from the arrival card |
+| deposit (K3) | Ethereum → Aztec | the holder, from an injected Ethereum wallet (one `deposit` with a secret hash, the version reviewed and a deadline: the portal burns the YACA itself, no allowance) | the Inbox message is claimed on the version it named, with the secret, from the arrival card |
 | retire (K5) | the portal → an Aztec version | anyone, after the flip (`bun run bridge -- retire`) | the miner consumes it and accepts no more mining claims; arrivals (`claim_from_l1`, K4) still land |
 
 Every leaf an Aztec version writes is consumed on that version's own Outbox with a Merkle path against a settled
@@ -76,8 +76,9 @@ target whose registered miner is not the announced record's.
   hints the chain confirms; a witnessed crossing must be this master's or the file is refused whole.
 - **The words or the passkey**: the account. A crossing's secrets are derived from the master under the version
   and an index, so the same twelve words open every crossing again once the device knows of it: a new device
-  finds what arrived (deposits, sends forwarded in) from the portal's events by itself; what left is in the
-  recovery file, which is why the wallet page asks for it to be saved.
+  finds what arrived (deposits, sends forwarded in) from the portal's events by itself, under the first 2000
+  indices of each version; what left is in the recovery file, which is why the wallet page asks for it to be
+  saved.
 - **The witness archive** the operator commits (`deployments/witnesses/<profile>.jsonl`, every version of the
   profile in it) and the site serves (`/witnesses/<version>.jsonl`): an earlier version's settled exits, read by
   a later version's page for a crossing it already holds once that version's node is gone. The page matches an

@@ -191,7 +191,7 @@ export const copy = {
       },
       {
         q: 'How does the everyday bridge work?',
-        a: `To Ethereum: a private burn here, proven to Ethereum with the epoch, then minted as YACA (an ERC-20) to the address you named — Yacana forwards exits by hand, and anyone may forward one. From Ethereum: an approval and a deposit from your Ethereum wallet, then a tap on the arrival card. The amount and the address are public on Ethereum; that is why it is a choice.`,
+        a: `To Ethereum: a private burn here, proven to Ethereum with the epoch, then minted as YACA (an ERC-20) to the address you named — Yacana forwards exits by hand, and anyone may forward one. From Ethereum: one deposit from your Ethereum wallet, then a tap on the arrival card. The amount and the address are public on Ethereum; that is why it is a choice.`,
       },
       {
         q: 'Who may forward a held send, and why the rule?',

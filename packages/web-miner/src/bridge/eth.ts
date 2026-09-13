@@ -5,14 +5,8 @@
 // signatures are made in `flows.ts`, never by the wallet.
 import { type Chain, type ContractFunctionArgs, defineChain, type Hex, parseEventLogs } from 'viem';
 import { createConfig, http, injected } from 'wagmi';
-import {
-  getAccount,
-  readContract,
-  switchChain,
-  waitForTransactionReceipt,
-  writeContract,
-} from 'wagmi/actions';
-import { type ForwardArgs, yacaAbi, yacanaPortalAbi } from '../../../bridge/src/portal.ts';
+import { getAccount, switchChain, waitForTransactionReceipt, writeContract } from 'wagmi/actions';
+import { type ForwardArgs, yacanaPortalAbi } from '../../../bridge/src/portal.ts';
 
 export interface EthSettings {
   chainId: number;
@@ -84,7 +78,6 @@ const mined = async (config: WagmiConfig, hash: Hex) => {
 
 export interface DepositParams {
   portal: Hex;
-  yaca: Hex;
   amount: bigint;
   secretHash: Hex;
   version: bigint;
@@ -93,35 +86,17 @@ export interface DepositParams {
 }
 
 /**
- * A deposit is two transactions from the wallet when the portal's allowance is short: an approve
- * for the amount, then the deposit, whose event names the Inbox message the claim consumes.
+ * A deposit is one transaction from the wallet: the portal burns the sender's YACA itself (the
+ * token's burn is the portal's alone and spends no allowance), and the event names the Inbox
+ * message the claim consumes.
  */
 export async function depositOnEthereum(
   config: WagmiConfig,
   p: DepositParams,
-  onStep?: (step: 'approve' | 'deposit') => void,
+  onStep?: (step: 'deposit') => void,
   onSent?: (txHash: Hex) => Promise<void>,
 ): Promise<{ txHash: Hex; inboxIndex: bigint }> {
   const signer = await pinnedSigner(config);
-  const allowance = await readContract(config, {
-    address: p.yaca,
-    abi: yacaAbi,
-    functionName: 'allowance',
-    args: [signer.account, p.portal],
-  });
-  if (allowance < p.amount) {
-    onStep?.('approve');
-    await mined(
-      config,
-      await writeContract(config, {
-        ...signer,
-        address: p.yaca,
-        abi: yacaAbi,
-        functionName: 'approve',
-        args: [p.portal, p.amount],
-      }),
-    );
-  }
   onStep?.('deposit');
   const txHash = await writeContract(config, {
     ...signer,

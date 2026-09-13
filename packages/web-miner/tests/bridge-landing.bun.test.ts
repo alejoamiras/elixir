@@ -3,7 +3,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Crossing } from '../../bridge/src/journal.ts';
 import { deriveCrossingSecrets } from '../../bridge/src/secrets.ts';
 import type { Arrivals, Arrived } from '../src/bridge/landing.ts';
-import { arrivalCandidates, landed, matchArrivals } from '../src/bridge/landing.ts';
+import { arrivalCandidates, landed, matchArrivals, twinOf } from '../src/bridge/landing.ts';
 
 const PORTAL = `0x${'be'.repeat(20)}` as const;
 const master = new Uint8Array(32).map((_, i) => i);
@@ -89,6 +89,27 @@ describe('the landing scan', () => {
       l1TxHash: '0xd1',
       updatedAt: 3_000,
     });
+    // Two devices of one account derived the same index: the second message under it is its own
+    // row, keyed by its message, and the stored row keeps the message it already holds.
+    const [other] = matchArrivals(
+      {
+        forwarded: [],
+        deposited: [
+          { secretHash: await hash(6n, 0), version: 6n, amount: 3n, inboxIndex: 77n, txHash: '0xd9' },
+        ],
+      },
+      candidates,
+      here,
+    ) as [Arrived];
+    const stored = landed(unanswered, dep, 3_000);
+    expect(twinOf(stored, other, 4_000)).toMatchObject({
+      id: `${stored.id}:77`,
+      inboxIndex: '77',
+      state: 'deposited',
+      l1TxHash: '0xd9',
+    });
+    expect(twinOf(stored, dep, 4_000)).toBeUndefined();
+    expect(twinOf(unanswered, other, 4_000)).toBeUndefined();
     // A send forwarded into another version is not an arrival here.
     const elsewhere = matchArrivals(arrivals, candidates, { ...here, current: 7n });
     expect(elsewhere.map((a) => a.crossing(1).kind)).toEqual([3]);

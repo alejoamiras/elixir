@@ -22,7 +22,7 @@ export function Retired({ className }: { className?: string }) {
       <p className="mt-3 text-xs text-ink-3">
         {boot.phase === 'ready'
           ? 'Your balance is on the wallet page; the migration card there and here says what is lost and when.'
-          : `V${version} goes quiet days after the upgrade, without notice. Anything still on it then is lost.`}
+          : `V${version} goes quiet after the upgrade, without notice. Anything still on it then is lost.`}
       </p>
     </Tile>
   );

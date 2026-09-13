@@ -32,12 +32,15 @@ const tracked = (await $`git ls-files`.cwd(repo).text()).split('\n').filter(Bool
 
 const offending = (file: string, text: string): string[] => {
   const lines = text.split('\n');
-  // docs/deployments.md keeps the old deployment under an "Archived" heading, up to the next heading.
-  const start = file === 'docs/deployments.md' ? lines.findIndex((l) => l.startsWith('## Archived')) : -1;
-  const end = start === -1 ? -1 : lines.findIndex((l, i) => i > start && l.startsWith('## '));
+  // docs/deployments.md keeps old deployments under "## Archived" headings, each up to the next heading.
+  let archived = false;
+  const exempt = lines.map((l) => {
+    if (l.startsWith('## ')) archived = file === 'docs/deployments.md' && l.startsWith('## Archived');
+    return archived;
+  });
   return lines
     .map((line, i) => ({ line: EXEMPT_REFERENCES.reduce((l, re) => l.replace(re, ''), line), i }))
-    .filter(({ i }) => start === -1 || i < start || (end !== -1 && i >= end))
+    .filter(({ i }) => !exempt[i])
     .filter(({ line }) => OLD_NAME.test(line))
     .map(({ i }) => `${file}:${i + 1}`);
 };

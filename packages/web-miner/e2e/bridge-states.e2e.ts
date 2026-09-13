@@ -91,7 +91,7 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   // A prompt left open: the sheet waits on the wallet; the page must be reloaded to get past it.
   l1.holdNext('transaction');
   await page.getByTestId('deposit-go').click();
-  await expect(page.getByTestId('deposit-go')).toHaveText('Waiting for your wallet · approve…');
+  await expect(page.getByTestId('deposit-go')).toHaveText('Waiting for your wallet · deposit…');
   await expect.poll(() => l1.holdsArmed()).toBe(0);
   await page.reload();
   await openKey(page, account);

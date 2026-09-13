@@ -51,6 +51,13 @@ describe('the recovery file', () => {
     const parse = (text: string) => () => parseRecoveryFile(text, { chainId: '31337', portal: PORTAL });
     expect(parse(file({ state: 'flying' }))).toThrow(/crossing 0: state flying/);
     expect(parse(file({ id: 'other' }))).toThrow(/id other is not/);
+    // A twin (a second message under one index) keeps the id its message gave it; no other suffix does.
+    const twin = { ...crossing, id: `${crossing.id}:99`, inboxIndex: '99' } as Crossing;
+    expect(
+      parseRecoveryFile(JSON.stringify(recoveryFile(scope, [twin])), { chainId: '31337', portal: PORTAL })
+        .crossings[0]?.id,
+    ).toBe(`${crossing.id}:99`);
+    expect(parse(file({ id: `${crossing.id}:98`, inboxIndex: '99' }))).toThrow(/is not/);
     expect(parse(file({ witness: { ...crossing.witness, kind: 9 } }))).toThrow(/witness: kind 9/);
     expect(parse(file({ amount: '-1' }))).toThrow(/amount is missing or malformed/);
     expect(parse('{"v":2}')).toThrow(/version 2 is not 1/);

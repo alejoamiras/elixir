@@ -39,7 +39,7 @@ describe('the old role', () => {
     const head = screen.getByTestId('retired');
     expect(head.textContent).toContain('Mining has ended on this version.');
     expect(head.textContent).toContain('send ahead to the next version, or to Ethereum');
-    expect(head.textContent).toContain('V5 goes quiet days after the upgrade, without notice.');
+    expect(head.textContent).toContain('V5 goes quiet after the upgrade, without notice.');
   });
 
   test('the versioned host restores and never creates, and the key screen says so', () => {

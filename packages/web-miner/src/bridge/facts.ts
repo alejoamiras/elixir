@@ -1,7 +1,5 @@
-// What a crossing's next reading needs, and nothing more: a record that is still proving asks the
-// node about its transaction; one waiting for its epoch asks the rollup about the proof; a
-// witnessed one asks the portal; a forwarded or deposited one asks the destination node whether the
-// message is there. Each source is behind one function so a test can stand in for it.
+// What a crossing's next reading needs and nothing more, by its state; each source behind one
+// function so a test can stand in for it.
 import type { Crossing, Facts } from '../../../bridge/src/journal.ts';
 import type { ArchivedExit } from '../../../bridge/src/witness.ts';
 

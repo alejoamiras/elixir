@@ -89,6 +89,18 @@ export function landed(stored: Crossing | undefined, a: Arrived, now: number): C
   return advance(record, { now, ...a.fact });
 }
 
+/**
+ * A second message under an index the journal already holds for another message (two devices of one
+ * account derived the same index): its own row, keyed by the message, so nothing that arrived is
+ * hidden behind the first. Undefined when the arrival is the stored message, or not landed yet.
+ */
+export function twinOf(stored: Crossing, a: Arrived, now: number): Crossing | undefined {
+  const inbox = 'forwarded' in a.fact ? a.fact.forwarded.inboxIndex : a.fact.deposited.inboxIndex;
+  if (inbox === undefined || stored.inboxIndex === undefined || stored.inboxIndex === inbox) return undefined;
+  const twin = a.crossing(now);
+  return { ...twin, id: `${twin.id}:${inbox}` };
+}
+
 /** The candidates the portal's events answer. Only sends into `current` are arrivals here. */
 export function matchArrivals(
   arrivals: Arrivals,

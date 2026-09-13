@@ -239,8 +239,8 @@ const bridgeRecord = (
  * What a continuation needs from its source: the source record names the node and the miner, and
  * the miner's last epoch and its seed are read from the source chain's public storage. The
  * source's node must still answer; once it is gone, the announced values are passed by hand
- * (YACANA_CONTINUE_FIRST_EPOCH + YACANA_CONTINUE_SEED + YACANA_CONTINUE_TARGET) and checked against
- * the announcement.
+ * (YACANA_CONTINUE_FIRST_EPOCH + YACANA_CONTINUE_SEED + YACANA_CONTINUE_TARGET), taken as given:
+ * checking them against the announcement is the operator's, not this script's.
  */
 export async function continuationOf(
   sourceRecord: string,

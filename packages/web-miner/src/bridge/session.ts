@@ -13,7 +13,13 @@ import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { TxHash } from '@aztec/stdlib/tx';
 import type { createStore } from 'jotai';
 import { createPublicClient, type Hex, http, type PublicClient } from 'viem';
-import { epochProven, proofDeadline, type RollupReads, rollupReads } from '../../../bridge/src/deadline.ts';
+import {
+  checkpointProven,
+  epochProven,
+  proofDeadline,
+  type RollupReads,
+  rollupReads,
+} from '../../../bridge/src/deadline.ts';
 import { flipVerdict } from '../../../bridge/src/flip.ts';
 import { claimLeaf } from '../../../bridge/src/inbox.ts';
 import { advance, type Crossing, destinationOf, type Facts, inFlight } from '../../../bridge/src/journal.ts';
@@ -51,7 +57,7 @@ import {
   selfForward,
   sendAhead,
 } from './flows.ts';
-import { arrivalCandidates, landed, matchArrivals } from './landing.ts';
+import { arrivalCandidates, landed, matchArrivals, twinOf } from './landing.ts';
 import { type BridgeStore, openBridgeStore, SCAN_WINDOW } from './store.ts';
 
 type Store = ReturnType<typeof createStore>;
@@ -208,21 +214,27 @@ export class BridgeSession {
   private async archivedWitness(c: Crossing): Promise<ArchivedExit | undefined> {
     if (c.kind === 3) return undefined;
     const version = BigInt(c.version);
-    const [entries, standing, secrets] = await Promise.all([
+    const [entries, scope, secrets] = await Promise.all([
       this.archiveEntries(c.version),
-      this.reader.standing(version),
+      this.sourceScope(c.version),
       secretsFor(this.ctx, c.index, version),
     ]);
     const aux = (c.kind === 1 ? secrets.tag : secrets.secretHash).toString() as Hex;
-    const entry = await verifiedArchiveEntry(
-      entries,
-      { ...c, kind: c.kind },
-      aux,
-      { ...this.scope, rollupVersion: version, miner: AztecAddress.fromStringUnsafe(standing.miner) },
-      (epoch, n) => this.reader.outboxRoot(version, epoch, n),
+    const entry = await verifiedArchiveEntry(entries, { ...c, kind: c.kind }, aux, scope, (epoch, n) =>
+      this.reader.outboxRoot(version, epoch, n),
     );
     if (!entry) this.archives.delete(c.version);
     return entry;
+  }
+
+  /** The leaf scope of a crossing's own version: its miner is the one the portal registered for it, not this build's. */
+  private async sourceScope(version: string): Promise<ExitScope> {
+    const standing = await this.reader.standing(BigInt(version));
+    return {
+      ...this.scope,
+      rollupVersion: BigInt(version),
+      miner: AztecAddress.fromStringUnsafe(standing.miner),
+    };
   }
 
   /** The served archive's entries, parsed once and kept until a lookup misses. */
@@ -287,7 +299,11 @@ export class BridgeSession {
       epochOfBlock: async (c, block) =>
         this.servesVersion(c) ? (await this.epochOfBlock(block)).toString() : undefined,
       proofDeadline: async (c, epoch) => proofDeadline(await this.rollupFor(c.version), epoch),
-      epochProven: async (c, epoch) => epochProven(await this.rollupFor(c.version), epoch),
+      // A block settles with its checkpoint; the epoch's number alone says a proof of the epoch began to land.
+      epochProven: async (c, epoch) =>
+        this.servesVersion(c) && c.block !== undefined
+          ? checkpointProven(await this.rollupFor(c.version), await this.checkpointOfBlock(c.block))
+          : epochProven(await this.rollupFor(c.version), epoch),
       witness: async (c) => {
         if (!this.servesVersion(c)) return this.archivedWitness(c);
         const exit = await this.recordedExit(c);
@@ -375,6 +391,13 @@ export class BridgeSession {
     const b = await this.d.node.getBlock(block as never);
     if (!b) throw new Error(`block ${block} is not on this node`);
     return BigInt(getEpochAtSlot(b.header.globalVariables.slotNumber, { epochDuration }));
+  }
+
+  /** The checkpoint a block was proposed in: what the rollup's proof covers, one checkpoint at a time. */
+  private async checkpointOfBlock(block: number): Promise<bigint> {
+    const b = await this.d.node.getBlock(block as never);
+    if (!b) throw new Error(`block ${block} is not on this node`);
+    return BigInt((b as unknown as { checkpointNumber: bigint | number }).checkpointNumber);
   }
 
   /** Lists the journal, reads the standing, scans arrivals once, then refreshes every 15 s. */
@@ -481,9 +504,9 @@ export class BridgeSession {
       }
       // The block the nullifier is in now: a claim made again after a pruning has a newer one.
       const block = claimed.block;
-      const settled = await epochProven(
+      const settled = await checkpointProven(
         await this.rollupFor(this.ctx.version.toString()),
-        await this.epochOfBlock(block),
+        await this.checkpointOfBlock(block),
       );
       if (settled || c.claimBlock !== block)
         await this.journal.update(c.id, (stored) =>
@@ -527,8 +550,13 @@ export class BridgeSession {
         portal: this.ctx.portal,
         current: this.ctx.version,
       });
-      for (const a of arrived) await this.journal.adopt(a.crossing(now), (stored) => landed(stored, a, now));
-      if (arrived.length === 0 && from + SCAN_WINDOW >= floor) break;
+      for (const a of arrived) {
+        const { crossing } = await this.journal.adopt(a.crossing(now), (stored) => landed(stored, a, now));
+        const twin = twinOf(crossing, a, now);
+        if (twin) await this.journal.adopt(twin, (stored) => (stored ? landed(stored, a, now) : twin));
+      }
+      // This version's chain names the highest index used; an earlier version's cannot, so its bound is walked whole.
+      if (arrived.length === 0 && from + SCAN_WINDOW >= floor && versions.sources.length === 0) break;
     }
     await this.publishJournal();
   }
@@ -559,18 +587,21 @@ export class BridgeSession {
     return out;
   }
 
+  /** Both burns are refused unless the portal routes this version's exits to this build's miner: a leaf from another sender never crosses. */
   async sendAhead(amount: bigint): Promise<Crossing> {
-    return this.after(() => sendAhead(this.ctx, amount));
+    return this.after(async () => {
+      await this.registeredHere(this.ctx.version, 'exits');
+      return sendAhead(this.ctx, amount);
+    });
   }
   async exitToL1(amount: bigint, recipient: Hex): Promise<Crossing> {
-    return this.after(() => exitToL1(this.ctx, amount, recipient));
+    return this.after(async () => {
+      await this.registeredHere(this.ctx.version, 'exits');
+      return exitToL1(this.ctx, amount, recipient);
+    });
   }
   /** Refused when the portal routes this version's deposits to a miner other than this build's. */
-  async deposit(
-    amount: bigint,
-    onStep?: (step: 'approve' | 'deposit') => void,
-    resumes?: Crossing,
-  ): Promise<Crossing> {
+  async deposit(amount: bigint, onStep?: (step: 'deposit') => void, resumes?: Crossing): Promise<Crossing> {
     return this.after(async () => {
       await this.registeredHere(this.ctx.version, 'deposits');
       const deadline = (await this.l1Now()) + 3600n;
@@ -645,17 +676,14 @@ export class BridgeSession {
 
   /**
    * Restores the file's crossings the journal does not hold, their ended states as hints the chain
-   * confirms. A witnessed crossing must be this master's: its aux is the tag or the secret hash the
-   * master derives for that index, so another account's file — or a forged one — is refused whole.
+   * confirms. A witnessed crossing must be this master's (its aux is the tag or the secret hash the
+   * master derives for that index) and its witness must fold to its version's Outbox root, or the
+   * file is refused whole: another account's, a forged one, or one edited to point a crossing at
+   * someone else's leaf.
    */
   async importRecovery(text: string): Promise<number> {
     const file = parseRecoveryFile(text, { chainId: this.d.record.chainId, portal: this.ctx.portal });
-    for (const c of file.crossings) {
-      if (!c.witness) continue;
-      const s = await secretsFor(this.ctx, c.index, BigInt(c.version));
-      const aux = (c.kind === 1 ? s.tag : s.secretHash).toString().toLowerCase();
-      if (c.witness.aux.toLowerCase() !== aux) throw new Error(`crossing ${c.id} is not this account’s`);
-    }
+    for (const c of file.crossings) if (c.witness && c.kind !== 3) await this.verifyImported(c, c.kind);
     let restored = 0;
     for (const c of file.crossings) {
       // A claim on another version's chain cannot be re-read here: the file's word stands for it.
@@ -665,6 +693,22 @@ export class BridgeSession {
     }
     await this.publishJournal();
     return restored;
+  }
+
+  private async verifyImported(c: Crossing, kind: 1 | 2): Promise<void> {
+    const version = BigInt(c.version);
+    const s = await secretsFor(this.ctx, c.index, version);
+    const aux = (kind === 1 ? s.tag : s.secretHash).toString() as Hex;
+    if (c.witness?.aux.toLowerCase() !== aux.toLowerCase())
+      throw new Error(`crossing ${c.id} is not this account’s`);
+    const verified = await verifiedArchiveEntry(
+      [c.witness],
+      { ...c, kind },
+      aux,
+      await this.sourceScope(c.version),
+      (epoch, n) => this.reader.outboxRoot(version, epoch, n),
+    );
+    if (!verified) throw new Error(`crossing ${c.id}’s witness does not fold to V${c.version}’s Outbox root`);
   }
 
   /** The balance the previous version's build last saw for this master, if this origin kept one. */

@@ -109,7 +109,7 @@ after the flip lands like any other once its epoch is proven (rig case H4). The 
 
 | step | command | rig case |
 |---|---|---|
-| deploy, fold the block | `l1-deploy.ts`, `bun run deploy` | every case deploys the bridge then the miner with the block carried (`packages/harness/src/yacana.ts`, the run helper `packages/deploy/src/bridge/run.ts`) |
+| deploy, fold the block | `l1-deploy.ts`, `bun run deploy` | the rig attaches the block to its records itself (`packages/harness/src/yacana.ts`, the run helper `packages/deploy/src/bridge/run.ts`) and never runs the deploy CLI; the CLI's fold from the side file ran once in the rehearsal (`docs/deployments.md`), the continuation's carry-over is unit-tested (`bridge-block.test.ts`) and **not yet exercised end to end** |
 | list a forwarder | `set-forwarder` | the run helper every browser e2e uses |
 | register | `register` | every case; `skip-version.bun.test.ts` (H7: a version Yacana never registers is skipped, the send lands on the next) |
 | close deposits | `close-deposits` | `deposit.bun.test.ts` (H2: a deposit lands where it named; after the close the next is refused) |
