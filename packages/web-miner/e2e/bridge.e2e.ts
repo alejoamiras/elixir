@@ -163,7 +163,7 @@ test('on V5 after the flip: the migration card says mining has ended and what is
 }) => {
   test.skip(stage !== 'v5-flipped', 'the rig runs this stage after the flip');
   const { r } = rigRun();
-  const { words, account } = readHandoff();
+  const { words, account, recovery } = readHandoff();
   await page.goto(pageUrl(r));
   expect(await restoreWords(page, words)).toBe(account);
   const card = page.getByTestId('migration-card');
@@ -172,6 +172,12 @@ test('on V5 after the flip: the migration card says mining has ended and what is
   await expect(page.getByTestId('flipped-alert')).toContainText(/Mining has ended on V\d+\./);
   await expect(card).toContainText(/Anything still on V\d+ when it goes quiet is lost\./);
   await expect(page.getByTestId('send-ahead')).toBeEnabled();
+  // A fresh browser knows nothing of what was sent: the recovery file brings the journal, and the card its sum.
+  await expect(page.getByTestId('sent-ahead-status')).toHaveCount(0);
+  await page.getByRole('link', { name: 'Wallet' }).click();
+  await page.getByTestId('recovery-input').setInputFiles(recovery);
+  await expect(page.getByTestId('recovery-note')).toContainText('4 crossings restored');
+  await page.getByRole('link', { name: 'Mine' }).click();
   await expect(page.getByTestId('sent-ahead-status')).toContainText('2 tYACA sent ahead');
 });
 
@@ -195,7 +201,8 @@ test('on V6: the same words restore the account, the recovery file brings the he
 
   // A new device knows nothing: the recovery file brings both send-aheads, still held on Ethereum.
   await page.getByTestId('recovery-input').setInputFiles(recovery);
-  await expect(page.getByTestId('recovery-note')).toContainText('2 crossings restored');
+  // Every crossing of the account: the exit, the deposit and both send-aheads, the latter still held.
+  await expect(page.getByTestId('recovery-note')).toContainText('4 crossings restored');
   await expect(rows(page, 2)).toHaveCount(2);
   await expect(rows(page, 2).getByTestId('crossing-word')).toHaveText(
     ['held on Ethereum', 'held on Ethereum'],
