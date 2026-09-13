@@ -220,7 +220,7 @@ export class BridgeSession {
     if (!this.l1Clock || at - this.l1Clock.at > L1_CLOCK_MS) {
       const value = this.client.getBlock({ blockTag: 'latest' }).then((b) => b.timestamp);
       value.catch(() => {
-        this.l1Clock = undefined;
+        if (this.l1Clock?.value === value) this.l1Clock = undefined;
       });
       this.l1Clock = { at, value };
     }
