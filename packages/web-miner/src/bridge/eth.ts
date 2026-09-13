@@ -111,6 +111,7 @@ export async function depositOnEthereum(
   config: WagmiConfig,
   p: DepositParams,
   onStep?: (step: 'approve' | 'deposit') => void,
+  onSent?: (txHash: Hex) => Promise<void>,
 ): Promise<{ txHash: Hex; inboxIndex: bigint }> {
   const signer = await pinnedSigner(config);
   const allowance = await readContract(config, {
@@ -140,6 +141,7 @@ export async function depositOnEthereum(
     functionName: 'deposit',
     args: [p.amount, p.secretHash, p.version, p.deadline],
   });
+  await onSent?.(txHash);
   const receipt = await mined(config, txHash);
   const [deposited] = parseEventLogs({ abi: yacanaPortalAbi, eventName: 'Deposited', logs: receipt.logs });
   if (!deposited) throw new Error(`deposit ${txHash} emitted no Deposited event`);

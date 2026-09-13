@@ -9,6 +9,7 @@ import { MAX_RECOVERY_BYTES } from '../../../bridge/src/recovery.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { Button, ExternalLink, Tile, TileHeader } from '../../../ui/src/index.ts';
 import { cardLine, type Tone } from '../bridge/copy';
+import { isOldRole } from '../bridge/env';
 import { l1Links } from '../explorer';
 import { duration, amount as fmt, shortAddress } from '../lib/format';
 import type { Session } from '../session';
@@ -25,11 +26,14 @@ const TONE: Record<Tone, string> = {
 const OPEN_ENDED = (1n << 256n) - 1n;
 
 /** A held send-ahead may be forwarded by its holder once the Registry names a later version. */
+/** A held send-ahead is forwarded from the version it lands on: the live one, never the old origin. */
 const holderMayForward = (c: Crossing, view: BridgeView): boolean =>
   c.kind === 2 &&
   c.state === 'held' &&
+  !isOldRole() &&
   view.canonical !== undefined &&
-  view.canonical.version !== BigInt(c.version);
+  view.canonical.version !== BigInt(c.version) &&
+  view.canonical.version === BigInt(import.meta.env.VITE_ROLLUP_VERSION);
 
 function Line({
   c,

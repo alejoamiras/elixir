@@ -19,7 +19,7 @@ import { claimLeaf } from '../../../bridge/src/inbox.ts';
 import { advance, type Crossing, type Facts, inFlight } from '../../../bridge/src/journal.ts';
 import { OperationQueue } from '../../../bridge/src/queue.ts';
 import type { BridgeRecord } from '../../../bridge/src/record.ts';
-import { parseRecoveryFile, type RecoveryFile, recoveryFile } from '../../../bridge/src/recovery.ts';
+import { asHint, parseRecoveryFile, type RecoveryFile, recoveryFile } from '../../../bridge/src/recovery.ts';
 import { exitLogTag } from '../../../bridge/src/secrets.ts';
 import { leafIdOf } from '../../../bridge/src/signatures.ts';
 import {
@@ -41,12 +41,13 @@ import {
   deposit,
   exitToL1,
   type L2Handles,
+  nextIndexFromChain,
   redeem,
   secretsFor,
   selfForward,
   sendAhead,
 } from './flows.ts';
-import { arrivalCandidates, matchArrivals } from './landing.ts';
+import { arrivalCandidates, landed, matchArrivals } from './landing.ts';
 import { type BridgeStore, openBridgeStore, SCAN_WINDOW } from './store.ts';
 
 type Store = ReturnType<typeof createStore>;
@@ -70,11 +71,6 @@ const REFRESH_MS = 15_000;
 const L1_CLOCK_MS = 2_000;
 /** The portal's events are scanned again every so many refreshes: a forward by Yacana lands while the page is open. */
 const LANDING_EVERY = 4;
-/**
- * A claim's block can still be pruned with its epoch for this long after it lands; a minted record
- * younger than this is asked again whether its nullifier is still in the tree.
- */
-const CLAIM_SETTLES_MS = 3 * 3600 * 1000;
 
 export class BridgeSession {
   readonly config: WagmiConfig;
@@ -128,6 +124,7 @@ export class BridgeSession {
           }
         : {}),
       l1Now: () => this.l1Now(),
+      preflight: () => this.preflight(),
       ...(d.now ? { now: d.now } : {}),
     };
     this.rollups.set(
@@ -264,13 +261,13 @@ export class BridgeSession {
         return w ? this.reader.redeemed(BigInt(c.version), w.epoch, w.leafId) : undefined;
       },
       messageReady: async (c) => {
-        if (!c.inboxIndex) return false;
+        if (!c.inboxIndex || !this.landsHere(c)) return false;
         const secrets = await secretsFor(this.ctx, c.index, BigInt(c.version));
         const leaf = claimLeaf(scope, BigInt(c.amount), secrets.secretHash, BigInt(c.inboxIndex));
         return (await d.node.getL1ToL2MessageMembershipWitness('latest', leaf)) !== undefined;
       },
       claimed: async (c) => {
-        if (!c.inboxIndex) return undefined;
+        if (!c.inboxIndex || !this.landsHere(c)) return undefined;
         const [leaf] = await d.node.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [
           await this.claimNullifier(c, scope),
         ]);
@@ -278,6 +275,12 @@ export class BridgeSession {
       },
       nowSeconds: () => this.l1Now(),
     };
+  }
+
+  /** Whether the crossing's destination is this build's version: only its own node can see the claim. */
+  private landsHere(c: Crossing): boolean {
+    const destination = c.kind === 3 ? c.version : c.kind === 2 ? c.target : undefined;
+    return destination !== undefined && BigInt(destination) === this.ctx.version;
   }
 
   /**
@@ -370,7 +373,7 @@ export class BridgeSession {
     if (this.refreshes++ % LANDING_EVERY === 0) await this.landing().catch(() => {});
     for (const c of await this.journal.list()) {
       if (inFlight(c)) await this.reread(c, now);
-      else if (c.state === 'minted-l2' && now - c.updatedAt < CLAIM_SETTLES_MS)
+      else if (c.state === 'minted-l2' && !c.claimSettled && this.landsHere(c))
         await this.recheckClaim(c, now);
     }
     await this.publishJournal();
@@ -393,14 +396,37 @@ export class BridgeSession {
     );
   }
 
-  /** A claim whose block was pruned with its epoch is offered again: its nullifier left the tree. */
+  /**
+   * A minted record is asked about until its claim's epoch is proven — on every visit, however
+   * late: a claim whose block was pruned with its epoch has no nullifier any more and is offered
+   * again; one whose epoch is proven is settled and asked no more.
+   */
   private async recheckClaim(c: Crossing, now: number): Promise<void> {
-    if ((await this.reads.claimed(c).catch(() => ({}))) !== undefined) return;
-    await this.journal.update(c.id, (stored) =>
-      stored.state === 'minted-l2'
-        ? { ...stored, state: 'claimable', claimTxHash: undefined, updatedAt: now }
-        : stored,
+    let claimed: Facts['claimed'];
+    try {
+      claimed = await this.reads.claimed(c);
+    } catch {
+      return;
+    }
+    if (!claimed) {
+      await this.journal.update(c.id, (stored) =>
+        stored.state === 'minted-l2'
+          ? { ...stored, state: 'claimable', claimTxHash: undefined, claimBlock: undefined, updatedAt: now }
+          : stored,
+      );
+      return;
+    }
+    const block = c.claimBlock ?? claimed.block;
+    const settled = await epochProven(
+      await this.rollupFor(this.ctx.version.toString()),
+      await this.epochOfBlock(block),
     );
+    if (settled || c.claimBlock === undefined)
+      await this.journal.update(c.id, (stored) =>
+        stored.state === 'minted-l2'
+          ? { ...stored, claimBlock: block, ...(settled ? { claimSettled: true } : {}) }
+          : stored,
+      );
   }
 
   private async minerRetired(): Promise<boolean | null> {
@@ -417,36 +443,37 @@ export class BridgeSession {
 
   /**
    * Send-aheads forwarded here from earlier versions and deposits into this one, as cards with a
-   * Claim; window after window of indices until one answers nothing. A record the journal holds
-   * learns the event; a new one takes its index on this device too.
+   * Claim; window after window of indices past every index this account is known to have used
+   * (exits arrive nowhere, so a silent window alone proves nothing) and until one answers nothing.
+   * Each arrival is applied to the record as stored, in the transaction that reserves its index.
    */
   async landing(): Promise<void> {
     const versions = { sources: await this.sourceVersions(), current: this.ctx.version };
     const scope = { chainId: this.ctx.chainId, portal: EthAddress.fromString(this.ctx.portal) };
     const arrivals = await this.reader.arrivals();
     const now = this.d.now?.() ?? Date.now();
+    const floor = await this.indicesInUse(versions.current);
     for (let from = 0; ; from += SCAN_WINDOW) {
       const candidates = await arrivalCandidates(this.d.master, scope, versions, SCAN_WINDOW, from);
-      const found = matchArrivals(
-        arrivals,
-        candidates,
-        await this.journal.list(),
-        { chainId: this.d.record.chainId, portal: this.ctx.portal, current: this.ctx.version },
-        now,
-      );
-      if (found.length === 0) break;
-      for (const c of found) await this.adopt(c);
+      const arrived = matchArrivals(arrivals, candidates, {
+        chainId: this.d.record.chainId,
+        portal: this.ctx.portal,
+        current: this.ctx.version,
+      });
+      for (const a of arrived) await this.journal.adopt(a.crossing(now), (stored) => landed(stored, a, now));
+      if (arrived.length === 0 && from + SCAN_WINDOW >= floor) break;
     }
     await this.publishJournal();
   }
 
-  /** A crossing that reached the journal from outside this device: stored as read, its index reserved here. */
-  private async adopt(c: Crossing): Promise<void> {
-    const held = await this.journal.get(c.id);
-    if (!held) await this.journal.put(c);
-    else if (held !== c && held.updatedAt !== c.updatedAt)
-      await this.journal.update(c.id, (stored) => (stored.updatedAt === held.updatedAt ? c : stored));
-    await this.journal.reserveThrough(c.version, c.index);
+  /** One past the highest index of `version` this device or the chain knows the account used. */
+  private async indicesInUse(version: bigint): Promise<number> {
+    const held = (await this.journal.list())
+      .filter((c) => BigInt(c.version) === version)
+      .reduce((max, c) => Math.max(max, c.index + 1), 0);
+    const reserved = (await this.journal.nextIndex(version.toString())) ?? 0;
+    const onChain = version === this.ctx.version ? await nextIndexFromChain(this.ctx).catch(() => 0) : 0;
+    return Math.max(held, reserved, onChain);
   }
 
   /** The Registry's versions before this one: where a send-ahead to here may have come from. */
@@ -469,10 +496,7 @@ export class BridgeSession {
   /** Refused when the portal routes this version's deposits to a miner other than this build's. */
   async deposit(amount: bigint, onStep?: (step: 'approve' | 'deposit') => void): Promise<Crossing> {
     return this.after(async () => {
-      const standing = await this.reader.standing(this.ctx.version);
-      const mine = this.d.l2().miner.address.toString().toLowerCase();
-      if (!standing.registered || standing.miner.toLowerCase() !== mine)
-        throw new Error('the portal does not route deposits to this build’s miner; update the page first');
+      await this.registeredHere(this.ctx.version, 'deposits');
       const deadline = (await this.l1Now()) + 3600n;
       return deposit(this.ctx, this.config, amount, deadline, onStep);
     });
@@ -480,13 +504,24 @@ export class BridgeSession {
   async claim(c: Crossing): Promise<Crossing> {
     return this.after(() => claimArrival(this.ctx, c));
   }
-  /** Into the live version, and only the one this build's record announced, when it announced one. */
+  /**
+   * An exit goes to Ethereum. A send-ahead goes into the live version, which must be this build's
+   * — its record names the miner the portal must route to — and the announced one when a
+   * migration is announced; the old origin offers no forward.
+   */
   async selfForward(c: Crossing): Promise<Crossing> {
     return this.after(async () => {
       const canonical = await this.reader.canonical();
-      const announced = migrationRecord()?.toIndex;
-      if (announced !== undefined && canonical.index !== BigInt(announced))
-        throw new Error(`the live version is not the announced one (Registry index ${canonical.index})`);
+      if (c.kind === 2) {
+        if (canonical.version !== this.ctx.version)
+          throw new Error(
+            'forward it from the live version’s page: this build is not the version it lands on',
+          );
+        const announced = migrationRecord()?.toIndex;
+        if (announced !== undefined && canonical.index !== BigInt(announced))
+          throw new Error(`the live version is not the announced one (Registry index ${canonical.index})`);
+        await this.registeredHere(canonical.version, 'send-aheads');
+      }
       return selfForward(this.ctx, this.config, c, canonical.version);
     });
   }
@@ -494,8 +529,19 @@ export class BridgeSession {
     return this.after(() => redeem(this.ctx, this.config, c, recipient));
   }
 
-  /** Every operation begins by asking the site whether this tab's build is still the one it serves. */
-  private async after(op: () => Promise<Crossing>): Promise<Crossing> {
+  /** The portal routes `version`'s messages to its registered miner: it must be this build's. */
+  private async registeredHere(version: bigint, what: string): Promise<void> {
+    const standing = await this.reader.standing(version);
+    const mine = this.d.l2().miner.address.toString().toLowerCase();
+    if (!standing.registered || standing.miner.toLowerCase() !== mine)
+      throw new Error(`the portal does not route ${what} to this build’s miner; update the page first`);
+  }
+
+  /**
+   * Once the queue reaches an operation, before anything is signed: the site must still serve
+   * this tab's build, and the Ethereum RPC must answer — a crossing nobody can watch is not made.
+   */
+  private async preflight(): Promise<void> {
     const served = await servedBuild();
     if (
       staleTab(served, {
@@ -504,6 +550,12 @@ export class BridgeSession {
       })
     )
       throw new Error('Yacana has been redeployed since this page loaded: reload before you send or claim.');
+    await this.reader.canonical().catch(() => {
+      throw new Error('the Ethereum RPC is not answering: nothing is sent until it does');
+    });
+  }
+
+  private async after(op: () => Promise<Crossing>): Promise<Crossing> {
     try {
       return await op();
     } finally {
@@ -520,9 +572,9 @@ export class BridgeSession {
   }
 
   /**
-   * Restores the file's crossings the journal does not hold; their states refresh from the chain.
-   * A witnessed crossing must be this master's: its aux is the tag or the secret hash the master
-   * derives for that index, so another account's file — or a forged one — is refused whole.
+   * Restores the file's crossings the journal does not hold, their ended states as hints the chain
+   * confirms. A witnessed crossing must be this master's: its aux is the tag or the secret hash the
+   * master derives for that index, so another account's file — or a forged one — is refused whole.
    */
   async importRecovery(text: string): Promise<number> {
     const file = parseRecoveryFile(text, { chainId: this.d.record.chainId, portal: this.ctx.portal });
@@ -534,10 +586,8 @@ export class BridgeSession {
     }
     let restored = 0;
     for (const c of file.crossings) {
-      if (await this.journal.get(c.id)) continue;
-      await this.journal.put(c);
-      await this.journal.reserveThrough(c.version, c.index);
-      restored++;
+      const { added } = await this.journal.adopt(asHint(c), (stored) => stored);
+      if (added) restored++;
     }
     await this.publishJournal();
     return restored;

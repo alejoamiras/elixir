@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { Crossing } from './journal.ts';
-import { MAX_RECOVERY_BYTES, parseRecoveryFile, recoveryFile } from './recovery.ts';
+import { asHint, MAX_RECOVERY_BYTES, parseRecoveryFile, recoveryFile } from './recovery.ts';
 
 const PORTAL = `0x${'be'.repeat(20)}` as const;
 const crossing: Crossing = {
@@ -59,5 +59,23 @@ describe('the recovery file', () => {
     expect(parse(file({ amount: '8' }))).toThrow(/witness does not describe/);
     expect(parse(file({ ethAddress: `0x${'33'.repeat(20)}` }))).toThrow(/witness does not describe/);
     expect(parse(`{"v":1,"pad":"${'x'.repeat(MAX_RECOVERY_BYTES)}"}`)).toThrow(/too large/);
+    // A crossing of another deployment inside a file for this one is refused, not reserved.
+    const { id: _id, ...foreign } = { ...crossing, portal: `0x${'cd'.repeat(20)}` as const };
+    expect(parse(JSON.stringify(recoveryFile(scope, [foreign as Crossing])))).toThrow(
+      /not of this deployment/,
+    );
+  });
+
+  test('an ended state comes in as the state before it; the chain says again how it ended', () => {
+    const hint = (state: Crossing['state'], patch: Partial<Crossing> = {}) =>
+      asHint({ ...crossing, ...patch, state }).state;
+    expect(hint('minted-l1')).toBe('witnessed');
+    expect(hint('closed', { witness: undefined })).toBe('proven-pending');
+    expect(hint('never-proven')).toBe('proven-pending');
+    expect(hint('dropped', { txHash: undefined })).toBe('proving');
+    expect(hint('minted-l2', { kind: 3, inboxIndex: '4' })).toBe('deposited');
+    expect(hint('minted-l2')).toBe('forwarded');
+    expect(hint('held')).toBe('held');
+    expect(asHint({ ...crossing, state: 'minted-l2', claimSettled: true }).claimSettled).toBeUndefined();
   });
 });

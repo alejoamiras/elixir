@@ -165,6 +165,7 @@ export class MinerController {
   /** Why mining is paused by the page itself (not the user); it resumes when the reason clears. */
   private pausedBy = new Set<PauseReason>();
   private resumeWhenClear = false;
+  private retired = false;
   lastClaim: LastClaim | undefined;
 
   constructor(o: MinerOptions) {
@@ -284,8 +285,15 @@ export class MinerController {
     this.clearPrestoView();
   }
 
+  /** The version was flipped away from: mining stops and no start — the user's or the loop's own — resumes it. */
+  retire() {
+    this.retired = true;
+    this.stop();
+  }
+
   /** Under a page-side pause the intent is kept: mining starts when the last reason clears. */
   start() {
+    if (this.retired) return;
     if (this.pausedBy.size) {
       this.resumeWhenClear = true;
       return;

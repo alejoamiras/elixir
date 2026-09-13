@@ -47,6 +47,8 @@ export interface BridgeContext {
   release?: (reason: 'bridge') => void;
   /** Ethereum's clock in seconds: what the portal holds a signature's expiry against. */
   l1Now: () => Promise<bigint>;
+  /** Asked once the queue reaches the operation, just before anything is signed: throws to refuse it. */
+  preflight?: () => Promise<void>;
   /** The device's clock, for the journal's timestamps; a test's stand-in. */
   now?: () => number;
 }
@@ -68,6 +70,7 @@ export const secretsFor = (
 /** Under the queue and the pause; the pause lifts however the operation ends. */
 async function guarded<T>(ctx: BridgeContext, op: () => Promise<T>): Promise<T> {
   return ctx.queue.run(async () => {
+    await ctx.preflight?.();
     ctx.pause?.('bridge');
     try {
       return await op();
@@ -86,12 +89,12 @@ async function burnAuthwit(ctx: BridgeContext, amount: bigint) {
   return { nonce, witness };
 }
 
-/** The account's next unused index on this version, from the miner's exit log, by the tags of both kinds. */
-export const nextIndexFromChain = (ctx: BridgeContext): Promise<number> =>
+/** The account's next unused index on `version`, from the miner's exit log, by the tags of both kinds. */
+export const nextIndexFromChain = (ctx: BridgeContext, version = ctx.version): Promise<number> =>
   scanNextIndex(async (indices) => {
     const tags: Tag[] = [];
     for (const i of indices) {
-      const s = await secretsFor(ctx, i);
+      const s = await secretsFor(ctx, i, version);
       tags.push(new Tag(await exitLogTag(s.tag)), new Tag(await exitLogTag(s.secretHash)));
     }
     const logs = await ctx.node.getPublicLogsByTags({ contractAddress: ctx.l2().miner.address, tags });
@@ -125,8 +128,8 @@ const fresh = (
 };
 
 /**
- * Sends, records the hash the moment the node has the transaction, then waits for its block. The
- * burn is real once sent: a page closed during the wait must find the record by its hash later.
+ * Sends, records the hash the moment the node has the transaction, then waits for its block. A
+ * transaction sent may still be included after the page is gone: the record must find it by its hash.
  */
 async function sendRecorded(
   ctx: BridgeContext,
@@ -225,10 +228,14 @@ export function claimArrival(ctx: BridgeContext, c: Crossing, timeoutSeconds = 6
   });
 }
 
-/** A deposit whose wallet never answered (refused, or its prompt left open under a reload). */
+/**
+ * A deposit whose wallet never answered (refused, or its prompt left open under a reload). One the
+ * wallet did send — its hash is kept the moment the wallet returns it — is Ethereum's to settle and
+ * is never sent again under the same secret.
+ */
 const unansweredDeposit = async (ctx: BridgeContext): Promise<Crossing | undefined> =>
   (await ctx.store.list()).find(
-    (c) => c.kind === 3 && c.state === 'proving' && c.version === ctx.version.toString(),
+    (c) => c.kind === 3 && c.state === 'proving' && !c.l1TxHash && c.version === ctx.version.toString(),
   );
 
 /**
@@ -268,6 +275,13 @@ export function deposit(
         deadline,
       },
       onStep,
+      async (txHash) => {
+        await ctx.store.update(c.id, (x) => ({
+          ...x,
+          l1TxHash: txHash,
+          updatedAt: ctx.now?.() ?? Date.now(),
+        }));
+      },
     );
     return ctx.store.update(c.id, (x) =>
       advance(x, {
@@ -280,7 +294,11 @@ export function deposit(
 
 const HOUR = 3600n;
 
-/** The holder forwards a held send-ahead into `target` themselves: the redeem key signs, the wallet pays. */
+/**
+ * The holder forwards a witnessed exit or held send-ahead themselves: the redeem key signs, the
+ * wallet pays. `target` is the version a send-ahead lands on; an exit to Ethereum has none, and the
+ * portal checks its signature over a zero target.
+ */
 export function selfForward(
   ctx: BridgeContext,
   config: WagmiConfig,
@@ -296,7 +314,7 @@ export function selfForward(
       secrets.redeemKey,
       { chainId: ctx.chainId, portal: ctx.portal, version: BigInt(c.version), expiry },
       args,
-      target,
+      c.kind === 1 ? 0n : target,
     );
     const done = await forwardOnEthereum(config, {
       portal: ctx.portal,

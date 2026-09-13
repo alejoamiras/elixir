@@ -477,9 +477,9 @@ export class Session {
       });
       this.bridge = bridge;
       this.store.set(bridgeSessionAtom, bridge);
-      // The flip ends mining on this version: a running loop stops, and no Start brings it back.
+      // The flip ends mining on this version: the controller retires, and no start brings it back.
       this.unsubFlip = this.store.sub(bridgeAtom, () => {
-        if (this.store.get(bridgeAtom).verdict.kind === 'flipped') c.stop();
+        if (this.store.get(bridgeAtom).verdict.kind === 'flipped') c.retire();
       });
       // Every balance read leaves the snapshot the next version's build shows as "you still had".
       this.unsubBalance = this.store.sub(balanceAtom, () => {

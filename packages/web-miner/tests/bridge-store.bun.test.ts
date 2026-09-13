@@ -65,11 +65,17 @@ describe('the bridge journal store', () => {
     expect(d.id).toBe(c.id);
     expect((await mine.list()).map((x) => x.id)).toEqual([c.id]);
     expect((await theirs.list()).map((x) => x.id)).toEqual([d.id]);
-    // A crossing restored at index 4 moves the counter past it; a lower one does not move it back.
-    await mine.reserveThrough('5', 4);
+    // A crossing adopted at index 4 moves the counter past it; a lower one does not move it back,
+    // and one the journal holds is stored as `apply` says over the stored record.
+    const four = make()(4);
+    expect(await mine.adopt(four, (x) => x)).toEqual({ crossing: four, added: true });
     expect(await mine.nextIndex('5')).toBe(5);
-    await mine.reserveThrough('5', 2);
+    const two = make()(2);
+    await mine.adopt(two, (x) => x);
     expect(await mine.nextIndex('5')).toBe(5);
+    const held = await mine.adopt({ ...two, state: 'held' }, (x) => ({ ...x, state: 'sent' }));
+    expect(held).toEqual({ crossing: { ...two, state: 'sent' }, added: false });
+    expect((await mine.get(two.id))?.state).toBe('sent');
     expect((await mine.create('5', async () => 0, make())).index).toBe(5);
     const updated = await mine.update(c.id, (x) => ({ ...x, state: 'sent', txHash: '0x1' }));
     expect(updated.state).toBe('sent');

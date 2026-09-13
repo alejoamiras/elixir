@@ -83,6 +83,10 @@ export interface Crossing {
   /** The Ethereum transaction that forwarded, redeemed or deposited it. */
   l1TxHash?: Hex;
   claimTxHash?: string;
+  /** The block the claim landed in; until its epoch is proven the block can still be pruned. */
+  claimBlock?: number;
+  /** The claim's epoch is proven: the mint cannot be undone. */
+  claimSettled?: boolean;
   /** The last failure of an action on it, for the card; cleared by the next success. */
   error?: string;
 }
@@ -179,7 +183,11 @@ function afterEthereum(c: Crossing, f: Facts): Crossing {
 }
 
 function afterDestination(c: Crossing, f: Facts): Crossing {
-  if (f.claimed) return at(c, 'minted-l2', f.now, f.claimed.txHash ? { claimTxHash: f.claimed.txHash } : {});
+  if (f.claimed)
+    return at(c, 'minted-l2', f.now, {
+      claimBlock: f.claimed.block,
+      ...(f.claimed.txHash ? { claimTxHash: f.claimed.txHash } : {}),
+    });
   if (f.messageReady && (c.state === 'forwarded' || c.state === 'deposited'))
     return at(c, 'claimable', f.now);
   return c;

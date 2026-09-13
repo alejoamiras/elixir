@@ -35,8 +35,9 @@ const ON_PORTAL = new Set<Crossing['state']>([
 ]);
 const AT_DESTINATION = new Set<Crossing['state']>(['forwarded', 'deposited']);
 
+/** A send without a hash is still asked about: the node may know it by its tag. A deposit's tale is Ethereum's. */
 const txFacts = async (reads: FactReads, c: Crossing, f: Facts): Promise<Facts> =>
-  c.txHash ? { ...f, tx: await reads.tx(c) } : f;
+  c.txHash || c.kind !== 3 ? { ...f, tx: await reads.tx(c) } : f;
 
 /** The epoch's proof: its deadline, whether it landed, the witness once it has; pruned when the deadline passed without it. */
 async function epochFacts(reads: FactReads, c: Crossing, f: Facts): Promise<Facts> {

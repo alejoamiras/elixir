@@ -81,9 +81,11 @@ export interface BridgeStore {
   nextIndex(version: string): Promise<number | undefined>;
   /**
    * A crossing that reached the journal from elsewhere (a file, the portal's events) took its index
-   * on another device: the counter moves past it so this one never derives those secrets again.
+   * on another device. In one transaction: the row is stored — as given when new, as `apply` says
+   * over the stored one otherwise — and the version's counter moves past its index, so a send in
+   * another tab can neither take that index nor overwrite the row between the two.
    */
-  reserveThrough(version: string, index: number): Promise<void>;
+  adopt(c: Crossing, apply: (stored: Crossing) => Crossing): Promise<{ crossing: Crossing; added: boolean }>;
 }
 
 export function openBridgeStore(scope: JournalScope, dbName = BRIDGE_DB): BridgeStore {
@@ -152,13 +154,18 @@ export function openBridgeStore(scope: JournalScope, dbName = BRIDGE_DB): Bridge
         return crossing;
       }),
     nextIndex: (version) => withDb(async (db) => (await readCounter(db, version))?.next),
-    reserveThrough: (version, index) =>
+    adopt: (c, apply) =>
       withDb(async (db) => {
-        const tx = db.transaction(INDICES, 'readwrite');
+        const tx = db.transaction([INDICES, CROSSINGS], 'readwrite');
+        const rows = tx.objectStore(CROSSINGS);
+        const row = (await request(rows.get([scoped, c.id]))) as Row | undefined;
+        const crossing = row ? apply(strip(row)) : c;
+        rows.put({ ...crossing, scope: scoped } satisfies Row);
         const indices = tx.objectStore(INDICES);
-        const counter = (await request(indices.get(counterKey(version)))) as { next: number } | undefined;
-        if ((counter?.next ?? 0) <= index) indices.put({ next: index + 1 }, counterKey(version));
+        const counter = (await request(indices.get(counterKey(c.version)))) as { next: number } | undefined;
+        if ((counter?.next ?? 0) <= c.index) indices.put({ next: c.index + 1 }, counterKey(c.version));
         await committed(tx);
+        return { crossing, added: !row };
       }),
   };
 }

@@ -70,7 +70,7 @@ const LINES: Record<CrossingState, Line> = {
   headroom: (_c, _now, _v, flipped) => ({
     word: flipped ? 'over the cap' : 'waiting for headroom',
     sentence: flipped
-      ? 'The version’s exit capacity is used up: nothing more of it can be forwarded. Redeem to Ethereum instead.'
+      ? 'The version’s exit capacity is used up: nothing more of it can be forwarded or redeemed.'
       : 'More has left this version than its schedule allows for now; forward or redeem it once the schedule frees room. Nothing queues it.',
     tone: 'warn',
   }),

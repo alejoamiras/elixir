@@ -175,8 +175,12 @@ test('on V5 after the flip: the migration card says mining has ended and what is
   // A fresh browser knows nothing of what was sent: the recovery file brings the journal, and the card its sum.
   await expect(page.getByTestId('sent-ahead-status')).toHaveCount(0);
   await page.getByRole('link', { name: 'Wallet' }).click();
+  // The landing scan already found the deposit in the Inbox, and the nullifier tree says it was claimed:
+  // no arrival card offers it again, and the file restores only the three the chain cannot name.
+  await expect(page.locator('[data-testid=arrival]')).toHaveCount(0);
   await page.getByTestId('recovery-input').setInputFiles(recovery);
-  await expect(page.getByTestId('recovery-note')).toContainText('4 crossings restored');
+  await expect(page.getByTestId('recovery-note')).toContainText('3 crossings restored');
+  await expect(rows(page, 3).getByTestId('crossing-word')).toHaveText('minted', { timeout: 60_000 });
   await page.getByRole('link', { name: 'Mine' }).click();
   await expect(page.getByTestId('sent-ahead-status')).toContainText('2 tYACA sent ahead');
 });

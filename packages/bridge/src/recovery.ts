@@ -84,7 +84,18 @@ export function parseCrossing(raw: unknown, where: string): Crossing {
   };
   c.id = crossingId(c);
   if (o.id !== undefined && o.id !== c.id) fail(where, `id ${String(o.id)} is not ${c.id}`);
-  for (const k of [
+  optionalFields(o, c, num);
+  if (o.witness !== undefined) {
+    const w = parseArchivedExit(o.witness, `${where}.witness`) as ArchivedExit;
+    if (!describes(w, c)) fail(where, 'witness does not describe this crossing');
+    c.witness = w;
+  }
+  return c;
+}
+
+/** The fields a crossing carries once it moved: taken as typed, never required. */
+function optionalFields(o: Record<string, unknown>, c: Crossing, num: (k: string) => number): void {
+  const strings = [
     'txHash',
     'epoch',
     'proofDeadline',
@@ -93,24 +104,19 @@ export function parseCrossing(raw: unknown, where: string): Crossing {
     'l1TxHash',
     'claimTxHash',
     'error',
-  ] as const)
-    if (typeof o[k] === 'string') (c as unknown as Record<string, unknown>)[k] = o[k];
-  if (typeof o.block === 'number') c.block = num('block');
-  if (o.witness !== undefined) {
-    const w = parseArchivedExit(o.witness, `${where}.witness`) as ArchivedExit;
-    // The card shows the crossing's fields; the signature covers the witness's. They must be one thing.
-    if (
-      w.kind !== c.kind ||
-      w.version !== c.version ||
-      w.index !== c.index ||
-      w.amount !== c.amount ||
-      w.recipientOrRedeemKey.toLowerCase() !== c.ethAddress
-    )
-      fail(where, 'witness does not describe this crossing');
-    c.witness = w;
-  }
-  return c;
+  ] as const;
+  for (const k of strings) if (typeof o[k] === 'string') (c as unknown as Record<string, unknown>)[k] = o[k];
+  for (const k of ['block', 'claimBlock'] as const) if (typeof o[k] === 'number') c[k] = num(k);
+  if (o.claimSettled === true) c.claimSettled = true;
 }
+
+/** The card shows the crossing's fields; the signature covers the witness's. They must be one thing. */
+const describes = (w: ArchivedExit, c: Crossing): boolean =>
+  w.kind === c.kind &&
+  w.version === c.version &&
+  w.index === c.index &&
+  w.amount === c.amount &&
+  w.recipientOrRedeemKey.toLowerCase() === c.ethAddress;
 
 /** A recovery file is a few kilobytes per crossing; anything past this is not one. */
 export const MAX_RECOVERY_BYTES = 8 * 1024 * 1024;
@@ -137,12 +143,35 @@ export function parseRecoveryFile(text: string, expected: { chainId: string; por
     );
   if (typeof o.account !== 'string' || !Array.isArray(o.crossings))
     fail('recovery file', 'no account or crossings');
+  const portal = expected.portal.toLowerCase() as Hex;
+  const crossings = (o.crossings as unknown[]).map((c, i) => {
+    const parsed = parseCrossing(c, `recovery file crossing ${i}`);
+    if (parsed.chainId !== expected.chainId || parsed.portal !== portal)
+      fail(`recovery file crossing ${i}`, 'not of this deployment');
+    return parsed;
+  });
   return {
     v: RECOVERY_VERSION,
     chainId: expected.chainId,
-    portal: expected.portal.toLowerCase() as Hex,
+    portal,
     account: o.account as string,
     exportedAt: typeof o.exportedAt === 'number' ? o.exportedAt : 0,
-    crossings: (o.crossings as unknown[]).map((c, i) => parseCrossing(c, `recovery file crossing ${i}`)),
+    crossings,
   };
+}
+
+/**
+ * A restored crossing's state is a hint, never a verdict: an ended state is imported as the state
+ * before it, and the chain says again how it ended. A file cannot hide a live crossing that way.
+ */
+export function asHint(c: Crossing): Crossing {
+  const before: Partial<Record<CrossingState, CrossingState>> = {
+    dropped: c.txHash ? 'sent' : 'proving',
+    'never-proven': 'proven-pending',
+    closed: c.witness ? 'witnessed' : 'proven-pending',
+    'minted-l1': c.witness ? 'witnessed' : 'proven-pending',
+    'minted-l2': c.kind === 3 ? (c.inboxIndex ? 'deposited' : 'proving') : 'forwarded',
+  };
+  const state = before[c.state];
+  return state ? { ...c, state, claimSettled: undefined } : c;
 }

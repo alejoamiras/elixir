@@ -164,17 +164,21 @@ describe('the bridge tile', () => {
     fireEvent.click(screen.getByTestId('redeem'));
     expect(onRedeem).toHaveBeenCalledWith(held);
     expect(screen.getByTestId('bridge-tile').textContent).toContain('exit headroom 500');
-    // The Registry names V6: the held send-ahead can be forwarded by its holder too.
-    act(() =>
-      store.set(bridgeAtom, {
-        verdict: { kind: 'flipped', by: ['registry'] },
-        standing,
-        canonical: { version: 6n, index: 1n },
-        readAt: NOW,
-        rpcFailing: false,
-      }),
-    );
+    // The Registry names V6. This V5 page still offers no forward of the held send-ahead — it lands on
+    // V6, and only V6's page, whose record names the miner it must reach, lets the holder forward it.
+    const flipped = {
+      verdict: { kind: 'flipped', by: ['registry'] } as const,
+      standing,
+      canonical: { version: 6n, index: 1n },
+      readAt: NOW,
+      rpcFailing: false,
+    };
+    act(() => store.set(bridgeAtom, flipped));
+    expect(screen.getAllByTestId('forward-myself')).toHaveLength(1);
+    vi.stubEnv('VITE_ROLLUP_VERSION', '6');
+    act(() => store.set(bridgeAtom, { ...flipped, readAt: NOW + 1 }));
     expect(screen.getAllByTestId('forward-myself')).toHaveLength(2);
+    vi.stubEnv('VITE_ROLLUP_VERSION', '5');
   });
 
   test('a silent RPC holds back new exits and says so', () => {

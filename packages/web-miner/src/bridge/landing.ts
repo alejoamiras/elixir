@@ -50,6 +50,15 @@ type Arrival =
   | { forwarded: NonNullable<Facts['forwarded']> }
   | { deposited: NonNullable<Facts['deposited']> };
 
+/** One of this account's crossings the portal's events answer: the record as if new, and the fact. */
+export interface Arrived {
+  id: string;
+  amount: bigint;
+  fact: Arrival;
+  /** The record for a journal that does not hold it: created now, the event already applied. */
+  crossing(now: number): Crossing;
+}
+
 /** The states a record can be in before the portal's event reached it; a later one is not moved back. */
 const BEFORE_ARRIVAL = new Set<Crossing['state']>([
   'proving',
@@ -64,21 +73,25 @@ const BEFORE_ARRIVAL = new Set<Crossing['state']>([
 ]);
 
 /**
- * The candidates the portal's events answer, as crossings in the state the event puts them in.
- * A crossing the journal holds keeps its record and learns the event through the reducer: a
- * deposit the wallet answered after the page closed moves on from `proving`; one already claimed
- * stays claimed. Only sends into `current` are arrivals here.
+ * The arrival applied to the record as stored: one that has not reached the event learns it
+ * through the reducer — a deposit the wallet answered after the page closed moves on from
+ * `proving`, at the amount Ethereum saw — and one further along (claimed, say) is left alone.
  */
+export function landed(stored: Crossing | undefined, a: Arrived, now: number): Crossing {
+  if (!stored) return a.crossing(now);
+  if (!BEFORE_ARRIVAL.has(stored.state)) return stored;
+  const record = stored.state === 'proving' ? { ...stored, amount: a.amount.toString() } : stored;
+  return advance(record, { now, ...a.fact });
+}
+
+/** The candidates the portal's events answer. Only sends into `current` are arrivals here. */
 export function matchArrivals(
   arrivals: Arrivals,
   candidates: ArrivalCandidate[],
-  journal: Crossing[],
   scope: { chainId: string; portal: Hex; current: bigint },
-  now: number,
-): Crossing[] {
-  const known = new Map(journal.map((c) => [c.id, c]));
+): Arrived[] {
   const bySecret = new Map(candidates.map((c) => [`${c.kind}:${c.secretHash.toLowerCase()}`, c]));
-  const found: Crossing[] = [];
+  const found: Arrived[] = [];
   const push = (c: ArrivalCandidate, amount: bigint, fact: Arrival) => {
     const base = {
       kind: c.kind,
@@ -88,17 +101,24 @@ export function matchArrivals(
       index: c.index,
     };
     const id = crossingId(base);
-    const held = known.get(id);
-    const record: Crossing = held ?? {
-      ...base,
+    found.push({
       id,
-      amount: amount.toString(),
-      state: 'proving',
-      createdAt: now,
-      updatedAt: now,
-      ethAddress: `0x${'00'.repeat(20)}`,
-    };
-    found.push(BEFORE_ARRIVAL.has(record.state) ? advance(record, { now, ...fact }) : record);
+      amount,
+      fact,
+      crossing: (now) =>
+        advance(
+          {
+            ...base,
+            id,
+            amount: amount.toString(),
+            state: 'proving',
+            createdAt: now,
+            updatedAt: now,
+            ethAddress: `0x${'00'.repeat(20)}`,
+          },
+          { now, ...fact },
+        ),
+    });
   };
   for (const f of arrivals.forwarded) {
     const c = bySecret.get(`2:${f.secretHash.toLowerCase()}`);
