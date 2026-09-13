@@ -103,13 +103,37 @@ describe('the landing scan', () => {
     ) as [Arrived];
     const stored = landed(unanswered, dep, 3_000);
     expect(twinOf(stored, other, 4_000)).toMatchObject({
-      id: `${stored.id}:77`,
+      id: `${stored.id}:6:77`,
       inboxIndex: '77',
       state: 'deposited',
       l1TxHash: '0xd9',
     });
     expect(twinOf(stored, dep, 4_000)).toBeUndefined();
     expect(twinOf(unanswered, other, 4_000)).toBeUndefined();
+    // A held send's amount was fixed at its burn: a forwarded message of another amount under its
+    // index is another device's send, left where it is and given its own row.
+    const held: Crossing = {
+      ...(found[0] as Crossing),
+      state: 'held',
+      inboxIndex: undefined,
+      target: undefined,
+      l1TxHash: undefined,
+    };
+    expect(landed(held, send, 5_000)).toMatchObject({ state: 'forwarded', inboxIndex: '41' });
+    const [nine] = matchArrivals(
+      {
+        forwarded: [{ ...arrivals.forwarded[0], amount: 9n, inboxIndex: 52n, txHash: '0xf9' } as never],
+        deposited: [],
+      },
+      candidates,
+      here,
+    ) as [Arrived];
+    expect(landed(held, nine, 5_000)).toBe(held);
+    expect(twinOf(held, nine, 5_000)).toMatchObject({
+      id: `${held.id}:6:52`,
+      amount: '9',
+      state: 'forwarded',
+    });
     // A send forwarded into another version is not an arrival here.
     const elsewhere = matchArrivals(arrivals, candidates, { ...here, current: 7n });
     expect(elsewhere.map((a) => a.crossing(1).kind)).toEqual([3]);

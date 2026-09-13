@@ -1,6 +1,6 @@
 // The Ethereum side from the page: wagmi's injected connector with EIP-6963 discovery (every
 // installed wallet by name and icon, no WalletConnect) over the hoisted viem, the four writes a
-// holder makes (approve + deposit, forward, redeem, note a transition), and the portal's reads over
+// holder makes (deposit, forward, redeem, note a transition), and the portal's reads over
 // the RPC in use, which need no wallet at all. Gas comes from the injected wallet; the redeem key's
 // signatures are made in `flows.ts`, never by the wallet.
 import { type Chain, type ContractFunctionArgs, defineChain, type Hex, parseEventLogs } from 'viem';

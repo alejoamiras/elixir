@@ -86,10 +86,9 @@ export function parseCrossing(raw: unknown, where: string): Crossing {
   };
   c.id = crossingId(c);
   optionalFields(o, c, num);
-  // A twin (a second message under one index) is keyed by its message: the only other id allowed.
-  const twin = c.inboxIndex === undefined ? undefined : `${c.id}:${c.inboxIndex}`;
-  if (o.id !== undefined && o.id !== c.id && o.id !== twin) fail(where, `id ${String(o.id)} is not ${c.id}`);
-  if (o.id === twin) c.id = twin as string;
+  // A twin (another message under one index) keeps the id its message gave it: the crossing's id, then a suffix.
+  if (typeof o.id === 'string' && o.id.startsWith(`${c.id}:`)) c.id = o.id;
+  else if (o.id !== undefined && o.id !== c.id) fail(where, `id ${String(o.id)} is not ${c.id}`);
   if (o.witness !== undefined) {
     const w = parseArchivedExit(o.witness, `${where}.witness`) as ArchivedExit;
     if (!describes(w, c)) fail(where, 'witness does not describe this crossing');

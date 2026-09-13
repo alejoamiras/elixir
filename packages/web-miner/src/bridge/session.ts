@@ -300,10 +300,14 @@ export class BridgeSession {
         this.servesVersion(c) ? (await this.epochOfBlock(block)).toString() : undefined,
       proofDeadline: async (c, epoch) => proofDeadline(await this.rollupFor(c.version), epoch),
       // A block settles with its checkpoint; the epoch's number alone says a proof of the epoch began to land.
-      epochProven: async (c, epoch) =>
-        this.servesVersion(c) && c.block !== undefined
-          ? checkpointProven(await this.rollupFor(c.version), await this.checkpointOfBlock(c.block))
-          : epochProven(await this.rollupFor(c.version), epoch),
+      epochProven: async (c, epoch) => {
+        const rollup = await this.rollupFor(c.version);
+        if (!this.servesVersion(c) || c.block === undefined) return epochProven(rollup, epoch);
+        const checkpoint = await this.checkpointOfBlock(c.block, c.txHash);
+        // A transaction the node no longer holds is not proven whatever the epoch says: the deadline names what it was.
+        if (checkpoint === 'gone') return false;
+        return checkpoint === 'unknown' ? epochProven(rollup, epoch) : checkpointProven(rollup, checkpoint);
+      },
       witness: async (c) => {
         if (!this.servesVersion(c)) return this.archivedWitness(c);
         const exit = await this.recordedExit(c);
@@ -393,10 +397,20 @@ export class BridgeSession {
     return BigInt(getEpochAtSlot(b.header.globalVariables.slotNumber, { epochDuration }));
   }
 
-  /** The checkpoint a block was proposed in: what the rollup's proof covers, one checkpoint at a time. */
-  private async checkpointOfBlock(block: number): Promise<bigint> {
+  /**
+   * The checkpoint a block was proposed in, what the rollup's proof covers one checkpoint at a
+   * time; `gone` when the node no longer holds the transaction there (pruned, or reorganised out),
+   * `unknown` when it has nothing to say yet (behind, or a claim without its hash).
+   */
+  private async checkpointOfBlock(block: number, txHash?: string): Promise<bigint | 'gone' | 'unknown'> {
+    if (txHash) {
+      const r = await this.d.node.getTxReceipt(TxHash.fromString(txHash));
+      if (r.status === 'dropped') return 'gone';
+      if (r.blockNumber === undefined || Number(r.blockNumber) !== block)
+        return r.status === 'pending' ? 'unknown' : 'gone';
+    }
     const b = await this.d.node.getBlock(block as never);
-    if (!b) throw new Error(`block ${block} is not on this node`);
+    if (!b) return 'unknown';
     return BigInt((b as unknown as { checkpointNumber: bigint | number }).checkpointNumber);
   }
 
@@ -504,10 +518,10 @@ export class BridgeSession {
       }
       // The block the nullifier is in now: a claim made again after a pruning has a newer one.
       const block = claimed.block;
-      const settled = await checkpointProven(
-        await this.rollupFor(this.ctx.version.toString()),
-        await this.checkpointOfBlock(block),
-      );
+      const checkpoint = await this.checkpointOfBlock(block, c.claimTxHash || undefined);
+      const settled =
+        typeof checkpoint === 'bigint' &&
+        (await checkpointProven(await this.rollupFor(this.ctx.version.toString()), checkpoint));
       if (settled || c.claimBlock !== block)
         await this.journal.update(c.id, (stored) =>
           stored.state === 'minted-l2'
@@ -533,9 +547,10 @@ export class BridgeSession {
 
   /**
    * Send-aheads forwarded here from earlier versions and deposits into this one, as cards with a
-   * Claim; window after window of indices past every index this account is known to have used
-   * (exits arrive nowhere, so a silent window alone proves nothing) and until one answers nothing.
-   * Each arrival is applied to the record as stored, in the transaction that reserves its index.
+   * Claim: windows of indices up to the scan's bound (this version's chain names the account's
+   * last index, an earlier version's cannot), each arrival applied to the record as stored, in the
+   * transaction that reserves its index; a message under an index another message holds gets its
+   * own row.
    */
   async landing(): Promise<void> {
     const versions = { sources: await this.sourceVersions(), current: this.ctx.version };
@@ -686,13 +701,33 @@ export class BridgeSession {
     for (const c of file.crossings) if (c.witness && c.kind !== 3) await this.verifyImported(c, c.kind);
     let restored = 0;
     for (const c of file.crossings) {
-      // A claim on another version's chain cannot be re-read here: the file's word stands for it.
-      const hint = c.state === 'minted-l2' && !this.landsHere(c) ? c : asHint(c);
-      const { added } = await this.journal.adopt(hint, (stored) => stored);
-      if (added) restored++;
+      // A claim on another version's chain cannot be re-read here: the file's word stands for it,
+      // once the portal's event agrees on where the send went and which message it became.
+      const hint =
+        c.state === 'minted-l2' && !this.landsHere(c) && (await this.forwardedAsSaid(c)) ? c : asHint(c);
+      if (await this.adoptImported(hint)) restored++;
     }
     await this.publishJournal();
     return restored;
+  }
+
+  /** A file's row the journal holds under another message (another device's send under the same index) gets its own row, keyed by its leaf. */
+  private async adoptImported(hint: Crossing): Promise<boolean> {
+    const { added, crossing } = await this.journal.adopt(hint, (stored) => stored);
+    if (added || hint.kind !== 2 || !hint.witness || crossing.amount === hint.amount) return added;
+    const twin = { ...hint, id: `${hint.id}:w:${hint.witness.epoch}:${hint.witness.leafIndex}` };
+    return (await this.journal.adopt(twin, (stored) => stored)).added;
+  }
+
+  private async forwardedAsSaid(c: Crossing): Promise<boolean> {
+    if (c.kind !== 2) return true;
+    if (!c.witness || c.target === undefined || c.inboxIndex === undefined) return false;
+    const f = await this.reader.forwarded(
+      BigInt(c.version),
+      BigInt(c.witness.epoch),
+      leafIdOf({ path: c.witness.path, leafIndex: BigInt(c.witness.leafIndex) }),
+    );
+    return f !== undefined && f.target.toString() === c.target && f.inboxIndex.toString() === c.inboxIndex;
   }
 
   private async verifyImported(c: Crossing, kind: 1 | 2): Promise<void> {

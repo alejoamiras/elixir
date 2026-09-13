@@ -83,7 +83,8 @@ a one-tap Claim).
   deadline prunes the epoch and the burn is undone onto V5; V5 keeps producing and settling after the flip only
   while its operators keep it running, without a lifetime signal; balances left on a stopped chain are lost.
 - **The path**: one card, one button (Send ahead, kept on the card while V5 holds anything), a one-tap Claim on the
-  arrival card at V6 sign-in; the card is the status; the flip card names the bet and shows V5's block and settled age;
+  arrival card at V6 sign-in; the card is the status; the flip card names the bet (its "block and settled age" was
+  not built: each crossing's card carries its own proof deadline instead — the cross-arc pass, `lessons/phase-11.md`);
   the old origin is one page; exceptions are one line and one link. Forwarding is by hand or by the user: the copy
   never promises a cadence (D22).
 

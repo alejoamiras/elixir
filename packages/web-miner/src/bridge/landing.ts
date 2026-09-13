@@ -4,7 +4,13 @@
 // against the portal's events. Nothing is claimed here: each is a card with a Claim on it.
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Hex } from 'viem';
-import { advance, type Crossing, crossingId, type Facts } from '../../../bridge/src/journal.ts';
+import {
+  advance,
+  type Crossing,
+  crossingId,
+  destinationOf,
+  type Facts,
+} from '../../../bridge/src/journal.ts';
 import { deriveCrossingSecrets } from '../../../bridge/src/secrets.ts';
 import type { PortalReader } from './eth.ts';
 import { SCAN_WINDOW } from './store.ts';
@@ -21,8 +27,8 @@ const hex32 = (v: { toString(): string }): Hex => v.toString() as Hex;
 
 /**
  * The secret hashes this master may have committed to: the `window` indices from `from` under
- * each earlier version (send-aheads) and under this one (deposits). A scan walks windows until one
- * answers nothing, as the exit scan does: an account's reservations do not stop at twenty.
+ * each earlier version (send-aheads) and under this one (deposits). The session walks windows up
+ * to its bound; only this version's chain can say where the account's indices end.
  */
 export async function arrivalCandidates(
   master: Uint8Array,
@@ -55,8 +61,25 @@ export interface Arrived {
   id: string;
   amount: bigint;
   fact: Arrival;
+  /** The version the message is in the Inbox of; with the Inbox index it names the message. */
+  destination: string;
   /** The record for a journal that does not hold it: created now, the event already applied. */
   crossing(now: number): Crossing;
+}
+
+const inboxOf = (a: Arrived): string =>
+  'forwarded' in a.fact ? a.fact.forwarded.inboxIndex : a.fact.deposited.inboxIndex;
+
+/**
+ * Whether the arrival is the message the stored row stands for. A row that knows its message (an
+ * Inbox index on a destination) is that message and no other; a send-ahead's amount was fixed at
+ * the burn, so another amount under its index is another device's send; a deposit still waiting
+ * on the wallet is whatever Ethereum answers for its index.
+ */
+export function sameMessage(stored: Crossing, a: Arrived): boolean {
+  if (stored.inboxIndex !== undefined)
+    return stored.inboxIndex === inboxOf(a) && destinationOf(stored) === a.destination;
+  return stored.kind !== 2 || stored.amount === a.amount.toString();
 }
 
 /** The states a record can be in before the portal's event reached it; a later one is not moved back. */
@@ -79,6 +102,7 @@ const BEFORE_ARRIVAL = new Set<Crossing['state']>([
  */
 export function landed(stored: Crossing | undefined, a: Arrived, now: number): Crossing {
   if (!stored) return a.crossing(now);
+  if (!sameMessage(stored, a)) return stored;
   // A deposit that gave itself up is revived by its event: Ethereum had it after all.
   const given = stored.kind === 3 && stored.state === 'dropped';
   if (!given && !BEFORE_ARRIVAL.has(stored.state)) return stored;
@@ -90,15 +114,14 @@ export function landed(stored: Crossing | undefined, a: Arrived, now: number): C
 }
 
 /**
- * A second message under an index the journal already holds for another message (two devices of one
+ * A message under an index the journal already holds for another message (two devices of one
  * account derived the same index): its own row, keyed by the message, so nothing that arrived is
- * hidden behind the first. Undefined when the arrival is the stored message, or not landed yet.
+ * hidden behind the first. Undefined when the arrival is the stored message.
  */
 export function twinOf(stored: Crossing, a: Arrived, now: number): Crossing | undefined {
-  const inbox = 'forwarded' in a.fact ? a.fact.forwarded.inboxIndex : a.fact.deposited.inboxIndex;
-  if (inbox === undefined || stored.inboxIndex === undefined || stored.inboxIndex === inbox) return undefined;
+  if (sameMessage(stored, a)) return undefined;
   const twin = a.crossing(now);
-  return { ...twin, id: `${twin.id}:${inbox}` };
+  return { ...twin, id: `${twin.id}:${a.destination}:${inboxOf(a)}` };
 }
 
 /** The candidates the portal's events answer. Only sends into `current` are arrivals here. */
@@ -122,6 +145,7 @@ export function matchArrivals(
       id,
       amount,
       fact,
+      destination: 'forwarded' in fact ? fact.forwarded.target : c.version.toString(),
       crossing: (now) =>
         advance(
           {

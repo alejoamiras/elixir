@@ -240,8 +240,8 @@ const givenUp = (ctx: BridgeContext, id: string) =>
   );
 
 /**
- * K3: two wallet transactions on Ethereum; the crossing is recorded before the first, under an
- * index of its own every time. A deposit the wallet never answered is never sent again under the
+ * K3: one wallet transaction on Ethereum; the crossing is recorded before it, under an index of
+ * its own every time. A deposit the wallet never answered is never sent again under the
  * same secret — the wallet may have sent it after all — so the page cannot tell one message from
  * two. One the wallet refused is given up at once; one left open (`resumes`) is given up the
  * moment its replacement is sent; any other waits for Ethereum's event or gives itself up later.

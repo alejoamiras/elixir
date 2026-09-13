@@ -75,6 +75,19 @@ Astra, the 344-file diff saved beside it and the seams named in the prompt.
   coverage table corrected (the continuation's carry-over is unit-tested and not yet exercised end to end),
   `status.ts` on `portalReader`, the comments. Not taken: the migration card's "block and settlement ages"
   (not in the plan; each crossing's card already carries its own proof deadline).
+- **Round 2** (`response-1.md`, four findings, all verified): a twin was decided after `landed()` had already
+  taken the other message's Inbox index (a held 7-token send took a 9-token message under its index), and Inbox
+  indices repeat across rollups; a pruned block made the checkpoint read throw before the deadline check could
+  say the burn was undone; a file could mark a held send `minted-l2` on another version and have it believed;
+  four comments and the plan's "block and settled age" promise. Applied: `sameMessage` (a row with a message
+  is that message on that destination; a send's amount is fixed at its burn; a waiting deposit is whatever
+  Ethereum answers) decides both `landed` and `twinOf`, twin ids carry the destination, a colliding held row in
+  a file gets a row keyed by its leaf, the recovery file accepts any suffix after the crossing's id;
+  `checkpointOfBlock` reports `gone` (the receipt dropped or in another block) and `unknown` (the node behind),
+  and `gone` is never proven whatever the epoch says; an imported "minted elsewhere" send is believed only
+  when the portal's `Forwarded` event agrees on the target and the message, else it comes in as a hint; the
+  comments and the plan line corrected (the ages were not built; the crossing's proof deadline stands in).
+  The miner's `bridge` shard ran green on the one-transaction deposit (proverless, 97 s).
 
 ## Findings the rehearsal made
 
