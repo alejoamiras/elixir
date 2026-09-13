@@ -505,11 +505,15 @@ export class BridgeSession {
     return this.after(() => exitToL1(this.ctx, amount, recipient));
   }
   /** Refused when the portal routes this version's deposits to a miner other than this build's. */
-  async deposit(amount: bigint, onStep?: (step: 'approve' | 'deposit') => void): Promise<Crossing> {
+  async deposit(
+    amount: bigint,
+    onStep?: (step: 'approve' | 'deposit') => void,
+    resumes?: Crossing,
+  ): Promise<Crossing> {
     return this.after(async () => {
       await this.registeredHere(this.ctx.version, 'deposits');
       const deadline = (await this.l1Now()) + 3600n;
-      return deposit(this.ctx, this.config, amount, deadline, onStep);
+      return deposit(this.ctx, this.config, amount, deadline, onStep, resumes);
     });
   }
   async claim(c: Crossing): Promise<Crossing> {

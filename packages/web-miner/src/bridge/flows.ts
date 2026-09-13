@@ -11,7 +11,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { Tag } from '@aztec/stdlib/logs';
 import { TxExecutionResult, type TxHash, TxStatus } from '@aztec/stdlib/tx';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
-import type { Hex } from 'viem';
+import { BaseError, type Hex, UserRejectedRequestError } from 'viem';
 import { claimLeaf } from '../../../bridge/src/inbox.ts';
 import { advance, type Crossing, type CrossingKind, crossingId } from '../../../bridge/src/journal.ts';
 import type { OperationQueue } from '../../../bridge/src/queue.ts';
@@ -228,11 +228,24 @@ export function claimArrival(ctx: BridgeContext, c: Crossing, timeoutSeconds = 6
   });
 }
 
+/** The wallet said no: nothing was sent. Anything else (a timeout, a closed prompt) leaves that unknown. */
+const refusedByWallet = (e: unknown): boolean =>
+  e instanceof BaseError && e.walk((x) => x instanceof UserRejectedRequestError) !== null;
+
+/** A record given up: final, yet the landing scan revives it should Ethereum have its event after all. */
+const givenUp = (ctx: BridgeContext, id: string) =>
+  ctx.store.update(id, (x) =>
+    x.state === 'proving' && !x.l1TxHash
+      ? { ...x, state: 'dropped', updatedAt: ctx.now?.() ?? Date.now() }
+      : x,
+  );
+
 /**
  * K3: two wallet transactions on Ethereum; the crossing is recorded before the first, under an
  * index of its own every time. A deposit the wallet never answered is never sent again under the
  * same secret — the wallet may have sent it after all — so the page cannot tell one message from
- * two; its record waits for Ethereum's event or gives itself up after the deposit's deadline.
+ * two. One the wallet refused is given up at once; one left open (`resumes`) is given up the
+ * moment its replacement is sent; any other waits for Ethereum's event or gives itself up later.
  */
 export function deposit(
   ctx: BridgeContext,
@@ -240,6 +253,7 @@ export function deposit(
   amount: bigint,
   deadline: bigint,
   onStep?: (step: 'approve' | 'deposit') => void,
+  resumes?: Crossing,
 ): Promise<Crossing> {
   return guarded(ctx, async () => {
     const c = await ctx.store.create(
@@ -248,6 +262,7 @@ export function deposit(
       (index) => fresh(ctx, 3, index, amount, `0x${'00'.repeat(20)}`),
     );
     const secrets = await secretsFor(ctx, c.index);
+    let sent = false;
     const done = await depositOnEthereum(
       config,
       {
@@ -260,13 +275,18 @@ export function deposit(
       },
       onStep,
       async (txHash) => {
+        sent = true;
         await ctx.store.update(c.id, (x) => ({
           ...x,
           l1TxHash: txHash,
           updatedAt: ctx.now?.() ?? Date.now(),
         }));
+        if (resumes) await givenUp(ctx, resumes.id);
       },
-    );
+    ).catch(async (e: unknown) => {
+      if (!sent && refusedByWallet(e)) await givenUp(ctx, c.id);
+      throw e;
+    });
     return ctx.store.update(c.id, (x) =>
       advance(x, {
         now: ctx.now?.() ?? Date.now(),

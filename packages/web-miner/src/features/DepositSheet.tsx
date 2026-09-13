@@ -113,7 +113,7 @@ export function DepositSheet({
   session: Session;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** A deposit the wallet never answered: its amount comes prefilled; the same index goes out again. */
+  /** A deposit the wallet never answered: its amount comes prefilled; a new one goes out and this one is given up. */
   resume?: Crossing;
 }) {
   const account = useAccount();
@@ -135,7 +135,7 @@ export function DepositSheet({
       // The Ethereum balance is the wallet's to know; the portal refuses more than it holds.
       const { amount } = reviewAmount(text, (1n << 128n) - 1n, PARAMS.DECIMALS);
       setStep({ kind: 'approve' });
-      await session.bridge?.deposit(amount, (s) => setStep({ kind: s }));
+      await session.bridge?.deposit(amount, (s) => setStep({ kind: s }), resume);
       setStep({ kind: 'done' });
     } catch (e) {
       setStep({ kind: 'form' });

@@ -109,7 +109,8 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   await l1.setAccount(bridge.holderKey as Hex);
   await expect(page.getByTestId('eth-account')).toContainText(short(l1.address));
 
-  // The deposit goes out under the same crossing: an approval, the deposit, the Deposited event.
+  // The deposit goes out under a crossing of its own — the refused one was given up at once, the one
+  // left open is given up as this one is sent — an approval, the deposit, the Deposited event.
   await page.getByTestId('deposit-go').click();
   await expect(page.getByTestId('deposit-done')).toBeVisible({ timeout: 2 * 60_000 });
   expect(l1.calls('eth_sendTransaction')).toBe(4);
