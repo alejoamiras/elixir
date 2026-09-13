@@ -101,6 +101,13 @@ Astra, the 344-file diff saved beside it and the seams named in the prompt.
   round 3's response as the pass's last word, with these three fixes on top of it. Still open, as codex
   listed: the public-testnet flip and the K2's landing, and the continuation carry-over end to end.
 
+## The final tree, before the stack
+
+At `0f7dc9e`: lint, actionlint, shellcheck, every typecheck, `bun test` (the packages), every Vitest suite, the
+miner's `bridge` shard (proverless), and the rig's `browser` (3/3 across a real flip: the recovery file's
+witnesses now folded to V5's Outbox root with V5's miner, the archive read on V6), `migration` (H3 · H4 · H6 ·
+H11 on the refactored `status` reads) and `deposit` (H2) cases, all green.
+
 ## Findings the rehearsal made
 
 - A production build refuses the example claim of another deployment: the 2026-09-05 claim had to move aside
