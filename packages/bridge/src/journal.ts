@@ -217,6 +217,10 @@ export function advance(c: Crossing, f: Facts): Crossing {
   return next;
 }
 
+/** The version a crossing lands on and is claimed from: a deposit's own, a send-ahead's target; an exit lands on Ethereum. */
+export const destinationOf = (c: Crossing): string | undefined =>
+  c.kind === 3 ? c.version : c.kind === 2 ? c.target : undefined;
+
 export const crossingId = (c: Pick<Crossing, 'chainId' | 'portal' | 'version' | 'kind' | 'index'>): string =>
   `${c.chainId}:${c.portal.toLowerCase()}:${c.version}:${c.kind}:${c.index}`;
 

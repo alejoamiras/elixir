@@ -205,8 +205,15 @@ describe('the arrival card', () => {
     const onResume = vi.fn();
     const claimable = crossing({ id: 'c', kind: 3, state: 'claimable', inboxIndex: '7' });
     const stuck = crossing({ id: 's', kind: 3, state: 'proving' });
+    // A send forwarded into V5 (this build) arrives here; one into V6, and a deposit into V4, land elsewhere.
     mount(<ArrivalCard session={session} onResume={onResume} />, (s) =>
-      s.set(journalAtom, [claimable, crossing({ id: 'f', kind: 2, state: 'forwarded', target: '6' }), stuck]),
+      s.set(journalAtom, [
+        claimable,
+        crossing({ id: 'f', kind: 2, version: '4', state: 'forwarded', target: '5' }),
+        crossing({ id: 'g', kind: 2, state: 'forwarded', target: '6' }),
+        crossing({ id: 'd4', kind: 3, version: '4', state: 'deposited', inboxIndex: '2' }),
+        stuck,
+      ]),
     );
     const buttons = screen.getAllByTestId('arrival-claim');
     expect(buttons.map((b) => b.textContent)).toEqual(['Claim', 'arrived']);

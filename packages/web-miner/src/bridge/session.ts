@@ -16,7 +16,7 @@ import { createPublicClient, type Hex, http, type PublicClient } from 'viem';
 import { epochProven, proofDeadline, type RollupReads, rollupReads } from '../../../bridge/src/deadline.ts';
 import { flipVerdict } from '../../../bridge/src/flip.ts';
 import { claimLeaf } from '../../../bridge/src/inbox.ts';
-import { advance, type Crossing, type Facts, inFlight } from '../../../bridge/src/journal.ts';
+import { advance, type Crossing, destinationOf, type Facts, inFlight } from '../../../bridge/src/journal.ts';
 import { OperationQueue } from '../../../bridge/src/queue.ts';
 import type { BridgeRecord } from '../../../bridge/src/record.ts';
 import { asHint, parseRecoveryFile, type RecoveryFile, recoveryFile } from '../../../bridge/src/recovery.ts';
@@ -281,7 +281,7 @@ export class BridgeSession {
 
   /** Whether the crossing's destination is this build's version: only its own node can see the claim. */
   private landsHere(c: Crossing): boolean {
-    const destination = c.kind === 3 ? c.version : c.kind === 2 ? c.target : undefined;
+    const destination = destinationOf(c);
     return destination !== undefined && BigInt(destination) === this.ctx.version;
   }
 
@@ -593,7 +593,9 @@ export class BridgeSession {
     }
     let restored = 0;
     for (const c of file.crossings) {
-      const { added } = await this.journal.adopt(asHint(c), (stored) => stored);
+      // A claim on another version's chain cannot be re-read here: the file's word stands for it.
+      const hint = c.state === 'minted-l2' && !this.landsHere(c) ? c : asHint(c);
+      const { added } = await this.journal.adopt(hint, (stored) => stored);
       if (added) restored++;
     }
     await this.publishJournal();

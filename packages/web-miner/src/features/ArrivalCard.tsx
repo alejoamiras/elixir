@@ -3,7 +3,7 @@
 // claims by itself.
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
-import type { Crossing } from '../../../bridge/src/journal.ts';
+import { type Crossing, destinationOf } from '../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { Button, Tile, TileHeader } from '../../../ui/src/index.ts';
 import { cardLine } from '../bridge/copy';
@@ -14,7 +14,9 @@ import { journalAtom, nowAtom } from '../state';
 const ARRIVING = new Set<Crossing['state']>(['forwarded', 'deposited', 'claimable']);
 
 /** Arriving, or a deposit whose wallet prompt was never answered (the page reloaded under it). */
-const shownHere = (c: Crossing): boolean => ARRIVING.has(c.state) || (c.kind === 3 && c.state === 'proving');
+const shownHere = (c: Crossing): boolean =>
+  destinationOf(c) === import.meta.env.VITE_ROLLUP_VERSION &&
+  (ARRIVING.has(c.state) || (c.kind === 3 && c.state === 'proving'));
 
 export function ArrivalCard({ session, onResume }: { session: Session; onResume?: (c: Crossing) => void }) {
   const journal = useAtomValue(journalAtom);
