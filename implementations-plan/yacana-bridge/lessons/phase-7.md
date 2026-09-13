@@ -74,6 +74,18 @@
   (another project's runs) and reported.
 - The Bash guard refuses heredocs and command substitutions in this worktree session; whole-file rewrites go through
   a Python script in the scratchpad.
+- The V6 stage's forward from the page reverted with `SignatureExpired(uint64)` (selector `0xfcd4a11f`, checked
+  with `cast sig`): the page dated the signature's expiry an hour after the device's clock, and the rig's chain —
+  warped through the proposal's windows and the flip — was hours ahead of it, so the portal saw an expired
+  signature at once. Every deadline the portal holds is measured against `block.timestamp`; the session now reads
+  the latest L1 block's timestamp (memoised two seconds, a refresh reads it once for every crossing) for the
+  forward's and the redeem's expiry, the deposit's deadline and the proof-deadline check. The unit facts test never
+  saw it because its clock was a stub; only a chain running ahead of the device shows the difference.
+- The flipped stage restored three crossings, not four: a fresh device's landing scan had already found the
+  deposit in the Inbox (as `deposited`, then `claimable` — the node cannot tell a claimed message from a waiting
+  one), and the import skipped every id the journal held. The file knew it was claimed. `supersedes` in the
+  recovery module lets the file's record replace the journal's only when the file's has ended and the journal's has
+  not; everything in flight is the chain's to refresh.
 
 ## Consults
 
