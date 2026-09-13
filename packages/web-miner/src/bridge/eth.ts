@@ -244,6 +244,9 @@ export const portalReader = (client: PublicClient, a: PortalAddresses) => {
         index,
       };
     },
+    /** The version at Registry index `index`. */
+    versionAt: (index: bigint) =>
+      client.readContract({ ...registry, functionName: 'getVersion', args: [index] }),
     /** Whether the portal has stamped Registry index `index`. */
     async transitionSeen(index: bigint): Promise<boolean> {
       return (await client.readContract({ ...portal, functionName: 'transitions', args: [index] })) !== 0n;

@@ -20,13 +20,18 @@ import type { FeeFor } from '../feePayer';
 import { depositOnEthereum, forwardOnEthereum, redeemOnEthereum, type WagmiConfig } from './eth.ts';
 import { type BridgeStore, scanNextIndex } from './store.ts';
 
-export interface BridgeContext {
-  node: AztecNode;
+/** The wallet and the contracts bound to it; read at every operation, so a rebuilt chain view is what sends. */
+export interface L2Handles {
   wallet: EmbeddedWallet;
-  from: AztecAddress;
   miner: Contract;
   token: Contract;
   fee: FeeFor;
+}
+
+export interface BridgeContext {
+  node: AztecNode;
+  l2: () => L2Handles;
+  from: AztecAddress;
   master: Uint8Array;
   chainId: bigint;
   /** This build's version: the source of a send-ahead or an exit, the destination of a claim. */
@@ -70,8 +75,9 @@ async function guarded<T>(ctx: BridgeContext, op: () => Promise<T>): Promise<T> 
 /** The burn the miner performs on the holder's behalf, authorised for this one call. */
 async function burnAuthwit(ctx: BridgeContext, amount: bigint) {
   const nonce = (await import('@aztec/aztec.js/fields')).Fr.random();
-  const call = await ctx.token.methods.burn_private(ctx.from, amount, nonce).getFunctionCall();
-  const witness = await ctx.wallet.createAuthWit(ctx.from, { caller: ctx.miner.address, call });
+  const { wallet, miner, token } = ctx.l2();
+  const call = await token.methods.burn_private(ctx.from, amount, nonce).getFunctionCall();
+  const witness = await wallet.createAuthWit(ctx.from, { caller: miner.address, call });
   return { nonce, witness };
 }
 
@@ -83,7 +89,7 @@ export const nextIndexFromChain = (ctx: BridgeContext): Promise<number> =>
       const s = await secretsFor(ctx, i);
       tags.push(new Tag(await exitLogTag(s.tag)), new Tag(await exitLogTag(s.secretHash)));
     }
-    const logs = await ctx.node.getPublicLogsByTags({ contractAddress: ctx.miner.address, tags });
+    const logs = await ctx.node.getPublicLogsByTags({ contractAddress: ctx.l2().miner.address, tags });
     return indices.map((_, i) => (logs[2 * i]?.length ?? 0) > 0 || (logs[2 * i + 1]?.length ?? 0) > 0);
   });
 
@@ -134,10 +140,11 @@ export function sendAhead(ctx: BridgeContext, amount: bigint): Promise<Crossing>
     const secrets = await secretsFor(ctx, c.index);
     await ctx.store.update(c.id, (x) => ({ ...x, ethAddress: secrets.redeemAddress.toString() as Hex }));
     const { nonce, witness } = await burnAuthwit(ctx, amount);
+    const { miner, fee } = ctx.l2();
     return sendRecorded(ctx, c, () =>
-      ctx.miner.methods
+      miner.methods
         .send_ahead(amount, secrets.secretHash, secrets.redeemAddress, nonce)
-        .send({ from: ctx.from, fee: ctx.fee as never, authWitnesses: [witness], wait: WAIT }),
+        .send({ from: ctx.from, fee: fee as never, authWitnesses: [witness], wait: WAIT }),
     );
   });
 }
@@ -152,10 +159,11 @@ export function exitToL1(ctx: BridgeContext, amount: bigint, recipient: Hex): Pr
     );
     const secrets = await secretsFor(ctx, c.index);
     const { nonce, witness } = await burnAuthwit(ctx, amount);
+    const { miner, fee } = ctx.l2();
     return sendRecorded(ctx, c, () =>
-      ctx.miner.methods
+      miner.methods
         .exit_to_l1(amount, EthAddress.fromString(recipient), secrets.tag, nonce)
-        .send({ from: ctx.from, fee: ctx.fee as never, authWitnesses: [witness], wait: WAIT }),
+        .send({ from: ctx.from, fee: fee as never, authWitnesses: [witness], wait: WAIT }),
     );
   });
 }
@@ -165,11 +173,12 @@ export function claimArrival(ctx: BridgeContext, c: Crossing, timeoutSeconds = 6
   return guarded(ctx, async () => {
     if (!c.inboxIndex) throw new Error('nothing to claim: the crossing has no Inbox message yet');
     const secrets = await secretsFor(ctx, c.index, BigInt(c.version));
+    const { miner, fee } = ctx.l2();
     const leaf = claimLeaf(
       {
         chainId: ctx.chainId,
         rollupVersion: ctx.version,
-        miner: ctx.miner.address,
+        miner: miner.address,
         portal: EthAddress.fromString(ctx.portal),
       },
       BigInt(c.amount),
@@ -177,9 +186,9 @@ export function claimArrival(ctx: BridgeContext, c: Crossing, timeoutSeconds = 6
       BigInt(c.inboxIndex),
     );
     await waitForL1ToL2MessageReady(ctx.node, leaf, { timeoutSeconds });
-    const { receipt } = await ctx.miner.methods
+    const { receipt } = await miner.methods
       .claim_from_l1(BigInt(c.amount), secrets.secret, ctx.from, BigInt(c.inboxIndex))
-      .send({ from: ctx.from, fee: ctx.fee as never, wait: WAIT });
+      .send({ from: ctx.from, fee: fee as never, wait: WAIT });
     return ctx.store.update(c.id, (x) =>
       advance(x, {
         now: ctx.now?.() ?? Date.now(),
@@ -189,20 +198,29 @@ export function claimArrival(ctx: BridgeContext, c: Crossing, timeoutSeconds = 6
   });
 }
 
-/** K3: two wallet transactions on Ethereum; the crossing is recorded before the first. */
+/**
+ * K3: two wallet transactions on Ethereum; the crossing is recorded before the first. `resume` is a
+ * deposit the wallet never answered (its prompt left open, the page reloaded): the same index and
+ * secret go out again rather than a new reservation.
+ */
 export function deposit(
   ctx: BridgeContext,
   config: WagmiConfig,
   amount: bigint,
   deadline: bigint,
   onStep?: (step: 'approve' | 'deposit') => void,
+  resume?: Crossing,
 ): Promise<Crossing> {
   return guarded(ctx, async () => {
-    const c = await ctx.store.create(
-      ctx.version.toString(),
-      () => nextIndexFromChain(ctx),
-      (index) => ({ ...fresh(ctx, 1, index, amount, `0x${'00'.repeat(20)}`), kind: 3 }),
-    );
+    if (resume && (resume.kind !== 3 || resume.state !== 'proving'))
+      throw new Error('only a deposit the wallet never answered can be sent again');
+    const c =
+      resume ??
+      (await ctx.store.create(
+        ctx.version.toString(),
+        () => nextIndexFromChain(ctx),
+        (index) => ({ ...fresh(ctx, 1, index, amount, `0x${'00'.repeat(20)}`), kind: 3 }),
+      ));
     const secrets = await secretsFor(ctx, c.index);
     const done = await depositOnEthereum(
       config,
