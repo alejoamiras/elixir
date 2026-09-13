@@ -164,8 +164,9 @@ test('first visit creates an account, mines at the easy target, claims and shows
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
   expect(await page.getByTestId('account').getAttribute('title')).toBe(account);
   await expect(page.getByTestId('balance')).toHaveText(String(4 * minted));
+  // The claims history is this device's, restored under the account: the next claim adds to it.
   await page.getByTestId('start').click();
-  await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
+  await expect(page.getByTestId('claims')).toHaveText(String(minted + 1), { timeout: 10 * 60_000 });
   // The claim's own balance read can land before this visit's PXE has synced the new note; the poll
   // publishes it a few reads later. On a slow machine that is minutes, not the default's one minute.
   await expect(page.getByTestId('balance')).toHaveText(String(4 * (minted + 1)), { timeout: 5 * 60_000 });

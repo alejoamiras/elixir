@@ -86,6 +86,11 @@
   one), and the import skipped every id the journal held. The file knew it was claimed. `supersedes` in the
   recovery module lets the file's record replace the journal's only when the file's has ended and the journal's has
   not; everything in flight is the chain's to refresh.
+- The first-visit spec's second visit expected the claims counter at "1" after Start: the counter is this
+  device's claims history, restored from `localStorage` under the deployment and the account, so it opens at what
+  the first visit minted and the next claim adds one. With Presto beside the run the easy target mints a claim
+  every twenty seconds or so, so the first visit now holds three by the time Stop lands where it used to hold one
+  — the "1" was the restored count all along. The spec now expects `minted + 1`.
 
 ## Consults
 
