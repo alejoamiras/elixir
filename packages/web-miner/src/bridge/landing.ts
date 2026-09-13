@@ -79,8 +79,13 @@ const BEFORE_ARRIVAL = new Set<Crossing['state']>([
  */
 export function landed(stored: Crossing | undefined, a: Arrived, now: number): Crossing {
   if (!stored) return a.crossing(now);
-  if (!BEFORE_ARRIVAL.has(stored.state)) return stored;
-  const record = stored.state === 'proving' ? { ...stored, amount: a.amount.toString() } : stored;
+  // A deposit that gave itself up is revived by its event: Ethereum had it after all.
+  const given = stored.kind === 3 && stored.state === 'dropped';
+  if (!given && !BEFORE_ARRIVAL.has(stored.state)) return stored;
+  const record =
+    stored.state === 'proving' || given
+      ? { ...stored, state: 'proving' as const, amount: a.amount.toString() }
+      : stored;
   return advance(record, { now, ...a.fact });
 }
 

@@ -204,6 +204,9 @@ export function advance(c: Crossing, f: Facts): Crossing {
     next = afterTx(next, f);
     next = afterEpoch(next, f);
     next = onPortal(next, f);
+  } else if (f.tx?.status === 'dropped' && next.state === 'proving') {
+    // A deposit the wallet never sent, or Ethereum never included before its deadline.
+    next = at(next, 'dropped', f.now);
   }
   next = afterEthereum(next, f);
   next = afterDestination(next, f);

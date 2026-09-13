@@ -37,9 +37,12 @@ const LINES: Record<CrossingState, Line> = {
         }
       : { word: 'proving', sentence: 'Proving in your browser, about 20 s.', tone: 'busy' },
   sent: () => ({ word: 'sent', sentence: 'Sent. Waiting for a block.', tone: 'busy' }),
-  dropped: () => ({
+  dropped: (c) => ({
     word: 'dropped',
-    sentence: 'The node never included it. Nothing left this account: send again.',
+    sentence:
+      c.kind === 3
+        ? 'Your wallet never sent it, or Ethereum never included it before its deadline. Nothing left your wallet: deposit again.'
+        : 'The node never included it. Nothing left this account: send again.',
     tone: 'warn',
     action: 'send-again',
   }),

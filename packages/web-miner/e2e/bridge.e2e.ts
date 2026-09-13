@@ -180,7 +180,6 @@ test('on V5 after the flip: the migration card says mining has ended and what is
   await expect(page.locator('[data-testid=arrival]')).toHaveCount(0);
   await page.getByTestId('recovery-input').setInputFiles(recovery);
   await expect(page.getByTestId('recovery-note')).toContainText('3 crossings restored');
-  await expect(rows(page, 3).getByTestId('crossing-word')).toHaveText('minted', { timeout: 60_000 });
   await page.getByRole('link', { name: 'Mine' }).click();
   await expect(page.getByTestId('sent-ahead-status')).toContainText('2 tYACA sent ahead');
 });

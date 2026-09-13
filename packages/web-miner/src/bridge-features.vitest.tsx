@@ -15,7 +15,7 @@ import { SendAheadSheet } from './features/SendAheadSheet';
 import { TakingLongDialog } from './features/TakingLongDialog';
 import { ToEthereumSheet } from './features/ToEthereumSheet';
 import type { Session } from './session';
-import { balanceAtom, bridgeAtom, journalAtom, nowAtom } from './state';
+import { type BridgeView, balanceAtom, bridgeAtom, journalAtom, nowAtom } from './state';
 
 const ONE = 10n ** BigInt(PARAMS.DECIMALS);
 const PORTAL = `0x${'ab'.repeat(20)}` as const;
@@ -166,8 +166,8 @@ describe('the bridge tile', () => {
     expect(screen.getByTestId('bridge-tile').textContent).toContain('exit headroom 500');
     // The Registry names V6. This V5 page still offers no forward of the held send-ahead — it lands on
     // V6, and only V6's page, whose record names the miner it must reach, lets the holder forward it.
-    const flipped = {
-      verdict: { kind: 'flipped', by: ['registry'] } as const,
+    const flipped: BridgeView = {
+      verdict: { kind: 'flipped', by: ['registry'] },
       standing,
       canonical: { version: 6n, index: 1n },
       readAt: NOW,

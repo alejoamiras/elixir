@@ -33,7 +33,7 @@ import { readBalanceSnapshot, saveBalanceSnapshot } from '../bridge/snapshot.ts'
 import type { Connection } from '../config';
 import { fingerprintOf } from '../keys/classes';
 import { type BridgeView, bridgeAtom, journalAtom } from '../state';
-import { migrationRecord, servedBuild, staleTab } from './env.ts';
+import { servedBuild, staleTab } from './env.ts';
 import { type PortalReader, portalReader, type WagmiConfig, wagmiConfigFor } from './eth.ts';
 import { type FactReads, factsFor } from './facts.ts';
 import {
@@ -71,6 +71,8 @@ const REFRESH_MS = 15_000;
 const L1_CLOCK_MS = 2_000;
 /** The portal's events are scanned again every so many refreshes: a forward by Yacana lands while the page is open. */
 const LANDING_EVERY = 4;
+/** One scan derives at most this many indices per version, whatever a file or a counter claims. */
+const MAX_LANDING_INDICES = 2_000;
 
 export class BridgeSession {
   readonly config: WagmiConfig;
@@ -317,9 +319,11 @@ export class BridgeSession {
   /** Lists the journal, reads the standing, scans arrivals once, then refreshes every 15 s. */
   async start(): Promise<void> {
     await this.publishJournal();
-    await this.landing().catch(() => {});
-    await this.refresh();
-    this.timer = setInterval(() => void this.refresh(), REFRESH_MS);
+    try {
+      await this.refresh();
+    } finally {
+      this.timer = setInterval(() => void this.refresh(), REFRESH_MS);
+    }
   }
 
   stop(): void {
@@ -402,31 +406,33 @@ export class BridgeSession {
    * again; one whose epoch is proven is settled and asked no more.
    */
   private async recheckClaim(c: Crossing, now: number): Promise<void> {
-    let claimed: Facts['claimed'];
     try {
-      claimed = await this.reads.claimed(c);
+      const claimed = await this.reads.claimed(c);
+      if (!claimed) {
+        // Absence means pruning only from a node that has reached the claim's block; a node behind it knows nothing yet.
+        if (c.claimBlock === undefined || (await this.d.node.getBlockNumber()) < c.claimBlock) return;
+        await this.journal.update(c.id, (stored) =>
+          stored.state === 'minted-l2'
+            ? { ...stored, state: 'claimable', claimTxHash: undefined, claimBlock: undefined, updatedAt: now }
+            : stored,
+        );
+        return;
+      }
+      // The block the nullifier is in now: a claim made again after a pruning has a newer one.
+      const block = claimed.block;
+      const settled = await epochProven(
+        await this.rollupFor(this.ctx.version.toString()),
+        await this.epochOfBlock(block),
+      );
+      if (settled || c.claimBlock !== block)
+        await this.journal.update(c.id, (stored) =>
+          stored.state === 'minted-l2'
+            ? { ...stored, claimBlock: block, ...(settled ? { claimSettled: true } : {}) }
+            : stored,
+        );
     } catch {
-      return;
+      /* the node or the RPC did not answer: the record keeps its state until they do */
     }
-    if (!claimed) {
-      await this.journal.update(c.id, (stored) =>
-        stored.state === 'minted-l2'
-          ? { ...stored, state: 'claimable', claimTxHash: undefined, claimBlock: undefined, updatedAt: now }
-          : stored,
-      );
-      return;
-    }
-    const block = c.claimBlock ?? claimed.block;
-    const settled = await epochProven(
-      await this.rollupFor(this.ctx.version.toString()),
-      await this.epochOfBlock(block),
-    );
-    if (settled || c.claimBlock === undefined)
-      await this.journal.update(c.id, (stored) =>
-        stored.state === 'minted-l2'
-          ? { ...stored, claimBlock: block, ...(settled ? { claimSettled: true } : {}) }
-          : stored,
-      );
   }
 
   private async minerRetired(): Promise<boolean | null> {
@@ -452,8 +458,8 @@ export class BridgeSession {
     const scope = { chainId: this.ctx.chainId, portal: EthAddress.fromString(this.ctx.portal) };
     const arrivals = await this.reader.arrivals();
     const now = this.d.now?.() ?? Date.now();
-    const floor = await this.indicesInUse(versions.current);
-    for (let from = 0; ; from += SCAN_WINDOW) {
+    const floor = await this.indicesInUse([...versions.sources, versions.current]);
+    for (let from = 0; from < MAX_LANDING_INDICES; from += SCAN_WINDOW) {
       const candidates = await arrivalCandidates(this.d.master, scope, versions, SCAN_WINDOW, from);
       const arrived = matchArrivals(arrivals, candidates, {
         chainId: this.d.record.chainId,
@@ -466,14 +472,19 @@ export class BridgeSession {
     await this.publishJournal();
   }
 
-  /** One past the highest index of `version` this device or the chain knows the account used. */
-  private async indicesInUse(version: bigint): Promise<number> {
-    const held = (await this.journal.list())
-      .filter((c) => BigInt(c.version) === version)
-      .reduce((max, c) => Math.max(max, c.index + 1), 0);
-    const reserved = (await this.journal.nextIndex(version.toString())) ?? 0;
-    const onChain = version === this.ctx.version ? await nextIndexFromChain(this.ctx).catch(() => 0) : 0;
-    return Math.max(held, reserved, onChain);
+  /** One past the highest index of any of `versions` this device or the chain knows the account used. */
+  private async indicesInUse(versions: bigint[]): Promise<number> {
+    const journal = await this.journal.list();
+    let floor = 0;
+    for (const version of versions) {
+      const held = journal
+        .filter((c) => BigInt(c.version) === version)
+        .reduce((max, c) => Math.max(max, c.index + 1), 0);
+      const reserved = (await this.journal.nextIndex(version.toString())) ?? 0;
+      const onChain = version === this.ctx.version ? await nextIndexFromChain(this.ctx).catch(() => 0) : 0;
+      floor = Math.max(floor, held, reserved, onChain);
+    }
+    return floor;
   }
 
   /** The Registry's versions before this one: where a send-ahead to here may have come from. */
@@ -506,8 +517,7 @@ export class BridgeSession {
   }
   /**
    * An exit goes to Ethereum. A send-ahead goes into the live version, which must be this build's
-   * — its record names the miner the portal must route to — and the announced one when a
-   * migration is announced; the old origin offers no forward.
+   * — its record names the miner the portal must route to; the old origin offers no forward.
    */
   async selfForward(c: Crossing): Promise<Crossing> {
     return this.after(async () => {
@@ -517,9 +527,6 @@ export class BridgeSession {
           throw new Error(
             'forward it from the live version’s page: this build is not the version it lands on',
           );
-        const announced = migrationRecord()?.toIndex;
-        if (announced !== undefined && canonical.index !== BigInt(announced))
-          throw new Error(`the live version is not the announced one (Registry index ${canonical.index})`);
         await this.registeredHere(canonical.version, 'send-aheads');
       }
       return selfForward(this.ctx, this.config, c, canonical.version);

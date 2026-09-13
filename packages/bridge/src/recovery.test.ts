@@ -66,16 +66,25 @@ describe('the recovery file', () => {
     );
   });
 
-  test('an ended state comes in as the state before it; the chain says again how it ended', () => {
+  test('an ended state comes in as the furthest state its fields can be read from; the chain says how it ended', () => {
     const hint = (state: Crossing['state'], patch: Partial<Crossing> = {}) =>
       asHint({ ...crossing, ...patch, state }).state;
     expect(hint('minted-l1')).toBe('witnessed');
     expect(hint('closed', { witness: undefined })).toBe('proven-pending');
-    expect(hint('never-proven')).toBe('proven-pending');
-    expect(hint('dropped', { txHash: undefined })).toBe('proving');
+    expect(hint('closed', { witness: undefined, epoch: undefined })).toBe('sent');
+    expect(hint('closed', { witness: undefined, epoch: undefined, txHash: undefined })).toBe('proving');
+    expect(hint('never-proven')).toBe('witnessed');
+    expect(hint('dropped', { witness: undefined, epoch: undefined, txHash: undefined })).toBe('proving');
     expect(hint('minted-l2', { kind: 3, inboxIndex: '4' })).toBe('deposited');
-    expect(hint('minted-l2')).toBe('forwarded');
+    expect(hint('minted-l2', { kind: 3 })).toBe('proving');
+    expect(hint('minted-l2', { inboxIndex: '4', target: '6' })).toBe('forwarded');
+    expect(hint('minted-l2')).toBe('witnessed');
     expect(hint('held')).toBe('held');
     expect(asHint({ ...crossing, state: 'minted-l2', claimSettled: true }).claimSettled).toBeUndefined();
+    // An index sets how far a device scans: a file cannot send it past any account's reach.
+    const far = JSON.stringify(
+      recoveryFile(scope, [{ ...crossing, id: undefined, index: 2 ** 40 } as never]),
+    );
+    expect(() => parseRecoveryFile(far, { chainId: '31337', portal: PORTAL })).toThrow(/index past/);
   });
 });

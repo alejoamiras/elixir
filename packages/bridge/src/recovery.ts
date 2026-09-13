@@ -2,7 +2,7 @@
 // a device that lost its journal (or a browser that cleared it) restores the records and refreshes
 // their states from the chain. Nothing secret is in it: secrets re-derive from the master.
 import type { Hex } from 'viem';
-import { type Crossing, type CrossingState, crossingId } from './journal.ts';
+import { type Crossing, type CrossingState, crossingId, FINAL_STATES } from './journal.ts';
 import { type ArchivedExit, parseArchivedExit } from './witness.ts';
 
 export const RECOVERY_VERSION = 1;
@@ -50,6 +50,8 @@ const STATES: ReadonlySet<string> = new Set<CrossingState>([
 ]);
 const HEX20 = /^0x[0-9a-f]{40}$/i;
 const DECIMAL = /^(0|[1-9][0-9]*)$/;
+/** A file's index sets how far a device scans for arrivals; no account reaches this many crossings. */
+export const MAX_INDEX = 1_000_000;
 
 const fail = (where: string, what: string): never => {
   throw new Error(`${where}: ${what}`);
@@ -75,7 +77,7 @@ export function parseCrossing(raw: unknown, where: string): Crossing {
     chainId: str('chainId', DECIMAL),
     portal: str('portal', HEX20).toLowerCase() as Hex,
     version: str('version', DECIMAL),
-    index: num('index'),
+    index: num('index') <= MAX_INDEX ? num('index') : fail(where, `index past ${MAX_INDEX}`),
     amount: str('amount', DECIMAL),
     state: state as CrossingState,
     createdAt: num('createdAt'),
@@ -161,17 +163,19 @@ export function parseRecoveryFile(text: string, expected: { chainId: string; por
 }
 
 /**
- * A restored crossing's state is a hint, never a verdict: an ended state is imported as the state
- * before it, and the chain says again how it ended. A file cannot hide a live crossing that way.
+ * A restored crossing's state is a hint, never a verdict: an ended state is imported as the
+ * furthest state its own fields can be read from, and the chain says again how it ended. A file
+ * cannot hide a live crossing that way, and no record lands where no read moves it.
  */
 export function asHint(c: Crossing): Crossing {
-  const before: Partial<Record<CrossingState, CrossingState>> = {
-    dropped: c.txHash ? 'sent' : 'proving',
-    'never-proven': 'proven-pending',
-    closed: c.witness ? 'witnessed' : 'proven-pending',
-    'minted-l1': c.witness ? 'witnessed' : 'proven-pending',
-    'minted-l2': c.kind === 3 ? (c.inboxIndex ? 'deposited' : 'proving') : 'forwarded',
-  };
-  const state = before[c.state];
-  return state ? { ...c, state, claimSettled: undefined } : c;
+  if (!FINAL_STATES.has(c.state)) return c;
+  return { ...c, state: readableFrom(c), claimSettled: undefined };
 }
+
+const readableFrom = (c: Crossing): CrossingState => {
+  if (c.kind === 3) return c.inboxIndex ? 'deposited' : 'proving';
+  if (c.kind === 2 && c.inboxIndex && c.target) return 'forwarded';
+  if (c.witness) return 'witnessed';
+  if (c.epoch || c.block !== undefined) return 'proven-pending';
+  return c.txHash ? 'sent' : 'proving';
+};

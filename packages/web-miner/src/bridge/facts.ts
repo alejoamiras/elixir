@@ -35,9 +35,21 @@ const ON_PORTAL = new Set<Crossing['state']>([
 ]);
 const AT_DESTINATION = new Set<Crossing['state']>(['forwarded', 'deposited']);
 
+/**
+ * A deposit's own deadline is an hour; a record still waiting for the wallet this long after it
+ * was made cannot land any more — Ethereum refuses the transaction past the deadline — and gives
+ * itself up. The landing scan revives it should the event exist after all.
+ */
+export const DEPOSIT_GIVES_UP_MS = 2 * 3600 * 1000;
+
 /** A send without a hash is still asked about: the node may know it by its tag. A deposit's tale is Ethereum's. */
-const txFacts = async (reads: FactReads, c: Crossing, f: Facts): Promise<Facts> =>
-  c.txHash || c.kind !== 3 ? { ...f, tx: await reads.tx(c) } : f;
+const txFacts = async (reads: FactReads, c: Crossing, f: Facts): Promise<Facts> => {
+  if (c.kind === 3)
+    return c.state === 'proving' && f.now - c.createdAt > DEPOSIT_GIVES_UP_MS
+      ? { ...f, tx: { status: 'dropped' } }
+      : f;
+  return { ...f, tx: await reads.tx(c) };
+};
 
 /** The epoch's proof: its deadline, whether it landed, the witness once it has; pruned when the deadline passed without it. */
 async function epochFacts(reads: FactReads, c: Crossing, f: Facts): Promise<Facts> {
