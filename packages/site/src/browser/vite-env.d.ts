@@ -38,4 +38,6 @@ interface ImportMetaEnv {
   readonly VITE_MIGRATION: string;
   /** JSON of the record's portal block, or '' before the L1 deploy. */
   readonly VITE_BRIDGE: string;
+  /** The first epoch this miner has: '0', or a continuation's start. Every epoch read floors here. */
+  readonly VITE_FIRST_EPOCH: string;
 }

@@ -65,6 +65,20 @@ describe('the two beats', () => {
     expect(f.state.history?.rows.get(60)?.duration).toBeNull();
   });
 
+  test('a continuation reads nothing below its first epoch: the boot window and the poll floor there', async () => {
+    const f = fake(() => 30);
+    await bootBeats(f.reads, f.publish, 25);
+    expect(f.asked).toEqual([[25, 30]]);
+    expect(epochs(f.state.history)).toEqual([25, 26, 27, 28, 29, 30]);
+    await pollBeats(
+      f.reads,
+      f.publish,
+      { fixed: f.state.fixed as Fixed, history: f.state.history ?? null },
+      25,
+    );
+    expect(f.asked[1]).toEqual([29, 30]);
+  });
+
   test('a history read that fails still publishes beat one, and says so with no rows', async () => {
     const f = fake(() => 10, { failRows: true });
     await bootBeats(f.reads, f.publish);

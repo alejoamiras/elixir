@@ -218,6 +218,33 @@ describe('site config', () => {
     expect(() => appRoleFrom('legacy')).toThrow(/YACANA_APP_ROLE=/);
   });
 
+  test("a continuation's first epoch floors the apps' reads; a genesis starts at 0", () => {
+    const genesis = loadSiteConfig({ ...base, mode: 'production' });
+    expect(genesis.firstEpoch).toBe(0);
+    expect(viteDefine(genesis)['import.meta.env.VITE_FIRST_EPOCH']).toBe('"0"');
+    const continuation = {
+      firstEpoch: '7',
+      sourceSeed: '0x1',
+      sourceTarget: '5',
+      source: 'deployments/old.json',
+    };
+    const continued = loadSiteConfig({
+      ...base,
+      mode: 'production',
+      deployment: { ...deployment, continuation },
+    });
+    expect(continued.firstEpoch).toBe(7);
+    expect(viteDefine(continued)['import.meta.env.VITE_FIRST_EPOCH']).toBe('"7"');
+    // An e2e build may hand its own; production takes the record's whatever the environment says.
+    expect(loadSiteConfig({ ...base, mode: 'e2e', env: { VITE_FIRST_EPOCH: '3' } }).firstEpoch).toBe(3);
+    expect(loadSiteConfig({ ...base, mode: 'production', env: { VITE_FIRST_EPOCH: '3' } }).firstEpoch).toBe(
+      0,
+    );
+    expect(() => loadSiteConfig({ ...base, mode: 'e2e', env: { VITE_FIRST_EPOCH: 'x' } })).toThrow(
+      /first epoch/,
+    );
+  });
+
   test("the record's bridge and migration blocks travel as JSON; an e2e build may hand its own", () => {
     const bridge = {
       chainId: '11155111',

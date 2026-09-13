@@ -12,7 +12,7 @@ const table: SlotTable = {
 };
 const layout: StorageLayout = { open_epoch: { slot: new Fr(15) }, total_supply: { slot: new Fr(8) } };
 
-function fakeReader(open: number, opts: { failSlots?: boolean } = {}): Reader {
+function fakeReader(open: number, opts: { failSlots?: boolean; first?: number } = {}): Reader {
   const values = new Map<string, bigint>([
     [new Fr(15).toString(), BigInt(open)],
     [new Fr(8).toString(), 4n * 10n ** 18n * BigInt(open * 4)],
@@ -41,6 +41,7 @@ function fakeReader(open: number, opts: { failSlots?: boolean } = {}): Reader {
       if (opts.failSlots) throw new Error('slot chunk 0: 503');
       return table;
     },
+    first: opts.first ?? 0,
   };
 }
 
@@ -57,6 +58,12 @@ describe('readLive', () => {
     expect(live).toMatchObject({ open: 20, block: { number: 99 } });
     expect(live.historyError).toBeUndefined();
     expect(live.supply).toBe(4n * 10n ** 18n * 80n);
+  });
+
+  test('a continuation reads from its first epoch: nothing before it exists', async () => {
+    const live = await readLive(fakeReader(20, { first: 15 }));
+    expect(live.rows.map((r) => r.epoch)).toEqual([15, 16, 17, 18, 19, 20]);
+    expect(live.historyError).toBeUndefined();
   });
 
   test('a slot chunk that fails keeps the fixed slots and says why the rows are missing', async () => {

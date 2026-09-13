@@ -1,5 +1,6 @@
 // The window: 48 epochs the strip, the charts and the table show, `[from, from + 47]` clamped to
-// the chain; `?from=` names it, absent means the newest one, which follows the open epoch.
+// the chain; `?from=` names it, absent means the newest one, which follows the open epoch. The
+// chain begins at `first`: 0, or the epoch a continuation started at (it has none before).
 import { type EpochRow, linkRows } from '../../miner-core/src/reader.ts';
 
 /** Epochs per window: the strip's cells, the reader's page, one ‹ › step. */
@@ -11,27 +12,29 @@ export interface EpochWindow {
 }
 
 /** The newest window's first epoch. */
-export const newestFrom = (open: number): number => Math.max(0, open - WINDOW + 1);
+export const newestFrom = (open: number, first = 0): number => Math.max(first, open - WINDOW + 1);
 
 /** `[from, to]` for a `?from=` (null = the newest window), clamped so a window never overhangs either end. */
-export function windowFor(from: number | null, open: number): EpochWindow {
-  const start = from === null ? newestFrom(open) : Math.min(Math.max(0, from), newestFrom(open));
+export function windowFor(from: number | null, open: number, first = 0): EpochWindow {
+  const newest = newestFrom(open, first);
+  const start = from === null ? newest : Math.min(Math.max(first, from), newest);
   return { from: start, to: Math.min(open, start + WINDOW - 1) };
 }
 
 /** The `?from=` to write for `from`: null once it is the newest window, so the URL follows the open epoch again. */
-export const normaliseFrom = (from: number, open: number): number | null => {
-  const f = Math.min(Math.max(0, from), newestFrom(open));
-  return f === newestFrom(open) ? null : f;
+export const normaliseFrom = (from: number, open: number, first = 0): number | null => {
+  const newest = newestFrom(open, first);
+  const f = Math.min(Math.max(first, from), newest);
+  return f === newest ? null : f;
 };
 
-export const olderFrom = (w: EpochWindow, open: number): number | null =>
-  normaliseFrom(w.from - WINDOW, open);
-export const newerFrom = (w: EpochWindow, open: number): number | null =>
-  normaliseFrom(w.from + WINDOW, open);
+export const olderFrom = (w: EpochWindow, open: number, first = 0): number | null =>
+  normaliseFrom(w.from - WINDOW, open, first);
+export const newerFrom = (w: EpochWindow, open: number, first = 0): number | null =>
+  normaliseFrom(w.from + WINDOW, open, first);
 /** The window with `epoch` in its middle. */
-export const centredFrom = (epoch: number, open: number): number | null =>
-  normaliseFrom(epoch - Math.floor(WINDOW / 2), open);
+export const centredFrom = (epoch: number, open: number, first = 0): number | null =>
+  normaliseFrom(epoch - Math.floor(WINDOW / 2), open, first);
 
 /** Whether every epoch of `w` is held — with `to + 1` when the chain has it, so the last row closes. */
 export function windowHeld(rows: ReadonlyMap<number, EpochRow>, w: EpochWindow, open: number): boolean {

@@ -2,10 +2,13 @@
 // the day axis under it. A click centres the window on the epoch under the pointer; the box drags.
 import { memo, type PointerEvent as ReactPointerEvent, useCallback, useRef, useState } from 'react';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';
+import { firstEpoch } from '../../../site/src/browser/connection.ts';
 import { cn } from '../../../ui/src/index.ts';
 import { useWidth } from '../charts/plot';
 import { barsFor, dayTicks, epochAtX, MAP_HEIGHT, type Tone, thinTicks, windowBox } from '../map-geometry';
 import { centredFrom, newestFrom, normaliseFrom } from '../window';
+
+const FIRST = firstEpoch();
 
 const FILL: Record<Tone, string> = {
   harder: 'color-mix(in srgb, var(--uv) 50%, transparent)',
@@ -53,7 +56,7 @@ function useDragWindow(open: number, from: number, onWindow: (from: number | nul
       const s = start.current;
       if (!s || s.width <= 0) return;
       const cells = Math.round(((e.clientX - s.x) / s.width) * (open + 1));
-      move(Math.min(newestFrom(open), Math.max(0, s.from + cells)));
+      move(Math.min(newestFrom(open, FIRST), Math.max(FIRST, s.from + cells)));
     },
     [open, move],
   );
@@ -64,7 +67,7 @@ function useDragWindow(open: number, from: number, onWindow: (from: number | nul
       start.current = null;
       const f = liveRef.current;
       move(null);
-      if (f !== null && f !== from) onWindow(normaliseFrom(f, open));
+      if (f !== null && f !== from) onWindow(normaliseFrom(f, open, FIRST));
     },
     [from, open, onWindow, move],
   );
@@ -111,7 +114,7 @@ export const EpochMap = memo(function EpochMap({ rows, open, from, launchAt, onW
   const click = (e: ReactPointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     if (rect.width <= 0) return;
-    onWindow(centredFrom(epochAtX((e.clientX - rect.left) / rect.width, open), open));
+    onWindow(centredFrom(epochAtX((e.clientX - rect.left) / rect.width, open), open, FIRST));
   };
   return (
     <div ref={ref} className="flex flex-col" data-testid="epoch-map">
@@ -136,8 +139,8 @@ export const EpochMap = memo(function EpochMap({ rows, open, from, launchAt, onW
         <div
           role="slider"
           aria-label="the window on the map"
-          aria-valuemin={0}
-          aria-valuemax={newestFrom(open)}
+          aria-valuemin={FIRST}
+          aria-valuemax={newestFrom(open, FIRST)}
           aria-valuenow={drag.from}
           tabIndex={-1}
           data-testid="map-window"

@@ -24,7 +24,7 @@ const held = (epochs: number[]): History => ({
 const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
 
 /** A fill over a fake node: `asked` logs each page, the knobs stand in for the health store and the queue. */
-function fake(open: number, epochs: number[], opts: { fail?: boolean } = {}) {
+function fake(open: number, epochs: number[], opts: { fail?: boolean; first?: number } = {}) {
   const asked: [number, number][] = [];
   const states: FillState[] = [];
   let history = held(epochs);
@@ -47,6 +47,7 @@ function fake(open: number, epochs: number[], opts: { fail?: boolean } = {}) {
     },
     persist: () => {},
     onState: (s) => states.push(s),
+    ...(opts.first !== undefined && { first: opts.first }),
   };
   return {
     fill: createFill(deps),
@@ -109,6 +110,14 @@ describe('the history fill', () => {
     await done.fill.tick();
     expect(done.asked).toEqual([]);
     expect(done.fill.state().reason).toBe('complete');
+  });
+
+  test('a continuation is complete at its first epoch, not at 0', async () => {
+    const f = fake(60, range(30, 60), { first: 25 });
+    await f.fill.tick();
+    expect(f.asked).toEqual([[25, 29]]);
+    expect(f.fill.state()).toEqual({ phase: 'stopped', reason: 'complete', readTo: 25 });
+    expect(readTo(held(range(25, 40)).rows, 40, 25)).toBe(25);
   });
 
   test('stops for the visit on a throttle or a silence, before reading; a failed page stops it too', async () => {

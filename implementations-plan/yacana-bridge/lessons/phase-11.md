@@ -117,3 +117,26 @@ H11 on the refactored `status` reads) and `deposit` (H2) cases, all green.
   the config (`docs/deployments.md`), and the runbook's rehearsal note says so.
 - The unit test of the example claim compares a committed effect fixture with the committed record: both move
   together (`--keep-effect`).
+
+## After delivery: the owner's two exercises (2026-09-13)
+
+- **Pause and unpause on the live Sepolia portal** (`p12-pause.sh`): `pause 1821665230 600` → `status` reads
+  "paused until … (600s used)" → `unpause` 22 s later → "not paused (24s used)". The budget is charged for the
+  whole interval and refunded to the seconds actually paused; the deadline stayed open throughout.
+- **The runbook's continuation step against the live testnet record** (`p12-continuation.sh`, a throwaway
+  result, never registered on the portal): the live record copied as the source and moved aside,
+  `YACANA_CONTINUE_FROM` → miner `0x0ff5c01b…373c` in 80 s; the new record's `bridge` block byte-identical to
+  the source's, `continuation` = { firstEpoch 1, the source's seed and target }; on chain (`.localnet/
+  p12-check.ts`): open epoch 1, no epoch 0, the open epoch's target the source's, opened at launch. The live
+  record restored from its copy; the throwaway record kept in the session scratchpad only.
+- **Two findings, fixed here.** (1) Every epoch reader began at 0 — `epoch:stats`, the stats page's window,
+  beats and fill, the landing's strip — and a continuation has no epoch 0: `checkRow` threw "target 0 is not a
+  u128" on the throwaway's first read, and the apex's stats page would have done the same for the first 48
+  epochs after a real migration. The record's `continuation.firstEpoch` now reaches the apps as `firstEpoch`
+  (site config → `VITE_FIRST_EPOCH` → the connection) and every read floors there. (2) `bridge -- status` keys
+  on the rollup version and printed the live miner's registration for the throwaway's record; it now says
+  "miner mismatch" when the portal's miner for the version is not the record's (true of any same-rollup
+  redeploy; impossible after a real flip, where the continuation is on a new version).
+- Gates: lint, the four typechecks, `bun test` on site/deploy/web-stats/web-landing (153), Vitest (78 + 14);
+  `epoch:stats` on the throwaway prints epoch 1 open; `status` with `YACANA_RECORD` at the throwaway prints
+  the mismatch line.

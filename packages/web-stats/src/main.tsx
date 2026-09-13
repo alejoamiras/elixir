@@ -3,7 +3,7 @@ import './index.css';
 import { createStore, Provider } from 'jotai';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { expectedDeployment, loadConnection } from '../../site/src/browser/connection.ts';
+import { expectedDeployment, firstEpoch, loadConnection } from '../../site/src/browser/connection.ts';
 import { endpointFingerprint, quietNodeReads } from '../../site/src/browser/node-guard.ts';
 import { markRead, nodeHealth, startNodeHealth, waitTurn } from '../../site/src/browser/node-health.ts';
 import { ThemeProvider } from '../../ui/src/index.ts';
@@ -134,6 +134,7 @@ const fill = createFill({
   serial,
   persist,
   onState: (s) => store.set(fillAtom, s),
+  first: firstEpoch(),
 });
 
 /** The 30 s poll: a failure marks the node unreachable and keeps the last view; an answer clears it. */
@@ -141,7 +142,7 @@ const poll = coalesced(async () => {
   const fixed = store.get(fixedAtom);
   if (!reader || !fixed) return;
   try {
-    await pollBeats(reads(reader), publish, { fixed, history: store.get(historyAtom) });
+    await pollBeats(reads(reader), publish, { fixed, history: store.get(historyAtom) }, firstEpoch());
     if (store.get(statusAtom).phase === 'unreachable') store.set(statusAtom, { phase: 'ready' });
   } catch (e) {
     const status = store.get(statusAtom);
@@ -172,7 +173,7 @@ async function boot(): Promise<void> {
     store.set(statusAtom, { phase: 'loading', step: 'checking the deployment' });
     reader = await openReader(connection);
     store.set(statusAtom, { phase: 'loading', step: 'reading the chain' });
-    const fixed = await bootBeats(reads(reader), publish);
+    const fixed = await bootBeats(reads(reader), publish, firstEpoch());
     store.set(statusAtom, { phase: 'ready' });
     const history = store.get(historyAtom);
     if (history) persist(history, fixed.open);

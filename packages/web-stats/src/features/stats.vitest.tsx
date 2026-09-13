@@ -484,6 +484,7 @@ describe('the two beats on the page', () => {
             ethRpcUrl: 'http://rpc.test',
             miner: '0x1',
             token: '0x2',
+            firstEpoch: 0,
           }}
           onWindow={() => {}}
         />

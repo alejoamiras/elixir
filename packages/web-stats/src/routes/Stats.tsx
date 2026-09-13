@@ -1,6 +1,7 @@
 import { useAtomValue } from 'jotai';
 import { useCallback, useEffect, useMemo } from 'react';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
+import { firstEpoch } from '../../../site/src/browser/connection.ts';
 import {
   Alert,
   AlertDescription,
@@ -20,6 +21,8 @@ import { select, setFrom, useFrom, useSelected } from '../routes';
 import { fillAtom, fixedAtom, type History, historyAtom, nowAtom, rowsAtom } from '../state';
 import { type EpochWindow, windowFor, windowHeld, windowRowsOf } from '../window';
 
+const FIRST = firstEpoch();
+
 const RULES = {
   N: PARAMS.N,
   EXPECTED_EPOCH_SECONDS: PARAMS.EXPECTED_EPOCH_SECONDS,
@@ -38,7 +41,7 @@ function frame(history: History | null, win: EpochWindow | null, open: number | 
   return {
     held,
     rows: held ? windowRowsOf(history.rows, win) : null,
-    newest: windowRowsOf(history.rows, windowFor(null, open)),
+    newest: windowRowsOf(history.rows, windowFor(null, open, FIRST)),
   };
 }
 
@@ -60,7 +63,7 @@ export function Stats({ onWindow, nodeUrl }: { onWindow: (w: EpochWindow) => voi
   const onFrom = useCallback((f: number | null) => setFrom(f), []);
   const open = fixed?.open ?? null;
   // One object per window, so the fetch effect fires on a window change, not on every tick.
-  const win = useMemo(() => (open === null ? null : windowFor(from, open)), [from, open]);
+  const win = useMemo(() => (open === null ? null : windowFor(from, open, FIRST)), [from, open]);
   // Memoised with the window: the clock ticks every second and the charts must not redraw on each.
   const { held, rows, newest } = useMemo(() => frame(history, win, open), [history, win, open]);
   useEffect(() => {

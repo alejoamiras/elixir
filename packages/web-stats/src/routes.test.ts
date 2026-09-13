@@ -41,6 +41,15 @@ describe('the window over the chain', () => {
     expect(windowFor(null, 0)).toEqual({ from: 0, to: 0 });
   });
 
+  test('a continuation begins at its first epoch: no window, page or centre reaches below it', () => {
+    expect(windowFor(null, 30, 25)).toEqual({ from: 25, to: 30 });
+    expect(windowFor(3, 999, 25)).toEqual({ from: 25, to: 72 });
+    expect(olderFrom(windowFor(60, 999, 25), 999, 25)).toBe(25);
+    expect(olderFrom(windowFor(25, 999, 25), 999, 25)).toBe(25);
+    expect(centredFrom(30, 999, 25)).toBe(25);
+    expect(newerFrom(windowFor(920, 999, 25), 999, 25)).toBeNull();
+  });
+
   test('pages by 48 and writes null once it is the newest window again', () => {
     const w = windowFor(100, 999);
     expect(olderFrom(w, 999)).toBe(52);

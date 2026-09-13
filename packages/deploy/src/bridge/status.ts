@@ -26,8 +26,12 @@ export async function versionStatus(op: Operator, version: bigint): Promise<Vers
 /** Every version the portal has registered, in registration order. */
 export const registeredVersions = (op: Operator): Promise<bigint[]> => readerOf(op).registered();
 
-export const statusLines = (s: VersionStatus): string[] => [
+/** The lines for one version; `recordMiner` adds a warning when the portal registered another miner for it. */
+export const statusLines = (s: VersionStatus, recordMiner?: string): string[] => [
   `version ${s.version}: ${s.registered ? `registered (index ${s.registryIndex}, launch ${s.launchAt})` : 'not registered'}`,
+  ...(s.registered && recordMiner && s.miner.toLowerCase() !== recordMiner.toLowerCase()
+    ? [`  miner mismatch: the portal registered ${s.miner} for this version; the record names ${recordMiner}`]
+    : []),
   `  flip ${s.flipAt || '—'} · after next ${s.afterNextAt || '—'} · deadline ${s.deadline === (1n << 256n) - 1n ? 'open' : s.deadline}`,
   `  exited ${s.exited} · inbound ${s.inbound} · cap ${s.cap} · headroom ${s.headroom}`,
   `  ${s.paused ? `paused until ${s.pausedUntil}` : 'not paused'} (${s.pausedSeconds}s used) · retire ${s.retireSent ? 'sent' : 'not sent'} · deposits ${s.depositsClosed ? 'closed' : 'open'}`,

@@ -68,7 +68,9 @@ after the flip lands like any other once its epoch is proven (rig case H4). The 
    YACANA_PORTAL=<portal> AZTEC_NODE_URL=<V6 node> YACANA_DEPLOYER_SECRET=… bun run deploy`: the V6 miner as
    V5's continuation (it starts at the epoch V5 left off, with V5's last target), bound to the same portal,
    written to `deployments/testnet.json` with the `bridge` block carried from V5's record. The deploy refuses to
-   write over its own source, and refuses a source whose portal is not `YACANA_PORTAL`. Once a claim lands on
+   write over its own source, and refuses a source whose portal is not `YACANA_PORTAL`. The record's
+   `continuation.firstEpoch` is where every epoch read starts (the stats page, the landing's strip,
+   `epoch:stats`): a continuation has no epoch before it. Once a claim lands on
    V6, `AZTEC_NODE_URL=<V6 node> bun packages/deploy/scripts/record-example-claim.ts <txHash>` records the
    example claim the landing shows.
 7. `YACANA_RECORD=deployments/testnet.json bun run bridge -- register`: V6 on the portal, with its miner and the
