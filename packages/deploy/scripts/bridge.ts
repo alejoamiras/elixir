@@ -40,8 +40,11 @@ const op = await operatorFromEnv(PROFILE);
 switch (command) {
   case 'status': {
     const versions = args[0] ? [BigInt(args[0])] : await registeredVersions(op);
-    for (const v of versions)
-      for (const line of statusLines(await versionStatus(op, v), op.record.miner)) console.log(line);
+    // Only the record's own version is held to the record's miner: earlier versions had their own.
+    for (const v of versions) {
+      const mine = v === BigInt(op.record.rollupVersion) ? op.record.miner : undefined;
+      for (const line of statusLines(await versionStatus(op, v), mine)) console.log(line);
+    }
     break;
   }
   case 'register': {

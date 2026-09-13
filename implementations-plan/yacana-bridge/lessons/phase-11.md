@@ -140,3 +140,12 @@ H11 on the refactored `status` reads) and `deposit` (H2) cases, all green.
 - Gates: lint, the four typechecks, `bun test` on site/deploy/web-stats/web-landing (153), Vitest (78 + 14);
   `epoch:stats` on the throwaway prints epoch 1 open; `status` with `YACANA_RECORD` at the throwaway prints
   the mismatch line.
+- **Codex on the fix** (`/codex high`, session `01a09baf-4953-7431-990f-1008e6279dd3`, dir
+  `~/.cache/tmp/codex-n8plESW1/`). Round 1: five findings, all real and applied — the soak report still called
+  `epochStats` from 0; the map's cells, the drag's scaling and `epochAtX` still spanned `[0, open]`; the table
+  counted `open + 1`; the miner e2e's build env (the rig's V6 page) did not carry `VITE_FIRST_EPOCH`, so the
+  config fell back to the profile record's continuation; `status` held every registered version to the record's
+  miner (older versions had their own). Round 2 over the fixes: no blocking defect; one coverage ask, a
+  component-level case with a nonzero floor (`features/continuation.vitest.tsx`: the env stubbed before the
+  import, the strip's older button off at the floor, the map's `aria-valuemin`, the table's count). Left as is
+  on purpose: the history cache's row validation does not take the floor (the key already isolates the miner).

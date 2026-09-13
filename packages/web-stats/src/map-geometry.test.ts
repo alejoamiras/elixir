@@ -17,6 +17,18 @@ const row = (e: number, launch: number): EpochRow => ({
 const rows = (n: number, launch = 0) => linkRows(Array.from({ length: n }, (_, e) => row(e, launch)));
 
 describe('the map', () => {
+  test("a continuation's rail begins at its first epoch: cells, bars, the box and the pointer", () => {
+    expect(cellX(25, 30, 25)).toBe(0);
+    expect(cellW(30, 25)).toBeCloseTo(1 / 6);
+    expect(windowBox(25, 30, 25)).toEqual({ x: 0, w: 1 });
+    expect(epochAtX(0, 30, 25)).toBe(25);
+    expect(epochAtX(0.99, 30, 25)).toBe(30);
+    const bars = barsFor([row(25, 0), row(30, 0), row(3, 0)], 30, 25);
+    expect(bars.map((b) => b.epoch)).toEqual([25, 30]);
+    expect(bars.map((b) => b.x)).toEqual([0, 5 / 6]);
+    expect(dayTicks([row(25, 0), row(26, DAY)], 0, 30, 25).map((t) => t.x)).toEqual([0, 1 / 6, 1]);
+  });
+
   test('a bar sits at its absolute cell; a page arriving adds bars and moves none', () => {
     const open = 99;
     const all = barsFor(rows(100), open);

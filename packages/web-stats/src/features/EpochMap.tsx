@@ -55,7 +55,7 @@ function useDragWindow(open: number, from: number, onWindow: (from: number | nul
     (e: ReactPointerEvent<HTMLDivElement>) => {
       const s = start.current;
       if (!s || s.width <= 0) return;
-      const cells = Math.round(((e.clientX - s.x) / s.width) * (open + 1));
+      const cells = Math.round(((e.clientX - s.x) / s.width) * (open + 1 - FIRST));
       move(Math.min(newestFrom(open, FIRST), Math.max(FIRST, s.from + cells)));
     },
     [open, move],
@@ -85,7 +85,7 @@ function DayAxis({
   open: number;
   width: number;
 }) {
-  const ticks = thinTicks(dayTicks(rows, launchAt, open), width);
+  const ticks = thinTicks(dayTicks(rows, launchAt, open, FIRST), width);
   return (
     <div className="relative h-4 border-line border-t font-mono text-2xs text-ink-3" data-testid="day-axis">
       {ticks.map((t, i) => (
@@ -109,12 +109,12 @@ export const EpochMap = memo(function EpochMap({ rows, open, from, launchAt, onW
   const ref = useRef<HTMLDivElement>(null);
   const width = useWidth(ref);
   const drag = useDragWindow(open, from, onWindow);
-  const bars = barsFor(rows, open);
-  const box = windowBox(drag.from, open);
+  const bars = barsFor(rows, open, FIRST);
+  const box = windowBox(drag.from, open, FIRST);
   const click = (e: ReactPointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     if (rect.width <= 0) return;
-    onWindow(centredFrom(epochAtX((e.clientX - rect.left) / rect.width, open), open, FIRST));
+    onWindow(centredFrom(epochAtX((e.clientX - rect.left) / rect.width, open, FIRST), open, FIRST));
   };
   return (
     <div ref={ref} className="flex flex-col" data-testid="epoch-map">

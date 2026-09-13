@@ -42,4 +42,6 @@ export const e2eBuildEnv = (d: Deployment, o: BuildOptions): NodeJS.ProcessEnv =
   VITE_YACANA_TOKEN: d.token,
   VITE_YACANA_MINER_CLASS: d.minerClassId,
   VITE_YACANA_TOKEN_CLASS: d.tokenClassId,
+  // The config would otherwise read the profile record's continuation, not this deployment's.
+  VITE_FIRST_EPOCH: d.continuation?.firstEpoch ?? '0',
 });
