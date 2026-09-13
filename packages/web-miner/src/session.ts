@@ -118,10 +118,12 @@ export class Session {
     return relyingParty(location.hostname);
   }
 
-  private guardHost(): void {
-    if (!keysAllowed(location.hostname))
+  private guardHost(purpose: 'create' | 'restore'): void {
+    if (!keysAllowed(location.hostname, purpose))
       throw new Error(
-        `Accounts cannot be created or restored on this host. Open ${import.meta.env.VITE_RP_ID}.`,
+        purpose === 'create' && keysAllowed(location.hostname, 'restore')
+          ? `Accounts are restored here, not created. Create one at ${import.meta.env.VITE_RP_ID}.`
+          : `Accounts cannot be created or restored on this host. Open ${import.meta.env.VITE_RP_ID}.`,
       );
   }
 
@@ -261,7 +263,7 @@ export class Session {
   /** The record is written before the wallet opens: a boot failure must not lose a fresh passkey. */
   async createWithPasskey(): Promise<void> {
     return this.runAttempt('passkey', async () => {
-      this.guardHost();
+      this.guardHost('create');
       const known = (await listRecords()).flatMap((r) =>
         r.credentialId ? [fromBase64url(r.credentialId)] : [],
       );
@@ -317,7 +319,7 @@ export class Session {
   /** "I already have a key": a discoverable request; a known address opens, a new one gets a record. */
   async restoreWithPasskey(): Promise<void> {
     return this.runAttempt('passkey', async () => {
-      this.guardHost();
+      this.guardHost('restore');
       const { credentialId, prf } = await this.assertPasskey({ rpId: this.rpId });
       const master = await masterFromPrf(prf);
       return owning(master, async () => {
@@ -341,7 +343,7 @@ export class Session {
 
   /** A fresh phrase; the key exists only once the screen calls `createWithWords` with it. */
   newWords(): string {
-    this.guardHost();
+    this.guardHost('create');
     return generateWords();
   }
 
@@ -356,7 +358,8 @@ export class Session {
     backedUp: boolean,
     derived?: Uint8Array,
   ): Promise<{ record: MasterRecord; master: Uint8Array; words: string }> {
-    this.guardHost();
+    // A restore that lands here (the phrase is new to this device) is a restore still.
+    this.guardHost(derived ? 'restore' : 'create');
     const master = derived ?? (await masterFromMnemonic(phrase));
     return owning(master, async () => {
       const record: MasterRecord = {
@@ -377,7 +380,7 @@ export class Session {
   /** Restore: the phrase opens its record if this device has one, or gets a new (sealed) record. */
   async restoreWithWords(phrase: string): Promise<void> {
     return this.runAttempt('twelve words', async () => {
-      this.guardHost();
+      this.guardHost('restore');
       const master = await masterFromMnemonic(phrase);
       return owning(master, async () => {
         const address = await addressOf(master, 0);

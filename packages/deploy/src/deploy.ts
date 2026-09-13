@@ -35,6 +35,17 @@ export interface BridgeRecord {
   deployBlock?: string;
 }
 
+/**
+ * The announced upgrade: written into the record when Aztec announces the version after this one
+ * (the Registry index it will take, when it was announced, when the flip is expected), and carried
+ * by the next site deploy — announcing is a redeploy.
+ */
+export interface MigrationRecord {
+  toIndex: string;
+  announcedAt: string;
+  expectedFlipAt: string;
+}
+
 export interface Deployment {
   profile: string;
   chainId: string;
@@ -68,6 +79,8 @@ export interface Deployment {
   continuation?: { firstEpoch: string; sourceSeed: string; sourceTarget: string; source: string };
   /** Written by the L1 deploy script once the portal exists on this record's chain. */
   bridge?: BridgeRecord;
+  /** Present from the announcement of the next version to this version's retirement. */
+  migration?: MigrationRecord;
 }
 
 export interface DeployOverrides {

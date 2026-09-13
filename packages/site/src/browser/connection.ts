@@ -1,8 +1,11 @@
 // Where the page connects. The build carries the deployment (packages/site); the user may pick
-// another node, persisted in localStorage and shared by the three apps; e2e builds may pin
-// everything by query. A node is only ever used after it passed the deployment check.
+// another node and another Ethereum RPC, persisted in localStorage and shared by the three apps;
+// e2e builds may pin everything by query. A node is only ever used after it passed the deployment
+// check; an RPC after it answered for the portal's chain.
 export interface Connection {
   nodeUrl: string;
+  /** The Ethereum JSON-RPC the bridge reads through and the guard admits beside the node. */
+  ethRpcUrl: string;
   miner: string;
   token: string;
 }
@@ -17,14 +20,19 @@ export interface Expected {
 
 const KEY = 'yacana.connection';
 
+/** The two settings a user owns; the deployment is the build's. */
+type Saved = Partial<Pick<Connection, 'nodeUrl' | 'ethRpcUrl'>>;
+
 const defaults: Connection = {
   nodeUrl: import.meta.env.VITE_AZTEC_NODE_URL,
+  ethRpcUrl: import.meta.env.VITE_ETH_RPC_URL,
   miner: import.meta.env.VITE_YACANA_MINER,
   token: import.meta.env.VITE_YACANA_TOKEN,
 };
 
 /** The build's default node: what "Use the default node" restores. */
 export const defaultNodeUrl = (): string => defaults.nodeUrl;
+export const defaultEthRpcUrl = (): string => defaults.ethRpcUrl;
 
 /** Back to the build's node and a fresh boot: the way out of a saved node that does not answer. */
 export const restoreDefaultNode = (): void => {
@@ -58,16 +66,19 @@ const fromQuery = (): Partial<Connection> => {
   const pick = (k: string) => q.get(k) ?? undefined;
   return {
     ...(pick('node') && { nodeUrl: pick('node') }),
+    ...(pick('ethRpc') && { ethRpcUrl: pick('ethRpc') }),
     ...(pick('miner') && { miner: pick('miner') }),
     ...(pick('token') && { token: pick('token') }),
   } as Partial<Connection>;
 };
 
-const fromStorage = (): Partial<Connection> => {
+const fromStorage = (): Saved => {
   try {
-    const stored = JSON.parse(globalThis.localStorage?.getItem(KEY) ?? '{}') as Partial<Connection>;
-    // Only the node is a user setting; the deployment is the build's.
-    return stored.nodeUrl ? { nodeUrl: stored.nodeUrl } : {};
+    const stored = JSON.parse(globalThis.localStorage?.getItem(KEY) ?? '{}') as Saved;
+    return {
+      ...(stored.nodeUrl ? { nodeUrl: stored.nodeUrl } : {}),
+      ...(stored.ethRpcUrl ? { ethRpcUrl: stored.ethRpcUrl } : {}),
+    };
   } catch {
     return {};
   }
@@ -75,10 +86,14 @@ const fromStorage = (): Partial<Connection> => {
 
 export const loadConnection = (): Connection => ({ ...defaults, ...fromStorage(), ...fromQuery() });
 
-/** False when the browser refused the write (quota, private mode): the caller must not act as if it held. */
-export const saveConnection = (c: Pick<Connection, 'nodeUrl'>): boolean => {
+/**
+ * Saves one or both settings, keeping the other. False when the browser refused the write (quota,
+ * private mode): the caller must not act as if it held.
+ */
+export const saveConnection = (c: Saved): boolean => {
   try {
-    globalThis.localStorage?.setItem(KEY, JSON.stringify({ nodeUrl: c.nodeUrl }));
+    const next: Saved = { ...fromStorage(), ...c };
+    globalThis.localStorage?.setItem(KEY, JSON.stringify(next));
     return globalThis.localStorage?.getItem(KEY) !== null;
   } catch {
     return false;

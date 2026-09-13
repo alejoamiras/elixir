@@ -1,6 +1,9 @@
-// Where the page is served decides whether it may make keys. This gate steers honest bundles: the
+// Where the page is served decides what it may do with keys. This gate steers honest bundles: the
 // preview suffix trusts the account's matching workers.dev namespace, not the code's provenance.
-export type HostKind = 'production' | 'preview' | 'local' | 'unknown';
+// `versioned` is the origin a version's last build moves to after a flip (`v5.yacana.network`): a
+// fully trusted sibling built by the same pipeline, where an account is restored, never created —
+// its passkeys are the apex's (the RP ID), so the same master opens there after user verification.
+export type HostKind = 'production' | 'preview' | 'local' | 'versioned' | 'unknown';
 
 const LABEL = /^[a-z0-9-]+$/;
 
@@ -10,8 +13,18 @@ const isPreview = (hostname: string): boolean => {
   return LABEL.test(hostname.slice(0, -suffix.length));
 };
 
+/** The versioned origin's host, or '' when the build names none. */
+export const versionedHost = (): string => {
+  try {
+    return new URL(import.meta.env.VITE_OLD_APP_ORIGIN).hostname;
+  } catch {
+    return '';
+  }
+};
+
 export const hostKind = (hostname: string): HostKind => {
   if (hostname === import.meta.env.VITE_RP_ID) return 'production';
+  if (hostname !== '' && hostname === versionedHost()) return 'versioned';
   if (isPreview(hostname)) return 'preview';
   if (hostname === 'localhost') return 'local';
   return 'unknown';
@@ -33,8 +46,14 @@ export const previewNotice = (hostname: string): string | null => {
   }
 };
 
-export const keysAllowed = (hostname: string): boolean => {
+/**
+ * Whether this host may create a key, or restore one: the apex and its previews do both, localhost
+ * outside production does both, the versioned origin restores only (a key made there would be
+ * stranded on a version about to stop), and anything else does neither.
+ */
+export const keysAllowed = (hostname: string, purpose: 'create' | 'restore' = 'create'): boolean => {
   const kind = hostKind(hostname);
   if (kind === 'production' || kind === 'preview') return true;
+  if (kind === 'versioned') return purpose === 'restore';
   return kind === 'local' && import.meta.env.VITE_SITE_MODE !== 'production';
 };

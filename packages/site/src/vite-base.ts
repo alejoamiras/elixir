@@ -10,6 +10,7 @@ import type { Plugin, UserConfig } from 'vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { faviconDataUrl } from '../../ui/src/mark.ts';
 import {
+  appRoleFrom,
   type DeploymentRecord,
   type ExampleClaim,
   loadSiteConfig,
@@ -61,6 +62,7 @@ export function siteConfig(command: 'build' | 'serve', env: NodeJS.ProcessEnv = 
     deployment,
     exampleClaim,
     env,
+    role: appRoleFrom(env.YACANA_APP_ROLE),
     sourceCommit: sourceCommit(env),
     bbVersion: (
       JSON.parse(readFileSync(resolve(repo, 'node_modules/@aztec/bb.js/package.json'), 'utf8')) as {
