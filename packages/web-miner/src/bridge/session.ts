@@ -150,6 +150,7 @@ export class BridgeSession {
         const block = Number(r.blockNumber ?? 0);
         return { status: 'mined', block, epoch: (await this.epochOfBlock(block)).toString() };
       },
+      epochOfBlock: async (block) => (await this.epochOfBlock(block)).toString(),
       proofDeadline: (epoch) => proofDeadline(rollup, epoch),
       epochProven: (epoch) => epochProven(rollup, epoch),
       witness: async (c) => {
@@ -330,14 +331,9 @@ export class BridgeSession {
   async exitToL1(amount: bigint, recipient: Hex): Promise<Crossing> {
     return this.after(exitToL1(this.ctx, amount, recipient));
   }
-  /** `resume`: a deposit the wallet never answered, sent again under its own index. */
-  async deposit(
-    amount: bigint,
-    onStep?: (step: 'approve' | 'deposit') => void,
-    resume?: Crossing,
-  ): Promise<Crossing> {
+  async deposit(amount: bigint, onStep?: (step: 'approve' | 'deposit') => void): Promise<Crossing> {
     const deadline = BigInt(Math.floor((this.d.now?.() ?? Date.now()) / 1000)) + 3600n;
-    return this.after(deposit(this.ctx, this.config, amount, deadline, onStep, resume));
+    return this.after(deposit(this.ctx, this.config, amount, deadline, onStep));
   }
   async claim(c: Crossing): Promise<Crossing> {
     return this.after(claimArrival(this.ctx, c));

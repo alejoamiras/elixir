@@ -3,8 +3,10 @@
 // finishes it here. Also the sheet a held send-ahead is redeemed from: the same wallet pays the gas.
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
-import { useAccount, useChainId, useConnect, useConnectors, useDisconnect } from 'wagmi';
+import type { Hex } from 'viem';
+import { useAccount, useChainId, useConnect, useConnectors, useDisconnect, useReadContract } from 'wagmi';
 import type { Crossing } from '../../../bridge/src/journal.ts';
+import { yacaAbi } from '../../../bridge/src/portal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import {
   Alert,
@@ -18,10 +20,28 @@ import {
   SheetDescription,
   SheetTitle,
 } from '../../../ui/src/index.ts';
+import { bridgeRecord } from '../bridge/env';
 import { reviewAmount } from '../bridge/forms';
 import { amount as fmt, shortAddress } from '../lib/format';
 import type { Session } from '../session';
 import { bridgeAtom } from '../state';
+
+/** The connected account's YACA on Ethereum, read through the RPC in use every few seconds. */
+function YacaBalance({ owner }: { owner: Hex }) {
+  const yaca = bridgeRecord()?.yaca as Hex | undefined;
+  const { data } = useReadContract({
+    address: yaca,
+    abi: yacaAbi,
+    functionName: 'balanceOf',
+    args: [owner],
+    query: { enabled: yaca !== undefined, refetchInterval: 5_000 },
+  });
+  return (
+    <span className="text-2xs text-ink-2">
+      <span data-testid="yaca-balance">{data === undefined ? '…' : fmt(data, PARAMS.DECIMALS)}</span> YACA
+    </span>
+  );
+}
 
 /** The wallet picker: EIP-6963 announcements by name and icon; nothing else. */
 export function WalletPicker() {
@@ -30,18 +50,21 @@ export function WalletPicker() {
   const account = useAccount();
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
-  if (account.isConnected)
+  if (account.isConnected && account.address)
     return (
       <div
         className="flex items-center justify-between gap-3 rounded-[8px] border border-line-2 px-3.5 py-2.5"
         data-testid="eth-account"
       >
-        <span className="font-mono text-sm">
-          {shortAddress(account.address ?? '')}
-          <span className="text-2xs text-ink-3">
-            {' '}
-            · {account.connector?.name} · chain {chainId}
+        <span className="flex flex-col font-mono text-sm">
+          <span>
+            {shortAddress(account.address)}
+            <span className="text-2xs text-ink-3">
+              {' '}
+              · {account.connector?.name} · chain {chainId}
+            </span>
           </span>
+          <YacaBalance owner={account.address} />
         </span>
         <Button size="sm" variant="ghost" onClick={() => disconnect()} data-testid="eth-disconnect">
           Disconnect
@@ -72,6 +95,8 @@ export function WalletPicker() {
 
 type Step = { kind: 'form' } | { kind: 'approve' } | { kind: 'deposit' } | { kind: 'done' };
 
+const firstLine = (e: unknown) => (e instanceof Error ? (e.message.split('\n')[0] ?? '') : String(e));
+
 export function DepositSheet({
   session,
   open,
@@ -81,7 +106,7 @@ export function DepositSheet({
   session: Session;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** A deposit the wallet never answered: its amount is fixed and its index reused. */
+  /** A deposit the wallet never answered: its amount comes prefilled; the same index goes out again. */
   resume?: Crossing;
 }) {
   const account = useAccount();
@@ -101,18 +126,22 @@ export function DepositSheet({
     setError(undefined);
     try {
       // The Ethereum balance is the wallet's to know; the portal refuses more than it holds.
-      const { amount } = resume
-        ? { amount: BigInt(resume.amount) }
-        : reviewAmount(text, (1n << 128n) - 1n, PARAMS.DECIMALS);
+      const { amount } = reviewAmount(text, (1n << 128n) - 1n, PARAMS.DECIMALS);
       setStep({ kind: 'approve' });
-      await session.bridge?.deposit(amount, (s) => setStep({ kind: s }), resume);
+      await session.bridge?.deposit(amount, (s) => setStep({ kind: s }));
       setStep({ kind: 'done' });
     } catch (e) {
       setStep({ kind: 'form' });
-      setError(e instanceof Error ? (e.message.split('\n')[0] ?? '') : String(e));
+      setError(firstLine(e));
     }
   };
   const busy = step.kind === 'approve' || step.kind === 'deposit';
+  const label =
+    step.kind === 'approve'
+      ? 'Waiting for your wallet · approve…'
+      : step.kind === 'deposit'
+        ? 'Waiting for your wallet · deposit…'
+        : 'Approve and deposit';
   return (
     <Sheet open={open} onOpenChange={(o) => (o ? onOpenChange(true) : close())}>
       <SheetContent data-testid="deposit-sheet">
@@ -145,7 +174,7 @@ export function DepositSheet({
                 inputMode="decimal"
                 placeholder="0.00"
                 className="font-mono"
-                disabled={busy || resume !== undefined}
+                disabled={busy}
                 data-testid="deposit-amount"
               />
             </div>
@@ -156,11 +185,7 @@ export function DepositSheet({
               onClick={() => void go()}
               data-testid="deposit-go"
             >
-              {step.kind === 'approve'
-                ? 'Waiting for your wallet · approve…'
-                : step.kind === 'deposit'
-                  ? 'Waiting for your wallet · deposit…'
-                  : 'Approve and deposit'}
+              {label}
             </Button>
           </div>
         )}
@@ -180,14 +205,34 @@ export function DepositSheet({
   );
 }
 
-/** A held send-ahead as YACA on Ethereum for the connected account instead. */
-export function RedeemSheet({
+export type HeldAction = 'forward' | 'redeem';
+
+const COPY: Record<HeldAction, { title: string; go: string; done: string }> = {
+  forward: { title: 'Forward it yourself', go: 'Forward', done: 'Forwarded.' },
+  redeem: { title: 'Redeem to Ethereum', go: 'Redeem', done: 'Redeemed.' },
+};
+
+const describe = (action: HeldAction, c: Crossing): string => {
+  if (action === 'redeem')
+    return 'The send-ahead becomes YACA on Ethereum for the connected account. This account’s own secret signs; the wallet pays the gas.';
+  return c.kind === 1
+    ? 'The exit is forwarded by you: YACA minted on Ethereum for its recipient. Anyone may; the wallet pays the gas.'
+    : 'The send-ahead is forwarded into the live version by you: this account’s own secret signs, the wallet pays the gas. It then lands on the arrival card there.';
+};
+
+/**
+ * What the holder does with a crossing on Ethereum, from the connected wallet: forward it (an exit,
+ * or a held send-ahead into the live version) or redeem a held send-ahead as YACA for that account.
+ */
+export function HeldSheet({
   session,
   crossing,
+  action,
   onOpenChange,
 }: {
   session: Session;
   crossing: Crossing | null;
+  action: HeldAction;
   onOpenChange: (open: boolean) => void;
 }) {
   const account = useAccount();
@@ -199,29 +244,28 @@ export function RedeemSheet({
     setDone(false);
     onOpenChange(false);
   };
-  const redeem = async () => {
+  const go = async () => {
     if (!crossing || !account.address) return;
     setBusy(true);
     setError(undefined);
     try {
-      await session.bridge?.redeem(crossing, account.address);
+      if (action === 'redeem') await session.bridge?.redeem(crossing, account.address);
+      else await session.bridge?.selfForward(crossing);
       setDone(true);
     } catch (e) {
-      setError(e instanceof Error ? (e.message.split('\n')[0] ?? '') : String(e));
+      setError(firstLine(e));
     } finally {
       setBusy(false);
     }
   };
+  const copy = COPY[action];
   return (
     <Sheet open={crossing !== null} onOpenChange={(o) => (o ? onOpenChange(true) : close())}>
-      <SheetContent data-testid="redeem-sheet">
-        <SheetTitle>Redeem to Ethereum</SheetTitle>
-        <SheetDescription>
-          The send-ahead becomes YACA on Ethereum for the connected account. Its own key signs; the wallet
-          pays the gas.
-        </SheetDescription>
+      <SheetContent data-testid={`${action}-sheet`}>
+        <SheetTitle>{copy.title}</SheetTitle>
+        {crossing && <SheetDescription>{describe(action, crossing)}</SheetDescription>}
         {error && (
-          <Alert variant="bad" data-testid="redeem-error">
+          <Alert variant="bad" data-testid={`${action}-error`}>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -230,22 +274,27 @@ export function RedeemSheet({
           <div className="flex flex-col gap-4">
             <KvRow
               label="amount"
-              value={`${fmt(BigInt(crossing.amount), PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL} → YACA`}
+              value={`${fmt(BigInt(crossing.amount), PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL}${action === 'redeem' || crossing.kind === 1 ? ' → YACA' : ''}`}
             />
-            <KvRow label="to" value={account.address ? shortAddress(account.address) : 'connect a wallet'} />
+            {action === 'redeem' && (
+              <KvRow
+                label="to"
+                value={account.address ? shortAddress(account.address) : 'connect a wallet'}
+              />
+            )}
             <Button
               variant="uv"
               disabled={!account.isConnected || busy}
-              onClick={() => void redeem()}
-              data-testid="redeem-go"
+              onClick={() => void go()}
+              data-testid={`${action}-go`}
             >
-              {busy ? 'Waiting for your wallet…' : 'Redeem'}
+              {busy ? 'Waiting for your wallet…' : copy.go}
             </Button>
           </div>
         )}
         {done && (
-          <div className="flex flex-col gap-4" data-testid="redeem-done">
-            <p className="text-lg font-semibold">Redeemed.</p>
+          <div className="flex flex-col gap-4" data-testid={`${action}-done`}>
+            <p className="text-lg font-semibold">{copy.done}</p>
             <Button variant="primary" onClick={close}>
               Done
             </Button>

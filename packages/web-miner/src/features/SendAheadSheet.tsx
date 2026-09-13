@@ -109,7 +109,7 @@ export function SendAheadSheet({
               <KvRow label="leaves" value={`V${version}, now (a burn, proved in your browser, about 20 s)`} />
               <KvRow
                 label="waits"
-                value="on Ethereum, held under this passkey’s own key, out of V${version}’s reach"
+                value={`on Ethereum, held for this account alone, out of V${version}’s reach`}
               />
               <KvRow
                 label="lands"
@@ -119,8 +119,9 @@ export function SendAheadSheet({
             <Alert variant="warn" data-testid="ahead-privacy">
               <AlertTitle>The amount is public on Ethereum.</AlertTitle>
               <AlertDescription>
-                Ethereum sees the amount and when it crossed, not who: the send is held under a key derived
-                for it alone. Anyone matching amounts and times across the two sides could still link them.
+                Ethereum sees the amount and when it crossed, not who: the send is held under a one-time
+                secret of this account. Anyone matching amounts and times across the two sides could still
+                link them.
               </AlertDescription>
             </Alert>
             <div className="flex gap-3">

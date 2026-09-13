@@ -24,9 +24,26 @@ export interface E2eRun {
   runId: string;
   /** `preview` serves a production build made for this run; `dev` is Vite's dev server. */
   server: E2eServer;
+  /**
+   * Bridge mode (E2E_BRIDGE=1, or the `bridge` shard): the portal and YACA deployed for this run
+   * on the network's anvil against its real Registry, the run's control server, and the key of the
+   * holder the test wallet signs with.
+   */
+  bridge?: E2eBridge | null;
+  controlPid?: number | null;
 }
 
-export const RUN_FILE = new URL('./.run.json', import.meta.url).pathname;
+export interface E2eBridge {
+  portal: string;
+  yaca: string;
+  chainId: string;
+  l1RpcUrl: string;
+  controlUrl: string;
+  holderKey: string;
+}
+
+/** The suite's own run file, or the one a rig names (E2E_RUN_FILE) when it drives a spec itself. */
+export const RUN_FILE = process.env.E2E_RUN_FILE ?? new URL('./.run.json', import.meta.url).pathname;
 
 /** What run-setup spent, step by step, left in e2e/.timings.json for report.ts. */
 export interface RigStep {

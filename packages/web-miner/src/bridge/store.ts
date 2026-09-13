@@ -64,8 +64,8 @@ export interface BridgeStore {
 }
 
 export function openBridgeStore(scope: JournalScope, dbName = BRIDGE_DB): BridgeStore {
-  const key = scopeKey(scope);
-  const counterKey = (version: string) => `${key}:${version}`;
+  const scoped = scopeKey(scope);
+  const counterKey = (version: string) => `${scoped}:${version}`;
   const withDb = async <T>(fn: (db: IDBDatabase) => Promise<T>): Promise<T> => {
     const db = await open(dbName);
     try {
@@ -85,7 +85,7 @@ export function openBridgeStore(scope: JournalScope, dbName = BRIDGE_DB): Bridge
       withDb(async (db) =>
         (
           (await request(
-            db.transaction(CROSSINGS, 'readonly').objectStore(CROSSINGS).index('scope').getAll(key),
+            db.transaction(CROSSINGS, 'readonly').objectStore(CROSSINGS).index('scope').getAll(scoped),
           )) as Row[]
         ).map(strip),
       ),
@@ -94,12 +94,12 @@ export function openBridgeStore(scope: JournalScope, dbName = BRIDGE_DB): Bridge
         const row = (await request(db.transaction(CROSSINGS, 'readonly').objectStore(CROSSINGS).get(id))) as
           | Row
           | undefined;
-        return row && row.scope === key ? strip(row) : undefined;
+        return row && row.scope === scoped ? strip(row) : undefined;
       }),
     put: (c) =>
       withDb(async (db) => {
         const tx = db.transaction(CROSSINGS, 'readwrite');
-        tx.objectStore(CROSSINGS).put({ ...c, scope: key } satisfies Row);
+        tx.objectStore(CROSSINGS).put({ ...c, scope: scoped } satisfies Row);
         await committed(tx);
       }),
     update: (id, f) =>
@@ -107,9 +107,9 @@ export function openBridgeStore(scope: JournalScope, dbName = BRIDGE_DB): Bridge
         const tx = db.transaction(CROSSINGS, 'readwrite');
         const store = tx.objectStore(CROSSINGS);
         const row = (await request(store.get(id))) as Row | undefined;
-        if (!row || row.scope !== key) throw new Error(`no crossing ${id} in this journal`);
+        if (!row || row.scope !== scoped) throw new Error(`no crossing ${id} in this journal`);
         const next = f(strip(row));
-        store.put({ ...next, scope: key } satisfies Row);
+        store.put({ ...next, scope: scoped } satisfies Row);
         await committed(tx);
         return next;
       }),
@@ -124,7 +124,7 @@ export function openBridgeStore(scope: JournalScope, dbName = BRIDGE_DB): Bridge
         const index = counter?.next ?? seeded ?? 0;
         const crossing = make(index);
         indices.put({ next: index + 1 }, counterKey(version));
-        tx.objectStore(CROSSINGS).put({ ...crossing, scope: key } satisfies Row);
+        tx.objectStore(CROSSINGS).put({ ...crossing, scope: scoped } satisfies Row);
         await committed(tx);
         return crossing;
       }),

@@ -91,6 +91,8 @@ export interface Crossing {
 export interface Facts {
   now: number;
   tx?: { status: 'pending' | 'mined' | 'dropped'; block?: number; epoch?: string };
+  /** The epoch of the record's block, read for a record that only knew the block. */
+  epoch?: string;
   proofDeadline?: string;
   /** The source version's proven epoch has reached this crossing's epoch. */
   epochProven?: boolean;
@@ -131,8 +133,9 @@ function afterTx(c: Crossing, f: Facts): Crossing {
 
 /** The epoch's settlement: pruned undoes the burn, proven with a witness makes the leaf real. */
 function afterEpoch(c: Crossing, f: Facts): Crossing {
-  let next =
-    f.proofDeadline && c.proofDeadline !== f.proofDeadline ? { ...c, proofDeadline: f.proofDeadline } : c;
+  let next = f.epoch && !c.epoch ? { ...c, epoch: f.epoch } : c;
+  if (f.proofDeadline && next.proofDeadline !== f.proofDeadline)
+    next = { ...next, proofDeadline: f.proofDeadline };
   if (f.epochPruned && (next.state === 'proven-pending' || next.state === 'sent'))
     return at(next, 'never-proven', f.now);
   if (f.witness && !next.witness) next = { ...next, witness: f.witness };

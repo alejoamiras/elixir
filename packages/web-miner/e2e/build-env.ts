@@ -1,0 +1,34 @@
+// The e2e build's environment, shared by the suite's setup and the upgrade rig's browser case: the
+// throwaway deployment, the local node, localhost as the RP ID, query overrides on, the run's Presto
+// port, and the bridge block when the run has a portal.
+import type { BridgeRecord, Deployment, MigrationRecord } from '../../deploy/src/deploy.ts';
+
+export interface BuildOptions {
+  nodeUrl: string;
+  prestoPort: number | null;
+  bridge: BridgeRecord | null;
+  /** The announced upgrade, when the build is to carry one. */
+  migration?: MigrationRecord | null;
+  /** A PXE that skips transaction proving (`E2E_PROVERLESS=1`). */
+  proverless: boolean;
+}
+
+export const e2eBuildEnv = (d: Deployment, o: BuildOptions): NodeJS.ProcessEnv => ({
+  ...process.env,
+  YACANA_SITE_MODE: 'e2e',
+  VITE_BRIDGE: o.bridge ? JSON.stringify(o.bridge) : '',
+  VITE_MIGRATION: o.migration ? JSON.stringify(o.migration) : '',
+  VITE_ETH_RPC_URL: o.bridge ? o.bridge.l1RpcUrl : '',
+  VITE_PRESTO_E2E_PORT: o.prestoPort === null ? '' : String(o.prestoPort),
+  VITE_AZTEC_NODE_URL: o.nodeUrl,
+  VITE_RP_ID: 'localhost',
+  VITE_E2E_QUERY_OVERRIDES: '1',
+  VITE_E2E_PROVERLESS: o.proverless ? '1' : '',
+  VITE_CHAIN_ID: d.chainId,
+  VITE_ROLLUP_VERSION: d.rollupVersion,
+  VITE_ROLLUP_ADDRESS: d.rollupAddress,
+  VITE_YACANA_MINER: d.miner,
+  VITE_YACANA_TOKEN: d.token,
+  VITE_YACANA_MINER_CLASS: d.minerClassId,
+  VITE_YACANA_TOKEN_CLASS: d.tokenClassId,
+});

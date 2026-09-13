@@ -7,7 +7,7 @@ import { links } from '../explorer';
 import { ArrivalCard } from '../features/ArrivalCard';
 import { BridgeProviders } from '../features/BridgeProviders';
 import { BridgeTile } from '../features/BridgeTile';
-import { DepositSheet, RedeemSheet } from '../features/DepositSheet';
+import { DepositSheet, HeldSheet } from '../features/DepositSheet';
 import { SendSheet } from '../features/SendSheet';
 import { SignOutDialog } from '../features/SignOutDialog';
 import { ToEthereumSheet } from '../features/ToEthereumSheet';
@@ -165,6 +165,7 @@ export function Wallet({ session }: { session: Session }) {
   const [exit, setExit] = useState(false);
   const [deposit, setDeposit] = useState<false | { resume?: Crossing }>(false);
   const [redeem, setRedeem] = useState<Crossing | null>(null);
+  const [forward, setForward] = useState<Crossing | null>(null);
   const [signOut, setSignOut] = useState(false);
   // A backup opened from the sign-out dialog returns to the dialog once the words are confirmed.
   const [backup, setBackup] = useState<false | 'account' | 'sign-out'>(false);
@@ -208,8 +209,10 @@ export function Wallet({ session }: { session: Session }) {
         <TileBoundary name="bridge" onError={onError} className="md:col-span-2">
           <BridgeTile
             session={session}
+            account={account}
             onToEthereum={() => setExit(true)}
             onDeposit={() => setDeposit({})}
+            onForward={setForward}
             onRedeem={setRedeem}
           />
         </TileBoundary>
@@ -225,7 +228,18 @@ export function Wallet({ session }: { session: Session }) {
             resume={deposit.resume}
           />
         )}
-        <RedeemSheet session={session} crossing={redeem} onOpenChange={(o) => !o && setRedeem(null)} />
+        <HeldSheet
+          session={session}
+          crossing={redeem}
+          action="redeem"
+          onOpenChange={(o) => !o && setRedeem(null)}
+        />
+        <HeldSheet
+          session={session}
+          crossing={forward}
+          action="forward"
+          onOpenChange={(o) => !o && setForward(null)}
+        />
       </BridgeProviders>
       <SendSheet
         session={session}

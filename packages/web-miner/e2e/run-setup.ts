@@ -9,10 +9,14 @@
 // proving. The dev server injects Node globals and accepts local nodes on its own, which hid a
 // Worker without `Buffer` once. E2E_SERVER=dev keeps it for debugging with readable stacks.
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
-import { openSync } from 'node:fs';
+import { openSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Fr } from '@aztec/aztec.js/fields';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import type { Hex } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { lanePortBase, runPortWindowBase } from '../../../scripts/run/port-window.ts';
 import {
   type PrestoLane,
@@ -22,8 +26,12 @@ import {
 } from '../../../scripts/run/presto.ts';
 import { waitUntilUp } from '../../../scripts/run/preview.ts';
 import { claim, release } from '../../../scripts/run/registry.ts';
-import { type Deployment, deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
-import { type E2eRun, type E2eServer, type RigStep, RUN_FILE, TIMINGS_FILE } from './run.ts';
+import { deployL1 } from '../../deploy/scripts/l1-deploy.ts';
+import { confirmed, openOperator, writeOpts } from '../../deploy/src/bridge/operator.ts';
+import { registerVersion } from '../../deploy/src/bridge/register.ts';
+import { type BridgeRecord, type Deployment, deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
+import { e2eBuildEnv } from './build-env.ts';
+import { type E2eBridge, type E2eRun, type E2eServer, type RigStep, RUN_FILE, TIMINGS_FILE } from './run.ts';
 
 const nodeUrl = process.env.AZTEC_NODE_URL;
 if (!nodeUrl) throw new Error('AZTEC_NODE_URL is not set: run through `bun run e2e:agent -- …`');
@@ -33,23 +41,60 @@ if (server !== 'dev' && server !== 'preview')
 const pkg = resolve(import.meta.dir, '..');
 const OUT_DIR = 'e2e/.dist';
 
-/** The e2e build: the throwaway deployment, the local node, localhost as the RP ID, query overrides on, the run's Presto port. */
-const e2eEnv = (d: Deployment, prestoPort: number | null): NodeJS.ProcessEnv => ({
-  ...process.env,
-  YACANA_SITE_MODE: 'e2e',
-  VITE_PRESTO_E2E_PORT: prestoPort === null ? '' : String(prestoPort),
-  VITE_AZTEC_NODE_URL: nodeUrl,
-  VITE_RP_ID: 'localhost',
-  VITE_E2E_QUERY_OVERRIDES: '1',
-  VITE_E2E_PROVERLESS: process.env.E2E_PROVERLESS === '1' ? '1' : '',
-  VITE_CHAIN_ID: d.chainId,
-  VITE_ROLLUP_VERSION: d.rollupVersion,
-  VITE_ROLLUP_ADDRESS: d.rollupAddress,
-  VITE_YACANA_MINER: d.miner,
-  VITE_YACANA_TOKEN: d.token,
-  VITE_YACANA_MINER_CLASS: d.minerClassId,
-  VITE_YACANA_TOKEN_CLASS: d.tokenClassId,
-});
+// Bridge mode: the portal on the network's anvil, the version registered, the control server up.
+const bridgeMode = process.env.E2E_BRIDGE === '1' || process.env.E2E_SHARD === 'bridge';
+/** Anvil account 1: the run's operators key (account 0 publishes the node's blocks). */
+const OPERATORS_KEY: Hex = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+/** Anvil account 3: the holder the test wallet signs with. */
+const HOLDER_KEY: Hex = '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6';
+/** Relative to the repo root: what the operator functions and the control server open. */
+const RECORD_FILE = 'packages/web-miner/e2e/.record.json';
+const ARCHIVE_FILE = 'packages/web-miner/e2e/.witnesses.jsonl';
+
+/** The portal and YACA against the node's real Registry; the operators key listed as a forwarder too. */
+async function deployBridgeForRun(l1RpcUrl: string): Promise<BridgeRecord> {
+  const info = await createAztecNodeClient(nodeUrl as string).getNodeInfo();
+  return deployL1({
+    rpcUrl: l1RpcUrl,
+    key: OPERATORS_KEY,
+    registry: info.l1ContractAddresses.registryAddress.toString() as Hex,
+    operators: privateKeyToAccount(OPERATORS_KEY).address,
+  });
+}
+
+/** The record with its bridge block on disk, the version registered, the operators key a forwarder. */
+async function registerForRun(deployed: Deployment, bridge: BridgeRecord, l1RpcUrl: string): Promise<void> {
+  writeFileSync(resolve(pkg, '../..', RECORD_FILE), `${JSON.stringify({ ...deployed, bridge }, null, 2)}\n`);
+  rmSync(resolve(pkg, '../..', ARCHIVE_FILE), { force: true });
+  const op = await openOperator({ record: RECORD_FILE, rpcUrl: l1RpcUrl, key: OPERATORS_KEY });
+  await registerVersion(op);
+  await confirmed(op, () =>
+    op.portal.write.setForwarder([privateKeyToAccount(OPERATORS_KEY).address, true], writeOpts(op)),
+  );
+}
+
+async function startControl(log: number, port: number, l1RpcUrl: string): Promise<ChildProcess> {
+  const child = spawn(
+    'bun',
+    ['e2e/control.ts', String(port), RECORD_FILE, nodeUrl as string, l1RpcUrl, ARCHIVE_FILE],
+    {
+      cwd: pkg,
+      stdio: ['ignore', log, log],
+      detached: true,
+      env: { ...process.env, YACANA_L1_PRIVATE_KEY: OPERATORS_KEY },
+    },
+  );
+  child.unref();
+  for (let i = 0; i < 240 && child.exitCode === null; i++) {
+    const up = await fetch(`http://127.0.0.1:${port}/ping`, { method: 'POST' }).then(
+      (r) => r.ok,
+      () => false,
+    );
+    if (up) return child;
+    await delay(250);
+  }
+  throw new Error('the control server did not start (see e2e/.vite.log)');
+}
 
 function buildForRun(log: number, env: NodeJS.ProcessEnv): void {
   execFileSync('bunx', ['vite', 'build', '--outDir', OUT_DIR, '--emptyOutDir'], {
@@ -83,8 +128,10 @@ const proxyPorts = [
 ];
 // Claimed so nothing else on this host binds it for the run's duration; deliberately never listened on.
 const closedPort = await claim({ ...lane, service: 'presto-closed' });
+const controlPort = bridgeMode ? await claim({ ...lane, service: 'control' }) : null;
 let spawned: ChildProcess | undefined;
 let proxies: ChildProcess | undefined;
+let controlServer: ChildProcess | undefined;
 let presto: PrestoLane | null = null;
 const steps: RigStep[] = [];
 let lapStart = Date.now();
@@ -100,19 +147,33 @@ try {
     presto = await startPrestoServer({ lane, home: resolve(pkg, 'e2e/.presto-home', runId) });
   else console.log('e2e: presto-server is not installed; the Presto spec will skip');
   lap('presto start');
+  const l1RpcUrl = process.env.L1_RPC_URL;
+  if (bridgeMode && !l1RpcUrl)
+    throw new Error('bridge mode needs L1_RPC_URL: run through `bun run e2e:agent -- …`');
+  const bridge = bridgeMode ? await deployBridgeForRun(l1RpcUrl as string) : null;
+  if (bridge) lap('bridge deploy (portal + YACA)');
   const target = BigInt(process.env.YACANA_E2E_TARGET ?? String(1n << 127n));
   const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
     initialTarget: target,
-    portal: TEST_PORTAL,
+    portal: bridge ? EthAddress.fromString(bridge.portal) : TEST_PORTAL,
   });
   lap('deploy (easy target)');
+  if (bridge) {
+    await registerForRun(deployed, bridge, l1RpcUrl as string);
+    lap('register the version');
+  }
   const hard = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
     initialTarget: 1n << 64n,
     portal: TEST_PORTAL,
   });
   lap('deploy (impossible target)');
   const log = openSync(resolve(pkg, 'e2e/.vite.log'), 'w');
-  const env = e2eEnv(deployed, presto?.port ?? null);
+  const env = e2eBuildEnv(deployed, {
+    nodeUrl,
+    prestoPort: presto?.port ?? null,
+    bridge,
+    proverless: process.env.E2E_PROVERLESS === '1',
+  });
   if (server === 'preview') buildForRun(log, env);
   lap(`bundle build (${server})`);
   spawned = startServer(log, port, env);
@@ -138,6 +199,19 @@ try {
     await delay(250);
   }
   lap('proxies up');
+  let e2eBridge: E2eBridge | null = null;
+  if (bridge && controlPort !== null) {
+    controlServer = await startControl(log, controlPort, l1RpcUrl as string);
+    lap('control up');
+    e2eBridge = {
+      portal: bridge.portal,
+      yaca: bridge.yaca,
+      chainId: bridge.chainId,
+      l1RpcUrl: l1RpcUrl as string,
+      controlUrl: `http://127.0.0.1:${controlPort}`,
+      holderKey: HOLDER_KEY,
+    };
+  }
   await Bun.write(TIMINGS_FILE, JSON.stringify({ steps }, null, 2));
   const run: E2eRun = {
     baseURL,
@@ -156,15 +230,19 @@ try {
     closedPort,
     runId,
     server,
+    bridge: e2eBridge,
+    controlPid: controlServer?.pid ?? null,
   };
   await Bun.write(RUN_FILE, JSON.stringify(run, null, 2));
   console.log(
-    `e2e: ${baseURL} (${server}) miner ${deployed.miner} token ${deployed.token}${presto ? ` presto ${presto.url}` : ''}`,
+    `e2e: ${baseURL} (${server}) miner ${deployed.miner} token ${deployed.token}${presto ? ` presto ${presto.url}` : ''}${
+      e2eBridge ? ` portal ${e2eBridge.portal} control ${e2eBridge.controlUrl}` : ''
+    }`,
   );
   process.exit(0);
 } catch (e) {
-  // The server is detached: nothing else would reap it once this script is gone.
-  for (const child of [spawned, proxies]) {
+  // The servers are detached: nothing else would reap them once this script is gone.
+  for (const child of [spawned, proxies, controlServer]) {
     if (!child?.pid) continue;
     try {
       process.kill(-child.pid, 'SIGKILL');

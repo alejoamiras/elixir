@@ -29,7 +29,7 @@ export function TakingLongDialog({ onSettings }: { onSettings: () => void }) {
             <li>Forward it yourself from the bridge tile: anyone may, any time.</li>
           )}
           {first.state === 'held' && (
-            <li>Redeem it to Ethereum from the bridge tile: your key alone decides.</li>
+            <li>Redeem it to Ethereum from the bridge tile: this account alone decides.</li>
           )}
           <li>
             Or check the Ethereum RPC in Settings: a silent RPC makes every crossing look stuck.{' '}

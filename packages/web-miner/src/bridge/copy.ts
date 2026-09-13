@@ -89,7 +89,7 @@ const LINES: Record<CrossingState, (c: Crossing, nowSeconds: number, version: st
   held: () => ({
     word: 'held on Ethereum',
     sentence:
-      'Held on Ethereum, out of the old version’s reach. Only you, with this device’s key, or Yacana’s listed key may forward it: a stranger could push it into a rollup about to stop. Redeem to Ethereum any time.',
+      'Held on Ethereum, out of the old version’s reach. Only this account, from this device, or Yacana’s listed forwarder may forward it: a stranger could push it into a rollup about to stop. Redeem to Ethereum any time.',
     tone: 'busy',
     action: 'redeem',
   }),

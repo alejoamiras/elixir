@@ -135,36 +135,60 @@ describe('the migration card', () => {
 });
 
 describe('the bridge tile', () => {
-  test('a ready exit offers the holder’s own forward; a held send-ahead offers the redeem; deposits are not its rows', async () => {
-    const { session, bridge } = stubSession();
+  test('a ready exit offers the holder’s own forward; a held send-ahead the redeem, and the forward once a later version is registered; deposits are not its rows', () => {
+    const { session } = stubSession();
     const onRedeem = vi.fn();
+    const onForward = vi.fn();
+    const ready = crossing({ id: 'r', state: 'ready', txHash: `0x${'11'.repeat(32)}` });
     const held = crossing({ id: 'h', kind: 2, state: 'held' });
-    mount(
-      <BridgeTile session={session} onToEthereum={() => {}} onDeposit={() => {}} onRedeem={onRedeem} />,
-      (s) =>
-        s.set(journalAtom, [
-          crossing({ id: 'r', state: 'ready', txHash: `0x${'11'.repeat(32)}` }),
-          held,
-          crossing({ id: 'd', kind: 3, state: 'deposited' }),
-        ]),
+    const tile = (
+      <BridgeTile
+        session={session}
+        account="0xabc"
+        onToEthereum={() => {}}
+        onDeposit={() => {}}
+        onForward={onForward}
+        onRedeem={onRedeem}
+      />
     );
-    const rows = screen.getAllByTestId('crossing');
-    expect(rows).toHaveLength(2);
+    const store = mount(tile, (s) =>
+      s.set(journalAtom, [ready, held, crossing({ id: 'd', kind: 3, state: 'deposited' })]),
+    );
+    expect(screen.getAllByTestId('crossing')).toHaveLength(2);
     expect(screen.getAllByTestId('crossing-word').map((w) => w.textContent)).toEqual([
       'ready',
       'held on Ethereum',
     ]);
+    expect(screen.getAllByTestId('forward-myself')).toHaveLength(1);
     fireEvent.click(screen.getByTestId('forward-myself'));
-    await waitFor(() => expect(bridge.selfForward).toHaveBeenCalledTimes(1));
+    expect(onForward).toHaveBeenCalledWith(ready);
     fireEvent.click(screen.getByTestId('redeem'));
     expect(onRedeem).toHaveBeenCalledWith(held);
     expect(screen.getByTestId('bridge-tile').textContent).toContain('exit headroom 500');
+    // The Registry names V6: the held send-ahead can be forwarded by its holder too.
+    act(() =>
+      store.set(bridgeAtom, {
+        verdict: { kind: 'flipped', by: ['registry'] },
+        standing,
+        canonical: { version: 6n, index: 1n },
+        readAt: NOW,
+        rpcFailing: false,
+      }),
+    );
+    expect(screen.getAllByTestId('forward-myself')).toHaveLength(2);
   });
 
   test('a silent RPC holds back new exits and says so', () => {
     const { session } = stubSession();
     mount(
-      <BridgeTile session={session} onToEthereum={() => {}} onDeposit={() => {}} onRedeem={() => {}} />,
+      <BridgeTile
+        session={session}
+        account="0xabc"
+        onToEthereum={() => {}}
+        onDeposit={() => {}}
+        onForward={() => {}}
+        onRedeem={() => {}}
+      />,
       (s) => s.set(bridgeAtom, { verdict: { kind: 'unknown' }, standing, readAt: NOW, rpcFailing: true }),
     );
     expect((screen.getByTestId('to-ethereum') as HTMLButtonElement).disabled).toBe(true);
@@ -228,7 +252,7 @@ describe('the sheets', () => {
     fireEvent.change(input, { target: { value: '1.5' } });
     fireEvent.click(screen.getByTestId('ahead-review'));
     const sheet = screen.getByTestId('send-ahead-sheet');
-    expect(sheet.textContent).toContain('held under this passkey’s own key');
+    expect(sheet.textContent).toContain('held for this account alone');
     expect(sheet.textContent).toContain('a tap on the arrival card');
     expect(sheet.textContent).not.toMatch(/arrives by itself|relayer/i);
     fireEvent.click(screen.getByTestId('ahead-send'));

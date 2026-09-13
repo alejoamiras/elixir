@@ -7,6 +7,8 @@ import type { ArchivedExit } from '../../../bridge/src/witness.ts';
 
 export interface FactReads {
   tx(c: Crossing): Promise<Facts['tx']>;
+  /** The epoch a block belongs to: a record the send left with a block and no epoch asks once. */
+  epochOfBlock(block: number): Promise<string>;
   proofDeadline(epoch: bigint): Promise<bigint>;
   epochProven(epoch: bigint): Promise<boolean>;
   /** The witness once the epoch is proven; undefined before. */
@@ -35,11 +37,12 @@ const txFacts = async (reads: FactReads, c: Crossing, f: Facts): Promise<Facts> 
 
 /** The epoch's proof: its deadline, whether it landed, the witness once it has; pruned when the deadline passed without it. */
 async function epochFacts(reads: FactReads, c: Crossing, f: Facts): Promise<Facts> {
-  if (!c.epoch) return f;
-  const epoch = BigInt(c.epoch);
+  const known = c.epoch ?? (c.block === undefined ? undefined : await reads.epochOfBlock(c.block));
+  if (!known) return f;
+  const epoch = BigInt(known);
   const deadline = c.proofDeadline ? BigInt(c.proofDeadline) : await reads.proofDeadline(epoch);
   const epochProven = await reads.epochProven(epoch);
-  const next: Facts = { ...f, proofDeadline: deadline.toString(), epochProven };
+  const next: Facts = { ...f, epoch: known, proofDeadline: deadline.toString(), epochProven };
   if (epochProven) next.witness = await reads.witness(c);
   else next.epochPruned = reads.nowSeconds() > deadline;
   return next;

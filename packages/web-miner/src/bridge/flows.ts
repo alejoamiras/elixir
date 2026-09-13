@@ -198,10 +198,16 @@ export function claimArrival(ctx: BridgeContext, c: Crossing, timeoutSeconds = 6
   });
 }
 
+/** A deposit whose wallet never answered (refused, or its prompt left open under a reload). */
+const unansweredDeposit = async (ctx: BridgeContext): Promise<Crossing | undefined> =>
+  (await ctx.store.list()).find(
+    (c) => c.kind === 3 && c.state === 'proving' && c.version === ctx.version.toString(),
+  );
+
 /**
- * K3: two wallet transactions on Ethereum; the crossing is recorded before the first. `resume` is a
- * deposit the wallet never answered (its prompt left open, the page reloaded): the same index and
- * secret go out again rather than a new reservation.
+ * K3: two wallet transactions on Ethereum; the crossing is recorded before the first. A deposit the
+ * wallet never answered is the one sent again — same index and secret, the amount as asked now —
+ * rather than a new reservation beside it.
  */
 export function deposit(
   ctx: BridgeContext,
@@ -209,18 +215,20 @@ export function deposit(
   amount: bigint,
   deadline: bigint,
   onStep?: (step: 'approve' | 'deposit') => void,
-  resume?: Crossing,
 ): Promise<Crossing> {
   return guarded(ctx, async () => {
-    if (resume && (resume.kind !== 3 || resume.state !== 'proving'))
-      throw new Error('only a deposit the wallet never answered can be sent again');
-    const c =
-      resume ??
-      (await ctx.store.create(
-        ctx.version.toString(),
-        () => nextIndexFromChain(ctx),
-        (index) => ({ ...fresh(ctx, 1, index, amount, `0x${'00'.repeat(20)}`), kind: 3 }),
-      ));
+    const stale = await unansweredDeposit(ctx);
+    const c = stale
+      ? await ctx.store.update(stale.id, (x) => ({
+          ...x,
+          amount: amount.toString(),
+          updatedAt: ctx.now?.() ?? Date.now(),
+        }))
+      : await ctx.store.create(
+          ctx.version.toString(),
+          () => nextIndexFromChain(ctx),
+          (index) => ({ ...fresh(ctx, 1, index, amount, `0x${'00'.repeat(20)}`), kind: 3 }),
+        );
     const secrets = await secretsFor(ctx, c.index);
     const done = await depositOnEthereum(
       config,

@@ -21,6 +21,7 @@ const reads = (over: Partial<FactReads> = {}) => {
   const calls: string[] = [];
   const defaults: FactReads = {
     tx: async () => ({ status: 'mined', block: 3, epoch: '2' }),
+    epochOfBlock: async () => '2',
     proofDeadline: async () => 900n,
     epochProven: async () => false,
     witness: async () => undefined,
@@ -64,6 +65,12 @@ describe('the facts a reading gathers', () => {
     const g = await factsFor(proven.r, crossing('proven-pending', { epoch: '2', proofDeadline: '900' }), 5);
     expect(g.witness).toBeDefined();
     expect(proven.calls).toEqual(['epochProven', 'witness']);
+    // The send recorded the block alone: the epoch is read once and kept on the record.
+    const late = reads();
+    const h = await factsFor(late.r, crossing('proven-pending', { block: 3 }), 5);
+    expect(h.epoch).toBe('2');
+    expect(late.calls).toEqual(['epochOfBlock', 'proofDeadline', 'epochProven']);
+    expect(advance(crossing('proven-pending', { block: 3 }), h).epoch).toBe('2');
   });
 
   test('a witnessed leaf asks the portal only until an event answers for it', async () => {

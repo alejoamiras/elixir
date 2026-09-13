@@ -60,6 +60,23 @@ export const INVENTORY: Readonly<Record<string, Readonly<Record<string, number>>
     'a win Presto proved is verified in the browser before it shows, then claimed; the proof went over the wire': 1,
     'nothing answers: the billboard invites the install and the browser proves without the suffix': 0,
   },
+  // The W claim for a balance, the exit's burn, the deposit's claim; the wallet cells prove nothing.
+  'bridge-states.e2e.ts': {
+    'the bridge through the page: an exit forwarded and minted; a deposit through the picker on the wrong chain, refused once, left open once, its account changed, then landed and claimed': 3,
+  },
+};
+
+/**
+ * Specs the upgrade rig runs (`bun run rig -- browser`), never a shard: they need the rig's flip and
+ * two builds. The meter still holds them to their floors; the shard merge ignores them.
+ */
+export const RIG_ONLY: Readonly<Record<string, Readonly<Record<string, number>>>> = {
+  // V5: the W claim, the exit's burn, the deposit's claim, two send-aheads' burns. V6: the arrival's claim.
+  'bridge.e2e.ts': {
+    'on V5: a words account mines one claim, exits to Ethereum (forwarded and minted), deposits through the picker and claims, and sends ahead twice': 5,
+    'on V5 after the flip: the migration card says mining has ended and what is left can still be sent ahead': 0,
+    'on V6: the same words restore the account, the recovery file brings the held send-aheads, one is forwarded from the page with the holder’s signature and claimed, the other redeemed to Ethereum': 1,
+  },
 };
 
 export const SPEC_FILES: readonly string[] = Object.keys(INVENTORY);
@@ -79,10 +96,11 @@ export const MOVED_TO_REPLAY: readonly string[] = [
   'an old Presto answers: the update row, and Retry re-asks',
 ];
 
-/** Title → floor, over every file. */
+/** Title → floor, over every file, the rig's included. */
 export const EXPECTED_PROOFS: Readonly<Record<string, number>> = Object.assign(
   {},
   ...Object.values(INVENTORY),
+  ...Object.values(RIG_ONLY),
 ) as Record<string, number>;
 
 /** The titles the given spec files hold; a file outside the inventory throws. */

@@ -17,7 +17,6 @@ import {
 import { createConfig, http, injected } from 'wagmi';
 import {
   getAccount,
-  getChainId,
   readContract,
   switchChain,
   waitForTransactionReceipt,
@@ -68,9 +67,12 @@ export function connectedAccount(config: WagmiConfig): Hex {
   return address;
 }
 
-/** Asks the wallet to move to the portal's chain when it is elsewhere. */
+/**
+ * Asks the wallet to move to the portal's chain when it is elsewhere. The connection's chain, not
+ * the config's: a wallet on a chain the config does not list leaves the config on its own chain.
+ */
 export async function ensureChain(config: WagmiConfig, chainId: number): Promise<void> {
-  if (getChainId(config) !== chainId) await switchChain(config, { chainId });
+  if (getAccount(config).chainId !== chainId) await switchChain(config, { chainId });
 }
 
 const mined = async (config: WagmiConfig, hash: Hex) => {
