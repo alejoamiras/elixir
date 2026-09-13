@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { relative } from 'node:path';
 import { yacanaPortalAbi } from '@yacana/bridge/src/portal.ts';
 import { signForward, signRedeem } from '@yacana/bridge/src/signatures.ts';
-import { forwardArgsFromArchive, readArchive } from '@yacana/bridge/src/witness.ts';
+import { type ArchivedExit, forwardArgsFromArchive, readArchive } from '@yacana/bridge/src/witness.ts';
 import { type Hex, parseEventLogs } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { repoRoot } from '../../../scripts/run/toolchain.ts';
@@ -23,6 +23,7 @@ import {
 } from '../../../scripts/run/upgrade-rig.ts';
 import { archivePath, forwardAll } from '../../deploy/src/bridge/forward.ts';
 import { type Operator, writeOpts } from '../../deploy/src/bridge/operator.ts';
+import { pauseAll, unpause } from '../../deploy/src/bridge/pause.ts';
 import { registerVersion } from '../../deploy/src/bridge/register.ts';
 import { retireOnL1, retireOnL2 } from '../../deploy/src/bridge/retire.ts';
 import { versionStatus } from '../../deploy/src/bridge/status.ts';
@@ -30,7 +31,7 @@ import { noteAllTransitions } from '../../deploy/src/bridge/transition.ts';
 import { continuationOf, type Deployment } from '../../deploy/src/deploy.ts';
 import { readOpenEpoch } from '../../miner-core/src/epoch.ts';
 import type { WorkProver } from '../../miner-core/src/work.ts';
-import { errorName } from '../src/revert.ts';
+import { errorName, revertName } from '../src/revert.ts';
 import { balanceOf, claimFromL1, mineOnce, openUser, sendAhead, type User, workProver } from '../src/user.ts';
 import { asForwarder, asStranger, deployBridge, deployMiner, type MinerOnRig } from '../src/yacana.ts';
 
@@ -109,8 +110,17 @@ describe.skipIf(!enabled)('the migration V5 → V6', () => {
       sourceNodeUrl: node5.nodeUrl,
       archive,
     });
-    expect(early.forwarded).toEqual([]);
-    expect(early.failed.map(reasonOf)).toEqual(Array(3).fill('NotForwardable'));
+    // The script holds every send-ahead until a target record names where they land; the portal
+    // itself has no registered canonical to forward into yet.
+    expect(early).toMatchObject({ forwarded: [], failed: [], refusedKind2: 'no target record' });
+    expect(
+      await revertName(
+        forwarder.portal.simulate.forward(
+          [V5, forwardArgsFromArchive(entries()[0] as ArchivedExit)],
+          writeOpts(forwarder),
+        ),
+      ),
+    ).toBe('NotForwardable');
 
     // The flip, observed; V5 retired on Ethereum, then on its own chain.
     const v6v: RigVersion = await rig.deployNext({ bump: 1n });
@@ -121,12 +131,14 @@ describe.skipIf(!enabled)('the migration V5 → V6', () => {
     sends.push(await sendAhead(user, slice, 2));
     const sent = await retireOnL1(v5.operator, V5);
     await rig.nudge();
-    await retireOnL2(user, portal, sent.inboxIndex, 300);
+    await retireOnL2(user, portal, sent, 300);
+    // Sent once: a rerun of the L1 step yields the same index from the log instead of a revert.
+    expect(await retireOnL1(v5.operator, V5)).toMatchObject({ inboxIndex: sent.inboxIndex, resumed: true });
     expect(
       (await user.miner.methods.bridge_state().simulate({ from: user.from })) as { result: unknown[] },
     ).toMatchObject({ result: expect.arrayContaining([true]) });
-    // No claim mints on a retired version.
-    await expect(mineOnce(user, prover)).rejects.toThrow();
+    // No claim mints on a retired version: the miner's own refusal, not a prover or node failure.
+    await expect(mineOnce(user, prover)).rejects.toThrow(/mining has ended on this version/);
     // The post-flip window: one more settled checkpoint on V5 carries the late send-ahead out.
     await settle();
     expect(
@@ -167,7 +179,12 @@ describe.skipIf(!enabled)('the migration V5 → V6', () => {
 
     // H11: a stranger's forward fails on the portal; the script refuses a target whose miner differs.
     const stranger = await asStranger(rig, v5, STRANGER_KEY);
-    const strangerReport = await forwardAll(stranger, { source: v5.deployment, archive, fromArchive: true });
+    const strangerReport = await forwardAll(stranger, {
+      source: v5.deployment,
+      archive,
+      fromArchive: true,
+      target: v6.deployment,
+    });
     expect(strangerReport.forwarded).toEqual([]);
     // No signature at all: the portal refuses on the (zero) expiry before it recovers a signer.
     expect(new Set(strangerReport.failed.map(reasonOf))).toEqual(new Set(['SignatureExpired']));
@@ -178,12 +195,17 @@ describe.skipIf(!enabled)('the migration V5 → V6', () => {
       fromArchive: true,
       target: impostor,
     });
-    expect(refused.refusedKind2).toBe(true);
+    expect(refused.refusedKind2).toBe('the live miner is not the announced one');
     expect(refused.forwarded).toEqual([]);
 
     // The holder forwards one with the redeem key's signature, from any account; the forwarder does the rest.
     const one = entryOf(sends[1] as (typeof sends)[number]);
     const V6 = BigInt(v6.deployment.rollupVersion);
+    // H9's other half: pauseAll reaches every registered version, not the record's alone.
+    await pauseAll(v6.operator, 60n);
+    expect((await versionStatus(v6.operator, V5)).paused).toBe(true);
+    expect((await versionStatus(v6.operator, V6)).paused).toBe(true);
+    for (const v of [V5, V6]) await unpause(v6.operator, v);
     const forwardExpiry = BigInt((await rig.publicClient.getBlock()).timestamp) + 3600n;
     const signed = {
       ...forwardArgsFromArchive(one),

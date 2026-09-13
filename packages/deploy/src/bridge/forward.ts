@@ -1,8 +1,8 @@
 // Forwarding a version's exits: every `ExitRecorded` the miner logged, its Outbox witness from the
 // source node once the exit's epoch settled, archived to deployments/witnesses/<profile>.jsonl so
 // a forward outlives the node, then consumed on the portal in batches under the forwarder key. A
-// send-ahead is refused when the version it would land on registered a miner other than the one
-// the announced record names.
+// send-ahead is forwarded only against the announced record of the version it lands on, and only
+// when the miner that version registered is the announced one.
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { loadContractArtifact } from '@aztec/aztec.js/abi';
@@ -13,36 +13,45 @@ import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { exitRecordedEvent, readExits } from '@yacana/bridge/src/exits.ts';
 import { type ForwardArgs, yacanaPortalAbi } from '@yacana/bridge/src/portal.ts';
+import { leafIdOf } from '@yacana/bridge/src/signatures.ts';
 import {
   type ArchivedExit,
   archiveEntry,
   archiveLine,
+  type ExitScope,
   exitMessageContent,
   fetchWitness,
   forwardArgsFromArchive,
   outboxLeaf,
   type RecordedExit,
   readArchive,
+  rootOf,
 } from '@yacana/bridge/src/witness.ts';
-import { getContract, type Hex, parseEventLogs } from 'viem';
+import { getContract, type Hex, type Log, parseEventLogs } from 'viem';
 import { MINER_ARTIFACT_PATH } from '../../../miner-core/src/artifacts.ts';
 import type { Deployment } from '../deploy.ts';
 import { confirmed, minerBytes32, type Operator, writeOpts } from './operator.ts';
 
 const repo = resolve(import.meta.dir, '../../../..');
 
+/** Leaves per `forwardMany`: keeps the stated gas limit well inside a block. */
+export const MAX_BATCH = 20;
+
 export interface ForwardOptions {
   /** The version whose exits are forwarded: its record, and a node that still serves it. */
   source: Deployment;
   sourceNodeUrl?: string;
-  /** The announced deployment a send-ahead may land on; a registered miner that differs refuses every K2. */
+  /** The announced deployment a send-ahead may land on; without it, or with another miner registered, every K2 is held. */
   target?: Deployment;
   /** Relative to the repo root; defaults to deployments/witnesses/<profile>.jsonl. */
   archive?: string;
   /** The source node is gone: forward what the archive holds, read nothing. */
   fromArchive?: boolean;
+  /** Leaves per transaction, 1 to MAX_BATCH. */
   batch?: number;
 }
+
+export type Kind2Refusal = 'no target record' | 'the live miner is not the announced one';
 
 export interface ForwardReport {
   archived: number;
@@ -50,12 +59,32 @@ export interface ForwardReport {
   pending: number[];
   /** A send-ahead's `inboxIndex` names the message its claim consumes on the target; an exit's is 0. */
   forwarded: { index: number; leafId: bigint; inboxIndex: bigint }[];
-  failed: { position: number; reason: Hex }[];
-  refusedKind2: boolean;
+  /** By the source exit's index; `reason` is the leaf's revert data (see `errorName`). */
+  failed: { index: number; reason: Hex }[];
+  refusedKind2: false | Kind2Refusal;
 }
 
 export const archivePath = (profile: string, archive?: string): string =>
   resolve(repo, archive ?? `deployments/witnesses/${profile}.jsonl`);
+
+const scopeOf = (source: Deployment): ExitScope => ({
+  chainId: BigInt(source.chainId),
+  rollupVersion: BigInt(source.rollupVersion),
+  miner: AztecAddress.fromStringUnsafe(source.miner),
+  portal: EthAddress.fromString(source.portal as string),
+});
+
+const leafOf = (
+  scope: ExitScope,
+  exit: Pick<ArchivedExit, 'kind' | 'amount' | 'aux' | 'recipientOrRedeemKey'>,
+) =>
+  outboxLeaf(
+    scope,
+    exitMessageContent(
+      { ...exit, amount: BigInt(exit.amount) },
+      EthAddress.fromString(exit.recipientOrRedeemKey),
+    ),
+  );
 
 /** Reads what the source node logged and archives every settled exit not archived yet. */
 export async function archiveExits(
@@ -67,16 +96,10 @@ export async function archiveExits(
   const mine = known.filter((e) => e.version === version.toString());
   if (opts.fromArchive) return { entries: mine, pending: [] };
   const node = createAztecNodeClient(opts.sourceNodeUrl ?? opts.source.nodeUrl);
-  const miner = AztecAddress.fromStringUnsafe(opts.source.miner);
+  const scope = scopeOf(opts.source);
   const event = await exitRecordedEvent(loadContractArtifact(await Bun.file(MINER_ARTIFACT_PATH).json()));
-  const scope = {
-    chainId: BigInt(opts.source.chainId),
-    rollupVersion: version,
-    miner,
-    portal: EthAddress.fromString(opts.source.portal as string),
-  };
   const pending: number[] = [];
-  let page = await readExits(node, miner, event);
+  let page = await readExits(node, scope.miner, event);
   for (;;) {
     for (const exit of page.exits) {
       if (mine.some((e) => e.index === exit.index)) continue;
@@ -90,14 +113,14 @@ export async function archiveExits(
       mine.push(entry);
     }
     if (!page.nextCursor) break;
-    page = await readExits(node, miner, event, { afterEvent: page.nextCursor });
+    page = await readExits(node, scope.miner, event, { afterEvent: page.nextCursor });
   }
   return { entries: mine, pending };
 }
 
 const witnessOf = async (
   node: ReturnType<typeof createAztecNodeClient>,
-  scope: Parameters<typeof outboxLeaf>[0],
+  scope: ExitScope,
   exit: RecordedExit,
   version: bigint,
 ): Promise<ArchivedExit | undefined> => {
@@ -106,73 +129,115 @@ const witnessOf = async (
   return witness ? archiveEntry(version, exit, witness) : undefined;
 };
 
-/** Whether the live version's registered miner is the announced one; `true` when nothing is registered yet. */
-async function targetMinerMatches(op: Operator, target: Deployment | undefined): Promise<boolean> {
-  if (!target) return true;
+/** Why send-aheads are held, or `false` when the announced target is the one the live version registered. */
+async function kind2Refusal(op: Operator, target: Deployment | undefined): Promise<false | Kind2Refusal> {
+  if (!target) return 'no target record';
   const count = await op.registry.read.numberOfVersions();
   const canonical = await op.registry.read.getVersion([count - 1n]);
   const info = await op.portal.read.versionInfo([canonical]);
-  return !info.registered || info.miner.toLowerCase() === minerBytes32(target).toLowerCase();
+  if (info.registered && info.miner.toLowerCase() !== minerBytes32(target).toLowerCase())
+    return 'the live miner is not the announced one';
+  return false;
 }
 
-/** The entries the source version's Outbox has not seen consumed: leaf ids repeat across epochs, so both count. */
-async function unconsumed(op: Operator, version: bigint, entries: ArchivedExit[]): Promise<ArchivedExit[]> {
+const outboxOf = async (op: Operator, version: bigint) => {
   const rollup = await op.registry.read.getRollup([version]);
-  const outboxAddress = await getContract({
+  const address = await getContract({
     address: rollup,
     abi: RollupAbi,
     client: op.publicClient,
   }).read.getOutbox();
-  const outbox = getContract({ address: outboxAddress, abi: OutboxAbi, client: op.publicClient });
+  return getContract({ address, abi: OutboxAbi, client: op.publicClient });
+};
+
+/**
+ * The entries the source version's Outbox has not seen consumed — leaf ids repeat across epochs, so
+ * both count — each checked against the root the Outbox holds for its epoch: an archive line whose
+ * witness does not prove its leaf stops the forward and names itself, rather than being carried
+ * as "archived" while its exit is never fetched again.
+ */
+async function unconsumed(
+  op: Operator,
+  source: Deployment,
+  entries: ArchivedExit[],
+): Promise<ArchivedExit[]> {
+  const outbox = await outboxOf(op, BigInt(source.rollupVersion));
+  const scope = scopeOf(source);
   const out: ArchivedExit[] = [];
   for (const e of entries) {
-    if (!(await outbox.read.hasMessageBeenConsumedAtEpoch([BigInt(e.epoch), leafIdOf(e)]))) out.push(e);
+    const epoch = BigInt(e.epoch);
+    const root = await outbox.read.getRootData([epoch, BigInt(e.numCheckpointsInEpoch)]);
+    if (rootOf(leafOf(scope, e), e.path, BigInt(e.leafIndex)) !== root.toLowerCase())
+      throw new Error(
+        `the archived witness of exit ${e.index} (epoch ${e.epoch}) does not match the Outbox root: remove its line and archive again`,
+      );
+    if (
+      !(await outbox.read.hasMessageBeenConsumedAtEpoch([
+        epoch,
+        leafIdOf({ path: e.path, leafIndex: BigInt(e.leafIndex) }),
+      ]))
+    )
+      out.push(e);
   }
   return out;
 }
 
+const batchSize = (batch: number | undefined): number => {
+  const size = batch ?? 10;
+  if (!Number.isInteger(size) || size < 1 || size > MAX_BATCH)
+    throw new Error(`batch must be a whole number from 1 to ${MAX_BATCH}, not ${batch}`);
+  return size;
+};
+
 /** Archives, then forwards every unconsumed exit of the source version in batches. */
 export async function forwardAll(op: Operator, opts: ForwardOptions): Promise<ForwardReport> {
+  const size = batchSize(opts.batch);
   const version = BigInt(opts.source.rollupVersion);
   const { entries, pending } = await archiveExits(opts);
-  const kind2Allowed = await targetMinerMatches(op, opts.target);
-  const due = (await unconsumed(op, version, entries)).filter((e) => kind2Allowed || e.kind !== 2);
+  const refusedKind2 = await kind2Refusal(op, opts.target);
+  const due = (await unconsumed(op, opts.source, entries)).filter((e) => !refusedKind2 || e.kind !== 2);
   const report: ForwardReport = {
     archived: entries.length,
     pending,
     forwarded: [],
     failed: [],
-    refusedKind2: !kind2Allowed,
+    refusedKind2,
   };
-  const size = opts.batch ?? 10;
   // A gas estimate cannot see through `forwardMany`'s try/catch: the cheapest "successful" run is
-  // the one where every leaf runs out of its stipend and is logged as failed. The limit is stated.
+  // the one where every leaf runs out of its stipend and is logged as failed. So the limit is
+  // stated: each leaf's stipend plus what the batch spends around it (calldata, the copy into the
+  // self-call, a failure's event), plus the transaction's own base. Unused gas is refunded.
   const leafGas = await op.portal.read.LEAF_GAS();
   for (let i = 0; i < due.length; i += size) {
     const slice = due.slice(i, i + size);
     const args: ForwardArgs[] = slice.map((e) => forwardArgsFromArchive(e));
-    const gas = leafGas * BigInt(slice.length) + 200_000n;
+    const gas = (leafGas + 60_000n) * BigInt(slice.length) + 120_000n;
     const txHash = await confirmed(op, () =>
       op.portal.write.forwardMany([version, args], { ...writeOpts(op), gas }),
     );
-    const receipt = await op.publicClient.getTransactionReceipt({ hash: txHash });
-    for (const log of parseEventLogs({ abi: yacanaPortalAbi, logs: receipt.logs })) {
-      if (log.eventName === 'Forwarded') {
-        const entry = slice.find(
-          (e) => BigInt(e.epoch) === log.args.epoch && leafIdOf(e) === log.args.leafId,
-        );
-        if (entry)
-          report.forwarded.push({
-            index: entry.index,
-            leafId: log.args.leafId,
-            inboxIndex: log.args.inboxIndex,
-          });
-      } else if (log.eventName === 'LeafFailed') {
-        report.failed.push({ position: Number(log.args.position), reason: log.args.reason });
-      }
-    }
+    collect(report, slice, await op.publicClient.getTransactionReceipt({ hash: txHash }));
   }
   return report;
 }
 
-const leafIdOf = (e: ArchivedExit): bigint => (1n << BigInt(e.path.length)) + BigInt(e.leafIndex);
+/** Reads one batch's outcome off its receipt: a `Forwarded` per consumed leaf, a `LeafFailed` per position. */
+function collect(report: ForwardReport, slice: ArchivedExit[], receipt: { logs: Log[] }): void {
+  for (const log of parseEventLogs({ abi: yacanaPortalAbi, logs: receipt.logs })) {
+    if (log.eventName === 'Forwarded') {
+      const entry = slice.find(
+        (e) =>
+          BigInt(e.epoch) === log.args.epoch &&
+          leafIdOf({ path: e.path, leafIndex: BigInt(e.leafIndex) }) === log.args.leafId,
+      );
+      if (entry)
+        report.forwarded.push({
+          index: entry.index,
+          leafId: log.args.leafId,
+          inboxIndex: log.args.inboxIndex,
+        });
+    } else if (log.eventName === 'LeafFailed') {
+      const entry = slice[Number(log.args.position)];
+      if (entry) report.failed.push({ index: entry.index, reason: log.args.reason });
+    }
+  }
+}

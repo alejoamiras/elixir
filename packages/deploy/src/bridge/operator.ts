@@ -2,7 +2,7 @@
 // and YACA typed. Every command the runbook names is a function in this directory, so the calls
 // the harness exercises are the ones an operator runs. Reads need no key; a write needs
 // YACANA_L1_PRIVATE_KEY — the operators key, or a listed forwarder's for forwards.
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { RegistryAbi } from '@aztec/l1-artifacts/RegistryAbi';
 import { yacaAbi, yacanaPortalAbi } from '@yacana/bridge/src/portal.ts';
@@ -42,8 +42,6 @@ export interface Operator {
   portal: ReturnType<typeof portalContract>;
   yaca: ReturnType<typeof yacaContract>;
   registry: ReturnType<typeof registryContract>;
-  /** Rewrites the record with `patch` merged in. */
-  save(patch: Partial<Deployment>): void;
 }
 
 // Always a wallet client, so every contract carries `write`; without a key it has no account and
@@ -86,10 +84,6 @@ export async function openOperator(opts: OperatorOptions): Promise<Operator> {
     portal: portalContract(record.bridge.portal as Hex, clients),
     yaca: yacaContract(record.bridge.yaca as Hex, clients),
     registry: registryContract(record.bridge.registry as Hex, clients),
-    save(patch) {
-      Object.assign(record, patch);
-      writeFileSync(resolve(repo, opts.record), `${JSON.stringify(record, null, 2)}\n`);
-    },
   };
 }
 
@@ -101,7 +95,7 @@ export const operatorFromEnv = (profile: string): Promise<Operator> =>
     ...(process.env.YACANA_L1_PRIVATE_KEY ? { key: process.env.YACANA_L1_PRIVATE_KEY as Hex } : {}),
   });
 
-/** What every write names: the operator's account and chain; `confirmed` refuses without a key. */
+/** The account and chain a write goes out under. */
 export const writeOpts = (op: Operator) => ({ account: op.account as PrivateKeyAccount, chain: op.chain });
 
 /** A write's receipt, or a clear refusal when the operator was opened without a key. */

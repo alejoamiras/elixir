@@ -2,9 +2,10 @@
 // and a mined balance settled by hand as the baseline, then a send-ahead sits in a checkpoint no
 // proof ever covers. With V6's node stopped and the rig's cheat codes owning the clock, V7 takes
 // over, the proof window passes, V6's rollup prunes: its Outbox has no root for that epoch, a
-// forward reverts as such, and its pending tip is back at the baseline. Only then V6 runs again,
-// and the holder's balance is back where it was, because the burn was in a block that never
-// happened — the one truthful UX claim for an unsettled crossing.
+// forward reverts as such, and its pending tip is back at the baseline. Only then V6 runs again
+// and serves its version. What its wallets show afterwards is not stageable here (the automine
+// node keeps the orphaned block; a fresh node never finishes syncing behind a prune), so the app
+// claims nothing about the balance beyond those Ethereum facts.
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { relative } from 'node:path';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';

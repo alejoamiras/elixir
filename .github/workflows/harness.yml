@@ -27,6 +27,8 @@ jobs:
         relevant:
           - 'scripts/run/**'
           - 'packages/harness/**'
+          - 'packages/bridge/**'
+          - 'packages/miner-core/**'
           - 'packages/portal/**'
           - 'packages/contracts/**'
           - 'packages/deploy/**'
@@ -52,6 +54,14 @@ jobs:
       - run: bun test scripts/run/toolchain.test.ts
         env:
           YACANA_REQUIRE_TOOLCHAIN: '1'
+      # The flip needs no Yacana; the other cases mine, deploy and forward, so a dispatch builds
+      # the circuits, the contracts and the portal first.
+      - if: github.event_name == 'workflow_dispatch'
+        run: bun run codegen && git diff --exit-code
+      - if: github.event_name == 'workflow_dispatch'
+        run: bun run contracts:compile
+      - if: github.event_name == 'workflow_dispatch'
+        run: bun run portal:build
       # A pull request runs the flip; a dispatch runs what it names (nothing named: every case).
       - run: |
           read -ra cases <<< "$CASES"
@@ -63,6 +73,6 @@ jobs:
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: harness-logs
-          path: .localnet/**/*.log
+          path: .localnet/logs/**
           if-no-files-found: ignore
           retention-days: 14

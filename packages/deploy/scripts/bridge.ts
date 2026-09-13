@@ -8,9 +8,10 @@
 //                    | note-transitions
 //                    | pause <version> <seconds> | pause-all <seconds> | unpause <version>
 //                    | close-deposits <version>
-//                    | retire <version>            (L1; then L2 with YACANA_DEPLOYER_SECRET and the source node)
-//                    | forward <source-record> [target-record]
+//                    | retire <version>            (L1, once; then L2 with YACANA_DEPLOYER_SECRET and the record's node)
+//                    | forward <source-record> [target-record] [--from-archive] [--batch <n>]
 import { Fr } from '@aztec/aztec.js/fields';
+import { errorName } from '@yacana/bridge/src/revert.ts';
 import { PROFILE } from '../../miner-core/src/generated/params.ts';
 import { forwardAll } from '../src/bridge/forward.ts';
 import { openL2 } from '../src/bridge/l2.ts';
@@ -21,7 +22,14 @@ import { retireOnL1, retireOnL2 } from '../src/bridge/retire.ts';
 import { registeredVersions, statusLines, versionStatus } from '../src/bridge/status.ts';
 import { noteAllTransitions } from '../src/bridge/transition.ts';
 
-const [command, ...args] = process.argv.slice(2).filter((a) => a !== '--');
+const argv = process.argv.slice(2).filter((a) => a !== '--');
+const flags = new Set(argv.filter((a) => a.startsWith('--')));
+const flagValue = (name: string): string | undefined => {
+  const i = argv.indexOf(name);
+  return i >= 0 ? argv[i + 1] : undefined;
+};
+const positional = argv.filter((a, i) => !a.startsWith('--') && argv[i - 1] !== '--batch');
+const [command, ...args] = positional;
 const arg = (i: number, name: string): string => {
   const v = args[i];
   if (v === undefined) throw new Error(`${command} needs <${name}>`);
@@ -58,20 +66,25 @@ switch (command) {
     console.log(await closeDeposits(op, BigInt(arg(0, 'version'))));
     break;
   case 'retire': {
-    const sent = await retireOnL1(op, BigInt(arg(0, 'version')));
-    console.log(`retire sent for ${sent.version}: ${sent.txHash} (inbox index ${sent.inboxIndex})`);
+    const version = BigInt(arg(0, 'version'));
+    const sent = await retireOnL1(op, version);
+    console.log(
+      `retire ${sent.resumed ? 'was sent before' : 'sent'} for ${sent.version}: ${sent.txHash} (inbox index ${sent.inboxIndex})`,
+    );
     const secret = process.env.YACANA_DEPLOYER_SECRET;
     if (!secret) {
       console.log(
-        'YACANA_DEPLOYER_SECRET unset: consume it on the old chain with `retire` again, or from any account',
+        'YACANA_DEPLOYER_SECRET unset: run `retire` again with it set to consume the message on the old chain',
       );
       break;
     }
+    if (BigInt(op.record.rollupVersion) !== version)
+      throw new Error(
+        `the record is version ${op.record.rollupVersion}: point YACANA_RECORD at version ${version}'s`,
+      );
     const l2 = await openL2(op.record, Fr.fromHexString(secret));
     try {
-      console.log(
-        `retired on L2: ${await retireOnL2(l2, op.record.bridge.portal as `0x${string}`, sent.inboxIndex)}`,
-      );
+      console.log(`retired on L2: ${await retireOnL2(l2, op.record.bridge.portal as `0x${string}`, sent)}`);
     } finally {
       await l2.stop();
     }
@@ -80,10 +93,17 @@ switch (command) {
   case 'forward': {
     const source = loadRecord(arg(0, 'source-record'));
     const target = args[1] ? loadRecord(args[1]) : undefined;
-    const r = await forwardAll(op, { source, ...(target ? { target } : {}) });
+    const batch = flagValue('--batch');
+    const r = await forwardAll(op, {
+      source,
+      ...(target ? { target } : {}),
+      fromArchive: flags.has('--from-archive'),
+      ...(batch ? { batch: Number(batch) } : {}),
+    });
     console.log(
-      `archived ${r.archived}, forwarded ${r.forwarded.length}, failed ${r.failed.length}, pending ${r.pending.length}${r.refusedKind2 ? ' (send-aheads refused: the live miner is not the announced one)' : ''}`,
+      `archived ${r.archived}, forwarded ${r.forwarded.length}, failed ${r.failed.length}, pending ${r.pending.length}${r.refusedKind2 ? ` (send-aheads held: ${r.refusedKind2})` : ''}`,
     );
+    for (const f of r.failed) console.log(`  exit ${f.index} failed: ${errorName(f.reason)}`);
     break;
   }
   default:

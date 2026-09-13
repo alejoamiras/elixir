@@ -115,13 +115,17 @@ describe.skipIf(!enabled)('the bridge on one version', () => {
     const { secrets } = await sendAhead(user, amount, 1);
     await settle();
     const report = await forward();
-    // Nothing to forward it into: the leaf fails on the portal, and stays in the archive.
-    expect(report.failed.length).toBe(1);
+    // Nothing to forward it into: the script holds it without a target record, and the portal
+    // itself has no registered canonical to take it; it stays in the archive.
+    expect(report).toMatchObject({ forwarded: [], failed: [], refusedKind2: 'no target record' });
     const entries = readArchive(readFileSync(archivePath(v5.deployment.profile, archive), 'utf8'));
     const held = entries.find((e) => e.index === 1);
     if (!held) throw new Error('the send-ahead was not archived');
     const version = BigInt(v5.deployment.rollupVersion);
     const args = forwardArgsFromArchive(held);
+    expect(await revertName(forwarder.portal.simulate.forward([version, args], writeOpts(forwarder)))).toBe(
+      'NotForwardable',
+    );
     const expiry = BigInt(Math.floor(Date.now() / 1000) + 24 * 3600 * 400);
     const portal = v5.deployment.bridge?.portal as Hex;
     const sig = await signRedeem(
@@ -166,7 +170,7 @@ describe.skipIf(!enabled)('the bridge on one version', () => {
     expect(paused.pausedSeconds).toBe(600n);
     const held = await forward();
     expect(held.forwarded).toEqual([]);
-    expect(held.failed.length).toBe(1);
+    expect(held.failed.map((f) => errorName(f.reason))).toEqual(['VersionPaused']);
     await unpause(v5.operator, version);
     const released = await versionStatus(v5.operator, version);
     expect(released.paused).toBe(false);

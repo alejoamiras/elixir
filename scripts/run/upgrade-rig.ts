@@ -5,7 +5,7 @@
 // goes through its debug API; anvil's own cheat codes are touched only when no node is alive.
 //
 //   const rig = await startUpgradeRig();  …  await rig.teardown();
-import { mkdirSync, rmSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
@@ -332,33 +332,41 @@ async function startPinnedNode(ctx: RigContext, version: RigVersion, autoProve: 
       MNEMONIC: NETWORK_MNEMONIC,
       // `bun test` runs with NODE_ENV=test, which the node's logger takes as "silent".
       LOG_LEVEL: process.env.LOG_LEVEL ?? 'info',
+      // The launcher refuses a toolchain other than the pinned one.
+      AZTEC_VERSION: aztecPin(),
     },
     ctx.verbose,
+    join(ctx.network.logDir, `aztec-v${version.registryIndex}.log`),
   );
+  // Dies with the network from here on: a teardown or a signal reaches it, and frees its lanes.
+  const disown = ctx.network.adopt(child, () => release(ports.runId));
+  const stop = async () => {
+    disown();
+    killOwned(child);
+    await release(ports.runId).catch(() => {});
+  };
   const nodeUrl = `http://127.0.0.1:${ports.node}`;
   const adminUrl = `http://127.0.0.1:${ports.admin}`;
   try {
     await jsonRpcReady(nodeUrl, 'node_getNodeInfo', 240_000, child);
+    const nodeInfo = await createAztecNodeClient(nodeUrl).getNodeInfo();
+    if (BigInt(nodeInfo.rollupVersion) !== version.version)
+      throw new Error(`the node follows version ${nodeInfo.rollupVersion}, expected ${version.version}`);
   } catch (e) {
-    killOwned(child);
-    await release(ports.runId).catch(() => {});
+    await stop();
     throw e;
   }
-  const nodeInfo = await createAztecNodeClient(nodeUrl).getNodeInfo();
-  if (BigInt(nodeInfo.rollupVersion) !== version.version)
-    throw new Error(`the node follows version ${nodeInfo.rollupVersion}, expected ${version.version}`);
   return {
     version: version.version,
     nodeUrl,
     adminUrl,
-    stop: async () => {
-      killOwned(child);
-      await release(ports.runId).catch(() => {});
-    },
+    stop,
     debug: createAztecNodeDebugClient(nodeUrl),
     admin: createAztecNodeAdminClient(adminUrl),
   };
 }
+
+const aztecPin = (): string => readFileSync(join(repoRoot, '.aztecrc'), 'utf8').trim();
 
 const anvilRpc = (url: string, method: string, params: unknown[]) =>
   fetch(url, {
@@ -389,9 +397,21 @@ async function proofHeadroom(ctx: RigContext, live: RigVersion): Promise<number 
   return deadlineSlot - Number(slot);
 }
 
+/**
+ * Warps the live node's clock and records the proof headroom left afterwards. A warp that crossed
+ * the proof deadline would make the sequencer's next propose prune the pending chain and the
+ * headroom read as a fresh small number, so the pending tip is checked not to have rewound.
+ */
 async function warpNodeBy(ctx: RigContext, rig: UpgradeRig, node: RigNode, seconds: number): Promise<void> {
-  await node.debug.warpL2TimeAtLeastBy(seconds);
   const live = ctx.versions.find((v) => v.version === node.version);
+  const rollup = live ? new RollupContract(ctx.publicClient, live.rollup) : undefined;
+  const pendingBefore = rollup ? await rollup.getCheckpointNumber() : 0n;
+  await node.debug.warpL2TimeAtLeastBy(seconds);
+  const pendingAfter = rollup ? await rollup.getCheckpointNumber() : 0n;
+  if (pendingAfter < pendingBefore)
+    throw new Error(
+      `a ${seconds}s warp pruned version ${node.version}'s pending chain (${pendingBefore} → ${pendingAfter})`,
+    );
   const headroomSlots = live ? await proofHeadroom(ctx, live) : null;
   rig.warps.push({ version: node.version, seconds, headroomSlots });
   console.info(

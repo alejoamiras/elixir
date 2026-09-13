@@ -14,7 +14,6 @@ export interface InboundScope {
   portal: EthAddress;
 }
 
-/** The Inbox leaf of a message the portal sent with `content` under `secretHash` at `index`. */
 export const inboxLeaf = (scope: InboundScope, content: Fr, secretHash: Fr, index: bigint): Fr =>
   new L1ToL2Message(
     new L1Actor(scope.portal, Number(scope.chainId)),

@@ -42,14 +42,20 @@ export async function exitRecordedEvent(artifact: ContractArtifact): Promise<Eve
 const hex32 = (v: bigint): Hex => `0x${v.toString(16).padStart(64, '0')}`;
 const hex20 = (v: bigint): Hex => `0x${v.toString(16).padStart(40, '0')}`;
 
-export const recordedExit = (fields: ExitRecordedFields, txHash: string): RecordedExit => ({
-  index: Number(fields.index),
-  kind: Number(fields.kind) as ExitKind,
-  amount: fields.amount,
-  aux: hex32(fields.hash_or_tag),
-  recipientOrRedeemKey: hex20(fields.recipient_or_redeem_key),
-  txHash,
-});
+/** The log's fields as an exit; a kind or an index the miner cannot emit is refused, not rounded. */
+export const recordedExit = (fields: ExitRecordedFields, txHash: string): RecordedExit => {
+  if (fields.kind !== 1n && fields.kind !== 2n) throw new Error(`exit log in ${txHash}: kind ${fields.kind}`);
+  if (fields.index > BigInt(Number.MAX_SAFE_INTEGER))
+    throw new Error(`exit log in ${txHash}: index ${fields.index} is beyond a safe integer`);
+  return {
+    index: Number(fields.index),
+    kind: Number(fields.kind) as ExitKind,
+    amount: fields.amount,
+    aux: hex32(fields.hash_or_tag),
+    recipientOrRedeemKey: hex20(fields.recipient_or_redeem_key),
+    txHash,
+  };
+};
 
 export interface ExitPage {
   exits: RecordedExit[];

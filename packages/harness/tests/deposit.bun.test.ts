@@ -97,7 +97,12 @@ describe.skipIf(!enabled)('a deposit from Ethereum (H2)', () => {
     if (!deposited) throw new Error('no Deposited event');
     expect(deposited.args.amount).toBe(amount);
     expect(await v5.operator.yaca.read.balanceOf([holder.address])).toBe(reward / 2n - amount);
-    expect((await versionStatus(v5.operator, version)).inbound).toBe(amount);
+    // H8: what exists on Ethereum is what left Aztec minus what went back, and the headroom follows.
+    const after = await versionStatus(v5.operator, version);
+    expect(after.inbound).toBe(amount);
+    expect(after.exited).toBe(reward / 2n);
+    expect(await v5.operator.yaca.read.totalSupply()).toBe(after.exited - after.inbound);
+    expect(after.headroom).toBe(after.cap + after.inbound - after.exited);
 
     // The message is in the Inbox; the next blocks make it consumable, then the claim mints.
     await rig.nudge();

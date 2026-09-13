@@ -3,9 +3,9 @@
 // a detached child in its own process group, and a JSON-RPC readiness probe that races the child's
 // exit so a foreign process on a claimed port is never mistaken for ours.
 import { type ChildProcess, spawn } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 export const repoRoot = resolve(import.meta.dir, '../..');
@@ -33,12 +33,17 @@ export function toolchainBin(name: string): string {
   return bin;
 }
 
+/**
+ * A child in its own process group, its output kept as a 40-line tail for error messages and, when
+ * `logFile` is given, appended there in full (the file outlives the run's data dir).
+ */
 export function spawnDetached(
   name: string,
   cmd: string,
   args: string[],
   env: Record<string, string>,
   verbose: boolean,
+  logFile?: string,
 ): Owned {
   const child = spawn(cmd, args, {
     cwd: repoRoot,
@@ -46,9 +51,12 @@ export function spawnDetached(
     detached: true,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
+  if (logFile) mkdirSync(dirname(logFile), { recursive: true });
+  const log = logFile ? createWriteStream(logFile, { flags: 'a' }) : undefined;
   const tail: string[] = [];
   const onData = (b: Buffer) => {
     if (verbose) process.stdout.write(`[${name}] ${b.toString()}`);
+    log?.write(b);
     tail.push(
       ...b
         .toString()
@@ -62,6 +70,7 @@ export function spawnDetached(
   let exited = false;
   child.on('exit', () => {
     exited = true;
+    log?.end();
   });
   child.on('error', (e) => {
     exited = true;

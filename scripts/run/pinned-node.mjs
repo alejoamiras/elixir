@@ -8,16 +8,23 @@
 //
 // Environment: the node's usual (ETHEREUM_HOSTS, L1_CHAIN_ID, REGISTRY_CONTRACT_ADDRESS,
 // ROLLUP_VERSION, DATA_DIRECTORY, WS_DATA_DIRECTORY, AZTEC_MANA_TARGET, LOG_LEVEL, …) plus
-// AZTEC_TOOLCHAIN_ROOT, PINNED_NODE_PORT, PINNED_NODE_ADMIN_PORT, PREFUND_ADDRESSES (the genesis,
-// in order), MNEMONIC (the validator + publisher, anvil's first account) and
-// AUTOMINE_ENABLE_PROVE_EPOCH.
+// AZTEC_TOOLCHAIN_ROOT (and AZTEC_VERSION, which it must match), PINNED_NODE_PORT,
+// PINNED_NODE_ADMIN_PORT, PREFUND_ADDRESSES (the genesis, in order), MNEMONIC (the validator +
+// publisher, anvil's first account) and AUTOMINE_ENABLE_PROVE_EPOCH.
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
 const root = process.env.AZTEC_TOOLCHAIN_ROOT;
 if (!root) throw new Error('AZTEC_TOOLCHAIN_ROOT is not set');
-const require = createRequire(join(root, 'node_modules', '@aztec', 'aztec', 'package.json'));
+const packageJson = join(root, 'node_modules', '@aztec', 'aztec', 'package.json');
+const require = createRequire(packageJson);
 const load = (spec) => import(require.resolve(spec));
+const toolchainVersion = JSON.parse(readFileSync(packageJson, 'utf8')).version;
+if (process.env.AZTEC_VERSION && toolchainVersion !== process.env.AZTEC_VERSION)
+  throw new Error(
+    `the toolchain at ${root} is @aztec/aztec ${toolchainVersion}, not the pinned ${process.env.AZTEC_VERSION}`,
+  );
 
 const [
   { getConfigEnvVars },
@@ -55,6 +62,11 @@ const mnemonic = process.env.MNEMONIC ?? 'test test test test test test test tes
 const key = `0x${Buffer.from(mnemonicToAccount(mnemonic).getHdKey().privateKey).toString('hex')}`;
 const config = {
   ...getConfigEnvVars(),
+  // The test key below is the node's only signer and no prover node runs beside it: a key store,
+  // remote signer or prover switch in the ambient environment must not reach this node.
+  keyStoreDirectory: undefined,
+  web3SignerUrl: undefined,
+  enableProverNode: false,
   useAutomineSequencer: true,
   automineEnableProveEpoch: process.env.AUTOMINE_ENABLE_PROVE_EPOCH !== '0',
   realProofs: false,
@@ -102,17 +114,14 @@ const adminServices = {};
 registerAztecNodeRpcHandlers(node, services, adminServices, { debug: true });
 // The RPC schema may decompress a Chonk proof before the handler runs.
 await BarretenbergSync.initSingleton();
+// Loopback only: the debug and admin APIs (a settable clock, a forced prove) take no key.
 const { port } = await startHttpRpcServer(
   createNamespacedSafeJsonRpcServer(services, { http200OnError: false }),
-  {
-    port: Number(process.env.PINNED_NODE_PORT),
-  },
+  { host: '127.0.0.1', port: Number(process.env.PINNED_NODE_PORT) },
 );
 const admin = await startHttpRpcServer(
   createNamespacedSafeJsonRpcServer(adminServices, { http200OnError: false }),
-  {
-    port: Number(process.env.PINNED_NODE_ADMIN_PORT),
-  },
+  { host: '127.0.0.1', port: Number(process.env.PINNED_NODE_ADMIN_PORT) },
 );
 console.log(`Pinned node listening on ${port} (admin ${admin.port}), rollup version ${config.rollupVersion}`);
 

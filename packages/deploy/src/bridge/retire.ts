@@ -1,7 +1,7 @@
 // Retiring a version, in the order the portal enforces: the transition after it observed, the
 // retire message sent into its Inbox (once, from the portal, so its existence is the authority),
 // and the message consumed on the old chain — from then on no claim mints there, while exits and
-// arrivals go on.
+// arrivals go on. The L1 step is idempotent: sent already, it yields the same index from the log.
 
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -18,21 +18,47 @@ export interface RetireSent {
   txHash: Hex;
   /** The message's index in the version's Inbox: what the L2 `retire` names. */
   inboxIndex: bigint;
+  /** The message was already on its way: nothing was sent this time. */
+  resumed: boolean;
+}
+
+/** The `Retired` event of an earlier send, for a rerun whose L2 step is still owed. */
+async function sentBefore(op: Operator, version: bigint): Promise<RetireSent> {
+  const [log] = await op.publicClient.getContractEvents({
+    address: op.portal.address,
+    abi: yacanaPortalAbi,
+    eventName: 'Retired',
+    args: { version },
+    fromBlock: 'earliest',
+  });
+  if (!log || log.args.inboxIndex === undefined)
+    throw new Error(
+      `the portal holds version ${version} as retired but the RPC serves no Retired log for it`,
+    );
+  return { version, txHash: log.transactionHash, inboxIndex: log.args.inboxIndex, resumed: true };
 }
 
 export async function retireOnL1(op: Operator, version: bigint): Promise<RetireSent> {
   await noteAllTransitions(op);
   if ((await op.portal.read.flipAt([version])) === 0n)
     throw new Error(`version ${version} has not been flipped away from: nothing to retire`);
+  if ((await op.portal.read.versionInfo([version])).retireSent) return sentBefore(op, version);
   const txHash = await confirmed(op, () => op.portal.write.retire([version], writeOpts(op)));
   const receipt = await op.publicClient.getTransactionReceipt({ hash: txHash });
   const [retired] = parseEventLogs({ abi: yacanaPortalAbi, eventName: 'Retired', logs: receipt.logs });
   if (!retired) throw new Error(`retire ${txHash} emitted no Retired event`);
-  return { version, txHash, inboxIndex: retired.args.inboxIndex };
+  return { version, txHash, inboxIndex: retired.args.inboxIndex, resumed: false };
 }
 
 /** Consumes the retire message on the old chain once the node has synced it (minutes on a real L1). */
-export async function retireOnL2(l2: L2Side, portal: Hex, inboxIndex: bigint, timeoutSeconds = 1800) {
+export async function retireOnL2(
+  l2: L2Side,
+  portal: Hex,
+  sent: Pick<RetireSent, 'version' | 'inboxIndex'>,
+  timeoutSeconds = 1800,
+) {
+  if (l2.rollupVersion !== sent.version)
+    throw new Error(`the node serves version ${l2.rollupVersion}; the retire was for ${sent.version}`);
   const leaf = await retireLeaf(
     {
       chainId: l2.chainId,
@@ -40,11 +66,11 @@ export async function retireOnL2(l2: L2Side, portal: Hex, inboxIndex: bigint, ti
       miner: AztecAddress.fromStringUnsafe(l2.miner.address.toString()),
       portal: EthAddress.fromString(portal),
     },
-    inboxIndex,
+    sent.inboxIndex,
   );
   await waitForL1ToL2MessageReady(l2.node, leaf, { timeoutSeconds });
   const result = await l2.miner.methods
-    .retire(inboxIndex)
+    .retire(sent.inboxIndex)
     .send({ from: l2.from, fee: l2.fee, wait: { timeout: 600 } });
   return result.receipt.txHash.toString();
 }

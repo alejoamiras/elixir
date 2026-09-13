@@ -2,6 +2,7 @@
 // witness the source node serves for it, and the archive line that carries both once the source
 // node is gone (a forward from the archive alone is the bridge's last resort, and the site serves
 // the archive at /witnesses/<profile>.jsonl).
+import { sha256Trunc } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -10,7 +11,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import { TxHash } from '@aztec/stdlib/tx';
 import type { Hex } from 'viem';
-import { exitContent, sendAheadContent } from './content.ts';
+import { exitContent, MAX_AMOUNT, sendAheadContent } from './content.ts';
 import type { ExitKind, ExitLeaf, ForwardArgs } from './portal.ts';
 
 /** Where an exit lives: which miner on which version sent it to which portal on which chain. */
@@ -101,17 +102,100 @@ export const forwardArgsFromArchive = (
   expiry: signed?.expiry ?? 0n,
 });
 
-/** The archive is JSON lines; a line that does not parse is reported, not skipped. */
+/**
+ * The root the Outbox derives from a leaf and its witness: the sibling path folded with the
+ * rollup's truncated sha256, the leaf index's bits choosing the side. Equal to the epoch's root on
+ * the Outbox iff the witness proves the leaf.
+ */
+export const rootOf = (leaf: Fr, path: Hex[], leafIndex: bigint): Hex => {
+  let node = leaf.toBuffer();
+  let index = leafIndex;
+  for (const sibling of path) {
+    const s = Buffer.from(sibling.slice(2), 'hex');
+    node = sha256Trunc(index & 1n ? Buffer.concat([s, node]) : Buffer.concat([node, s]));
+    index >>= 1n;
+  }
+  return `0x${node.toString('hex')}`;
+};
+
+const HEX32 = /^0x[0-9a-f]{64}$/i;
+const HEX20 = /^0x[0-9a-f]{40}$/i;
+const DECIMAL = /^(0|[1-9][0-9]*)$/;
+/** Deeper than any epoch's out-hash tree; bounds the fold and the leaf id. */
+export const MAX_PATH_LENGTH = 64;
+
+const fieldsOf = (raw: unknown, where: string) => {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw))
+    throw new Error(`${where}: not an object`);
+  const o = raw as Record<string, unknown>;
+  const fail = (what: string): never => {
+    throw new Error(`${where}: ${what}`);
+  };
+  return {
+    dec: (k: string): string =>
+      typeof o[k] === 'string' && DECIMAL.test(o[k]) ? o[k] : fail(`${k} is not a decimal integer`),
+    hex: (k: string, re: RegExp, bytes: number): Hex =>
+      typeof o[k] === 'string' && re.test(o[k])
+        ? (o[k].toLowerCase() as Hex)
+        : fail(`${k} is not ${bytes} bytes of hex`),
+    int: (k: string): number =>
+      typeof o[k] === 'number' && Number.isSafeInteger(o[k]) && o[k] >= 0
+        ? o[k]
+        : fail(`${k} is not a whole number`),
+    list: (k: string): unknown[] => (Array.isArray(o[k]) ? o[k] : fail(`${k} is not a list`)),
+    fail,
+  };
+};
+
+/** An archive entry checked field by field, so a bad line names what is wrong with it. */
+export function parseArchivedExit(raw: unknown, where: string): ArchivedExit {
+  const f = fieldsOf(raw, where);
+  const kind = f.int('kind') as ExitKind;
+  if (kind !== 1 && kind !== 2) f.fail(`kind ${kind} is neither an exit nor a send-ahead`);
+  const amount = f.dec('amount');
+  if (BigInt(amount) > MAX_AMOUNT) f.fail('amount exceeds a u128');
+  const path = f
+    .list('path')
+    .map((h, i) =>
+      typeof h === 'string' && HEX32.test(h)
+        ? (h.toLowerCase() as Hex)
+        : f.fail(`path[${i}] is not 32 bytes of hex`),
+    );
+  if (path.length > MAX_PATH_LENGTH) f.fail(`path of ${path.length} is deeper than any epoch tree`);
+  const leafIndex = f.dec('leafIndex');
+  if (BigInt(leafIndex) >= 1n << BigInt(path.length))
+    f.fail(`leaf index ${leafIndex} is outside a path of ${path.length}`);
+  const numCheckpointsInEpoch = f.int('numCheckpointsInEpoch');
+  if (numCheckpointsInEpoch === 0) f.fail('an epoch has at least one checkpoint');
+  return {
+    version: f.dec('version'),
+    index: f.int('index'),
+    kind,
+    amount,
+    aux: f.hex('aux', HEX32, 32),
+    recipientOrRedeemKey: f.hex('recipientOrRedeemKey', HEX20, 20),
+    txHash: f.hex('txHash', HEX32, 32),
+    epoch: f.dec('epoch'),
+    numCheckpointsInEpoch,
+    leafIndex,
+    path,
+  };
+}
+
+/** The archive is JSON lines; a line that does not parse or does not fit is reported, not skipped. */
 export const readArchive = (text: string): ArchivedExit[] =>
   text
     .split('\n')
     .filter((l) => l.trim().length > 0)
     .map((l, i) => {
+      const where = `witness archive line ${i + 1}`;
+      let json: unknown;
       try {
-        return JSON.parse(l) as ArchivedExit;
+        json = JSON.parse(l);
       } catch (e) {
-        throw new Error(`witness archive line ${i + 1} is not JSON: ${e instanceof Error ? e.message : e}`);
+        throw new Error(`${where} is not JSON: ${e instanceof Error ? e.message : e}`);
       }
+      return parseArchivedExit(json, where);
     });
 
 export const archiveLine = (a: ArchivedExit): string => `${JSON.stringify(a)}\n`;
