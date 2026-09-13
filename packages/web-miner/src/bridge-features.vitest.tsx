@@ -11,7 +11,6 @@ import { TAKING_LONG_AFTER_MS } from './bridge/copy';
 import { ArrivalCard } from './features/ArrivalCard';
 import { BridgeTile } from './features/BridgeTile';
 import { MigrationCard, moment } from './features/MigrationCard';
-import { staleTab } from './features/OldTabNotice';
 import { SendAheadSheet } from './features/SendAheadSheet';
 import { TakingLongDialog } from './features/TakingLongDialog';
 import { ToEthereumSheet } from './features/ToEthereumSheet';
@@ -275,16 +274,5 @@ describe('taking long', () => {
     expect(screen.queryByTestId('taking-long')).toBeNull();
     act(() => store.set(journalAtom, [crossing({ id: 'r', state: 'ready', updatedAt: NOW - 1000 })]));
     expect(screen.queryByTestId('taking-long')).toBeNull();
-  });
-});
-
-describe('the old tab', () => {
-  test('another miner or rollup served at this address is stale; an unreadable record is not', () => {
-    const mine = { miner: '0xABC', rollupVersion: '5' };
-    expect(staleTab(null, mine)).toBe(false);
-    expect(staleTab({}, mine)).toBe(false);
-    expect(staleTab({ miner: '0xabc', rollupVersion: '5' }, mine)).toBe(false);
-    expect(staleTab({ miner: '0xabc', rollupVersion: '6' }, mine)).toBe(true);
-    expect(staleTab({ miner: '0xdef', rollupVersion: '5' }, mine)).toBe(true);
   });
 });

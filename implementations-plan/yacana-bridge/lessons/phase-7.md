@@ -52,6 +52,13 @@
   "reconnecting" line while wagmi asks the wallets a page connected before.
 - The first shard runs each cost a network boot and a build to learn one fact; a page-log hook on failure and the
   trace's DOM snapshot (unzipped, grepped for the row) were faster than reasoning from the reporter's line.
+- The rig's browser case first ran Playwright with `spawnSync` from the process that owns the network: that process
+  drains the node's log pipe and hosts the control server the spec calls, so the node stopped building blocks at
+  the same second and `settle` could never have answered. Every child of a rig case is spawned asynchronously now;
+  a case that owns processes must never block its own loop.
+- Four aztec nodes from another project's sandboxes (nulo, two days old) and a two-day-old `bun --eval` stub from a
+  deleted worktree were still running on the box; the stub was killed (its worktree is gone), the nodes left alone
+  (another project's runs) and reported.
 - The Bash guard refuses heredocs and command substitutions in this worktree session; whole-file rewrites go through
   a Python script in the scratchpad.
 
