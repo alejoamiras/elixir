@@ -36,6 +36,8 @@ describe('the landing scan', () => {
           amount: 7n,
           inboxIndex: 41n,
           txHash: '0xf1',
+          epoch: 3n,
+          leafId: 2n,
         },
         // Someone else's send-ahead, and one of ours forwarded from a version we did not ask about.
         {
@@ -45,6 +47,8 @@ describe('the landing scan', () => {
           amount: 1n,
           inboxIndex: 42n,
           txHash: '0xf2',
+          epoch: 3n,
+          leafId: 3n,
         },
         {
           secretHash: await hash(4n, 0),
@@ -53,6 +57,8 @@ describe('the landing scan', () => {
           amount: 1n,
           inboxIndex: 43n,
           txHash: '0xf3',
+          epoch: 1n,
+          leafId: 2n,
         },
       ],
       deposited: [
@@ -134,6 +140,35 @@ describe('the landing scan', () => {
       amount: '9',
       state: 'forwarded',
     });
+    // A witnessed send is its leaf: the same amount under its index from another leaf is another send.
+    const witnessed: Crossing = {
+      ...held,
+      state: 'witnessed',
+      witness: {
+        version: '5',
+        index: 1,
+        kind: 2,
+        amount: '7',
+        aux: await hash(5n, 1),
+        recipientOrRedeemKey: `0x${'22'.repeat(20)}`,
+        txHash: `0x${'33'.repeat(32)}`,
+        epoch: '3',
+        numCheckpointsInEpoch: 1,
+        leafIndex: '0',
+        path: [`0x${'44'.repeat(32)}`],
+      },
+    };
+    expect(landed(witnessed, send, 6_000)).toMatchObject({ state: 'forwarded', inboxIndex: '41' });
+    const [sameAmount] = matchArrivals(
+      {
+        forwarded: [{ ...arrivals.forwarded[0], inboxIndex: 53n, txHash: '0xf7', leafId: 3n } as never],
+        deposited: [],
+      },
+      candidates,
+      here,
+    ) as [Arrived];
+    expect(landed(witnessed, sameAmount, 6_000)).toBe(witnessed);
+    expect(twinOf(witnessed, sameAmount, 6_000)).toMatchObject({ id: `${held.id}:6:53`, state: 'forwarded' });
     // A send forwarded into another version is not an arrival here.
     const elsewhere = matchArrivals(arrivals, candidates, { ...here, current: 7n });
     expect(elsewhere.map((a) => a.crossing(1).kind)).toEqual([3]);

@@ -88,6 +88,18 @@ Astra, the 344-file diff saved beside it and the seams named in the prompt.
   when the portal's `Forwarded` event agrees on the target and the message, else it comes in as a hint; the
   comments and the plan line corrected (the ages were not built; the crossing's proof deadline stands in).
   The miner's `bridge` shard ran green on the one-transaction deposit (proverless, 97 s).
+- **Round 3** (`response-2.md`, three P2 and one P3, all verified; **the pass's hard stop**, plan §10): two
+  devices burning the same amount under one index still collapsed (identity by amount alone); a file's
+  unverified `forwarded` metadata survived `asHint` and left the send re-read only at a destination it never
+  reached; a transaction re-included at another height after a reorganisation read as `gone` and, past its
+  old deadline, "never proven"; two journal comments. Applied, without a further codex round: the portal's
+  `Forwarded` event now carries its epoch and leaf id into the arrivals, a witnessed send is its leaf
+  (`sameMessage`) and only an unwitnessed one its amount; an imported send whose arrival the event does not
+  confirm loses its arrival and claim fields and resumes at `witnessed`; a receipt in another mined block
+  moves the record to that block (its epoch and deadline read again next refresh) instead of reading `gone`;
+  the comments. Not re-reviewed by codex: the loop ended at three rounds as the plan says; the owner reads
+  round 3's response as the pass's last word, with these three fixes on top of it. Still open, as codex
+  listed: the public-testnet flip and the K2's landing, and the continuation carry-over end to end.
 
 ## Findings the rehearsal made
 

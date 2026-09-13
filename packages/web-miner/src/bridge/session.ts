@@ -306,7 +306,18 @@ export class BridgeSession {
         const checkpoint = await this.checkpointOfBlock(c.block, c.txHash);
         // A transaction the node no longer holds is not proven whatever the epoch says: the deadline names what it was.
         if (checkpoint === 'gone') return false;
-        return checkpoint === 'unknown' ? epochProven(rollup, epoch) : checkpointProven(rollup, checkpoint);
+        if (checkpoint === 'unknown') return epochProven(rollup, epoch);
+        if (typeof checkpoint === 'object') {
+          // Its epoch and deadline are read again from the new block at the next refresh.
+          await this.journal.update(c.id, (s) => ({
+            ...s,
+            block: checkpoint.moved,
+            epoch: undefined,
+            proofDeadline: undefined,
+          }));
+          return false;
+        }
+        return checkpointProven(rollup, checkpoint);
       },
       witness: async (c) => {
         if (!this.servesVersion(c)) return this.archivedWitness(c);
@@ -402,12 +413,16 @@ export class BridgeSession {
    * time; `gone` when the node no longer holds the transaction there (pruned, or reorganised out),
    * `unknown` when it has nothing to say yet (behind, or a claim without its hash).
    */
-  private async checkpointOfBlock(block: number, txHash?: string): Promise<bigint | 'gone' | 'unknown'> {
+  private async checkpointOfBlock(
+    block: number,
+    txHash?: string,
+  ): Promise<bigint | 'gone' | 'unknown' | { moved: number }> {
     if (txHash) {
       const r = await this.d.node.getTxReceipt(TxHash.fromString(txHash));
       if (r.status === 'dropped') return 'gone';
-      if (r.blockNumber === undefined || Number(r.blockNumber) !== block)
-        return r.status === 'pending' ? 'unknown' : 'gone';
+      if (r.status === 'pending' || r.blockNumber === undefined) return 'unknown';
+      // Re-included at another height after a reorganisation: the record follows its transaction.
+      if (Number(r.blockNumber) !== block) return { moved: Number(r.blockNumber) };
     }
     const b = await this.d.node.getBlock(block as never);
     if (!b) return 'unknown';
@@ -700,15 +715,31 @@ export class BridgeSession {
     const file = parseRecoveryFile(text, { chainId: this.d.record.chainId, portal: this.ctx.portal });
     for (const c of file.crossings) if (c.witness && c.kind !== 3) await this.verifyImported(c, c.kind);
     let restored = 0;
-    for (const c of file.crossings) {
-      // A claim on another version's chain cannot be re-read here: the file's word stands for it,
-      // once the portal's event agrees on where the send went and which message it became.
-      const hint =
-        c.state === 'minted-l2' && !this.landsHere(c) && (await this.forwardedAsSaid(c)) ? c : asHint(c);
-      if (await this.adoptImported(hint)) restored++;
-    }
+    for (const c of file.crossings) if (await this.adoptImported(await this.importedHint(c))) restored++;
     await this.publishJournal();
     return restored;
+  }
+
+  /**
+   * A file's word on a send's arrival holds only when the portal's event agrees on the target and
+   * the message; otherwise the send resumes as its witness stands. A claim on another version's
+   * chain cannot be re-read here, so an agreed arrival keeps the file's word on it.
+   */
+  private async importedHint(c: Crossing): Promise<Crossing> {
+    const arrived = c.kind === 2 && (c.target !== undefined || c.inboxIndex !== undefined);
+    if (arrived && !(await this.forwardedAsSaid(c))) {
+      const {
+        target: _t,
+        inboxIndex: _i,
+        l1TxHash: _l,
+        claimTxHash: _c,
+        claimBlock: _b,
+        claimSettled: _s,
+        ...rest
+      } = c;
+      return asHint({ ...rest, state: c.witness ? 'witnessed' : 'sent' });
+    }
+    return c.state === 'minted-l2' && !this.landsHere(c) ? c : asHint(c);
   }
 
   /** A file's row the journal holds under another message (another device's send under the same index) gets its own row, keyed by its leaf. */

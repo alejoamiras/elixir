@@ -12,6 +12,7 @@ import {
   type Facts,
 } from '../../../bridge/src/journal.ts';
 import { deriveCrossingSecrets } from '../../../bridge/src/secrets.ts';
+import { leafIdOf } from '../../../bridge/src/signatures.ts';
 import type { PortalReader } from './eth.ts';
 import { SCAN_WINDOW } from './store.ts';
 
@@ -63,6 +64,8 @@ export interface Arrived {
   fact: Arrival;
   /** The version the message is in the Inbox of; with the Inbox index it names the message. */
   destination: string;
+  /** A forwarded send's leaf on its source version: the one name a witnessed send answers to. */
+  leaf?: { epoch: bigint; leafId: bigint };
   /** The record for a journal that does not hold it: created now, the event already applied. */
   crossing(now: number): Crossing;
 }
@@ -72,14 +75,23 @@ const inboxOf = (a: Arrived): string =>
 
 /**
  * Whether the arrival is the message the stored row stands for. A row that knows its message (an
- * Inbox index on a destination) is that message and no other; a send-ahead's amount was fixed at
- * the burn, so another amount under its index is another device's send; a deposit still waiting
- * on the wallet is whatever Ethereum answers for its index.
+ * Inbox index on a destination) is that message and no other; a witnessed send is its leaf; a
+ * send not yet witnessed is known by its amount alone (fixed at the burn), so another amount under
+ * its index is another device's send; a deposit still waiting on the wallet is whatever Ethereum
+ * answers for its index.
  */
 export function sameMessage(stored: Crossing, a: Arrived): boolean {
   if (stored.inboxIndex !== undefined)
     return stored.inboxIndex === inboxOf(a) && destinationOf(stored) === a.destination;
-  return stored.kind !== 2 || stored.amount === a.amount.toString();
+  if (stored.kind !== 2) return true;
+  if (stored.witness && a.leaf) {
+    const w = stored.witness;
+    return (
+      BigInt(w.epoch) === a.leaf.epoch &&
+      leafIdOf({ path: w.path, leafIndex: BigInt(w.leafIndex) }) === a.leaf.leafId
+    );
+  }
+  return stored.amount === a.amount.toString();
 }
 
 /** The states a record can be in before the portal's event reached it; a later one is not moved back. */
@@ -132,7 +144,7 @@ export function matchArrivals(
 ): Arrived[] {
   const bySecret = new Map(candidates.map((c) => [`${c.kind}:${c.secretHash.toLowerCase()}`, c]));
   const found: Arrived[] = [];
-  const push = (c: ArrivalCandidate, amount: bigint, fact: Arrival) => {
+  const push = (c: ArrivalCandidate, amount: bigint, fact: Arrival, leaf?: Arrived['leaf']) => {
     const base = {
       kind: c.kind,
       chainId: scope.chainId,
@@ -146,6 +158,7 @@ export function matchArrivals(
       amount,
       fact,
       destination: 'forwarded' in fact ? fact.forwarded.target : c.version.toString(),
+      ...(leaf ? { leaf } : {}),
       crossing: (now) =>
         advance(
           {
@@ -164,9 +177,12 @@ export function matchArrivals(
   for (const f of arrivals.forwarded) {
     const c = bySecret.get(`2:${f.secretHash.toLowerCase()}`);
     if (c && c.version === f.source && f.target === scope.current)
-      push(c, f.amount, {
-        forwarded: { txHash: f.txHash, inboxIndex: f.inboxIndex.toString(), target: f.target.toString() },
-      });
+      push(
+        c,
+        f.amount,
+        { forwarded: { txHash: f.txHash, inboxIndex: f.inboxIndex.toString(), target: f.target.toString() } },
+        { epoch: f.epoch, leafId: f.leafId },
+      );
   }
   for (const d of arrivals.deposited) {
     const c = bySecret.get(`3:${d.secretHash.toLowerCase()}`);

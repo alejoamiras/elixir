@@ -55,7 +55,7 @@ export const FINAL_STATES: ReadonlySet<CrossingState> = new Set([
 ]);
 
 export interface Crossing {
-  /** `<chainId>:<portal>:<version>:<kind>:<index>` — unique per account, stable across devices. */
+  /** `<chainId>:<portal>:<version>:<kind>:<index>`, the same on every device of the account; another message under an index the journal already holds gets that id plus a suffix naming the message. */
   id: string;
   kind: CrossingKind;
   chainId: string;
@@ -83,9 +83,9 @@ export interface Crossing {
   /** The Ethereum transaction that forwarded, redeemed or deposited it. */
   l1TxHash?: Hex;
   claimTxHash?: string;
-  /** The block the claim landed in; until its epoch is proven the block can still be pruned. */
+  /** The block the claim landed in; until its checkpoint is proven the block can still be pruned. */
   claimBlock?: number;
-  /** The claim's epoch is proven: the mint cannot be undone. */
+  /** The claim's checkpoint is covered by a proof on Ethereum: the mint cannot be undone. */
   claimSettled?: boolean;
   /** The last failure of an action on it, for the card; cleared by the next success. */
   error?: string;

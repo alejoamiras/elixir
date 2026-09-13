@@ -252,6 +252,8 @@ async function readArrivals(client: PublicClient, portal: Portal, a: PortalAddre
         amount: l.args.amount,
         inboxIndex: l.args.inboxIndex,
         txHash: l.transactionHash,
+        epoch: l.args.epoch,
+        leafId: l.args.leafId,
       })),
     deposited: deposited.map((l) => ({
       secretHash: l.args.secretHash,
