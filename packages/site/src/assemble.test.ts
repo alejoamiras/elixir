@@ -70,6 +70,7 @@ describe('assembly', () => {
       '/mine/wallet /mine/ 200',
       '/mine/settings /mine/ 200',
       '/stats/verify /stats/ 200',
+      '/stats/bridge /stats/ 200',
       '/verify /stats/ 200',
     ]);
     for (const rule of REDIRECTS) expect(rule).toMatch(/^\/[a-z/]+ \/(mine|stats)\/ 200$/);

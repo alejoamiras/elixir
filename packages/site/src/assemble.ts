@@ -37,7 +37,7 @@ export const APPS = [
  * `.html` target into a canonical 308.
  */
 const MINER_LINKS: Record<Exclude<MinerRoute, 'mine'>, true> = { wallet: true, settings: true };
-const STATS_LINKS: Record<Exclude<StatsRoute, 'stats'>, true> = { verify: true };
+const STATS_LINKS: Record<Exclude<StatsRoute, 'stats'>, true> = { verify: true, bridge: true };
 export const REDIRECTS = [
   ...Object.keys(MINER_LINKS).map((r) => `/mine/${r} /mine/ 200`),
   ...Object.keys(STATS_LINKS).map((r) => `/stats/${r} /stats/ 200`),

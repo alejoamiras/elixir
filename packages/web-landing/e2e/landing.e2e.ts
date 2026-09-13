@@ -159,6 +159,32 @@ test('with a recorded claim the ledger shows its block, hashes and counter, each
   await expect(page.getByTestId('ledger-claims')).toHaveText(`${fixture.claims[0]} → ${fixture.claims[1]}`);
   await expect(page.getByTestId('ledger-public')).toContainText(`claims in epoch ${fixture.epoch}`);
   await expect(page.getByTestId('ledger-public')).toContainText('the sponsor');
+  // This build announces a migration: the one line, with the expected day, the FAQ one link away.
+  await expect(page.getByTestId('announcement')).toContainText('arrives around 2027-01-21');
+  await expect(page.getByTestId('announcement').getByRole('link')).toHaveAttribute('href', '/faq');
+  expect(net.heavy).toEqual([]);
+  expect(net.foreign()).toEqual([]);
+});
+
+test('/faq: the six panels and the questions under the landing’s header, the miner and the bridge one tap away', async ({
+  page,
+}) => {
+  const r = run();
+  const net = watch(page, r);
+  await page.goto(pageUrl(r, `${r.baseURL}/faq`));
+  await expect(page.getByTestId('faq')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('What happens, and what can go wrong');
+  await expect(page.getByTestId('faq-panel')).toHaveCount(6);
+  await expect(page.getByTestId('faq-panels')).toContainText(
+    'Anything still on the old version when it goes quiet is lost',
+  );
+  await expect(page.getByTestId('faq-questions')).toContainText(
+    'Who may forward a held send, and why the rule?',
+  );
+  await expect(page.getByTestId('faq-mine')).toHaveAttribute('href', '/mine/');
+  await expect(page.getByTestId('faq-stats')).toHaveAttribute('href', '/stats/bridge');
+  await expect(page.getByTestId('announcement')).toHaveCount(0);
+  await expect(page.locator('main > section')).toHaveCount(0);
   expect(net.heavy).toEqual([]);
   expect(net.foreign()).toEqual([]);
 });

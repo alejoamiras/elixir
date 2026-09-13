@@ -9,6 +9,7 @@ import { markRead, nodeHealth, startNodeHealth, waitTurn } from '../../site/src/
 import { ThemeProvider } from '../../ui/src/index.ts';
 import { App } from './App';
 import { type BeatReads, type BeatSinks, bootBeats, pollBeats, windowBeat } from './beats';
+import { startBridge } from './bridge';
 import { openReader, POLL_MS, type Reader } from './chain';
 import { cacheKey, readCache, type StorageLike, writeCache } from './history-cache';
 import { createFill } from './history-fill';
@@ -189,6 +190,7 @@ async function boot(): Promise<void> {
 }
 
 void boot();
+startBridge(store, connection);
 
 declare global {
   interface Window {

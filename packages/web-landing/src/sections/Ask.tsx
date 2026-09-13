@@ -25,6 +25,10 @@ export function Ask() {
   );
 }
 
+/** The footer's own pages are named, the rest are URLs. */
+const footerHref = (href: string): string =>
+  href === 'stats' ? appHref('stats') : href === 'faq' ? `${import.meta.env.BASE_URL}faq` : href;
+
 export function Footer() {
   const f = copy.footer;
   return (
@@ -32,7 +36,7 @@ export function Footer() {
       <p data-testid="footer-line">© Yacana · {f.line}</p>
       <nav className="ml-auto flex flex-wrap gap-x-[22px]" aria-label="footer">
         {f.links.map((l) => (
-          <a key={l.label} href={l.href === 'stats' ? appHref('stats') : l.href} className="hover:text-ink">
+          <a key={l.label} href={footerHref(l.href)} className="hover:text-ink">
             {l.label}
           </a>
         ))}

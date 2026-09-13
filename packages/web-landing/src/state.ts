@@ -1,3 +1,4 @@
+import type { MigrationRecord } from '../../bridge/src/record.ts';
 import type { Launch, Live } from './live';
 
 export type LiveStatus =
@@ -17,3 +18,11 @@ export const launchMode = (): boolean => import.meta.env.VITE_LAUNCH_MODE === '1
 
 /** Hrefs of the other two apps, relative to this page's base (`/` alone or inside the origin). */
 export const appHref = (app: 'mine' | 'stats'): string => `${import.meta.env.BASE_URL}${app}/`;
+
+/** `/faq` under the base is the FAQ page; everything else the landing. */
+export const isFaqPath = (pathname: string): boolean =>
+  pathname.replace(/\/$/, '') === `${(import.meta.env.BASE_URL ?? '/').replace(/\/$/, '')}/faq`;
+
+/** The announced migration the build carries, or null on a quiet version. */
+export const migrationRecord = (): MigrationRecord | null =>
+  import.meta.env.VITE_MIGRATION ? (JSON.parse(import.meta.env.VITE_MIGRATION) as MigrationRecord) : null;

@@ -5,9 +5,10 @@ import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import type { DeploymentRecord } from '../../../site/src/config.ts';
 import { ExternalLink, KvRow, Tile, TileBoundary, TileHeader } from '../../../ui/src/index.ts';
 import { W_VK_HASH } from '../../../work-circuit/src/generated/vk.ts';
-import { links } from '../explorer';
+import { bridgeRecord } from '../bridge';
+import { l1Links, links } from '../explorer';
 import { reproduceCommand } from '../lib/reproduce.ts';
-import { fixedAtom, historyAtom, rowsAtom } from '../state';
+import { bridgeAtom, fixedAtom, historyAtom, rowsAtom } from '../state';
 
 const record = JSON.parse(import.meta.env.VITE_DEPLOYMENT_RECORD) as DeploymentRecord & {
   profile?: string;
@@ -160,12 +161,52 @@ function ReproduceTile({ nodeUrl }: { nodeUrl: string }) {
   );
 }
 
-/** Four tiles, each behind its own boundary: a value that cannot be formatted costs its tile, not the page. */
+/** The Ethereum side of the record: the contracts and the keys, each on Etherscan, the forwarders as listed now. */
+function BridgeRecordTile() {
+  const bridge = bridgeRecord();
+  const status = useAtomValue(bridgeAtom);
+  if (!bridge) return null;
+  const forwarders = status.phase === 'ready' ? status.snapshot.forwarders : null;
+  const chain = (label: string, address: string, testId: string) => (
+    <KvRow label={label} value={<Hex value={address} testId={testId} href={l1Links.address(address)} />} />
+  );
+  return (
+    <Tile className="md:col-span-2" data-testid="verify-bridge">
+      <TileHeader>the bridge on Ethereum</TileHeader>
+      <KvRow label="chain id" value={bridge.chainId} />
+      {chain('portal', bridge.portal, 'verify-portal')}
+      {chain('YACA', bridge.yaca, 'verify-yaca')}
+      {chain('registry (Aztec)', bridge.registry, 'verify-registry')}
+      {chain('operators', bridge.operators, 'verify-operators')}
+      <KvRow
+        label="listed forwarders"
+        value={
+          forwarders === null ? (
+            '…'
+          ) : forwarders.length === 0 ? (
+            'none'
+          ) : (
+            <span className="flex flex-col gap-1" data-testid="verify-forwarders">
+              {forwarders.map((f) => (
+                <Hex key={f} value={f} href={l1Links.address(f)} />
+              ))}
+            </span>
+          )
+        }
+      />
+    </Tile>
+  );
+}
+
+/** Five tiles, each behind its own boundary: a value that cannot be formatted costs its tile, not the page. */
 export function Verify({ nodeUrl }: { nodeUrl: string }) {
   return (
     <div className="grid gap-4 md:grid-cols-2" data-testid="verify">
       <TileBoundary name="verify-deployment" className="md:col-span-2">
         <DeploymentTile />
+      </TileBoundary>
+      <TileBoundary name="verify-bridge" className="md:col-span-2">
+        <BridgeRecordTile />
       </TileBoundary>
       <TileBoundary name="verify-launch">
         <LaunchTile />

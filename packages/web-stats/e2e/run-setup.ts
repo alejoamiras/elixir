@@ -5,17 +5,22 @@ import type { ChildProcess } from 'node:child_process';
 import { openSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Fr } from '@aztec/aztec.js/fields';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { release } from '../../../scripts/run/registry.ts';
-import { type Deployment, deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
+import { deployBridgeForRun, registerForRun } from '../../deploy/src/bridge/run.ts';
+import { type BridgeRecord, type Deployment, deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
 import { type E2eRun, MOCK_FILE, RUN_FILE } from './run.ts';
 import { buildApp, claimPreviewPort, mockStorage, pkg, startPreview, waitUntilUp } from './serve.ts';
 
 const nodeUrl = process.env.AZTEC_NODE_URL;
 if (!nodeUrl) throw new Error('AZTEC_NODE_URL is not set: run through `bun run e2e:agent -- …`');
 const OUT_DIR = 'e2e/.dist';
+/** Relative to the repo root: what the operator functions open to register the version. */
+const RECORD_FILE = 'packages/web-stats/e2e/.record.json';
 
-// The mocked-RPC spec answers MOCK_NODE_ORIGIN, a local origin the e2e headers admit.
-const e2eEnv = (d: Deployment): NodeJS.ProcessEnv => ({
+// The mocked-RPC spec answers MOCK_NODE_ORIGIN, a local origin the e2e headers admit. The bridge
+// page reads the portal over the run's anvil when the run has one (`L1_RPC_URL`, from e2e:agent).
+const e2eEnv = (d: Deployment, bridge: BridgeRecord | null): NodeJS.ProcessEnv => ({
   ...process.env,
   YACANA_SITE_MODE: 'e2e',
   VITE_AZTEC_NODE_URL: nodeUrl,
@@ -29,6 +34,8 @@ const e2eEnv = (d: Deployment): NodeJS.ProcessEnv => ({
   VITE_YACANA_MINER_CLASS: d.minerClassId,
   VITE_YACANA_TOKEN_CLASS: d.tokenClassId,
   VITE_DEPLOYMENT_RECORD: JSON.stringify(d),
+  VITE_BRIDGE: bridge ? JSON.stringify(bridge) : '',
+  VITE_ETH_RPC_URL: bridge ? bridge.l1RpcUrl : '',
 });
 
 const ownerPid = Number(process.env.E2E_OWNER_PID ?? process.ppid);
@@ -36,13 +43,16 @@ const runId = `web-stats-e2e-${ownerPid}-${Date.now()}`;
 const port = await claimPreviewPort(runId, ownerPid);
 let spawned: ChildProcess | undefined;
 try {
+  const l1RpcUrl = process.env.L1_RPC_URL;
+  const bridge = l1RpcUrl ? await deployBridgeForRun(nodeUrl, l1RpcUrl) : null;
   const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
     initialTarget: 1n << 127n,
-    portal: TEST_PORTAL,
+    portal: bridge ? EthAddress.fromString(bridge.portal) : TEST_PORTAL,
   });
+  if (bridge) await registerForRun(deployed, bridge, l1RpcUrl as string, { recordFile: RECORD_FILE });
   await Bun.write(MOCK_FILE, JSON.stringify(await mockStorage(deployed)));
   const log = openSync(resolve(pkg, 'e2e/.vite.log'), 'w');
-  const env = e2eEnv(deployed);
+  const env = e2eEnv(deployed, bridge);
   buildApp(OUT_DIR, log, env);
   spawned = startPreview(OUT_DIR, log, port, env);
   const vite = spawned;
@@ -60,6 +70,16 @@ try {
     rollupVersion: deployed.rollupVersion,
     vitePid: vite.pid as number,
     runId,
+    ...(bridge
+      ? {
+          bridge: {
+            portal: bridge.portal,
+            yaca: bridge.yaca,
+            operators: bridge.operators,
+            l1RpcUrl: bridge.l1RpcUrl,
+          },
+        }
+      : {}),
   };
   await Bun.write(RUN_FILE, JSON.stringify(run, null, 2));
   console.log(`e2e: ${baseURL} miner ${deployed.miner} token ${deployed.token}`);
