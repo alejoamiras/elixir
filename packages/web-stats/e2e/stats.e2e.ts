@@ -282,7 +282,7 @@ test('the bridge page: this version registered and live on the portal, its turns
   // The keys: the operators, and the one forwarder the run listed (the same account).
   const chips = page.getByTestId('bridge-portal').locator('[data-slot=chip-link]');
   await expect(chips).toHaveCount(5);
-  await expect(page.getByTestId('bridge-portal')).toContainText('Exits over it wait, they are not refused');
+  await expect(page.getByTestId('bridge-portal')).toContainText('exits over it wait for it to grow');
   await expect(page.getByTestId('bridge-faq')).toHaveAttribute('href', '/faq');
   await page.getByRole('link', { name: 'Verify' }).click();
   await expect(page.getByTestId('verify-portal')).toHaveText(r.bridge?.portal ?? '');

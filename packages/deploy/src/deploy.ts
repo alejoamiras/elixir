@@ -22,6 +22,7 @@ import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { TokenContract } from '@aztec-foundation/aztec-standards/artifacts/src/artifacts/Token.js';
 import type { BridgeRecord, MigrationRecord } from '@yacana/bridge/src/record.ts';
 import { PARAMS, PROFILE } from '../../miner-core/src/generated/params.ts';
+import { carriedBridge } from './bridge-block.ts';
 
 const repo = resolve(import.meta.dir, '../../..');
 
@@ -293,6 +294,11 @@ if (import.meta.main) {
   const salt = process.env.YACANA_DEPLOY_SALT ? Fr.fromString(process.env.YACANA_DEPLOY_SALT) : Fr.random();
   const dir = resolve(repo, 'deployments');
   const file = resolve(dir, `${PROFILE}.json`);
+  const source = process.env.YACANA_CONTINUE_FROM;
+  if (source && resolve(repo, source) === file)
+    throw new Error(
+      `${source} is where this deploy writes: move the source record aside first (docs/upgrades.md)`,
+    );
   if ((await Bun.file(file).exists()) && process.env.YACANA_DEPLOY_FORCE !== '1')
     throw new Error(
       `${file} already records a ${PROFILE} deployment; set YACANA_DEPLOY_FORCE=1 to replace it`,
@@ -305,8 +311,25 @@ if (import.meta.main) {
   const continuation = process.env.YACANA_CONTINUE_FROM
     ? await continuationOf(process.env.YACANA_CONTINUE_FROM)
     : undefined;
+  // The bridge block is settled before anything is spent: a mismatch refuses the deploy.
+  const side = resolve(dir, `${PROFILE}.bridge.json`);
+  const bridge = carriedBridge(portal.toString(), [
+    ...(source
+      ? [{ from: source, bridge: ((await Bun.file(resolve(repo, source)).json()) as Deployment).bridge }]
+      : []),
+    ...((await Bun.file(side).exists())
+      ? [
+          {
+            from: `deployments/${PROFILE}.bridge.json`,
+            bridge: (await Bun.file(side).json()) as BridgeRecord,
+          },
+        ]
+      : []),
+  ]);
   const deployment = await deployYacana(nodeUrl, deployerSecret, salt, { launchAt, portal, continuation });
   mkdirSync(dir, { recursive: true });
-  await Bun.write(file, `${JSON.stringify(deployment, null, 2)}\n`);
-  console.log(`deployed ${PROFILE}: miner ${deployment.miner}, token ${deployment.token} → ${file}`);
+  await Bun.write(file, `${JSON.stringify({ ...deployment, ...(bridge ? { bridge } : {}) }, null, 2)}\n`);
+  console.log(
+    `deployed ${PROFILE}: miner ${deployment.miner}, token ${deployment.token} → ${file}${bridge ? ' (with its bridge block)' : ''}`,
+  );
 }

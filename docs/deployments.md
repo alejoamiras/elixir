@@ -146,11 +146,12 @@ The record carries two more blocks once the bridge exists (`packages/bridge/src/
 `portal`, `yaca`, `registry`, `operators`, `l1RpcUrl`, `deployBlock`), written by
 `bun packages/deploy/scripts/l1-deploy.ts deployments/<profile>.json` with `YACANA_L1_RPC_URL`,
 `YACANA_L1_PRIVATE_KEY`, `YACANA_REGISTRY` (Aztec's Registry on that chain) and `YACANA_OPERATORS` in the shell
-(the policy comes from `yacana.params.json` through `packages/bridge/src/policy.ts`; the script refuses a record
-whose miner trusts another portal), and `migration` (`toIndex`, `announcedAt`, `expectedFlipAt`), written by hand
-when Aztec announces the next version. A miner is deployed with `YACANA_PORTAL` naming the portal it trusts,
-immutably, so the portal comes first; then `bun run bridge -- register` and `bun run bridge -- set-forwarder`
-(`docs/upgrades.md`, step 0). The site builds both blocks into the apps (`VITE_BRIDGE`, `VITE_MIGRATION`; production
+(the policy comes from `yacana.params.json` through `packages/bridge/src/policy.ts`; the script amends an existing
+record and refuses one whose miner trusts another portal; with no record yet it writes the block beside it as
+`deployments/<profile>.bridge.json`, which `bun run deploy` folds into the record it writes), and `migration`
+(`toIndex`, `announcedAt`, `expectedFlipAt`), written by hand when Aztec announces the next version. A miner is
+deployed with `YACANA_PORTAL` naming the portal it trusts, immutably, so the portal comes first; then
+`bun run bridge -- register` and `bun run bridge -- set-forwarder` (`docs/upgrades.md`, step 0). The site builds both blocks into the apps (`VITE_BRIDGE`, `VITE_MIGRATION`; production
 refuses a plaintext or local RPC); `bun run bridge -- status` reads the portal's view of every registered version.
 
 Sepolia: **not deployed yet**. The rehearsal (plan `yacana-bridge`, P11) deploys YACA and the portal on Sepolia
@@ -167,8 +168,8 @@ branch; before that a version of the Worker serving the frozen record proves the
 host.
 
 The witness archive: `deployments/witnesses/<profile>.jsonl`, written by `bun run bridge -- forward` from a
-version's settled exits, committed, and served by the site at `/witnesses/<rollupVersion>.jsonl` for the profiles
-that have a record.
+version's settled exits (every version of the profile in the one file), committed, and served by the site as one
+file per version at `/witnesses/<version>.jsonl`.
 
 ## Mainnet
 

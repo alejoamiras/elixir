@@ -13,7 +13,7 @@ do on the day Aztec moves on; the FAQ at `/faq` says it for a holder; `/stats/br
 | exit (K1) | Aztec → Ethereum | the holder, from the miner's wallet page (`exit_to_l1`: a private burn of the amount) | once the epoch is proven on Ethereum, anyone may `forward` the leaf: the portal mints YACA to the address the exit named. Yacana forwards exits by hand; the holder may forward their own from the page |
 | send-ahead (K2) | Aztec V*n* → Aztec V*n+1* | the holder, from the migration card (`send_ahead`: a private burn under a one-time secret hash and a per-exit redeem address, both derived from the wallet's master) | once proven, the portal holds it; it is forwarded into the live version's Inbox by its holder (a signature by the redeem key) or by a listed forwarder, then claimed on that version with the secret (`claim_from_l1`, a private mint); or redeemed to YACA on Ethereum by its holder at any time |
 | deposit (K3) | Ethereum → Aztec | the holder, from an injected Ethereum wallet (`approve`, then `deposit` with a secret hash, the version reviewed and a deadline) | the Inbox message is claimed on the version it named, with the secret, from the arrival card |
-| retire (K4) | the portal → an Aztec version | anyone, after the flip (`bun run bridge -- retire`) | the miner consumes it and mints nothing from then on |
+| retire (K5) | the portal → an Aztec version | anyone, after the flip (`bun run bridge -- retire`) | the miner consumes it and accepts no more mining claims; arrivals (`claim_from_l1`, K4) still land |
 
 Every leaf an Aztec version writes is consumed on that version's own Outbox with a Merkle path against a settled
 root and nullified by its leaf id; the portal rebuilds the message from the version's number and the miner it
@@ -26,11 +26,12 @@ a device find its exits again; only Outbox membership authorises issuance.
   epoch's proof deadline; past it the epoch is pruned and the burn is undone onto the version it left.
 - **The cap is a cumulative bound, net of what came in.** Per version, `exited − inbound + amount ≤ cap` with
   `cap = ALLOWANCE + PER_HOUR × hours(launchAt → min(now, flipAt))`: `PER_HOUR` is three times what the mining
-  schedule can produce in an hour, `ALLOWANCE` one day of the schedule (`packages/bridge/src/policy.ts`). It grows
-  on wall time for the version's life and freezes at the flip. Before the flip a leaf over the cap **waits**: it
-  stays consumable and the next hour frees room. After the flip the frozen remainder is all that can ever leave
-  that version. The stats page says the numbers: "N tYACA may leave V5 right now · grows M an hour; exits beyond
-  it wait".
+  schedule can produce in an hour, `ALLOWANCE` 24 epochs of rewards (`REWARD × N × 24`: a day of the mainnet
+  schedule, two hours of the testnet's; `packages/bridge/src/policy.ts`). It grows on wall time for the version's
+  life and freezes at the flip. Before the flip a leaf over the cap **waits**: it stays consumable and the next
+  hour frees room. After the flip the frozen remainder is all that can ever leave that version: what is beyond it
+  then, and anything still there at the deadline, never leaves. The stats page says the numbers: "N tYACA may
+  leave V5 right now · grows M an hour; exits beyond it wait for it to grow, until the flip freezes it".
 - **The pause stops what comes after it.** The operators may pause a version's exits and deposits for at most 30
   days per call and 60 days per version, charged up front and refunded by `unpause`; a pause adds nothing to the cap
   and removes nothing from it, and every charged second extends the version's deadline. Mining on Aztec does not
@@ -44,7 +45,7 @@ a device find its exits again; only Outbox membership authorises issuance.
   `retire`) bound how long the cap keeps growing after the true flip.
 
 The bound, plainly: a compromised old version can never issue more than `cap(flipAt)` net of what was deposited
-into it, three times the schedule from its launch plus a day's allowance, before its deadline closes; the pause
+into it, three times the schedule from its launch plus the allowance, before its deadline closes; the pause
 defers, the deadline ends. The launch time is the operators' word within a week behind and 90 days ahead of the
 registration, so at most a week's growth is theirs to add. The cap is a tripwire, not a proof of honesty: in a
 competitive boom honest production can exceed the schedule, so an honest exit can wait and, once the cap is
@@ -74,11 +75,14 @@ target whose registered miner is not the announced record's.
   portal, nothing secret in it (secrets re-derive from the master). Restored on a new device, its ended states are
   hints the chain confirms; a witnessed crossing must be this master's or the file is refused whole.
 - **The words or the passkey**: the account. A crossing's secrets are derived from the master under the version
-  and an index, so the same twelve words find every crossing again: a new device scans the portal's events for
-  what arrived and the miner's logs for what left.
-- **The witness archive** the operator commits (`deployments/witnesses/<profile>.jsonl`) and the site serves
-  (`/witnesses/<rollupVersion>.jsonl`): an earlier version's settled exits, read by a later version's page once
-  that version's node is gone.
+  and an index, so the same twelve words open every crossing again once the device knows of it: a new device
+  finds what arrived (deposits, sends forwarded in) from the portal's events by itself; what left is in the
+  recovery file, which is why the wallet page asks for it to be saved.
+- **The witness archive** the operator commits (`deployments/witnesses/<profile>.jsonl`, every version of the
+  profile in it) and the site serves (`/witnesses/<version>.jsonl`): an earlier version's settled exits, read by
+  a later version's page for a crossing it already holds once that version's node is gone. The page matches an
+  entry by what the master derives and what its record holds, and believes it only once its path folds to the
+  root that version's Outbox holds on Ethereum.
 
 ## What is public
 
@@ -91,8 +95,11 @@ two sides could link them; nothing is sent automatically, so a holder chooses wh
 
 An address named in the record (`bridge.operators`: an EOA on Sepolia; the Safe, its signers and threshold come
 with the mainnet plan). They may register a version once (write-once: an old version's exits can never be
-repointed) with the launch time the deploy recorded, pause within the bounds, list or unlist forwarders, close a
-version's deposits (one-way, the day before an announced flip) and hand the role to another address. The policy
+repointed; a wrong first registration would let that miner issue up to the version's cap and strand every send
+forwarded into it, which is why the forwarder script and the page refuse a target whose registered miner is not
+the announced record's) with the launch time the deploy recorded, pause within the bounds, list or unlist
+forwarders, close a version's deposits (one-way, the day before an announced flip) and hand the role to another
+address. The policy
 (`PER_HOUR`, `ALLOWANCE`, the pause bounds, the launch bounds) is immutable, set at deployment. No timelock: the
 bounds are the guard. `retire` and `noteTransition` are permissionless.
 
@@ -115,7 +122,8 @@ version's, the miner's consumption on the record's node.
 `deployments/<profile>.json` carries two blocks beside the deployment: `bridge` (`chainId`, `portal`, `yaca`,
 `registry`, `operators`, `l1RpcUrl`, `deployBlock`), written by the L1 deploy
 (`YACANA_L1_RPC_URL=… YACANA_L1_PRIVATE_KEY=… YACANA_REGISTRY=… YACANA_OPERATORS=… bun
-packages/deploy/scripts/l1-deploy.ts deployments/<profile>.json`, which refuses a record whose miner trusts
-another portal), and `migration` (`toIndex`, `announcedAt`, `expectedFlipAt`), written by hand when Aztec
-announces the next version. The site builds both into the apps; the Verify page shows the Ethereum side with its
+packages/deploy/scripts/l1-deploy.ts deployments/<profile>.json`) into the record, or, while no record exists
+yet, beside it as `deployments/<profile>.bridge.json` for `bun run deploy` to fold in (a continuation carries its
+source record's block; either must name the portal the miner trusts, or the deploy refuses), and `migration`
+(`toIndex`, `announcedAt`, `expectedFlipAt`), written by hand when Aztec announces the next version. The site builds both into the apps; the Verify page shows the Ethereum side with its
 Etherscan links and the forwarders listed now; the stats bridge page shows every registered version's flows.

@@ -37,6 +37,9 @@ Deferred by that plan's decisions (`plan.md` §5, §8):
   mainnet plan, which also decides the policy figures for mainnet.
 - An indexer or a relayer: the page reads the portal's events and the miner's logs itself and matches locally;
   Yacana forwards by hand from the operator script.
+- Discovery of an earlier version's unforwarded sends from the served witness archive on a device that never
+  held them: today the archive completes a crossing the journal already holds, and a fresh device restores what
+  left from the recovery file (`docs/bridge.md`, "What a holder keeps").
 - The old origin's take-down after a version's deadline and the apex switch are post-merge production steps, run
   by the owner (`docs/upgrades.md`).
 

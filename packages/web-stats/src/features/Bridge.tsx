@@ -62,7 +62,7 @@ function VersionCard({ v, snapshot, now }: { v: VersionFlows; snapshot: BridgeSn
         V{v.version.toString()}
       </TileHeader>
       <p className="mb-3 text-sm" data-testid="version-line">
-        {versionLine(v, snapshot.canonical.version)}
+        {versionLine(v, snapshot.canonical)}
       </p>
       <KvRow label="left through the portal" value={yaca(v.exited)} />
       <KvRow label="arrived through it" value={yaca(v.inbound)} />
@@ -74,7 +74,7 @@ function VersionCard({ v, snapshot, now }: { v: VersionFlows; snapshot: BridgeSn
         aria-label="left, of the limit"
       />
       <p className="mt-3 text-xs text-ink-3" data-testid="exit-limit">
-        {exitLimitLine(v, snapshot.policy)}
+        {exitLimitLine(v, snapshot.policy, Math.floor(now / 1000))}
       </p>
       <p className="mt-1.5 text-xs text-ink-3" data-testid="pause-line">
         {pauseLine(v, snapshot.policy, Math.floor(now / 1000))}
@@ -113,10 +113,11 @@ export function BridgePortal({
       <TileHeader>the portal, in plain words</TileHeader>
       <p className="text-pretty text-xs text-ink-3">
         Exits from a version are capped at what mining could have produced: the limit grows {yaca(p.perHour)}{' '}
-        an hour from {yaca(p.allowance)} at launch and freezes at the flip, net of what arrived. Exits over it
-        wait, they are not refused. Yacana forwards exits by hand; the holder may forward or redeem a held
-        send-ahead any time from the miner. Deposits into a version close when the operators say so before an
-        announced flip.
+        an hour from {yaca(p.allowance)} at launch and freezes at the flip, net of what arrived. Before the
+        flip, exits over it wait for it to grow; after the flip, what is beyond the frozen limit cannot leave,
+        and nothing leaves a version after its deadline. Yacana forwards exits by hand; the holder may forward
+        or redeem a held send-ahead from the miner while the version's exits are open. Deposits into a version
+        close when the operators say so before an announced flip.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         {key('portal', record.portal, 'chip-portal')}

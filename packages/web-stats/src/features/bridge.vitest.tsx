@@ -86,7 +86,7 @@ describe('the bridge page', () => {
     expect(cards.map((c) => `${c.dataset.version}:${c.dataset.live}`)).toEqual(['5:0', '6:1']);
     const lines = screen.getAllByTestId('version-line').map((l) => l.textContent);
     expect(lines[0]).toBe('flipped away from on 2027-01-09 · exits close on 2027-01-26');
-    expect(lines[1]).toBe('the live version · mining, deposits and exits here');
+    expect(lines[1]).toBe('the live version · deposits and exits here');
     expect(screen.getAllByTestId('exit-limit')[1]?.textContent).toContain(
       `128 ${PARAMS.TOKEN_SYMBOL} may leave V6 right now · grows 12 ${PARAMS.TOKEN_SYMBOL} an hour`,
     );
@@ -112,7 +112,7 @@ describe('the bridge page', () => {
       'forwarder',
     ]);
     expect(screen.getByTestId('bridge-portal').textContent).toContain(
-      'Exits over it wait, they are not refused',
+      'exits over it wait for it to grow; after the flip, what is beyond the frozen limit cannot leave',
     );
   });
 

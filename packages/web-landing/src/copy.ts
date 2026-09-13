@@ -166,7 +166,7 @@ export const copy = {
       {
         id: 'proven',
         title: 'The version proves the epoch',
-        body: 'Usually within a few epochs. Until then nothing has left; if the version never proves it in time, the burn is undone and the balance is back.',
+        body: 'Usually within a few epochs. Until then nothing has left; if the version never proves it in time, the burn is undone on the version, and your balance shows again once the node you read from has followed the prune.',
       },
       {
         id: 'held',
@@ -176,7 +176,7 @@ export const copy = {
       {
         id: 'flip',
         title: 'The flip, then the forward',
-        body: 'Aztec names the next version. Yacana forwards held sends into it by hand; you may forward yours from the miner any time, or redeem it to Ethereum instead.',
+        body: "Aztec names the next version. Yacana forwards held sends into it by hand; you may forward yours from the miner, or redeem it to Ethereum instead, while the old version's exits are open.",
       },
       {
         id: 'landed',
@@ -203,11 +203,11 @@ export const copy = {
       },
       {
         q: 'What can go wrong?',
-        a: `The version never proves the epoch in time: the burn is undone, send again. The portal is paused: exits and deposits wait, 30 days at most per pause. More has left the version than its schedule allows: exits wait, they are not refused. The old version goes quiet with something still on it: that is lost. Your device forgot the journal: the recovery file restores it, and the twelve words restore the account.`,
+        a: `The version never proves the epoch in time: the burn is undone on the version, your balance shows again once your node has followed the prune, and you send again. The portal is paused: exits and deposits wait, 30 days at most per call and 60 in total per version. More has left the version than its schedule allows: before the flip, exits wait for the limit to grow; after the flip the limit is frozen, and what is beyond it cannot leave that version. A version's exits close at its deadline, 180 days after the flip at the earliest: nothing leaves after it. The old version goes quiet with something still on it: that is lost. Your device forgot the journal: the recovery file restores it, and the twelve words restore the account.`,
       },
       {
         q: 'What does Yacana hold?',
-        a: 'Nothing of yours. The contracts are immutable; the operators can pause the portal within its limits, list a forwarder and close deposits before a flip, and nothing else.',
+        a: 'Nothing of yours. The contracts are immutable and no one can raise a limit or move a balance. The operators register which miner a version trusts, once and for good (a wrong first registration would let that miner issue up to the version’s limit and strand sends forwarded into it, which is why the forwarder refuses a version whose miner is not the announced one), pause the portal within its limits, list a forwarder, close deposits before a flip, and may hand the role to another address.',
       },
     ],
     back: '← the argument',

@@ -42,8 +42,7 @@ const OUT_DIR = 'e2e/.dist';
 // shards skip the twenty seconds of forge.
 const shard = process.env.E2E_SHARD;
 const bridgeMode = process.env.E2E_BRIDGE === '1' || shard === undefined || shard === 'bridge';
-/** Anvil account 1: the run's operators key (account 0 publishes the node's blocks). */
-/** Anvil account 3: the holder the test wallet signs with. */
+/** Anvil account 3: the holder the test wallet signs with (account 1 operates the bridge, account 0 publishes blocks). */
 const HOLDER_KEY: Hex = '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6';
 /** Relative to the repo root: what the operator functions and the control server open. */
 const RECORD_FILE = 'packages/web-miner/e2e/.record.json';

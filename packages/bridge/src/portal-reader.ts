@@ -169,21 +169,29 @@ function registryReads(client: PublicClient, portal: Portal, registry: Registry)
 /** One leaf's fate on Ethereum: nullified, forwarded, redeemed; and every arrival for the landing scan. */
 function leafReads(client: PublicClient, portal: Portal, registry: Registry, a: PortalAddresses) {
   const tip = () => client.getBlockNumber({ cacheTime: 0 });
+  const outboxOf = async (version: bigint) => {
+    const rollup = await client.readContract({ ...registry, functionName: 'getRollup', args: [version] });
+    return client.readContract({ address: rollup, abi: RollupAbi, functionName: 'getOutbox' });
+  };
   return {
     /** Whether `version`'s Outbox nullified the leaf: forwarded or redeemed already. */
     async consumed(version: bigint, epoch: bigint, leafId: bigint): Promise<boolean> {
-      const rollup = await client.readContract({ ...registry, functionName: 'getRollup', args: [version] });
-      const outbox = await client.readContract({
-        address: rollup,
-        abi: RollupAbi,
-        functionName: 'getOutbox',
-      });
       return client.readContract({
-        address: outbox,
+        address: await outboxOf(version),
         abi: OutboxAbi,
         functionName: 'hasMessageBeenConsumedAtEpoch',
         args: [epoch, leafId],
       });
+    },
+    /** The root `version`'s Outbox holds for an epoch (zero until proven), lowercased: what a witness must fold to. */
+    async outboxRoot(version: bigint, epoch: bigint, numCheckpoints: bigint): Promise<Hex> {
+      const root = await client.readContract({
+        address: await outboxOf(version),
+        abi: OutboxAbi,
+        functionName: 'getRootData',
+        args: [epoch, numCheckpoints],
+      });
+      return root.toLowerCase() as Hex;
     },
     /** The `Forwarded` event of one leaf, if any. */
     async forwarded(version: bigint, epoch: bigint, leafId: bigint) {

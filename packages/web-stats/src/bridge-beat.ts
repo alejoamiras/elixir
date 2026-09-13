@@ -31,7 +31,6 @@ type BridgeReads = Pick<
   'registered' | 'flows' | 'canonical' | 'policy' | 'operators' | 'forwarders'
 >;
 
-/** Everything the page shows, read together; a version list read first, its flows in parallel. */
 export async function readBridge(reader: BridgeReads, now = Date.now()): Promise<BridgeSnapshot> {
   const [registered, canonical, policy, operators, forwarders] = await Promise.all([
     reader.registered(),
@@ -49,34 +48,49 @@ const day = (unix: bigint): string => new Date(Number(unix) * 1000).toISOString(
 /** The portal's "never" for a deadline: the max uint256. */
 const OPEN_ENDED = (1n << 256n) - 1n;
 
-/** The turnstile in one sentence: what may leave now, and that the rest waits rather than fails. */
-export function exitLimitLine(v: VersionFlows, policy: PortalPolicy): string {
-  const may = `${yaca(v.headroom)} may leave V${v.version} right now`;
+const closed = (v: VersionFlows, nowSeconds: number): boolean =>
+  v.deadline !== OPEN_ENDED && BigInt(nowSeconds) > v.deadline;
+
+/**
+ * The turnstile in one sentence: what may leave now and what the rest waits for. Headroom is
+ * room under the limit, not leave to go: a pause holds it and the deadline ends it, so the line
+ * says which; before the flip the limit grows, after it what is beyond the frozen limit never leaves.
+ */
+export function exitLimitLine(v: VersionFlows, policy: PortalPolicy, nowSeconds: number): string {
+  const left = `${yaca(v.exited)} has left`;
+  if (closed(v, nowSeconds))
+    return `exits closed on ${day(v.deadline)} · ${left}; nothing more leaves V${v.version}.`;
+  const may = `${yaca(v.headroom)} may leave V${v.version}`;
+  if (v.paused) return `${may} once the pause ends · ${left}.`;
   if (v.flipAt > 0n)
-    return `${may} · the limit stopped growing at the flip; ${yaca(v.exited)} has left. Exits beyond it wait.`;
-  return `${may} · grows ${yaca(policy.perHour)} an hour; exits beyond it wait, they are not refused.`;
+    return `${may} right now · the limit stopped growing at the flip; ${left}. What is beyond it cannot leave this version.`;
+  const grows = `grows ${yaca(policy.perHour)} an hour`;
+  if (v.launchAt > BigInt(nowSeconds))
+    return `${may} right now · the limit ${grows} from the launch on ${day(v.launchAt)}; exits beyond it wait for it.`;
+  return `${may} right now · ${grows}; exits beyond it wait for it to grow, until the flip freezes it.`;
 }
 
-/** The pause in one sentence: whether it is on, and what the operators may do with it. */
+/** The pause in one sentence: the portal's word on whether it is on, and what the operators may do with it. */
 export function pauseLine(v: VersionFlows, policy: PortalPolicy, nowSeconds: number): string {
-  const limits = `the operators may pause exits and deposits for up to ${duration(Number(policy.pauseMax))} at a time, ${duration(Number(policy.pauseBudget))} in total per version`;
-  if (v.pausedUntil > BigInt(nowSeconds))
-    return `paused for ${duration(Number(v.pausedUntil) - nowSeconds)} more · ${duration(Number(v.pausedSeconds))} of the budget spent · ${limits}`;
-  return `not paused · ${limits}`;
+  const limits = `the operators may pause exits and deposits for up to ${duration(Number(policy.pauseMax))} a call, ${duration(Number(policy.pauseBudget))} in total per version`;
+  if (!v.paused) return `not paused · ${limits}`;
+  const more = Number(v.pausedUntil) - nowSeconds;
+  return `paused${more > 0 ? ` for ${duration(more)} more` : ''} · ${duration(Number(v.pausedSeconds))} of the budget spent · ${limits}`;
 }
 
 /** Where a version stands, as its card's second line. */
-export function versionLine(v: VersionFlows, canonical: bigint): string {
+export function versionLine(v: VersionFlows, canonical: { version: bigint; index: bigint }): string {
   if (!v.registered) return 'not registered on the portal yet';
-  if (v.version === canonical)
+  if (v.version === canonical.version)
     return v.depositsClosed
       ? 'the live version · deposits closed before the flip'
-      : 'the live version · mining, deposits and exits here';
+      : 'the live version · deposits and exits here';
   if (v.flipAt > 0n)
     return v.deadline === OPEN_ENDED
       ? `flipped away from on ${day(v.flipAt)} · exits stay open`
       : `flipped away from on ${day(v.flipAt)} · exits close on ${day(v.deadline)}`;
-  return 'registered, not live yet';
+  if (v.registryIndex < canonical.index) return 'flipped away from · the flip not yet recorded on the portal';
+  return 'registered ahead of the flip · not live yet';
 }
 
 /**
@@ -106,18 +120,19 @@ const flipStep = (v: VersionFlows, flipped: boolean): Step => ({
   state: flipped ? 'done' : 'pending',
 });
 
+/** Ethereum knows the message was sent, not that the miner consumed it: the label says as much. */
 const retireStep = (v: VersionFlows, flipped: boolean): Step => ({
   id: 'retire',
-  label: v.retireSent ? 'retire message sent: mining ended' : 'mining ends with the retire message',
+  label: v.retireSent ? 'retire message sent' : 'the retire message ends mining',
   state: v.retireSent ? 'done' : flipped ? 'active' : 'pending',
+  detail: v.retireSent ? 'mining ends once the miner consumes it' : undefined,
 });
 
 const closesStep = (v: VersionFlows, nowSeconds: number): Step => {
   const closes = v.deadline !== OPEN_ENDED;
-  const closed = closes && BigInt(nowSeconds) > v.deadline;
   return {
     id: 'closes',
     label: closes ? `exits close ${day(v.deadline)}` : 'exits open until the version after next',
-    state: closed ? 'done' : closes ? 'active' : 'pending',
+    state: closed(v, nowSeconds) ? 'done' : closes ? 'active' : 'pending',
   };
 };

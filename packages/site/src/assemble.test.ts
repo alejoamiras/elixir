@@ -66,14 +66,21 @@ describe('assembly inspects what it emitted', () => {
 });
 
 describe('assembly', () => {
-  test('the witness archives are served by rollup version, only for profiles with a record', () => {
+  test('the witness archives are served by the version each line names, whatever file it came from', () => {
     const repoDir = scratch();
-    mkdirSync(join(repoDir, 'deployments/witnesses'), { recursive: true });
-    writeFileSync(join(repoDir, 'deployments/testnet.json'), JSON.stringify({ rollupVersion: '1821665230' }));
-    writeFileSync(join(repoDir, 'deployments/witnesses/testnet.jsonl'), '');
-    writeFileSync(join(repoDir, 'deployments/witnesses/orphan.jsonl'), '');
-    writeFileSync(join(repoDir, 'deployments/witnesses/notes.txt'), '');
-    expect(witnessFiles(repoDir).map((w) => w.to)).toEqual(['witnesses/1821665230.jsonl']);
+    const dir = join(repoDir, 'deployments/witnesses');
+    mkdirSync(dir, { recursive: true });
+    const line = (version: string, index: number) => JSON.stringify({ version, index, kind: 2 });
+    writeFileSync(join(dir, 'testnet.jsonl'), `${line('5', 0)}\n${line('6', 0)}\n\n${line('5', 1)}\n`);
+    writeFileSync(join(dir, 'other.jsonl'), `${line('6', 1)}\n`);
+    writeFileSync(join(dir, 'notes.txt'), 'not an archive');
+    // Files are read in name order, lines kept in the order met; the outputs come by version.
+    expect(witnessFiles(repoDir)).toEqual([
+      { to: 'witnesses/5.jsonl', lines: [line('5', 0), line('5', 1)] },
+      { to: 'witnesses/6.jsonl', lines: [line('6', 1), line('6', 0)] },
+    ]);
+    writeFileSync(join(dir, 'broken.jsonl'), '{"index":2}\n');
+    expect(() => witnessFiles(repoDir)).toThrow(/broken\.jsonl: an archive line without a version number/);
     expect(witnessFiles(join(repoDir, 'nowhere'))).toEqual([]);
   });
 

@@ -8,7 +8,7 @@ import { FAQ_HREF } from '../routes';
 const migration = (): MigrationRecord | null =>
   import.meta.env.VITE_MIGRATION ? (JSON.parse(import.meta.env.VITE_MIGRATION) as MigrationRecord) : null;
 
-/** "Aztec's next version arrives around <day>": the sentence, for the landing to share. */
+/** "Aztec's next version arrives around <day>": the one sentence, from the record's migration block. */
 export const announcementLine = (m: MigrationRecord, version: string): string =>
   `Aztec's next version arrives around ${new Date(Number(m.expectedFlipAt) * 1000).toISOString().slice(0, 10)}. Mining on V${version} ends at the flip; send what you hold ahead from the miner before then.`;
 

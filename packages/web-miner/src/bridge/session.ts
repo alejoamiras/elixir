@@ -29,7 +29,9 @@ import {
   exitMessageContent,
   fetchWitness,
   outboxLeaf,
+  type RecordedExit,
   readArchive,
+  rootOf,
 } from '../../../bridge/src/witness.ts';
 import { readBalanceSnapshot, saveBalanceSnapshot } from '../bridge/snapshot.ts';
 import type { Connection } from '../config';
@@ -99,8 +101,9 @@ export class BridgeSession {
   private constants: Promise<{ epochDuration: number }> | undefined;
   private l1Clock: { at: number; value: Promise<bigint> } | undefined;
   private readonly rollups = new Map<string, Promise<RollupReads>>();
-  /** The served witness archives, by version, fetched once per session; null when the site has none. */
-  private readonly archives = new Map<string, Promise<string | null>>();
+  /** The served witness archives by version, kept once read; a miss is asked for again next refresh. */
+  private readonly archives = new Map<string, Promise<ArchivedExit[]>>();
+  private readonly scope: ExitScope;
   private refreshes = 0;
 
   private constructor(
@@ -148,13 +151,13 @@ export class BridgeSession {
       this.ctx.version.toString(),
       Promise.resolve(rollupReads(client, import.meta.env.VITE_ROLLUP_ADDRESS as Hex)),
     );
-    const scope = {
+    this.scope = {
       chainId: this.ctx.chainId,
       rollupVersion: this.ctx.version,
       miner: d.l2().miner.address,
       portal: EthAddress.fromString(d.record.portal),
     };
-    this.reads = this.factReads(scope);
+    this.reads = this.factReads(this.scope);
   }
 
   /** The Rollup of a crossing's own version: this build's from its record, an earlier one's from the Registry. */
@@ -198,19 +201,66 @@ export class BridgeSession {
   /**
    * An earlier version's witness from the archive the site serves (`/witnesses/<version>.jsonl`,
    * committed by the operator once the exits settled): the only source once that version's node is
-   * gone. The entry must carry the aux the master derives, or it is someone else's exit.
+   * gone. The archive numbers exits as the miner did, for everyone, so a crossing is matched by what
+   * the master derives (the aux) and what the record holds (amount, address), never by its own
+   * index; and a served file is not believed until its path folds to the root the source version's
+   * Outbox holds for that epoch. The witness returned carries the crossing's index.
    */
   private async archivedWitness(c: Crossing): Promise<ArchivedExit | undefined> {
     if (c.kind === 3) return undefined;
-    const text = await (this.archives.get(c.version) ??
-      (this.archives.set(c.version, fetchArchive(c.version)).get(c.version) as Promise<string | null>));
-    if (!text) return undefined;
-    const secrets = await secretsFor(this.ctx, c.index, BigInt(c.version));
-    const aux = (c.kind === 1 ? secrets.tag : secrets.secretHash).toString().toLowerCase();
-    return readArchive(text).find(
+    const exit = await this.recordedExit(c);
+    const entry = (await this.archiveEntries(c.version)).find(
       (e) =>
-        e.version === c.version && e.index === c.index && e.kind === c.kind && e.aux.toLowerCase() === aux,
+        e.version === c.version &&
+        e.kind === c.kind &&
+        e.amount === c.amount &&
+        e.aux.toLowerCase() === exit.aux.toLowerCase() &&
+        e.recipientOrRedeemKey.toLowerCase() === c.ethAddress.toLowerCase(),
     );
+    if (!entry) return undefined;
+    const leaf = outboxLeaf(
+      { ...this.scope, rollupVersion: BigInt(c.version) },
+      exitMessageContent(exit, EthAddress.fromString(c.ethAddress)),
+    );
+    const root = await this.reader.outboxRoot(
+      BigInt(c.version),
+      BigInt(entry.epoch),
+      BigInt(entry.numCheckpointsInEpoch),
+    );
+    if (rootOf(leaf, entry.path, BigInt(entry.leafIndex)) !== root) return undefined;
+    return { ...entry, index: c.index };
+  }
+
+  /** The served archive's entries, parsed once; a missing or unreadable file is asked for again next time. */
+  private archiveEntries(version: string): Promise<ArchivedExit[]> {
+    const cached = this.archives.get(version);
+    if (cached) return cached;
+    const entries = fetchArchive(version).then((text) => {
+      if (text === null) this.archives.delete(version);
+      return text === null ? [] : readArchive(text);
+    });
+    entries.catch(() => this.archives.delete(version));
+    this.archives.set(version, entries);
+    return entries;
+  }
+
+  /** For a version no node serves: the archive names the epoch and the transaction of a send that lost them. */
+  private async txFromArchive(c: Crossing): Promise<Facts['tx']> {
+    const w = await this.archivedWitness(c);
+    return w ? { status: 'mined', epoch: w.epoch, txHash: w.txHash } : undefined;
+  }
+
+  /** The exit as the miner logged it, with the aux the master re-derives: the tag (K1) or the secret hash (K2). */
+  private async recordedExit(c: Crossing): Promise<RecordedExit> {
+    const secrets = await secretsFor(this.ctx, c.index, BigInt(c.version));
+    return {
+      index: c.index,
+      kind: c.kind as 1 | 2,
+      amount: BigInt(c.amount),
+      aux: (c.kind === 1 ? secrets.tag : secrets.secretHash).toString() as Hex,
+      recipientOrRedeemKey: c.ethAddress,
+      txHash: c.txHash as string,
+    };
   }
 
   /** The siloed nullifier the miner's claim of this message leaves in the tree. */
@@ -226,19 +276,6 @@ export class BridgeSession {
   /** Each source of a crossing's facts behind one function: the node, the rollup, the portal, the destination. */
   private factReads(scope: ExitScope): FactReads {
     const d = this.d;
-    /** The exit as the miner logged it, with the aux the master re-derives: the tag (K1) or the secret hash (K2). */
-    const recorded = async (c: Crossing) => {
-      const secrets = await secretsFor(this.ctx, c.index, BigInt(c.version));
-      const aux = (c.kind === 1 ? secrets.tag : secrets.secretHash).toString() as Hex;
-      return {
-        index: c.index,
-        kind: c.kind as 1 | 2,
-        amount: BigInt(c.amount),
-        aux,
-        recipientOrRedeemKey: c.ethAddress,
-        txHash: c.txHash as string,
-      };
-    };
     const witnessLeaf = (c: Crossing) =>
       c.witness
         ? {
@@ -248,7 +285,7 @@ export class BridgeSession {
         : undefined;
     return {
       tx: async (c) => {
-        if (!this.servesVersion(c)) return undefined;
+        if (!this.servesVersion(c)) return this.txFromArchive(c);
         if (!c.txHash) return this.txByTag(c);
         const r = await d.node.getTxReceipt(TxHash.fromString(c.txHash));
         if (r.status === 'dropped') return { status: 'dropped' };
@@ -262,7 +299,7 @@ export class BridgeSession {
       epochProven: async (c, epoch) => epochProven(await this.rollupFor(c.version), epoch),
       witness: async (c) => {
         if (!this.servesVersion(c)) return this.archivedWitness(c);
-        const exit = await recorded(c);
+        const exit = await this.recordedExit(c);
         const leaf = outboxLeaf(
           { ...scope, rollupVersion: BigInt(c.version) },
           exitMessageContent(exit, EthAddress.fromString(exit.recipientOrRedeemKey)),

@@ -56,30 +56,51 @@ describe('the bridge read', () => {
 });
 
 describe('the sentences', () => {
-  test('the limit grows an hour at a time before the flip and is frozen after it; exits beyond it wait', () => {
-    expect(exitLimitLine(live, policy)).toBe(
-      `128 ${PARAMS.TOKEN_SYMBOL} may leave V5 right now · grows 12 ${PARAMS.TOKEN_SYMBOL} an hour; exits beyond it wait, they are not refused.`,
+  test('the limit grows before the flip and is frozen after it; a pause holds it, the deadline ends it', () => {
+    expect(exitLimitLine(live, policy, NOW)).toBe(
+      `128 ${PARAMS.TOKEN_SYMBOL} may leave V5 right now · grows 12 ${PARAMS.TOKEN_SYMBOL} an hour; exits beyond it wait for it to grow, until the flip freezes it.`,
     );
-    expect(exitLimitLine({ ...live, flipAt: 1_799_500_000n }, policy)).toContain(
+    expect(exitLimitLine({ ...live, launchAt: BigInt(NOW + 3600) }, policy, NOW)).toContain(
+      'from the launch on 2027-01-15; exits beyond it wait for it.',
+    );
+    expect(exitLimitLine({ ...live, flipAt: 1_799_500_000n }, policy, NOW)).toContain(
       'stopped growing at the flip; 40',
     );
-  });
-
-  test('the pause names its limits, and how much of the budget a running pause has spent', () => {
-    expect(pauseLine(live, policy, NOW)).toBe(
-      'not paused · the operators may pause exits and deposits for up to 30.0 d at a time, 60.0 d in total per version',
+    expect(exitLimitLine({ ...live, flipAt: 1_799_500_000n }, policy, NOW)).toContain(
+      'cannot leave this version',
     );
-    const paused = { ...live, pausedUntil: BigInt(NOW + 7200), pausedSeconds: 86400n };
-    expect(pauseLine(paused, policy, NOW)).toContain('paused for 2.0 h more · 1.0 d of the budget spent');
+    expect(exitLimitLine({ ...live, paused: true }, policy, NOW)).toBe(
+      `128 ${PARAMS.TOKEN_SYMBOL} may leave V5 once the pause ends · 40 ${PARAMS.TOKEN_SYMBOL} has left.`,
+    );
+    expect(exitLimitLine({ ...live, deadline: BigInt(NOW - 1) }, policy, NOW)).toBe(
+      `exits closed on 2027-01-15 · 40 ${PARAMS.TOKEN_SYMBOL} has left; nothing more leaves V5.`,
+    );
   });
 
-  test("a version's line: live, flipped with a closing day, or not yet registered", () => {
-    expect(versionLine(live, 5n)).toBe('the live version · mining, deposits and exits here');
-    expect(versionLine({ ...live, depositsClosed: true }, 5n)).toContain('deposits closed');
-    expect(versionLine({ ...live, flipAt: 1_799_500_000n, deadline: 1_801_000_000n }, 6n)).toBe(
+  test("the pause is the portal's word, not the clock's; a running one says how much budget it spent", () => {
+    expect(pauseLine(live, policy, NOW)).toBe(
+      'not paused · the operators may pause exits and deposits for up to 30.0 d a call, 60.0 d in total per version',
+    );
+    const paused = { ...live, paused: true, pausedUntil: BigInt(NOW + 7200), pausedSeconds: 86400n };
+    expect(pauseLine(paused, policy, NOW)).toContain('paused for 2.0 h more · 1.0 d of the budget spent');
+    // The device's clock past the portal's end while the portal still says paused: no negative duration.
+    expect(pauseLine({ ...paused, pausedUntil: BigInt(NOW - 5) }, policy, NOW)).toContain('paused · 1.0 d');
+    expect(pauseLine({ ...live, pausedUntil: BigInt(NOW + 7200) }, policy, NOW)).toContain('not paused');
+  });
+
+  test("a version's line: live, flipped, flipped but unrecorded, ahead of the flip, or not registered", () => {
+    const at5 = { version: 5n, index: 0n };
+    expect(versionLine(live, at5)).toBe('the live version · deposits and exits here');
+    expect(versionLine({ ...live, depositsClosed: true }, at5)).toContain('deposits closed');
+    const at6 = { version: 6n, index: 1n };
+    expect(versionLine({ ...live, flipAt: 1_799_500_000n, deadline: 1_801_000_000n }, at6)).toBe(
       'flipped away from on 2027-01-09 · exits close on 2027-01-26',
     );
-    expect(versionLine({ ...live, registered: false }, 5n)).toBe('not registered on the portal yet');
+    expect(versionLine(live, at6)).toBe('flipped away from · the flip not yet recorded on the portal');
+    expect(versionLine({ ...live, version: 7n, registryIndex: 2n }, at6)).toBe(
+      'registered ahead of the flip · not live yet',
+    );
+    expect(versionLine({ ...live, registered: false }, at5)).toBe('not registered on the portal yet');
   });
 
   test('the phases: announced from the record, the flip and the retire from the portal, the close from the deadline', () => {
@@ -96,7 +117,17 @@ describe('the sentences', () => {
       { ...live, flipAt: 1_799_500_000n, retireSent: true, deadline: 1_801_000_000n },
       null,
       NOW,
-    ).map((s) => `${s.id}:${s.state}`);
-    expect(flipped).toEqual(['announced:done', 'flip:done', 'retire:done', 'closes:active']);
+    );
+    expect(flipped.map((s) => `${s.id}:${s.state}`)).toEqual([
+      'announced:done',
+      'flip:done',
+      'retire:done',
+      'closes:active',
+    ]);
+    // Ethereum saw the message sent; whether the miner consumed it is the other chain's to say.
+    expect(flipped[2]).toMatchObject({
+      label: 'retire message sent',
+      detail: 'mining ends once the miner consumes it',
+    });
   });
 });

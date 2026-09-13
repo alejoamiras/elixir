@@ -161,12 +161,19 @@ function ReproduceTile({ nodeUrl }: { nodeUrl: string }) {
   );
 }
 
-/** The Ethereum side of the record: the contracts and the keys, each on Etherscan, the forwarders as listed now. */
+/**
+ * The Ethereum side of the record: the contracts and the keys, each on Etherscan. The operators
+ * and the forwarders are the portal's word now, not the build's: the role can be handed on and a
+ * forwarder listed after the record was written; when the RPC is silent, the tile says so.
+ */
 function BridgeRecordTile() {
   const bridge = bridgeRecord();
   const status = useAtomValue(bridgeAtom);
   if (!bridge) return null;
-  const forwarders = status.phase === 'ready' ? status.snapshot.forwarders : null;
+  const live = status.phase === 'ready' ? status.snapshot : null;
+  const forwarders = live?.forwarders ?? null;
+  const operators = live?.operators ?? bridge.operators;
+  const silent = status.phase === 'error' || (status.phase === 'ready' && status.unreachable);
   const chain = (label: string, address: string, testId: string) => (
     <KvRow label={label} value={<Hex value={address} testId={testId} href={l1Links.address(address)} />} />
   );
@@ -177,12 +184,16 @@ function BridgeRecordTile() {
       {chain('portal', bridge.portal, 'verify-portal')}
       {chain('YACA', bridge.yaca, 'verify-yaca')}
       {chain('registry (Aztec)', bridge.registry, 'verify-registry')}
-      {chain('operators', bridge.operators, 'verify-operators')}
+      {chain(live ? 'operators (now)' : 'operators (at deployment)', operators, 'verify-operators')}
       <KvRow
-        label="listed forwarders"
+        label={silent ? 'listed forwarders (last read; the RPC is silent)' : 'listed forwarders'}
         value={
           forwarders === null ? (
-            '…'
+            silent ? (
+              'unreachable'
+            ) : (
+              '…'
+            )
           ) : forwarders.length === 0 ? (
             'none'
           ) : (

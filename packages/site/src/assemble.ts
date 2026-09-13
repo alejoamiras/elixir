@@ -32,23 +32,31 @@ export const APPS = [
 ] as const;
 
 /**
- * The witness archives the operator commits (`deployments/witnesses/<profile>.jsonl`), served at
- * `/witnesses/<rollupVersion>.jsonl`: a later version's page reads an earlier version's settled
- * exits from here once that version's node is gone. A profile without a record is skipped.
+ * The witness archives the operator commits (`deployments/witnesses/*.jsonl`: one file per profile,
+ * every version of that profile in it), served as `/witnesses/<version>.jsonl`: each line goes to
+ * the file of the version it names, so a later version's page reads an earlier version's settled
+ * exits from here once that version's node is gone. A line without a version number fails the build.
  */
-export function witnessFiles(repoDir: string): { from: string; to: string }[] {
+export function witnessFiles(repoDir: string): { to: string; lines: string[] }[] {
   const dir = resolve(repoDir, 'deployments/witnesses');
   if (!existsSync(dir)) return [];
-  const out: { from: string; to: string }[] = [];
-  for (const file of readdirSync(dir)) {
-    if (!file.endsWith('.jsonl')) continue;
-    const record = resolve(repoDir, 'deployments', `${file.slice(0, -'.jsonl'.length)}.json`);
-    if (!existsSync(record)) continue;
-    const { rollupVersion } = JSON.parse(readFileSync(record, 'utf8')) as { rollupVersion?: string };
-    if (rollupVersion && /^\d+$/.test(rollupVersion))
-      out.push({ from: resolve(dir, file), to: `witnesses/${rollupVersion}.jsonl` });
+  const byVersion = new Map<string, string[]>();
+  for (const file of readdirSync(dir)
+    .filter((f) => f.endsWith('.jsonl'))
+    .sort()) {
+    for (const line of readFileSync(resolve(dir, file), 'utf8').split('\n')) {
+      if (!line.trim()) continue;
+      const { version } = JSON.parse(line) as { version?: unknown };
+      if (typeof version !== 'string' || !/^\d+$/.test(version))
+        throw new Error(`deployments/witnesses/${file}: an archive line without a version number`);
+      const lines = byVersion.get(version) ?? [];
+      lines.push(line);
+      byVersion.set(version, lines);
+    }
   }
-  return out;
+  return [...byVersion]
+    .sort(([a], [b]) => (BigInt(a) < BigInt(b) ? -1 : 1))
+    .map(([version, lines]) => ({ to: `witnesses/${version}.jsonl`, lines }));
 }
 
 /**
@@ -130,7 +138,7 @@ export async function assemble(
   cpSync(resolve(repo, 'packages/web-landing/public/og.png'), resolve(out, 'og.png'));
   for (const w of witnessFiles(repo)) {
     mkdirSync(resolve(out, 'witnesses'), { recursive: true });
-    cpSync(w.from, resolve(out, w.to));
+    writeFileSync(resolve(out, w.to), `${w.lines.join('\n')}\n`);
   }
   writeFileSync(
     resolve(out, '_headers'),
