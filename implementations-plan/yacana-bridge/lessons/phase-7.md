@@ -56,6 +56,19 @@
   drains the node's log pipe and hosts the control server the spec calls, so the node stopped building blocks at
   the same second and `settle` could never have answered. Every child of a rig case is spawned asynchronously now;
   a case that owns processes must never block its own loop.
+- The local network (5.2.0's automine sequencer) builds a block only on a transaction or a warp — the
+  `minTxsPerBlock 0` flag no longer means a block every slot — and a claim anchors on the latest block for ten
+  minutes. A page that mines and proves for minutes on end (the rig's words account, real proving) saw every claim
+  expire against a chain that had stopped behind it; the shard runs and the canary were simply faster than the
+  window. The browser case warps one slot a minute behind a serial queue shared with the controls and the flip.
+  Measured with a probe: bare rig, rig after the deploys, and the plain isolated network all sit at the same height
+  for minutes when nothing sends.
+- The rig's builds ran from `bun test`, whose `NODE_ENV=test` Vite kept, so the page under test was React's
+  development bundle: StrictMode rehearsed every effect, and the words backup screen's cleanup reset its quiz on
+  a component that stayed mounted — no answer could ever pass, and the spec waited on a disabled button until the
+  stage's timeout. The in-progress trace (`test-results/.playwright-artifacts-*/traces/*.trace`) showed the open
+  call and the DOM in seconds. The cleanup is gone (state dies with the component) and the e2e build env pins
+  `NODE_ENV=production`; a click on a control that may never enable deserves an explicit expectation first.
 - Four aztec nodes from another project's sandboxes (nulo, two days old) and a two-day-old `bun --eval` stub from a
   deleted worktree were still running on the box; the stub was killed (its worktree is gone), the nodes left alone
   (another project's runs) and reported.

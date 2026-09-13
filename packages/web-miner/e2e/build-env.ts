@@ -19,6 +19,9 @@ export interface BuildOptions {
 
 export const e2eBuildEnv = (d: Deployment, o: BuildOptions): NodeJS.ProcessEnv => ({
   ...process.env,
+  // Vite keeps an inherited NODE_ENV (bun test sets `test`), which builds React's development
+  // bundle — StrictMode rehearsals and all. The page under test is the production bundle.
+  NODE_ENV: 'production',
   YACANA_SITE_MODE: 'e2e',
   YACANA_APP_ROLE: o.role ?? 'apex',
   ...(o.oldAppOrigin ? { VITE_OLD_APP_ORIGIN: o.oldAppOrigin } : {}),

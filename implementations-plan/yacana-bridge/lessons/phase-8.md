@@ -25,6 +25,10 @@
   readiness probe from the setup goes to `127.0.0.1:<port>` while the page uses `v5.localhost:<port>`. The RP ID
   `localhost` covers both origins, which is what lets one virtual authenticator serve the apex and the versioned
   origin in a test.
+- Two `wrangler dev` side by side need distinct inspector ports (the default 9229 is taken by the first) and the
+  second's readiness must be probed through `localhost` like the first's.
+- The port registry handed out a port a sandbox it never registered was listening on; `claim` now binds each
+  candidate on both loopback addresses before handing it out.
 
 ## Consults
 
