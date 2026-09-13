@@ -248,7 +248,11 @@ export function Wallet({ session }: { session: Session }) {
           />
         </TileBoundary>
         <TileBoundary name="arrivals" onError={onError} className="md:col-span-2">
-          <ArrivalCard session={session} onResume={(c) => setDeposit({ resume: c })} />
+          <ArrivalCard
+            session={session}
+            onResume={(c) => setDeposit({ resume: c })}
+            className="md:col-span-2"
+          />
         </TileBoundary>
         <ToEthereumSheet session={session} balance={balance ?? 0n} open={exit} onOpenChange={setExit} />
         {deposit && (

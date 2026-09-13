@@ -62,13 +62,13 @@ function ConnectedWallet({
   onDisconnect: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3" data-testid="eth-account">
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2" data-testid="eth-account">
       <span className="inline-flex h-[34px] items-center gap-2 rounded-md border border-line-2 px-3 text-[12.5px] font-medium">
         <i aria-hidden className="size-3 rounded-full bg-[linear-gradient(135deg,var(--uv),var(--warn))]" />
         <span className="font-mono">{shortAddress(address)}</span>
         <span className="text-ink-3">· {name ?? `chain ${chainId}`}</span>
       </span>
-      <span className="flex items-center gap-3 font-mono text-2xs text-ink-2">
+      <span className="flex items-center gap-3 whitespace-nowrap font-mono text-2xs text-ink-2">
         <span>
           <span data-testid="yaca-balance">{yaca === undefined ? '…' : fmt(yaca, PARAMS.DECIMALS)}</span> YACA
           there
@@ -365,6 +365,7 @@ export function HeldSheet({
   onOpenChange: (open: boolean) => void;
 }) {
   const account = useAccount();
+  const yaca = useYacaBalance(account.address);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [done, setDone] = useState(false);
@@ -398,7 +399,7 @@ export function HeldSheet({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        <WalletPicker />
+        <WalletPicker yaca={yaca} />
         {crossing && !done && (
           <div className="flex flex-col gap-4">
             <AmountBlock

@@ -25,10 +25,14 @@ function GuidedPath({ session }: { session: Session }) {
   return (
     <BridgeProviders>
       <TileBoundary name="migration" onError={onError} className="md:col-span-2 xl:col-span-4">
-        <MigrationCard onSendAhead={() => setAhead(true)} />
+        <MigrationCard onSendAhead={() => setAhead(true)} className="md:col-span-2 xl:col-span-4" />
       </TileBoundary>
       <TileBoundary name="arrivals" onError={onError} className="md:col-span-2 xl:col-span-4">
-        <ArrivalCard session={session} onResume={() => navigate('wallet')} />
+        <ArrivalCard
+          session={session}
+          onResume={() => navigate('wallet')}
+          className="md:col-span-2 xl:col-span-4"
+        />
       </TileBoundary>
       <SendAheadSheet session={session} balance={balance ?? 0n} open={ahead} onOpenChange={setAhead} />
     </BridgeProviders>

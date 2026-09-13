@@ -90,6 +90,7 @@ function Announced({
   view,
   onSendAhead,
   loss,
+  className,
 }: {
   version: string;
   next: string;
@@ -99,6 +100,7 @@ function Announced({
   view: BridgeView;
   onSendAhead: () => void;
   loss: string;
+  className?: string;
 }) {
   const sent = ahead.length > 0;
   const proven = sent && ahead.some((c) => !PAST.has(c.state));
@@ -107,6 +109,7 @@ function Announced({
   const offer = !sent || (balance !== null && balance > 0n);
   return (
     <HeroCard
+      className={className}
       eyebrow={`aztec v${next} · ${expected > 0 ? `expected in about ${duration(expected)}` : 'expected any time'}`}
       title={announcedTitle(sent, sum, balance, version)}
       trail={announcedTrail(sent, proven, version, next)}
@@ -148,6 +151,7 @@ function Flipped({
   view,
   onSendAhead,
   loss,
+  className,
 }: {
   version: string;
   next: string;
@@ -156,11 +160,13 @@ function Flipped({
   view: BridgeView;
   onSendAhead: () => void;
   loss: string;
+  className?: string;
 }) {
   const retired = view.verdict.kind === 'flipped' && view.verdict.by.includes('retired');
   const flipDay = view.standing && view.standing.flipAt > 0n ? day(view.standing.flipAt) : undefined;
   return (
     <HeroCard
+      className={className}
       eyebrow={`aztec v${next} is canonical${flipDay ? ` · ${flipDay}` : ''}`}
       title={
         <span data-testid="flipped-alert">Mining has ended on V{version}. Send what is left ahead now.</span>
@@ -203,7 +209,7 @@ function Flipped({
   );
 }
 
-export function MigrationCard({ onSendAhead }: { onSendAhead: () => void }) {
+export function MigrationCard({ onSendAhead, className }: { onSendAhead: () => void; className?: string }) {
   const view = useAtomValue(bridgeAtom);
   const journal = useAtomValue(journalAtom);
   const balance = useAtomValue(balanceAtom);
@@ -216,7 +222,7 @@ export function MigrationCard({ onSendAhead }: { onSendAhead: () => void }) {
   const ahead = journal.filter((c) => c.kind === 2 && c.state !== 'dropped' && c.state !== 'never-proven');
   const expected = announced ? Number(announced.expectedFlipAt) - Math.floor(now / 1000) : 0;
   const loss = `Anything still on V${version} when it goes quiet is lost. V${version} goes quiet after the upgrade, without notice.`;
-  const props = { version, next, ahead, balance, view, onSendAhead, loss };
+  const props = { version, next, ahead, balance, view, onSendAhead, loss, className };
   return m === 'flipped' ? <Flipped {...props} /> : <Announced {...props} expected={expected} />;
 }
 

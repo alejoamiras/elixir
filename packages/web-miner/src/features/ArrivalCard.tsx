@@ -111,7 +111,15 @@ function Row({
 
 const sum = (cs: Crossing[]) => cs.reduce((a, c) => a + BigInt(c.amount), 0n);
 
-export function ArrivalCard({ session, onResume }: { session: Session; onResume?: (c: Crossing) => void }) {
+export function ArrivalCard({
+  session,
+  onResume,
+  className,
+}: {
+  session: Session;
+  onResume?: (c: Crossing) => void;
+  className?: string;
+}) {
   const journal = useAtomValue(journalAtom);
   const now = useAtomValue(nowAtom);
   const [busy, setBusy] = useState<string>();
@@ -149,6 +157,7 @@ export function ArrivalCard({ session, onResume }: { session: Session; onResume?
   ];
   return (
     <HeroCard
+      className={className}
       eyebrow={`from ${sources} · this account · fees sponsored`}
       title={title}
       trail={trail}
