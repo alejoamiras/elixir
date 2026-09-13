@@ -2,7 +2,7 @@
 // a device that lost its journal (or a browser that cleared it) restores the records and refreshes
 // their states from the chain. Nothing secret is in it: secrets re-derive from the master.
 import type { Hex } from 'viem';
-import { type Crossing, type CrossingState, crossingId, FINAL_STATES } from './journal.ts';
+import { type Crossing, type CrossingState, crossingId } from './journal.ts';
 import { type ArchivedExit, parseArchivedExit } from './witness.ts';
 
 export const RECOVERY_VERSION = 1;
@@ -96,15 +96,31 @@ export function parseCrossing(raw: unknown, where: string): Crossing {
   ] as const)
     if (typeof o[k] === 'string') (c as unknown as Record<string, unknown>)[k] = o[k];
   if (typeof o.block === 'number') c.block = num('block');
-  if (o.witness !== undefined) c.witness = parseArchivedExit(o.witness, `${where}.witness`) as ArchivedExit;
+  if (o.witness !== undefined) {
+    const w = parseArchivedExit(o.witness, `${where}.witness`) as ArchivedExit;
+    // The card shows the crossing's fields; the signature covers the witness's. They must be one thing.
+    if (
+      w.kind !== c.kind ||
+      w.version !== c.version ||
+      w.index !== c.index ||
+      w.amount !== c.amount ||
+      w.recipientOrRedeemKey.toLowerCase() !== c.ethAddress
+    )
+      fail(where, 'witness does not describe this crossing');
+    c.witness = w;
+  }
   return c;
 }
+
+/** A recovery file is a few kilobytes per crossing; anything past this is not one. */
+export const MAX_RECOVERY_BYTES = 8 * 1024 * 1024;
 
 /**
  * The file's crossings for this chain and portal; a file for another deployment is refused, not
  * merged (its indices would collide with this one's).
  */
 export function parseRecoveryFile(text: string, expected: { chainId: string; portal: Hex }): RecoveryFile {
+  if (text.length > MAX_RECOVERY_BYTES) fail('recovery file', `${text.length} bytes is too large to be one`);
   let json: unknown;
   try {
     json = JSON.parse(text);
@@ -130,12 +146,3 @@ export function parseRecoveryFile(text: string, expected: { chainId: string; por
     crossings: (o.crossings as unknown[]).map((c, i) => parseCrossing(c, `recovery file crossing ${i}`)),
   };
 }
-
-/**
- * Whether the file's copy of a crossing replaces the journal's: only when the file knows the
- * crossing ended and the journal does not. A device that lost its journal rediscovers a deposit
- * from the Inbox alone and cannot tell it was claimed; the file can. Anything still in flight is
- * left to the chain, which refreshes it either way.
- */
-export const supersedes = (fromFile: Crossing, inJournal: Crossing): boolean =>
-  FINAL_STATES.has(fromFile.state) && !FINAL_STATES.has(inJournal.state);

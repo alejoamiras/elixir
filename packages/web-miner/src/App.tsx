@@ -158,7 +158,7 @@ export function App({ connection, session }: { connection: Connection; session: 
   useTabStatus(settings.tabStatus);
   useHotkeys(controller, onStart, !dialogShowing);
   usePauses(controller, settings);
-  useResumeOnOpen(controller);
+  useResumeOnOpen(onStart);
   if (!isDesktop(window)) return <DesktopOnly />;
   const open = boot.phase === 'ready';
   const chain = open || boot.phase === 'signedOut' || boot.phase === 'opening';

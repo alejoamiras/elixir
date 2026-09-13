@@ -60,11 +60,43 @@ describe('the bridge journal store', () => {
     expect(await theirs.list()).toEqual([]);
     expect(await theirs.get(c.id)).toBeUndefined();
     await expect(theirs.update(c.id, (x) => x)).rejects.toThrow(/no crossing/);
+    // The other account's first crossing has the same id; both journals keep their own.
+    const d = await theirs.create('5', async () => 0, make());
+    expect(d.id).toBe(c.id);
+    expect((await mine.list()).map((x) => x.id)).toEqual([c.id]);
+    expect((await theirs.list()).map((x) => x.id)).toEqual([d.id]);
+    // A crossing restored at index 4 moves the counter past it; a lower one does not move it back.
+    await mine.reserveThrough('5', 4);
+    expect(await mine.nextIndex('5')).toBe(5);
+    await mine.reserveThrough('5', 2);
+    expect(await mine.nextIndex('5')).toBe(5);
+    expect((await mine.create('5', async () => 0, make())).index).toBe(5);
     const updated = await mine.update(c.id, (x) => ({ ...x, state: 'sent', txHash: '0x1' }));
     expect(updated.state).toBe('sent');
     expect((await mine.get(c.id))?.txHash).toBe('0x1');
     await mine.put({ ...updated, state: 'dropped' });
     expect((await mine.get(c.id))?.state).toBe('dropped');
+  });
+
+  test('a version-1 journal keyed by id alone comes through the upgrade', async () => {
+    const legacy = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open(BRIDGE_DB, 1);
+      req.onupgradeneeded = () => {
+        req.result.createObjectStore('crossings', { keyPath: 'id' }).createIndex('scope', 'scope');
+        req.result.createObjectStore('indices');
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    const row = { ...make()(0), scope: `31337:${PORTAL}:fp-a` };
+    const tx = legacy.transaction('crossings', 'readwrite');
+    tx.objectStore('crossings').put(row);
+    await new Promise<void>((resolve) => {
+      tx.oncomplete = () => resolve();
+    });
+    legacy.close();
+    expect((await openBridgeStore(scope).list()).map((c) => c.id)).toEqual([row.id]);
+    expect(await openBridgeStore({ ...scope, owner: 'fp-b' }).list()).toEqual([]);
   });
 
   test('the scan stops at the first silent window and answers one past the last index seen', async () => {

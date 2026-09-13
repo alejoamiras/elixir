@@ -1,6 +1,6 @@
-// What a crossing's card says, per state: the sentence, the action it offers and how it reads. The
-// words follow ux-brief.md as amended by the plan: no relayer promises, no hour, no waiting period —
-// Yacana forwards by hand and the holder may forward or redeem any time.
+// What a crossing's card says, per state: the sentence, the action it offers and how it reads. No
+// relayer promises, no hour, no waiting period: Yacana forwards by hand and the holder may forward
+// or redeem any time.
 import type { Crossing, CrossingState } from '../../../bridge/src/journal.ts';
 import { duration } from '../lib/format';
 
@@ -24,7 +24,9 @@ export const untilOrAgo = (deadline: bigint, nowSeconds: number): string => {
   return delta >= 0 ? `in ${duration(delta)}` : `${duration(-delta)} ago`;
 };
 
-const LINES: Record<CrossingState, (c: Crossing, nowSeconds: number, version: string) => CardLine> = {
+type Line = (c: Crossing, nowSeconds: number, version: string, flipped: boolean) => CardLine;
+
+const LINES: Record<CrossingState, Line> = {
   proving: (c) =>
     c.kind === 3
       ? {
@@ -62,12 +64,14 @@ const LINES: Record<CrossingState, (c: Crossing, nowSeconds: number, version: st
   paused: () => ({
     word: 'paused',
     sentence:
-      'The bridge is paused for this version; it lands when the pause ends, 30 days at most per pause.',
+      'Nothing of this version moves while the portal is paused, 30 days at most per pause; forward it yourself or redeem it once the pause ends.',
     tone: 'warn',
   }),
-  headroom: () => ({
-    word: 'waiting for headroom',
-    sentence: 'More has left this version than its schedule allows for now; it keeps its place in line.',
+  headroom: (_c, _now, _v, flipped) => ({
+    word: flipped ? 'over the cap' : 'waiting for headroom',
+    sentence: flipped
+      ? 'The version’s exit capacity is used up: nothing more of it can be forwarded. Redeem to Ethereum instead.'
+      : 'More has left this version than its schedule allows for now; forward or redeem it once the schedule frees room. Nothing queues it.',
     tone: 'warn',
   }),
   closed: (_c, _now, v) => ({
@@ -124,11 +128,13 @@ const LINES: Record<CrossingState, (c: Crossing, nowSeconds: number, version: st
 };
 
 /** The card's line for `c` on this build's version `version`. */
-export const cardLine = (c: Crossing, nowSeconds: number, version: string): CardLine =>
+/** `flipped`: the build's version has been flipped away from, so its exit capacity is frozen. */
+export const cardLine = (c: Crossing, nowSeconds: number, version: string, flipped = false): CardLine =>
   (LINES[c.state] ?? (() => ({ word: c.state, sentence: kindNoun(c), tone: 'quiet' as const })))(
     c,
     nowSeconds,
     version,
+    flipped,
   );
 
 /** A held or ready crossing older than this asks whether something is wrong. */

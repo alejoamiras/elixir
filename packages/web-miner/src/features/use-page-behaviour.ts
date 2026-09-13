@@ -97,12 +97,12 @@ export function usePauses(controller: () => MinerController | undefined, setting
   }, [controller, settings.pauseOnBattery]);
 }
 
-/** After the first Start the page may resume by itself; never on a first visit. */
-export function useResumeOnOpen(controller: () => MinerController | undefined) {
+/** After the first Start the page may resume by itself; never on a first visit. The session's Start, so its refusals hold. */
+export function useResumeOnOpen(start: () => void) {
   const boot = useAtomValue(bootAtom);
   const store = useStore();
   useEffect(() => {
     if (boot.phase !== 'ready' || !store.get(settingsAtom).resumeOnOpen) return;
-    controller()?.start();
-  }, [boot.phase, controller, store]);
+    start();
+  }, [boot.phase, start, store]);
 }

@@ -21,13 +21,31 @@ type Row = Crossing & { scope: string };
 
 export const scopeKey = (s: JournalScope): string => `${s.chainId}:${s.portal.toLowerCase()}:${s.owner}`;
 
+/** Two accounts on one device reach the same crossing ids: the row's key is the account's scope and the id. */
+const DB_VERSION = 2;
+
+/** Version 1 keyed rows by id alone, so a second account's first crossing replaced the first's. */
+function upgrade(req: IDBOpenDBRequest, oldVersion: number): void {
+  const db = req.result;
+  if (oldVersion < 1) db.createObjectStore(INDICES);
+  const recreate = (rows: Row[]) => {
+    if (db.objectStoreNames.contains(CROSSINGS)) db.deleteObjectStore(CROSSINGS);
+    const store = db.createObjectStore(CROSSINGS, { keyPath: ['scope', 'id'] });
+    store.createIndex('scope', 'scope');
+    for (const r of rows) store.put(r);
+  };
+  if (oldVersion < 1 || !req.transaction) {
+    recreate([]);
+    return;
+  }
+  const old = req.transaction.objectStore(CROSSINGS).getAll();
+  old.onsuccess = () => recreate(old.result as Row[]);
+}
+
 const open = (name: string): Promise<IDBDatabase> =>
   new Promise((resolve, reject) => {
-    const req = indexedDB.open(name, 1);
-    req.onupgradeneeded = () => {
-      req.result.createObjectStore(CROSSINGS, { keyPath: 'id' }).createIndex('scope', 'scope');
-      req.result.createObjectStore(INDICES);
-    };
+    const req = indexedDB.open(name, DB_VERSION);
+    req.onupgradeneeded = (e) => upgrade(req, e.oldVersion);
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
@@ -61,6 +79,11 @@ export interface BridgeStore {
   create(version: string, seed: () => Promise<number>, make: (index: number) => Crossing): Promise<Crossing>;
   /** The next index this device would hand out for `version`, or undefined before the first reservation. */
   nextIndex(version: string): Promise<number | undefined>;
+  /**
+   * A crossing that reached the journal from elsewhere (a file, the portal's events) took its index
+   * on another device: the counter moves past it so this one never derives those secrets again.
+   */
+  reserveThrough(version: string, index: number): Promise<void>;
 }
 
 export function openBridgeStore(scope: JournalScope, dbName = BRIDGE_DB): BridgeStore {
@@ -91,10 +114,10 @@ export function openBridgeStore(scope: JournalScope, dbName = BRIDGE_DB): Bridge
       ),
     get: (id) =>
       withDb(async (db) => {
-        const row = (await request(db.transaction(CROSSINGS, 'readonly').objectStore(CROSSINGS).get(id))) as
-          | Row
-          | undefined;
-        return row && row.scope === scoped ? strip(row) : undefined;
+        const row = (await request(
+          db.transaction(CROSSINGS, 'readonly').objectStore(CROSSINGS).get([scoped, id]),
+        )) as Row | undefined;
+        return row ? strip(row) : undefined;
       }),
     put: (c) =>
       withDb(async (db) => {
@@ -106,8 +129,8 @@ export function openBridgeStore(scope: JournalScope, dbName = BRIDGE_DB): Bridge
       withDb(async (db) => {
         const tx = db.transaction(CROSSINGS, 'readwrite');
         const store = tx.objectStore(CROSSINGS);
-        const row = (await request(store.get(id))) as Row | undefined;
-        if (!row || row.scope !== scoped) throw new Error(`no crossing ${id} in this journal`);
+        const row = (await request(store.get([scoped, id]))) as Row | undefined;
+        if (!row) throw new Error(`no crossing ${id} in this journal`);
         const next = f(strip(row));
         store.put({ ...next, scope: scoped } satisfies Row);
         await committed(tx);
@@ -129,6 +152,14 @@ export function openBridgeStore(scope: JournalScope, dbName = BRIDGE_DB): Bridge
         return crossing;
       }),
     nextIndex: (version) => withDb(async (db) => (await readCounter(db, version))?.next),
+    reserveThrough: (version, index) =>
+      withDb(async (db) => {
+        const tx = db.transaction(INDICES, 'readwrite');
+        const indices = tx.objectStore(INDICES);
+        const counter = (await request(indices.get(counterKey(version)))) as { next: number } | undefined;
+        if ((counter?.next ?? 0) <= index) indices.put({ next: index + 1 }, counterKey(version));
+        await committed(tx);
+      }),
   };
 }
 

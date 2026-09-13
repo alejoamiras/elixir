@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { Crossing } from './journal.ts';
-import { parseRecoveryFile, recoveryFile, supersedes } from './recovery.ts';
+import { MAX_RECOVERY_BYTES, parseRecoveryFile, recoveryFile } from './recovery.ts';
 
 const PORTAL = `0x${'be'.repeat(20)}` as const;
 const crossing: Crossing = {
@@ -55,14 +55,9 @@ describe('the recovery file', () => {
     expect(parse(file({ amount: '-1' }))).toThrow(/amount is missing or malformed/);
     expect(parse('{"v":2}')).toThrow(/version 2 is not 1/);
     expect(parse('nope')).toThrow(/not JSON/);
-  });
-
-  test('a restored crossing replaces the journal’s only when the file knows the end and the journal does not', () => {
-    const claimed: Crossing = { ...crossing, state: 'minted-l2' };
-    const found: Crossing = { ...crossing, state: 'deposited', updatedAt: 9 };
-    expect(supersedes(claimed, found)).toBe(true);
-    expect(supersedes(found, claimed)).toBe(false);
-    expect(supersedes(found, crossing)).toBe(false);
-    expect(supersedes(claimed, { ...crossing, state: 'dropped' })).toBe(false);
+    // The card's fields and the witness the signature covers must be one crossing.
+    expect(parse(file({ amount: '8' }))).toThrow(/witness does not describe/);
+    expect(parse(file({ ethAddress: `0x${'33'.repeat(20)}` }))).toThrow(/witness does not describe/);
+    expect(parse(`{"v":1,"pad":"${'x'.repeat(MAX_RECOVERY_BYTES)}"}`)).toThrow(/too large/);
   });
 });

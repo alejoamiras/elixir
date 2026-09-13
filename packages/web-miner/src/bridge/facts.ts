@@ -6,11 +6,13 @@ import type { Crossing, Facts } from '../../../bridge/src/journal.ts';
 import type { ArchivedExit } from '../../../bridge/src/witness.ts';
 
 export interface FactReads {
+  /** Undefined when nothing here can answer: a version this build's node does not serve. */
   tx(c: Crossing): Promise<Facts['tx']>;
   /** The epoch a block belongs to: a record the send left with a block and no epoch asks once. */
-  epochOfBlock(block: number): Promise<string>;
-  proofDeadline(epoch: bigint): Promise<bigint>;
-  epochProven(epoch: bigint): Promise<boolean>;
+  epochOfBlock(c: Crossing, block: number): Promise<string | undefined>;
+  /** Both on the crossing's own version's rollup, whichever build reads them. */
+  proofDeadline(c: Crossing, epoch: bigint): Promise<bigint>;
+  epochProven(c: Crossing, epoch: bigint): Promise<boolean>;
   /** The witness once the epoch is proven; undefined before. */
   witness(c: Crossing): Promise<ArchivedExit | undefined>;
   portal(c: Crossing): Promise<NonNullable<Facts['portal']>>;
@@ -38,11 +40,11 @@ const txFacts = async (reads: FactReads, c: Crossing, f: Facts): Promise<Facts> 
 
 /** The epoch's proof: its deadline, whether it landed, the witness once it has; pruned when the deadline passed without it. */
 async function epochFacts(reads: FactReads, c: Crossing, f: Facts): Promise<Facts> {
-  const known = c.epoch ?? (c.block === undefined ? undefined : await reads.epochOfBlock(c.block));
+  const known = c.epoch ?? (c.block === undefined ? undefined : await reads.epochOfBlock(c, c.block));
   if (!known) return f;
   const epoch = BigInt(known);
-  const deadline = c.proofDeadline ? BigInt(c.proofDeadline) : await reads.proofDeadline(epoch);
-  const epochProven = await reads.epochProven(epoch);
+  const deadline = c.proofDeadline ? BigInt(c.proofDeadline) : await reads.proofDeadline(c, epoch);
+  const epochProven = await reads.epochProven(c, epoch);
   const next: Facts = { ...f, epoch: known, proofDeadline: deadline.toString(), epochProven };
   if (epochProven) next.witness = await reads.witness(c);
   else next.epochPruned = (await reads.nowSeconds()) > deadline;

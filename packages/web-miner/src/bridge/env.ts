@@ -12,3 +12,27 @@ export const migrationRecord = (): MigrationRecord | null =>
 
 /** The versioned origin's build: it restores accounts and moves what is left, and mines nothing. */
 export const isOldRole = (): boolean => import.meta.env.VITE_APP_ROLE === 'old';
+
+export interface ServedBuild {
+  miner?: string;
+  rollupVersion?: string;
+}
+
+/** The deployment the site serves now, from its `/build.json`; null when unreadable. */
+export async function servedBuild(): Promise<ServedBuild | null> {
+  const url = `${(import.meta.env.BASE_URL ?? '/').replace(/\/mine\/?$/, '/')}build.json`;
+  try {
+    return (await (await fetch(url, { cache: 'no-store' })).json()) as ServedBuild;
+  } catch {
+    return null;
+  }
+}
+
+/** Whether the served build is another deployment than this tab's; an unreadable file is not. */
+export const staleTab = (
+  served: ServedBuild | null,
+  mine: { miner: string; rollupVersion: string },
+): boolean =>
+  !!served?.miner &&
+  !!served.rollupVersion &&
+  (served.miner.toLowerCase() !== mine.miner.toLowerCase() || served.rollupVersion !== mine.rollupVersion);

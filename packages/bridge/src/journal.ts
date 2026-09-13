@@ -90,7 +90,8 @@ export interface Crossing {
 /** What was read, each field from its own source; absent means "not read", never "false". */
 export interface Facts {
   now: number;
-  tx?: { status: 'pending' | 'mined' | 'dropped'; block?: number; epoch?: string };
+  /** `txHash` names the transaction for a record that lost its hash (the page closed after the send). */
+  tx?: { status: 'pending' | 'mined' | 'dropped'; block?: number; epoch?: string; txHash?: string };
   /** The epoch of the record's block, read for a record that only knew the block. */
   epoch?: string;
   proofDeadline?: string;
@@ -118,16 +119,22 @@ export interface Facts {
   error?: string | null;
 }
 
-const at = (c: Crossing, state: CrossingState, now: number, patch: Partial<Crossing> = {}): Crossing =>
-  c.state === state && Object.keys(patch).length === 0 ? c : { ...c, ...patch, state, updatedAt: now };
+/** The same record when nothing would change: `updatedAt` moves only with the record. */
+const at = (c: Crossing, state: CrossingState, now: number, patch: Partial<Crossing> = {}): Crossing => {
+  const same =
+    c.state === state &&
+    Object.entries(patch).every(([k, v]) => (c as unknown as Record<string, unknown>)[k] === v);
+  return same ? c : { ...c, ...patch, state, updatedAt: now };
+};
 
 /** The L2 transaction's fate, common to exits and send-aheads. */
 function afterTx(c: Crossing, f: Facts): Crossing {
   if (!f.tx) return c;
-  if (f.tx.status === 'dropped') return at(c, 'dropped', f.now);
+  const named = f.tx.txHash && !c.txHash ? { txHash: f.tx.txHash } : {};
+  if (f.tx.status === 'dropped') return at(c, 'dropped', f.now, named);
   if (f.tx.status === 'mined' && (c.state === 'proving' || c.state === 'sent'))
-    return at(c, 'proven-pending', f.now, { block: f.tx.block, epoch: f.tx.epoch });
-  if (f.tx.status === 'pending' && c.state === 'proving') return at(c, 'sent', f.now);
+    return at(c, 'proven-pending', f.now, { ...named, block: f.tx.block, epoch: f.tx.epoch });
+  if (f.tx.status === 'pending' && c.state === 'proving') return at(c, 'sent', f.now, named);
   return c;
 }
 
@@ -172,7 +179,7 @@ function afterEthereum(c: Crossing, f: Facts): Crossing {
 }
 
 function afterDestination(c: Crossing, f: Facts): Crossing {
-  if (f.claimed) return at(c, 'minted-l2', f.now, { claimTxHash: f.claimed.txHash });
+  if (f.claimed) return at(c, 'minted-l2', f.now, f.claimed.txHash ? { claimTxHash: f.claimed.txHash } : {});
   if (f.messageReady && (c.state === 'forwarded' || c.state === 'deposited'))
     return at(c, 'claimable', f.now);
   return c;

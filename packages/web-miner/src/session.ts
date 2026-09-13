@@ -56,7 +56,7 @@ import {
 import { initialSteps } from './opening-steps';
 import { prestoAtom, prestoEligible, probePresto } from './presto';
 import { loadSettings, saveSettings } from './settings';
-import { balanceAtom, bootAtom, bridgeSessionAtom, epochAtom } from './state';
+import { balanceAtom, bootAtom, bridgeAtom, bridgeSessionAtom, epochAtom } from './state';
 
 type Store = ReturnType<typeof createStore>;
 
@@ -95,6 +95,7 @@ export class Session {
   bridge: BridgeSession | undefined;
   private ethRpc: string;
   private unsubBalance: (() => void) | undefined;
+  private unsubFlip: (() => void) | undefined;
 
   /** The open attempt: its generation and the AbortController Cancel aborts once the ceremony is over. */
   private attempt: { id: number; abort: AbortController; ceremony: boolean; done: Promise<void> } | undefined;
@@ -476,6 +477,10 @@ export class Session {
       });
       this.bridge = bridge;
       this.store.set(bridgeSessionAtom, bridge);
+      // The flip ends mining on this version: a running loop stops, and no Start brings it back.
+      this.unsubFlip = this.store.sub(bridgeAtom, () => {
+        if (this.store.get(bridgeAtom).verdict.kind === 'flipped') c.stop();
+      });
       // Every balance read leaves the snapshot the next version's build shows as "you still had".
       this.unsubBalance = this.store.sub(balanceAtom, () => {
         const b = this.store.get(balanceAtom);
@@ -492,6 +497,8 @@ export class Session {
   private closeBridge(): void {
     this.unsubBalance?.();
     this.unsubBalance = undefined;
+    this.unsubFlip?.();
+    this.unsubFlip = undefined;
     this.bridge?.stop();
     this.bridge = undefined;
     this.store.set(bridgeSessionAtom, null);
@@ -603,8 +610,9 @@ export class Session {
    * claim, an expired claim) never come through here.
    */
   startMining(): void {
-    // The versioned origin's build mines nothing: every Start — a button, a key, a setting — is inert.
-    if (isOldRole()) return;
+    // The versioned origin's build mines nothing, nor does a version flipped away from: every
+    // Start — a button, a key, a setting, the resume on open — is inert.
+    if (isOldRole() || this.store.get(bridgeAtom).verdict.kind === 'flipped') return;
     const c = this.controller;
     c?.start();
     // A Start after the Worker gave up on native brings it back: only a rebuild can, and the config

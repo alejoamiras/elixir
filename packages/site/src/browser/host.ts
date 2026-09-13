@@ -53,7 +53,8 @@ export const previewNotice = (hostname: string): string | null => {
  */
 export const keysAllowed = (hostname: string, purpose: 'create' | 'restore' = 'create'): boolean => {
   const kind = hostKind(hostname);
+  // The old role restores wherever it is served, its previews included; it never makes an account.
+  if (kind === 'versioned' || import.meta.env.VITE_APP_ROLE === 'old') return purpose === 'restore';
   if (kind === 'production' || kind === 'preview') return true;
-  if (kind === 'versioned') return purpose === 'restore';
   return kind === 'local' && import.meta.env.VITE_SITE_MODE !== 'production';
 };

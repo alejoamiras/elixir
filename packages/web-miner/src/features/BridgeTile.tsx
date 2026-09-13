@@ -5,6 +5,7 @@
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import { type Crossing, visible } from '../../../bridge/src/journal.ts';
+import { MAX_RECOVERY_BYTES } from '../../../bridge/src/recovery.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { Button, ExternalLink, Tile, TileHeader } from '../../../ui/src/index.ts';
 import { cardLine, type Tone } from '../bridge/copy';
@@ -43,7 +44,12 @@ function Line({
   onForward: (c: Crossing) => void;
   onRedeem: (c: Crossing) => void;
 }) {
-  const line = cardLine(c, Math.floor(now / 1000), import.meta.env.VITE_ROLLUP_VERSION);
+  const line = cardLine(
+    c,
+    Math.floor(now / 1000),
+    import.meta.env.VITE_ROLLUP_VERSION,
+    view.verdict.kind === 'flipped',
+  );
   const l1 = c.l1TxHash ? l1Links.tx(c.l1TxHash) : undefined;
   return (
     <li
@@ -114,6 +120,7 @@ function RecoveryRow({ session, account }: { session: Session; account: string }
     input.value = '';
     if (!f) return;
     try {
+      if (f.size > MAX_RECOVERY_BYTES) throw new Error('that file is too large to be a recovery file');
       const n = (await session.bridge?.importRecovery(await f.text())) ?? 0;
       setNote(`${n} crossings restored`);
     } catch (e) {

@@ -109,7 +109,7 @@ export function SendAheadSheet({
               <KvRow label="leaves" value={`V${version}, now (a burn, proved in your browser, about 20 s)`} />
               <KvRow
                 label="waits"
-                value={`on Ethereum, held for this account alone, out of V${version}’s reach`}
+                value={`on Ethereum once V${version} proves the epoch (usually within a few epochs; if it never does, the burn is undone), held for this account alone`}
               />
               <KvRow
                 label="lands"

@@ -3,11 +3,13 @@
 // a claim of an arrival, and the holder's own forward or redeem of a held send-ahead with the
 // redeem key's signature. Every operation writes its crossing before it sends and after it lands.
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { Contract } from '@aztec/aztec.js/contracts';
+import { type Contract, NO_WAIT } from '@aztec/aztec.js/contracts';
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
+import { waitForTx } from '@aztec/aztec.js/node';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { Tag } from '@aztec/stdlib/logs';
+import { TxExecutionResult, type TxHash, TxStatus } from '@aztec/stdlib/tx';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 import type { Hex } from 'viem';
 import { claimLeaf } from '../../../bridge/src/inbox.ts';
@@ -122,19 +124,35 @@ const fresh = (
   };
 };
 
-/** A mined receipt's fields the journal keeps. */
-interface Mined {
-  receipt: { txHash: { toString(): string }; blockNumber?: number };
-}
-
-/** Sends and waits for the block; the record moves from `proving` to `proven-pending` with the hash and block. */
-async function sendRecorded(ctx: BridgeContext, c: Crossing, send: () => Promise<Mined>): Promise<Crossing> {
-  const { receipt } = await send();
-  return ctx.store.update(c.id, (x) =>
+/**
+ * Sends, records the hash the moment the node has the transaction, then waits for its block. The
+ * burn is real once sent: a page closed during the wait must find the record by its hash later.
+ */
+async function sendRecorded(
+  ctx: BridgeContext,
+  c: Crossing,
+  send: () => Promise<{ txHash: TxHash }>,
+): Promise<Crossing> {
+  const { txHash } = await send();
+  await ctx.store.update(c.id, (x) =>
     advance(
-      { ...x, txHash: receipt.txHash.toString() },
-      { now: ctx.now?.() ?? Date.now(), tx: { status: 'mined', block: receipt.blockNumber } },
+      { ...x, txHash: txHash.toString() },
+      { now: ctx.now?.() ?? Date.now(), tx: { status: 'pending' } },
     ),
+  );
+  await waitForTx(ctx.node, txHash, {
+    timeout: WAIT.timeout,
+    initialDelay: 1,
+    waitForStatus: TxStatus.PROPOSED,
+  });
+  const receipt = await ctx.node.getTxReceipt(txHash);
+  if (receipt.executionResult === TxExecutionResult.REVERTED)
+    throw new Error(`transaction ${txHash.toString()} reverted`);
+  return ctx.store.update(c.id, (x) =>
+    advance(x, {
+      now: ctx.now?.() ?? Date.now(),
+      tx: { status: 'mined', block: Number(receipt.blockNumber ?? 0) },
+    }),
   );
 }
 
@@ -153,7 +171,7 @@ export function sendAhead(ctx: BridgeContext, amount: bigint): Promise<Crossing>
     return sendRecorded(ctx, c, () =>
       miner.methods
         .send_ahead(amount, secrets.secretHash, secrets.redeemAddress, nonce)
-        .send({ from: ctx.from, fee: fee as never, authWitnesses: [witness], wait: WAIT }),
+        .send({ from: ctx.from, fee: fee as never, authWitnesses: [witness], wait: NO_WAIT }),
     );
   });
 }
@@ -172,7 +190,7 @@ export function exitToL1(ctx: BridgeContext, amount: bigint, recipient: Hex): Pr
     return sendRecorded(ctx, c, () =>
       miner.methods
         .exit_to_l1(amount, EthAddress.fromString(recipient), secrets.tag, nonce)
-        .send({ from: ctx.from, fee: fee as never, authWitnesses: [witness], wait: WAIT }),
+        .send({ from: ctx.from, fee: fee as never, authWitnesses: [witness], wait: NO_WAIT }),
     );
   });
 }

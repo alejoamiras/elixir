@@ -5,22 +5,22 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { Tag } from '@aztec/stdlib/logs';
+import { computeFeeJuiceMessageNullifier } from '@aztec/stdlib/messaging';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { TxHash } from '@aztec/stdlib/tx';
 import type { createStore } from 'jotai';
 import { createPublicClient, type Hex, http, type PublicClient } from 'viem';
-import { epochProven, proofDeadline, rollupReads } from '../../../bridge/src/deadline.ts';
+import { epochProven, proofDeadline, type RollupReads, rollupReads } from '../../../bridge/src/deadline.ts';
 import { flipVerdict } from '../../../bridge/src/flip.ts';
 import { claimLeaf } from '../../../bridge/src/inbox.ts';
-import { advance, type Crossing, inFlight } from '../../../bridge/src/journal.ts';
+import { advance, type Crossing, type Facts, inFlight } from '../../../bridge/src/journal.ts';
 import { OperationQueue } from '../../../bridge/src/queue.ts';
 import type { BridgeRecord } from '../../../bridge/src/record.ts';
-import {
-  parseRecoveryFile,
-  type RecoveryFile,
-  recoveryFile,
-  supersedes,
-} from '../../../bridge/src/recovery.ts';
+import { parseRecoveryFile, type RecoveryFile, recoveryFile } from '../../../bridge/src/recovery.ts';
+import { exitLogTag } from '../../../bridge/src/secrets.ts';
 import { leafIdOf } from '../../../bridge/src/signatures.ts';
 import {
   archiveEntry,
@@ -33,6 +33,7 @@ import { readBalanceSnapshot, saveBalanceSnapshot } from '../bridge/snapshot.ts'
 import type { Connection } from '../config';
 import { fingerprintOf } from '../keys/classes';
 import { type BridgeView, bridgeAtom, journalAtom } from '../state';
+import { migrationRecord, servedBuild, staleTab } from './env.ts';
 import { type PortalReader, portalReader, type WagmiConfig, wagmiConfigFor } from './eth.ts';
 import { type FactReads, factsFor } from './facts.ts';
 import {
@@ -46,7 +47,7 @@ import {
   sendAhead,
 } from './flows.ts';
 import { arrivalCandidates, matchArrivals } from './landing.ts';
-import { type BridgeStore, openBridgeStore } from './store.ts';
+import { type BridgeStore, openBridgeStore, SCAN_WINDOW } from './store.ts';
 
 type Store = ReturnType<typeof createStore>;
 
@@ -67,6 +68,13 @@ export interface BridgeSessionDeps {
 const REFRESH_MS = 15_000;
 /** One refresh reads the clock for every crossing it holds against a deadline; one block answers them all. */
 const L1_CLOCK_MS = 2_000;
+/** The portal's events are scanned again every so many refreshes: a forward by Yacana lands while the page is open. */
+const LANDING_EVERY = 4;
+/**
+ * A claim's block can still be pruned with its epoch for this long after it lands; a minted record
+ * younger than this is asked again whether its nullifier is still in the tree.
+ */
+const CLAIM_SETTLES_MS = 3 * 3600 * 1000;
 
 export class BridgeSession {
   readonly config: WagmiConfig;
@@ -79,6 +87,8 @@ export class BridgeSession {
   private refreshing: Promise<void> | undefined;
   private constants: Promise<{ epochDuration: number }> | undefined;
   private l1Clock: { at: number; value: Promise<bigint> } | undefined;
+  private readonly rollups = new Map<string, Promise<RollupReads>>();
+  private refreshes = 0;
 
   private constructor(
     private readonly d: BridgeSessionDeps,
@@ -120,18 +130,69 @@ export class BridgeSession {
       l1Now: () => this.l1Now(),
       ...(d.now ? { now: d.now } : {}),
     };
-    const rollup = rollupReads(client, import.meta.env.VITE_ROLLUP_ADDRESS as Hex);
+    this.rollups.set(
+      this.ctx.version.toString(),
+      Promise.resolve(rollupReads(client, import.meta.env.VITE_ROLLUP_ADDRESS as Hex)),
+    );
     const scope = {
       chainId: this.ctx.chainId,
       rollupVersion: this.ctx.version,
       miner: d.l2().miner.address,
       portal: EthAddress.fromString(d.record.portal),
     };
-    this.reads = this.factReads(rollup, scope);
+    this.reads = this.factReads(scope);
+  }
+
+  /** The Rollup of a crossing's own version: this build's from its record, an earlier one's from the Registry. */
+  private rollupFor(version: string): Promise<RollupReads> {
+    let r = this.rollups.get(version);
+    if (!r) {
+      r = this.reader.rollupOf(BigInt(version)).then((address) => rollupReads(this.client, address));
+      r.catch(() => this.rollups.delete(version));
+      this.rollups.set(version, r);
+    }
+    return r;
+  }
+
+  /** The record's own version is the one this build's node serves; an earlier version's chain is not here. */
+  private servesVersion(c: Crossing): boolean {
+    return BigInt(c.version) === this.ctx.version;
+  }
+
+  /**
+   * The send's log by the tag the master derives: a record that lost its hash (the page closed
+   * after the send) is named again by the chain, and the hash rejoins the journal.
+   */
+  private async txByTag(c: Crossing): Promise<Facts['tx']> {
+    const secrets = await secretsFor(this.ctx, c.index, BigInt(c.version));
+    const tag = new Tag(await exitLogTag(c.kind === 1 ? secrets.tag : secrets.secretHash));
+    const [logs] = await this.d.node.getPublicLogsByTags({
+      contractAddress: this.d.l2().miner.address,
+      tags: [tag],
+    });
+    const log = logs?.[0];
+    if (!log) return undefined;
+    const block = Number(log.blockNumber);
+    return {
+      status: 'mined',
+      block,
+      epoch: (await this.epochOfBlock(block)).toString(),
+      txHash: log.txHash.toString(),
+    };
+  }
+
+  /** The siloed nullifier the miner's claim of this message leaves in the tree. */
+  private async claimNullifier(
+    c: Crossing,
+    scope: ExitScope,
+  ): Promise<import('@aztec/foundation/curves/bn254').Fr> {
+    const secrets = await secretsFor(this.ctx, c.index, BigInt(c.version));
+    const leaf = claimLeaf(scope, BigInt(c.amount), secrets.secretHash, BigInt(c.inboxIndex as string));
+    return siloNullifier(scope.miner, await computeFeeJuiceMessageNullifier(leaf, secrets.secret));
   }
 
   /** Each source of a crossing's facts behind one function: the node, the rollup, the portal, the destination. */
-  private factReads(rollup: ReturnType<typeof rollupReads>, scope: ExitScope): FactReads {
+  private factReads(scope: ExitScope): FactReads {
     const d = this.d;
     /** The exit as the miner logged it, with the aux the master re-derives: the tag (K1) or the secret hash (K2). */
     const recorded = async (c: Crossing) => {
@@ -155,16 +216,20 @@ export class BridgeSession {
         : undefined;
     return {
       tx: async (c) => {
-        const r = await d.node.getTxReceipt(TxHash.fromString(c.txHash as string));
+        if (!this.servesVersion(c)) return undefined;
+        if (!c.txHash) return this.txByTag(c);
+        const r = await d.node.getTxReceipt(TxHash.fromString(c.txHash));
         if (r.status === 'dropped') return { status: 'dropped' };
         if (r.status === 'pending') return { status: 'pending' };
         const block = Number(r.blockNumber ?? 0);
         return { status: 'mined', block, epoch: (await this.epochOfBlock(block)).toString() };
       },
-      epochOfBlock: async (block) => (await this.epochOfBlock(block)).toString(),
-      proofDeadline: (epoch) => proofDeadline(rollup, epoch),
-      epochProven: (epoch) => epochProven(rollup, epoch),
+      epochOfBlock: async (c, block) =>
+        this.servesVersion(c) ? (await this.epochOfBlock(block)).toString() : undefined,
+      proofDeadline: async (c, epoch) => proofDeadline(await this.rollupFor(c.version), epoch),
+      epochProven: async (c, epoch) => epochProven(await this.rollupFor(c.version), epoch),
       witness: async (c) => {
+        if (!this.servesVersion(c)) return undefined;
         const exit = await recorded(c);
         const leaf = outboxLeaf(
           { ...scope, rollupVersion: BigInt(c.version) },
@@ -204,15 +269,21 @@ export class BridgeSession {
         const leaf = claimLeaf(scope, BigInt(c.amount), secrets.secretHash, BigInt(c.inboxIndex));
         return (await d.node.getL1ToL2MessageMembershipWitness('latest', leaf)) !== undefined;
       },
-      claimed: async () => undefined,
+      claimed: async (c) => {
+        if (!c.inboxIndex) return undefined;
+        const [leaf] = await d.node.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [
+          await this.claimNullifier(c, scope),
+        ]);
+        return leaf ? { txHash: c.claimTxHash ?? '', block: Number(leaf.l2BlockNumber) } : undefined;
+      },
       nowSeconds: () => this.l1Now(),
     };
   }
 
   /**
    * Ethereum's clock: the latest block's timestamp, which the portal measures every deadline and
-   * signature expiry against. The device's clock is not consulted — a chain running ahead of it
-   * (the rig's, warped through a flip) would refuse every signature dated from the device.
+   * signature expiry against. The device's clock is not consulted: a chain whose clock runs ahead
+   * of the device's would refuse every signature dated from the device.
    */
   private l1Now(): Promise<bigint> {
     if (this.d.now) return Promise.resolve(BigInt(Math.floor(this.d.now() / 1000)));
@@ -296,20 +367,40 @@ export class BridgeSession {
     }
     this.d.store.set(bridgeAtom, view);
     if (view.rpcFailing) return;
+    if (this.refreshes++ % LANDING_EVERY === 0) await this.landing().catch(() => {});
     for (const c of await this.journal.list()) {
-      if (!inFlight(c)) continue;
-      try {
-        const next = advance(c, await factsFor(this.reads, c, now));
-        if (next !== c) await this.journal.put(next);
-      } catch (e) {
-        await this.journal.put({
-          ...c,
-          error: e instanceof Error ? e.message.split('\n')[0] : String(e),
-          updatedAt: now,
-        });
-      }
+      if (inFlight(c)) await this.reread(c, now);
+      else if (c.state === 'minted-l2' && now - c.updatedAt < CLAIM_SETTLES_MS)
+        await this.recheckClaim(c, now);
     }
     await this.publishJournal();
+  }
+
+  /**
+   * One reading applied to the record as stored now: an operation that landed while the facts
+   * were being read (a forward, a claim) is not rolled back by them.
+   */
+  private async reread(c: Crossing, now: number): Promise<void> {
+    let next: Crossing;
+    try {
+      next = advance(c, await factsFor(this.reads, c, now));
+    } catch (e) {
+      next = { ...c, error: e instanceof Error ? e.message.split('\n')[0] : String(e), updatedAt: now };
+    }
+    if (next === c) return;
+    await this.journal.update(c.id, (stored) =>
+      stored.updatedAt === c.updatedAt && stored.state === c.state ? next : stored,
+    );
+  }
+
+  /** A claim whose block was pruned with its epoch is offered again: its nullifier left the tree. */
+  private async recheckClaim(c: Crossing, now: number): Promise<void> {
+    if ((await this.reads.claimed(c).catch(() => ({}))) !== undefined) return;
+    await this.journal.update(c.id, (stored) =>
+      stored.state === 'minted-l2'
+        ? { ...stored, state: 'claimable', claimTxHash: undefined, updatedAt: now }
+        : stored,
+    );
   }
 
   private async minerRetired(): Promise<boolean | null> {
@@ -324,23 +415,38 @@ export class BridgeSession {
     }
   }
 
-  /** Send-aheads forwarded here from earlier versions and deposits into this one, as cards with a Claim. */
+  /**
+   * Send-aheads forwarded here from earlier versions and deposits into this one, as cards with a
+   * Claim; window after window of indices until one answers nothing. A record the journal holds
+   * learns the event; a new one takes its index on this device too.
+   */
   async landing(): Promise<void> {
-    const sources = await this.sourceVersions();
-    const candidates = await arrivalCandidates(
-      this.d.master,
-      { chainId: this.ctx.chainId, portal: EthAddress.fromString(this.ctx.portal) },
-      { sources, current: this.ctx.version },
-    );
-    const found = matchArrivals(
-      await this.reader.arrivals(),
-      candidates,
-      await this.journal.list(),
-      { chainId: this.d.record.chainId, portal: this.ctx.portal },
-      this.d.now?.() ?? Date.now(),
-    );
-    for (const c of found) if (!(await this.journal.get(c.id))) await this.journal.put(c);
+    const versions = { sources: await this.sourceVersions(), current: this.ctx.version };
+    const scope = { chainId: this.ctx.chainId, portal: EthAddress.fromString(this.ctx.portal) };
+    const arrivals = await this.reader.arrivals();
+    const now = this.d.now?.() ?? Date.now();
+    for (let from = 0; ; from += SCAN_WINDOW) {
+      const candidates = await arrivalCandidates(this.d.master, scope, versions, SCAN_WINDOW, from);
+      const found = matchArrivals(
+        arrivals,
+        candidates,
+        await this.journal.list(),
+        { chainId: this.d.record.chainId, portal: this.ctx.portal, current: this.ctx.version },
+        now,
+      );
+      if (found.length === 0) break;
+      for (const c of found) await this.adopt(c);
+    }
     await this.publishJournal();
+  }
+
+  /** A crossing that reached the journal from outside this device: stored as read, its index reserved here. */
+  private async adopt(c: Crossing): Promise<void> {
+    const held = await this.journal.get(c.id);
+    if (!held) await this.journal.put(c);
+    else if (held !== c && held.updatedAt !== c.updatedAt)
+      await this.journal.update(c.id, (stored) => (stored.updatedAt === held.updatedAt ? c : stored));
+    await this.journal.reserveThrough(c.version, c.index);
   }
 
   /** The Registry's versions before this one: where a send-ahead to here may have come from. */
@@ -355,29 +461,51 @@ export class BridgeSession {
   }
 
   async sendAhead(amount: bigint): Promise<Crossing> {
-    return this.after(sendAhead(this.ctx, amount));
+    return this.after(() => sendAhead(this.ctx, amount));
   }
   async exitToL1(amount: bigint, recipient: Hex): Promise<Crossing> {
-    return this.after(exitToL1(this.ctx, amount, recipient));
+    return this.after(() => exitToL1(this.ctx, amount, recipient));
   }
+  /** Refused when the portal routes this version's deposits to a miner other than this build's. */
   async deposit(amount: bigint, onStep?: (step: 'approve' | 'deposit') => void): Promise<Crossing> {
-    const deadline = (await this.l1Now()) + 3600n;
-    return this.after(deposit(this.ctx, this.config, amount, deadline, onStep));
+    return this.after(async () => {
+      const standing = await this.reader.standing(this.ctx.version);
+      const mine = this.d.l2().miner.address.toString().toLowerCase();
+      if (!standing.registered || standing.miner.toLowerCase() !== mine)
+        throw new Error('the portal does not route deposits to this build’s miner; update the page first');
+      const deadline = (await this.l1Now()) + 3600n;
+      return deposit(this.ctx, this.config, amount, deadline, onStep);
+    });
   }
   async claim(c: Crossing): Promise<Crossing> {
-    return this.after(claimArrival(this.ctx, c));
+    return this.after(() => claimArrival(this.ctx, c));
   }
+  /** Into the live version, and only the one this build's record announced, when it announced one. */
   async selfForward(c: Crossing): Promise<Crossing> {
-    const canonical = await this.reader.canonical();
-    return this.after(selfForward(this.ctx, this.config, c, canonical.version));
+    return this.after(async () => {
+      const canonical = await this.reader.canonical();
+      const announced = migrationRecord()?.toIndex;
+      if (announced !== undefined && canonical.index !== BigInt(announced))
+        throw new Error(`the live version is not the announced one (Registry index ${canonical.index})`);
+      return selfForward(this.ctx, this.config, c, canonical.version);
+    });
   }
   async redeem(c: Crossing, recipient: Hex): Promise<Crossing> {
-    return this.after(redeem(this.ctx, this.config, c, recipient));
+    return this.after(() => redeem(this.ctx, this.config, c, recipient));
   }
 
-  private async after(op: Promise<Crossing>): Promise<Crossing> {
+  /** Every operation begins by asking the site whether this tab's build is still the one it serves. */
+  private async after(op: () => Promise<Crossing>): Promise<Crossing> {
+    const served = await servedBuild();
+    if (
+      staleTab(served, {
+        miner: this.d.l2().miner.address.toString(),
+        rollupVersion: this.ctx.version.toString(),
+      })
+    )
+      throw new Error('Yacana has been redeployed since this page loaded: reload before you send or claim.');
     try {
-      return await op;
+      return await op();
     } finally {
       await this.publishJournal();
     }
@@ -392,16 +520,23 @@ export class BridgeSession {
   }
 
   /**
-   * Restores the file's crossings the journal does not hold, and the ended ones the journal only
-   * rediscovered from the chain; every other state refreshes from the chain.
+   * Restores the file's crossings the journal does not hold; their states refresh from the chain.
+   * A witnessed crossing must be this master's: its aux is the tag or the secret hash the master
+   * derives for that index, so another account's file — or a forged one — is refused whole.
    */
   async importRecovery(text: string): Promise<number> {
     const file = parseRecoveryFile(text, { chainId: this.d.record.chainId, portal: this.ctx.portal });
+    for (const c of file.crossings) {
+      if (!c.witness) continue;
+      const s = await secretsFor(this.ctx, c.index, BigInt(c.version));
+      const aux = (c.kind === 1 ? s.tag : s.secretHash).toString().toLowerCase();
+      if (c.witness.aux.toLowerCase() !== aux) throw new Error(`crossing ${c.id} is not this account’s`);
+    }
     let restored = 0;
     for (const c of file.crossings) {
-      const held = await this.journal.get(c.id);
-      if (held && !supersedes(c, held)) continue;
+      if (await this.journal.get(c.id)) continue;
       await this.journal.put(c);
+      await this.journal.reserveThrough(c.version, c.index);
       restored++;
     }
     await this.publishJournal();

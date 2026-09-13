@@ -4,38 +4,21 @@
 // never "flipped".
 import { useEffect, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle, Button } from '../../../ui/src/index.ts';
+import { servedBuild, staleTab } from '../bridge/env';
+
+export { staleTab } from '../bridge/env';
 
 const EVERY_MS = 5 * 60_000;
 /** The first look, once the page has settled; a redeploy during the boot is caught here. */
 const FIRST_MS = 20_000;
-
-export interface ServedBuild {
-  miner?: string;
-  rollupVersion?: string;
-}
-
-/** Whether the served build is another deployment than this tab's; an unreadable file is not. */
-export const staleTab = (
-  served: ServedBuild | null,
-  mine: { miner: string; rollupVersion: string },
-): boolean =>
-  !!served?.miner &&
-  !!served.rollupVersion &&
-  (served.miner.toLowerCase() !== mine.miner.toLowerCase() || served.rollupVersion !== mine.rollupVersion);
-
-const buildJsonUrl = () => `${(import.meta.env.BASE_URL ?? '/').replace(/\/mine\/?$/, '/')}build.json`;
 
 export function OldTabNotice({ miner, rollupVersion }: { miner: string; rollupVersion: string }) {
   const [stale, setStale] = useState(false);
   useEffect(() => {
     let live = true;
     const tick = async () => {
-      try {
-        const served = (await (await fetch(buildJsonUrl(), { cache: 'no-store' })).json()) as ServedBuild;
-        if (live) setStale(staleTab(served, { miner, rollupVersion }));
-      } catch {
-        /* the site is unreachable or has no record: nothing to say */
-      }
+      const served = await servedBuild();
+      if (live) setStale(staleTab(served, { miner, rollupVersion }));
     };
     const timer = setInterval(() => void tick(), EVERY_MS);
     const first = setTimeout(() => void tick(), FIRST_MS);

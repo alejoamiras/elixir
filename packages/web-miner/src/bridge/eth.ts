@@ -75,6 +75,18 @@ export async function ensureChain(config: WagmiConfig, chainId: number): Promise
   if (getAccount(config).chainId !== chainId) await switchChain(config, { chainId });
 }
 
+/**
+ * The account and chain a write is pinned to. Named on every write: wagmi skips the chain check
+ * when no `chainId` is given, so a wallet switched during a prompt would sign the next request
+ * elsewhere or as someone else instead of failing.
+ */
+async function pinnedSigner(config: WagmiConfig): Promise<{ account: Hex; chainId: number }> {
+  const account = connectedAccount(config);
+  const chainId = config.chains[0].id;
+  await ensureChain(config, chainId);
+  return { account, chainId };
+}
+
 const mined = async (config: WagmiConfig, hash: Hex) => {
   const receipt = await waitForTransactionReceipt(config, { hash });
   if (receipt.status !== 'success') throw new Error(`transaction ${hash} reverted`);
@@ -100,19 +112,19 @@ export async function depositOnEthereum(
   p: DepositParams,
   onStep?: (step: 'approve' | 'deposit') => void,
 ): Promise<{ txHash: Hex; inboxIndex: bigint }> {
-  const owner = connectedAccount(config);
-  await ensureChain(config, config.chains[0].id);
+  const signer = await pinnedSigner(config);
   const allowance = await readContract(config, {
     address: p.yaca,
     abi: yacaAbi,
     functionName: 'allowance',
-    args: [owner, p.portal],
+    args: [signer.account, p.portal],
   });
   if (allowance < p.amount) {
     onStep?.('approve');
     await mined(
       config,
       await writeContract(config, {
+        ...signer,
         address: p.yaca,
         abi: yacaAbi,
         functionName: 'approve',
@@ -122,6 +134,7 @@ export async function depositOnEthereum(
   }
   onStep?.('deposit');
   const txHash = await writeContract(config, {
+    ...signer,
     address: p.portal,
     abi: yacanaPortalAbi,
     functionName: 'deposit',
@@ -138,9 +151,8 @@ export async function forwardOnEthereum(
   config: WagmiConfig,
   p: { portal: Hex; version: bigint; args: ForwardArgs },
 ): Promise<{ txHash: Hex; inboxIndex: bigint; target: bigint }> {
-  connectedAccount(config);
-  await ensureChain(config, config.chains[0].id);
   const txHash = await writeContract(config, {
+    ...(await pinnedSigner(config)),
     address: p.portal,
     abi: yacanaPortalAbi,
     functionName: 'forward',
@@ -156,9 +168,8 @@ export async function redeemOnEthereum(
   config: WagmiConfig,
   p: { portal: Hex; version: bigint; args: ForwardArgs; recipient: Hex; expiry: bigint; sig: Hex },
 ): Promise<{ txHash: Hex }> {
-  connectedAccount(config);
-  await ensureChain(config, config.chains[0].id);
   const txHash = await writeContract(config, {
+    ...(await pinnedSigner(config)),
     address: p.portal,
     abi: yacanaPortalAbi,
     functionName: 'redeem',
@@ -180,9 +191,8 @@ export async function noteTransitionOnEthereum(
   portal: Hex,
   index: bigint,
 ): Promise<Hex> {
-  connectedAccount(config);
-  await ensureChain(config, config.chains[0].id);
   const txHash = await writeContract(config, {
+    ...(await pinnedSigner(config)),
     address: portal,
     abi: yacanaPortalAbi,
     functionName: 'noteTransition',
@@ -249,6 +259,9 @@ export const portalReader = (client: PublicClient, a: PortalAddresses) => {
     /** The version at Registry index `index`. */
     versionAt: (index: bigint) =>
       client.readContract({ ...registry, functionName: 'getVersion', args: [index] }),
+    /** The Rollup contract of `version`: where its epochs' proofs and deadlines are read. */
+    rollupOf: (version: bigint) =>
+      client.readContract({ ...registry, functionName: 'getRollup', args: [version] }),
     /** Whether the portal has stamped Registry index `index`. */
     async transitionSeen(index: bigint): Promise<boolean> {
       return (await client.readContract({ ...portal, functionName: 'transitions', args: [index] })) !== 0n;
