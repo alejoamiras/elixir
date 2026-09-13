@@ -1,5 +1,6 @@
 // Shared by the specs: the run record, page URLs, the virtual authenticator, the key screen.
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { type CDPSession, expect, type Page } from '@playwright/test';
 import { type E2eRun, RUN_FILE } from './run.ts';
 
@@ -47,6 +48,16 @@ export const pageUrl = (r: E2eRun, extra: Record<string, string> = {}) => {
 };
 
 export const BOOT_MS = 8 * 60_000; // CRS verification, wallet + PXE boot, bb.js init
+
+/** With `E2E_SHOTS` naming a directory, the page at this moment as `<name>.png` there: the built screens, for the eye. */
+export async function shot(page: Page, name: string): Promise<void> {
+  const dir = process.env.E2E_SHOTS;
+  if (!dir) return;
+  mkdirSync(dir, { recursive: true });
+  // A sheet slides in over 200 ms; the picture is of the moment settled.
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: join(dir, `${name}.png`), fullPage: true });
+}
 
 /** A CTAP2.1 platform authenticator with PRF that confirms every touch by itself. */
 export async function virtualAuthenticator(
