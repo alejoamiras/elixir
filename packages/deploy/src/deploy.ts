@@ -31,6 +31,8 @@ export interface BridgeRecord {
   registry: string;
   operators: string;
   l1RpcUrl: string;
+  /** The L1 block the portal was deployed by: where a search of its logs starts. */
+  deployBlock?: string;
 }
 
 export interface Deployment {

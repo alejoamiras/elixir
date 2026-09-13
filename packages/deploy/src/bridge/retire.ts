@@ -22,20 +22,28 @@ export interface RetireSent {
   resumed: boolean;
 }
 
-/** The `Retired` event of an earlier send, for a rerun whose L2 step is still owed. */
+/** Blocks per `eth_getLogs`: under the range most public RPCs allow. */
+export const LOG_WINDOW = 10_000n;
+
+/**
+ * The `Retired` event of an earlier send, for a rerun whose L2 step is still owed: searched from the
+ * portal's deploy block (the record's, or genesis) to the head, one window at a time.
+ */
 async function sentBefore(op: Operator, version: bigint): Promise<RetireSent> {
-  const [log] = await op.publicClient.getContractEvents({
-    address: op.portal.address,
-    abi: yacanaPortalAbi,
-    eventName: 'Retired',
-    args: { version },
-    fromBlock: 'earliest',
-  });
-  if (!log || log.args.inboxIndex === undefined)
-    throw new Error(
-      `the portal holds version ${version} as retired but the RPC serves no Retired log for it`,
-    );
-  return { version, txHash: log.transactionHash, inboxIndex: log.args.inboxIndex, resumed: true };
+  const head = await op.publicClient.getBlockNumber();
+  for (let from = BigInt(op.record.bridge.deployBlock ?? 0); from <= head; from += LOG_WINDOW) {
+    const [log] = await op.publicClient.getContractEvents({
+      address: op.portal.address,
+      abi: yacanaPortalAbi,
+      eventName: 'Retired',
+      args: { version },
+      fromBlock: from,
+      toBlock: from + LOG_WINDOW - 1n < head ? from + LOG_WINDOW - 1n : head,
+    });
+    if (log?.args.inboxIndex !== undefined)
+      return { version, txHash: log.transactionHash, inboxIndex: log.args.inboxIndex, resumed: true };
+  }
+  throw new Error(`the portal holds version ${version} as retired but the RPC serves no Retired log for it`);
 }
 
 export async function retireOnL1(op: Operator, version: bigint): Promise<RetireSent> {
@@ -57,8 +65,9 @@ export async function retireOnL2(
   sent: Pick<RetireSent, 'version' | 'inboxIndex'>,
   timeoutSeconds = 1800,
 ) {
-  if (l2.rollupVersion !== sent.version)
-    throw new Error(`the node serves version ${l2.rollupVersion}; the retire was for ${sent.version}`);
+  const served = BigInt((await l2.node.getNodeInfo()).rollupVersion);
+  if (served !== sent.version)
+    throw new Error(`the node serves version ${served}; the retire was for ${sent.version}`);
   const leaf = await retireLeaf(
     {
       chainId: l2.chainId,

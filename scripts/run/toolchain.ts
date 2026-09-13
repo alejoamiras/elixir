@@ -45,15 +45,16 @@ export function spawnDetached(
   verbose: boolean,
   logFile?: string,
 ): Owned {
+  const tail: string[] = [];
+  if (logFile) mkdirSync(dirname(logFile), { recursive: true });
+  const log = logFile ? createWriteStream(logFile, { flags: 'a' }) : undefined;
+  log?.on('error', (e) => tail.push(`log error: ${e.message}`));
   const child = spawn(cmd, args, {
     cwd: repoRoot,
     env: { ...process.env, ...env },
     detached: true,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
-  if (logFile) mkdirSync(dirname(logFile), { recursive: true });
-  const log = logFile ? createWriteStream(logFile, { flags: 'a' }) : undefined;
-  const tail: string[] = [];
   const onData = (b: Buffer) => {
     if (verbose) process.stdout.write(`[${name}] ${b.toString()}`);
     log?.write(b);
@@ -70,8 +71,9 @@ export function spawnDetached(
   let exited = false;
   child.on('exit', () => {
     exited = true;
-    log?.end();
   });
+  // `close` follows the last stdio data; `exit` can precede it.
+  child.on('close', () => log?.end());
   child.on('error', (e) => {
     exited = true;
     tail.push(`spawn error: ${e.message}`);

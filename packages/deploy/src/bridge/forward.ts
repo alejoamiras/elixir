@@ -102,7 +102,7 @@ export async function archiveExits(
   let page = await readExits(node, scope.miner, event);
   for (;;) {
     for (const exit of page.exits) {
-      if (mine.some((e) => e.index === exit.index)) continue;
+      if (archivedAlready(mine, exit)) continue;
       const entry = await witnessOf(node, scope, exit, version);
       if (!entry) {
         pending.push(exit.index);
@@ -117,6 +117,25 @@ export async function archiveExits(
   }
   return { entries: mine, pending };
 }
+
+/** Whether the archive already holds this exit; a line at its index that describes another exit is an error. */
+const archivedAlready = (mine: ArchivedExit[], exit: RecordedExit): boolean => {
+  const known = mine.find((e) => e.index === exit.index);
+  if (!known) return false;
+  if (!sameExit(known, exit))
+    throw new Error(
+      `the archive's line for exit ${exit.index} describes another exit (${known.txHash}): remove it and archive again`,
+    );
+  return true;
+};
+
+/** The archive line and the node's log name one exit: the same transaction and the same leaf fields. */
+export const sameExit = (a: ArchivedExit, e: RecordedExit): boolean =>
+  a.txHash.toLowerCase() === e.txHash.toLowerCase() &&
+  a.kind === e.kind &&
+  BigInt(a.amount) === e.amount &&
+  a.aux.toLowerCase() === e.aux.toLowerCase() &&
+  a.recipientOrRedeemKey.toLowerCase() === e.recipientOrRedeemKey.toLowerCase();
 
 const witnessOf = async (
   node: ReturnType<typeof createAztecNodeClient>,
@@ -151,10 +170,8 @@ const outboxOf = async (op: Operator, version: bigint) => {
 };
 
 /**
- * The entries the source version's Outbox has not seen consumed — leaf ids repeat across epochs, so
- * both count — each checked against the root the Outbox holds for its epoch: an archive line whose
- * witness does not prove its leaf stops the forward and names itself, rather than being carried
- * as "archived" while its exit is never fetched again.
+ * The entries the source version's Outbox has not seen consumed (a leaf id repeats across epochs:
+ * both identify it), each first checked against the root the Outbox holds for its epoch.
  */
 async function unconsumed(
   op: Operator,

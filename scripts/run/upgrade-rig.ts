@@ -296,11 +296,13 @@ async function claimNodePorts(ctx: RigContext, version: RigVersion): Promise<Nod
       base: lanePortBase(windowBase, lane + i, 8),
       span: 8,
     });
-  return {
-    runId,
-    node: await svc('aztec', 0),
-    admin: await svc('aztecAdmin', 1),
-  };
+  const node = await svc('aztec', 0);
+  try {
+    return { runId, node, admin: await svc('aztecAdmin', 1) };
+  } catch (e) {
+    await release(runId).catch(() => {});
+    throw e;
+  }
 }
 
 async function startPinnedNode(ctx: RigContext, version: RigVersion, autoProve: boolean): Promise<RigNode> {
@@ -399,19 +401,27 @@ async function proofHeadroom(ctx: RigContext, live: RigVersion): Promise<number 
 
 /**
  * Warps the live node's clock and records the proof headroom left afterwards. A warp that crossed
- * the proof deadline would make the sequencer's next propose prune the pending chain and the
- * headroom read as a fresh small number, so the pending tip is checked not to have rewound.
+ * the proof deadline makes the sequencer's next propose prune the pending chain first — and the
+ * new checkpoint can leave the tip where it was — so the Rollup's `PrunedPending` over the warp's
+ * blocks is what says whether a prune happened.
  */
 async function warpNodeBy(ctx: RigContext, rig: UpgradeRig, node: RigNode, seconds: number): Promise<void> {
   const live = ctx.versions.find((v) => v.version === node.version);
-  const rollup = live ? new RollupContract(ctx.publicClient, live.rollup) : undefined;
-  const pendingBefore = rollup ? await rollup.getCheckpointNumber() : 0n;
+  const fromBlock = (await ctx.publicClient.getBlockNumber()) + 1n;
   await node.debug.warpL2TimeAtLeastBy(seconds);
-  const pendingAfter = rollup ? await rollup.getCheckpointNumber() : 0n;
-  if (pendingAfter < pendingBefore)
-    throw new Error(
-      `a ${seconds}s warp pruned version ${node.version}'s pending chain (${pendingBefore} → ${pendingAfter})`,
-    );
+  if (live) {
+    const pruned = await ctx.publicClient.getContractEvents({
+      address: live.rollup.toString() as Hex,
+      abi: RollupAbi,
+      eventName: 'PrunedPending',
+      fromBlock,
+      toBlock: await ctx.publicClient.getBlockNumber(),
+    });
+    if (pruned.length > 0)
+      throw new Error(
+        `a ${seconds}s warp pruned version ${node.version}'s pending chain (${pruned.length} prune)`,
+      );
+  }
   const headroomSlots = live ? await proofHeadroom(ctx, live) : null;
   rig.warps.push({ version: node.version, seconds, headroomSlots });
   console.info(

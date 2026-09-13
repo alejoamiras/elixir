@@ -91,8 +91,9 @@ function aztecArgs(ports: Ports, runRoot: string, l1RpcUrl: string): string[] {
     // expires CLAIM_TTL_SECONDS after it, so an idle chain would reject every claim as already expired.
     '--sequencer.minTxsPerBlock',
     '0',
-    // The rig pauses the sequencer through the admin API before stopping a node; no key on a run
-    // nobody else can reach.
+    // The rig pauses the sequencer through the admin API before stopping a node. The CLI offers no
+    // bind address, so the keyless listener is open to whoever reaches this box's ports: a run for
+    // a machine you own, not a shared host.
     '--disable-admin-api-key',
   ];
 }
@@ -127,10 +128,16 @@ export async function startIsolatedNode(opts: IsolatedNodeOptions = {}): Promise
     rmSync(runRoot, { recursive: true, force: true });
   };
   const adopt = (child: Owned, cleanup: () => Promise<void>) => {
+    if (torn) {
+      killOwned(child);
+      void cleanup().catch(() => {});
+      throw new Error(`${child.name} started after the network's teardown began`);
+    }
     owned.push(child);
     cleanups.set(child, cleanup);
     return () => {
-      owned.splice(owned.indexOf(child), 1);
+      const i = owned.indexOf(child);
+      if (i >= 0) owned.splice(i, 1);
       cleanups.delete(child);
     };
   };

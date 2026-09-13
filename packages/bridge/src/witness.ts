@@ -2,6 +2,7 @@
 // witness the source node serves for it, and the archive line that carries both once the source
 // node is gone (a forward from the archive alone is the bridge's last resort, and the site serves
 // the archive at /witnesses/<profile>.jsonl).
+import { MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
 import { sha256Trunc } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -108,6 +109,8 @@ export const forwardArgsFromArchive = (
  * the Outbox iff the witness proves the leaf.
  */
 export const rootOf = (leaf: Fr, path: Hex[], leafIndex: bigint): Hex => {
+  if (leafIndex < 0n || leafIndex >= 1n << BigInt(path.length))
+    throw new Error(`leaf index ${leafIndex} is outside a path of ${path.length}`);
   let node = leaf.toBuffer();
   let index = leafIndex;
   for (const sibling of path) {
@@ -154,19 +157,19 @@ export function parseArchivedExit(raw: unknown, where: string): ArchivedExit {
   if (kind !== 1 && kind !== 2) f.fail(`kind ${kind} is neither an exit nor a send-ahead`);
   const amount = f.dec('amount');
   if (BigInt(amount) > MAX_AMOUNT) f.fail('amount exceeds a u128');
-  const path = f
-    .list('path')
-    .map((h, i) =>
-      typeof h === 'string' && HEX32.test(h)
-        ? (h.toLowerCase() as Hex)
-        : f.fail(`path[${i}] is not 32 bytes of hex`),
-    );
-  if (path.length > MAX_PATH_LENGTH) f.fail(`path of ${path.length} is deeper than any epoch tree`);
+  const rawPath = f.list('path');
+  if (rawPath.length > MAX_PATH_LENGTH) f.fail(`path of ${rawPath.length} is deeper than any epoch tree`);
+  const path = rawPath.map((h, i) =>
+    typeof h === 'string' && HEX32.test(h)
+      ? (h.toLowerCase() as Hex)
+      : f.fail(`path[${i}] is not 32 bytes of hex`),
+  );
   const leafIndex = f.dec('leafIndex');
   if (BigInt(leafIndex) >= 1n << BigInt(path.length))
     f.fail(`leaf index ${leafIndex} is outside a path of ${path.length}`);
   const numCheckpointsInEpoch = f.int('numCheckpointsInEpoch');
-  if (numCheckpointsInEpoch === 0) f.fail('an epoch has at least one checkpoint');
+  if (numCheckpointsInEpoch === 0 || numCheckpointsInEpoch > MAX_CHECKPOINTS_PER_EPOCH)
+    f.fail(`an epoch has 1 to ${MAX_CHECKPOINTS_PER_EPOCH} checkpoints, not ${numCheckpointsInEpoch}`);
   return {
     version: f.dec('version'),
     index: f.int('index'),

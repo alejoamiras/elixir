@@ -145,6 +145,7 @@ export async function deployL1(env: {
     registry: env.registry,
     operators: env.operators,
     l1RpcUrl: new URL(env.rpcUrl).origin,
+    deployBlock: (await client.getBlockNumber()).toString(),
   };
 }
 

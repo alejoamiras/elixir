@@ -143,7 +143,6 @@ describe('bridge vectors', () => {
         message: { ...message, recipient: s.recipient as Hex },
       }),
     ).toBe(s.redeemDigest);
-    // A signature over the same struct recovers to the key that made it.
     const key = `0x${'42'.repeat(32)}` as Hex;
     const args = {
       kind: 2 as const,

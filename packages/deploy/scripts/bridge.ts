@@ -13,6 +13,7 @@
 import { Fr } from '@aztec/aztec.js/fields';
 import { errorName } from '@yacana/bridge/src/revert.ts';
 import { PROFILE } from '../../miner-core/src/generated/params.ts';
+import { parseCliArgs } from '../src/bridge/cli.ts';
 import { forwardAll } from '../src/bridge/forward.ts';
 import { openL2 } from '../src/bridge/l2.ts';
 import { loadRecord, operatorFromEnv } from '../src/bridge/operator.ts';
@@ -22,13 +23,10 @@ import { retireOnL1, retireOnL2 } from '../src/bridge/retire.ts';
 import { registeredVersions, statusLines, versionStatus } from '../src/bridge/status.ts';
 import { noteAllTransitions } from '../src/bridge/transition.ts';
 
-const argv = process.argv.slice(2).filter((a) => a !== '--');
-const flags = new Set(argv.filter((a) => a.startsWith('--')));
-const flagValue = (name: string): string | undefined => {
-  const i = argv.indexOf(name);
-  return i >= 0 ? argv[i + 1] : undefined;
-};
-const positional = argv.filter((a, i) => !a.startsWith('--') && argv[i - 1] !== '--batch');
+const { positional, flags } = parseCliArgs(process.argv.slice(2), {
+  '--from-archive': 'switch',
+  '--batch': 'integer',
+});
 const [command, ...args] = positional;
 const arg = (i: number, name: string): string => {
   const v = args[i];
@@ -93,12 +91,12 @@ switch (command) {
   case 'forward': {
     const source = loadRecord(arg(0, 'source-record'));
     const target = args[1] ? loadRecord(args[1]) : undefined;
-    const batch = flagValue('--batch');
+    const batch = flags.get('--batch');
     const r = await forwardAll(op, {
       source,
       ...(target ? { target } : {}),
-      fromArchive: flags.has('--from-archive'),
-      ...(batch ? { batch: Number(batch) } : {}),
+      fromArchive: flags.get('--from-archive') === true,
+      ...(typeof batch === 'number' ? { batch } : {}),
     });
     console.log(
       `archived ${r.archived}, forwarded ${r.forwarded.length}, failed ${r.failed.length}, pending ${r.pending.length}${r.refusedKind2 ? ` (send-aheads held: ${r.refusedKind2})` : ''}`,

@@ -114,3 +114,30 @@ cap arithmetic is Foundry's `Bound.t.sol`; mining past the cap on the rig is hou
 pagination test against a node (no offline node; the rig cases read through `readExits` already). The local
 network's own admin listener (the `aztec` CLI's, no host option) still binds every interface unauthenticated — a
 property of the toolchain's CLI, noted for the runbook.
+
+**Round 2** — resumed the same session with the round-1 fix diff (`41ec6ad`). One blocker, eight should-fix, two
+nits, "ANOTHER ROUND". All real; applied:
+
+- **Blocker** — `disown` twice spliced index −1 and dropped whichever child was newest: idempotent now, and `adopt`
+  after a teardown began kills the child, runs its cleanup and throws.
+- The second lane's claim failing leaked the first: `claimNodePorts` releases on the way out. `spawnDetached`
+  prepares the log before the child exists, absorbs stream errors into the tail, and ends the log on `close`
+  (`exit` can precede the last stdio data).
+- The prune check read the pending tip before and after a warp, which a prune followed by one new checkpoint leaves
+  equal: `warpNodeBy` now asks the Rollup for `PrunedPending` over the warp's blocks.
+- `rootOf` folded index bits the Outbox rejects (`MerkleLib` requires the index spent by the path): an index
+  outside `2^path.length`, or negative, throws; a live witness never passes through `parseArchivedExit`, so the
+  fold checks it itself. The archive's checkpoint count is bounded by `MAX_CHECKPOINTS_PER_EPOCH`; the path's
+  length is checked before its entries.
+- An archive line at an exit's index was trusted to be that exit: `archivedAlready` requires the same transaction
+  and leaf fields (`sameExit`) and throws on a line that describes another exit — a valid witness copied under
+  another index can no longer hide that exit.
+- The `Retired` log search ran one genesis-to-head `eth_getLogs`: it now walks 10 000-block windows from the
+  record's `deployBlock` (the L1 deploy script writes it; genesis without it). The L2 step compares the node's own
+  `getNodeInfo().rollupVersion`, not the record's copy. Unit tests with a mocked client cover both.
+- The CLI's flags are parsed strictly (`parseCliArgs`: unknown flags, `--flag=value`, a missing or non-integer
+  value and duplicates all stop the command); tested.
+- The isolated node's comment claimed nobody else could reach the keyless admin listener; it now says the CLI has
+  no bind address and the run is for a machine you own. Two narrating comments removed, one shortened.
+
+Gate after round 2: `bun run rig -- all` 9/9 · bun 50 (deploy, harness, bridge, scripts) · lint + typecheck ✓.

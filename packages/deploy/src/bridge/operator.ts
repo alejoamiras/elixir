@@ -95,7 +95,6 @@ export const operatorFromEnv = (profile: string): Promise<Operator> =>
     ...(process.env.YACANA_L1_PRIVATE_KEY ? { key: process.env.YACANA_L1_PRIVATE_KEY as Hex } : {}),
   });
 
-/** The account and chain a write goes out under. */
 export const writeOpts = (op: Operator) => ({ account: op.account as PrivateKeyAccount, chain: op.chain });
 
 /** A write's receipt, or a clear refusal when the operator was opened without a key. */

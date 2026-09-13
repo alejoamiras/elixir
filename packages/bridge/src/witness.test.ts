@@ -53,6 +53,9 @@ describe('the witness archive', () => {
     expect(() => parseArchivedExit({ ...entry, aux: '0x11' }, 'x')).toThrow(/aux is not 32 bytes/);
     expect(() => parseArchivedExit({ ...entry, amount: '-1' }, 'x')).toThrow(/amount is not a decimal/);
     expect(() => parseArchivedExit({ ...entry, path: ['0x'] }, 'x')).toThrow(/path\[0\]/);
+    expect(() => parseArchivedExit({ ...entry, numCheckpointsInEpoch: 33 }, 'x')).toThrow(
+      /1 to 32 checkpoints/,
+    );
     expect(parseArchivedExit(JSON.parse(archiveLine(entry)), 'x')).toEqual(entry);
   });
 
@@ -68,5 +71,8 @@ describe('the witness archive', () => {
     // Leaf 1 (index 0b01): sibling leaf 0 on the left, then the right pair.
     expect(rootOf(l1, [hex(l0.toBuffer()), hex(l23)], 1n)).toBe(root);
     expect(rootOf(l1, [hex(l0.toBuffer()), hex(l23)], 0n)).not.toBe(root);
+    // The Outbox requires the index to be spent by the path: bits above it are a refusal, not a no-op.
+    expect(() => rootOf(l1, [hex(l0.toBuffer()), hex(l23)], 4n)).toThrow(/outside a path of 2/);
+    expect(() => rootOf(l1, [], -1n)).toThrow(/outside/);
   });
 });
