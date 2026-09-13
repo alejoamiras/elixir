@@ -168,6 +168,13 @@ the hard stop should not be treated as approval", eight findings, four reproduce
 - The comment claiming the portal checks an exit's signature over a zero target was wrong: the portal reads no
   signature for an exit (`_forward`: the check sits inside `kind == 2`), so the page sends none.
 
+After round 3, two more from the gates (commits `6692ee8`, `2cfa4a4`): the rig's V6 stage showed two arrival
+cards — a V5 deposit `minted-l2` in the file came in as `deposited` through `asHint` and could neither be claimed
+nor re-read on V6; an arrival is now shown and re-read only on the version it lands on (`destinationOf`), and a
+claim on another version's chain keeps the file's word. The bridge shard then found the records of a refused
+deposit and of a prompt left open lingering as arrivals (no reuse any more): the wallet's refusal is certain and
+that record is given up at once; one left open is given up the moment its replacement is sent.
+
 The loop stops here at its hard limit. Three rounds each found material issues in the previous round's fixes —
 the surface (a journal reconciled from four sources: the node, the rollup, the portal's events, a file) is where
 the plan's testing did not reach: the unit tests stub every read, the rig exercises one happy path per stage.
