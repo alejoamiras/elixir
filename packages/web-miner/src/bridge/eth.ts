@@ -3,17 +3,7 @@
 // holder makes (approve + deposit, forward, redeem, note a transition), and the portal's reads over
 // the RPC in use, which need no wallet at all. Gas comes from the injected wallet; the redeem key's
 // signatures are made in `flows.ts`, never by the wallet.
-import { OutboxAbi } from '@aztec/l1-artifacts/OutboxAbi';
-import { RegistryAbi } from '@aztec/l1-artifacts/RegistryAbi';
-import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
-import {
-  type Chain,
-  type ContractFunctionArgs,
-  defineChain,
-  type Hex,
-  type PublicClient,
-  parseEventLogs,
-} from 'viem';
+import { type Chain, type ContractFunctionArgs, defineChain, type Hex, parseEventLogs } from 'viem';
 import { createConfig, http, injected } from 'wagmi';
 import {
   getAccount,
@@ -22,7 +12,6 @@ import {
   waitForTransactionReceipt,
   writeContract,
 } from 'wagmi/actions';
-import { scanLogs } from '../../../bridge/src/logs.ts';
 import { type ForwardArgs, yacaAbi, yacanaPortalAbi } from '../../../bridge/src/portal.ts';
 
 export interface EthSettings {
@@ -204,140 +193,9 @@ export async function noteTransitionOnEthereum(
   return txHash;
 }
 
-export interface PortalAddresses {
-  portal: Hex;
-  registry: Hex;
-  /** Where log scans start. */
-  deployBlock: bigint;
-}
-
-export interface VersionStanding {
-  registered: boolean;
-  miner: Hex;
-  registryIndex: bigint;
-  flipAt: bigint;
-  paused: boolean;
-  headroom: bigint;
-  /** Unix seconds; the max uint256 while open-ended. */
-  deadline: bigint;
-  retireSent: boolean;
-  depositsClosed: boolean;
-}
-
-/** The portal and the Registry read through the page's RPC; no wallet, no signature. */
-export const portalReader = (client: PublicClient, a: PortalAddresses) => {
-  const portal = { address: a.portal, abi: yacanaPortalAbi } as const;
-  const registry = { address: a.registry, abi: RegistryAbi } as const;
-  return {
-    async standing(version: bigint): Promise<VersionStanding> {
-      const [info, flipAt, paused, headroom, deadline] = await Promise.all([
-        client.readContract({ ...portal, functionName: 'versionInfo', args: [version] }),
-        client.readContract({ ...portal, functionName: 'flipAt', args: [version] }),
-        client.readContract({ ...portal, functionName: 'isPaused', args: [version] }),
-        client.readContract({ ...portal, functionName: 'headroom', args: [version] }),
-        client.readContract({ ...portal, functionName: 'deadline', args: [version] }),
-      ]);
-      return {
-        registered: info.registered,
-        miner: info.miner,
-        registryIndex: BigInt(info.registryIndex),
-        flipAt: BigInt(flipAt),
-        paused,
-        headroom,
-        deadline,
-        retireSent: info.retireSent,
-        depositsClosed: info.depositsClosed,
-      };
-    },
-    /** The Registry's canonical version and its index. */
-    async canonical(): Promise<{ version: bigint; index: bigint }> {
-      const count = await client.readContract({ ...registry, functionName: 'numberOfVersions' });
-      const index = count - 1n;
-      return {
-        version: await client.readContract({ ...registry, functionName: 'getVersion', args: [index] }),
-        index,
-      };
-    },
-    /** The version at Registry index `index`. */
-    versionAt: (index: bigint) =>
-      client.readContract({ ...registry, functionName: 'getVersion', args: [index] }),
-    /** The Rollup contract of `version`: where its epochs' proofs and deadlines are read. */
-    rollupOf: (version: bigint) =>
-      client.readContract({ ...registry, functionName: 'getRollup', args: [version] }),
-    /** Whether the portal has stamped Registry index `index`. */
-    async transitionSeen(index: bigint): Promise<boolean> {
-      return (await client.readContract({ ...portal, functionName: 'transitions', args: [index] })) !== 0n;
-    },
-    /** Whether `version`'s Outbox nullified the leaf: forwarded or redeemed already. */
-    async consumed(version: bigint, epoch: bigint, leafId: bigint): Promise<boolean> {
-      const rollup = await client.readContract({ ...registry, functionName: 'getRollup', args: [version] });
-      const outbox = await client.readContract({
-        address: rollup,
-        abi: RollupAbi,
-        functionName: 'getOutbox',
-      });
-      return client.readContract({
-        address: outbox,
-        abi: OutboxAbi,
-        functionName: 'hasMessageBeenConsumedAtEpoch',
-        args: [epoch, leafId],
-      });
-    },
-    /** The `Forwarded` event of one leaf, if any. */
-    async forwarded(version: bigint, epoch: bigint, leafId: bigint) {
-      const [log] = await scanLogs(client, {
-        ...portal,
-        eventName: 'Forwarded',
-        args: { version, epoch, leafId },
-        fromBlock: a.deployBlock,
-        toBlock: await client.getBlockNumber({ cacheTime: 0 }),
-        first: true,
-      });
-      return log
-        ? { txHash: log.transactionHash, inboxIndex: log.args.inboxIndex, target: log.args.target }
-        : undefined;
-    },
-    async redeemed(version: bigint, epoch: bigint, leafId: bigint) {
-      const [log] = await scanLogs(client, {
-        ...portal,
-        eventName: 'Redeemed',
-        args: { version, epoch, leafId },
-        fromBlock: a.deployBlock,
-        toBlock: await client.getBlockNumber({ cacheTime: 0 }),
-        first: true,
-      });
-      return log ? { txHash: log.transactionHash } : undefined;
-    },
-    arrivals: () => readArrivals(client, a),
-  };
-};
-
-/** Every send-ahead forwarded into any version and every deposit, from the deploy block: the landing's raw material. */
-async function readArrivals(client: PublicClient, a: PortalAddresses) {
-  const portal = { address: a.portal, abi: yacanaPortalAbi } as const;
-  const toBlock = await client.getBlockNumber({ cacheTime: 0 });
-  const [forwarded, deposited] = await Promise.all([
-    scanLogs(client, { ...portal, eventName: 'Forwarded', fromBlock: a.deployBlock, toBlock }),
-    scanLogs(client, { ...portal, eventName: 'Deposited', fromBlock: a.deployBlock, toBlock }),
-  ]);
-  return {
-    forwarded: forwarded
-      .filter((l) => l.args.kind === 2)
-      .map((l) => ({
-        secretHash: l.args.aux,
-        source: l.args.version,
-        target: l.args.target,
-        amount: l.args.amount,
-        inboxIndex: l.args.inboxIndex,
-        txHash: l.transactionHash,
-      })),
-    deposited: deposited.map((l) => ({
-      secretHash: l.args.secretHash,
-      version: l.args.version,
-      amount: l.args.amount,
-      inboxIndex: l.args.inboxIndex,
-      txHash: l.transactionHash,
-    })),
-  };
-}
-export type PortalReader = ReturnType<typeof portalReader>;
+export {
+  type PortalAddresses,
+  type PortalReader,
+  portalReader,
+  type VersionStanding,
+} from '../../../bridge/src/portal-reader.ts';
