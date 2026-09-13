@@ -770,9 +770,17 @@ is refused), migrates `addresses` both with an
 unchanged and a changed class; a queue test proves two concurrent sends and two tabs (`fake-indexeddb`) get
 distinct indices with more than 20 prior exits on the version.
 
-**P7 — the guided path UI and the everyday bridge** (`MigrationCard`, `SendAheadSheet`, `ArrivalCard` with its
-one-tap Claim, `ToEthereumSheet`, `DepositSheet`, `BridgeTile`, `TakingLongDialog`, `EthRpcTile`, `OldTabNotice`,
-Settings, the wallet picker). Copy overrides of `ux-brief.md` (D22, D16, D12, A7): "usually under an hour to
+**P7 ✓ — the guided path UI and the everyday bridge** (green 2026-09-13; `lessons/phase-7.md`; `bun run
+test:components` 84 miner specs among them; `bun run rig -- browser` 3/3 in 391 s: V5 — mine, exit, deposit, two
+send-aheads, the recovery file; V5 after the flip — the card says mining ended, the file restores four crossings;
+V6 — restore, the file, the holder's forward from the page and the claim, the redeem, the YACA balance — real
+proving throughout; `bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e` 18/18 in 17.8 min, the
+`bridge` shard among them. What the gate forced: the local network builds blocks only on transactions or warps, so
+the browser case warps a slot a minute; a deposit the wallet never answered is offered again; the words backup's
+quiz survives StrictMode; e2e bundles are built as production; signature expiries and deadlines are dated by
+Ethereum's clock, not the device's; a restored file's ended crossings replace what a fresh device rediscovered.)
+(`MigrationCard`, `SendAheadSheet`, `ArrivalCard` with its one-tap Claim, `ToEthereumSheet`, `DepositSheet`,
+`BridgeTile`, `TakingLongDialog`, `EthRpcTile`, `OldTabNotice`, Settings, the wallet picker). Copy overrides of `ux-brief.md` (D22, D16, D12, A7): "usually under an hour to
 Ethereum" → "when V5 settles the epoch, usually within a few epochs"; "the relayer forwards it within the hour" →
 "Yacana forwards exits by hand; the last forward was N ago; forward it yourself any time"; "relayer quiet > 1 h" →
 a `held`/`ready` crossing older than the stated age; "after 30 days you can redeem" → "redeem to Ethereum any

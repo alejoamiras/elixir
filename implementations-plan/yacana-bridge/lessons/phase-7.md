@@ -29,7 +29,14 @@
 
 ## Gate
 
-(pending)
+`bun run test:components` ✓ (miner 84 among them) · `bun run rig -- browser` 3/3 ✓ in 391 s (V5: one real claim,
+exit to Ethereum forwarded by the control and minted, deposit through the picker and claimed, two send-aheads held,
+the recovery file saved — 3.2 min; V5 after the flip: the card says mining has ended, the file restores four
+crossings on a fresh browser — 11 s; V6: the words restore the account, the file brings the held send-aheads, one is
+forwarded from the page with the holder's signature and claimed, the other redeemed, the YACA balance 0.5 → 1.5 —
+56 s) · `bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e` 18/18 ✓ in 17.8 min (the `bridge` shard's
+three proofs among them; peak browser RSS 3029 MiB) · `bun run lint` ✓ · `bun test packages/bridge packages/web-miner`
+✓.
 
 ## Lessons
 
