@@ -70,6 +70,16 @@ which arrived mid-way); P11's record and docs get their own look in the final cr
   the cache, the stats snapshot carries Ethereum's block time and every sentence takes `chainNow`, the row is
   "headroom under the limit", Verify labels a stale read, the runbook's steps 6 and 8 rewritten (the example
   claim and `site.env` move with the version; the old origin builds in its own worktree).
+- **Round 3** (`response-2.md`, one P2 and three P3, all verified): the wall clock carried forward from the
+  block time still decided whether exits were closed (a device clock jump could tell a holder to give up an
+  exit Ethereum still allows); the runbook said any state-changing call records a transition (`setForwarder`
+  and `setOperators` do not); the worktree removal was given from inside the old worktree; three comments
+  narrated structure. Applied: categorical decisions (closed, pre-launch, the phases) take `chainTime` as
+  observed and only the pause countdown moves with the clock; the sentence names the calls that sync; the
+  removal runs from the V6 root; the comments cut. Codex verified rounds 1–2 fixed, found no archive-forgery
+  path left under an honest RPC, and noted what a hostile archive can still do: withhold, or lend a hash to a
+  crossing that had none. **Hard stop at three rounds** (plan §10): round 3's findings were small and applied;
+  the final cross-arc pass reads the arc again.
 
 ## Lessons
 

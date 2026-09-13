@@ -1,14 +1,10 @@
-// The bridge page's one read: every version Yacana registered on the portal with what crossed it
-// and what its turnstile allows now, the Registry's canonical version, the fixed policy and the
-// keys. Pure over an injected reader; the sentences the tiles print are here too, so the words
-// are tested without a page.
+// The bridge page's one read and its sentences, pure over an injected reader.
 
 import type { PortalPolicy, PortalReader, VersionFlows } from '../../bridge/src/portal-reader.ts';
 import type { MigrationRecord } from '../../bridge/src/record.ts';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { amount, duration } from '../../site/src/browser/format.ts';
 
-/** One line of the phases timeline; the shape the Stepper draws, with plain text for labels. */
 export interface Step {
   id: string;
   label: string;
@@ -46,7 +42,11 @@ export async function readBridge(reader: BridgeReads, now = Date.now()): Promise
   return { versions, canonical, policy, operators, forwarders, chainTime, readAt: now };
 }
 
-/** The chain's clock carried forward by the wall clock since the read: the device's time never decides on its own. */
+/**
+ * The chain's clock carried forward by the wall clock since the read, for a countdown only: whether
+ * exits are closed, a launch is ahead or a pause is on is decided on `chainTime` as observed, so a
+ * device clock that jumps cannot declare a version closed while Ethereum is still before the deadline.
+ */
 export const chainNow = (s: BridgeSnapshot, now: number): number =>
   Number(s.chainTime) + Math.max(0, Math.floor((now - s.readAt) / 1000));
 
@@ -85,7 +85,6 @@ export function pauseLine(v: VersionFlows, policy: PortalPolicy, nowSeconds: num
   return `paused${more > 0 ? ` for ${duration(more)} more` : ''} · ${duration(Number(v.pausedSeconds))} of the budget spent · ${limits}`;
 }
 
-/** Where a version stands, as its card's second line. */
 export function versionLine(v: VersionFlows, canonical: { version: bigint; index: bigint }): string {
   if (!v.registered) return 'not registered on the portal yet';
   if (v.version === canonical.version)

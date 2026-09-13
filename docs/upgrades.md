@@ -45,7 +45,9 @@ the next version is deployed.
 
 4. `bun run bridge -- note-transitions`: the portal records the Registry's new index as observed now. The cap of
    V5 freezes at that moment and its deadline clock starts; until this call the cap keeps growing, which is why
-   it is the first thing after the flip (any state-changing portal call would record it too).
+   it is the first thing after the flip. The register, retire, forward, redeem, deposit, pause and close-deposits
+   calls record a transition as a side effect; listing a forwarder or handing the role on does not, and a
+   reverted call records nothing.
 5. `YACANA_RECORD=deployments/testnet.json YACANA_DEPLOYER_SECRET=… bun run bridge -- retire <V5>` (the record is
    still V5's at this point): the retire message into V5's Inbox (once; a rerun reports the index it already
    sent), then the miner consumes it on the record's node, after which no mining claim mints on V5 (arrivals still
@@ -78,7 +80,7 @@ after the flip lands like any other once its epoch is proven (rig case H4). The 
    checkout is never touched: `git worktree add ../yacana-v5 <that commit>`, then in `../yacana-v5`
    `bun install && YACANA_APP_ROLE=old bun run site:build` (into its `packages/site/dist-old`) and, from its
    `packages/site`, `wrangler deploy -c v5/wrangler.jsonc` (the `yacana-v5` Worker: `v5.yacana.network`); then
-   `git worktree remove ../yacana-v5` and carry on from the V6 checkout. An open V5 tab learns from `build.json`
+   back at the V6 checkout's root, `git worktree remove ../yacana-v5`. An open V5 tab learns from `build.json`
    that it is behind and asks for a reload. The old origin restores accounts (never creates one), sends ahead
    and exits; mining there has ended. Keep it up until V5's deadline has passed, then take it down.
 

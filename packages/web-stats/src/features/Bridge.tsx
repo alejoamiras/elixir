@@ -38,7 +38,7 @@ export function BridgePhases({
 }: {
   version: VersionFlows | undefined;
   migration: MigrationRecord | null;
-  /** The chain's clock (`chainNow`), not the device's. */
+  /** Ethereum's clock as observed at the read, never the device's: the closing day is a categorical call. */
   nowSeconds: number;
   className?: string;
 }) {
@@ -64,7 +64,8 @@ export function BridgePhases({
 
 function VersionCard({ v, snapshot, now }: { v: VersionFlows; snapshot: BridgeSnapshot; now: number }) {
   const live = v.version === snapshot.canonical.version;
-  const nowSeconds = chainNow(snapshot, now);
+  // Closed, frozen or pre-launch is Ethereum's word at the read; only the pause countdown moves with the clock.
+  const chainTime = Number(snapshot.chainTime);
   return (
     <Tile data-testid="bridge-version" data-version={v.version.toString()} data-live={live ? '1' : '0'}>
       <TileHeader aside={live ? <Badge variant="uv">live</Badge> : undefined}>
@@ -83,10 +84,10 @@ function VersionCard({ v, snapshot, now }: { v: VersionFlows; snapshot: BridgeSn
         aria-label="left, of the limit"
       />
       <p className="mt-3 text-xs text-ink-3" data-testid="exit-limit">
-        {exitLimitLine(v, snapshot.policy, nowSeconds)}
+        {exitLimitLine(v, snapshot.policy, chainTime)}
       </p>
       <p className="mt-1.5 text-xs text-ink-3" data-testid="pause-line">
-        {pauseLine(v, snapshot.policy, nowSeconds)}
+        {pauseLine(v, snapshot.policy, chainNow(snapshot, now))}
       </p>
     </Tile>
   );
