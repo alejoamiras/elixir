@@ -1,14 +1,8 @@
 import type * as React from 'react';
+import type { TimelineItem, TimelineState } from '../bridge-types.ts';
 import { cn } from '../lib/cn.ts';
 
-export type TimelineState = 'todo' | 'on' | 'done' | 'bad';
-
-export interface TimelineItem {
-  id: string;
-  label: React.ReactNode;
-  detail?: React.ReactNode;
-  state: TimelineState;
-}
+export type { TimelineItem, TimelineState };
 
 const DOT: Record<TimelineState, string> = {
   todo: 'bg-ink-3',

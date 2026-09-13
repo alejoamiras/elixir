@@ -173,7 +173,9 @@ test('/faq: the six panels and the questions under the landing’s header, the m
   const net = watch(page, r);
   await page.goto(pageUrl(r, `${r.baseURL}/faq`));
   await expect(page.getByTestId('faq')).toBeVisible();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('What happens, and what can go wrong');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+    'What happens to your coins, in plain words.',
+  );
   await expect(page.getByTestId('faq-panel')).toHaveCount(6);
   await expect(page.getByTestId('faq-panels')).toContainText(
     'Anything still on the old version when it goes quiet is lost',

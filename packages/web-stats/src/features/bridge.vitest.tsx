@@ -87,19 +87,24 @@ describe('the bridge page', () => {
     expect(cards.map((c) => `${c.dataset.version}:${c.dataset.live}`)).toEqual(['5:0', '6:1']);
     const lines = screen.getAllByTestId('version-line').map((l) => l.textContent);
     expect(lines[0]).toBe('flipped away from on 2027-01-09 · exits close on 2027-01-26');
-    expect(lines[1]).toBe('the live version · deposits and exits here');
+    expect(lines[1]).toBe('the live version · mining, deposits and exits here');
     expect(screen.getAllByTestId('exit-limit')[1]?.textContent).toContain(
       `128 ${PARAMS.TOKEN_SYMBOL} may leave V6 right now · grows 12 ${PARAMS.TOKEN_SYMBOL} an hour`,
     );
     expect(screen.getAllByTestId('pause-line')[1]?.textContent).toContain('not paused');
-    // V6's phases: nothing announced, no flip; the FAQ one link away.
-    const steps = screen.getByTestId('bridge-phases').querySelectorAll('[data-slot=step]');
+    // V6's phases: launched, nothing announced, no flip; the FAQ one link away.
+    const steps = screen.getByTestId('bridge-phases').querySelectorAll('[data-slot=timeline] > li');
     expect(Array.from(steps).map((s) => (s as HTMLElement).dataset.state)).toEqual([
-      'pending',
-      'pending',
-      'pending',
-      'pending',
+      'done',
+      'todo',
+      'todo',
+      'todo',
+      'todo',
     ]);
+    // The six figures, the portal's state and the bar on the live card stand without the extras.
+    expect(screen.getAllByTestId(/^kpi-/)).toHaveLength(6);
+    expect(screen.getByTestId('kpi-bridge').textContent).toContain('open');
+    expect(screen.getByTestId('bridge-turnstile').textContent).toContain('nothing forwarded yet');
     expect(screen.getByTestId('bridge-faq').getAttribute('href')).toBe('/faq');
     // The explorer's base is read when the module loads, so the chips carry no link here: the labels count.
     const chips = screen

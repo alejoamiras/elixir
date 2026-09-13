@@ -20,6 +20,8 @@ export interface Fixed {
   block: { number: number; timestamp: number };
   supply: bigint;
   genesis: Genesis;
+  /** The miner's own bridge counters: everything that ever left through the portal, everything that arrived. */
+  miner?: { exited: bigint; claimedFromL1: bigint };
   /** Wall clock (ms) of the read that produced this. */
   readAt: number;
 }

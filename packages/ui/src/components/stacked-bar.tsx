@@ -1,16 +1,8 @@
 import type * as React from 'react';
+import type { BarSegment } from '../bridge-types.ts';
 import { cn } from '../lib/cn.ts';
 
-export interface BarSegment {
-  id: string;
-  label: React.ReactNode;
-  /** The figure the legend prints beside the label. */
-  figure: React.ReactNode;
-  /** A share of the bar; the segments are scaled to their sum (a zero sum draws nothing). */
-  value: number;
-  /** A CSS colour: a token (`var(--uv)`) or any value. */
-  color: string;
-}
+export type { BarSegment };
 
 /**
  * Where a version's coins are, as one bar split by place, with the legend under it: the bar's

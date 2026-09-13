@@ -4,6 +4,7 @@ import type { EpochRow } from '../../miner-core/src/reader.ts';
 import type { ExampleClaim } from '../../site/src/config.ts';
 import { App } from './App';
 import { copy, SECTIONS } from './copy';
+import { faq } from './faq-copy';
 import type { Live } from './live';
 import { BarChart, shown } from './sections/BarChart';
 import { LedgerPublic } from './sections/Chain';
@@ -230,8 +231,14 @@ describe('the launch week', () => {
 
   test('/faq under the header: six panels, the questions, the two ways out; no sections, no announcement', () => {
     render(<App live={ready} launch={loading} pathname="/faq" />);
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(copy.faq.title);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(faq.title);
     expect(screen.getAllByTestId('faq-panel')).toHaveLength(6);
+    // Three sections of question rows; the pages' questions keep their words.
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
+      'Mining',
+      'When Aztec upgrades',
+      'To Ethereum and back',
+    ]);
     expect(screen.getByTestId('faq-questions').textContent).toContain('why the rule');
     expect(screen.getByTestId('faq-mine').getAttribute('href')).toBe('/mine/');
     expect(screen.getByTestId('faq-stats').getAttribute('href')).toBe('/stats/bridge');

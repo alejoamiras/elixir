@@ -95,7 +95,7 @@ describe('the sentences', () => {
 
   test("a version's line: live, flipped, flipped but unrecorded, ahead of the flip, or not registered", () => {
     const at5 = { version: 5n, index: 0n };
-    expect(versionLine(live, at5)).toBe('the live version · deposits and exits here');
+    expect(versionLine(live, at5)).toBe('the live version · mining, deposits and exits here');
     expect(versionLine({ ...live, depositsClosed: true }, at5)).toContain('deposits closed');
     const at6 = { version: 6n, index: 1n };
     expect(versionLine({ ...live, flipAt: 1_799_500_000n, deadline: 1_801_000_000n }, at6)).toBe(
@@ -110,27 +110,29 @@ describe('the sentences', () => {
 
   test('the phases: announced from the record, the flip and the retire from the portal, the close from the deadline', () => {
     const quiet = phasesOf(live, null, NOW).map((s) => `${s.id}:${s.state}`);
-    expect(quiet).toEqual(['announced:pending', 'flip:pending', 'retire:pending', 'closes:pending']);
+    expect(quiet).toEqual(['launched:done', 'announced:todo', 'flip:todo', 'retire:todo', 'closes:todo']);
     const announced = phasesOf(
       live,
       { toIndex: '1', announcedAt: '1799900000', expectedFlipAt: '1800500000' },
       NOW,
     );
-    expect(announced[0]).toMatchObject({ state: 'done', label: 'announced 2027-01-14' });
-    expect(announced[0]?.detail).toBe('flip expected around 2027-01-21');
+    expect(announced[1]).toMatchObject({ state: 'done', label: 'V1 announced' });
+    expect(announced[1]?.detail).toBe('Jan 14 · send ahead before Jan 21');
+    expect(announced[2]).toMatchObject({ state: 'on', label: 'V1 canonical' });
     const flipped = phasesOf(
       { ...live, flipAt: 1_799_500_000n, retireSent: true, deadline: 1_801_000_000n },
       null,
       NOW,
     );
     expect(flipped.map((s) => `${s.id}:${s.state}`)).toEqual([
+      'launched:done',
       'announced:done',
       'flip:done',
       'retire:done',
-      'closes:active',
+      'closes:on',
     ]);
     // Ethereum saw the message sent; whether the miner consumed it is the other chain's to say.
-    expect(flipped[2]).toMatchObject({
+    expect(flipped[3]).toMatchObject({
       label: 'retire message sent',
       detail: 'mining ends once the miner consumes it',
     });

@@ -211,7 +211,7 @@ async function pooled<T, R>(items: T[], concurrency: number, fn: (t: T) => Promi
   return out;
 }
 
-const readSlot = (node: Node, contract: AztecAddress, slot: Fr, limits: ReadLimits): Promise<Fr> =>
+export const readSlot = (node: Node, contract: AztecAddress, slot: Fr, limits: ReadLimits): Promise<Fr> =>
   withTimeout(
     node.getPublicStorageAt('latest', contract, slot),
     limits.timeoutMs,

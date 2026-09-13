@@ -1,14 +1,8 @@
 import type * as React from 'react';
+import type { TrailItem, TrailState } from '../bridge-types.ts';
 import { cn } from '../lib/cn.ts';
 
-export type TrailState = 'todo' | 'on' | 'done' | 'bad' | 'warn';
-
-export interface TrailItem {
-  label: React.ReactNode;
-  state: TrailState;
-  /** The station's key when its label is not a string, or repeats. */
-  id?: string;
-}
+export type { TrailItem, TrailState };
 
 const keyOf = (it: TrailItem): string => it.id ?? (typeof it.label === 'string' ? it.label : it.state);
 

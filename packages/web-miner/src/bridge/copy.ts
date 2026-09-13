@@ -2,7 +2,7 @@
 // relayer promises, no hour, no waiting period: Yacana forwards by hand and the holder may forward
 // or redeem any time.
 import type { Crossing, CrossingState } from '../../../bridge/src/journal.ts';
-import type { TrailItem } from '../../../ui/src/index.ts';
+import type { TrailItem } from '../../../ui/src/bridge-types.ts';
 import { duration } from '../lib/format';
 
 export type Tone = 'quiet' | 'busy' | 'good' | 'warn' | 'bad';
