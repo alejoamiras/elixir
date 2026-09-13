@@ -25,15 +25,18 @@ import {
 } from './chain';
 import { type Connection, saveConnection } from './config';
 import type { MinerController } from './controller';
+import { currentAccountClassId } from './keys/classes';
 import { assertPasskey, createPasskey } from './keys/passkey';
 import {
   addressOf,
   base64url,
+  currentAddress,
+  findRecordFor,
   forgetMaster,
   fromBase64url,
   listRecords,
   type MasterRecord,
-  openMaster,
+  openAccount,
   openPhrase,
   putRecord,
   seal,
@@ -228,7 +231,7 @@ export class Session {
       master = undefined; // the session owns it now
       this.store.set(bootAtom, {
         phase: 'ready',
-        account: c.record.account.address,
+        account: currentAddress(c.record, await currentAccountClassId()),
         threads: started.threads,
         record: c.record,
       });
@@ -295,12 +298,12 @@ export class Session {
   async open(record: MasterRecord): Promise<void> {
     const keyLabel = record.method === 'passkey' ? 'passkey' : 'twelve words';
     return this.runAttempt(keyLabel, async () => {
-      const master = record.sealed
-        ? await openMaster(record)
-        : await this.masterFromCeremony(record).then((m) => owning(m, () => openMaster(record, m)));
-      return owning(master, async () => ({
-        record,
-        master,
+      const opened = record.sealed
+        ? await openAccount(record)
+        : await this.masterFromCeremony(record).then((m) => owning(m, () => openAccount(record, m)));
+      return owning(opened.master, async () => ({
+        record: opened.record,
+        master: opened.master,
         words: record.method === 'words' ? await openPhrase(record) : undefined,
       }));
     });
@@ -323,8 +326,7 @@ export class Session {
       const { credentialId, prf } = await this.assertPasskey({ rpId: this.rpId });
       const master = await masterFromPrf(prf);
       return owning(master, async () => {
-        const address = await addressOf(master, 0);
-        const existing = (await listRecords()).find((r) => r.account.address === address);
+        const existing = await findRecordFor(await listRecords(), master);
         const record: MasterRecord = existing ?? {
           v: 1,
           id: crypto.randomUUID(),
@@ -333,10 +335,10 @@ export class Session {
           credentialId: base64url(credentialId),
           askEveryOpen: true,
           backedUp: false,
-          account: { address, index: 0 },
+          account: { address: await addressOf(master, 0), index: 0 },
         };
         if (!existing) await putRecord(record);
-        return { record, master: await openMaster(record, master) };
+        return openAccount(record, master);
       });
     });
   }
@@ -383,12 +385,11 @@ export class Session {
       this.guardHost('restore');
       const master = await masterFromMnemonic(phrase);
       return owning(master, async () => {
-        const address = await addressOf(master, 0);
-        const existing = (await listRecords()).find((r) => r.account.address === address);
+        const existing = await findRecordFor(await listRecords(), master);
         if (existing)
           return {
             record: existing,
-            master: await openMaster(existing, master),
+            master: (await openAccount(existing, master)).master,
             words: normaliseWords(phrase),
           };
         return this.wordsRecord(normaliseWords(phrase), true, master);

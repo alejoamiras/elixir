@@ -15,8 +15,9 @@ import { clampThreads, type PreflightRow } from '../../ui/src/index.ts';
 import { attachDeployment, loadArtifact, type Node, readEpochRules } from './chain';
 import type { Connection } from './config';
 import { MinerController, type Rebound } from './controller';
+import { currentAccountClassId } from './keys/classes';
 import { preparePasskeys } from './keys/passkey';
-import { assertNoLegacyWalletDb, listRecords, type MasterRecord } from './keys/store';
+import { assertNoLegacyWalletDb, currentAddress, listRecords, type MasterRecord } from './keys/store';
 import { bytesDetail, initialSteps, type OpeningStep } from './opening-steps';
 import { crsReady } from './pinned-crs';
 import { type PrestoEndpoint, prestoAtom, prestoEligible, prestoEndpoint, probePresto } from './presto';
@@ -314,7 +315,7 @@ export async function startSession(
     if (viewBuiltOn(opened.pxeDb) !== fingerprint)
       opened = await resetAccountView(opened, pre.node, pre.chainId, fields);
     const account = await registerAccount(opened, fields);
-    if (account.toString() !== record.account.address)
+    if (account.toString() !== currentAddress(record, await currentAccountClassId()))
       throw new Error('the wallet derived a different address than the vault');
     markViewBuiltOn(opened.pxeDb, fingerprint);
     opts.signal.throwIfAborted();

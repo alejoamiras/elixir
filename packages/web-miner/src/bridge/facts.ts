@@ -1,0 +1,71 @@
+// What a crossing's next reading needs, and nothing more: a record that is still proving asks the
+// node about its transaction; one waiting for its epoch asks the rollup about the proof; a
+// witnessed one asks the portal; a forwarded or deposited one asks the destination node whether the
+// message is there. Each source is behind one function so a test can stand in for it.
+import type { Crossing, Facts } from '../../../bridge/src/journal.ts';
+import type { ArchivedExit } from '../../../bridge/src/witness.ts';
+
+export interface FactReads {
+  tx(c: Crossing): Promise<Facts['tx']>;
+  proofDeadline(epoch: bigint): Promise<bigint>;
+  epochProven(epoch: bigint): Promise<boolean>;
+  /** The witness once the epoch is proven; undefined before. */
+  witness(c: Crossing): Promise<ArchivedExit | undefined>;
+  portal(c: Crossing): Promise<NonNullable<Facts['portal']>>;
+  forwarded(c: Crossing): Promise<Facts['forwarded']>;
+  redeemed(c: Crossing): Promise<Facts['redeemed']>;
+  messageReady(c: Crossing): Promise<boolean>;
+  claimed(c: Crossing): Promise<Facts['claimed']>;
+  nowSeconds(): bigint;
+}
+
+const AWAITING_PROOF = new Set<Crossing['state']>(['proven-pending']);
+const ON_PORTAL = new Set<Crossing['state']>([
+  'witnessed',
+  'paused',
+  'headroom',
+  'ready',
+  'held',
+  'not-registered',
+]);
+const AT_DESTINATION = new Set<Crossing['state']>(['forwarded', 'deposited']);
+
+const txFacts = async (reads: FactReads, c: Crossing, f: Facts): Promise<Facts> =>
+  c.txHash ? { ...f, tx: await reads.tx(c) } : f;
+
+/** The epoch's proof: its deadline, whether it landed, the witness once it has; pruned when the deadline passed without it. */
+async function epochFacts(reads: FactReads, c: Crossing, f: Facts): Promise<Facts> {
+  if (!c.epoch) return f;
+  const epoch = BigInt(c.epoch);
+  const deadline = c.proofDeadline ? BigInt(c.proofDeadline) : await reads.proofDeadline(epoch);
+  const epochProven = await reads.epochProven(epoch);
+  const next: Facts = { ...f, proofDeadline: deadline.toString(), epochProven };
+  if (epochProven) next.witness = await reads.witness(c);
+  else next.epochPruned = reads.nowSeconds() > deadline;
+  return next;
+}
+
+/** An event answers for the leaf before the portal's standing is asked. */
+async function portalFacts(reads: FactReads, c: Crossing, f: Facts): Promise<Facts> {
+  const forwarded = await reads.forwarded(c);
+  if (forwarded) return { ...f, forwarded };
+  const redeemed = c.kind === 2 ? await reads.redeemed(c) : undefined;
+  if (redeemed) return { ...f, redeemed };
+  return { ...f, portal: await reads.portal(c) };
+}
+
+async function destinationFacts(reads: FactReads, c: Crossing, f: Facts): Promise<Facts> {
+  const messageReady = AT_DESTINATION.has(c.state) ? await reads.messageReady(c) : undefined;
+  const next: Facts = messageReady === undefined ? f : { ...f, messageReady };
+  if (c.state === 'claimable' || messageReady) next.claimed = await reads.claimed(c);
+  return next;
+}
+
+/** The facts for one reading of `c`, from the sources its state depends on. */
+export async function factsFor(reads: FactReads, c: Crossing, now: number): Promise<Facts> {
+  const f: Facts = { now };
+  if (c.state === 'proving' || c.state === 'sent') return txFacts(reads, c, f);
+  if (AWAITING_PROOF.has(c.state)) return epochFacts(reads, c, f);
+  if (ON_PORTAL.has(c.state)) return portalFacts(reads, c, f);
+  return destinationFacts(reads, c, f);
+}

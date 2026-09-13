@@ -5,6 +5,7 @@
 //   AZTEC_NODE_URL=… YACANA_DEPLOYER_SECRET=0x… YACANA_PORTAL=0x… [YACANA_LAUNCH_AT=<unix seconds>] \
 //     [YACANA_CONTINUE_FROM=deployments/<source>.json] [YACANA_DEPLOY_SALT=0x…] [YACANA_DEPLOY_FORCE=1] \
 //     bun packages/deploy/src/deploy.ts
+
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadContractArtifact } from '@aztec/aztec.js/abi';
@@ -19,32 +20,13 @@ import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { TokenContract } from '@aztec-foundation/aztec-standards/artifacts/src/artifacts/Token.js';
+import type { BridgeRecord, MigrationRecord } from '@yacana/bridge/src/record.ts';
 import { PARAMS, PROFILE } from '../../miner-core/src/generated/params.ts';
 
 const repo = resolve(import.meta.dir, '../../..');
 
 /** What the L1 deploy script records: the Ethereum side of one profile's bridge. */
-export interface BridgeRecord {
-  chainId: string;
-  portal: string;
-  yaca: string;
-  registry: string;
-  operators: string;
-  l1RpcUrl: string;
-  /** The L1 block the portal was deployed by: where a search of its logs starts. */
-  deployBlock?: string;
-}
-
-/**
- * The announced upgrade: written into the record when Aztec announces the version after this one
- * (the Registry index it will take, when it was announced, when the flip is expected), and carried
- * by the next site deploy — announcing is a redeploy.
- */
-export interface MigrationRecord {
-  toIndex: string;
-  announcedAt: string;
-  expectedFlipAt: string;
-}
+export type { BridgeRecord, MigrationRecord } from '@yacana/bridge/src/record.ts';
 
 export interface Deployment {
   profile: string;

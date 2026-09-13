@@ -34,7 +34,7 @@ const MAX_CRASHES = 3;
 /** The pause when the rollup's constants cannot be read either. */
 const FALLBACK_FINALITY_S = 40 * 60;
 
-type PauseReason = 'battery' | 'hidden' | 'withdraw' | 'offline' | 'lost-race' | 'switch';
+export type PauseReason = 'battery' | 'hidden' | 'withdraw' | 'offline' | 'lost-race' | 'switch' | 'bridge';
 
 interface Prover {
   worker: Worker;

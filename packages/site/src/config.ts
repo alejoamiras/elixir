@@ -2,7 +2,7 @@
 // the versioned origin) plus the deployment record (addresses, class ids, chain, the rollup, the
 // portal, an announced migration). Production builds take nothing from the process environment; e2e
 // and dev builds may override every value through VITE_* variables.
-import type { BridgeRecord, MigrationRecord } from '../../deploy/src/deploy.ts';
+import type { BridgeRecord, MigrationRecord } from '../../bridge/src/record.ts';
 
 export type SiteMode = 'production' | 'e2e' | 'dev';
 export const SITE_MODES: readonly SiteMode[] = ['production', 'e2e', 'dev'];

@@ -15,6 +15,7 @@ import { claimGasLimits } from '../../miner-core/src/claim.ts';
 import type { AccountFields } from '../../miner-core/src/keys/derive.ts';
 import { PROVERLESS_MARKER } from '../../site/src/config.ts';
 import type { Fee, Node } from './chain';
+import { type FeePayer, feePayer } from './feePayer';
 import { MemoryKvStore } from './wallet/memory-store';
 
 /** An e2e build may ask the PXE to skip proving; `PROVERLESS_MARKER` must stay inside this flag's branch. */
@@ -28,7 +29,9 @@ export interface SentTx {
 
 export interface OpenedWallet {
   wallet: EmbeddedWallet;
+  /** A claim's fee; `feeFor` gives every other operation its own. */
   fee: Fee;
+  feeFor: FeePayer['for'];
   /** The PXE's IndexedDB name: one namespace per rollup, shared by every key on this device. */
   pxeDb: string;
   /** The last transaction the wallet handed to the node. */
@@ -78,7 +81,7 @@ export async function openWallet(node: Node, chainId: bigint): Promise<OpenedWal
       paymentMethod: new SponsoredFeePaymentMethod(fpc.address),
       gasSettings: { gasLimits: await claimGasLimits(node) },
     };
-    return { wallet, fee, pxeDb, lastSent: () => sent };
+    return { wallet, fee, feeFor: feePayer(fee).for, pxeDb, lastSent: () => sent };
   } catch (e) {
     if (wallet) await wallet.stop().catch(() => {});
     else await pxeStore.close().catch(() => {});
