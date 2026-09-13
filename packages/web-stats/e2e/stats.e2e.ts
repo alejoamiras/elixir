@@ -263,7 +263,7 @@ test('the bridge page: this version registered and live on the portal, its turns
 }) => {
   const r = run();
   test.skip(!r.bridge, 'the run had no Ethereum RPC to deploy the portal on');
-  await page.goto(pageUrl(r, 'bridge'));
+  await page.goto(pageUrl(r, '/bridge'));
   await expect(page).toHaveTitle('Yacana · Bridge');
   const card = page.getByTestId('bridge-version');
   await expect(card).toHaveCount(1, { timeout: 60_000 });
