@@ -102,4 +102,39 @@ names the announced Registry index, not the next miner (the next deployment's re
 build ships), and the portal itself computes the target from the Registry and requires Yacana's registration,
 so a lying RPC can only make the signature fail; the announced-index check is what the page can add. "Track
 claim inclusion separately, finalise after settlement" — done by re-reading the nullifier for three hours
-rather than a new state.
+rather than a new state. (Both were overturned in round 2.)
+
+The bridge shard passed on the round-1 code; the rig's browser case did not: the flipped stage restored three
+crossings (the landing had found the deposit and the file no longer overrides), and the V6 stage showed two
+arrival cards — the imported V5 deposit, `minted-l2` in the file, was re-read against V6's nullifier tree, found
+absent, and demoted to claimable. Codex named the same defect from the diff.
+
+**Round 2** — resumed session, over `git diff 2057125..HEAD`. Verdict: "changes required — recovery and
+concurrency fixes remain incomplete", thirteen findings, four reproduced. All thirteen real. Applied (commit
+`c500119`):
+
+- **High** — the round-1 answer on the forward's target was wrong for an actual wrong registration: a
+  send-ahead's forward is now offered and made only on the version it lands on (the build's own, whose record
+  names the miner the portal must route to — `registeredHere`), never from the old origin; an exit's forward
+  signs a zero target, as the portal checks (`forwardOne` sets `target = 0` for kind 1 — the page had signed the
+  canonical version, an invalid signature the rig never exercised because the control forwards exits).
+- **High** — an uncertain deposit reused its secret: the hash is kept the moment the wallet returns it
+  (`onSent`), a deposit with a hash is never re-sent, and a resend takes the amount Ethereum saw.
+- **High** — the claim re-check was neither durable nor destination-scoped: `landsHere(c)` scopes `messageReady`
+  and `claimed` to the crossing's destination; a minted record is re-read on every visit until its claim's
+  epoch is proven (`claimBlock`, `claimSettled` in the journal and the file).
+- **High** — `adopt` compared against a record fetched after the stale landing result and could roll a claim
+  back: `store.adopt(c, apply)` stores the row as `apply` says over the stored one and reserves the index in the
+  same transaction; `matchArrivals` returns the arrival and `landed` applies it to the stored record.
+- **High** — an imported ended state was final on arrival: `asHint` imports it as the state before, and the
+  chain confirms the end; a crossing of another deployment inside the file is refused.
+- **Medium** — `txFacts` never called `tx` for a hashless send; the tag lookup is reachable now.
+- **Medium** — a silent arrival window proved nothing after twenty exits: the walk continues past every index the
+  account is known to have used (`indicesInUse`: the journal, the counter, the chain's exit scan).
+- **Medium** — the announced-index check refused exits: destination checks apply to send-aheads only.
+- **Medium** — the old role restored on unknown hosts: eligibility first, the role's restriction after.
+- **Medium** — the controller's own resumes bypassed the flip: `retire()` latches; `start()` refuses after it.
+- **Medium** — the stale-tab gate ran before the queue wait: `preflight` runs once the queue reaches the
+  operation, and asks the RPC once more.
+- **Medium** — the cap line recommended a redeem the same cap refuses; reworded.
+- Comment: "the burn is real once sent" corrected.
