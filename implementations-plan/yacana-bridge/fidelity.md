@@ -28,6 +28,12 @@ boxed aside), `Timeline` (a version's phases), `StackedBar` (where a version's c
   `/stats`); the miner's bridge screens need an account there, so their pictures come from the rig, not the
   preview.
 
+Arc 6 (P13, `lessons/phase-13.md`) moved the copy on after the owner's review: a withdrawal is "Bridge to
+Ethereum" and ends with the holder's "Claim on Ethereum" (no by-hand forward in the sheet, the journal or the tile),
+versions are named by Registry index (the open pick below, closed as C), the rules left `/stats/bridge` for
+`/faq#rules`, and the taking-long dialog opens for a held send-ahead only. Where a row below quotes the older words
+(To Ethereum, forwarded by hand, exit headroom, the flip), the built screen now reads per P13.
+
 Beyond the canvas: the holder's forward and redeem sheets (`screens/forward-sheet.jpg`, `forward-done.jpg`,
 `redeem-sheet.jpg`, `redeem-done.jpg`) were not drawn; they follow the sheets' vocabulary (title, sentence,
 the wallet row, the amount block, one button). Open pick for the owner: the canvas names versions by Aztec's
