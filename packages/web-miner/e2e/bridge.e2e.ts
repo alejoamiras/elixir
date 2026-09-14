@@ -179,9 +179,7 @@ test('on V5: a words account mines one claim, exits to Ethereum (forwarded and m
       timeout: 3 * 60_000,
     },
   );
-  await expect(rows(page, 2).first()).toContainText(
-    'Only this account, from this device, or Yacana’s listed forwarder',
-  );
+  await expect(rows(page, 2).first()).toContainText('you can too, or redeem it on Ethereum');
   await shot(page, 'wallet-held');
   mkdirSync(handoffDir, { recursive: true });
   const [download] = await Promise.all([

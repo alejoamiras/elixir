@@ -191,7 +191,7 @@ export const copy = {
       },
       {
         q: 'How does the everyday bridge work?',
-        a: `To Ethereum: a private burn here, proven to Ethereum with the epoch within the hour, then claimed by you on Ethereum as YACA (an ERC-20) at the address you named — one transaction, and anyone may make it. From Ethereum: one deposit from your Ethereum wallet, then a tap on the arrival card. The amount and the address are public on Ethereum; that is why it is a choice.`,
+        a: `To Ethereum: a private burn here, proven to Ethereum with the epoch, usually within the hour (a proof that never comes undoes the burn), then claimed by you on Ethereum as YACA (an ERC-20) at the address you named — one transaction, and anyone may make it. From Ethereum: one deposit from your Ethereum wallet, then a tap on the arrival card. The amount and the address are public on Ethereum; that is why it is a choice.`,
       },
       {
         q: 'Who may forward a held send, and why the rule?',
@@ -199,7 +199,7 @@ export const copy = {
       },
       {
         q: 'What is public?',
-        a: 'On Aztec: that a coin was mined — a nullifier, a note hash, a counter — never who. On Ethereum: every crossing’s amount and time, and the address an exit names or a deposit comes from. Someone matching amounts and times across the two sides could link them.',
+        a: 'On Aztec: that a coin was mined — a nullifier, a note hash, a counter — never who. On Ethereum: every crossing’s amount and time, and the address a withdrawal names or a deposit comes from. Someone matching amounts and times across the two sides could link them.',
       },
       {
         q: 'What can go wrong?',

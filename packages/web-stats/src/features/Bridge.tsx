@@ -3,7 +3,7 @@
 // themselves; a dotted word carries its one-line tooltip, one disclosure per card holds the
 // sentence, and the rules live on the FAQ.
 
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import type { VersionFlows } from '../../../bridge/src/portal-reader.ts';
 import type { MigrationRecord } from '../../../bridge/src/record.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
@@ -54,14 +54,18 @@ const chainName = (chainId: string): string =>
         ? 'anvil'
         : `chain ${chainId}`;
 
-/** A dotted word whose one-line explanation opens on hover or keyboard focus, and describes it to a screen reader. */
+/** A dotted word whose explanation opens on hover or keyboard focus (the gap is part of the hover area), closes on Escape, and describes it to a screen reader. */
 function Term({ title, children }: { title: string; children: React.ReactNode }) {
   const id = useId();
+  const [dismissed, setDismissed] = useState(false);
   return (
     <span className="group relative inline-block">
       <button
         type="button"
         aria-describedby={id}
+        onMouseLeave={() => setDismissed(false)}
+        onKeyDown={(e) => e.key === 'Escape' && setDismissed(true)}
+        onBlur={() => setDismissed(false)}
         className="cursor-help border-0 bg-transparent p-0 font-[inherit] text-[length:inherit] text-inherit underline decoration-dotted underline-offset-[3px] outline-none focus-visible:ring-1 focus-visible:ring-uv"
       >
         {children}
@@ -69,9 +73,11 @@ function Term({ title, children }: { title: string; children: React.ReactNode })
       <span
         role="tooltip"
         id={id}
-        className="pointer-events-none absolute bottom-full left-0 z-10 mb-1.5 hidden w-64 rounded-[6px] border border-line bg-panel px-2.5 py-2 font-sans text-xs normal-case text-ink-2 group-focus-within:block group-hover:block"
+        className={`absolute bottom-full left-0 z-10 w-64 pb-1.5 ${dismissed ? 'hidden' : 'hidden group-focus-within:block group-hover:block'}`}
       >
-        {title}
+        <span className="block rounded-[6px] border border-line bg-panel px-2.5 py-2 font-sans text-xs normal-case text-ink-2">
+          {title}
+        </span>
       </span>
     </span>
   );
@@ -295,7 +301,7 @@ export function BridgeTurnstile({
       <KvRow label="crossings" value={crossingLine(f.lastCrossingAt, nowSeconds)} />
       <KvRow
         label={<Term title={EXIT_LIMIT}>exit limit</Term>}
-        value={live ? headroomLine(live, p, nowSeconds) : '—'}
+        value={live ? headroomLine(live, p, Number(snapshot.chainTime)) : '—'}
       />
       <KvRow
         label={<Term title={pauseRule(p)}>pause</Term>}

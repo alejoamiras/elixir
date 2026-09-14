@@ -93,8 +93,8 @@ export function EthRpcTile({
     <Tile>
       <TileHeader aside="Ethereum">Ethereum RPC</TileHeader>
       <p className="mb-3 text-xs text-ink-2">
-        The bridge reads the portal through this JSON-RPC and holds back new exits while it is silent. Any
-        https endpoint for the portal’s chain will do.
+        The bridge reads the portal through this JSON-RPC and holds back new withdrawals while it is silent.
+        Any https endpoint for the portal’s chain will do.
       </p>
       <HealthLine inUse={ethRpcUrl} />
       <div className="mt-3 flex flex-col gap-1">

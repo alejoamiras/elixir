@@ -778,9 +778,9 @@ export class MinerController {
     this.lastRead = Date.now();
     this.dispatch({ type: 'recovered', at: Date.now() });
     this.log('chain view rebuilt');
-    // A lost race resumes the miner it interrupted; a node switch lets release('switch') decide,
-    // so a switch made while idle does not start mining on its own.
-    if (!this.pausedBy.size) this.start();
+    // A lost race resumes the miner it interrupted unless Stop was pressed during the claim; a node
+    // switch lets release('switch') decide, so a switch made while idle does not start mining on its own.
+    if (!this.pausedBy.size) this.resumeAfterClaim();
   }
 
   private async finalityMs(): Promise<number> {
@@ -796,7 +796,8 @@ export class MinerController {
     const until = Date.now() + (await this.finalityMs());
     this.log(`claims paused until ${new Date(until).toISOString().slice(11, 19)}`);
     this.pausedBy.add('lost-race');
-    this.resumeWhenClear = true;
+    this.resumeWhenClear = !this.stopAfterClaim;
+    this.stopAfterClaim = false;
     this.dispatch({ type: 'paused', until, at: Date.now() });
     this.pauseTimer = setTimeout(() => this.release('lost-race'), until - Date.now());
   }

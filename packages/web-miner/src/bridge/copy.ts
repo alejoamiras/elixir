@@ -65,7 +65,7 @@ const LINES: Record<CrossingState, Line> = {
     word: 'proven',
     sentence:
       c.kind === 1
-        ? 'Proven to Ethereum. Claim it there any time.'
+        ? 'Proven to Ethereum; reading the portal for the claim.'
         : `Proven to Ethereum; held there for ${target}.`,
     tone: 'busy',
   }),

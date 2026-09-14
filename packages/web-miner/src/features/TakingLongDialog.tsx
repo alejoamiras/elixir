@@ -40,8 +40,8 @@ export function TakingLongDialog({ onSettings, onWallet }: { onSettings: () => v
         <DialogDescription>
           Your {fmt(BigInt(first.amount), PARAMS.DECIMALS)} {PARAMS.TOKEN_SYMBOL} are held on Ethereum, proven
           and waiting for the next version. Yacana forwards by hand; past{' '}
-          {duration(TAKING_LONG_AFTER_MS / 1000)} it is worth a look. Nothing is lost while it waits; you can
-          redeem it on Ethereum any time before the last day, when the bridge is not paused: this account
+          {duration(TAKING_LONG_AFTER_MS / 1000)} it is worth a look. Nothing is lost while it waits, until
+          the last day; before then you can redeem it on Ethereum while the bridge is not paused: this account
           alone decides.
         </DialogDescription>
         <div className="flex flex-col gap-3 rounded-[8px] border border-line px-4 py-3.5">

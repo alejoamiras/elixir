@@ -138,6 +138,21 @@ describe('lost-race recovery', () => {
     controller.dispose();
   });
 
+  test('Stop during a claim that reverts: the view is rebuilt and read, mining does not resume', async () => {
+    const rebuilt = fakeDeployment(9n, () => Promise.reject(BLOCKED));
+    const controller = await boot(
+      fakeDeployment(5n, () => Promise.reject(REVERTED)),
+      async () => ({ deployment: rebuilt, fee, rebuilt: true }),
+    );
+    worker.emit(winner);
+    expect(store.get(minerAtom).phase).toBe('claiming');
+    controller.stop();
+    await settle(() => controller.deployment === rebuilt && store.get(minerAtom).phase === 'idle');
+    expect(store.get(balanceAtom)).toBe(9n);
+    expect(worker.sent.filter((m) => m.type === 'mine')).toHaveLength(1);
+    controller.dispose();
+  });
+
   test('a drop that fails but reopens falls back to the pause on the reopened view', async () => {
     const reopened = fakeDeployment(5n, () => Promise.reject(REVERTED));
     const controller = await boot(

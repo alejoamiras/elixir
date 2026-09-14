@@ -1,6 +1,5 @@
-// Bridge to Ethereum: the figure and the address with the three stations (burned here, proven
-// to Ethereum within the hour, claimed there by the holder), the review with the ETA and what is
-// public, then "On its way." with the burn's block once the journal has it.
+// Bridge to Ethereum: the figure and the address, the review, then "On its way." with the burn's
+// block once the journal has it.
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import type { Crossing } from '../../../bridge/src/journal.ts';
