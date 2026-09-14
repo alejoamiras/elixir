@@ -46,8 +46,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.relevant == 'true'
     runs-on: ubuntu-latest
-    # A dispatch runs every case, the browser ones with real proving: three times the flip's minutes.
-    timeout-minutes: ${{ github.event_name == 'pull_request' && 45 || 120 }}
+    # A dispatch runs the headless cases in sequence, each on its own network: twice the flip's minutes.
+    timeout-minutes: ${{ github.event_name == 'pull_request' && 45 || 90 }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-bun
@@ -63,15 +63,17 @@ jobs:
         run: bun run contracts:compile
       - if: github.event_name == 'workflow_dispatch'
         run: bun run portal:build
-      # The browser and origin cases drive the page in Chromium.
-      - if: github.event_name == 'workflow_dispatch'
+      # The browser and origin cases drive the page in Chromium; named by hand only (see below).
+      - if: github.event_name == 'workflow_dispatch' && (contains(inputs.cases, 'browser') || contains(inputs.cases, 'origin'))
         run: bunx playwright install --with-deps chromium
-      # A pull request runs the flip; a dispatch runs what it names (nothing named: every case).
+      # A pull request runs the flip; a dispatch runs what it names, or the headless cases. The two
+      # page-driven cases stay local: `browser` proves claims for real in Chromium, past a runner's 45
+      # minutes per stage, and `origin` needs the run's TLS names (yacana.test) resolved in the browser.
       - run: |
           read -ra cases <<< "$CASES"
           bun run rig -- "${cases[@]}"
         env:
-          CASES: ${{ github.event_name == 'pull_request' && 'flip' || inputs.cases }}
+          CASES: ${{ github.event_name == 'pull_request' && 'flip' || inputs.cases || 'flip bridge deposit migration never-settled skip-version' }}
       - name: Keep the networks' logs
         if: always()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
