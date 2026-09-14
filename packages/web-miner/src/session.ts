@@ -4,6 +4,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 import type { createStore } from 'jotai';
+import type { Hex } from 'viem';
 import { masterFromPrf } from '../../miner-core/src/keys/derive.ts';
 import {
   entropyOf,
@@ -11,10 +12,19 @@ import {
   masterFromMnemonic,
   normaliseWords,
 } from '../../miner-core/src/keys/mnemonic.ts';
+import {
+  type EthRpcProbe,
+  probeEthRpc,
+  resetEthRpcHealth,
+  startEthRpcHealth,
+} from '../../site/src/browser/eth-rpc.ts';
 import { keysAllowed, relyingParty } from '../../site/src/browser/host.ts';
 import { type NodeProbe, probeNode } from '../../site/src/browser/node.ts';
+import { setEthRpcEndpoint } from '../../site/src/browser/node-guard.ts';
 import { nodeHealth, waitTurn } from '../../site/src/browser/node-health.ts';
 import { expectedOf, type Preflighted, preflight, type Started, startSession, switchNodeLive } from './boot';
+import { bridgeRecord, isOldRole } from './bridge/env';
+import { BridgeSession } from './bridge/session';
 import {
   loadArtifact,
   readPublicBalance,
@@ -25,15 +35,19 @@ import {
 } from './chain';
 import { type Connection, saveConnection } from './config';
 import type { MinerController } from './controller';
+import { feePayer } from './feePayer';
+import { currentAccountClassId } from './keys/classes';
 import { assertPasskey, createPasskey } from './keys/passkey';
 import {
   addressOf,
   base64url,
+  currentAddress,
+  findRecordFor,
   forgetMaster,
   fromBase64url,
   listRecords,
   type MasterRecord,
-  openMaster,
+  openAccount,
   openPhrase,
   putRecord,
   seal,
@@ -42,9 +56,12 @@ import {
 import { initialSteps } from './opening-steps';
 import { prestoAtom, prestoEligible, probePresto } from './presto';
 import { loadSettings, saveSettings } from './settings';
-import { bootAtom, epochAtom } from './state';
+import { balanceAtom, bootAtom, bridgeAtom, bridgeSessionAtom, epochAtom } from './state';
 
 type Store = ReturnType<typeof createStore>;
+
+/** The guard's deadline for one Ethereum RPC request: a silent RPC must fail, not hang a refresh. */
+const ETH_RPC_DEADLINE_MS = 30_000;
 
 const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name === 'AbortError';
 
@@ -72,6 +89,13 @@ export class Session {
   /** A words key's phrase, for the backup screen; sealed at rest, never in the store as text. */
   private words: string | undefined;
   record: MasterRecord | undefined;
+  /** What the attempt adopted: the wallet getter the bridge reads through after a rebuild. */
+  private started: Started | undefined;
+  /** The open account's bridge, when the build carries a portal; opened before `ready` is published. */
+  bridge: BridgeSession | undefined;
+  private ethRpc: string;
+  private unsubBalance: (() => void) | undefined;
+  private unsubFlip: (() => void) | undefined;
 
   /** The open attempt: its generation and the AbortController Cancel aborts once the ceremony is over. */
   private attempt: { id: number; abort: AbortController; ceremony: boolean; done: Promise<void> } | undefined;
@@ -99,6 +123,12 @@ export class Session {
     this.preflightImpl = deps.preflightImpl ?? preflight;
     this.createPasskey = deps.createPasskey ?? createPasskey;
     this.assertPasskey = deps.assertPasskey ?? assertPasskey;
+    this.ethRpc = connection.ethRpcUrl;
+    // The guard admits the RPC in use from the first request; a build without a portal never asks it.
+    if (bridgeRecord()) {
+      setEthRpcEndpoint(this.ethRpc, ETH_RPC_DEADLINE_MS);
+      startEthRpcHealth();
+    }
     this.ready = this.runPreflight();
   }
 
@@ -118,10 +148,12 @@ export class Session {
     return relyingParty(location.hostname);
   }
 
-  private guardHost(): void {
-    if (!keysAllowed(location.hostname))
+  private guardHost(purpose: 'create' | 'restore'): void {
+    if (!keysAllowed(location.hostname, purpose))
       throw new Error(
-        `Accounts cannot be created or restored on this host. Open ${import.meta.env.VITE_RP_ID}.`,
+        purpose === 'create' && keysAllowed(location.hostname, 'restore')
+          ? `Accounts are restored here, not created. Create one at ${import.meta.env.VITE_RP_ID}.`
+          : `Accounts cannot be created or restored on this host. Open ${import.meta.env.VITE_RP_ID}.`,
       );
   }
 
@@ -224,9 +256,11 @@ export class Session {
       this.record = c.record;
       this.words = c.words;
       master = undefined; // the session owns it now
+      this.started = started;
+      await this.openBridge();
       this.store.set(bootAtom, {
         phase: 'ready',
-        account: c.record.account.address,
+        account: currentAddress(c.record, await currentAccountClassId()),
         threads: started.threads,
         record: c.record,
       });
@@ -261,7 +295,7 @@ export class Session {
   /** The record is written before the wallet opens: a boot failure must not lose a fresh passkey. */
   async createWithPasskey(): Promise<void> {
     return this.runAttempt('passkey', async () => {
-      this.guardHost();
+      this.guardHost('create');
       const known = (await listRecords()).flatMap((r) =>
         r.credentialId ? [fromBase64url(r.credentialId)] : [],
       );
@@ -293,12 +327,12 @@ export class Session {
   async open(record: MasterRecord): Promise<void> {
     const keyLabel = record.method === 'passkey' ? 'passkey' : 'twelve words';
     return this.runAttempt(keyLabel, async () => {
-      const master = record.sealed
-        ? await openMaster(record)
-        : await this.masterFromCeremony(record).then((m) => owning(m, () => openMaster(record, m)));
-      return owning(master, async () => ({
-        record,
-        master,
+      const opened = record.sealed
+        ? await openAccount(record)
+        : await this.masterFromCeremony(record).then((m) => owning(m, () => openAccount(record, m)));
+      return owning(opened.master, async () => ({
+        record: opened.record,
+        master: opened.master,
         words: record.method === 'words' ? await openPhrase(record) : undefined,
       }));
     });
@@ -317,12 +351,11 @@ export class Session {
   /** "I already have a key": a discoverable request; a known address opens, a new one gets a record. */
   async restoreWithPasskey(): Promise<void> {
     return this.runAttempt('passkey', async () => {
-      this.guardHost();
+      this.guardHost('restore');
       const { credentialId, prf } = await this.assertPasskey({ rpId: this.rpId });
       const master = await masterFromPrf(prf);
       return owning(master, async () => {
-        const address = await addressOf(master, 0);
-        const existing = (await listRecords()).find((r) => r.account.address === address);
+        const existing = await findRecordFor(await listRecords(), master);
         const record: MasterRecord = existing ?? {
           v: 1,
           id: crypto.randomUUID(),
@@ -331,17 +364,17 @@ export class Session {
           credentialId: base64url(credentialId),
           askEveryOpen: true,
           backedUp: false,
-          account: { address, index: 0 },
+          account: { address: await addressOf(master, 0), index: 0 },
         };
         if (!existing) await putRecord(record);
-        return { record, master: await openMaster(record, master) };
+        return openAccount(record, master);
       });
     });
   }
 
   /** A fresh phrase; the key exists only once the screen calls `createWithWords` with it. */
   newWords(): string {
-    this.guardHost();
+    this.guardHost('create');
     return generateWords();
   }
 
@@ -356,7 +389,8 @@ export class Session {
     backedUp: boolean,
     derived?: Uint8Array,
   ): Promise<{ record: MasterRecord; master: Uint8Array; words: string }> {
-    this.guardHost();
+    // A restore that lands here (the phrase is new to this device) is a restore still.
+    this.guardHost(derived ? 'restore' : 'create');
     const master = derived ?? (await masterFromMnemonic(phrase));
     return owning(master, async () => {
       const record: MasterRecord = {
@@ -377,15 +411,14 @@ export class Session {
   /** Restore: the phrase opens its record if this device has one, or gets a new (sealed) record. */
   async restoreWithWords(phrase: string): Promise<void> {
     return this.runAttempt('twelve words', async () => {
-      this.guardHost();
+      this.guardHost('restore');
       const master = await masterFromMnemonic(phrase);
       return owning(master, async () => {
-        const address = await addressOf(master, 0);
-        const existing = (await listRecords()).find((r) => r.account.address === address);
+        const existing = await findRecordFor(await listRecords(), master);
         if (existing)
           return {
             record: existing,
-            master: await openMaster(existing, master),
+            master: (await openAccount(existing, master)).master,
             words: normaliseWords(phrase),
           };
         return this.wordsRecord(normaliseWords(phrase), true, master);
@@ -409,7 +442,90 @@ export class Session {
   /** Removes a record; the sign-out dialog gates the call. An open account's session ends. */
   async forget(record: MasterRecord): Promise<void> {
     await forgetMaster(record.id);
-    if (this.record?.id === record.id) location.reload();
+    if (this.record?.id !== record.id) return;
+    this.closeBridge();
+    location.reload();
+  }
+
+  /**
+   * The bridge for the adopted account: the journal under the master's fingerprint, the portal
+   * through the RPC in use, the wallet and contracts read at each operation (a rebuild replaces
+   * them). A bridge that fails to open is logged; the account opens without it.
+   */
+  private async openBridge(): Promise<void> {
+    const record = bridgeRecord();
+    const pre = this.pre;
+    const started = this.started;
+    const master = this.master;
+    if (!record || !pre || !started || !master) return;
+    const c = started.controller;
+    try {
+      const bridge = await BridgeSession.open({
+        store: this.store,
+        node: pre.node,
+        from: c.address,
+        l2: () => ({
+          wallet: started.wallet(),
+          miner: c.deployment.miner,
+          token: c.deployment.token,
+          fee: feePayer(c.feeSettings).for('bridge'),
+        }),
+        master,
+        connection: { ...this.connection, ethRpcUrl: this.ethRpc },
+        record,
+        controller: c,
+      });
+      this.bridge = bridge;
+      this.store.set(bridgeSessionAtom, bridge);
+      // The flip ends mining on this version: the controller retires, and no start brings it back.
+      this.unsubFlip = this.store.sub(bridgeAtom, () => {
+        if (this.store.get(bridgeAtom).verdict.kind === 'flipped') c.retire();
+      });
+      // Every balance read leaves the snapshot the next version's build shows as "you still had".
+      this.unsubBalance = this.store.sub(balanceAtom, () => {
+        const b = this.store.get(balanceAtom);
+        if (b !== null) void bridge.rememberBalance(b).catch(() => {});
+      });
+      void bridge
+        .start()
+        .catch((e: unknown) => c.log(`bridge: ${e instanceof Error ? e.message : String(e)}`));
+    } catch (e) {
+      c.log(`bridge did not open: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  private closeBridge(): void {
+    this.unsubBalance?.();
+    this.unsubBalance = undefined;
+    this.unsubFlip?.();
+    this.unsubFlip = undefined;
+    this.bridge?.stop();
+    this.bridge = undefined;
+    this.store.set(bridgeSessionAtom, null);
+  }
+
+  /** The Ethereum RPC in use (the saved setting, or the build's default). */
+  get ethRpcUrl(): string {
+    return this.ethRpc;
+  }
+
+  /** Whether `url` serves the portal's chain and knows the portal; the same check the boot makes. */
+  probeEthRpc(url: string, deadlineMs = 10_000): Promise<EthRpcProbe> {
+    const record = bridgeRecord();
+    if (!record) throw new Error('this build has no bridge');
+    return probeEthRpc(url, { chainId: BigInt(record.chainId), portal: record.portal as Hex }, deadlineMs);
+  }
+
+  /** Saves the RPC, points the guard at it, and reopens the bridge over it; the account stays open. */
+  async switchEthRpc(url: string): Promise<void> {
+    if (!saveConnection({ ethRpcUrl: url }))
+      throw new Error('The browser refused to save the setting; free some site storage and try again.');
+    this.ethRpc = url;
+    setEthRpcEndpoint(url, ETH_RPC_DEADLINE_MS);
+    resetEthRpcHealth();
+    if (!this.bridge) return;
+    this.closeBridge();
+    await this.openBridge();
   }
 
   /** The node in use; the switch target's identity was checked by the caller (the Node tile's probe). */
@@ -494,6 +610,9 @@ export class Session {
    * claim, an expired claim) never come through here.
    */
   startMining(): void {
+    // The versioned origin's build mines nothing, nor does a version flipped away from: every
+    // Start — a button, a key, a setting, the resume on open — is inert.
+    if (isOldRole() || this.store.get(bridgeAtom).verdict.kind === 'flipped') return;
     const c = this.controller;
     c?.start();
     // A Start after the Worker gave up on native brings it back: only a rebuild can, and the config

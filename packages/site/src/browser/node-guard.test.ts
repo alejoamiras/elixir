@@ -117,6 +117,35 @@ describe('node guard', () => {
     await expect(fetch('https://node.example/rpcx?key=a')).rejects.toThrow(/blocked endpoint/);
   });
 
+  test("the Ethereum RPC is a second admitted slot with its own deadline and listeners, never the node's", async () => {
+    const node: string[] = [];
+    const rpc: string[] = [];
+    const offNode = guard.onNodeResponse((o) => node.push(o.endpoint));
+    const offRpc = guard.onEthRpcResponse((o) => rpc.push(`${o.endpoint} ${o.status}`));
+    const RPC = 'https://rpc.example/';
+    guard.setEthRpcEndpoint(RPC, 1_000);
+    try {
+      calls.length = 0;
+      await (await fetch(RPC, { method: 'POST', redirect: 'follow' })).text();
+      expect(calls[0]?.init?.redirect).toBe('error');
+      expect(calls[0]?.init?.signal).toBeInstanceOf(AbortSignal);
+      expect(guard.currentEthRpcEndpoint()).toBe(RPC);
+      // The node's collisions are refused both ways.
+      expect(() => guard.setNodeEndpoint(RPC, 1_000)).toThrow(/Ethereum RPC/);
+      expect(() => guard.setEthRpcEndpoint(NODE, 1_000)).toThrow(/node's/);
+      guard.setEthRpcEndpoint('https://rpc.example/down', 1_000);
+      await expect(fetch('https://rpc.example/down')).rejects.toThrow(/Failed to fetch/);
+      guard.setEthRpcEndpoint(null, 1_000);
+      await expect(fetch(RPC)).rejects.toThrow(/blocked endpoint/);
+    } finally {
+      offNode();
+      offRpc();
+      guard.setEthRpcEndpoint(null, 1_000);
+    }
+    expect(node).toEqual([]);
+    expect(rpc).toEqual([`${RPC} 200`, 'https://rpc.example/down network']);
+  });
+
   test('a candidate lease admits one endpoint for its duration and is not reported', async () => {
     const seen: string[] = [];
     const off = guard.onNodeResponse((o) => seen.push(o.endpoint));

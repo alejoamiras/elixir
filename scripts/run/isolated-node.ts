@@ -87,8 +87,9 @@ function aztecArgs(ports: Ports, runRoot: string, l1RpcUrl: string): string[] {
     String(ports.p2p),
     '--p2p.p2pBroadcastPort',
     String(ports.p2p),
-    // Blocks every slot, txs or not, as on the real networks: a claim anchors on the latest block and
-    // expires CLAIM_TTL_SECONDS after it, so an idle chain would reject every claim as already expired.
+    // No transaction floor for a block. The local network's automine sequencer still builds only on a
+    // transaction or a warp: a claim anchors on the latest block and expires CLAIM_TTL_SECONDS after
+    // it, so a run that proves for minutes between transactions must keep the chain moving itself.
     '--sequencer.minTxsPerBlock',
     '0',
     // The rig pauses the sequencer through the admin API before stopping a node. The CLI offers no

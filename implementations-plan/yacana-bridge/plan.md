@@ -750,7 +750,12 @@ Gate: `bun run rig -- all` green locally; `e2e.yml` gains a `rig` job on `workfl
 packages/deploy packages/harness` (unit parts) green.
 — arc 2 boundary: the codex loop, then `gh stack add bridge-miner` —
 
-**P6 — the site layer and the bridge modules in the miner** (`eth-rpc.ts`, the guard's second slot,
+**P6 ✓ — the site layer and the bridge modules in the miner** (green 2026-09-13; `lessons/phase-6.md`; lint, the
+three packages' bun suites 252/252, the Vitest specs of every app, the miner's typecheck and the replay lane 4/4 all
+green; the vault test and the index test as the gate words them; as built: the record's bridge and migration block
+types moved to `packages/bridge/src/record.ts` so the site never imports the deploy package, `queue.ts` lives in
+`packages/bridge`, and the `WagmiProvider` mounts with the bridge features in P7 over `wagmiConfigFor`.)
+(`eth-rpc.ts`, the guard's second slot,
 `connection.ts`, `host.ts` (create/restore split, `versioned`, the per-role preview suffix), `config.ts`,
 `site.env`, `packages/web-miner/src/bridge/*` with `queue.ts` and the in-transaction index, wagmi and its provider
 wiring (`bun pm ls viem` shows the single hoisted alias and typecheck passes — typecheck alone proves nothing about
@@ -765,9 +770,20 @@ is refused), migrates `addresses` both with an
 unchanged and a changed class; a queue test proves two concurrent sends and two tabs (`fake-indexeddb`) get
 distinct indices with more than 20 prior exits on the version.
 
-**P7 — the guided path UI and the everyday bridge** (`MigrationCard`, `SendAheadSheet`, `ArrivalCard` with its
-one-tap Claim, `ToEthereumSheet`, `DepositSheet`, `BridgeTile`, `TakingLongDialog`, `EthRpcTile`, `OldTabNotice`,
-Settings, the wallet picker). Copy overrides of `ux-brief.md` (D22, D16, D12, A7): "usually under an hour to
+**P7 ✓ — the guided path UI and the everyday bridge** (green 2026-09-13; `lessons/phase-7.md`; `bun run
+test:components` 84 miner specs among them; `bun run rig -- browser` 3/3 in 391 s: V5 — mine, exit, deposit, two
+send-aheads, the recovery file; V5 after the flip — the card says mining ended, the file restores four crossings;
+V6 — restore, the file, the holder's forward from the page and the claim, the redeem, the YACA balance — real
+proving throughout; `bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e` 18/18 in 17.8 min, the
+`bridge` shard among them. What the gate forced: the local network builds blocks only on transactions or warps, so
+the browser case warps a slot a minute; a deposit the wallet never answered is offered again; the words backup's
+quiz survives StrictMode; e2e bundles are built as production; signature expiries and deadlines are dated by
+Ethereum's clock, not the device's. After the arc-3 codex loop (`lessons/phase-8.md`: three rounds, thirty-four
+findings applied — the journal per account, claims read from the nullifier tree on the version they land on,
+arrivals adopted in one transaction, a file's states as hints, no deposit re-sent under its secret) the gate ran
+again on the final tree: `rig -- browser` 3/3 in 370 s, the suite 18/18 in 17.7 min, the components 84.)
+(`MigrationCard`, `SendAheadSheet`, `ArrivalCard` with its one-tap Claim, `ToEthereumSheet`, `DepositSheet`,
+`BridgeTile`, `TakingLongDialog`, `EthRpcTile`, `OldTabNotice`, Settings, the wallet picker). Copy overrides of `ux-brief.md` (D22, D16, D12, A7): "usually under an hour to
 Ethereum" → "when V5 settles the epoch, usually within a few epochs"; "the relayer forwards it within the hour" →
 "Yacana forwards exits by hand; the last forward was N ago; forward it yourself any time"; "relayer quiet > 1 h" →
 a `held`/`ready` crossing older than the stated age; "after 30 days you can redeem" → "redeem to Ethereum any
@@ -796,13 +812,15 @@ re-checks the address). Proverless state specs stay in a `bridge` shard.
 Gate: `bun run test:components && bun run rig -- browser && bun run e2e:agent -- bun run --cwd packages/web-miner
 test:e2e` (the existing shards untouched; the shard merge ignores `RIG_ONLY`).
 
-**P8 — the versioned origin** (`Retired.tsx`, `VITE_APP_ROLE=old`, `assemble.ts` role/out + the fail-closed
-production pairing, `v5/wrangler.jsonc`, `build.json.{role,miner}`, `hostKind === 'versioned'`, the old-role
-preview suffix, `OldTabNotice` on deployment identity).
-Gate: `bun test packages/site && bun run site:build && YACANA_APP_ROLE=old bun run site:build && bun run e2e:agent --
-bun run site:e2e` (both roles: identical headers, `build.json.role`, a mismatched production pairing refused, the
-old role accepted on a preview host; the old-tab notice on a same-rollup redeploy) `&& bun run rig -- origin` (one
-virtual authenticator across the apex and the versioned origin: the same PRF account on both).
+**P8 ✓ — the versioned origin** (green 2026-09-13; `lessons/phase-8.md`; `bun test packages/site` 75/75, `bun run
+site:build` (dist, role apex), `YACANA_APP_ROLE=old bun run site:build` (dist-old, role old), `bun run e2e:agent --
+bun run site:e2e` 3/3: both roles under one policy, `build.json.role`, the retired head and the restore-only key
+screen on the old role, the old-tab notice on a same-rollup redeploy; `bun run rig -- origin` 20.9 s: one passkey
+across the apex and the versioned origin, served as `yacana.test` and `v5.yacana.test` over a run certificate —
+WebAuthn refuses `localhost` as a shared suffix. After the arc-3 codex loop the site tests (75), `site:e2e` 3/3
+and `rig -- origin` ran green again on the final tree.) (`Retired.tsx`, `VITE_APP_ROLE=old`, `assemble.ts` role/out + the
+fail-closed production pairing, `v5/wrangler.jsonc`, `build.json.{role,miner}`, `hostKind === 'versioned'`, the
+old-role preview suffix, `OldTabNotice` on deployment identity).
 — arc 3 boundary: the codex loop, then `gh stack add bridge-stats-docs` —
 
 **P9 — stats, the announcement lines, the FAQ** (`/stats/bridge`, the bridge beat, Etherscan links, Verify's new

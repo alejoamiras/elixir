@@ -1,12 +1,14 @@
 import { describe, expect, test } from 'bun:test';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { INVENTORY, MOVED_TO_REPLAY, REPLAYED, SPEC_FILES } from '../e2e/proof-inventory.ts';
+import { INVENTORY, MOVED_TO_REPLAY, REPLAYED, RIG_ONLY, SPEC_FILES } from '../e2e/proof-inventory.ts';
 
 const e2e = resolve(import.meta.dir, '../e2e');
-const onDisk = readdirSync(e2e)
+const allOnDisk = readdirSync(e2e)
   .filter((f) => f.endsWith('.e2e.ts'))
   .sort();
+/** The sharded specs: everything on disk the rig does not own. */
+const onDisk = allOnDisk.filter((f) => !(f in RIG_ONLY));
 const source = (f: string) => readFileSync(resolve(e2e, f), 'utf8');
 
 /** Top-level `test('…'` titles in a spec, the way Playwright will report them. */
@@ -32,13 +34,21 @@ describe('the shard lists and the inventory follow the spec files', () => {
     for (const f of onDisk) expect(Object.keys(INVENTORY[f] ?? {}).sort(), f).toEqual(titlesIn(f).sort());
   });
 
+  test('the rig-only specs exist, declare their titles, and sit in no shard', () => {
+    for (const f of Object.keys(RIG_ONLY)) {
+      expect(allOnDisk, f).toContain(f);
+      expect(Object.keys(RIG_ONLY[f] ?? {}).sort(), f).toEqual(titlesIn(f).sort());
+      expect(Object.values(shards).flat(), f).not.toContain(f);
+    }
+  });
+
   test('titles are unique across files: the coverage check and the floors key on them', () => {
-    const titles = Object.values(INVENTORY).flatMap((t) => Object.keys(t));
+    const titles = [...Object.values(INVENTORY), ...Object.values(RIG_ONLY)].flatMap((t) => Object.keys(t));
     expect(new Set(titles).size).toBe(titles.length);
   });
 
   test('no spec is narrowed with .only', () => {
-    for (const f of [...onDisk, ...replayOnDisk.map((f) => `replay/${f}`)])
+    for (const f of [...allOnDisk, ...replayOnDisk.map((f) => `replay/${f}`)])
       expect(source(f), f).not.toMatch(/\b(test|describe)\.only\(/);
   });
 });
@@ -61,8 +71,8 @@ describe('the replay lane took exactly the tests it was given', () => {
       expect(sharded, title).not.toContain(title);
       expect(replayed, title).toContain(title);
     }
-    // Every original test is somewhere, exactly once; the canary is the one addition.
-    expect(sharded.length + MOVED_TO_REPLAY.length).toBe(19 + 1);
+    // Every original test is somewhere, exactly once; the canary and the bridge shard's test are the additions.
+    expect(sharded.length + MOVED_TO_REPLAY.length).toBe(19 + 1 + 1);
     expect(new Set([...sharded, ...replayed]).size).toBe(sharded.length + replayed.length);
   });
 });

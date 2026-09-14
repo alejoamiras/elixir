@@ -139,8 +139,9 @@ test('first visit creates an account, mines at the easy target, claims and shows
   expect(await loopHeight()).toBe(idleHeight);
   const ledger = page.getByTestId('ledger');
   await expect(ledger).toContainText('minted, privately');
-  await expect(ledger.getByRole('link', { name: /block/ })).toHaveAttribute('href', /\/blocks\/\d+$/);
-  await expect(ledger.getByRole('link', { name: /effects/ })).toHaveAttribute(
+  // The newest line: at this easy target a second claim can have minted by now, and each line links.
+  await expect(ledger.getByRole('link', { name: /block/ }).first()).toHaveAttribute('href', /\/blocks\/\d+$/);
+  await expect(ledger.getByRole('link', { name: /effects/ }).first()).toHaveAttribute(
     'href',
     /\/tx-effects\/0x[0-9a-f]{64}$/,
   );
@@ -151,18 +152,24 @@ test('first visit creates an account, mines at the easy target, claims and shows
   await expect(page.getByTestId('claim-slot')).toContainText('no claim in flight', { timeout: 15_000 });
   // The nav reaches the stats app on the same origin.
   await expect(page.getByTestId('nav-stats')).toHaveAttribute('href', /\/stats\/$/);
+  // At this easy target more than one claim can have minted before Stop landed: what the first visit
+  // holds is whatever it claimed, and the second visit must add exactly one more.
+  const minted = Number(await page.getByTestId('claims').textContent());
+  expect(minted).toBeGreaterThanOrEqual(1);
+  await expect(page.getByTestId('balance')).toHaveText(String(4 * minted));
   // Second visit: the persisted account signs again and its notes are still there.
   const account = await page.getByTestId('account').getAttribute('title');
   await page.reload();
   await passKeyScreen(page);
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
   expect(await page.getByTestId('account').getAttribute('title')).toBe(account);
-  await expect(page.getByTestId('balance')).toHaveText('4');
+  await expect(page.getByTestId('balance')).toHaveText(String(4 * minted));
+  // The claims history is this device's, restored under the account: the next claim adds to it.
   await page.getByTestId('start').click();
-  await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
+  await expect(page.getByTestId('claims')).toHaveText(String(minted + 1), { timeout: 10 * 60_000 });
   // The claim's own balance read can land before this visit's PXE has synced the new note; the poll
   // publishes it a few reads later. On a slow machine that is minutes, not the default's one minute.
-  await expect(page.getByTestId('balance')).toHaveText('8', { timeout: 5 * 60_000 });
+  await expect(page.getByTestId('balance')).toHaveText(String(4 * (minted + 1)), { timeout: 5 * 60_000 });
   await page.getByTestId('stop').click();
   memory.stop();
   console.log(`peak browser process-tree RSS: ${memory.peakMiB()} MiB`);

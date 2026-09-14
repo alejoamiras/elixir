@@ -1,7 +1,8 @@
 import { describe, expect, mock, test } from 'bun:test';
+import { LOG_WINDOW } from '@yacana/bridge/src/logs.ts';
 import type { L2Side } from './l2.ts';
 import type { Operator } from './operator.ts';
-import { LOG_WINDOW, retireOnL1, retireOnL2 } from './retire.ts';
+import { retireOnL1, retireOnL2 } from './retire.ts';
 
 /** A portal that holds version 7 as retired, on an RPC whose `Retired` log sits at `logAt`. */
 const operatorWithRetiredLog = (deployBlock: bigint, head: bigint, logAt: bigint) => {

@@ -29,6 +29,17 @@ describe('run registry', () => {
     expect(reused).toBe(a);
   });
 
+  test('a port something else already listens on is skipped, registered or not', async () => {
+    const held = Bun.listen({ hostname: '127.0.0.1', port: 20100, socket: { data() {} } });
+    try {
+      const got = await claim({ ...base, base: 20100, runId: 'l', service: 'x', ownerPid: process.pid });
+      expect(got).toBe(20101);
+    } finally {
+      held.stop(true);
+      await release('l');
+    }
+  });
+
   test('throws when the lane is exhausted', async () => {
     await claim({ ...base, runId: 'd', service: 'x', ownerPid: process.pid });
     await claim({ ...base, runId: 'e', service: 'x', ownerPid: process.pid });

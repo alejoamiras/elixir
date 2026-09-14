@@ -15,9 +15,11 @@ import {
   TileHeader,
   useTheme,
 } from '../../../ui/src/index.ts';
+import { bridgeRecord } from '../bridge/env';
 import { NodeTile } from '../components/NodeTile';
 import type { Connection } from '../config';
 import type { MinerController } from '../controller';
+import { EthRpcTile } from '../features/EthRpcTile';
 import { diagnostics } from '../lib/diagnostics';
 import { useTileLog } from '../lib/tile-log';
 import { prestoAtom } from '../presto';
@@ -192,6 +194,7 @@ export function Settings({
   const onError = useTileLog();
   // The node in use follows a live switch; `connection` is what the page booted with.
   const [nodeUrl, setNodeUrl] = useState(session.nodeUrl ?? connection.nodeUrl);
+  const [ethRpcUrl, setEthRpcUrl] = useState(session.ethRpcUrl);
   const cores = navigator.hardwareConcurrency || 2;
   const threads = s.threads ?? Math.max(1, cores - 1);
   const native = useAtomValue(prestoAtom).active === 'presto';
@@ -223,6 +226,15 @@ export function Settings({
           onSwitched={() => setNodeUrl(session.nodeUrl ?? nodeUrl)}
         />
       </TileBoundary>
+      {bridgeRecord() && (
+        <TileBoundary name="eth-rpc" onError={onError}>
+          <EthRpcTile
+            session={session}
+            ethRpcUrl={ethRpcUrl}
+            onSwitched={() => setEthRpcUrl(session.ethRpcUrl)}
+          />
+        </TileBoundary>
+      )}
       <TileBoundary name="performance" onError={onError}>
         <PerformanceTile
           cores={cores}

@@ -3,10 +3,12 @@
 // every open); a passkey key that "stays open on this device" stores the master, and a words key
 // its phrase's entropy (so the words can be shown again), sealed with AES-GCM under a
 // non-extractable device key kept in the same database. Every open, in every mode, re-derives
-// account 0 and fails closed unless it equals the stored address.
+// account 0 and fails closed unless it equals the stored address — under the build's account class,
+// or, for a record made under the class before it, under that one, once (see classes.ts).
 import { getSchnorrInitializerlessAccountContractAddress } from '@aztec/accounts/schnorr';
 import { deriveAccountFields } from '../../../miner-core/src/keys/derive.ts';
 import { masterFromMnemonic, phraseFromEntropy } from '../../../miner-core/src/keys/mnemonic.ts';
+import { type AccountClasses, buildClasses, fingerprintOf } from './classes.ts';
 
 export interface MasterRecord {
   v: 1;
@@ -21,7 +23,15 @@ export interface MasterRecord {
   askEveryOpen: boolean;
   /** Words keys: the quiz passed. Passkey keys have no backup by design. */
   backedUp: boolean;
-  account: { address: string; index: 0 };
+  /** Names the master without naming a class (classes.ts); written once an address check passed. */
+  fingerprint?: string;
+  account: {
+    /** The address the record was made with: the class of that build. */
+    address: string;
+    index: 0;
+    /** The address under each class the record has been opened with since. */
+    addresses?: Record<string, string>;
+  };
 }
 
 export const DB_NAME = 'yacana-keys';
@@ -146,28 +156,95 @@ export async function openPhrase(record: MasterRecord): Promise<string> {
   return phraseFromEntropy(await unseal(record));
 }
 
+/** The address this build's wallet derives for the record: under its class, or the one the record was made with. */
+export const currentAddress = (r: MasterRecord, classId: string): string =>
+  r.account.addresses?.[classId] ?? r.account.address;
+
+const differentAccount = (r: MasterRecord) =>
+  new Error(
+    `this ${r.method === 'passkey' ? 'passkey' : 'phrase'} opens a different account than the one on this device`,
+  );
+
+/** The record with the class's address and the fingerprint recorded; the same object when nothing is new. */
+const withClass = (r: MasterRecord, classId: string, address: string, fingerprint: string): MasterRecord =>
+  r.fingerprint === fingerprint && r.account.addresses?.[classId] === address
+    ? r
+    : {
+        ...r,
+        fingerprint: r.fingerprint ?? fingerprint,
+        account: { ...r.account, addresses: { ...r.account.addresses, [classId]: address } },
+      };
+
+/**
+ * The record `master` opens, verified under the build's class: its address matches → open. It
+ * matches no class → the record was made under another class and migrates only when the master
+ * is the same: by its fingerprint when it has one, else by its address under the previous class
+ * (written before fingerprints existed), which also writes the fingerprint. Neither → refused.
+ */
+async function verified(record: MasterRecord, master: Uint8Array, c: AccountClasses): Promise<MasterRecord> {
+  const address = await c.current.addressOf(master, record.account.index);
+  const fingerprint = await fingerprintOf(master);
+  if (address === record.account.address || address === record.account.addresses?.[c.current.id])
+    return withClass(record, c.current.id, address, fingerprint);
+  const same = record.fingerprint
+    ? record.fingerprint === fingerprint
+    : (await c.previous.addressOf(master, record.account.index)) === record.account.address;
+  if (!same) throw differentAccount(record);
+  return withClass(record, c.current.id, address, fingerprint);
+}
+
 /**
  * The master for `record`: the one supplied (freshly derived from a PRF or a phrase) or the sealed
  * one (a words key's, derived from its sealed entropy). Either way the address it derives must be
- * the record's, or nothing opens.
+ * the record's under a class the record may open with, or nothing opens; a record that learned a
+ * class or a fingerprint is written back.
  */
-export async function openMaster(record: MasterRecord, supplied?: Uint8Array): Promise<Uint8Array> {
+export async function openAccount(
+  record: MasterRecord,
+  supplied?: Uint8Array,
+  classes: Promise<AccountClasses> | AccountClasses = buildClasses(),
+): Promise<{ master: Uint8Array; record: MasterRecord }> {
   const master =
     supplied ??
     (record.method === 'words' ? await masterFromMnemonic(await openPhrase(record)) : await unseal(record));
   // A master nobody will hold — the address does not match, or could not even be derived (a
   // malformed record) — is not left in memory behind the error.
   try {
-    const derived = await addressOf(master, record.account.index);
-    if (derived !== record.account.address)
-      throw new Error(
-        `this ${record.method === 'passkey' ? 'passkey' : 'phrase'} opens a different account than the one on this device`,
-      );
+    const next = await verified(record, master, await classes);
+    if (next !== record) await putRecord(next);
+    return { master, record: next };
   } catch (e) {
     master.fill(0);
     throw e;
   }
-  return master;
+}
+
+export const openMaster = async (
+  record: MasterRecord,
+  supplied?: Uint8Array,
+  classes?: Promise<AccountClasses> | AccountClasses,
+): Promise<Uint8Array> => (await openAccount(record, supplied, classes)).master;
+
+/**
+ * The record among `records` that `master` opens: by the build's class's address, by a recorded
+ * class's, by the fingerprint, or by the previous class's address for a record without one.
+ */
+export async function findRecordFor(
+  records: MasterRecord[],
+  master: Uint8Array,
+  classes: Promise<AccountClasses> | AccountClasses = buildClasses(),
+): Promise<MasterRecord | undefined> {
+  const c = await classes;
+  const address = await c.current.addressOf(master, 0);
+  const byAddress = records.find(
+    (r) => r.account.address === address || r.account.addresses?.[c.current.id] === address,
+  );
+  if (byAddress) return byAddress;
+  const fingerprint = await fingerprintOf(master);
+  const byFingerprint = records.find((r) => r.fingerprint === fingerprint);
+  if (byFingerprint) return byFingerprint;
+  const legacy = await c.previous.addressOf(master, 0);
+  return records.find((r) => !r.fingerprint && r.account.address === legacy);
 }
 
 /** Convenience mode on: seal and store. Off: drop the ciphertext; a touch per open from here on. */

@@ -10,6 +10,7 @@ import type { Plugin, UserConfig } from 'vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { faviconDataUrl } from '../../ui/src/mark.ts';
 import {
+  appRoleFrom,
   type DeploymentRecord,
   type ExampleClaim,
   loadSiteConfig,
@@ -61,6 +62,7 @@ export function siteConfig(command: 'build' | 'serve', env: NodeJS.ProcessEnv = 
     deployment,
     exampleClaim,
     env,
+    role: appRoleFrom(env.YACANA_APP_ROLE),
     sourceCommit: sourceCommit(env),
     bbVersion: (
       JSON.parse(readFileSync(resolve(repo, 'node_modules/@aztec/bb.js/package.json'), 'utf8')) as {
@@ -79,6 +81,13 @@ const favicon = (): Plugin => ({
       `<head>\n    <link rel="icon" type="image/svg+xml" href="${faviconDataUrl('idle')}" />`,
     ),
 });
+
+/** The certificate an e2e run hands its previews (YACANA_E2E_TLS_CERT / _KEY), or nothing. */
+const e2eTls = (): Pick<NonNullable<UserConfig['preview']>, 'https'> => {
+  const cert = process.env.YACANA_E2E_TLS_CERT;
+  const key = process.env.YACANA_E2E_TLS_KEY;
+  return cert && key ? { https: { cert: readFileSync(cert), key: readFileSync(key) } } : {};
+};
 
 /** Writes `_headers` next to the bundle so `wrangler pages dev dist` serves the shipped policy. */
 const emitHeaders = (text: string): Plugin => ({
@@ -149,7 +158,12 @@ export function siteVite(app: SiteAppOptions): (ctx: { command: 'build' | 'serve
         favicon(),
       ],
       server: { headers: dev, fs: { allow: [repo] } },
-      preview: { headers: shipped },
+      // An e2e preview answers any host name, over TLS when a case brings a certificate: the rig's
+      // origin case reaches the apps as made-up domains, which WebAuthn accepts only from https.
+      preview: {
+        headers: shipped,
+        ...(config.mode === 'e2e' ? { allowedHosts: true, ...e2eTls() } : {}),
+      },
       ...proverConfig,
       resolve: {
         ...proverConfig.resolve,

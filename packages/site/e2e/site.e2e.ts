@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { type E2eRun, RUN_FILE } from './run.ts';
 
@@ -72,6 +72,50 @@ test('one origin, three apps: every path serves its app under the same headers; 
   await page.goto(`${r.baseURL}/verify${query(r)}`);
   await expect(page.getByTestId('verify')).toBeVisible();
   await expect(page.getByTestId('verify-miner')).toHaveText(r.miner);
+});
+
+test('the versioned origin: the old role under the same headers, restore only, and an open tab learns it is behind', async ({
+  page,
+  request,
+}) => {
+  const r = run();
+  const build = async (base: string) => (await request.get(`${base}/build.json`)).json();
+  const apex = await build(r.baseURL);
+  const old = await build(r.oldBaseURL);
+  expect(apex).toMatchObject({ mode: 'e2e', role: 'apex', miner: r.miner });
+  expect(old).toMatchObject({ mode: 'e2e', role: 'old', miner: r.miner, rollupVersion: apex.rollupVersion });
+  // One policy for both origins, byte for byte.
+  const headersOf = async (base: string, path: string) => {
+    const res = await request.get(`${base}${path}`);
+    expect(res.status(), `${base}${path}`).toBe(200);
+    return Object.fromEntries(POLICY.map((h) => [h, res.headers()[h]]));
+  };
+  for (const path of ['/', '/mine/wallet', '/stats'])
+    expect(await headersOf(r.oldBaseURL, path), path).toEqual(await headersOf(r.baseURL, path));
+
+  // The old origin's miner: retired (no Start), and its key screen restores, never creates.
+  await page.goto(`${r.oldBaseURL}/mine/${query(r)}`);
+  await expect(page.getByTestId('cockpit')).toBeVisible({ timeout: 2 * 60_000 });
+  await expect(page.getByTestId('retired')).toContainText('Mining has ended on this version');
+  await expect(page.getByTestId('start')).toHaveCount(0);
+  const screen = page.getByTestId('key-screen');
+  if (!(await screen.isVisible())) await page.getByTestId('sign-in-mine').click();
+  await expect(page.getByTestId('create-passkey')).toBeDisabled();
+  await expect(page.getByTestId('restore-passkey')).toBeEnabled();
+
+  // A tab left open across a redeploy: build.json now names another miner; the next check says reload.
+  await page.goto(`${r.baseURL}/mine/${query(r)}`);
+  await expect(page.getByTestId('cockpit')).toBeVisible({ timeout: 2 * 60_000 });
+  await expect(page.getByTestId('old-tab')).toHaveCount(0);
+  const record = new URL('./.dist/build.json', import.meta.url).pathname;
+  const before = readFileSync(record, 'utf8');
+  try {
+    writeFileSync(record, JSON.stringify({ ...apex, miner: `0x${'1'.repeat(64)}` }));
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await expect(page.getByTestId('old-tab')).toContainText('This tab is behind.', { timeout: 30_000 });
+  } finally {
+    writeFileSync(record, before);
+  }
 });
 
 test('the landing serves no prover; the miner still does', async ({ page, request }) => {

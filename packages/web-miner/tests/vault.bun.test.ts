@@ -1,13 +1,18 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { entropyOf, masterFromMnemonic } from '../../miner-core/src/keys/mnemonic.ts';
+import type { AccountClasses } from '../src/keys/classes.ts';
 import {
   addressOf,
   assertNoLegacyWalletDb,
+  currentAddress,
   DB_NAME,
+  findRecordFor,
   forgetMaster,
+  getRecord,
   listRecords,
   type MasterRecord,
+  openAccount,
   openMaster,
   openPhrase,
   putRecord,
@@ -102,6 +107,73 @@ describe('vault', () => {
     expect((await listRecords())[0]?.sealed).toBeUndefined();
     await forgetMaster(r.id);
     expect(await listRecords()).toEqual([]);
+  });
+
+  /** A master that is not `master`; fresh each time, since a refused open zeroes what it was handed. */
+  const stranger = () => new Uint8Array(32).fill(5);
+
+  /** Two classes that derive distinguishable addresses from any master: `<class>:<first byte>`. */
+  const classes = (currentId: string, previousId: string): AccountClasses => {
+    const under = (id: string) => async (m: Uint8Array) => `${id}:${m[0]}`;
+    return {
+      current: { id: currentId, addressOf: under(currentId) },
+      previous: { id: previousId, addressOf: under(previousId) },
+    };
+  };
+
+  test('an existing sealed record opens under an unchanged class and gains its fingerprint and address', async () => {
+    const same = classes('c1', 'c1');
+    const legacy: MasterRecord = { ...(await record('passkey')), account: { address: 'c1:0', index: 0 } };
+    legacy.sealed = await seal(master, legacy);
+    await putRecord(legacy);
+    const opened = await openAccount(legacy, undefined, same);
+    expect(new Uint8Array(opened.master)).toEqual(master);
+    expect(opened.record.fingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect(opened.record.account.addresses).toEqual({ c1: 'c1:0' });
+    expect((await getRecord(legacy.id))?.fingerprint).toBe(opened.record.fingerprint);
+    // Opened again: nothing new to write, the same object comes back.
+    expect((await openAccount(opened.record, undefined, same)).record).toBe(opened.record);
+    expect(currentAddress(opened.record, 'c1')).toBe('c1:0');
+    expect(currentAddress(opened.record, 'c2')).toBe('c1:0');
+  });
+
+  test('under a changed class, a legacy record migrates only when the old class agrees; a wrong phrase is refused', async () => {
+    const changed = classes('c2', 'c1');
+    const legacy: MasterRecord = { ...(await record('passkey')), account: { address: 'c1:0', index: 0 } };
+    await expect(openAccount(legacy, stranger(), changed)).rejects.toThrow(/different account/);
+    const migrated = await openAccount(legacy, master, changed);
+    expect(migrated.record.account.address).toBe('c1:0');
+    expect(migrated.record.account.addresses).toEqual({ c2: 'c2:0' });
+    expect(migrated.record.fingerprint).toBeDefined();
+    expect(currentAddress(migrated.record, 'c2')).toBe('c2:0');
+    // With the fingerprint on record, a later class change migrates by it, and a wrong master is still refused.
+    const third = classes('c3', 'c2');
+    expect((await openAccount(migrated.record, master, third)).record.account.addresses).toEqual({
+      c2: 'c2:0',
+      c3: 'c3:0',
+    });
+    const forged = { ...migrated.record, account: { ...migrated.record.account, address: 'c1:5' } };
+    await expect(openAccount(forged, stranger(), third)).rejects.toThrow(/different account/);
+  });
+
+  test('a restore finds its record by the current address, a recorded one, the fingerprint, or the legacy address', async () => {
+    const legacy: MasterRecord = {
+      ...(await record('passkey')),
+      id: 'legacy',
+      account: { address: 'c1:0', index: 0 },
+    };
+    const fresh: MasterRecord = {
+      ...(await record('words')),
+      id: 'fresh',
+      fingerprint: 'not-this-one',
+      account: { address: 'c2:9', index: 0 },
+    };
+    const records = [fresh, legacy];
+    expect((await findRecordFor(records, master, classes('c1', 'c0')))?.id).toBe('legacy');
+    expect((await findRecordFor(records, master, classes('c2', 'c1')))?.id).toBe('legacy');
+    expect(await findRecordFor(records, stranger(), classes('c2', 'c1'))).toBeUndefined();
+    const migrated = (await openAccount(legacy, master, classes('c2', 'c1'))).record;
+    expect((await findRecordFor([fresh, migrated], master, classes('c3', 'c2')))?.id).toBe('legacy');
   });
 
   test('a stray interim wallet database is refused, not deleted', async () => {

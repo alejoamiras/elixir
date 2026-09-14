@@ -20,9 +20,12 @@ import {
 import { DesktopOnly } from './components/DesktopOnly';
 import type { Connection } from './config';
 import { isDesktop } from './desktop';
+import { BridgeProviders } from './features/BridgeProviders';
 import { PreflightTile } from './features/KeyScreen';
+import { OldTabNotice } from './features/OldTabNotice';
 import { PrestoBanner } from './features/PrestoBanner';
 import { SignInDialog } from './features/SignInDialog';
+import { TakingLongDialog } from './features/TakingLongDialog';
 import { useHotkeys, usePauses, useResumeOnOpen } from './features/use-page-behaviour';
 import { pillStatus } from './lib/status';
 import { prestoAtom } from './presto';
@@ -155,7 +158,7 @@ export function App({ connection, session }: { connection: Connection; session: 
   useTabStatus(settings.tabStatus);
   useHotkeys(controller, onStart, !dialogShowing);
   usePauses(controller, settings);
-  useResumeOnOpen(controller);
+  useResumeOnOpen(onStart);
   if (!isDesktop(window)) return <DesktopOnly />;
   const open = boot.phase === 'ready';
   const chain = open || boot.phase === 'signedOut' || boot.phase === 'opening';
@@ -173,11 +176,17 @@ export function App({ connection, session }: { connection: Connection; session: 
         </Alert>
       )}
       {boot.phase === 'preflight' && <PreflightTile rows={boot.rows} />}
+      <OldTabNotice miner={connection.miner} rollupVersion={import.meta.env.VITE_ROLLUP_VERSION} />
       {chain && route === 'mine' && <PrestoBanner onRetry={onRetry} />}
-      {chain && route === 'mine' && <Mine controller={controller} onStart={onStart} />}
+      {chain && route === 'mine' && <Mine controller={controller} onStart={onStart} session={session} />}
       {open && route === 'wallet' && <Wallet session={session} />}
       {route === 'settings' && <Settings connection={connection} controller={controller} session={session} />}
       {route !== 'settings' && <SignInDialog session={session} />}
+      {open && (
+        <BridgeProviders>
+          <TakingLongDialog onSettings={() => navigate('settings')} />
+        </BridgeProviders>
+      )}
       <p className="text-xs text-ink-2">
         Whoever serves this page controls it: a compromised host could redirect claims or spend this wallet.
         Run your own build if that matters. Chain reads come from the node in Settings and can only waste work

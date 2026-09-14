@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { validWords } from '../../../miner-core/src/keys/mnemonic.ts';
 import { Alert, AlertDescription, AlertTitle, Button, Input, Textarea } from '../../../ui/src/index.ts';
 import { answer, HIDE_AFTER_MS, passed, pending, QUIZ_INDICES, type Quiz, startQuiz } from './words-quiz';
@@ -62,18 +62,16 @@ export function WordsBackup({
   const [hidden, setHidden] = useState(false);
   const [quiz, setQuiz] = useState(() => startQuiz(phrase));
   const [busy, setBusy] = useState(false);
-  const quizRef = useRef(quiz);
-  quizRef.current = quiz;
   useEffect(() => {
     const hide = () => setHidden(true);
     const timer = setTimeout(hide, HIDE_AFTER_MS);
     const onVisibility = () => document.hidden && hide();
     document.addEventListener('visibilitychange', onVisibility);
+    // No state reset here: the answers die with the component, and a reset from an effect's cleanup
+    // ran under StrictMode's rehearsal too, leaving a mounted quiz that no answer could pass.
     return () => {
       clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisibility);
-      // The quiz forgets its answers; the phrase itself lives on in the session for the backup screen.
-      setQuiz(startQuiz(''));
     };
   }, []);
   const words = phrase.split(' ');

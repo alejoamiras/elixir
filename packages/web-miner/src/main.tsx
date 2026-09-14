@@ -9,7 +9,7 @@ import { App } from './App';
 import { loadConnection } from './config';
 import type { MinerController } from './controller';
 import { Session } from './session';
-import { claimsAtom, crsAtom, logAtom, nowAtom } from './state';
+import { bootAtom, claimsAtom, crsAtom, logAtom, nowAtom } from './state';
 import { PROVERLESS } from './wallet';
 
 const store = createStore();
@@ -17,25 +17,31 @@ const store = createStore();
 // prover wait for them, the page does not. A failure is in the atom and in `crsReady()`.
 startCrs((c) => store.set(crsAtom, c)).catch(() => {});
 const connection = loadConnection();
-// Claims history stays on this device (localStorage), keyed by nothing: it names no key.
-const CLAIMS_KEY = 'yacana.claims';
-try {
-  const stored = JSON.parse(localStorage.getItem(CLAIMS_KEY) ?? '[]') as {
-    epoch: string;
-    block: number;
-    at: number;
-  }[];
-  store.set(
-    claimsAtom,
-    stored.map((c) => ({ ...c, epoch: BigInt(c.epoch) })),
-  );
-} catch {
-  /* foreign value: start empty */
-}
+// Claims history stays on this device (localStorage), under the deployment and, once an account is
+// open, the account: another version's or another key's claims are not this cockpit's ledger.
+const deploymentKey = `${import.meta.env.VITE_CHAIN_ID}.${import.meta.env.VITE_ROLLUP_VERSION}.${connection.miner}`;
+const claimsKeyFor = (account?: string) => `yacana.claims.${deploymentKey}${account ? `.${account}` : ''}`;
+let claimsKey = claimsKeyFor();
+const loadClaims = (key: string) => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(key) ?? '[]') as {
+      epoch: string;
+      block: number;
+      at: number;
+    }[];
+    store.set(
+      claimsAtom,
+      stored.map((c) => ({ ...c, epoch: BigInt(c.epoch) })),
+    );
+  } catch {
+    store.set(claimsAtom, []); // foreign value: start empty
+  }
+};
+loadClaims(claimsKey);
 store.sub(claimsAtom, () => {
   try {
     localStorage.setItem(
-      CLAIMS_KEY,
+      claimsKey,
       JSON.stringify(store.get(claimsAtom).map((c) => ({ ...c, epoch: c.epoch.toString() }))),
     );
   } catch {
@@ -43,6 +49,14 @@ store.sub(claimsAtom, () => {
   }
 });
 const session = new Session(store, connection);
+// The account's own ledger once it is open; signing out goes back to the device's.
+store.sub(bootAtom, () => {
+  const boot = store.get(bootAtom);
+  const next = claimsKeyFor(boot.phase === 'ready' ? boot.account : undefined);
+  if (next === claimsKey) return;
+  claimsKey = next;
+  loadClaims(claimsKey);
+});
 setInterval(() => store.set(nowAtom, Date.now()), 1000);
 
 // E2E hooks: the test drives the same session and controller the buttons use.

@@ -8,7 +8,8 @@ import { type E2eRun, RUN_FILE } from './run.ts';
 const file = Bun.file(RUN_FILE);
 if (await file.exists()) {
   const run = (await file.json()) as E2eRun;
-  for (const pid of [run.vitePid, run.proxyPid]) {
+  for (const pid of [run.vitePid, run.proxyPid, run.controlPid ?? 0]) {
+    if (!pid) continue;
     try {
       process.kill(-pid, 'SIGKILL');
     } catch {

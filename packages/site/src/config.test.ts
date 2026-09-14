@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
+  appRoleFrom,
   type DeploymentRecord,
   type ExampleClaim,
   loadSiteConfig,
@@ -157,6 +158,109 @@ describe('site config', () => {
       expect(c.previewHostSuffix).toBe('');
       expect(viteDefine(c)['import.meta.env.VITE_PREVIEW_HOST_SUFFIX']).toBe('""');
     }
+  });
+
+  test('the Ethereum side: site.env in production, overridable elsewhere, refused when plaintext or local', () => {
+    const c = loadSiteConfig({
+      ...base,
+      mode: 'production',
+      env: { VITE_ETH_RPC_URL: 'http://localhost:8545' },
+    });
+    expect(c.ethRpcUrl).toBe(siteEnv.VITE_ETH_RPC_URL);
+    expect(c.l1ExplorerUrl).toBe('https://sepolia.etherscan.io');
+    expect(c.oldAppOrigin).toBe('https://v5.yacana.network');
+    expect(c.role).toBe('apex');
+    expect(viteDefine(c)['import.meta.env.VITE_APP_ROLE']).toBe('"apex"');
+    expect(viteDefine(c)['import.meta.env.VITE_ETH_RPC_URL']).toBe(JSON.stringify(siteEnv.VITE_ETH_RPC_URL));
+    const e2e = loadSiteConfig({
+      ...base,
+      mode: 'e2e',
+      env: {
+        VITE_ETH_RPC_URL: 'http://127.0.0.1:8545',
+        VITE_L1_EXPLORER_URL: 'off',
+        VITE_OLD_APP_ORIGIN: 'http://localhost:4173',
+      },
+    });
+    expect(e2e.ethRpcUrl).toBe('http://127.0.0.1:8545');
+    expect(e2e.l1ExplorerUrl).toBe('off');
+    expect(e2e.oldAppOrigin).toBe('http://localhost:4173');
+    const attempt = (patch: Record<string, string>) => () =>
+      loadSiteConfig({ ...base, mode: 'production', siteEnv: { ...siteEnv, ...patch } });
+    expect(attempt({ VITE_ETH_RPC_URL: 'http://rpc.example' })).toThrow(/Ethereum RPC .* not https/);
+    expect(attempt({ VITE_ETH_RPC_URL: 'https://127.0.0.1:8545' })).toThrow(/Ethereum RPC .* is local/);
+    expect(attempt({ VITE_L1_EXPLORER_URL: 'http://etherscan.example' })).toThrow(
+      /Ethereum explorer .* not https/,
+    );
+    expect(attempt({ VITE_OLD_APP_ORIGIN: 'http://v5.yacana.network' })).toThrow(/old app origin/);
+    expect(attempt({ VITE_OLD_APP_ORIGIN: 'https://localhost' })).toThrow(/old app origin/);
+    expect(attempt({ VITE_OLD_APP_ORIGIN: 'https://yacana.network' })).toThrow(/is the apex itself/);
+    expect(attempt({ VITE_ETH_RPC_URL: '' })).toThrow(/VITE_ETH_RPC_URL is required/);
+  });
+
+  test('the old role takes its own preview suffix; a role is one of two words', () => {
+    const old = loadSiteConfig({ ...base, mode: 'production', role: 'old' });
+    expect(old.role).toBe('old');
+    expect(old.previewHostSuffix).toBe('-yacana-v5.alejo-amiras.workers.dev');
+    expect(viteDefine(old)['import.meta.env.VITE_APP_ROLE']).toBe('"old"');
+    expect(loadSiteConfig({ ...base, mode: 'production' }).previewHostSuffix).toBe(
+      '-yacana.alejo-amiras.workers.dev',
+    );
+    expect(() =>
+      loadSiteConfig({
+        ...base,
+        mode: 'production',
+        role: 'old',
+        siteEnv: { ...siteEnv, VITE_PREVIEW_HOST_SUFFIX_OLD: '-yacana-v5.other.pages.dev' },
+      }),
+    ).toThrow(/preview host suffix/);
+    expect(appRoleFrom(undefined)).toBe('apex');
+    expect(appRoleFrom('old')).toBe('old');
+    expect(() => appRoleFrom('legacy')).toThrow(/YACANA_APP_ROLE=/);
+  });
+
+  test("the record's bridge and migration blocks travel as JSON; an e2e build may hand its own", () => {
+    const bridge = {
+      chainId: '11155111',
+      portal: `0x${'be'.repeat(20)}`,
+      yaca: `0x${'ca'.repeat(20)}`,
+      registry: `0x${'ee'.repeat(20)}`,
+      operators: `0x${'01'.repeat(20)}`,
+      l1RpcUrl: 'https://rpc.example',
+    };
+    const migration = { toIndex: '1', announcedAt: '1790000000', expectedFlipAt: '1790600000' };
+    const none = loadSiteConfig({ ...base, mode: 'production' });
+    expect(none.bridge).toBeNull();
+    expect(none.migration).toBeNull();
+    expect(viteDefine(none)['import.meta.env.VITE_BRIDGE']).toBe('""');
+    expect(viteDefine(none)['import.meta.env.VITE_MIGRATION']).toBe('""');
+    const recorded = loadSiteConfig({
+      ...base,
+      mode: 'production',
+      deployment: { ...deployment, bridge, migration },
+    });
+    expect(recorded.bridge).toEqual(bridge);
+    expect(recorded.migration).toEqual(migration);
+    expect(JSON.parse(viteDefine(recorded)['import.meta.env.VITE_MIGRATION'] as string)).toBe(
+      JSON.stringify(migration),
+    );
+    const handed = loadSiteConfig({
+      ...base,
+      mode: 'e2e',
+      env: { VITE_BRIDGE: JSON.stringify(bridge), VITE_MIGRATION: JSON.stringify(migration) },
+    });
+    expect(handed.bridge?.portal).toBe(bridge.portal);
+    expect(handed.migration?.toIndex).toBe('1');
+    // Production never takes them from the environment.
+    expect(
+      loadSiteConfig({ ...base, mode: 'production', env: { VITE_BRIDGE: JSON.stringify(bridge) } }).bridge,
+    ).toBeNull();
+    expect(() =>
+      loadSiteConfig({
+        ...base,
+        mode: 'production',
+        deployment: { ...deployment, migration: { ...migration, toIndex: 'one' } },
+      }),
+    ).toThrow(/toIndex/);
   });
 
   test('the mode is one of three words or an error, never a fourth mode by typo', () => {

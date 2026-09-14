@@ -1,7 +1,10 @@
 // The explorer links the miner shows, from the build's configured base.
 import { explorer, explorerBase } from '../../site/src/browser/explorer.ts';
+import { l1Explorer } from '../../site/src/browser/l1-explorer.ts';
 
 export const links = explorer(explorerBase(import.meta.env.VITE_EXPLORER_URL));
+/** The Ethereum side's links: YACA, the portal, a forward or a deposit. */
+export const l1Links = l1Explorer(import.meta.env.VITE_L1_EXPLORER_URL);
 
 /** The ledger's resolver: a minted line's block and transaction as explorer URLs. */
 export const ledgerLinks = (l: { block: number; tx: string }) => ({

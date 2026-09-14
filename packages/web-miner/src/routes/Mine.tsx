@@ -1,12 +1,39 @@
 import { useAtomValue } from 'jotai';
+import { useState } from 'react';
 import { TileBoundary } from '../../../ui/src/index.ts';
+import { isOldRole } from '../bridge/env';
 import { BalanceCard } from '../components/BalanceCard';
 import type { MinerController } from '../controller';
+import { ArrivalCard } from '../features/ArrivalCard';
+import { BridgeProviders } from '../features/BridgeProviders';
 import { LedgerTile } from '../features/LedgerTile';
 import { KpiTiles, LoopTile } from '../features/LoopTile';
+import { MigrationCard } from '../features/MigrationCard';
 import { RailTile } from '../features/RailTile';
+import { Retired } from '../features/Retired';
+import { SendAheadSheet } from '../features/SendAheadSheet';
 import { useTileLog } from '../lib/tile-log';
-import { bootAtom } from '../state';
+import { navigate } from '../routes';
+import type { Session } from '../session';
+import { balanceAtom, bootAtom } from '../state';
+
+/** The guided path over the cockpit: the migration card and what has arrived, with the send-ahead sheet. */
+function GuidedPath({ session }: { session: Session }) {
+  const onError = useTileLog();
+  const balance = useAtomValue(balanceAtom);
+  const [ahead, setAhead] = useState(false);
+  return (
+    <BridgeProviders>
+      <TileBoundary name="migration" onError={onError} className="md:col-span-2 xl:col-span-4">
+        <MigrationCard onSendAhead={() => setAhead(true)} />
+      </TileBoundary>
+      <TileBoundary name="arrivals" onError={onError} className="md:col-span-2 xl:col-span-4">
+        <ArrivalCard session={session} onResume={() => navigate('wallet')} />
+      </TileBoundary>
+      <SendAheadSheet session={session} balance={balance ?? 0n} open={ahead} onOpenChange={setAhead} />
+    </BridgeProviders>
+  );
+}
 
 /**
  * The ledger and the balance tile share a wrapper so that between `md` and `xl` they stack beside the
@@ -15,10 +42,13 @@ import { bootAtom } from '../state';
 export function Mine({
   controller,
   onStart,
+  session,
 }: {
   controller: () => MinerController | undefined;
   /** The user's Start (through the session, which re-asks Presto); a bare controller start otherwise. */
   onStart?: () => void;
+  /** The bridge's session, when the page has one: the guided path renders over the cockpit. */
+  session?: Session;
 }) {
   const onError = useTileLog();
   const ready = useAtomValue(bootAtom).phase === 'ready';
@@ -28,12 +58,17 @@ export function Mine({
       data-signed-out={ready ? undefined : ''}
       data-testid="cockpit"
     >
+      {session && ready && <GuidedPath session={session} />}
       <TileBoundary name="loop" onError={onError} className="md:col-span-2 xl:col-span-3">
-        <LoopTile
-          controller={controller}
-          onStart={onStart ?? (() => controller()?.start())}
-          className="md:col-span-2 xl:col-span-3"
-        />
+        {isOldRole() ? (
+          <Retired className="md:col-span-2 xl:col-span-3" />
+        ) : (
+          <LoopTile
+            controller={controller}
+            onStart={onStart ?? (() => controller()?.start())}
+            className="md:col-span-2 xl:col-span-3"
+          />
+        )}
       </TileBoundary>
       <TileBoundary name="rail" onError={onError} className="md:order-3 xl:order-none xl:row-span-2">
         <RailTile controller={controller} className="md:order-3 xl:order-none xl:row-span-2" />

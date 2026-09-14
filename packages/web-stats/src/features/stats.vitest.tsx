@@ -478,7 +478,15 @@ describe('the two beats on the page', () => {
     const store = createStore();
     render(
       <Provider store={store}>
-        <App connection={{ nodeUrl: 'http://node.test', miner: '0x1', token: '0x2' }} onWindow={() => {}} />
+        <App
+          connection={{
+            nodeUrl: 'http://node.test',
+            ethRpcUrl: 'http://rpc.test',
+            miner: '0x1',
+            token: '0x2',
+          }}
+          onWindow={() => {}}
+        />
       </Provider>,
     );
     expect(screen.getByTestId('freshness-pending').textContent).toBe('reading the chain…');

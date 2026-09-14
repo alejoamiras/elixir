@@ -41,7 +41,8 @@ export function CreateKey({
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [words, setWords] = useState<Words>({ mode: 'none' });
-  const allowed = keysAllowed(location.hostname);
+  const canCreate = keysAllowed(location.hostname, 'create');
+  const canRestore = keysAllowed(location.hostname, 'restore');
   const go = (fn: () => Promise<void>) => {
     setBusy(true);
     void fn().finally(() => setBusy(false));
@@ -79,6 +80,14 @@ export function CreateKey({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+      {!canCreate && canRestore && (
+        <Alert variant="warn" data-testid="host-note">
+          <AlertDescription>
+            Accounts are restored here, not created. Create one at {import.meta.env.VITE_RP_ID}; the same
+            passkey or twelve words open it here.
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="flex flex-col gap-3">
         <label className="flex items-start gap-3 text-sm text-ink-2">
           <input
@@ -93,7 +102,7 @@ export function CreateKey({
         <Button
           variant="uv"
           size="lg"
-          disabled={!consent || busy || !allowed}
+          disabled={!consent || busy || !canCreate}
           onClick={() => go(() => session.createWithPasskey())}
           data-testid="create-passkey"
         >
@@ -107,7 +116,7 @@ export function CreateKey({
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
         <Button
           variant="link"
-          disabled={busy || !allowed}
+          disabled={busy || !canCreate}
           onClick={() => setWords({ mode: 'create', phrase: session.newWords() })}
           data-testid="use-words"
         >
@@ -115,7 +124,7 @@ export function CreateKey({
         </Button>
         <Button
           variant="link"
-          disabled={busy || !allowed}
+          disabled={busy || !canRestore}
           onClick={() => go(() => session.restoreWithPasskey())}
           data-testid="restore-passkey"
         >
@@ -123,7 +132,7 @@ export function CreateKey({
         </Button>
         <Button
           variant="link"
-          disabled={busy || !allowed}
+          disabled={busy || !canRestore}
           onClick={() => setWords({ mode: 'restore' })}
           data-testid="restore-words"
         >

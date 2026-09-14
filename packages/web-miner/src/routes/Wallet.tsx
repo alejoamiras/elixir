@@ -1,10 +1,16 @@
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
+import type { Crossing } from '../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { Badge, Button, ExternalLink, Kpi, Tile, TileBoundary, TileHeader } from '../../../ui/src/index.ts';
 import { links } from '../explorer';
+import { ArrivalCard } from '../features/ArrivalCard';
+import { BridgeProviders } from '../features/BridgeProviders';
+import { BridgeTile } from '../features/BridgeTile';
+import { DepositSheet, HeldSheet } from '../features/DepositSheet';
 import { SendSheet } from '../features/SendSheet';
 import { SignOutDialog } from '../features/SignOutDialog';
+import { ToEthereumSheet } from '../features/ToEthereumSheet';
 import { WordsBackup } from '../features/WordsScreens';
 import type { MasterRecord } from '../keys/store';
 import { amount, shortAddress } from '../lib/format';
@@ -156,6 +162,10 @@ export function Wallet({ session }: { session: Session }) {
   const balance = useAtomValue(balanceAtom);
   const claims = useAtomValue(claimsAtom);
   const [send, setSend] = useState(() => takeIntent() === 'send');
+  const [exit, setExit] = useState(false);
+  const [deposit, setDeposit] = useState<false | { resume?: Crossing }>(false);
+  const [redeem, setRedeem] = useState<Crossing | null>(null);
+  const [forward, setForward] = useState<Crossing | null>(null);
   const [signOut, setSignOut] = useState(false);
   // A backup opened from the sign-out dialog returns to the dialog once the words are confirmed.
   const [backup, setBackup] = useState<false | 'account' | 'sign-out'>(false);
@@ -195,6 +205,42 @@ export function Wallet({ session }: { session: Session }) {
       <TileBoundary name="claims" onError={onError} className="md:col-span-2">
         <ClaimsHistory claims={claims} />
       </TileBoundary>
+      <BridgeProviders>
+        <TileBoundary name="bridge" onError={onError} className="md:col-span-2">
+          <BridgeTile
+            session={session}
+            account={account}
+            onToEthereum={() => setExit(true)}
+            onDeposit={() => setDeposit({})}
+            onForward={setForward}
+            onRedeem={setRedeem}
+          />
+        </TileBoundary>
+        <TileBoundary name="arrivals" onError={onError} className="md:col-span-2">
+          <ArrivalCard session={session} onResume={(c) => setDeposit({ resume: c })} />
+        </TileBoundary>
+        <ToEthereumSheet session={session} balance={balance ?? 0n} open={exit} onOpenChange={setExit} />
+        {deposit && (
+          <DepositSheet
+            session={session}
+            open
+            onOpenChange={(o) => !o && setDeposit(false)}
+            resume={deposit.resume}
+          />
+        )}
+        <HeldSheet
+          session={session}
+          crossing={redeem}
+          action="redeem"
+          onOpenChange={(o) => !o && setRedeem(null)}
+        />
+        <HeldSheet
+          session={session}
+          crossing={forward}
+          action="forward"
+          onOpenChange={(o) => !o && setForward(null)}
+        />
+      </BridgeProviders>
       <SendSheet
         session={session}
         self={account}

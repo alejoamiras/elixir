@@ -1,5 +1,6 @@
 node_modules/
 dist/
+packages/site/dist-old/
 target/
 .run-state/
 .localnet/
@@ -22,6 +23,10 @@ packages/web-miner/e2e/.renders/
 packages/web-miner/e2e/.report.json
 packages/web-miner/e2e/.timings.json
 packages/web-miner/e2e/.breakdown.json
+packages/web-miner/e2e/.record.json
+packages/web-miner/e2e/.witnesses.jsonl
+packages/web-miner/e2e/.rig-dist-*/
+packages/web-miner/e2e/.rig-report.json
 packages/web-miner/e2e/replay/.run.json
 packages/web-miner/e2e/replay/.dist/
 packages/web-miner/e2e/replay/.vite.log
@@ -58,6 +63,7 @@ packages/web-landing/e2e/.vite.log
 # site assembly outputs and E2E state
 packages/site/e2e/.run.json
 packages/site/e2e/.dist/
+packages/site/e2e/.dist-old/
 packages/site/e2e/.wrangler.log
 .wrangler/
 packages/site/test-results/

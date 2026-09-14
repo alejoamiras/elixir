@@ -1,9 +1,10 @@
-// The page's own bound on where it talks: the policy admits any https origin so the node can be
-// a setting, and this interceptor refuses in code everything that is not the page's origin, the
-// node in use, the accelerator's fixed URLs or a candidate under check. Installed once per context (page and prover Worker)
-// before `pinned-crs`, whose fall-through it is, so an unpinned CRS host fails here instead of
-// reaching the network. `data:` and `blob:` loads are not network requests (bb.js carries its
-// WASM as `data:` URLs) and pass untouched.
+// The page's own bound on where it talks: the policy admits any https origin so the node and the
+// Ethereum RPC can be settings, and this interceptor refuses in code everything that is not the
+// page's origin, the node in use, the Ethereum RPC in use, the accelerator's fixed URLs or a
+// candidate under check. Installed once per context (page and prover Worker) before `pinned-crs`,
+// whose fall-through it is, so an unpinned CRS host fails here instead of reaching the network.
+// `data:` and `blob:` loads are not network requests (bb.js carries its WASM as `data:` URLs) and
+// pass untouched.
 export interface NodeRequestOutcome {
   /** The normalised endpoint the request went to. */
   endpoint: string;
@@ -31,6 +32,10 @@ interface GuardState {
   /** Requests in flight under `quietNodeReads`. */
   quiet: number;
   listeners: Set<(o: NodeRequestOutcome) => void>;
+  /** The Ethereum RPC's slot: admitted for the session with its deadline, reported to its own listeners, never gated. */
+  ethRpc: string | null;
+  ethRpcDeadlineMs: number;
+  ethRpcListeners: Set<(o: NodeRequestOutcome) => void>;
   /** A synthetic answer for the endpoint while it is on a cooldown; null lets the request through. */
   gate: ((endpoint: string) => Response | null) | null;
 }
@@ -62,14 +67,34 @@ const state = (): GuardState => {
 export const setNodeEndpoint = (url: string | null, deadlineMs: number): void => {
   const s = state();
   const endpoint = url === null ? null : normaliseEndpoint(url);
-  // A node at an accelerator URL would take its requests (deadline, gate, reporting) and vice versa.
+  // A node at an accelerator's or the RPC's URL would take its requests (deadline, gate, reporting) and vice versa.
   if (endpoint !== null && s.accelerators?.has(endpoint))
     throw new Error(`node ${endpoint} is one of the accelerator's URLs`);
+  if (endpoint !== null && endpoint === s.ethRpc)
+    throw new Error(`node ${endpoint} is the Ethereum RPC's URL`);
   s.endpoint = endpoint;
   s.deadlineMs = deadlineMs;
 };
 
 export const currentNodeEndpoint = (): string | null => state().endpoint;
+
+/** The Ethereum RPC beside the node; null clears it. A URL that is the node's or an accelerator's is refused. */
+export const setEthRpcEndpoint = (url: string | null, deadlineMs: number): void => {
+  const s = state();
+  const endpoint = url === null ? null : normaliseEndpoint(url);
+  if (endpoint !== null && (endpoint === s.endpoint || s.accelerators?.has(endpoint)))
+    throw new Error(`Ethereum RPC ${endpoint} is the node's or an accelerator's URL`);
+  s.ethRpc = endpoint;
+  s.ethRpcDeadlineMs = deadlineMs;
+};
+
+export const currentEthRpcEndpoint = (): string | null => state().ethRpc;
+
+export function onEthRpcResponse(fn: (o: NodeRequestOutcome) => void): () => void {
+  const s = state();
+  s.ethRpcListeners.add(fn);
+  return () => void s.ethRpcListeners.delete(fn);
+}
 
 /**
  * The accelerator's URLs, exactly (the SDK's health and prove routes on its host and ports): each
@@ -141,14 +166,11 @@ interface Started {
   endpoint: string;
   startedAt: number;
   quiet: boolean;
+  /** Whose outcome it is: the node's listeners or the Ethereum RPC's. */
+  listeners: Set<(o: NodeRequestOutcome) => void>;
 }
 
-function report(
-  s: GuardState,
-  r: Started,
-  status: NodeRequestOutcome['status'],
-  retryAfter: string | null = null,
-) {
+function report(r: Started, status: NodeRequestOutcome['status'], retryAfter: string | null = null) {
   const o: NodeRequestOutcome = {
     endpoint: r.endpoint,
     startedAt: r.startedAt,
@@ -157,7 +179,7 @@ function report(
     retryAfter,
     quiet: r.quiet,
   };
-  for (const fn of s.listeners) fn(o);
+  for (const fn of r.listeners) fn(o);
 }
 
 const died = (e: unknown): 'timeout' | 'network' =>
@@ -168,16 +190,16 @@ const died = (e: unknown): 'timeout' | 'network' =>
  * resolves: the outcome is reported once the body has landed (or died), through a pass-through
  * stream, so a recovery is not declared on headers alone.
  */
-function reportOnBody(s: GuardState, r: Started, res: Response): Response {
+function reportOnBody(r: Started, res: Response): Response {
   if (!res.body) {
-    report(s, r, res.status, res.headers.get('retry-after'));
+    report(r, res.status, res.headers.get('retry-after'));
     return res;
   }
   let done = false;
   const settle = (status: NodeRequestOutcome['status']) => {
     if (done) return;
     done = true;
-    report(s, r, status, res.headers.get('retry-after'));
+    report(r, status, res.headers.get('retry-after'));
   };
   const observed = new TransformStream<Uint8Array, Uint8Array>({
     flush: () => settle(res.status),
@@ -217,12 +239,37 @@ async function nodeRequest(
   if (synthetic) return synthetic;
   // Quiet is decided at the start: a reader that gave up on this request (its own deadline) may
   // have left `quietNodeReads` before the body lands, and the outcome still belongs to optional work.
-  const r: Started = { endpoint, startedAt: performance.now(), quiet: s.quiet > 0 };
+  const r: Started = { endpoint, startedAt: performance.now(), quiet: s.quiet > 0, listeners: s.listeners };
+  return tracked(s, r, input, init, s.deadlineMs);
+}
+
+/** The Ethereum RPC's request: its deadline, reported to its listeners; the node's gate and quiet scope are not its. */
+const ethRpcRequest = (
+  s: GuardState,
+  endpoint: string,
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+): Promise<Response> =>
+  tracked(
+    s,
+    { endpoint, startedAt: performance.now(), quiet: false, listeners: s.ethRpcListeners },
+    input,
+    init,
+    s.ethRpcDeadlineMs,
+  );
+
+async function tracked(
+  s: GuardState,
+  r: Started,
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  deadlineMs: number,
+): Promise<Response> {
   try {
-    const res = await s.original(input, withDeadline(input, init, s.deadlineMs));
-    return reportOnBody(s, r, res);
+    const res = await s.original(input, withDeadline(input, init, deadlineMs));
+    return reportOnBody(r, res);
   } catch (e) {
-    report(s, r, died(e));
+    report(r, died(e));
     throw e;
   }
 }
@@ -245,6 +292,9 @@ export function installNodeGuard(): void {
     acceleratorDeadlineMs: 300_000,
     quiet: 0,
     listeners: new Set(),
+    ethRpc: null,
+    ethRpcDeadlineMs: 30_000,
+    ethRpcListeners: new Set(),
     gate: null,
   };
   s.guarded = ((input: RequestInfo | URL, init?: RequestInit) => {
@@ -255,6 +305,7 @@ export function installNodeGuard(): void {
     // served from it still gets the deadline, the gate and the reporting.
     const endpoint = normaliseEndpoint(url.href);
     if (endpoint === s.endpoint) return nodeRequest(s, endpoint, input, init);
+    if (endpoint === s.ethRpc) return ethRpcRequest(s, endpoint, input, init);
     if (s.accelerators?.has(endpoint))
       return s.original(input, withDeadline(input, init, s.acceleratorDeadlineMs));
     const lease = s.candidates.get(endpoint);
@@ -262,7 +313,7 @@ export function installNodeGuard(): void {
     if (url.origin === globalThis.location?.origin) return s.original(input, init);
     return Promise.reject(
       new Error(
-        `blocked endpoint ${url.origin}${url.pathname}: not this page, its node, its accelerator or a candidate`,
+        `blocked endpoint ${url.origin}${url.pathname}: not this page, its node, its Ethereum RPC, its accelerator or a candidate`,
       ),
     );
   }) as typeof globalThis.fetch;

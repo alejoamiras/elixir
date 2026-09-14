@@ -27,4 +27,15 @@ interface ImportMetaEnv {
   readonly VITE_EXAMPLE_CLAIM: string;
   /** JSON of the deployment record the build was made for. */
   readonly VITE_DEPLOYMENT_RECORD: string;
+  /** The default Ethereum JSON-RPC; a user may pick another from the miner's settings. */
+  readonly VITE_ETH_RPC_URL: string;
+  /** The Ethereum explorer's origin, or `off`. */
+  readonly VITE_L1_EXPLORER_URL: string;
+  /** Where this version's last build lives after a flip; the `versioned` host. */
+  readonly VITE_OLD_APP_ORIGIN: string;
+  readonly VITE_APP_ROLE: 'apex' | 'old';
+  /** JSON of the record's announced migration, or '' when none is announced. */
+  readonly VITE_MIGRATION: string;
+  /** JSON of the record's portal block, or '' before the L1 deploy. */
+  readonly VITE_BRIDGE: string;
 }
