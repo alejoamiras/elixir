@@ -94,6 +94,9 @@ after the flip lands like any other once its epoch is proven (rig case H4). The 
    send-ahead is forwarded into V6 (the target record names the miner the portal must route to; a mismatch holds
    every send-ahead) and every exit to Ethereum. Rerun as later epochs settle; `--from-archive` once V5's node is
    gone. Holders may forward their own from the V6 page, or redeem to Ethereum instead; nothing waits on Yacana.
+   No cron runs this: Yacana forwards by hand, when a next version opens and as later epochs settle, and the pages
+   promise no schedule, only that Yacana forwards a held send-ahead once the next version opens and that holders
+   can forward or redeem themselves.
 10. **The witness archive.** Commit `deployments/witnesses/testnet.jsonl` and redeploy the site: the assembly
     serves each version's lines at `/witnesses/<version>.jsonl`, and a holder's page on V6 completes a V5 send it
     already holds from there once V5's node is gone (a device that never held it needs the recovery file).
