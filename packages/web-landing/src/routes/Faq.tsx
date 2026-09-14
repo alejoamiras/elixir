@@ -1,8 +1,5 @@
-// `/faq`, under the landing's header: the eyebrow and the title, four sections of question rows
-// (the question on the left, the answer on the right), the six panels of the upgrade as a strip
-// with their coin marks, and the rules as one line each whose row opens on the picture and the
-// reasons. Served by the origin's SPA fallback, so a link from any app lands here; `#rules` from
-// the stats page.
+// `/faq`: served by the origin's SPA fallback, so a link from any app lands here; `#rules` from the
+// stats page. The rules rows are native disclosures: the line always, the picture on demand.
 import { Button, cn } from '../../../ui/src/index.ts';
 import { copy } from '../copy';
 import { type FaqRule, faq } from '../faq-copy';

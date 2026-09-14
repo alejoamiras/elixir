@@ -80,7 +80,7 @@ export const faq = {
         },
         {
           q: 'What if Yacana never opens the next version?',
-          a: 'Your send is proven and held on Ethereum, not on any Yacana contract. A send that could not be forwarded can be redeemed on Ethereum as YACA at any time, by the account that made it.',
+          a: 'Your send is proven and held on Ethereum, not on any Yacana contract. A send that could not be forwarded can be redeemed on Ethereum as YACA any time before the version’s last day, by the account that made it.',
         },
         {
           q: 'Is it the same account on the next version?',

@@ -83,7 +83,7 @@ function ConnectedWallet({
 }
 
 /** The wallet picker: EIP-6963 announcements by name and icon; nothing else. */
-export function WalletPicker({ yaca }: { yaca?: bigint } = {}) {
+export function WalletPicker({ yaca, note }: { yaca?: bigint; note?: string } = {}) {
   const connectors = useConnectors();
   const { connect, isPending, error } = useConnect();
   const account = useAccount();
@@ -118,10 +118,7 @@ export function WalletPicker({ yaca }: { yaca?: bigint } = {}) {
             : 'MetaMask, Rabby, any injected wallet.'}
         </span>
       </div>
-      <p className="text-xs text-ink-3">
-        The wallet pays {chain()} gas and signs one transaction, the deposit. It learns nothing about this
-        account. The YACA then waits here for your Claim.
-      </p>
+      {note && <p className="text-xs text-ink-3">{note}</p>}
       {error && <p className="text-xs text-warn">{error.message.split('\n')[0]}</p>}
     </div>
   );
@@ -309,7 +306,12 @@ export function DepositSheet({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        {step.kind !== 'done' && <WalletPicker yaca={yaca} />}
+        {step.kind !== 'done' && (
+          <WalletPicker
+            yaca={yaca}
+            note={`The wallet pays ${chain()} gas and signs one transaction, the deposit. It learns nothing about this account. The YACA then waits here for your Claim.`}
+          />
+        )}
         {step.kind !== 'done' && account.isConnected && (
           <Form
             text={text}
@@ -328,10 +330,25 @@ export function DepositSheet({
 
 export type HeldAction = 'forward' | 'redeem';
 
-const COPY: Record<HeldAction | 'claim', { title: string; go: string; done: string }> = {
-  claim: { title: 'Claim on Ethereum', go: 'Claim', done: 'Claimed.' },
-  forward: { title: 'Forward it yourself', go: 'Forward', done: 'Forwarded.' },
-  redeem: { title: 'Redeem on Ethereum', go: 'Redeem', done: 'Redeemed.' },
+const COPY: Record<HeldAction | 'claim', { title: string; go: string; done: string; note: string }> = {
+  claim: {
+    title: 'Claim on Ethereum',
+    go: 'Claim',
+    done: 'Claimed.',
+    note: 'The wallet pays the gas for one transaction, the claim; the YACA goes to the recipient named at the burn. It learns nothing about this account.',
+  },
+  forward: {
+    title: 'Forward it yourself',
+    go: 'Forward',
+    done: 'Forwarded.',
+    note: 'The wallet pays the gas for one transaction, the forward; this account’s own secret signs it.',
+  },
+  redeem: {
+    title: 'Redeem on Ethereum',
+    go: 'Redeem',
+    done: 'Redeemed.',
+    note: 'The wallet pays the gas for one transaction, the redeem; the YACA goes to the connected address.',
+  },
 };
 
 const describe = (action: HeldAction, c: Crossing): string => {
@@ -392,7 +409,7 @@ export function HeldSheet({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        <WalletPicker yaca={yaca} />
+        <WalletPicker yaca={yaca} note={copy.note} />
         {crossing && !done && (
           <div className="flex flex-col gap-4">
             <AmountBlock
@@ -406,6 +423,9 @@ export function HeldSheet({
                 label="to"
                 value={account.address ? `Ξ ${shortAddress(account.address)}` : 'connect a wallet'}
               />
+            )}
+            {action === 'forward' && crossing.kind === 1 && (
+              <KvRow label="to" value={`Ξ ${shortAddress(crossing.ethAddress)}`} />
             )}
             <div>
               <Button

@@ -15,7 +15,7 @@ export const migrationRecord = (): MigrationRecord | null =>
 /** The versioned origin's build: it restores accounts and moves what is left, and mines nothing. */
 export const isOldRole = (): boolean => import.meta.env.VITE_APP_ROLE === 'old';
 
-/** A version by name: this build's from the record, the canonical's from the view, any other by its number. */
+/** A version by name: this build's from the record, the canonical's from the view; any other is one this build has moved on from. */
 export const versionNameOf = (
   number: string | bigint | undefined,
   canonical?: { version: bigint; index: bigint },
@@ -24,7 +24,7 @@ export const versionNameOf = (
   const n = number.toString();
   if (n === import.meta.env.VITE_ROLLUP_VERSION) return ownVersionName();
   if (canonical && canonical.version.toString() === n) return `V${canonical.index}`;
-  return `V${n}`;
+  return 'an earlier version';
 };
 
 export interface ServedBuild {

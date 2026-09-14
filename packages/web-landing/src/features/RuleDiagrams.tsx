@@ -5,7 +5,6 @@
 import { policyFor } from '../../../bridge/src/policy.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { amount } from '../../../site/src/browser/format.ts';
-import { ownVersionName } from '../../../site/src/browser/version-name.ts';
 
 export type DiagramId =
   | 'exit-limit'
@@ -22,9 +21,9 @@ const days = (seconds: bigint) => Number(seconds / 86_400n);
 
 /** This version and the two after it by name (V5, V6, V7) on a build that knows its Registry index; plain words otherwise. */
 export const versionTrio = (): [string, string, string] => {
-  const n = /^V(\d{1,6})$/.exec(ownVersionName());
-  if (!n) return ['this version', 'the next version', 'the one after'];
-  const i = Number(n[1]);
+  const index = import.meta.env.VITE_VERSION_INDEX;
+  if (!index) return ['this version', 'the next version', 'the one after'];
+  const i = Number(index);
   return [`V${i}`, `V${i + 1}`, `V${i + 2}`];
 };
 
@@ -246,7 +245,7 @@ function PauseBudget() {
         What a pause holds, and what it cannot
       </T>
       <T x={60} y={156} tone="ink-2">
-        holds: withdrawals leaving, deposits arriving, forwards into the version
+        holds: withdrawals leaving, deposits arriving, forwards leaving for the next version
       </T>
       <T x={60} y={174} tone="ink-2">
         cannot: keep a withdrawal from landing once it lifts, or take anything back
@@ -364,12 +363,16 @@ const WHO: {
   relayer?: true;
 }[] = [
   { action: 'register a version', note: 'once per version, never changed', multisig: 'once' },
-  { action: 'pause withdrawals and deposits', note: '30 d a call · 60 d per version', multisig: 'yes' },
+  {
+    action: 'pause withdrawals and deposits',
+    note: `${days(policy.pauseMax)} d a call · ${days(policy.pauseBudget)} d per version`,
+    multisig: 'yes',
+  },
   { action: 'authorize a relayer', multisig: 'yes' },
   { action: 'close deposits before an upgrade', multisig: 'yes' },
   {
     action: 'claim a withdrawal on Ethereum',
-    note: 'the recipient pays the gas',
+    note: 'the caller pays the gas',
     anyone: true,
     holder: true,
   },

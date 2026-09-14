@@ -24,8 +24,11 @@ const shownHere = (c: Crossing, now: number): boolean =>
     (c.kind === 3 && c.state === 'proving') ||
     (c.state === 'minted-l2' && visible(c, now)));
 
-const from = (c: Crossing, canonical?: { version: bigint; index: bigint }): string =>
-  c.kind === 3 ? 'Ethereum' : `Aztec ${versionNameOf(c.version, canonical)}`;
+const from = (c: Crossing, canonical?: { version: bigint; index: bigint }): string => {
+  if (c.kind === 3) return 'Ethereum';
+  const name = versionNameOf(c.version, canonical);
+  return name.startsWith('V') ? `Aztec ${name}` : name;
+};
 
 const dotOf = (c: Crossing): string =>
   c.state === 'minted-l2'
@@ -161,7 +164,7 @@ export function ArrivalCard({
   const trail: TrailItem[] = [
     { label: `left ${sources}`, state: 'done' },
     { label: 'proven to Ethereum', state: 'done' },
-    { label: `forwarded to ${ownVersionName()}`, state: forwarded ? 'done' : 'on' },
+    { label: `crossed to ${ownVersionName()}`, state: forwarded ? 'done' : 'on' },
     onWay.length === 0
       ? { label: 'landed', state: 'done' }
       : { label: `landing · ${onWay.length} of ${arrivals.length} left`, state: 'on' },

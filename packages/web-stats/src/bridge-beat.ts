@@ -36,8 +36,8 @@ export interface BridgeExtras {
   /** YACA's total supply on Ethereum: what is there right now. */
   yacaSupply: bigint;
   events: FlowEvent[];
-  /** Unix seconds of the last forward, or null when none happened yet. */
-  lastForwardAt: number | null;
+  /** Unix seconds of the last crossing of any kind, or null when none happened yet. */
+  lastCrossingAt: number | null;
 }
 
 /** What the miner's own counters say: everything that ever left through the portal, everything that arrived. */
@@ -103,6 +103,14 @@ export function exitLimitLine(v: VersionFlows, policy: PortalPolicy, nowSeconds:
   if (v.launchAt > BigInt(nowSeconds))
     return `${may} right now · the limit ${grows} from the launch on ${day(v.launchAt)}; withdrawals beyond it wait for it.`;
   return `${may} right now · ${grows}; withdrawals beyond it wait for it to grow, until the upgrade freezes it.`;
+}
+
+/** The exit limit as a row: what may leave now, or why nothing does. */
+export function headroomLine(v: VersionFlows, policy: PortalPolicy, nowSeconds: number): string {
+  if (closed(v, nowSeconds)) return 'last day passed · nothing more leaves';
+  if (v.paused) return `${yaca(v.headroom)} once the pause ends`;
+  if (v.flipAt > 0n) return `${yaca(v.headroom)} may leave · frozen at the upgrade`;
+  return `${yaca(v.headroom)} may leave now · grows ${yaca(policy.perHour)} an hour`;
 }
 
 /** What the governance multisig may do with the pause, from the policy. */
@@ -229,11 +237,11 @@ export interface BridgeFigures {
   transit?: bigint;
   /** Through the portal, not yet claimed on the miner. */
   waiting?: bigint;
-  /** Withdrawals claimed on Ethereum, and send-aheads held there, for the live version. */
+  /** Withdrawals claimed on Ethereum and send-aheads forwarded on, for the live version (the portal's Forwarded events). */
   withdrawals?: number;
   sendAheads?: number;
-  /** Unix seconds of the last crossing through the portal; null when none happened; undefined when the history could not be read. */
-  lastForwardAt?: number | null;
+  /** Unix seconds of the last crossing of any kind through the portal; null when none happened; undefined when the history could not be read. */
+  lastCrossingAt?: number | null;
 }
 
 export function figuresOf(
@@ -251,7 +259,7 @@ export function figuresOf(
     waiting: miner && live ? max0(live.inbound - miner.claimedFromL1) : undefined,
     withdrawals: x ? x.events.filter((e) => e.kind === 'exit' && mine(e)).length : undefined,
     sendAheads: x ? x.events.filter((e) => e.kind === 'send' && mine(e)).length : undefined,
-    lastForwardAt: x ? x.lastForwardAt : undefined,
+    lastCrossingAt: x ? x.lastCrossingAt : undefined,
   };
 }
 
@@ -269,11 +277,11 @@ export function sampleBlocks(sorted: readonly bigint[], max: number): bigint[] {
 const figure = (raw: bigint | undefined): string => (raw === undefined ? DASH : whole(raw));
 
 /** "last crossed 2 min ago", "nothing has crossed yet", or that the history could not be read. */
-export const crossingLine = (lastForwardAt: number | null | undefined, nowSeconds: number): string =>
-  lastForwardAt === undefined
+export const crossingLine = (lastCrossingAt: number | null | undefined, nowSeconds: number): string =>
+  lastCrossingAt === undefined
     ? 'history unavailable'
-    : lastForwardAt
-      ? `last crossed ${duration(Math.max(0, nowSeconds - lastForwardAt))} ago`
+    : lastCrossingAt
+      ? `last crossed ${duration(Math.max(0, nowSeconds - lastCrossingAt))} ago`
       : 'nothing has crossed yet';
 
 /** YACA on Ethereum is one pool across versions; its share of all minted is known only while one version has minted. */
@@ -337,8 +345,8 @@ const leftKpi = (f: BridgeFigures, live: VersionFlows | undefined, v: string): K
   unit: PARAMS.TOKEN_SYMBOL,
   sub:
     f.withdrawals === undefined || f.sendAheads === undefined
-      ? 'withdrawals claimed, send-aheads held'
-      : `${count(f.withdrawals, 'withdrawal', 'withdrawals')} claimed${f.sendAheads ? ` · ${count(f.sendAheads, 'send-ahead', 'send-aheads')} held` : ''}`,
+      ? 'withdrawals claimed, send-aheads forwarded'
+      : `${count(f.withdrawals, 'withdrawal', 'withdrawals')} claimed${f.sendAheads ? ` · ${count(f.sendAheads, 'send-ahead', 'send-aheads')} forwarded` : ''}`,
 });
 
 /**

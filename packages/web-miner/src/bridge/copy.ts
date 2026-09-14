@@ -30,11 +30,11 @@ type Line = (c: Crossing, nowSeconds: number, version: string, flipped: boolean,
 const hhmm = (unixSeconds: string): string =>
   new Date(Number(unixSeconds) * 1000).toISOString().slice(11, 16);
 
-/** The proof's ETA: the epoch's deadline when the journal knows it, the usual wait otherwise. */
+/** The proof's due time when the journal knows the epoch's deadline, the usual wait otherwise; a missed proof undoes the burn. */
 const provenBy = (c: Crossing): string =>
   c.proofDeadline
-    ? `Proven to Ethereum by ${hhmm(c.proofDeadline)} at the latest`
-    : 'Proven to Ethereum within the hour';
+    ? `Its proof is due on Ethereum by ${hhmm(c.proofDeadline)}, or the burn is undone`
+    : 'Usually proven to Ethereum within the hour';
 
 const LINES: Record<CrossingState, Line> = {
   proving: (c) =>
@@ -77,7 +77,7 @@ const LINES: Record<CrossingState, Line> = {
   }),
   paused: (c) => ({
     word: 'paused',
-    sentence: `The bridge is paused; it moves again when the pause lifts, 30 days at most${c.kind === 2 ? '. Redeem it on Ethereum any time' : ''}.`,
+    sentence: `The bridge is paused; it moves again when the pause lifts, 30 days at most a call${c.kind === 2 ? '; the redeem waits with it' : ''}.`,
     tone: 'warn',
   }),
   headroom: (_c, _now, _v, flipped) => ({
@@ -105,14 +105,14 @@ const LINES: Record<CrossingState, Line> = {
   }),
   held: (_c, _now, _v, _flipped, target) => ({
     word: 'held on Ethereum',
-    sentence: `Held on Ethereum for ${target}, out of the old version’s reach. Yacana forwards it once ${target} opens; you can too, or redeem it on Ethereum, any time.`,
+    sentence: `Held on Ethereum for ${target}, out of the old version’s reach. Yacana forwards it once ${target} opens; you can too, or redeem it on Ethereum, any time before the last day.`,
     tone: 'busy',
     action: 'redeem',
   }),
   'not-registered': () => ({
     word: 'waiting for Yacana',
     sentence:
-      'The next version is live; Yacana has not opened its contract there yet. Redeem on Ethereum any time.',
+      'The next version is live; Yacana has not opened its contract there yet. Redeem on Ethereum any time before the last day.',
     tone: 'warn',
     action: 'redeem',
   }),

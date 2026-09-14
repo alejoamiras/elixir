@@ -3,12 +3,12 @@
 // themselves; a dotted word carries its one-line tooltip, one disclosure per card holds the
 // sentence, and the rules live on the FAQ.
 
+import { useId } from 'react';
 import type { VersionFlows } from '../../../bridge/src/portal-reader.ts';
 import type { MigrationRecord } from '../../../bridge/src/record.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';
 import { firstEpoch } from '../../../site/src/browser/connection.ts';
-import { amount } from '../../../site/src/browser/format.ts';
 import {
   Badge,
   ChipLink,
@@ -27,6 +27,7 @@ import {
   day,
   exitLimitLine,
   figuresOf,
+  headroomLine,
   kpisOf,
   type MinerFlows,
   pauseLine,
@@ -42,7 +43,6 @@ import { CoinsChart } from './CoinsChart';
 const FIRST = firstEpoch();
 export const RULES_HREF = `${FAQ_HREF}#rules`;
 
-const yaca = (raw: bigint) => `${amount(raw, PARAMS.DECIMALS, 2)} ${PARAMS.TOKEN_SYMBOL}`;
 const OPEN_ENDED = (1n << 256n) - 1n;
 
 const chainName = (chainId: string): string =>
@@ -54,12 +54,26 @@ const chainName = (chainId: string): string =>
         ? 'anvil'
         : `chain ${chainId}`;
 
-/** A word with its one-line explanation on hover. */
+/** A dotted word whose one-line explanation opens on hover or keyboard focus, and describes it to a screen reader. */
 function Term({ title, children }: { title: string; children: React.ReactNode }) {
+  const id = useId();
   return (
-    <abbr title={title} className="cursor-help underline decoration-dotted underline-offset-[3px]">
-      {children}
-    </abbr>
+    <span className="group relative inline-block">
+      <button
+        type="button"
+        aria-describedby={id}
+        className="cursor-help border-0 bg-transparent p-0 font-[inherit] text-[length:inherit] text-inherit underline decoration-dotted underline-offset-[3px] outline-none focus-visible:ring-1 focus-visible:ring-uv"
+      >
+        {children}
+      </button>
+      <span
+        role="tooltip"
+        id={id}
+        className="pointer-events-none absolute bottom-full left-0 z-10 mb-1.5 hidden w-64 rounded-[6px] border border-line bg-panel px-2.5 py-2 font-sans text-xs normal-case text-ink-2 group-focus-within:block group-hover:block"
+      >
+        {title}
+      </span>
+    </span>
   );
 }
 
@@ -218,7 +232,7 @@ function VersionCard({
       </div>
       <details className="mt-2 text-xs">
         <summary className="cursor-pointer text-ink-2">
-          the exit limit · {yaca(v.headroom)} may leave now
+          the exit limit · {headroomLine(v, snapshot.policy, chainTime)}
         </summary>
         <p className="mt-1.5 text-pretty text-ink-3" data-testid="exit-limit">
           {exitLimitLine(v, snapshot.policy, chainTime)}
@@ -278,10 +292,10 @@ export function BridgeTurnstile({
         }
       />
       <KvRow label="deposits" value={live?.depositsClosed ? 'closed before the upgrade' : 'open'} />
-      <KvRow label="crossings" value={crossingLine(f.lastForwardAt, nowSeconds)} />
+      <KvRow label="crossings" value={crossingLine(f.lastCrossingAt, nowSeconds)} />
       <KvRow
         label={<Term title={EXIT_LIMIT}>exit limit</Term>}
-        value={live ? `${yaca(live.headroom)} may leave now · grows ${yaca(p.perHour)} an hour` : '—'}
+        value={live ? headroomLine(live, p, nowSeconds) : '—'}
       />
       <KvRow
         label={<Term title={pauseRule(p)}>pause</Term>}

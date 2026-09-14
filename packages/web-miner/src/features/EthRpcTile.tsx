@@ -36,7 +36,7 @@ function HealthLine({ inUse }: { inUse: string }) {
           )}
           {health.kind === 'failed' && (
             <span className="text-warn">
-              not answering ({health.status}) · new exits to Ethereum are held back
+              not answering ({health.status}) · new withdrawals to Ethereum are held back
             </span>
           )}
         </div>

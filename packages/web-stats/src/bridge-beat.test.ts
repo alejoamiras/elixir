@@ -4,6 +4,7 @@ import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import {
   chainNow,
   exitLimitLine,
+  headroomLine,
   kpisOf,
   pauseLine,
   pauseRule,
@@ -88,6 +89,19 @@ describe('the sentences', () => {
     );
     expect(exitLimitLine({ ...live, deadline: BigInt(NOW - 1) }, policy, NOW)).toBe(
       `last day 2027-01-15 · 40 ${PARAMS.TOKEN_SYMBOL} has left; nothing more leaves V5.`,
+    );
+  });
+
+  test('the exit limit as a row says why nothing leaves: paused, frozen, or past the last day', () => {
+    expect(headroomLine(live, policy, NOW)).toBe(
+      `128 ${PARAMS.TOKEN_SYMBOL} may leave now · grows 12 ${PARAMS.TOKEN_SYMBOL} an hour`,
+    );
+    expect(headroomLine({ ...live, paused: true }, policy, NOW)).toBe(
+      `128 ${PARAMS.TOKEN_SYMBOL} once the pause ends`,
+    );
+    expect(headroomLine({ ...live, flipAt: 1_799_500_000n }, policy, NOW)).toContain('frozen at the upgrade');
+    expect(headroomLine({ ...live, deadline: BigInt(NOW - 1) }, policy, NOW)).toBe(
+      'last day passed · nothing more leaves',
     );
   });
 
@@ -194,7 +208,7 @@ describe('the share on Ethereum', () => {
       forwarders: async () => [],
       blockTime: async () => BigInt(NOW),
     });
-    const extras = { yacaSupply: 40n * ONE, events: [], lastForwardAt: null };
+    const extras = { yacaSupply: 40n * ONE, events: [], lastCrossingAt: null };
     const miner = { exited: 40n * ONE, claimedFromL1: 0n };
     const one = { ...(await readBridge(reader([5n]), 7)), extras };
     const ethereum = (s: typeof one) => kpisOf(s, s.versions[0], miner, 60n * ONE, NOW, 'anvil')[0]?.sub;

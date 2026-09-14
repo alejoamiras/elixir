@@ -120,8 +120,8 @@ function Review({
         The account is not: the send is held under a one-time secret of this account. Round amounts blend in.
       </Note>
       <Note title={`If V${n} never opens`}>
-        A send Yacana could not forward can be redeemed on Ethereum as YACA at any time, by this account. The
-        passkey or words are the only thing to keep.
+        A send Yacana could not forward can be redeemed on Ethereum as YACA any time before the last day, by
+        this account. The passkey or words are the only thing to keep.
       </Note>
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="uv" disabled={busy} onClick={onSend} data-testid="ahead-send">

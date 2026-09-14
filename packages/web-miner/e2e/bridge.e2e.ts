@@ -127,9 +127,9 @@ test('on V5: a words account mines one claim, exits to Ethereum (forwarded and m
 
   // Deposit 0.5 back through the picker; the arrival card claims it.
   await page.getByTestId('deposit').click();
-  await expect(page.getByTestId('wallet-picker')).toBeVisible();
-  await shot(page, 'from-ethereum');
+  // The wallet that claimed is still connected: the sheet opens on its row, not on the picker.
   await connectTestWallet(page);
+  await shot(page, 'from-ethereum');
   await expect(page.getByTestId('yaca-balance')).toHaveText('1', { timeout: 30_000 });
   await page.getByTestId('deposit-amount').fill('0.5');
   await expect(page.getByTestId('deposit-preflip')).toBeVisible();

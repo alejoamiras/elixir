@@ -75,7 +75,7 @@ function Form({
       <Stepper
         steps={[
           { id: 'burn', label: 'burned here, privately', state: 'pending', right: '20 s' },
-          { id: 'prove', label: 'proven to Ethereum', state: 'pending', right: 'within the hour' },
+          { id: 'prove', label: 'proven to Ethereum', state: 'pending', right: 'usually within the hour' },
           { id: 'claim', label: 'claimed on Ethereum by you', state: 'pending', right: 'one transaction' },
         ]}
       />
@@ -111,7 +111,7 @@ function Review({
       <div>
         <KvRow label="to" value={`Ξ ${shortAddress(snap.to)}`} />
         <KvRow label="fees" value="none here · gas on Ethereum when you claim" />
-        <KvRow label="claimable" value="within the hour, once proven to Ethereum" />
+        <KvRow label="claimable" value="usually within the hour · undone if the epoch is never proven" />
       </div>
       <Note title="Public on Ethereum." tone="warn" data-testid="exit-public">
         {shortAddress(snap.to)} receives {snap.display} YACA; anyone can see that.

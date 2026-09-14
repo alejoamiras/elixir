@@ -306,10 +306,14 @@ export class MinerController {
     if (epoch) this.dispatch({ type: 'start', epoch });
   }
 
+  /** Idle now; during a claim the phase stays `claiming` (the submission cannot be abandoned) and mining does not resume after it. */
   stop() {
     this.stops++;
     this.resumeWhenClear = false;
-    if (this.store.get(minerAtom).phase === 'claiming') this.stopAfterClaim = true;
+    if (this.store.get(minerAtom).phase === 'claiming') {
+      this.stopAfterClaim = true;
+      return;
+    }
     this.dispatch({ type: 'stop' });
   }
 

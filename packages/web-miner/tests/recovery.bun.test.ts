@@ -185,6 +185,21 @@ describe('lost-race recovery', () => {
     controller.dispose();
   });
 
+  test('Stop during a claim: the claim keeps its phase and finishes; mining does not resume after it', async () => {
+    const controller = await boot(
+      fakeDeployment(5n, () => Promise.reject(new Error('Invalid tx: Invalid expiration timestamp'))),
+      () => Promise.reject(new Error('unused')),
+    );
+    worker.emit(winner);
+    expect(store.get(minerAtom).phase).toBe('claiming');
+    controller.stop();
+    expect(store.get(minerAtom).phase).toBe('claiming');
+    await settle(() => store.get(minerAtom).notice?.kind === 'expired');
+    expect(store.get(minerAtom).phase).toBe('idle');
+    expect(worker.sent.filter((m) => m.type === 'mine')).toHaveLength(1);
+    controller.dispose();
+  });
+
   test('a rebuilt view that cannot be read is not declared recovered; Start reads it again', async () => {
     let reads = 0;
     const flaky = fakeDeployment(
