@@ -1,11 +1,10 @@
-// To Ethereum: the figure and the address, the three stations with their times, then the
-// review (what is public: the amount and the address; 20 s to prove; Ethereum learns of it when this
-// version proves the epoch), then "On its way." with the burn's block once the journal has it.
+// Bridge to Ethereum: the figure and the address with the three stations (burned here, proven
+// to Ethereum within the hour, claimed there by the holder), the review with the ETA and what is
+// public, then "On its way." with the burn's block once the journal has it.
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import type { Crossing } from '../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { ownVersionName } from '../../../site/src/browser/version-name.ts';
 import {
   Alert,
   AlertDescription,
@@ -34,7 +33,6 @@ type Step =
   | { kind: 'review'; snap: EthSnapshot }
   | { kind: 'sent'; snap: EthSnapshot; crossing?: Crossing };
 
-const version = (): string => ownVersionName();
 const money = (raw: bigint) => `${fmt(raw, PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL}`;
 
 function Form({
@@ -50,7 +48,7 @@ function Form({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <p className="label-mono">to ethereum · step 1 of 2</p>
+      <p className="label-mono">bridge to ethereum · step 1 of 2</p>
       <AmountInput
         id="exit-amount"
         value={draft.amount}
@@ -77,18 +75,8 @@ function Form({
       <Stepper
         steps={[
           { id: 'burn', label: 'burned here, privately', state: 'pending', right: '20 s' },
-          {
-            id: 'prove',
-            label: 'proven to Ethereum with its epoch',
-            state: 'pending',
-            right: 'a few epochs',
-          },
-          {
-            id: 'mint',
-            label: 'minted as YACA to that address',
-            state: 'pending',
-            right: 'by hand, or by anyone',
-          },
+          { id: 'prove', label: 'proven to Ethereum', state: 'pending', right: 'within the hour' },
+          { id: 'claim', label: 'claimed on Ethereum by you', state: 'pending', right: 'one transaction' },
         ]}
       />
       <div className="flex flex-wrap items-center gap-3">
@@ -111,10 +99,9 @@ function Review({
   onSend: () => void;
   onBack: () => void;
 }) {
-  const v = version();
   return (
     <div className="flex flex-col gap-4">
-      <p className="label-mono">to ethereum · step 2 of 2</p>
+      <p className="label-mono">bridge to ethereum · step 2 of 2</p>
       <AmountBlock
         value={snap.display}
         unit={PARAMS.TOKEN_SYMBOL}
@@ -123,19 +110,15 @@ function Review({
       />
       <div>
         <KvRow label="to" value={`Ξ ${shortAddress(snap.to)}`} />
-        <KvRow
-          label="fees"
-          value="Aztec: the sponsor · Ethereum: whoever forwards it, Yacana by hand or you"
-        />
-        <KvRow label="time" value={`20 s to prove · Ethereum learns of it when ${v} proves the epoch`} />
+        <KvRow label="fees" value="none here · gas on Ethereum when you claim" />
+        <KvRow label="claimable" value="within the hour, once proven to Ethereum" />
       </div>
-      <Note title="This will be public on Ethereum." tone="warn" data-testid="exit-public">
-        {shortAddress(snap.to)} receives {snap.display} YACA. The amount and the address are readable by
-        anyone, forever. The exit is then forwarded by hand, or by you.
+      <Note title="Public on Ethereum." tone="warn" data-testid="exit-public">
+        {shortAddress(snap.to)} receives {snap.display} YACA; anyone can see that.
       </Note>
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="uv" disabled={busy} onClick={onSend} data-testid="exit-send">
-          {busy ? 'Proving and sending…' : 'Send to Ethereum'}
+          {busy ? 'Proving and sending…' : 'Bridge to Ethereum'}
         </Button>
         <Button variant="ghost" disabled={busy} onClick={onBack}>
           Back
@@ -164,7 +147,7 @@ function Sent({
   return (
     <div className="flex flex-col gap-4" data-testid="exit-sent">
       <div>
-        <span className="label-mono">to ethereum</span>
+        <span className="label-mono">bridge to ethereum</span>
         <SheetTitle className="mt-1.5 text-[22px] leading-[1.2] tracking-[-0.02em]">On its way.</SheetTitle>
       </div>
       <AmountBlock
@@ -181,13 +164,13 @@ function Sent({
             label: 'being proven to Ethereum',
             state: 'active',
             right: live?.epoch ? `epoch ${live.epoch}` : undefined,
-            detail: 'Usually within a few epochs; safe from then on.',
+            detail: 'Usually within the hour; safe from then on.',
           },
           {
-            id: 'mint',
-            label: `minted as YACA to ${shortAddress(snap.to)}`,
+            id: 'claim',
+            label: `claim on Ethereum · ${shortAddress(snap.to)}`,
             state: 'pending',
-            right: 'by hand, or by you',
+            right: 'from the wallet page',
           },
         ]}
       />
@@ -197,7 +180,7 @@ function Sent({
           Done
         </Button>
         <span className="text-xs text-ink-3">
-          Mining resumed. Progress stays in Wallet until it is minted.
+          Progress stays in Wallet; claim it there once it is proven.
         </span>
       </div>
     </div>
@@ -250,9 +233,11 @@ export function ToEthereumSheet({
       <SheetContent data-testid="to-ethereum-sheet">
         {step.kind !== 'sent' && (
           <>
-            <SheetTitle className="text-[22px] leading-[1.2] tracking-[-0.02em]">To Ethereum</SheetTitle>
-            <SheetDescription>
-              From this account’s private balance to a public {chainName(bridgeRecord()?.chainId)} address.
+            <SheetTitle className="text-[22px] leading-[1.2] tracking-[-0.02em]">
+              Bridge to Ethereum
+            </SheetTitle>
+            <SheetDescription className="sr-only">
+              Burned here privately, claimed as YACA on {chainName(bridgeRecord()?.chainId)}.
             </SheetDescription>
           </>
         )}

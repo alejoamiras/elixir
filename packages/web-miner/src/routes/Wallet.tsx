@@ -61,7 +61,7 @@ export function BalanceTile({
             disabled={!balance || view.rpcFailing || !standing?.registered}
             data-testid="to-ethereum"
           >
-            To Ethereum
+            Bridge to Ethereum
           </Button>
         )}
         {bridge && (
@@ -71,7 +71,7 @@ export function BalanceTile({
             onClick={onDeposit}
             data-testid="deposit"
           >
-            Deposit from Ethereum
+            Bridge from Ethereum
           </Button>
         )}
       </div>

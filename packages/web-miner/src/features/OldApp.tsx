@@ -47,7 +47,7 @@ type Moment = 'signed-out' | 'still-here' | 'sent' | 'quiet';
 /** Proven to Ethereum in time: out of this version's reach whatever it does next. */
 const SAFE = new Set<Crossing['state']>(['held', 'forwarded', 'claimable', 'minted-l2', 'not-registered']);
 
-/** The version's exit deadline has passed on Ethereum's clock; unknown while that clock is unread. */
+/** The version's last day has passed on Ethereum's clock; unknown while that clock is unread. */
 const exitsClosed = (standing: BridgeView['standing'], chainNow: bigint | undefined): boolean =>
   chainNow !== undefined &&
   standing !== undefined &&
@@ -252,14 +252,14 @@ export function OldApp({ session }: { session?: Session }) {
         </span>
         <h1 className="mt-2 text-balance text-[36px] font-semibold leading-[1.05] tracking-[-0.025em]">
           {m === 'quiet'
-            ? `${name}’s exits have closed. Nothing can leave.`
+            ? `${name}’s last day has passed. Nothing can leave.`
             : 'Send what is still here ahead.'}
         </h1>
         <p className="mt-3 text-pretty text-base leading-[1.55] text-ink-2 [&_b]:font-medium [&_b]:text-ink">
           {m === 'quiet' ? (
             <>
-              Mining has ended on this version and {name}’s exit deadline has passed. Balances still here
-              cannot leave any more, and sends in epochs it never proved were undone back onto it:{' '}
+              Mining has ended on this version and {name}’s last day has passed. Balances still here cannot
+              leave any more, and sends in epochs it never proved were undone back onto it:{' '}
               <b>they are lost</b>. Sends proven to Ethereum in time are safe and arrive at {apexHost()}.
             </>
           ) : (

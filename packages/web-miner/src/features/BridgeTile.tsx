@@ -10,9 +10,9 @@ import { MAX_RECOVERY_BYTES } from '../../../bridge/src/recovery.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { Button, ExternalLink, JournalCard, Tile, TileHeader } from '../../../ui/src/index.ts';
 import { cardLine, chainName, journalTone, stamp, type Tone, trailOf, whoOf } from '../bridge/copy';
-import { bridgeRecord, isOldRole, versionNameOf } from '../bridge/env';
+import { bridgeRecord, isOldRole, migrationRecord, versionNameOf } from '../bridge/env';
 import { l1Links } from '../explorer';
-import { duration, amount as fmt, shortAddress } from '../lib/format';
+import { amount as fmt, shortAddress } from '../lib/format';
 import type { Session } from '../session';
 import { type BridgeView, bridgeAtom, journalAtom, nowAtom } from '../state';
 import { saveRecoveryFile } from './recovery';
@@ -24,8 +24,6 @@ const TONE: Record<Tone, string> = {
   warn: 'text-warn',
   bad: 'text-bad',
 };
-
-const OPEN_ENDED = (1n << 256n) - 1n;
 
 /** A held send-ahead is forwarded from the version it lands on: the live one, never the old origin. */
 const holderMayForward = (c: Crossing, view: BridgeView): boolean =>
@@ -64,14 +62,19 @@ function Card({
             Etherscan
           </ExternalLink>
         )}
-        {forward && (
+        {forward && c.kind === 1 && (
+          <Button size="sm" variant="uv" onClick={() => onForward(c)} data-testid="claim-ethereum">
+            Claim on Ethereum
+          </Button>
+        )}
+        {forward && c.kind === 2 && (
           <Button size="sm" variant="link" onClick={() => onForward(c)} data-testid="forward-myself">
             Forward it myself
           </Button>
         )}
         {line.action === 'redeem' && (
           <Button size="sm" variant="link" onClick={() => onRedeem(c)} data-testid="redeem">
-            Redeem to Ethereum
+            Redeem on Ethereum
           </Button>
         )}
         {c.error && <span className="text-warn">{c.error}</span>}
@@ -154,23 +157,19 @@ function Recovery({ session, account }: { session: Session; account: string }) {
   );
 }
 
-const standingLine = (view: BridgeView, now: number): string => {
-  if (view.rpcFailing)
-    return 'The Ethereum RPC is not answering: the burn would be safe, the rest unknown, so new exits wait.';
-  const s = view.standing;
-  if (!s) return 'reading the portal…';
-  const close =
-    s.deadline === OPEN_ENDED
-      ? 'stay open'
-      : `close ${duration(Math.max(0, Number(s.deadline) - Math.floor(now / 1000)))} from now`;
-  return `exit headroom ${fmt(s.headroom, PARAMS.DECIMALS, 0)} ${PARAMS.TOKEN_SYMBOL} · exits from this version ${close} · Yacana forwards exits by hand; a proven exit can be forwarded by anyone, any time`;
+/** One line under the cards, only when there is something to say: a silent RPC, or who forwards send-aheads once a migration is announced. */
+const standingLine = (view: BridgeView): string => {
+  if (view.rpcFailing) return 'The Ethereum RPC is not answering: new withdrawals wait until it does.';
+  const m = migrationRecord();
+  if (!m) return '';
+  return `Yacana may forward send-aheads to V${m.toIndex} by hand; feel free to bridge or send ahead yourself.`;
 };
 
 const asideOf = (view: BridgeView): string => {
   const chain = chainName(bridgeRecord()?.chainId);
   if (view.rpcFailing) return `${chain} · Ethereum RPC silent`;
   if (view.standing?.paused) return `${chain} · paused`;
-  return `${chain} · forwarded by hand`;
+  return chain;
 };
 
 export function BridgeTile({
@@ -212,9 +211,11 @@ export function BridgeTile({
           </p>
         </div>
       )}
-      <p className="mt-3 text-xs text-ink-3" data-testid="bridge-standing">
-        {standingLine(view, now)}
-      </p>
+      {standingLine(view) && (
+        <p className="mt-3 text-xs text-ink-3" data-testid="bridge-standing">
+          {standingLine(view)}
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-line pt-3 text-xs">
         <span className="flex flex-wrap items-center gap-4">
           <Recovery session={session} account={account} />

@@ -143,17 +143,17 @@ describe('the journal, every state', () => {
       'sent',
       'proving to Ethereum',
       'proven',
-      'ready',
-      'on Ethereum',
+      'ready to claim',
+      'claimed',
       'paused',
-      'waiting for headroom',
+      'waiting for the limit',
       'closed',
       'undone',
       'held on Ethereum',
       'waiting for Yacana',
       'redeemed',
     ]);
-    expect(container.textContent).not.toMatch(/relayer|within the hour/i);
+    expect(container.textContent).not.toMatch(/relayer/i);
     keep('journal-states', container.innerHTML);
   });
 
@@ -269,7 +269,7 @@ describe('the old app', () => {
     keep('old-app-sent', container.innerHTML);
   });
 
-  test('once exits closed: what is lost, and what was safe', async () => {
+  test('once the last day has passed: what is lost, and what was safe', async () => {
     const { container } = old((s) => {
       s.set(bridgeAtom, {
         verdict: { kind: 'flipped', by: ['registry', 'retired'] },
@@ -283,7 +283,9 @@ describe('the old app', () => {
       ]);
     });
     await waitFor(() => expect(screen.getByTestId('old-quiet').textContent).toContain('cannot leave'));
-    expect(screen.getByTestId('retired').textContent).toContain('V5’s exits have closed. Nothing can leave.');
+    expect(screen.getByTestId('retired').textContent).toContain(
+      'V5’s last day has passed. Nothing can leave.',
+    );
     keep('old-app-quiet', container.innerHTML);
   });
 });

@@ -290,7 +290,7 @@ export function DepositSheet({
     <Sheet open={open} onOpenChange={(o) => (o ? onOpenChange(true) : close())}>
       <SheetContent data-testid="deposit-sheet">
         <div>
-          <span className="label-mono">deposit from ethereum</span>
+          <span className="label-mono">bridge from ethereum</span>
           <SheetTitle className="mt-1.5 text-[22px] leading-[1.2] tracking-[-0.02em]">
             {step.kind === 'done' ? 'On its way.' : `YACA on ${chain()} → here, privately.`}
           </SheetTitle>
@@ -328,22 +328,23 @@ export function DepositSheet({
 
 export type HeldAction = 'forward' | 'redeem';
 
-const COPY: Record<HeldAction, { title: string; go: string; done: string }> = {
+const COPY: Record<HeldAction | 'claim', { title: string; go: string; done: string }> = {
+  claim: { title: 'Claim on Ethereum', go: 'Claim', done: 'Claimed.' },
   forward: { title: 'Forward it yourself', go: 'Forward', done: 'Forwarded.' },
-  redeem: { title: 'Redeem to Ethereum', go: 'Redeem', done: 'Redeemed.' },
+  redeem: { title: 'Redeem on Ethereum', go: 'Redeem', done: 'Redeemed.' },
 };
 
 const describe = (action: HeldAction, c: Crossing): string => {
   if (action === 'redeem')
     return 'The send-ahead becomes YACA on Ethereum for the connected account. This account’s own secret signs; the wallet pays the gas.';
   return c.kind === 1
-    ? 'The exit is forwarded by you: YACA minted on Ethereum for its recipient. Anyone may; the wallet pays the gas.'
+    ? 'YACA is minted on Ethereum for the recipient: one transaction, the wallet pays the gas. Anyone may make it.'
     : 'The send-ahead is forwarded into the live version by you: this account’s own secret signs, the wallet pays the gas. It then lands on the arrival card there.';
 };
 
 /**
- * What the holder does with a crossing on Ethereum, from the connected wallet: forward it (an exit,
- * or a held send-ahead into the live version) or redeem a held send-ahead as YACA for that account.
+ * What the holder does with a crossing on Ethereum, from the connected wallet: claim a proven
+ * withdrawal, forward a held send-ahead into the live version, or redeem one as YACA for that account.
  */
 export function HeldSheet({
   session,
@@ -380,7 +381,7 @@ export function HeldSheet({
       setBusy(false);
     }
   };
-  const copy = COPY[action];
+  const copy = COPY[action === 'forward' && crossing?.kind === 1 ? 'claim' : action];
   return (
     <Sheet open={crossing !== null} onOpenChange={(o) => (o ? onOpenChange(true) : close())}>
       <SheetContent data-testid={`${action}-sheet`}>
