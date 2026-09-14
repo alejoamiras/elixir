@@ -1,0 +1,169 @@
+# audit-codex.md — the OpenAI-family review legs (GPT-6 Astra at `high`, session `01a0921e…`)
+
+Transcript files: `~/.cache/tmp/codex-lqc1BEE0/` (round 1 = `response-4.md`; the contradiction check = `response-3.md`).
+
+## Round 1 (2026-09-12) — full packet: adversarial, assumption attack, implementation critique, recon check
+
+### Codex's response (verbatim; two local links rewritten as repo paths)
+
+**Reject pending the blockers below.** Confidence is high on source findings; runtime risks are marked separately. `P` means `implementations-plan/yacana-bridge/plan.md`; Aztec citations refer to the pinned 5.2.0 checkout.
+
+- **Blocker [§3.1, D17]** GSE activation still does not authenticate Registry activation; additions before/after Registry registration satisfy the predicate with the wrong timestamp, and "never named" lacks an implementable fallback predicate — `P:126`, `l1-contracts/src/governance/GSE.sol:110,281` — reverse D17's authentication claim; specify independently verifiable eligibility, index validation and timestamp ordering before accepting write-once observations.
+- **Blocker [§2, D8–D9]** Unrecorded transitions undermine bounded exposure: an obsolete version retains open deadlines, and delayed recording can retrospectively reduce its calculated allowance below already-consumed exits — `P:153,155` — require transition reconciliation before obsolete-version forwarding; distinguish "upgrade absent" from "upgrade present but unrecorded."
+- **Blocker [§2, D9]** Three times expected production is not an honest-issuance bound; epochs close after N claims without a minimum duration, so legitimate fast production can exhaust the eventual frozen cap — `packages/contracts/yacana_miner/src/main.nr:191,210`, `design-spec.md:71` — reverse "never refuses an honest exit"; A7 must explicitly accept competitive exhaustion or change admission.
+- **Blocker [§3.1, §4]** Operators choose the purported safety bound themselves: register a malicious miner, select enormous allowance/rate, emit exits without burns, mint YACA — `P:124,355` — constrain registration parameters against immutable policy, or disclose and obtain acceptance of effectively unrestricted issuance authority.
+- **Blocker [§3.1]** The listed pause storage cannot reconstruct lazy historical unions: two completed global pauses overwrite `globalPausedUntil` before an untouched version accrues either — `P:118,148` — specify cumulative history/checkpoints, overlap accounting and clipping at the cap horizon; test dormant versions and exhausted budgets.
+- **Blocker [§3.1, D18]** A griefer can front-run redemption with forwarding into a canonical rollup about to stop; consumption destroys K6 while the destination Inbox may never become claimable — `P:135,144` — add enforceable destination admission/holder authorization or explicitly obtain owner acceptance of this irreversible forwarding risk; test the race.
+- **Blocker [§3.1, P6]** `track()` does not serialize operations; it immediately invokes each callback, allowing scheduler/manual sends and auto-claims to overlap — `packages/web-miner/src/controller.ts:438`, `P:208` — add a transaction queue and atomic index reservation.
+- **Should-fix [§3.2]** "Max seen + 1" reuses indices across devices/origins or before pending exits appear; HKDF output length, field reduction and canonical label encoding remain unspecified — `P:238`, `packages/miner-core/src/keys/derive.ts:20,49` — freeze vectors and allocation/recovery rules; disclose cross-device reuse unless prevented.
+- **Should-fix [§4, P7]** Stored consent is absent after recovery or on another origin; auto-claim then does nothing, while the spec exposes Claim only on failure — `P:210,260`, `design-spec.md:144` — provide a claimable-state action and scope consent to account, deployment, operation and expiry.
+- **Should-fix [§4, D30]** Role checks and the RPC interceptor do not contain a compromised archived page: after user verification it can obtain the same master through the apex RP ID — `packages/web-miner/src/keys/passkey.ts:92` — explicitly trust and maintain every credential-capable sibling origin; distinguish deployment-mismatch checks from secret protection.
+- **Should-fix [P4–P5, D25]** Pausing does not quiesce synthetic settlement or drain queued builds — `yarn-project/sequencer-client/src/sequencer/automine/automine_sequencer.ts:232,336` — coordinate clock changes through the queue and suspend settlement where necessary; measure actual proof-deadline headroom and two-flip CI runtime before promising ten minutes.
+- **Should-fix [P3–P4]** P3 needs `toolchainBin` before its P4 extraction; `deployNext` also reads an unregistered version from Registry before governance executes — `P:116,164,474`, `scripts/run/isolated-node.ts:46` — extract the helper in P3 and read the deployed Rollup's version, cross-checking Registry after execution.
+- **Should-fix [P1, recon]** The new Noir library needs workspace/dependency wiring, and new bridge/harness inputs need CI coverage; neither is explicit in the change map — `packages/contracts/Nargo.toml:2`, `.github/workflows/contracts.yml:16`, `recon.md:21` — include these edits and define ABI generation/submodule checkout before P3.
+- **Should-fix [§4–§5]** Synthetic Outbox settlement is not rollup-proof validation; continued proving also does not require validators to remain — `automine_sequencer.ts:315`, `l1-contracts/src/core/RollupCore.sol:468` — separate client-proof, settlement and production-liveness claims; the remaining "within minutes" language at `P:297,301` is unsupported.
+- **Should-fix [§4, CI]** Foundry binaries are version-selected but not covered by existing binary hashes — `toolchain.lock.json:7`, `.github/actions/setup-aztec/action.yml:19` — extend the existing lock/check rather than adding another installer; initialize pinned submodules in portal CI.
+
+The eight inference checks, in their listed order:
+
+- **Blocker [§5 inference 1]** **High wrong:** local genesis additionally funds BananaFPC — `local-network.ts:175`, `cli/cmds/standby.ts:27` — compare both genesis roots using pure helpers first; include BananaFPC in the pinned-node prefund set.
+- **Should-fix [inference 2]** **Low wrong locally:** failure blocks H4 — `P:419` — demonstrate one post-flip checkpoint and Outbox root.
+- **Should-fix [inference 3]** **Low wrong for this app:** its prover is explicitly enabled — `packages/web-miner/src/wallet.ts:69` — verify a corrupted recursive proof fails with proverless mode disabled.
+- **Should-fix [inference 4]** **Moderate wrong literally:** genesis funding does not establish contract deployment — `yarn-project/world-state/src/testing.ts:41` — execute one sponsored transaction before Yacana setup.
+- **Should-fix [inference 5]** **Unknown:** unavailable CORS breaks browser reads — `P:422` — probe the chosen endpoint from the actual served origin.
+- **Should-fix [inference 6]** **Low wrong:** browser/authenticator compatibility remains untested — `packages/web-miner/e2e/helpers.ts:52` — reuse its authenticator across both origins and compare PRF-derived accounts.
+- **Should-fix [inference 7]** **Unknown:** class stability is release-dependent — `packages/web-miner/src/keys/store.ts:140` — compare actual successor artifacts; test both unchanged and changed classes.
+- **Should-fix [inference 8]** **Moderate wrong:** follower/PXE reconciliation can fail independently of L1 pruning — `P:425,489` — require restored balance before claiming H5's UX passed.
+
+The source-box reconstruction, recipient/version checks, epoch-bound redemption and fixed-sender retirement are sound directions (`Outbox.sol:139,165`; `public_context.nr:239`). Shared bridge code, existing UI primitives, dual test runners and the second-Worker precedent are appropriate reuse. Drop P10's prose-command matching test; test the operator entrypoints themselves.
+
+### Verification and disposition (the driver)
+
+| finding | verified | disposition |
+|---|---|---|
+| D17 GSE cannot authenticate the Registry activation | Yes. `GSE.sol:110-113`: the GSE's latest need not be the canonical; `GSE.addRollup` (`:281-286`) pushes `block.timestamp` whenever the owner calls it. Only the shipped payload (`periphery/RegisterNewRollupVersionPayload.sol:40-43`) couples both calls in one execution; any other payload can split them, and "never named" is not a predicate. | **Adopted — D17 reversed**: observation time, recorded lazily by every state-changing portal call and by the permissionless `noteTransition`. Monotone (never earlier than the true flip), so nobody can shorten a holder's window. No GSE vendoring, no trace mocks. |
+| D8 unrecorded / late transitions | Yes, follows from the above; with observation time and lazy sync a version anyone touches is recorded on that call, and the cap cannot shrink retroactively (the recorded time is never earlier than any consumption). | **Adopted**: `_sync(version)` on `forward`, `redeem`, `retire`, `deposit`, `register`, `noteTransition`; "unrecorded" cannot persist past the next call. |
+| D9 3× is not an honest bound | Yes. `design-spec.md:71` already says honest bursts can exceed the schedule; `main.nr:188-193` closes on N claims with the elapsed time capped. | **Adopted**: the plan says the cap delays and, in a competitive boom, can refuse at the deadline; Ask A7 offers the multiplier or acceptance. Admission cannot be changed from L1 (a compromised rollup's counters are untrusted). |
+| operators pick the cap | Yes (`registerVersion` took `perHour`, `allowance`). | **Adopted**: policy constants immutable in the portal's constructor; registration names only the version, the miner and `launchAt`; the operators' remaining power (which miner, pause) disclosed. |
+| pause union unreconstructable | Yes (a single `globalPausedUntil` scalar). | **Adopted**: per-version pauses only, `pauseAll` loops the registered versions; up-front accounting of the whole interval at `pause`, refund at `unpause`; dormant-version and exhausted-budget tests. |
+| K2 forward griefing (D18) | Yes: forward was permissionless and the destination's stop is not knowable on L1. | **Adopted — D37**: K2 forwards need the holder's redeem-key signature or an operator-listed forwarder; K1 forwards stay permissionless. Ask A10 records the alternative (accept the race). |
+| `track()` is not a mutex | Yes. `controller.ts:438-449` runs `op()` at once and only joins `this.ops` for the drain. | **Adopted**: one promise queue for every bridge operation; the index reserved in the journal's own IndexedDB transaction before any send. |
+| index reuse across devices; HKDF details | Yes. `derive.ts:20-28` is HKDF-SHA-256 with a fixed salt, 64 bytes reduced into the field (`:44-49`). | **Adopted**: rescan own hashes before allocating; the same `hkdf` helper, 64 bytes reduced (Fr for the secret, the secp256k1 order for the key), fixed label encoding, vectors frozen in P1; a collision links two exits and loses nothing (both K4 messages stay claimable with the same secret), disclosed. |
+| consent absent after recovery | Yes (consent lived in the old device's store). | **Adopted**: the arrival card always offers Claim for a claimable crossing; consent `{account, deployment, operation, expiresAt}`. |
+| the old origin can obtain the master | Yes. `passkey.ts:93-96` says so in its own comment. | **Adopted**: §4 states the versioned origin is a fully trusted sibling, maintained until the version's deadline passes, then taken down; the role/origin check is a deployment guard, not secret protection. |
+| pause does not quiesce settlement | Yes. `automine_sequencer.ts:230-240` gates only the mempool poller; `prove`/`warpTo` run in the serial queue; `maybeSettle` keeps ticking. | **Adopted**: quiesce = `pauseSequencer` + the queue's `syncPoint`; H5's node boots with auto-prove off; the flip job's budget is set from a measurement, not promised (A3 conditional). |
+| `toolchainBin` private; `deployNext` reads the Registry too early | Yes (`isolated-node.ts:46` is module-private; the Registry knows the version only after `execute`). | **Adopted**: `scripts/run/toolchain.ts` extracted in P1; `deployNext` reads `Rollup.getVersion()`, `flip` cross-checks the Registry. |
+| Nargo workspace, CI filters, submodules, ABI step | Yes (`Nargo.toml:2`, `contracts.yml:18-22`, `miner-core.yml:28`). | **Adopted** into the change map and the P1/P3/P5 gates. |
+| synthetic settlement ≠ proof; validators need not remain | Yes (`automine_sequencer.ts:320-333`). | **Adopted**: §2/§4/§5 wording separates client proofs, L1 settlement and production liveness; "within minutes" removed. |
+| Foundry binaries unpinned | Yes. `toolchain.lock.json` pins `bb` and `internal-bin/nargo`; `aztec-forge` → `internal-bin/forge` (an ELF) is not listed; `toolchain.test.ts:18-19` iterates the lock's map. | **Adopted**: `internal-bin/{forge,anvil,cast}` added to the lock in P1; submodules checked out in `portal.yml`. |
+| inference 1 (genesis) | Yes. `local-network.ts:172-178` funds BananaFPC and the sponsored FPC when test accounts exist; `standby.ts:26-29` (the pinned node's check) funds test accounts + sponsored FPC + prefund only. | **Adopted, differently**: the rig computes V6's genesis with the pinned node's formula (no BananaFPC), so the node's check passes by construction; the sponsored FPC is published on V6 by the rig (inference 4). |
+| inferences 2–8 | As stated. | **Adopted** the cheapest verifications into the P4/P5/P6 gates; H5's UX claim is made only when the follower's balance is restored. |
+| drop P10's prose-command test | — | **Adopted**: the runbook's commands are the operator script's entrypoints, exercised by the rig. |
+
+Rejected: none. Retained against the advice: none.
+
+## Round 2 (2026-09-12) — the resumed session's self-critique of the revised plan (`response-5.md`)
+
+### Codex's response (verbatim)
+
+Confidence: **high** on the remaining source/API issues. `P` denotes `implementations-plan/yacana-bridge/plan.md`.
+
+- **Blocker [D25, P4]** Quiescence remains incomplete: `syncPoint()` drains existing work but does not suspend the next settlement tick, and neither admin nor debug RPC exposes it — `P:189`; Aztec `automine_sequencer.ts:311,336`, `aztec-node-debug.ts:69`, `server.ts:941` — specify a callable mechanism coordinating external governance warps with settlement; pause-plus-drain is insufficient.
+- **Blocker [D28, P6]** The fingerprint cannot authenticate its own bootstrap: a returning legacy record may lack it when the account class changes; accepting the newly supplied master's fingerprint silently trusts that master, while requiring an existing fingerprint prevents migration — `P:246,614`; `packages/web-miner/src/keys/store.ts:154` — validate against the legacy account derivation before first fingerprint creation; test an unsealed legacy record's first open under the new class.
+- **Should-fix [D17, §3.1]** Reverting calls undo `_sync`: a first post-flip `redeem` records "now," fails the thirty-day check, and rolls that observation back; repeated attempts never start the clock — `P:144,167`; `audit-codex.md:45` — provide a separate persisted `noteTransition` step before displaying the countdown; explicitly reject redemption while `flipAt == 0`.
+- **Should-fix [D9, §2–§4]** Freezing means an over-cap old exit can become permanently unforwardable immediately, not merely delayed until its deadline; "total that can ever leave" also omits inbound credits — `P:140,158,349,406` — distinguish temporary throttling from exhausted frozen capacity and state the bound as **net issuance**, `exited − inbound ≤ cap`.
+- **Should-fix [D38, A7]** Immutable rate constants only partly resolve operator-controlled issuance: backdating `launchAt` still increases the allowance, despite "they never choose how much" — `P:149,412` — bound acceptable launch timestamps or explicitly include this power in owner approval and the issuance disclosure.
+- **Should-fix [D39]** Up-front accounting is workable, but extension/refund arithmetic and `pauseAll` failure semantics remain unspecified — `P:171` — define `pausedUntil = max(now, pausedUntil) + seconds`, refund only `max(pausedUntil − now, 0)`, and test expired unpause, extension during pause, and one exhausted version inside `pauseAll`.
+- **Should-fix [D40]** The queue fixes concurrency within one realm; atomic IndexedDB allocation can cover same-origin tabs, but apex and old-subdomain stores remain independent on the same device — `P:234,279,427`; `packages/web-miner/src/keys/store.ts:27` — read/increment the counter inside the transaction, retain abandoned reservations, test two tabs, and replace "one device" with "one active origin/device."
+- **Should-fix [D37]** Holder signatures bind the relevant message and destination, but the forwarder bypass retains the original griefing power for compromised listed keys; batch self-calls also change `msg.sender` — `P:156,160,397` — explicitly accept forwarder custody risk in A10, test expiry and Forward/Redemption type separation, and preserve the authenticated original caller through per-leaf execution without whitelisting the portal itself.
+- **Should-fix [P4, genesis]** The chosen genesis formula is sound, but the proposed package subpath is not exported; resolution returns `ERR_PACKAGE_PATH_NOT_EXPORTED` — `P:182`; installed `@aztec/aztec/package.json:5` — compose the exported constituent helpers or specify a pinned adapter, then compare its root with the node's calculation.
+- **Should-fix [D24, H5]** Moving H5 to pinned V6→V7 is correct; establish a settled deployment and funded balance before the deliberately unproven burn, or pruning can remove the setup too — `P:594`; Aztec `RollupCore.sol:452` — record that baseline and assert its restoration.
+- **Should-fix [D30–D31, P11]** The old Worker's preview hostname conflicts with the strict versioned-origin role check; ordinary preview passkeys also use that preview's own RP ID — `P:231,656`; `packages/site/src/browser/host.ts:20` — specify a preview-role configuration and test-account policy; keep apex-passkey continuity as a separate origin test.
+
+My round-1 verification is otherwise satisfied **at plan level**: consent/manual Claim, sibling-origin trust, helper extraction, Rollup version lookup, Noir workspace wiring, Foundry hashes, measured CI budgeting and removal of prose-command tests are addressed (`P:116,121,184,241,366,542,582,650`). The inference checks now have appropriate runtime gates; those gates remain unexecuted.
+
+- **Nit [self-critique, divergences]** I overstated the need to preserve BananaFPC funding and submodule checkout: a new rollup may use the pinned node's own genesis, and npm dependencies are legitimate — `standby.ts:26`; `P:129,182` — retain the genesis choice, D24 and D42, verifying npm package provenance rather than treating package age as authenticity.
+- **Should-fix [self-critique, D9/D17]** I missed observation rollback, fingerprint bootstrap and batch authorization interactions. I support observation time over false GSE authentication, and finite competitive capacity over a forced admission redesign; these are explicit trust/loss choices — `P:144,525,705` — retain both decisions, remove the remaining "minutes" guarantees (`P:344,348`), and approve the trade-offs explicitly. D37 is acceptable only with its forwarder trust understood.
+
+**Not ready for a final fresh-context pass: resolve the quiescence API and legacy-fingerprint blockers, then incorporate the bounded corrections above.**
+
+### Verification and disposition (the driver)
+
+| finding | verified | disposition |
+|---|---|---|
+| quiescence | Yes, and the premise goes further: the automine sequencer *owns L1 time* (`automine/README.md` "Time control"); the debug API exposes `mineBlock`, `prove`, `warpL2TimeAtLeastTo`, `warpL2TimeAtLeastBy`, all serialised with builds and the settle tick (`aztec-node-debug.ts:14-72`; `automine_sequencer.ts:282-299, 340`); `pauseSequencer` only gates builds (`server.ts:954-956`). | **Adopted — D25 rewritten**: the rig never moves L1 time itself while an automine node runs; every warp goes through the node's debug warp; anvil cheat codes only when no node is alive; no quiesce step. H5 needs no running V7 at all (the flip is a Registry fact). |
+| fingerprint bootstrap | Yes (`store.ts:150-165`: the address is the only binding). | **Adopted**: the fingerprint is written only after the address check passed under the current class (this release); a record without a fingerprint whose address matches no class is refused for migration with a message (restore again by passkey or words — a fresh restore has nothing to compare against, as today); tested. |
+| `_sync` rolled back by reverts | Yes (EVM semantics). | **Adopted**: `noteTransition` is the persisted step; `redeem`, `retire` and kind-2 `forward` revert with `FlipUnrecorded` while `flipAt == 0`; the app and the script call `noteTransition` first and the countdown reads `transition(index)`. |
+| frozen cap: exhausted vs throttled; net issuance | Yes. | **Adopted**: the bound stated as `exited − inbound ≤ cap(flipAt)`; the copy and A7 distinguish "waiting for headroom" (before the flip) from "exhausted" (after the flip, permanent). |
+| `launchAt` backdating | Yes. | **Adopted**: `launchAt ∈ [now − 7 d, now + 90 d]` at registration; disclosed in A7. |
+| pause arithmetic | — | **Adopted** the exact formulas and the three tests; `pauseAll` skips a version whose budget is exhausted and emits `PauseSkipped`. |
+| queue realm | Yes (`store.ts:27-41` per origin). | **Adopted**: the counter read and incremented inside the IndexedDB transaction (covers tabs); abandoned reservations kept; a two-tab test; the disclosure says "one active origin per device". |
+| forwarder custody; batch `msg.sender` | Yes. | **Adopted**: A10 states the forwarder's custody risk; `forwardMany` calls a self-only `forwardOne(caller, …)` with the original caller passed explicitly, the portal never a forwarder; tests for expiry and the Forward/Redeem struct separation. |
+| genesis subpath not exported | Yes (`@aztec/aztec/package.json` exports `.`, `./deploy`, `./testing` only). | **Adopted**: composed from `getInitialTestAccountsData` (`@aztec/accounts/testing`), the sponsored FPC address as `wallet.ts:72-74` computes it, and `getGenesisValues` (`@aztec/world-state/testing`); the root compared with the pinned node's own log line on the first run. |
+| H5 baseline | Yes. | **Adopted**: the V6 deployment and the mined balance are settled (`prove`) before auto-prove is left off for the burn; the baseline recorded and asserted after the prune. |
+| preview hostname vs the role check | Yes (`host.ts:13-18`: the preview's RP ID is the preview host). | **Adopted**: role `old` is allowed on `versioned`, `preview` and `local` hosts and refused on the production apex; `assertProductionArtifact` checks the production pairing only; apex-passkey continuity across origins is the P8 e2e with one virtual authenticator, not the preview rehearsal. |
+| the "minutes" wording | — | **Adopted**: "bounded by the first call". |
+
+Rejected: none. Divergences retained with Codex's agreement: D17, D9/A7, the genesis by construction, D24, D42, D37 (with A10's custody note). (Ask numbers as of round 2; the final pass renumbered them: A7 → A3, A10 → A7.)
+
+## Final pass (2026-09-12) — a fresh-context session over the finished plan (session `01a093d6…`, `~/.cache/tmp/codex-VbIwqahB/response.md`)
+
+### Codex's response (verbatim; local links rewritten as repo and source paths)
+
+APPROVE WITH CONDITIONS
+
+- Correct P4/P5's clock handling and pruning assertions below.
+- Move P4's PR-job verification to Delivery so phase ordering is executable.
+- Replace the old-origin fingerprint recovery instruction with a recovery path that updates the apex vault.
+
+Confidence: **high** on these source-level findings.
+
+**Blockers**
+
+- [§3.1/P4] A 60-second vote window is incompatible with unrestricted slot-rounded warps: relative to a slot boundary, creation at 12 requests 73, lands at 144, but voting closes at 132 — `automine_sequencer.ts:595`, `ProposalLib.sol:162` — lengthen the window to cover rounding and transaction inclusion, and verify the mined vote remains inside it.
+- [P5/H5] Restarting V6 and debug-warping past expiry also publishes a checkpoint; proposal execution automatically prunes, defeating the subsequent explicit-prune sequence and exact "pending tip equals baseline" assertion — `automine_sequencer.ts:598`, `ProposeLib.sol:173` — warp and prune while V6 remains stopped, assert L1 restoration, then restart for wallet reconciliation.
+
+I found no additional fund-loss or unbounded-issuance blocker beyond the risks already disclosed for owner acceptance.
+
+**Audit dispositions**
+
+- Codex round 2's D25 fix correctly serializes warps, but overlooks their slot rounding and checkpoint production; those effects cause both blockers above.
+- Both round-2 fingerprint dispositions leave an ineffective recovery instruction: signing in at the old origin cannot update the apex's IndexedDB record. The plan itself acknowledges separate stores — `plan.md` (§3.2), `packages/web-miner/src/keys/store.ts:32`. Use legacy-class verification on the apex or specify an explicit fresh-restore flow there.
+- No other recorded disposition appears materially wrong or incomplete from the checks performed.
+
+**A1–A13**
+
+A3, A6 and A9 are implementation decisions the plan should settle. A12 already follows the recorded deployment constraints; ask for authorization when the concrete production deployment is ready. A5's RPC selection is engineering work; signer, threshold and custody choices remain owner decisions.
+
+A10 should ask the owner to accept listed-forwarder custody risk, rather than reopen permissionless griefing as an equivalent implementation option. Keep A2 because the record says the owner explicitly requested wagmi. A8 can remain because destination policy changes where funds go. A1, A4/A7, A11 and A13 cover substantive economic, privacy or authority choices; consolidate A4/A7's overlapping cap approval.
+
+No additional owner decision identified.
+
+**Implementability**
+
+Section 6 is **not executable strictly in order as written**. P4 requires its PR job green, while §7 prohibits opening PRs until all phases and review loops finish — `plan.md` (P4's gate, §7). Make local execution P4's phase gate and require PR verification at Delivery. P4's voting sequence and P5/H5 also need the corrections above; the remaining gates are implementable, with their explicitly identified runtime inferences still requiring execution.
+
+### Verification and disposition (the driver)
+
+| finding | verified | disposition |
+|---|---|---|
+| the 60 s vote window vs slot-rounded warps | Yes: `runWarp` rounds up to the next slot boundary and builds an empty checkpoint there (`automine_sequencer.ts:586-602`); the pending phase ends at `creation + votingDelay` (`ProposalLib.sol:162`). | **Adopted**: `AZTEC_GOVERNANCE_VOTING_DURATION=360` (five slots); the rig asserts each governance transaction's block is inside its window. |
+| H5's restart defeats the prune assertions | Yes: a propose prunes first when the window has passed (`ProposeLib.sol:172-175`), and every warp publishes a checkpoint. | **Adopted**: with V6 stopped the rig's cheat codes own the clock — flip, warp, `prune`, assert; V6 restarts only for the wallet reconciliation. |
+| the old-origin fingerprint recovery cannot reach the apex's store | Yes (per-origin vault, `store.ts:27-41`; the plan's own §3.2). | **Adopted**: the apex pins the previous account class id and recomputes the legacy address with `computeContractAddressFromInstance` (`@aztec/stdlib/contract`); a match writes the fingerprint and migrates, a mismatch is refused; a fresh restore on the apex is the fallback, disclosed. |
+| P4's PR-job gate precedes any PR | Yes (§7). | **Adopted**: the local run is P4's gate; `harness.yml` is written and linted in P4 and verified green on the arc-2 PR at Delivery (§10 step 5). |
+| the Asks | — | **Adopted**: A3, A6, A9, A12 settled as D41, D29-with-an-ask-kept, D33, D31 (the FAQ placement stays an ask: the owner asked for a FAQ page and the canvas drew one); the RPC default is engineering; A4/A7 merged; A10 rephrased as accepting the forwarder's custody; renumbered A1–A9. |
+
+Rejected: none.
+
+### Re-check after approval (the same session, `response-1.md`)
+
+APPROVE — "No new blockers found. Confidence: high at plan level; runtime gates remain unexecuted." Wallet
+integration: the existing `Session` is created outside React and passed into `App`, so bridge-scoped wagmi
+providers coexist with it and the Jotai store (`main.tsx:49`); P6 must verify actual dependency resolution, typecheck
+alone does not prove wagmi uses the hoisted alias. FAQ routing: the landing builds at `/`, the Worker enables the
+SPA fallback, the exact redirects do not intercept `/faq` (`assemble.ts:24`, `wrangler.jsonc:14`). Manual actions:
+§4 requires a tap and keeps the queue, the atomic allocation and the registered-miner check; removing the stored
+consent removes no required authorization. All three prior conditions correctly resolved. Nonblocking: §3.3 still
+mentioned consent and the hourly scheduler, P11 still said "the Safe" on Sepolia.
+
+Disposition: the two remnants fixed; P6's gate names `bun pm ls viem`. Nothing else.

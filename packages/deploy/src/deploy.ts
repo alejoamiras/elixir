@@ -2,8 +2,9 @@
 // class, salt, deployer and its constructor args), the token with `minter` = that address, the
 // miner, then one bind_token. Fees go through the sponsored FPC; the deployer is an
 // initializerless Schnorr account derived from YACANA_DEPLOYER_SECRET (never logged).
-//   AZTEC_NODE_URL=… YACANA_DEPLOYER_SECRET=0x… [YACANA_LAUNCH_AT=<unix seconds>] [YACANA_DEPLOY_SALT=0x…] \
-//     [YACANA_DEPLOY_FORCE=1] bun packages/deploy/src/deploy.ts
+//   AZTEC_NODE_URL=… YACANA_DEPLOYER_SECRET=0x… YACANA_PORTAL=0x… [YACANA_LAUNCH_AT=<unix seconds>] \
+//     [YACANA_CONTINUE_FROM=deployments/<source>.json] [YACANA_DEPLOY_SALT=0x…] [YACANA_DEPLOY_FORCE=1] \
+//     bun packages/deploy/src/deploy.ts
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadContractArtifact } from '@aztec/aztec.js/abi';
@@ -13,6 +14,7 @@ import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
@@ -42,9 +44,16 @@ export interface Deployment {
    * block's time), so it is not the constructor argument that predicts the address.
    */
   launchAt: string;
-  /** Set when this deployment launched at once (launchAt 0): epoch 0's opened_at. */
+  /** Set when this deployment launched at once (launchAt 0): the first epoch's opened_at. */
   launchedAt?: string;
   deployedAt: string;
+  /** The Ethereum portal this miner trusts (records before the bridge have none). */
+  portal?: string;
+  /**
+   * A continuation of an earlier version: the epoch it starts at (the source's last + 1) and the
+   * source's last seed, both public on the source, so anyone can check the announcement.
+   */
+  continuation?: { firstEpoch: string; sourceSeed: string; sourceTarget: string; source: string };
 }
 
 export interface DeployOverrides {
@@ -52,6 +61,11 @@ export interface DeployOverrides {
   initialTarget?: bigint;
   /** Unix seconds; announce the deployment before it. 0 launches at once (the deployer calls launch()). */
   launchAt?: bigint;
+  /** The portal on Ethereum; the constructor refuses zero. */
+  portal?: EthAddress;
+  /** Continue an earlier version's schedule instead of running the launch lottery: its first
+   *  epoch, the source's last seed and the source's last target, so difficulty carries over. */
+  continuation?: { firstEpoch: bigint; sourceSeed: Fr; sourceTarget: bigint; source: string };
 }
 
 // The record must describe what is on chain, not what the local artifact was compiled with.
@@ -61,6 +75,7 @@ async function verifyOnChain(
   from: AztecAddress,
   initialTarget: bigint,
   launched: boolean,
+  bridge: { portal: EthAddress; firstEpoch: bigint; seed: Fr },
 ): Promise<{ launchAt: bigint; openedAt?: bigint }> {
   const read = async <T>(p: Promise<unknown>) => ((await p) as { result: T }).result;
   const [n, expected, tMax, reward, ttl] = await read<bigint[]>(miner.methods.constants().simulate({ from }));
@@ -69,6 +84,9 @@ async function verifyOnChain(
   );
   const minter = await read<{ toString(): string }>(token.methods.get_minter().simulate({ from }));
   const bound = await read<{ toString(): string }>(miner.methods.bound_token().simulate({ from }));
+  const [portal, firstEpoch] = await read<[{ toString(): string }, bigint]>(
+    miner.methods.bridge_state().simulate({ from }),
+  );
   const mismatches = [
     [n, BigInt(PARAMS.N), 'N'],
     [expected, PARAMS.EXPECTED_EPOCH_SECONDS, 'EXPECTED_EPOCH_SECONDS'],
@@ -76,7 +94,8 @@ async function verifyOnChain(
     [reward, PARAMS.REWARD, 'REWARD'],
     [ttl, PARAMS.CLAIM_TTL_SECONDS, 'CLAIM_TTL_SECONDS'],
     [genesis.target, initialTarget, 'INITIAL_TARGET'],
-    [genesis.seed, PARAMS.GENESIS_SEED, 'GENESIS_SEED'],
+    [genesis.seed, bridge.seed.toBigInt(), 'GENESIS_SEED'],
+    [firstEpoch, bridge.firstEpoch, 'FIRST_EPOCH'],
   ].filter(([onChain, local]) => onChain !== local);
   if (mismatches.length)
     throw new Error(
@@ -84,12 +103,13 @@ async function verifyOnChain(
     );
   if (minter.toString() !== miner.address.toString()) throw new Error('token minter is not the miner');
   if (bound.toString() !== token.address.toString()) throw new Error('the miner bound a different token');
+  if (portal.toString() !== bridge.portal.toString()) throw new Error('the miner trusts a different portal');
   if (!launched) return { launchAt: genesis.launch_at };
-  const epoch0 = await read<{ target: bigint; opened_at: bigint }>(
-    miner.methods.epoch_params(0n).simulate({ from }),
+  const first = await read<{ target: bigint; opened_at: bigint }>(
+    miner.methods.epoch_params(bridge.firstEpoch).simulate({ from }),
   );
-  if (epoch0.target !== genesis.target) throw new Error('epoch 0 opened with a different target');
-  return { launchAt: genesis.launch_at, openedAt: epoch0.opened_at };
+  if (first.target !== genesis.target) throw new Error('the first epoch opened with a different target');
+  return { launchAt: genesis.launch_at, openedAt: first.opened_at };
 }
 
 export async function deployYacana(
@@ -116,14 +136,18 @@ export async function deployYacana(
     const minerArtifact = loadContractArtifact(
       await Bun.file(resolve(repo, 'packages/contracts/target/yacana_miner-YacanaMiner.json')).json(),
     );
+    const portal = overrides.portal;
+    if (!portal || portal.isZero()) throw new Error('a portal address is required (the miner refuses zero)');
+    // A continuation carries the source's last seed where a genesis carries the profile's.
+    const seed = overrides.continuation?.sourceSeed ?? new Fr(PARAMS.GENESIS_SEED);
+    const firstEpoch = overrides.continuation?.firstEpoch ?? 0n;
+    if (overrides.continuation && firstEpoch === 0n) throw new Error('a continuation starts after epoch 0');
+    // A continuation opens at the source's last target: the schedule continues, difficulty included.
+    const target = overrides.continuation?.sourceTarget ?? overrides.initialTarget ?? PARAMS.INITIAL_TARGET;
     const minerDeploy = Contract.deploy(
       wallet,
       minerArtifact,
-      [
-        overrides.initialTarget ?? PARAMS.INITIAL_TARGET,
-        new Fr(PARAMS.GENESIS_SEED),
-        overrides.launchAt ?? 0n,
-      ],
+      [target, seed, overrides.launchAt ?? 0n, firstEpoch, portal],
       'constructor',
       { deployer, salt },
     );
@@ -148,18 +172,15 @@ export async function deployYacana(
     // An announced launch is opened later by whoever calls launch() (scripts/launch.ts).
     const launchNow = (overrides.launchAt ?? 0n) === 0n;
     if (launchNow) await miner.methods.launch().send({ from: deployer, fee, wait: { timeout: 600 } });
-    const launch = await verifyOnChain(
-      miner,
-      token,
-      deployer,
-      overrides.initialTarget ?? PARAMS.INITIAL_TARGET,
-      launchNow,
-    );
+    const launch = await verifyOnChain(miner, token, deployer, target, launchNow, {
+      portal,
+      firstEpoch,
+      seed,
+    });
     const info = await createAztecNodeClient(nodeUrl).getNodeInfo();
-    const chainId = String(info.l1ChainId);
     return {
       profile: PROFILE,
-      chainId,
+      chainId: String(info.l1ChainId),
       // Origin only: a node URL can carry a provider API key in its path.
       nodeUrl: new URL(nodeUrl).origin,
       deployer: deployer.toString(),
@@ -177,11 +198,79 @@ export async function deployYacana(
       launchAt: launch.launchAt.toString(),
       ...(launch.openedAt === undefined ? {} : { launchedAt: launch.openedAt.toString() }),
       deployedAt: new Date().toISOString(),
+      ...bridgeRecord(portal, firstEpoch, seed, target, overrides.continuation?.source),
     };
   } finally {
     await wallet.stop().catch(() => {});
   }
 }
+
+const bridgeRecord = (
+  portal: EthAddress,
+  firstEpoch: bigint,
+  seed: Fr,
+  target: bigint,
+  source: string | undefined,
+): Pick<Deployment, 'portal' | 'continuation'> => ({
+  portal: portal.toString(),
+  ...(source === undefined
+    ? {}
+    : {
+        continuation: {
+          firstEpoch: firstEpoch.toString(),
+          sourceSeed: seed.toString(),
+          sourceTarget: target.toString(),
+          source,
+        },
+      }),
+});
+
+/**
+ * What a continuation needs from its source: the source record names the node and the miner, and
+ * the miner's last epoch and its seed are read from the source chain's public storage. The
+ * source's node must still answer; once it is gone, the announced values are passed by hand
+ * (YACANA_CONTINUE_FIRST_EPOCH + YACANA_CONTINUE_SEED + YACANA_CONTINUE_TARGET) and checked against
+ * the announcement.
+ */
+export async function continuationOf(
+  sourceRecord: string,
+): Promise<NonNullable<DeployOverrides['continuation']>> {
+  const source = (await Bun.file(resolve(repo, sourceRecord)).json()) as Deployment;
+  const first = process.env.YACANA_CONTINUE_FIRST_EPOCH;
+  const seed = process.env.YACANA_CONTINUE_SEED;
+  const target = process.env.YACANA_CONTINUE_TARGET;
+  if (first && seed && target) {
+    return {
+      firstEpoch: BigInt(first),
+      sourceSeed: Fr.fromString(seed),
+      sourceTarget: BigInt(target),
+      source: sourceRecord,
+    };
+  }
+  if (first || seed || target)
+    throw new Error(
+      'YACANA_CONTINUE_FIRST_EPOCH, YACANA_CONTINUE_SEED and YACANA_CONTINUE_TARGET go together',
+    );
+  // The source's open epoch and its seed, straight from its public storage through the read path.
+  const { readEpochs, readOpenEpochNumber } = await import('../../miner-core/src/reader.ts');
+  const { deriveSlotTable, loadLayouts } = await import('../../miner-core/src/slots.ts');
+  const node = createAztecNodeClient(source.nodeUrl);
+  const miner = AztecAddress.fromStringUnsafe(source.miner);
+  const layout = (await loadLayouts()).miner;
+  const last = await readOpenEpochNumber(node, miner, layout);
+  const load = (chunk: number) => deriveSlotTable(layout, chunk);
+  const [row] = await readEpochs(node, miner, { from: last, to: last }, load, { withSeed: true });
+  if (row?.seed === undefined) throw new Error(`could not read epoch ${last} of the source miner`);
+  return {
+    firstEpoch: BigInt(last) + 1n,
+    sourceSeed: new Fr(row.seed),
+    sourceTarget: row.target,
+    source: sourceRecord,
+  };
+}
+
+/** A fixed, non-zero portal for local runs that never touch Ethereum; the miner refuses zero. */
+export const TEST_PORTAL = EthAddress.fromString('0x000000000000000000000000000000000000beef');
 
 if (import.meta.main) {
   const nodeUrl = process.env.AZTEC_NODE_URL;
@@ -201,7 +290,13 @@ if (import.meta.main) {
     );
   const launchAt = BigInt(process.env.YACANA_LAUNCH_AT ?? '0');
   if (launchAt < 0n || launchAt >= 1n << 63n) throw new Error('YACANA_LAUNCH_AT must be unix seconds');
-  const deployment = await deployYacana(nodeUrl, deployerSecret, salt, { launchAt });
+  if (!process.env.YACANA_PORTAL) throw new Error('YACANA_PORTAL (the Ethereum portal address) is required');
+  const portal = EthAddress.fromString(process.env.YACANA_PORTAL);
+  // A continuation names its source deployment record; the first epoch and seed are read from it.
+  const continuation = process.env.YACANA_CONTINUE_FROM
+    ? await continuationOf(process.env.YACANA_CONTINUE_FROM)
+    : undefined;
+  const deployment = await deployYacana(nodeUrl, deployerSecret, salt, { launchAt, portal, continuation });
   mkdirSync(dir, { recursive: true });
   await Bun.write(file, `${JSON.stringify(deployment, null, 2)}\n`);
   console.log(`deployed ${PROFILE}: miner ${deployment.miner}, token ${deployment.token} → ${file}`);

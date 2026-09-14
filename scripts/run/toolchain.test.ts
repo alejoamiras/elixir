@@ -1,11 +1,13 @@
-// The proving toolchain is part of the trusted computing base: the native bb and nargo binaries,
-// the bb.js WASM and the Noir dependencies fetched by git tag are pinned to content hashes /
-// commits in toolchain.lock.json, and any drift (a moved tag, a re-published binary) fails here.
+// The proving toolchain is part of the trusted computing base: the native bb, nargo and foundry
+// binaries, the bb.js WASM, the forge-std the portal's tests compile against and the Noir
+// dependencies fetched by git tag are pinned to content hashes / commits in toolchain.lock.json,
+// and any drift (a moved tag, a re-published binary) fails here.
 import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import lock from '../../toolchain.lock.json';
+import { treeDigest } from './toolchain.ts';
 
 const pin = readFileSync(resolve(import.meta.dir, '../../.aztecrc'), 'utf8').trim();
 const versionDir = join(homedir(), '.aztec', 'versions', pin);
@@ -25,6 +27,11 @@ describe.skipIf(!existsSync(versionDir) && !process.env.YACANA_REQUIRE_TOOLCHAIN
     for (const [file, hash] of Object.entries(lock.bbjs)) {
       expect(sha256(join(versionDir, 'node_modules', '@aztec', 'bb.js', file))).toBe(hash);
     }
+  });
+
+  test('vendored source trees match their digests', () => {
+    for (const [dir, digest] of Object.entries(lock.trees))
+      expect(treeDigest(join(versionDir, dir))).toBe(digest);
   });
 
   test('Noir git dependencies sit at their pinned commits', () => {

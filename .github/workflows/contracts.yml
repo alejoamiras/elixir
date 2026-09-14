@@ -17,6 +17,7 @@ jobs:
       filters: |
         relevant:
           - 'packages/contracts/**'
+          - 'packages/bridge/fixtures/**'
           - '!packages/contracts/**/*.md'
           - 'packages/work-circuit/src/**'
           - 'packages/work-circuit/crates/**'

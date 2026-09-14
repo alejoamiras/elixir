@@ -6,7 +6,7 @@ import { openSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Fr } from '@aztec/aztec.js/fields';
 import { release } from '../../../scripts/run/registry.ts';
-import { type Deployment, deployYacana } from '../../deploy/src/deploy.ts';
+import { type Deployment, deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
 import { type E2eRun, MOCK_FILE, RUN_FILE } from './run.ts';
 import { buildApp, claimPreviewPort, mockStorage, pkg, startPreview, waitUntilUp } from './serve.ts';
 
@@ -36,7 +36,10 @@ const runId = `web-stats-e2e-${ownerPid}-${Date.now()}`;
 const port = await claimPreviewPort(runId, ownerPid);
 let spawned: ChildProcess | undefined;
 try {
-  const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: 1n << 127n });
+  const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
+    initialTarget: 1n << 127n,
+    portal: TEST_PORTAL,
+  });
   await Bun.write(MOCK_FILE, JSON.stringify(await mockStorage(deployed)));
   const log = openSync(resolve(pkg, 'e2e/.vite.log'), 'w');
   const env = e2eEnv(deployed);

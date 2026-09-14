@@ -19,6 +19,8 @@
     "lint:actions": "actionlint",
     "lint:fix": "biome check --write . && sort-package-json package.json 'packages/*/package.json'",
     "lint:shell": "shellcheck scripts/run/*.sh .husky/pre-commit .husky/commit-msg",
+    "portal:build": "bun run --cwd packages/portal build",
+    "portal:test": "bun run --cwd packages/portal test",
     "prepare": "husky",
     "record-rollup-address": "bun packages/deploy/scripts/record-rollup-address.ts",
     "site:build": "bun packages/site/src/assemble.ts",

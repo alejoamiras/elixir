@@ -16,7 +16,7 @@ import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
 import type { PrivateCallExecutionResult, TxReceipt } from '@aztec/stdlib/tx';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { TokenContract } from '@aztec-foundation/aztec-standards/artifacts/src/artifacts/Token.js';
-import { type Deployment, deployYacana } from '../../deploy/src/deploy.ts';
+import { type Deployment, deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
 import { effectView, exampleClaimFromEffect, sponsorFeeLeaf } from '../../deploy/src/example-claim.ts';
 import { loadMinerArtifact, loadWorkArtifact } from './artifacts.ts';
 import { buildClaim, claimGasLimits } from './claim.ts';
@@ -100,7 +100,10 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
     fee = { ...(await registerFpc(wallet)), gasSettings: { gasLimits: await claimGasLimits(node) } };
     const secret = Fr.random();
     from = await newAccount(wallet, secret);
-    deployment = await deployYacana(nodeUrl, secret, Fr.random(), { initialTarget: EASY_TARGET });
+    deployment = await deployYacana(nodeUrl, secret, Fr.random(), {
+      initialTarget: EASY_TARGET,
+      portal: TEST_PORTAL,
+    });
     miner = await registerDeployment(deployment);
     chainId = BigInt(await node.getChainId());
     rollupVersion = BigInt((await node.getNodeInfo()).rollupVersion);
@@ -303,7 +306,10 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
   }, 900_000);
 
   test('a proof mined for one deployment does not claim on another', async () => {
-    const other = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: EASY_TARGET });
+    const other = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
+      initialTarget: EASY_TARGET,
+      portal: TEST_PORTAL,
+    });
     const otherMiner = await registerDeployment(other);
     const { winner, secret } = await mine(miner); // domain of the FIRST deployment
     const r = await send(
@@ -371,7 +377,10 @@ describe.skipIf(!nodeUrl)('miner-core against a live node', () => {
   };
 
   test(`a burst of winners against N = ${PARAMS.N}: exactly N accepted, the rest revert as stale`, async () => {
-    const burst = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: EASY_TARGET });
+    const burst = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
+      initialTarget: EASY_TARGET,
+      portal: TEST_PORTAL,
+    });
     const m = await registerDeployment(burst);
     const rules = await readRules(m, from);
     // One wallet per winner: a PXE cannot simulate its own claims concurrently, and separate

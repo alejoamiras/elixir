@@ -17,7 +17,7 @@ const MASTER_INFO = 'yacana.master.v1';
 const MASTER_WORDS_INFO = 'yacana.master.words.v1';
 const ACCOUNT_INFO = 'yacana.account.v1';
 
-async function hkdf(ikm: Uint8Array, info: string, bytes: number): Promise<Uint8Array> {
+export async function hkdf(ikm: Uint8Array, info: string, bytes: number): Promise<Uint8Array> {
   const salt = await subtle().digest('SHA-256', te.encode(KDF_SALT_LABEL));
   const key = await subtle().importKey('raw', ikm as BufferSource, 'HKDF', false, ['deriveBits']);
   const bits = await subtle().deriveBits(

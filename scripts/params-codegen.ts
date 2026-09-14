@@ -34,6 +34,12 @@ const domains = Object.entries(config.domains).map(([name, tag]) => ({
   tag,
   value: domainValue(tag),
 }));
+// A log-tag separator is a u32 (the protocol's poseidon2_hash_with_separator takes one): 4 ASCII bytes.
+const separators = Object.entries(config.separators).map(([name, tag]) => {
+  const bytes = new TextEncoder().encode(tag);
+  if (bytes.length !== 4) throw new Error(`separator tag ${tag} must be exactly 4 bytes`);
+  return { name: `SEP_${name}`, tag, value: Number(domainValue(tag)) };
+});
 
 const minerNr = `${header}
 pub global N: u32 = ${p.N};
@@ -50,6 +56,7 @@ pub global CHAIN_LEN: u32 = ${p.CHAIN_LEN};
 `;
 const domainsNr = `${header}
 ${domains.map((d) => `pub global ${d.name}: Field = 0x${d.value.toString(16)}; // "${d.tag}"`).join('\n')}
+${separators.map((d) => `pub global ${d.name}: u32 = ${d.value}; // "${d.tag}"`).join('\n')}
 `;
 const ts = `${header}
 export const PROFILE = '${profile}';
@@ -72,6 +79,10 @@ export const PARAMS = {
 /** Domain separators: the ASCII tag as a big-endian field element; identical to the Noir globals. */
 export const DOMAINS = {
 ${domains.map((d) => `  ${d.name}: 0x${d.value.toString(16)}n, // "${d.tag}"`).join('\n')}
+} as const;
+/** u32 log-tag separators for poseidon2HashWithSeparator; identical to the Noir globals. */
+export const SEPARATORS = {
+${separators.map((d) => `  ${d.name}: ${d.value}, // "${d.tag}"`).join('\n')}
 } as const;
 `;
 
@@ -165,6 +176,76 @@ const out: [string, string][] = [
   ['packages/work-circuit/crates/lib/src/domains.nr', domainsNr],
   ['packages/miner-core/src/generated/params.ts', ts],
 ];
+interface BridgeVectors {
+  edge: {
+    recipient: string;
+    amount: string;
+    tag: string;
+    exitValue: string;
+    sendAheadValue: string;
+    claimValue: string;
+  };
+  exit: { recipient: string; amount: string; tag: string; value: string };
+  sendAhead: { amount: string; secretHash: string; redeemKey: string; value: string };
+  claim: { amount: string; value: string };
+  retire: { version: string; value: string };
+  retireSecretHash: string;
+  exitLogTag: { hashOrTag: string; value: string };
+}
+
+// The bridge crate asserts the contents packages/bridge pinned (bridge-vectors.json); the portal's
+// Foundry suite reads the same file, so any of the three drifting fails its own tests.
+const bridgeVectorsNr = (v: BridgeVectors): string => `${header}
+// Cross-language vectors pinned by packages/bridge/scripts/pin-vectors.ts (bridge-vectors.json).
+use crate::{claim_content, exit_content, exit_log_tag, retire_content, send_ahead_content};
+use aztec::hash::compute_secret_hash;
+use aztec::protocol::address::EthAddress;
+
+#[test]
+fn exit_content_matches_bridge() {
+    let c = exit_content(EthAddress::from_field(${v.exit.recipient}), ${v.exit.amount}, ${v.exit.tag});
+    assert_eq(c, ${v.exit.value});
+}
+
+#[test]
+fn send_ahead_content_matches_bridge() {
+    let c = send_ahead_content(
+        ${v.sendAhead.amount},
+        ${v.sendAhead.secretHash},
+        EthAddress::from_field(${v.sendAhead.redeemKey}),
+    );
+    assert_eq(c, ${v.sendAhead.value});
+}
+
+#[test]
+fn claim_content_matches_bridge() {
+    assert_eq(claim_content(${v.claim.amount}), ${v.claim.value});
+}
+
+#[test]
+fn retire_content_matches_bridge() {
+    assert_eq(retire_content(${v.retire.version}), ${v.retire.value});
+}
+
+#[test]
+fn edge_contents_match_bridge() {
+    let recipient = EthAddress::from_field(${v.edge.recipient});
+    assert_eq(exit_content(recipient, ${v.edge.amount}, ${v.edge.tag}), ${v.edge.exitValue});
+    assert_eq(send_ahead_content(${v.edge.amount}, ${v.edge.tag}, recipient), ${v.edge.sendAheadValue});
+    assert_eq(claim_content(${v.edge.amount}), ${v.edge.claimValue});
+}
+
+#[test]
+fn retire_secret_hash_matches_bridge() {
+    assert_eq(compute_secret_hash([0]), ${v.retireSecretHash});
+}
+
+#[test]
+fn exit_log_tag_matches_bridge() {
+    assert_eq(exit_log_tag(${v.exitLogTag.hashOrTag}), ${v.exitLogTag.value});
+}
+`;
+
 const vectorsFile = resolve(repo, 'packages/work-circuit/fixtures/vectors.json');
 if (existsSync(vectorsFile)) {
   out.push([
@@ -174,6 +255,17 @@ if (existsSync(vectorsFile)) {
 } else {
   console.warn(
     'params: no vectors.json yet — run bun packages/miner-core/scripts/pin-vectors.ts, then codegen again',
+  );
+}
+const bridgeVectorsFile = resolve(repo, 'packages/bridge/fixtures/bridge-vectors.json');
+if (existsSync(bridgeVectorsFile)) {
+  out.push([
+    'packages/contracts/yacana_bridge_hashes/src/test.nr',
+    bridgeVectorsNr((await Bun.file(bridgeVectorsFile).json()) as BridgeVectors),
+  ]);
+} else {
+  console.warn(
+    'params: no bridge-vectors.json yet — run bun packages/bridge/scripts/pin-vectors.ts, then codegen again',
   );
 }
 for (const [file, text] of out) {

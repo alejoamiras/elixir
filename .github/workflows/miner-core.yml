@@ -25,4 +25,4 @@ jobs:
         continue-on-error: true
         run: bun audit | tee -a "$GITHUB_STEP_SUMMARY"
       - run: bun run typecheck
-      - run: bun test packages/miner-core packages/deploy scripts
+      - run: bun test packages/miner-core packages/bridge packages/deploy scripts

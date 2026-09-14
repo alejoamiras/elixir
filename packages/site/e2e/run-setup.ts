@@ -9,7 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { Fr } from '@aztec/aztec.js/fields';
 import { lanePortBase, runPortWindowBase } from '../../../scripts/run/port-window.ts';
 import { claim, release } from '../../../scripts/run/registry.ts';
-import { type Deployment, deployYacana } from '../../deploy/src/deploy.ts';
+import { type Deployment, deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
 import { assemble } from '../src/assemble.ts';
 import { type E2eRun, RUN_FILE } from './run.ts';
 
@@ -71,7 +71,10 @@ const port = await claim({
 let spawned: ChildProcess | undefined;
 try {
   // A target no proof reaches: the landing's demo scores its proof and never has a winner.
-  const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: 1n });
+  const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
+    initialTarget: 1n,
+    portal: TEST_PORTAL,
+  });
   await assemble(OUT_DIR, e2eEnv(deployed));
   const log = openSync(resolve(pkg, 'e2e/.wrangler.log'), 'w');
   spawned = startServer(log, port);

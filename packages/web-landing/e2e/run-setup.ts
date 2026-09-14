@@ -8,7 +8,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { Fr } from '@aztec/aztec.js/fields';
 import { lanePortBase, runPortWindowBase } from '../../../scripts/run/port-window.ts';
 import { claim, release } from '../../../scripts/run/registry.ts';
-import { type Deployment, deployYacana } from '../../deploy/src/deploy.ts';
+import { type Deployment, deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
 import { type E2eRun, RUN_FILE } from './run.ts';
 
 const nodeUrl = process.env.AZTEC_NODE_URL;
@@ -97,7 +97,10 @@ const portFor = (service: string) => claim({ runId, service, ownerPid, worktree,
 const spawned: ChildProcess[] = [];
 try {
   // A target no proof reaches: the deployment stays at epoch 0 with no claim, the ledger's empty state.
-  const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), { initialTarget: 1n });
+  const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
+    initialTarget: 1n,
+    portal: TEST_PORTAL,
+  });
   const log = openSync(resolve(pkg, 'e2e/.vite.log'), 'w');
   const env = e2eEnv(deployed);
   writeClaimFixture(deployed);
