@@ -1,10 +1,9 @@
-// `/faq`, under the landing's header: the eyebrow and the title, three sections of
-// question rows (the question on the left, the answer on the right), the six panels of the
-// upgrade as a strip with their coin marks. Served by the origin's SPA fallback, so a link from
-// any app lands here.
+// `/faq`: served by the origin's SPA fallback, so a link from any app lands here; `#rules` from the
+// stats page. The rules rows are native disclosures: the line always, the picture on demand.
 import { Button, cn } from '../../../ui/src/index.ts';
 import { copy } from '../copy';
-import { faq } from '../faq-copy';
+import { type FaqRule, faq } from '../faq-copy';
+import { DIAGRAMS } from '../features/RuleDiagrams';
 import { appHref } from '../state';
 
 const STATS_BRIDGE = `${import.meta.env.BASE_URL}stats/bridge`;
@@ -52,6 +51,49 @@ function Panels() {
   );
 }
 
+const ROW = 'grid gap-2 border-t border-line py-3.5 md:grid-cols-[260px_1fr] md:gap-5';
+const Q = 'text-balance text-[15px] font-semibold leading-[1.35]';
+
+/** One rule: its line always, the picture and the reasons behind the disclosure. */
+function Rule({ rule }: { rule: FaqRule }) {
+  const { title, Picture } = DIAGRAMS[rule.diagram];
+  return (
+    <div className={ROW} data-testid="faq-rule">
+      <dt className={Q}>{rule.q}</dt>
+      <dd className="m-0">
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-baseline justify-between gap-4 [&::-webkit-details-marker]:hidden">
+            <p className="m-0 max-w-[66ch] text-pretty text-sm leading-[1.55] text-ink-2">{rule.line}</p>
+            <span className="label-mono inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-uv-2">
+              <span className="group-open:hidden">how it works</span>
+              <span className="hidden group-open:inline">less</span>
+              <svg
+                viewBox="0 0 10 10"
+                aria-hidden
+                className="size-2.5 transition-transform group-open:rotate-180"
+              >
+                <path
+                  d="M2 3.5 5 6.5 8 3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+          </summary>
+          <div className="mt-2.5 flex flex-col gap-3 rounded-[8px] border border-line bg-raised px-[18px] py-4">
+            <span className="label-mono">{title}</span>
+            <Picture />
+            <p className="m-0 max-w-[70ch] text-pretty text-sm leading-[1.55] text-ink-2">{rule.more}</p>
+          </div>
+        </details>
+      </dd>
+    </div>
+  );
+}
+
 export function Faq() {
   const f = copy.faq;
   return (
@@ -67,17 +109,17 @@ export function Faq() {
       </div>
       <div className="flex flex-col gap-9" data-testid="faq-questions">
         {faq.sections.map((s) => (
-          <div key={s.id} data-testid={`faq-${s.id}`}>
+          <div key={s.id} id={s.id} data-testid={`faq-${s.id}`} className="scroll-mt-16">
             <h2 className="mb-3.5 text-[22px] font-semibold tracking-[-0.015em]">{s.title}</h2>
             {s.lede && <p className="mb-1.5 max-w-[72ch] text-pretty text-sm text-ink-2">{s.lede}</p>}
             {s.panels && <Panels />}
             <dl className="m-0 flex flex-col">
+              {s.rules?.map((r) => (
+                <Rule key={r.q} rule={r} />
+              ))}
               {s.questions.map((x) => (
-                <div
-                  key={x.q}
-                  className="grid gap-2 border-t border-line py-3.5 md:grid-cols-[260px_1fr] md:gap-5"
-                >
-                  <dt className="text-balance text-[15px] font-semibold leading-[1.35]">{x.q}</dt>
+                <div key={x.q} className={ROW}>
+                  <dt className={Q}>{x.q}</dt>
                   <dd className="m-0 max-w-[66ch] text-pretty text-sm leading-[1.55] text-ink-2">{x.a}</dd>
                 </div>
               ))}

@@ -73,7 +73,7 @@ export function Bridge() {
       )}
       {snapshot && (
         <TileBoundary name="bridge-versions">
-          <BridgeVersions snapshot={snapshot} miner={miner} supply={supply} now={now} />
+          <BridgeVersions snapshot={snapshot} miner={miner} supply={supply} />
         </TileBoundary>
       )}
       {snapshot && (
@@ -88,7 +88,7 @@ export function Bridge() {
             />
           </TileBoundary>
           <TileBoundary name="bridge-portal">
-            <BridgePortal snapshot={snapshot} record={bridge} live={mine} />
+            <BridgePortal snapshot={snapshot} record={bridge} chainId={bridge.chainId} />
           </TileBoundary>
         </div>
       )}

@@ -1,8 +1,6 @@
-// The everyday bridge on the wallet page: a journal card per crossing while something is
-// crossing (a finished one fades after a week), each with its stations, its line and its offers;
-// "nothing crossing" otherwise; under it the deposit and the recovery file, and the contracts on
-// Ethereum. Yacana forwards exits by hand: the tile says so and offers the forward to the holder —
-// a ready exit, or a held send-ahead once a later version is registered.
+// The everyday bridge on the wallet page: a journal card per crossing while something is crossing
+// (a finished one fades after a week), "nothing crossing" otherwise; the recovery file and the
+// contracts under it.
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import { type Crossing, visible } from '../../../bridge/src/journal.ts';
@@ -10,9 +8,9 @@ import { MAX_RECOVERY_BYTES } from '../../../bridge/src/recovery.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { Button, ExternalLink, JournalCard, Tile, TileHeader } from '../../../ui/src/index.ts';
 import { cardLine, chainName, journalTone, stamp, type Tone, trailOf, whoOf } from '../bridge/copy';
-import { bridgeRecord, isOldRole } from '../bridge/env';
+import { bridgeRecord, isOldRole, migrationRecord, versionNameOf } from '../bridge/env';
 import { l1Links } from '../explorer';
-import { duration, amount as fmt, shortAddress } from '../lib/format';
+import { amount as fmt, shortAddress } from '../lib/format';
 import type { Session } from '../session';
 import { type BridgeView, bridgeAtom, journalAtom, nowAtom } from '../state';
 import { saveRecoveryFile } from './recovery';
@@ -24,8 +22,6 @@ const TONE: Record<Tone, string> = {
   warn: 'text-warn',
   bad: 'text-bad',
 };
-
-const OPEN_ENDED = (1n << 256n) - 1n;
 
 /** A held send-ahead is forwarded from the version it lands on: the live one, never the old origin. */
 const holderMayForward = (c: Crossing, view: BridgeView): boolean =>
@@ -51,7 +47,9 @@ function Card({
 }) {
   // The crossing's own version, not the build's: a V5 send viewed on V6 waits for V5's proof, under V5's frozen cap.
   const flipped = view.canonical !== undefined && view.canonical.version !== BigInt(c.version);
-  const line = cardLine(c, Math.floor(now / 1000), c.version, flipped);
+  const own = versionNameOf(c.version, view.canonical);
+  const target = versionNameOf(c.target, view.canonical);
+  const line = cardLine(c, Math.floor(now / 1000), own, flipped, target);
   const l1 = c.l1TxHash ? l1Links.tx(c.l1TxHash) : undefined;
   const forward = line.action === 'forward' || holderMayForward(c, view);
   const actions =
@@ -59,17 +57,22 @@ function Card({
       <>
         {l1 && c.l1TxHash && (
           <ExternalLink href={l1} full={c.l1TxHash}>
-            Etherscan ↗
+            Etherscan
           </ExternalLink>
         )}
-        {forward && (
+        {forward && c.kind === 1 && (
+          <Button size="sm" variant="uv" onClick={() => onForward(c)} data-testid="claim-ethereum">
+            Claim on Ethereum
+          </Button>
+        )}
+        {forward && c.kind === 2 && (
           <Button size="sm" variant="link" onClick={() => onForward(c)} data-testid="forward-myself">
             Forward it myself
           </Button>
         )}
         {line.action === 'redeem' && (
           <Button size="sm" variant="link" onClick={() => onRedeem(c)} data-testid="redeem">
-            Redeem to Ethereum
+            Redeem on Ethereum
           </Button>
         )}
         {c.error && <span className="text-warn">{c.error}</span>}
@@ -79,7 +82,7 @@ function Card({
     <JournalCard
       amount={fmt(BigInt(c.amount), PARAMS.DECIMALS)}
       unit={PARAMS.TOKEN_SYMBOL}
-      who={whoOf(c, shortAddress)}
+      who={whoOf(c, shortAddress, target)}
       when={
         <>
           <span className={TONE[line.tone]} data-testid="crossing-word">
@@ -89,7 +92,7 @@ function Card({
           {stamp(c.createdAt)}
         </>
       }
-      trail={trailOf(c)}
+      trail={trailOf(c, target)}
       line={line.sentence}
       actions={actions}
       tone={journalTone(line.tone)}
@@ -152,35 +155,29 @@ function Recovery({ session, account }: { session: Session; account: string }) {
   );
 }
 
-const standingLine = (view: BridgeView, now: number): string => {
-  if (view.rpcFailing)
-    return 'The Ethereum RPC is not answering: the burn would be safe, the rest unknown, so new exits wait.';
-  const s = view.standing;
-  if (!s) return 'reading the portal…';
-  const close =
-    s.deadline === OPEN_ENDED
-      ? 'stay open'
-      : `close ${duration(Math.max(0, Number(s.deadline) - Math.floor(now / 1000)))} from now`;
-  return `exit headroom ${fmt(s.headroom, PARAMS.DECIMALS, 0)} ${PARAMS.TOKEN_SYMBOL} · exits from this version ${close} · Yacana forwards exits by hand; a proven exit can be forwarded by anyone, any time`;
+/** One line under the cards, only when there is something to say: a silent RPC, or who forwards send-aheads once a migration is announced. */
+const standingLine = (view: BridgeView): string => {
+  if (view.rpcFailing) return 'The Ethereum RPC is not answering: new withdrawals wait until it does.';
+  const m = migrationRecord();
+  if (!m) return '';
+  return `Yacana may forward send-aheads to V${m.toIndex} by hand; feel free to bridge or send ahead yourself.`;
 };
 
 const asideOf = (view: BridgeView): string => {
   const chain = chainName(bridgeRecord()?.chainId);
   if (view.rpcFailing) return `${chain} · Ethereum RPC silent`;
   if (view.standing?.paused) return `${chain} · paused`;
-  return `${chain} · forwarded by hand`;
+  return chain;
 };
 
 export function BridgeTile({
   session,
   account,
-  onDeposit,
   onForward,
   onRedeem,
 }: {
   session: Session;
   account: string;
-  onDeposit: () => void;
   onForward: (c: Crossing) => void;
   onRedeem: (c: Crossing) => void;
 }) {
@@ -191,7 +188,6 @@ export function BridgeTile({
   const shown = journal.filter(
     (c) => visible(c, now) && c.kind !== 3 && c.state !== 'claimable' && c.state !== 'minted-l2',
   );
-  const standing = view.standing;
   return (
     <Tile className="md:col-span-2" data-testid="bridge-tile">
       <TileHeader aside={asideOf(view)}>bridge</TileHeader>
@@ -213,31 +209,24 @@ export function BridgeTile({
           </p>
         </div>
       )}
-      <p className="mt-3 text-xs text-ink-3" data-testid="bridge-standing">
-        {standingLine(view, now)}
-      </p>
+      {standingLine(view) && (
+        <p className="mt-3 text-xs text-ink-3" data-testid="bridge-standing">
+          {standingLine(view)}
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-line pt-3 text-xs">
         <span className="flex flex-wrap items-center gap-4">
-          <Button
-            size="sm"
-            variant="link"
-            className="text-uv-2"
-            disabled={!standing?.registered || standing.depositsClosed}
-            onClick={onDeposit}
-          >
-            Deposit from Ethereum →
-          </Button>
           <Recovery session={session} account={account} />
         </span>
         {record && (
           <span className="font-mono text-2xs text-ink-3">
             YACA on {chainName(record.chainId)}:{' '}
             <ExternalLink href={l1Links.address(record.yaca)} full={record.yaca}>
-              {shortAddress(record.yaca)} ↗
+              {shortAddress(record.yaca)}
             </ExternalLink>
             {' · portal '}
             <ExternalLink href={l1Links.address(record.portal)} full={record.portal}>
-              {shortAddress(record.portal)} ↗
+              {shortAddress(record.portal)}
             </ExternalLink>
           </span>
         )}

@@ -96,7 +96,7 @@ test('on V5: a words account mines one claim, exits to Ethereum (forwarded and m
   await expect(page.getByTestId('nothing-crossing')).toBeVisible();
   await shot(page, 'wallet');
 
-  // Exit 1 to the holder; settled and forwarded by Yacana, it is YACA on Ethereum.
+  // Bridge 1 to the holder: settled, the holder claims it on Ethereum from the card with the test wallet.
   await page.getByTestId('to-ethereum').click();
   await page.getByTestId('exit-amount').fill('1');
   await page.getByTestId('exit-to').fill(l1.address);
@@ -111,17 +111,25 @@ test('on V5: a words account mines one claim, exits to Ethereum (forwarded and m
   await expect(page.getByTestId('wallet-balance')).toHaveText('3', { timeout: 60_000 });
   await shot(page, 'wallet-crossing');
   await ctl.settle();
-  await expect(rows(page, 1).getByTestId('crossing-word')).toHaveText('ready', { timeout: 3 * 60_000 });
+  await expect(rows(page, 1).getByTestId('crossing-word')).toHaveText('ready to claim', {
+    timeout: 3 * 60_000,
+  });
   await shot(page, 'journal-ready');
-  expect((await ctl.forward()).forwarded).toBe(1);
-  await expect(rows(page, 1).getByTestId('crossing-word')).toHaveText('on Ethereum', { timeout: 60_000 });
-  await shot(page, 'journal-minted');
+  await rows(page, 1).getByTestId('claim-ethereum').click();
+  await connectTestWallet(page);
+  await expect(page.getByTestId('forward-go')).toBeVisible();
+  await shot(page, 'claim-sheet');
+  await page.getByTestId('forward-go').click();
+  await expect(page.getByTestId('forward-done')).toBeVisible({ timeout: 2 * 60_000 });
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(rows(page, 1).getByTestId('crossing-word')).toHaveText('claimed', { timeout: 60_000 });
+  await shot(page, 'journal-claimed');
 
   // Deposit 0.5 back through the picker; the arrival card claims it.
   await page.getByTestId('deposit').click();
-  await expect(page.getByTestId('wallet-picker')).toBeVisible();
-  await shot(page, 'from-ethereum');
+  // The wallet that claimed is still connected: the sheet opens on its row, not on the picker.
   await connectTestWallet(page);
+  await shot(page, 'from-ethereum');
   await expect(page.getByTestId('yaca-balance')).toHaveText('1', { timeout: 30_000 });
   await page.getByTestId('deposit-amount').fill('0.5');
   await expect(page.getByTestId('deposit-preflip')).toBeVisible();
@@ -171,9 +179,7 @@ test('on V5: a words account mines one claim, exits to Ethereum (forwarded and m
       timeout: 3 * 60_000,
     },
   );
-  await expect(rows(page, 2).first()).toContainText(
-    'Only this account, from this device, or Yacana’s listed forwarder',
-  );
+  await expect(rows(page, 2).first()).toContainText('you can too, or redeem it on Ethereum');
   await shot(page, 'wallet-held');
   mkdirSync(handoffDir, { recursive: true });
   const [download] = await Promise.all([

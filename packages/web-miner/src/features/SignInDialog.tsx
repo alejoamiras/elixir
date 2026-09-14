@@ -1,12 +1,6 @@
 import { useAtom, useAtomValue } from 'jotai';
 import { Button, Dialog, DialogContent, DialogTitle, Progress, Stepper } from '../../../ui/src/index.ts';
-import {
-  bytesDetail,
-  NOTES_SPAN,
-  type OpeningStep,
-  openingIndeterminate,
-  progressOf,
-} from '../opening-steps';
+import { bytesDetail, type OpeningStep, openingIndeterminate, progressOf } from '../opening-steps';
 import type { Session } from '../session';
 import { useSettings } from '../settings';
 import { bootAtom, signInAtom } from '../state';
@@ -84,7 +78,7 @@ function Opening({ steps, onCancel }: { steps: OpeningStep[]; onCancel: () => vo
       <Progress
         value={progressOf(steps)}
         indeterminate={openingIndeterminate(steps)}
-        indeterminateSpan={NOTES_SPAN}
+        indeterminateSpan={100}
         data-testid="opening-bar"
       />
       <Stepper steps={steps.map(shown)} />

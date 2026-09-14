@@ -4,6 +4,7 @@ import { proofsPerMinute } from '../../miner-core/src/metrics.ts';
 import { defaultNodeUrl, restoreDefaultNode } from '../../site/src/browser/connection.ts';
 import { previewNotice } from '../../site/src/browser/host.ts';
 import { bannerState, nodeHealth, subscribeNodeHealth } from '../../site/src/browser/node-health.ts';
+import { ownVersionName } from '../../site/src/browser/version-name.ts';
 import {
   Alert,
   AlertDescription,
@@ -86,7 +87,7 @@ export function Shell({ children }: { children: ReactNode }) {
             className="rounded-sm border border-line-2 px-1.5 py-0.5 font-mono text-2xs font-medium tracking-[0.08em] text-ink-3"
             data-testid="brand-version"
           >
-            V{import.meta.env.VITE_ROLLUP_VERSION}
+            {ownVersionName()}
           </span>
         </span>
         <nav className="flex gap-4 text-sm" aria-label="miner">

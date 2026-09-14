@@ -317,6 +317,7 @@ export const viteDefine = (c: SiteConfig): Record<string, string> =>
       VITE_APP_ROLE: c.role,
       VITE_MIGRATION: c.migration ? JSON.stringify(c.migration) : '',
       VITE_BRIDGE: c.bridge ? JSON.stringify(c.bridge) : '',
+      VITE_VERSION_INDEX: c.bridge?.registryIndex ?? '',
       VITE_FIRST_EPOCH: String(c.firstEpoch),
       VITE_DEPLOYMENT_RECORD: JSON.stringify(c.record),
       VITE_EXAMPLE_CLAIM: c.exampleClaim ? JSON.stringify(c.exampleClaim) : '',

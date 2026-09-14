@@ -1,6 +1,6 @@
-// What a crossing's card says, per state: the sentence, the action it offers and how it reads. No
-// relayer promises, no hour, no waiting period: Yacana forwards by hand and the holder may forward
-// or redeem any time.
+// What a crossing's card says, per state: the sentence, the action it offers and how it reads. A
+// withdrawal ends with its holder's claim on Ethereum (anyone may make it); a send-ahead is forwarded
+// by Yacana, its holder or an authorized relayer, or redeemed. The only time promised is the proof's.
 import type { Crossing, CrossingState } from '../../../bridge/src/journal.ts';
 import type { TrailItem } from '../../../ui/src/bridge-types.ts';
 import { duration } from '../lib/format';
@@ -25,7 +25,16 @@ export const untilOrAgo = (deadline: bigint, nowSeconds: number): string => {
   return delta >= 0 ? `in ${duration(delta)}` : `${duration(-delta)} ago`;
 };
 
-type Line = (c: Crossing, nowSeconds: number, version: string, flipped: boolean) => CardLine;
+type Line = (c: Crossing, nowSeconds: number, version: string, flipped: boolean, target: string) => CardLine;
+
+const hhmm = (unixSeconds: string): string =>
+  new Date(Number(unixSeconds) * 1000).toISOString().slice(11, 16);
+
+/** The proof's due time when the journal knows the epoch's deadline, the usual wait otherwise; a missed proof undoes the burn. */
+const provenBy = (c: Crossing): string =>
+  c.proofDeadline
+    ? `Its proof is due on Ethereum by ${hhmm(c.proofDeadline)}, or the burn is undone`
+    : 'Usually proven to Ethereum within the hour';
 
 const LINES: Record<CrossingState, Line> = {
   proving: (c) =>
@@ -47,104 +56,110 @@ const LINES: Record<CrossingState, Line> = {
     tone: 'warn',
     action: 'send-again',
   }),
-  'proven-pending': (c, now, v) => ({
+  'proven-pending': (c, _now, _v, _flipped, target) => ({
     word: 'proving to Ethereum',
-    sentence: `In a block; Ethereum learns of it when V${v} proves ${c.epoch ? `epoch ${c.epoch}` : 'its epoch'}${
-      c.proofDeadline ? ` — due ${untilOrAgo(BigInt(c.proofDeadline), now)}` : ''
-    }, usually within a few epochs.`,
+    sentence: `${provenBy(c)}; then ${c.kind === 1 ? 'you claim it there' : `it is held there for ${target}`}.`,
     tone: 'busy',
   }),
-  witnessed: () => ({
+  witnessed: (c, _now, _v, _flipped, target) => ({
     word: 'proven',
-    sentence: 'Proven to Ethereum; its witness is saved in this wallet.',
+    sentence:
+      c.kind === 1
+        ? 'Proven to Ethereum; reading the portal for the claim.'
+        : `Proven to Ethereum; held there for ${target}.`,
     tone: 'busy',
   }),
-  'never-proven': (c, _now, v) => ({
+  'never-proven': (_c, _now, v) => ({
     word: 'undone',
-    sentence: `V${v} never proved ${c.epoch ? `epoch ${c.epoch}` : 'its epoch'} in time: the burn was undone and the balance is back on V${v}.`,
+    sentence: `${v} never proved it in time: the burn was undone and the balance is back on ${v}.`,
     tone: 'warn',
     action: 'send-again',
   }),
-  paused: () => ({
+  paused: (c) => ({
     word: 'paused',
-    sentence:
-      'Nothing of this version moves while the portal is paused, 30 days at most per pause; forward it yourself or redeem it once the pause ends.',
+    sentence: `The bridge is paused; it moves again when the pause lifts, 30 days at most a call${c.kind === 2 ? '; the redeem waits with it' : ''}.`,
     tone: 'warn',
   }),
   headroom: (_c, _now, _v, flipped) => ({
-    word: flipped ? 'over the cap' : 'waiting for headroom',
+    word: flipped ? 'over the limit' : 'waiting for the limit',
     sentence: flipped
-      ? 'The version’s exit capacity is used up: nothing more of it can be forwarded or redeemed.'
-      : 'More has left this version than its schedule allows for now; forward or redeem it once the schedule frees room. Nothing queues it.',
+      ? 'Beyond the version’s frozen exit limit: it cannot leave.'
+      : 'More has left this version than its exit limit allows for now; it goes through once the limit grows.',
     tone: 'warn',
   }),
   closed: (_c, _now, v) => ({
     word: 'closed',
-    sentence: `V${v}'s exits closed before this one was forwarded. Gone.`,
+    sentence: `${v}'s last day passed before this was claimed. Gone.`,
     tone: 'bad',
   }),
   ready: () => ({
-    word: 'ready',
-    sentence: 'Proven; Yacana forwards exits by hand. Forward it yourself any time.',
-    tone: 'busy',
+    word: 'ready to claim',
+    sentence: 'Proven. Claim it on Ethereum with a wallet: one transaction, you pay the gas.',
+    tone: 'good',
     action: 'forward',
   }),
   'minted-l1': (c) => ({
-    word: c.kind === 2 ? 'redeemed' : 'on Ethereum',
-    sentence: c.kind === 2 ? 'Redeemed: YACA minted on Ethereum.' : 'YACA minted on Ethereum.',
+    word: c.kind === 2 ? 'redeemed' : 'claimed',
+    sentence: c.kind === 2 ? 'Redeemed: YACA on Ethereum.' : 'Claimed: YACA on Ethereum.',
     tone: 'good',
   }),
-  held: () => ({
+  held: (_c, _now, _v, _flipped, target) => ({
     word: 'held on Ethereum',
-    sentence:
-      'Held on Ethereum, out of the old version’s reach. Only this account, from this device, or Yacana’s listed forwarder may forward it: a stranger could push it into a rollup about to stop. Redeem to Ethereum any time.',
+    sentence: `Held on Ethereum for ${target}, out of the old version’s reach. Yacana forwards it once ${target} opens; you can too, or redeem it on Ethereum, any time before the last day.`,
     tone: 'busy',
     action: 'redeem',
   }),
   'not-registered': () => ({
     word: 'waiting for Yacana',
     sentence:
-      'The next version is live; Yacana has not registered its contract there yet. Redeem to Ethereum any time.',
+      'The next version is live; Yacana has not opened its contract there yet. Redeem on Ethereum any time before the last day.',
     tone: 'warn',
     action: 'redeem',
   }),
-  forwarded: (c) => ({
+  forwarded: (_c, _now, _v, _flipped, target) => ({
     word: 'arrived',
-    sentence: `On Aztec V${c.target ?? '?'}. Claim it there with this passkey.`,
+    sentence: `On Aztec ${target}. Claim it there with this passkey.`,
     tone: 'busy',
   }),
   deposited: () => ({
     word: 'crossing',
-    sentence: 'Deposited on Ethereum. Crossing to Aztec: a few minutes.',
+    sentence: 'Deposited on Ethereum; crossing to Aztec, a few minutes.',
     tone: 'busy',
   }),
   claimable: () => ({
-    word: 'claim',
-    sentence: 'On Aztec. Claim it privately here, about 20 s.',
+    word: 'ready to claim',
+    sentence: 'On Aztec. Claim it here: one tap, about 20 s.',
     tone: 'good',
     action: 'claim',
   }),
-  'minted-l2': (c) => ({
-    word: 'minted',
-    sentence: `Minted here, privately${c.claimTxHash ? '' : ''}.`,
+  'minted-l2': () => ({
+    word: 'claimed',
+    sentence: 'Claimed here, privately.',
     tone: 'good',
   }),
 };
 
-/** The card's line for `c`: `version` is the crossing's own, `flipped` whether that version has been flipped away from (its cap frozen). */
-export const cardLine = (c: Crossing, nowSeconds: number, version: string, flipped = false): CardLine =>
+/** The card's line for `c`: `version` names the crossing's own version, `target` the one it lands on, `flipped` whether the own version was flipped away from (its cap frozen). */
+export const cardLine = (
+  c: Crossing,
+  nowSeconds: number,
+  version: string,
+  flipped = false,
+  target = `V${c.target ?? '?'}`,
+): CardLine =>
   (LINES[c.state] ?? (() => ({ word: c.state, sentence: kindNoun(c), tone: 'quiet' as const })))(
     c,
     nowSeconds,
     version,
     flipped,
+    target,
   );
 
-/** A held or ready crossing older than this asks whether something is wrong. */
+/** A send-ahead held on Ethereum for longer than this asks whether something is wrong. */
 export const TAKING_LONG_AFTER_MS = 6 * 3600 * 1000;
 
 export const takingLong = (c: Crossing, now: number): boolean =>
-  (c.state === 'held' || c.state === 'ready') && now - c.updatedAt > TAKING_LONG_AFTER_MS;
+  c.kind === 2 && c.state === 'held' && now - c.updatedAt > TAKING_LONG_AFTER_MS;
 
 // ---------------------------------------------------------------- the journal card's vocabulary
 
@@ -163,18 +178,15 @@ export const stamp = (ms: number): string => {
   return `${d.toISOString().slice(11, 16)} · ${day}`;
 };
 
-const hhmm = (unixSeconds: string): string =>
-  new Date(Number(unixSeconds) * 1000).toISOString().slice(11, 16);
-
 /** The card's border from the line's tone. */
 export const journalTone = (t: Tone): 'neutral' | 'on' | 'ok' | 'warn' | 'bad' =>
   t === 'busy' ? 'on' : t === 'good' ? 'ok' : t === 'quiet' ? 'neutral' : t;
 
 /** Where a crossing goes, beside its amount. */
-export const whoOf = (c: Crossing, short: (a: string) => string): string => {
+export const whoOf = (c: Crossing, short: (a: string) => string, target = `V${c.target ?? '?'}`): string => {
   if (c.kind === 1) return `to Ethereum · Ξ ${short(c.ethAddress)}`;
   if (c.kind === 3) return `from Ethereum · Ξ ${short(c.ethAddress)}`;
-  return c.target ? `sent ahead · to V${c.target}` : 'sent ahead · to the next version';
+  return c.target ? `sent ahead · to ${target}` : 'sent ahead · to the next version';
 };
 
 const st = (label: string, state: TrailItem['state']): TrailItem => ({ label, state });
@@ -202,10 +214,10 @@ const DEPOSIT_TRAIL: Partial<Record<CrossingState, TrailItem[]>> = {
 };
 
 /** The stations of a crossing, for the journal card's rail: what is behind it, where it is, what is left. */
-export function trailOf(c: Crossing): TrailItem[] {
+export function trailOf(c: Crossing, target = `V${c.target ?? '?'}`): TrailItem[] {
   if (c.kind === 3) return DEPOSIT_TRAIL[c.state] ?? [];
   const deadline = c.proofDeadline ? ` · by ${hhmm(c.proofDeadline)}` : '';
-  const end = c.kind === 1 ? 'YACA minted' : 'held on Ethereum';
+  const end = c.kind === 1 ? 'claimed on Ethereum' : 'held on Ethereum';
   switch (c.state) {
     case 'proving':
       return [st('proving', 'on'), st('proven to Ethereum', 'todo'), st(end, 'todo')];
@@ -216,25 +228,25 @@ export function trailOf(c: Crossing): TrailItem[] {
     case 'proven-pending':
       return [st('burned', 'done'), blockStation(c), st(`proving${deadline}`, 'on'), st(end, 'todo')];
     case 'witnessed':
-      return exitTrail(c, st(c.kind === 1 ? 'forwarded' : 'held on Ethereum', 'todo'));
+      return exitTrail(c, st(c.kind === 1 ? 'claim on Ethereum' : 'held on Ethereum', 'todo'));
     case 'ready':
-      return exitTrail(c, st('forwarded', 'on'));
+      return exitTrail(c, st('claim on Ethereum', 'on'));
     case 'never-proven':
       return [st('burned', 'done'), st(`not proven${deadline}`, 'bad')];
     case 'paused':
       return exitTrail(c, st('paused', 'warn'));
     case 'headroom':
-      return exitTrail(c, st('waiting its turn', 'warn'));
+      return exitTrail(c, st('waiting for the limit', 'warn'));
     case 'closed':
-      return exitTrail(c, st('exits closed', 'bad'));
+      return exitTrail(c, st('last day passed', 'bad'));
     case 'minted-l1':
-      return exitTrail(c, st(c.kind === 2 ? 'redeemed as YACA' : 'YACA minted', 'done'));
+      return exitTrail(c, st(c.kind === 2 ? 'redeemed as YACA' : 'claimed on Ethereum', 'done'));
     case 'held':
       return exitTrail(c, st('waiting for the next version', 'on'));
     case 'not-registered':
       return exitTrail(c, st('waiting for Yacana on the next version', 'on'));
     case 'forwarded':
-      return [...exitTrail(c, st('forwarded', 'done')), st(`claim on V${c.target ?? '?'}`, 'on')];
+      return [...exitTrail(c, st('forwarded', 'done')), st(`claim on ${target}`, 'on')];
     case 'claimable':
       return [...exitTrail(c, st('forwarded', 'done')), st('claim', 'on')];
     case 'minted-l2':

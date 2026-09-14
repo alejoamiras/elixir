@@ -272,7 +272,8 @@ export async function connectTestWallet(page: Page): Promise<void> {
   await expect(row.or(page.getByTestId('wallet-picker'))).toBeVisible({ timeout: 30_000 });
   if (!(await row.isVisible()))
     await page.getByTestId('wallet-option').filter({ hasText: WALLET_NAME }).click();
-  await expect(row).toContainText(WALLET_NAME);
+  // The connected row is the account's chip (its short address), not the wallet's name.
+  await expect(row).toContainText(/0x[0-9a-fA-F]{4,}…[0-9a-fA-F]{4}/);
 }
 
 declare global {

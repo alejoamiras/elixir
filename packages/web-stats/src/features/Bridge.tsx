@@ -1,16 +1,17 @@
 // The bridge page's tiles. The portal knows what left each version and what arrived, not who
-// holds what: every figure here is a flow or this build's own supply.
+// holds what: every figure here is a flow or this build's own supply. The figures speak for
+// themselves; a dotted word carries its one-line tooltip, one disclosure per card holds the
+// sentence, and the rules live on the FAQ.
 
+import { useEffect, useId, useState } from 'react';
 import type { VersionFlows } from '../../../bridge/src/portal-reader.ts';
 import type { MigrationRecord } from '../../../bridge/src/record.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';
 import { firstEpoch } from '../../../site/src/browser/connection.ts';
-import { amount, duration } from '../../../site/src/browser/format.ts';
 import {
   Badge,
   ChipLink,
-  ExternalLink,
   Kpi,
   KvRow,
   StackedBar,
@@ -22,13 +23,15 @@ import {
   type BridgeSnapshot,
   chainNow,
   coinsSeries,
+  crossingLine,
   day,
   exitLimitLine,
   figuresOf,
-  forwardingLine,
+  headroomLine,
   kpisOf,
   type MinerFlows,
   pauseLine,
+  pauseRule,
   phasesOf,
   versionLine,
   whereOf,
@@ -38,8 +41,8 @@ import { FAQ_HREF } from '../routes';
 import { CoinsChart } from './CoinsChart';
 
 const FIRST = firstEpoch();
+export const RULES_HREF = `${FAQ_HREF}#rules`;
 
-const yaca = (raw: bigint) => `${amount(raw, PARAMS.DECIMALS, 2)} ${PARAMS.TOKEN_SYMBOL}`;
 const OPEN_ENDED = (1n << 256n) - 1n;
 
 const chainName = (chainId: string): string =>
@@ -50,6 +53,57 @@ const chainName = (chainId: string): string =>
       : chainId === '31337'
         ? 'anvil'
         : `chain ${chainId}`;
+
+/** A dotted word whose explanation opens on hover or keyboard focus (the gap is part of the hover area) and closes on Escape however it opened. */
+function Term({ title, children }: { title: string; children: React.ReactNode }) {
+  const id = useId();
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const shown = hovered || focused;
+  useEffect(() => {
+    if (!shown) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setDismissed(true);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [shown]);
+  const leave = () => {
+    setHovered(false);
+    setDismissed(false);
+  };
+  return (
+    <span className="group relative inline-block">
+      <button
+        type="button"
+        aria-describedby={id}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={leave}
+        onFocus={() => setFocused(true)}
+        onBlur={() => {
+          setFocused(false);
+          setDismissed(false);
+        }}
+        className="cursor-help border-0 bg-transparent p-0 font-[inherit] text-[length:inherit] text-inherit underline decoration-dotted underline-offset-[3px] outline-none focus-visible:ring-1 focus-visible:ring-uv"
+      >
+        {children}
+      </button>
+      <span
+        role="tooltip"
+        id={id}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={leave}
+        className={`absolute bottom-full left-0 z-10 w-64 pb-1.5 ${dismissed ? 'hidden' : 'hidden group-focus-within:block group-hover:block'}`}
+      >
+        <span className="block rounded-[6px] border border-line bg-panel px-2.5 py-2 font-sans text-xs normal-case text-ink-2">
+          {title}
+        </span>
+      </span>
+    </span>
+  );
+}
+
+const EXIT_LIMIT =
+  'Withdrawals from a version are capped at what mining could have produced: the limit grows with the schedule from the launch and freezes at the upgrade, net of what arrived. Beyond it, a withdrawal waits for it to grow.';
 
 export function BridgeKpis({
   snapshot,
@@ -99,17 +153,13 @@ export function BridgePhases({
           </a>
         }
       >
-        {version ? `aztec v${version.version} · the phases` : 'the phases'}
+        {version ? `V${version.registryIndex} · the phases` : 'the phases'}
       </TileHeader>
       {version ? (
         <Timeline items={phasesOf(version, migration, nowSeconds)} className="mt-1.5" />
       ) : (
         <p className="text-xs text-ink-3">reading the portal…</p>
       )}
-      <p className="mt-3.5 text-pretty text-xs text-ink-3">
-        A version is mined while canonical, can be left while it proves, and is closed to exits at the later
-        of the version after next and 180 days after the flip, extended by every day the bridge was paused.
-      </p>
     </Tile>
   );
 }
@@ -136,9 +186,7 @@ export function BridgeCoins({
       : [];
   return (
     <Tile data-testid="bridge-coins">
-      <TileHeader aside="since launch · each epoch's claims at its open · violet on Aztec · grey on Ethereum">
-        where the coins are
-      </TileHeader>
+      <TileHeader aside="since launch · violet on Aztec · grey on Ethereum">where the coins are</TileHeader>
       {points.length > 1 ? (
         <CoinsChart points={points} symbol={PARAMS.TOKEN_SYMBOL} />
       ) : (
@@ -156,60 +204,65 @@ export function BridgeCoins({
   );
 }
 
+/** The version's last day, as a date or as the rule that sets it. */
+const lastDayOf = (v: VersionFlows, exitFloor: bigint): string =>
+  v.deadline === OPEN_ENDED
+    ? `the later of V${v.registryIndex + 2n} going live and ${Number(exitFloor / 86_400n)} d after the upgrade · plus paused days`
+    : `${day(v.deadline)} · plus paused days`;
+
 function VersionCard({
   v,
   snapshot,
   miner,
   supply,
-  now,
 }: {
   v: VersionFlows;
   snapshot: BridgeSnapshot;
   miner: MinerFlows | undefined;
   supply: bigint | undefined;
-  now: number;
 }) {
   const live = v.version === snapshot.canonical.version;
-  // Closed, frozen or pre-launch is Ethereum's word at the read; only the pause countdown moves with the clock.
+  // Closed, frozen or pre-launch is Ethereum's word at the read, never the device's clock.
   const chainTime = Number(snapshot.chainTime);
   const segments = whereOf(v, snapshot, miner, supply, import.meta.env.VITE_ROLLUP_VERSION);
-  const closes =
-    v.deadline === OPEN_ENDED
-      ? 'the later of the version after next and 180 d after the flip, plus paused days'
-      : `${day(v.deadline)} · plus paused days`;
   return (
     <Tile
       className={live ? 'border-uv' : undefined}
       data-testid="bridge-version"
       data-version={v.version.toString()}
+      data-index={v.registryIndex.toString()}
       data-live={live ? '1' : '0'}
     >
       <div className="flex items-baseline justify-between gap-3">
-        <b className="text-base font-semibold">Aztec V{v.version.toString()}</b>
+        <b className="text-base font-semibold">Aztec V{v.registryIndex.toString()}</b>
         <Badge variant={live ? 'uv' : 'neutral'}>
-          {live ? 'canonical' : v.flipAt > 0n ? 'flipped away from' : 'registered'}
+          {live ? 'canonical' : v.flipAt > 0n ? 'past' : 'registered'}
         </Badge>
       </div>
       <p className="mt-1.5 text-sm" data-testid="version-line">
         {versionLine(v, snapshot.canonical)}
       </p>
       {snapshot.extras && <StackedBar segments={segments} className="mt-3.5" />}
-      <p className="mt-3 text-pretty text-xs text-ink-2">
-        {live ? `Launched ${day(v.launchAt)}. ` : ''}
-        {yaca(v.exited)} left through the portal, {yaca(v.inbound)} arrived through it. YACA on Ethereum is
-        one pool; these are V{v.version.toString()}’s flows.
-      </p>
-      <div className="mt-2">
-        <KvRow label="headroom under the limit" value={yaca(v.headroom)} />
-        <KvRow label="may ever have left by now" value={yaca(v.cap + v.inbound)} />
-        <KvRow label="exits close" value={closes} />
+      <div className="mt-3">
+        <KvRow label="launched" value={day(v.launchAt)} />
+        <KvRow
+          label={
+            <Term title="Nothing leaves a version after its last day; what is still on it is lost.">
+              last day
+            </Term>
+          }
+          value={lastDayOf(v, snapshot.policy.exitFloor)}
+          className="[&>:first-child]:shrink-0 [&>:last-child]:text-right"
+        />
       </div>
-      <p className="mt-3 text-pretty text-xs text-ink-3" data-testid="exit-limit">
-        {exitLimitLine(v, snapshot.policy, chainTime)}
-      </p>
-      <p className="mt-1.5 text-pretty text-xs text-ink-3" data-testid="pause-line">
-        {pauseLine(v, snapshot.policy, chainNow(snapshot, now))}
-      </p>
+      <details className="mt-2 text-xs">
+        <summary className="cursor-pointer text-ink-2">
+          the exit limit · {headroomLine(v, snapshot.policy, chainTime)}
+        </summary>
+        <p className="mt-1.5 text-pretty text-ink-3" data-testid="exit-limit">
+          {exitLimitLine(v, snapshot.policy, chainTime)}
+        </p>
+      </details>
     </Tile>
   );
 }
@@ -218,33 +271,24 @@ export function BridgeVersions({
   snapshot,
   miner,
   supply,
-  now,
 }: {
   snapshot: BridgeSnapshot;
   miner: MinerFlows | undefined;
   supply: bigint | undefined;
-  now: number;
 }) {
   return (
     <Tile data-testid="bridge-versions">
-      <TileHeader aside="one card per Aztec rollup Yacana has lived on">versions</TileHeader>
+      <TileHeader aside="one card per version">versions</TileHeader>
       <div className="grid gap-3.5 md:grid-cols-2">
         {snapshot.versions.map((v) => (
-          <VersionCard
-            key={v.version.toString()}
-            v={v}
-            snapshot={snapshot}
-            miner={miner}
-            supply={supply}
-            now={now}
-          />
+          <VersionCard key={v.version.toString()} v={v} snapshot={snapshot} miner={miner} supply={supply} />
         ))}
       </div>
     </Tile>
   );
 }
 
-/** The portal as it stands: its state, the last forward, what waits, the exit limit and the pause. */
+/** The portal as it stands: open or paused, the deposits, the last crossing, the exit limit and the pause. */
 export function BridgeTurnstile({
   snapshot,
   live,
@@ -260,13 +304,10 @@ export function BridgeTurnstile({
 }) {
   const p = snapshot.policy;
   const f = figuresOf(snapshot, live, miner, undefined);
-  const forwarding = `by hand, Yacana or anyone · ${forwardingLine(f.lastForwardAt, chainNow(snapshot, now))}${
-    f.forwards === undefined ? '' : ` · ${f.forwards} so far`
-  }`;
-  const dashed = (raw: bigint | undefined) => (raw === undefined ? '—' : yaca(raw));
+  const nowSeconds = chainNow(snapshot, now);
   return (
     <Tile data-testid="bridge-turnstile">
-      <TileHeader aside={`${chainName(chainId)} · ${live ? `V${live.version}` : 'this version'}`}>
+      <TileHeader aside={`${chainName(chainId)} · ${live ? `V${live.registryIndex}` : 'this version'}`}>
         the portal
       </TileHeader>
       <KvRow
@@ -275,26 +316,16 @@ export function BridgeTurnstile({
           <span className={live?.paused ? 'text-warn' : 'text-ok'}>{live?.paused ? 'paused' : 'open'}</span>
         }
       />
-      <KvRow label="forwarding" value={forwarding} />
-      <KvRow label="waiting to be forwarded" value={dashed(f.transit)} />
-      <KvRow label="waiting to arrive on Aztec" value={dashed(f.waiting)} />
+      <KvRow label="deposits" value={live?.depositsClosed ? 'closed before the upgrade' : 'open'} />
+      <KvRow label="crossings" value={crossingLine(f.lastCrossingAt, nowSeconds)} />
       <KvRow
-        label="exit limit"
-        value={live ? `${yaca(live.headroom)} may leave now · grows ${yaca(p.perHour)} an hour` : '—'}
+        label={<Term title={EXIT_LIMIT}>exit limit</Term>}
+        value={live ? headroomLine(live, p, Number(snapshot.chainTime)) : '—'}
       />
-      <p className="mt-2 mb-2 text-pretty text-xs text-ink-3">
-        A rate limit on exits, growing with the mining schedule since launch. An exit beyond it waits for the
-        limit to grow; the flip freezes the limit and the deadline closes exits. Its purpose is to slow a
-        drain long enough for the operators to pause.
-      </p>
       <KvRow
-        label="pause"
-        value={live?.paused ? `paused · ${duration(Number(live.pausedSeconds))} spent` : 'not paused'}
+        label={<Term title={pauseRule(p)}>pause</Term>}
+        value={<span data-testid="pause-line">{live ? pauseLine(live, p, nowSeconds) : '—'}</span>}
       />
-      <p className="mt-2 text-pretty text-xs text-ink-3">
-        The operators may pause exits and deposits for up to {duration(Number(p.pauseMax))} at a time,{' '}
-        {duration(Number(p.pauseBudget))} in total per version. Paused days extend when exits close.
-      </p>
     </Tile>
   );
 }
@@ -303,61 +334,39 @@ const key = (label: string, address: string, testId: string) => (
   <ChipLink label={label} value={address} href={l1Links.address(address)} testId={testId} />
 );
 
-/** The bridge on Ethereum: the keys that may act, where the contracts are, and the rules in plain words. */
+/** The bridge on Ethereum: the contracts and the keys that may act, each on Etherscan; the rules one link away. */
 export function BridgePortal({
   snapshot,
   record,
-  live,
+  chainId,
   className,
 }: {
   snapshot: BridgeSnapshot;
   record: { portal: string; yaca: string; registry: string };
-  live: VersionFlows | undefined;
+  chainId: string;
   className?: string;
 }) {
-  const p = snapshot.policy;
-  const v = live ? `V${live.version}` : 'a version';
   return (
     <Tile className={className} data-testid="bridge-portal">
       <TileHeader
         aside={
-          <ExternalLink href={FAQ_HREF} className="text-ink-2">
-            why the rule →
-          </ExternalLink>
+          <a href={RULES_HREF} className="hover:text-ink" data-testid="bridge-rules">
+            the rules →
+          </a>
         }
       >
-        the bridge on Ethereum
+        the bridge on {chainName(chainId)}
       </TileHeader>
       <div className="flex flex-wrap gap-2">
         {key('portal', record.portal, 'chip-portal')}
         {key('YACA', record.yaca, 'chip-yaca')}
         {key('registry', record.registry, 'chip-registry')}
-        {key('operators', snapshot.operators, 'chip-operators')}
-        {snapshot.forwarders.map((f) => key('forwarder', f, 'chip-forwarder'))}
+        {key('multisig', snapshot.operators, 'chip-operators')}
+        {snapshot.forwarders.map((f) => key('relayer', f, 'chip-forwarder'))}
       </div>
-      <div className="mt-3">
-        <KvRow label="who may add a version" value="the operators, once per version, never changed after" />
-        <KvRow label="what a wrong version could do" value={`mint YACA up to ${v}’s schedule allowance`} />
-        <KvRow
-          label="who may pause"
-          value={`the operators · ${duration(Number(p.pauseMax))} at a time · ${duration(Number(p.pauseBudget))} per version in all`}
-        />
-        <KvRow label="what a pause cannot do" value="keep an exit from landing once it lifts" />
-        <KvRow
-          label="who may forward"
-          value="an exit: anyone · a held send-ahead: its holder, or a listed forwarder"
-        />
-        <KvRow
-          label={`exit deadline for ${v}`}
-          value="the later of the version after next and 180 d after the flip, plus paused days"
-        />
-      </div>
-      <p className="mt-3 text-pretty text-xs text-ink-3">
-        Exits from a version are capped at what mining could have produced: the limit grows {yaca(p.perHour)}{' '}
-        an hour from {yaca(p.allowance)} at launch and freezes at the flip, net of what arrived. Before the
-        flip, exits over it wait for it to grow; after the flip, what is beyond the frozen limit cannot leave,
-        and nothing leaves a version after its deadline. The listed forwarders may forward a held send-ahead
-        without its holder’s signature: a stranger could otherwise push it into a rollup about to stop.
+      <p className="mt-3 text-xs text-ink-3">
+        The governance multisig registers versions and may pause; an authorized relayer may forward a held
+        send-ahead. Everything else is the contracts’ own.
       </p>
     </Tile>
   );

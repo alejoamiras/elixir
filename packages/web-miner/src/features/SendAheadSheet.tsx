@@ -6,6 +6,7 @@ import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import type { Crossing } from '../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
+import { ownVersionName } from '../../../site/src/browser/version-name.ts';
 import {
   Alert,
   AlertDescription,
@@ -31,7 +32,7 @@ type Step =
   | { kind: 'review'; amount: bigint; display: string }
   | { kind: 'sent'; display: string; crossing?: Crossing };
 
-const version = () => import.meta.env.VITE_ROLLUP_VERSION;
+const version = (): string => ownVersionName();
 const nextVersion = () => migrationRecord()?.toIndex ?? 'the next version';
 const nextDay = () => {
   const m = migrationRecord();
@@ -45,7 +46,7 @@ function Head({ title }: { title: string }) {
       <span className="label-mono">send ahead to aztec v{nextVersion()}</span>
       <SheetTitle className="mt-1.5 text-[22px] leading-[1.2] tracking-[-0.02em]">{title}</SheetTitle>
       <SheetDescription className="sr-only">
-        The balance leaves V{version()} once its epoch is proven and lands on the next version with a tap.
+        The balance leaves {version()} once its epoch is proven and lands on the next version with a tap.
       </SheetDescription>
     </div>
   );
@@ -97,7 +98,7 @@ function Review({
             label: 'proven to Ethereum with its epoch',
             state: 'pending',
             right: 'a few epochs',
-            detail: `V${v} must prove the epoch by its deadline. If it does not, the send is undone and the balance is back here.`,
+            detail: `${v} must prove the epoch by its deadline. If it does not, the send is undone and the balance is back here.`,
           },
           {
             id: 'held',
@@ -119,8 +120,8 @@ function Review({
         The account is not: the send is held under a one-time secret of this account. Round amounts blend in.
       </Note>
       <Note title={`If V${n} never opens`}>
-        A send Yacana could not forward can be redeemed on Ethereum as YACA at any time, by this account. The
-        passkey or words are the only thing to keep.
+        A send Yacana could not forward can be redeemed on Ethereum as YACA any time before the last day, by
+        this account. The passkey or words are the only thing to keep.
       </Note>
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="uv" disabled={busy} onClick={onSend} data-testid="ahead-send">
@@ -131,7 +132,7 @@ function Review({
         </Button>
       </div>
       <p className="text-xs text-ink-3">
-        Anything still on V{v} when it stops proving is lost. V{v} stops hours or days after the upgrade,
+        Anything still on {v} when it stops proving is lost. {v} stops hours or days after the upgrade,
         without notice.
       </p>
     </>
@@ -181,7 +182,7 @@ function Sent({
             label: 'being proven to Ethereum',
             state: 'active',
             right: live?.proofDeadline ? `by ${hhmm(live.proofDeadline)}` : undefined,
-            detail: `${live?.epoch ? `Epoch ${live.epoch}. ` : ''}Usually within a few epochs; safe from then on. If V${v} misses the deadline the send is undone and the balance is back here.`,
+            detail: `${live?.epoch ? `Epoch ${live.epoch}. ` : ''}Usually within a few epochs; safe from then on. If ${v} misses the deadline the send is undone and the balance is back here.`,
           },
           { id: 'held', label: `held on Ethereum until V${n} opens`, state: 'pending', right: nextDay() },
           {
@@ -263,7 +264,7 @@ export function SendAheadSheet({
           title={
             step.kind === 'sent'
               ? 'Sent ahead.'
-              : `Leaves V${v} once its epoch is proven. Lands on V${n} with a tap.`
+              : `Leaves ${v} once its epoch is proven. Lands on V${n} with a tap.`
           }
         />
         {error && (

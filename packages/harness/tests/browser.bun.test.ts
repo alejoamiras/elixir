@@ -182,7 +182,7 @@ describe.skipIf(!enabled)('the migration through the page (browser)', () => {
     node5 = rig.node as RigNode;
     bridge = await deployBridge(rig);
     v5 = await deployMiner(rig, node5, bridge);
-    await registerVersion(v5.operator);
+    bridge = { ...bridge, registryIndex: (await registerVersion(v5.operator)).index.toString() };
     forwarder = await asForwarder(rig, v5);
     archive = relative(repoRoot, `${rig.runRoot}/witnesses.jsonl`);
     handoff = join(rig.runRoot, 'handoff');
@@ -267,7 +267,7 @@ describe.skipIf(!enabled)('the migration through the page (browser)', () => {
         await rig.stopNode();
         const node6 = await rig.startNode(v6v);
         const v6 = await deployMiner(rig, node6, bridge, { continuation });
-        await registerVersion(v6.operator);
+        bridge = { ...bridge, registryIndex: (await registerVersion(v6.operator)).index.toString() };
         await serve(v6, node6, 'e2e/.rig-dist-v6', false);
       });
       expect(await stage('v6', 'on V6:')).toBe(0);

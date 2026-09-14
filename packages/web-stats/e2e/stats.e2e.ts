@@ -270,22 +270,22 @@ test('the bridge page: this version registered and live on the portal, its turns
   await expect(card).toHaveAttribute('data-version', r.rollupVersion);
   await expect(card).toHaveAttribute('data-live', '1');
   await expect(card.getByTestId('version-line')).toHaveText(
-    'the live version · mining, deposits and exits here',
+    'the live version · mining, deposits and withdrawals here',
   );
-  await expect(card.getByTestId('exit-limit')).toContainText(
-    `may leave V${r.rollupVersion} right now · grows`,
-  );
-  await expect(card.getByTestId('pause-line')).toContainText('not paused');
+  // The version is named by its Registry index, the portal's own word.
+  const index = await card.getAttribute('data-index');
+  await expect(card.getByTestId('exit-limit')).toContainText(`may leave V${index} right now · grows`);
+  await expect(page.getByTestId('pause-line')).toContainText('not paused');
   // The phases: nothing announced on this build, nothing flipped.
   await expect(page.getByTestId('bridge-phases').locator('[data-slot=timeline] > li')).toHaveCount(5);
   await expect(page.getByTestId('bridge-phases')).toContainText('not announced');
   // The six figures and the coins chart draw from the extras: YACA's supply and the portal's events.
   await expect(page.getByTestId('kpi-ethereum')).toContainText('YACA');
-  await expect(page.getByTestId('bridge-turnstile')).toContainText('by hand');
-  // The keys: the operators, and the one forwarder the run listed (the same account).
+  await expect(page.getByTestId('bridge-turnstile')).toContainText('nothing has crossed yet');
+  // The keys: the multisig, and the one relayer the run authorized (the same account); the rules one link away.
   const chips = page.getByTestId('bridge-portal').locator('[data-slot=chip-link]');
   await expect(chips).toHaveCount(5);
-  await expect(page.getByTestId('bridge-portal')).toContainText('exits over it wait for it to grow');
+  await expect(page.getByTestId('bridge-rules')).toHaveAttribute('href', '/faq#rules');
   await expect(page.getByTestId('bridge-faq')).toHaveAttribute('href', '/faq');
   await page.getByRole('link', { name: 'Verify' }).click();
   await expect(page.getByTestId('verify-portal')).toHaveText(r.bridge?.portal ?? '');

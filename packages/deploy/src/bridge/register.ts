@@ -1,8 +1,12 @@
 // Registers a deployed miner's version with the portal: from then on the portal forwards into it,
 // its exits count against its cap, and its launch time anchors the cap's schedule. Everything but
 // the Registry index comes from the record; the index is looked up, never typed.
+import { writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { Hex } from 'viem';
 import { confirmed, minerBytes32, type Operator, registryIndexOf, writeOpts } from './operator.ts';
+
+const repo = resolve(import.meta.dir, '../../../..');
 
 export interface RegisterResult {
   version: bigint;
@@ -21,6 +25,12 @@ export async function registerVersion(op: Operator): Promise<RegisterResult> {
     op.portal.write.registerVersion([version, index, minerBytes32(op.record), launchAt], writeOpts(op)),
   );
   return { version, index, txHash };
+}
+
+/** Writes the version's Registry index into the record's bridge block: the pages name the version by it. */
+export function noteRegistryIndex(op: Operator, index: bigint): void {
+  op.record.bridge.registryIndex = index.toString();
+  writeFileSync(resolve(repo, op.recordPath), `${JSON.stringify(op.record, null, 2)}\n`);
 }
 
 /** Lists (or unlists) an address that may forward held send-aheads without the holder's signature. */

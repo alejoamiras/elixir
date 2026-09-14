@@ -7,6 +7,7 @@ import {
 } from '../../site/src/browser/connection.ts';
 import { previewNotice } from '../../site/src/browser/host.ts';
 import { bannerState, nodeHealth, subscribeNodeHealth } from '../../site/src/browser/node-health.ts';
+import { ownVersionName } from '../../site/src/browser/version-name.ts';
 import { Alert, AlertDescription, NodeBanner, TileBoundary } from '../../ui/src/index.ts';
 import { copy } from './copy';
 import { useNow } from './hooks';
@@ -26,7 +27,7 @@ function Announcement() {
   const m = migrationRecord();
   if (!m) return null;
   const day = new Date(Number(m.expectedFlipAt) * 1000).toISOString().slice(0, 10);
-  const line = copy.announcement(import.meta.env.VITE_ROLLUP_VERSION, day);
+  const line = copy.announcement(ownVersionName(), day);
   const cut = line.indexOf('. ') + 1;
   return (
     <div

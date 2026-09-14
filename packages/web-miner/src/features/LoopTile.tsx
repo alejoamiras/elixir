@@ -139,9 +139,16 @@ function StartControl({
         Sign in to mine
       </Button>
     );
-  if (miner.phase === 'mining')
+  if (miner.phase === 'mining' || miner.phase === 'claiming')
     return (
-      <Button size="sm" data-testid="stop" onClick={() => controller()?.stop()}>
+      <Button
+        size="sm"
+        data-testid="stop"
+        title={
+          miner.phase === 'claiming' ? 'The claim finishes; mining does not resume after it.' : undefined
+        }
+        onClick={() => controller()?.stop()}
+      >
         Stop
       </Button>
     );

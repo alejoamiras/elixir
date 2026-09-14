@@ -891,9 +891,31 @@ branch preview (`bridge-fidelity-yacana.alejo-amiras.workers.dev`) showing the n
 `fidelity.md`.
 — arc 5 boundary: the codex loop over `git diff bridge-stats-docs...HEAD`, Delivery (the fifth PR, base #40) —
 
+**P13 ✓ — the owner's copy pass** (green 2026-09-14 on `ec7a4e5` after three codex rounds; `lessons/phase-13.md`;
+added 2026-09-14 after the owner reviewed the arc-5 preview and the fidelity gallery). Four picks, all approved: **A** a withdrawal
+ends with the holder's own "Claim on Ethereum" (Yacana's by-hand forward of exits becomes silent; "forward" survives
+only for send-aheads, Vx → Vx+1); **B** the governance rules leave `/stats/bridge` for a fourth FAQ section, "The
+rules", one line per rule with the picture and the reasons behind a disclosure (the "rules" canvas v3, approved);
+**C** versions are named by Aztec's Registry index (V5, V6) from the record's `bridge.registryIndex`, written by
+`register` and carried into the builds as `VITE_VERSION_INDEX`, the stats page from the portal's own index;
+**D** a sixth PR. The vocabulary across every page: Bridge to / from Ethereum, the upgrade (not the flip), the
+governance multisig (not the operators), an authorized relayer (not a listed forwarder), withdrawals (not exits),
+the last day (not the exit deadline), the exit limit (not headroom); the ETA of a proof in the sheet and the journal
+("within the hour", or the epoch's deadline when known); the bridge tile's foot line only under a silent RPC or an
+announced migration; the taking-long dialog for a held send-ahead only; the stats page with one-line KPI subs, the
+version card's disclosure, the portal panel's dotted tooltips, the keys as chips and "the rules →". The timing
+questions the owner raised over the canvas (the 180-day floor, the version-after-next condition, what an unproven
+withdrawal becomes) are drawn as answered by the portal and stay open for a later pass ("maybe fix them after").
+UI, copy and the record's index only: nothing changes under `packages/portal`, `packages/contracts`, the miner's
+session, journal, flows or eth modules; `packages/bridge/src/record.ts` gains the optional index,
+`packages/deploy` writes it. Gate: `bun run lint`, every typecheck, `bun run test:components`, `bun test`; the
+visual gate with re-captured baselines; the stats, landing and site e2e; the miner's bridge shard; `bun run rig --
+browser` 3/3 (the withdrawal now claimed through the test wallet from the card) and `bun run rig -- origin`.
+— arc 6 boundary: the codex loop over `git diff bridge-fidelity...HEAD`, Delivery (the sixth PR, base #42) —
+
 ## 7. Delivery — arcs → stacked PRs
 
-Four arcs, one branch each, stacked with `gh stack` (installed, v0.1.0); `code_review: off` on every arc.
+Six arcs, one branch each, stacked with `gh stack` (installed, v0.1.0); `code_review: off` on every arc.
 
 | arc | branch | phases | stacks on |
 |---|---|---|---|
@@ -902,6 +924,7 @@ Four arcs, one branch each, stacked with `gh stack` (installed, v0.1.0); `code_r
 | 3 the web miner: guided path, everyday bridge, versioned origin | `bridge-miner` | P6–P8 | arc 2 |
 | 4 stats, FAQ, docs, CI, the testnet rehearsal | `bridge-stats-docs` | P9–P11 | arc 3 |
 | 5 the fidelity pass over the drawn screens (added 2026-09-13; P12 ✓) | `bridge-fidelity` | P12 | arc 4 |
+| 6 the owner's copy pass: claim on Ethereum, the rules on the FAQ, versions by Registry index (added 2026-09-14; P13 ✓) | `bridge-copy` | P13 | arc 5 |
 
 Each arc is revertable alone and reviewable in one sitting. PRs are opened only in the Delivery step, after every
 arc's fix loop and the final cross-arc pass converged; the rehearsal (P11) runs from the arc-4 branch on preview

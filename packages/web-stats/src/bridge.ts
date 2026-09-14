@@ -91,8 +91,7 @@ async function readExtras(client: PublicClient, record: BridgeRecord): Promise<B
   const events = raw
     .map((e) => ({ kind: e.kind, version: e.version, amount: e.amount, at: times.get(e.block) ?? 0 }))
     .sort((a, b) => a.at - b.at);
-  const forwards = events.filter((e) => e.kind !== 'deposit');
-  return { yacaSupply, events, lastForwardAt: forwards.length ? (forwards.at(-1) as FlowEvent).at : null };
+  return { yacaSupply, events, lastCrossingAt: events.length ? (events.at(-1) as FlowEvent).at : null };
 }
 
 /** Reads once now and every poll after; returns the stop. */

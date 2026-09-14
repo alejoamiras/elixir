@@ -229,17 +229,24 @@ describe('the launch week', () => {
     expect(launchPhase(0, 100, 600, true)).toBe('open');
   });
 
-  test('/faq under the header: six panels, the questions, the two ways out; no sections, no announcement', () => {
+  test('/faq under the header: six panels, the questions, the six rules with their pictures, the two ways out; no sections, no announcement', () => {
     render(<App live={ready} launch={loading} pathname="/faq" />);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(faq.title);
     expect(screen.getAllByTestId('faq-panel')).toHaveLength(6);
-    // Three sections of question rows; the pages' questions keep their words.
+    // Four sections of question rows; the pages' questions keep their words.
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
       'Mining',
       'When Aztec upgrades',
       'To Ethereum and back',
+      'The rules',
     ]);
     expect(screen.getByTestId('faq-questions').textContent).toContain('why the rule');
+    // The rules: one line each, a picture behind every row, the section addressable from the stats page.
+    expect(screen.getAllByTestId('faq-rule')).toHaveLength(6);
+    expect(screen.getAllByTestId('rule-diagram')).toHaveLength(6);
+    expect(screen.getByTestId('faq-rules').textContent).toContain('an hour from');
+    expect(screen.getByTestId('faq-rules').textContent).not.toMatch(/the flip|operators|listed forwarder/);
+    expect(document.getElementById('rules')).toBe(screen.getByTestId('faq-rules'));
     expect(screen.getByTestId('faq-mine').getAttribute('href')).toBe('/mine/');
     expect(screen.getByTestId('faq-stats').getAttribute('href')).toBe('/stats/bridge');
     expect(document.querySelectorAll('main > section')).toHaveLength(0);
@@ -256,7 +263,7 @@ describe('the launch week', () => {
     try {
       render(<App live={ready} launch={loading} />);
       const line = screen.getByTestId('announcement');
-      expect(line.textContent).toContain('arrives around 2027-01-21. Mining on V5 ends at the flip');
+      expect(line.textContent).toContain('arrives around 2027-01-21. Mining on V5 ends at the upgrade');
       expect(line.querySelector('a')?.getAttribute('href')).toBe('/faq');
     } finally {
       vi.unstubAllEnvs();

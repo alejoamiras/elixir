@@ -5,10 +5,11 @@
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import type { Hex } from 'viem';
-import { useAccount, useChainId, useConnect, useConnectors, useDisconnect, useReadContract } from 'wagmi';
+import { useAccount, useConnect, useConnectors, useDisconnect, useReadContract } from 'wagmi';
 import type { Crossing } from '../../../bridge/src/journal.ts';
 import { yacaAbi } from '../../../bridge/src/portal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
+import { ownVersionName } from '../../../site/src/browser/version-name.ts';
 import {
   Alert,
   AlertDescription,
@@ -50,44 +51,43 @@ const chain = () => chainName(bridgeRecord()?.chainId);
 /** The connected wallet as one row: the avatar, the address and the network, the YACA it holds there. */
 function ConnectedWallet({
   address,
-  name,
-  chainId,
   yaca,
   onDisconnect,
 }: {
   address: Hex;
-  name?: string;
-  chainId: number;
   yaca: bigint | undefined;
   onDisconnect: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2" data-testid="eth-account">
-      <span className="inline-flex h-[34px] items-center gap-2 rounded-md border border-line-2 px-3 text-[12.5px] font-medium">
+      <span className="inline-flex h-[34px] items-center gap-2 rounded-md border border-line-2 pr-1 pl-3 text-[12.5px] font-medium">
         <i aria-hidden className="size-3 rounded-full bg-[linear-gradient(135deg,var(--uv),var(--warn))]" />
         <span className="font-mono">{shortAddress(address)}</span>
-        <span className="text-ink-3">· {name ?? `chain ${chainId}`}</span>
+        <button
+          type="button"
+          onClick={onDisconnect}
+          aria-label="Disconnect this wallet"
+          title="Disconnect"
+          className="ml-0.5 grid size-6 place-items-center rounded-sm text-ink-3 hover:bg-panel-2 hover:text-ink"
+          data-testid="eth-disconnect"
+        >
+          ×
+        </button>
       </span>
-      <span className="flex items-center gap-3 whitespace-nowrap font-mono text-2xs text-ink-2">
-        <span>
-          <span data-testid="yaca-balance">{yaca === undefined ? '…' : fmt(yaca, PARAMS.DECIMALS)}</span> YACA
-          there
-        </span>
-        <Button size="sm" variant="ghost" onClick={onDisconnect} data-testid="eth-disconnect">
-          Disconnect
-        </Button>
+      <span className="whitespace-nowrap font-mono text-2xs text-ink-2">
+        <span data-testid="yaca-balance">{yaca === undefined ? '…' : fmt(yaca, PARAMS.DECIMALS)}</span> YACA
+        there
       </span>
     </div>
   );
 }
 
 /** The wallet picker: EIP-6963 announcements by name and icon; nothing else. */
-export function WalletPicker({ yaca }: { yaca?: bigint } = {}) {
+export function WalletPicker({ yaca, note }: { yaca?: bigint; note?: string } = {}) {
   const connectors = useConnectors();
   const { connect, isPending, error } = useConnect();
   const account = useAccount();
   const { disconnect } = useDisconnect();
-  const chainId = useChainId();
   // wagmi is still asking the wallets the page connected before: no picker until it knows.
   if (account.status === 'reconnecting')
     return (
@@ -96,15 +96,7 @@ export function WalletPicker({ yaca }: { yaca?: bigint } = {}) {
       </p>
     );
   if (account.isConnected && account.address)
-    return (
-      <ConnectedWallet
-        address={account.address}
-        name={account.connector?.name}
-        chainId={chainId}
-        yaca={yaca}
-        onDisconnect={() => disconnect()}
-      />
-    );
+    return <ConnectedWallet address={account.address} yaca={yaca} onDisconnect={() => disconnect()} />;
   return (
     <div className="flex flex-col gap-3" data-testid="wallet-picker">
       <div className="flex flex-wrap items-center gap-3">
@@ -126,10 +118,7 @@ export function WalletPicker({ yaca }: { yaca?: bigint } = {}) {
             : 'MetaMask, Rabby, any injected wallet.'}
         </span>
       </div>
-      <p className="text-xs text-ink-3">
-        The wallet pays {chain()} gas and signs one transaction, the deposit. It learns nothing about this
-        account. The YACA then waits here for your Claim.
-      </p>
+      {note && <p className="text-xs text-ink-3">{note}</p>}
       {error && <p className="text-xs text-warn">{error.message.split('\n')[0]}</p>}
     </div>
   );
@@ -138,7 +127,7 @@ export function WalletPicker({ yaca }: { yaca?: bigint } = {}) {
 type Step = { kind: 'form' } | { kind: 'deposit' } | { kind: 'done'; display: string; crossing?: Crossing };
 
 const firstLine = (e: unknown) => (e instanceof Error ? (e.message.split('\n')[0] ?? '') : String(e));
-const version = () => import.meta.env.VITE_ROLLUP_VERSION;
+const version = (): string => ownVersionName();
 
 /** Before an announced flip a deposit lands on a version about to end: the sheet says so first. */
 function PreFlip() {
@@ -148,7 +137,7 @@ function PreFlip() {
   const day = new Date(Number(m.expectedFlipAt) * 1000).toISOString().slice(0, 10);
   return (
     <Note title={`Aztec V${m.toIndex} is expected around ${day}.`} tone="warn" data-testid="deposit-preflip">
-      A deposit lands on V{version()} and would need sending ahead again before V{version()} stops. Deposit
+      A deposit lands on {version()} and would need sending ahead again before {version()} stops. Deposit
       after the upgrade instead, unless you mean to use it here now.
     </Note>
   );
@@ -230,7 +219,7 @@ function Done({ display, sent, onDone }: { display: string; sent?: Crossing; onD
             state: 'done',
             right: tx ? (
               <ExternalLink href={l1Links.tx(tx)} full={tx}>
-                {shortAddress(tx)} ↗
+                {shortAddress(tx)}
               </ExternalLink>
             ) : undefined,
           },
@@ -298,7 +287,7 @@ export function DepositSheet({
     <Sheet open={open} onOpenChange={(o) => (o ? onOpenChange(true) : close())}>
       <SheetContent data-testid="deposit-sheet">
         <div>
-          <span className="label-mono">deposit from ethereum</span>
+          <span className="label-mono">bridge from ethereum</span>
           <SheetTitle className="mt-1.5 text-[22px] leading-[1.2] tracking-[-0.02em]">
             {step.kind === 'done' ? 'On its way.' : `YACA on ${chain()} → here, privately.`}
           </SheetTitle>
@@ -317,7 +306,12 @@ export function DepositSheet({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        {step.kind !== 'done' && <WalletPicker yaca={yaca} />}
+        {step.kind !== 'done' && (
+          <WalletPicker
+            yaca={yaca}
+            note={`The wallet pays ${chain()} gas and signs one transaction, the deposit. It learns nothing about this account. The YACA then waits here for your Claim.`}
+          />
+        )}
         {step.kind !== 'done' && account.isConnected && (
           <Form
             text={text}
@@ -336,22 +330,38 @@ export function DepositSheet({
 
 export type HeldAction = 'forward' | 'redeem';
 
-const COPY: Record<HeldAction, { title: string; go: string; done: string }> = {
-  forward: { title: 'Forward it yourself', go: 'Forward', done: 'Forwarded.' },
-  redeem: { title: 'Redeem to Ethereum', go: 'Redeem', done: 'Redeemed.' },
+const COPY: Record<HeldAction | 'claim', { title: string; go: string; done: string; note: string }> = {
+  claim: {
+    title: 'Claim on Ethereum',
+    go: 'Claim',
+    done: 'Claimed.',
+    note: 'The wallet pays the gas for one transaction, the claim; the YACA goes to the recipient named at the burn. It learns nothing about this account.',
+  },
+  forward: {
+    title: 'Forward it yourself',
+    go: 'Forward',
+    done: 'Forwarded.',
+    note: 'The wallet pays the gas for one transaction, the forward; this account’s own secret signs it.',
+  },
+  redeem: {
+    title: 'Redeem on Ethereum',
+    go: 'Redeem',
+    done: 'Redeemed.',
+    note: 'The wallet pays the gas for one transaction, the redeem; the YACA goes to the connected address.',
+  },
 };
 
 const describe = (action: HeldAction, c: Crossing): string => {
   if (action === 'redeem')
     return 'The send-ahead becomes YACA on Ethereum for the connected account. This account’s own secret signs; the wallet pays the gas.';
   return c.kind === 1
-    ? 'The exit is forwarded by you: YACA minted on Ethereum for its recipient. Anyone may; the wallet pays the gas.'
+    ? 'YACA is minted on Ethereum for the recipient: one transaction, the wallet pays the gas. Anyone may make it.'
     : 'The send-ahead is forwarded into the live version by you: this account’s own secret signs, the wallet pays the gas. It then lands on the arrival card there.';
 };
 
 /**
- * What the holder does with a crossing on Ethereum, from the connected wallet: forward it (an exit,
- * or a held send-ahead into the live version) or redeem a held send-ahead as YACA for that account.
+ * What the holder does with a crossing on Ethereum, from the connected wallet: claim a proven
+ * withdrawal, forward a held send-ahead into the live version, or redeem one as YACA for that account.
  */
 export function HeldSheet({
   session,
@@ -388,7 +398,7 @@ export function HeldSheet({
       setBusy(false);
     }
   };
-  const copy = COPY[action];
+  const copy = COPY[action === 'forward' && crossing?.kind === 1 ? 'claim' : action];
   return (
     <Sheet open={crossing !== null} onOpenChange={(o) => (o ? onOpenChange(true) : close())}>
       <SheetContent data-testid={`${action}-sheet`}>
@@ -399,13 +409,13 @@ export function HeldSheet({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        <WalletPicker yaca={yaca} />
+        <WalletPicker yaca={yaca} note={copy.note} />
         {crossing && !done && (
           <div className="flex flex-col gap-4">
             <AmountBlock
               value={fmt(BigInt(crossing.amount), PARAMS.DECIMALS)}
               unit={PARAMS.TOKEN_SYMBOL}
-              aside={action === 'redeem' || crossing.kind === 1 ? '→ YACA' : `→ V${version()}`}
+              aside={action === 'redeem' || crossing.kind === 1 ? '→ YACA' : `→ ${version()}`}
               tone="quiet"
             />
             {action === 'redeem' && (
@@ -413,6 +423,9 @@ export function HeldSheet({
                 label="to"
                 value={account.address ? `Ξ ${shortAddress(account.address)}` : 'connect a wallet'}
               />
+            )}
+            {action === 'forward' && crossing.kind === 1 && (
+              <KvRow label="to" value={`Ξ ${shortAddress(crossing.ethAddress)}`} />
             )}
             <div>
               <Button

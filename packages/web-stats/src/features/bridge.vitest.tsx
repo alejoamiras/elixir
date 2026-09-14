@@ -27,7 +27,7 @@ const version = (v: bigint, patch: Partial<VersionFlows> = {}): VersionFlows => 
   version: v,
   registered: true,
   miner: `0x${'11'.repeat(32)}`,
-  registryIndex: v - 5n,
+  registryIndex: v,
   flipAt: 0n,
   paused: false,
   headroom: 128n * ONE,
@@ -86,12 +86,12 @@ describe('the bridge page', () => {
     const cards = screen.getAllByTestId('bridge-version');
     expect(cards.map((c) => `${c.dataset.version}:${c.dataset.live}`)).toEqual(['5:0', '6:1']);
     const lines = screen.getAllByTestId('version-line').map((l) => l.textContent);
-    expect(lines[0]).toBe('flipped away from on 2027-01-09 · exits close on 2027-01-26');
-    expect(lines[1]).toBe('the live version · mining, deposits and exits here');
+    expect(lines[0]).toBe('upgraded from on 2027-01-09 · last day 2027-01-26');
+    expect(lines[1]).toBe('the live version · mining, deposits and withdrawals here');
     expect(screen.getAllByTestId('exit-limit')[1]?.textContent).toContain(
       `128 ${PARAMS.TOKEN_SYMBOL} may leave V6 right now · grows 12 ${PARAMS.TOKEN_SYMBOL} an hour`,
     );
-    expect(screen.getAllByTestId('pause-line')[1]?.textContent).toContain('not paused');
+    expect(screen.getByTestId('pause-line').textContent).toContain('not paused');
     // V6's phases: launched, nothing announced, no flip; the FAQ one link away.
     const steps = screen.getByTestId('bridge-phases').querySelectorAll('[data-slot=timeline] > li');
     expect(Array.from(steps).map((s) => (s as HTMLElement).dataset.state)).toEqual([
@@ -104,7 +104,7 @@ describe('the bridge page', () => {
     // The six figures, the portal's state and the bar on the live card stand without the extras.
     expect(screen.getAllByTestId(/^kpi-/)).toHaveLength(6);
     expect(screen.getByTestId('kpi-bridge').textContent).toContain('open');
-    expect(screen.getByTestId('bridge-turnstile').textContent).toContain('forwarding history unavailable');
+    expect(screen.getByTestId('bridge-turnstile').textContent).toContain('history unavailable');
     expect(screen.getByTestId('bridge-coins').textContent).toContain('one pool across 2 versions');
     expect(screen.getByTestId('bridge-faq').getAttribute('href')).toBe('/faq');
     // The explorer's base is read when the module loads, so the chips carry no link here: the labels count.
@@ -115,12 +115,12 @@ describe('the bridge page', () => {
       'portal',
       'YACA',
       'registry',
-      'operators',
-      'forwarder',
+      'multisig',
+      'relayer',
     ]);
-    expect(screen.getByTestId('bridge-portal').textContent).toContain(
-      'exits over it wait for it to grow; after the flip, what is beyond the frozen limit cannot leave',
-    );
+    // The rules are the FAQ's; the panel links there and says nothing more than who the keys are.
+    expect(screen.getByTestId('bridge-rules').getAttribute('href')).toBe('/faq#rules');
+    expect(screen.getByTestId('bridge-portal').textContent).not.toMatch(/who may|deadline/);
   });
 
   test('a silent RPC keeps the last numbers and says so; a failed first read says what failed', () => {
@@ -155,7 +155,7 @@ describe('the announcement line', () => {
     );
     render(<Announcement />);
     const line = screen.getByTestId('announcement');
-    expect(line.textContent).toContain('arrives around 2027-01-21. Mining on V6 ends at the flip');
+    expect(line.textContent).toContain('arrives around 2027-01-21. Mining on V6 ends at the upgrade');
     expect(line.querySelector('a')?.getAttribute('href')).toBe('/faq');
   });
 });

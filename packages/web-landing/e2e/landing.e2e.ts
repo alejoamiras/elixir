@@ -166,7 +166,7 @@ test('with a recorded claim the ledger shows its block, hashes and counter, each
   expect(net.foreign()).toEqual([]);
 });
 
-test('/faq: the six panels and the questions under the landing’s header, the miner and the bridge one tap away', async ({
+test('/faq: the six panels, the questions and the rules under the landing’s header, the miner and the bridge one tap away', async ({
   page,
 }) => {
   const r = run();
@@ -183,6 +183,11 @@ test('/faq: the six panels and the questions under the landing’s header, the m
   await expect(page.getByTestId('faq-questions')).toContainText(
     'Who may forward a held send, and why the rule?',
   );
+  // The rules: six rows closed, the first opens on its picture.
+  await expect(page.getByTestId('faq-rule')).toHaveCount(6);
+  await expect(page.getByTestId('rule-diagram').first()).toBeHidden();
+  await page.getByTestId('faq-rule').first().locator('summary').click();
+  await expect(page.getByTestId('rule-diagram').first()).toBeVisible();
   await expect(page.getByTestId('faq-mine')).toHaveAttribute('href', '/mine/');
   await expect(page.getByTestId('faq-stats')).toHaveAttribute('href', '/stats/bridge');
   await expect(page.getByTestId('announcement')).toHaveCount(0);

@@ -162,9 +162,9 @@ function ReproduceTile({ nodeUrl }: { nodeUrl: string }) {
 }
 
 /**
- * The Ethereum side of the record: the contracts and the keys, each on Etherscan. The operators
- * and the forwarders are the portal's word now, not the build's: the role can be handed on and a
- * forwarder listed after the record was written; when the RPC is silent, the tile says so.
+ * The Ethereum side of the record: the contracts and the keys, each on Etherscan. The multisig
+ * and the relayers are the portal's word now, not the build's: the role can be handed on and a
+ * relayer authorized after the record was written; when the RPC is silent, the tile says so.
  */
 function BridgeRecordTile() {
   const bridge = bridgeRecord();
@@ -187,14 +187,14 @@ function BridgeRecordTile() {
       {chain(
         live
           ? silent
-            ? 'operators (last read; the RPC is silent)'
-            : 'operators (now)'
-          : 'operators (at deployment)',
+            ? 'governance multisig (last read; the RPC is silent)'
+            : 'governance multisig (now)'
+          : 'governance multisig (at deployment)',
         operators,
         'verify-operators',
       )}
       <KvRow
-        label={silent ? 'listed forwarders (last read; the RPC is silent)' : 'listed forwarders'}
+        label={silent ? 'authorized relayers (last read; the RPC is silent)' : 'authorized relayers'}
         value={
           forwarders === null ? (
             silent ? (

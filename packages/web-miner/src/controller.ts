@@ -165,6 +165,8 @@ export class MinerController {
   /** Why mining is paused by the page itself (not the user); it resumes when the reason clears. */
   private pausedBy = new Set<PauseReason>();
   private resumeWhenClear = false;
+  /** Stop pressed while a claim was in flight: the claim finishes, mining does not resume after it. */
+  private stopAfterClaim = false;
   private retired = false;
   lastClaim: LastClaim | undefined;
 
@@ -294,6 +296,7 @@ export class MinerController {
   /** Under a page-side pause the intent is kept: mining starts when the last reason clears. */
   start() {
     if (this.retired) return;
+    this.stopAfterClaim = false;
     if (this.pausedBy.size) {
       this.resumeWhenClear = true;
       return;
@@ -303,9 +306,14 @@ export class MinerController {
     if (epoch) this.dispatch({ type: 'start', epoch });
   }
 
+  /** Idle now; during a claim the phase stays `claiming` (the submission cannot be abandoned) and mining does not resume after it. */
   stop() {
     this.stops++;
     this.resumeWhenClear = false;
+    if (this.store.get(minerAtom).phase === 'claiming') {
+      this.stopAfterClaim = true;
+      return;
+    }
     this.dispatch({ type: 'stop' });
   }
 
@@ -350,14 +358,14 @@ export class MinerController {
   /**
    * A page-side pause (battery, hidden tab, …): stops now, restarts by itself once every reason
    * clears. A claim or a rebuild in flight is left to finish; the restart they would have made
-   * waits with the pause.
+   * waits with the pause, unless Stop was pressed during the claim.
    */
   pause(reason: PauseReason) {
     const phase = this.store.get(minerAtom).phase;
     this.pausedBy.add(reason);
     if (phase === 'idle') return;
     if (phase === 'mining') this.dispatch({ type: 'stop' });
-    this.resumeWhenClear = true;
+    this.resumeWhenClear = !this.stopAfterClaim;
   }
 
   release(reason: PauseReason) {
@@ -610,7 +618,7 @@ export class MinerController {
         at: Date.now(),
       });
       this.announceWin(block);
-      this.start();
+      this.resumeAfterClaim();
     } catch (e) {
       this.retained = restore;
       await this.claimFailed(e);
@@ -639,13 +647,21 @@ export class MinerController {
       });
   }
 
+  private resumeAfterClaim() {
+    if (this.stopAfterClaim) {
+      this.stopAfterClaim = false;
+      return;
+    }
+    this.start();
+  }
+
   private async claimFailed(e: unknown) {
     const kind = classifyClaimFailure(e);
     const message = claimFailureMessage(e);
     this.log(`claim failed (${kind}): ${message}`);
     this.dispatch({ type: 'failed', error: message, kind, at: Date.now() });
     // Nothing was spent by an expired claim: mining goes on, on whatever epoch is open now.
-    if (kind === 'expired') return this.start();
+    if (kind === 'expired') return this.resumeAfterClaim();
     if (kind !== 'reverted' && kind !== 'delivery-blocked') return;
     // A delivery still blocked after a rebuild is the PXE waiting for L1: only time helps.
     const rebuilt = this.rebuiltAt !== null && Date.now() - this.rebuiltAt < (await this.finalityMs());
@@ -762,9 +778,9 @@ export class MinerController {
     this.lastRead = Date.now();
     this.dispatch({ type: 'recovered', at: Date.now() });
     this.log('chain view rebuilt');
-    // A lost race resumes the miner it interrupted; a node switch lets release('switch') decide,
-    // so a switch made while idle does not start mining on its own.
-    if (!this.pausedBy.size) this.start();
+    // A lost race resumes the miner it interrupted unless Stop was pressed during the claim; a node
+    // switch lets release('switch') decide, so a switch made while idle does not start mining on its own.
+    if (!this.pausedBy.size) this.resumeAfterClaim();
   }
 
   private async finalityMs(): Promise<number> {
@@ -780,7 +796,8 @@ export class MinerController {
     const until = Date.now() + (await this.finalityMs());
     this.log(`claims paused until ${new Date(until).toISOString().slice(11, 19)}`);
     this.pausedBy.add('lost-race');
-    this.resumeWhenClear = true;
+    this.resumeWhenClear = !this.stopAfterClaim;
+    this.stopAfterClaim = false;
     this.dispatch({ type: 'paused', until, at: Date.now() });
     this.pauseTimer = setTimeout(() => this.release('lost-race'), until - Date.now());
   }

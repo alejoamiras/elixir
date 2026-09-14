@@ -145,9 +145,9 @@ export const copy = {
       { label: 'Threat model', href: LINKS.threatModel },
     ],
   },
-  /** The one line every page carries while a migration is announced; `day` is the expected flip's. */
+  /** The one line every page carries while a migration is announced; `day` is the upgrade's expected day. */
   announcement: (version: string, day: string) =>
-    `Aztec's next version arrives around ${day}. Mining on V${version} ends at the flip; send what you hold ahead from the miner before then.`,
+    `Aztec's next version arrives around ${day}. Mining on ${version} ends at the upgrade; send what you hold ahead from the miner before then.`,
   announcementLink: 'what happens →',
   faq: {
     title: 'What happens, and what can go wrong',
@@ -156,7 +156,7 @@ export const copy = {
       {
         id: 'announced',
         title: 'Aztec announces the next version',
-        body: 'Every Yacana page says so, with the day it is expected. Mining goes on until the flip.',
+        body: 'Every Yacana page says so, with the day it is expected. Mining goes on until the upgrade.',
       },
       {
         id: 'send',
@@ -175,13 +175,13 @@ export const copy = {
       },
       {
         id: 'flip',
-        title: 'The flip, then the forward',
-        body: "Aztec names the next version. Yacana forwards held sends into it by hand; you may forward yours from the miner, or redeem it to Ethereum instead, while the old version's exits are open.",
+        title: 'The upgrade, then the forward',
+        body: "Aztec names the next version. Yacana forwards held sends into it by hand; you may forward yours from the miner, or redeem it on Ethereum instead, until the old version's last day.",
       },
       {
         id: 'landed',
         title: 'You claim on the next version',
-        body: 'Sign in with the same passkey; one tap, a private mint. Anything still on the old version when it goes quiet is lost — it goes quiet days after the flip, without notice.',
+        body: 'Sign in with the same passkey; one tap, a private mint. Anything still on the old version when it goes quiet is lost — it goes quiet days after the upgrade, without notice.',
       },
     ],
     questions: [
@@ -191,23 +191,23 @@ export const copy = {
       },
       {
         q: 'How does the everyday bridge work?',
-        a: `To Ethereum: a private burn here, proven to Ethereum with the epoch, then minted as YACA (an ERC-20) to the address you named — Yacana forwards exits by hand, and anyone may forward one. From Ethereum: one deposit from your Ethereum wallet, then a tap on the arrival card. The amount and the address are public on Ethereum; that is why it is a choice.`,
+        a: `To Ethereum: a private burn here, proven to Ethereum with the epoch, usually within the hour (a proof that never comes undoes the burn), then claimed by you on Ethereum as YACA (an ERC-20) at the address you named — one transaction, and anyone may make it. From Ethereum: one deposit from your Ethereum wallet, then a tap on the arrival card. The amount and the address are public on Ethereum; that is why it is a choice.`,
       },
       {
         q: 'Who may forward a held send, and why the rule?',
-        a: "Only you — from a device that holds your passkey — or Yacana's listed forwarder. A stranger could otherwise push your send into a rollup about to stop, where it would be stranded. The forwarder holds no funds and cannot redirect them: a forward lands on the version Aztec names, under your secret.",
+        a: 'Only you — from a device that holds your passkey — or an authorized relayer the governance multisig lists. Forwarding is one-way and gives up your right to redeem, so a stranger could otherwise take that choice from you at a moment of their picking. The relayer holds no funds and cannot redirect them: a forward lands on the version Aztec names, under your secret.',
       },
       {
         q: 'What is public?',
-        a: 'On Aztec: that a coin was mined — a nullifier, a note hash, a counter — never who. On Ethereum: every crossing’s amount and time, and the address an exit names or a deposit comes from. Someone matching amounts and times across the two sides could link them.',
+        a: 'On Aztec: that a coin was mined — a nullifier, a note hash, a counter — never who. On Ethereum: every crossing’s amount and time, and the address a withdrawal names or a deposit comes from. Someone matching amounts and times across the two sides could link them.',
       },
       {
         q: 'What can go wrong?',
-        a: `The version never proves the epoch in time: the burn is undone on the version, your balance shows again once your node has followed the prune, and you send again. The portal is paused: exits and deposits wait, 30 days at most per call and 60 in total per version. More has left the version than its schedule allows: before the flip, exits wait for the limit to grow; after the flip the limit is frozen, and what is beyond it cannot leave that version. A version's exits close at its deadline, 180 days after the flip at the earliest: nothing leaves after it. The old version goes quiet with something still on it: that is lost. Your device forgot the journal: the recovery file restores it, and the twelve words restore the account.`,
+        a: `The version never proves the epoch in time: the burn is undone on the version, your balance shows again once your node has followed the prune, and you send again. The portal is paused: withdrawals and deposits wait, 30 days at most per call and 60 in total per version. More has left the version than its schedule allows: before the upgrade, withdrawals wait for the limit to grow; after the upgrade the limit is frozen, and what is beyond it cannot leave that version. A version's last day comes 180 days after the upgrade at the earliest: nothing leaves after it. The old version goes quiet with something still on it: that is lost. Your device forgot the journal: the recovery file restores it, and the twelve words restore the account.`,
       },
       {
         q: 'What does Yacana hold?',
-        a: 'Nothing of yours. The contracts are immutable and no one can raise a limit or move a balance. The operators register which miner a version trusts, once and for good (a wrong first registration would let that miner issue up to the version’s limit and strand sends forwarded into it, which is why the forwarder refuses a version whose miner is not the announced one), pause the portal within its limits, list a forwarder, close deposits before a flip, and may hand the role to another address.',
+        a: 'Nothing of yours. The contracts are immutable and no one can raise a limit or move a balance. The governance multisig registers which miner a version trusts, once and for good (a wrong first registration would let that miner issue up to the version’s limit and strand sends forwarded into it, which is why the relayer refuses a version whose miner is not the announced one), pauses the portal within its bound, authorizes a relayer, closes deposits before an upgrade, and may hand the role to another address.',
       },
     ],
     back: '← the argument',

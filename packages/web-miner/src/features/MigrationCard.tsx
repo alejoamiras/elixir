@@ -6,6 +6,7 @@ import { useAtomValue } from 'jotai';
 import { type Crossing, inFlight } from '../../../bridge/src/journal.ts';
 import type { MigrationRecord } from '../../../bridge/src/record.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
+import { ownVersionName } from '../../../site/src/browser/version-name.ts';
 import { Button, HeroCard, type HeroTone, Stepper, type TrailItem } from '../../../ui/src/index.ts';
 import { migrationRecord } from '../bridge/env';
 import { duration, amount as fmt } from '../lib/format';
@@ -69,14 +70,14 @@ const Faq = () => (
 
 /** The send's stations before anything was sent, and once something was: what is behind, what is on. */
 const announcedTrail = (sent: boolean, proven: boolean, version: string, next: string): TrailItem[] => [
-  sent ? { label: `left V${version}`, state: 'done' } : { label: `leaves V${version} · now`, state: 'on' },
+  sent ? { label: `left ${version}`, state: 'done' } : { label: `leaves ${version} · now`, state: 'on' },
   { label: 'proven to Ethereum · safe', state: !sent ? 'todo' : proven ? 'done' : 'on' },
   { label: `waits for V${next}`, state: sent && proven ? 'on' : 'todo' },
   { label: `lands with a tap on V${next}`, state: 'todo' },
 ];
 
 const announcedTitle = (sent: boolean, sum: bigint, balance: bigint | null, version: string): string => {
-  if (!sent) return `V${version} ends soon. Send your balance ahead.`;
+  if (!sent) return `${version} ends soon. Send your balance ahead.`;
   const since = balance && balance > 0n ? ` ${money(balance)} mined since.` : '';
   return `${money(sum)} sent ahead.${since}`;
 };
@@ -128,14 +129,14 @@ function Announced({
     >
       {sent ? (
         <>
-          Held on Ethereum once V{version} proves each epoch, out of V{version}’s reach; it lands on V{next}{' '}
+          Held on Ethereum once {version} proves each epoch, out of {version}’s reach; it lands on V{next}{' '}
           with a tap on the arrival card, same passkey. {loss}
         </>
       ) : (
         <>
-          {when}, Aztec starts V{next} and V{version} stops. Sent ahead, your balance waits on Ethereum, out
-          of V{version}’s reach, once V{version} proves the epoch; it lands on V{next} with a tap on the
-          arrival card, same passkey. The amount is public on Ethereum; the account is not. {loss}
+          {when}, Aztec starts V{next} and {version} stops. Sent ahead, your balance waits on Ethereum, out of{' '}
+          {version}’s reach, once {version} proves the epoch; it lands on V{next} with a tap on the arrival
+          card, same passkey. The amount is public on Ethereum; the account is not. {loss}
         </>
       )}
       <SentAhead ahead={ahead} balance={balance} />
@@ -169,7 +170,7 @@ function Flipped({
       className={className}
       eyebrow={`aztec v${next} is canonical${flipDay ? ` · ${flipDay}` : ''}`}
       title={
-        <span data-testid="flipped-alert">Mining has ended on V{version}. Send what is left ahead now.</span>
+        <span data-testid="flipped-alert">Mining has ended on {version}. Send what is left ahead now.</span>
       }
       tone="warn"
       side={
@@ -181,7 +182,7 @@ function Flipped({
               { id: 'canonical', label: `V${next} canonical`, state: 'done', right: flipDay },
               {
                 id: 'retired',
-                label: `V${version} retired · claims refused`,
+                label: `${version} retired · claims refused`,
                 state: retired ? 'done' : 'active',
                 right: retired ? undefined : 'soon',
               },
@@ -194,14 +195,14 @@ function Flipped({
       data-testid="migration-card"
       data-moment="flipped"
     >
-      V{version}’s contract refuses mining claims{' '}
+      {version}’s contract refuses mining claims{' '}
       {retired ? 'since the retire message landed' : 'once the retire message lands'}.{' '}
       <b>
         {balance && balance > 0n
-          ? `${money(balance)} still on V${version}.`
-          : `Nothing is left on V${version}.`}
+          ? `${money(balance)} still on ${version}.`
+          : `Nothing is left on ${version}.`}
       </b>{' '}
-      Sending it ahead now is a bet that V{version} proves one more epoch; leaving it is a sure loss. Yacana’s
+      Sending it ahead now is a bet that {version} proves one more epoch; leaving it is a sure loss. Yacana’s
       next app takes this address once V{next}’s contract is deployed; each send shows its own proof deadline.{' '}
       {loss}
       <SentAhead ahead={ahead} balance={balance} />
@@ -217,11 +218,11 @@ export function MigrationCard({ onSendAhead, className }: { onSendAhead: () => v
   const announced = migrationRecord();
   const m = moment(announced, view.verdict.kind === 'flipped');
   if (m === 'quiet') return null;
-  const version = import.meta.env.VITE_ROLLUP_VERSION;
-  const next = announced ? announced.toIndex : (view.canonical?.version.toString() ?? '?');
+  const version = ownVersionName();
+  const next = announced ? announced.toIndex : (view.canonical?.index.toString() ?? '?');
   const ahead = journal.filter((c) => c.kind === 2 && c.state !== 'dropped' && c.state !== 'never-proven');
   const expected = announced ? Number(announced.expectedFlipAt) - Math.floor(now / 1000) : 0;
-  const loss = `Anything still on V${version} when it goes quiet is lost. V${version} goes quiet after the upgrade, without notice.`;
+  const loss = `Anything still on ${version} when it goes quiet is lost. ${version} goes quiet after the upgrade, without notice.`;
   const props = { version, next, ahead, balance, view, onSendAhead, loss, className };
   return m === 'flipped' ? <Flipped {...props} /> : <Announced {...props} expected={expected} />;
 }

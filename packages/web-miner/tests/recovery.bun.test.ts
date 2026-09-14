@@ -138,6 +138,21 @@ describe('lost-race recovery', () => {
     controller.dispose();
   });
 
+  test('Stop during a claim that reverts: the view is rebuilt and read, mining does not resume', async () => {
+    const rebuilt = fakeDeployment(9n, () => Promise.reject(BLOCKED));
+    const controller = await boot(
+      fakeDeployment(5n, () => Promise.reject(REVERTED)),
+      async () => ({ deployment: rebuilt, fee, rebuilt: true }),
+    );
+    worker.emit(winner);
+    expect(store.get(minerAtom).phase).toBe('claiming');
+    controller.stop();
+    await settle(() => controller.deployment === rebuilt && store.get(minerAtom).phase === 'idle');
+    expect(store.get(balanceAtom)).toBe(9n);
+    expect(worker.sent.filter((m) => m.type === 'mine')).toHaveLength(1);
+    controller.dispose();
+  });
+
   test('a drop that fails but reopens falls back to the pause on the reopened view', async () => {
     const reopened = fakeDeployment(5n, () => Promise.reject(REVERTED));
     const controller = await boot(
@@ -182,6 +197,26 @@ describe('lost-race recovery', () => {
     controller.release('hidden');
     await settle(() => worker.sent.filter((m) => m.type === 'mine').length === 2);
     expect(store.get(minerAtom)).toMatchObject({ phase: 'mining', notice: { kind: 'expired' } });
+    controller.dispose();
+  });
+
+  test('Stop during a claim: the claim keeps its phase and finishes; mining does not resume after it, not even through a hidden tab', async () => {
+    const controller = await boot(
+      fakeDeployment(5n, () => Promise.reject(new Error('Invalid tx: Invalid expiration timestamp'))),
+      () => Promise.reject(new Error('unused')),
+    );
+    worker.emit(winner);
+    expect(store.get(minerAtom).phase).toBe('claiming');
+    controller.stop();
+    expect(store.get(minerAtom).phase).toBe('claiming');
+    // The tab hidden and shown again around the claim's end must not re-arm the restart.
+    controller.pause('hidden');
+    await settle(() => store.get(minerAtom).notice?.kind === 'expired');
+    expect(store.get(minerAtom).phase).toBe('idle');
+    controller.release('hidden');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(store.get(minerAtom).phase).toBe('idle');
+    expect(worker.sent.filter((m) => m.type === 'mine')).toHaveLength(1);
     controller.dispose();
   });
 

@@ -22,14 +22,12 @@ import { balanceAtom, bootAtom, bridgeAtom, claimsAtom } from '../state';
 
 /** The balance with its two ways out (Send, To Ethereum) and the way in (Deposit from Ethereum) beside the account. */
 export function BalanceTile({
-  account,
   balance,
   claims,
   onSend,
   onToEthereum,
   onDeposit,
 }: {
-  account: string;
   balance: bigint | null;
   claims: number;
   onSend: () => void;
@@ -63,33 +61,17 @@ export function BalanceTile({
             disabled={!balance || view.rpcFailing || !standing?.registered}
             data-testid="to-ethereum"
           >
-            To Ethereum
+            Bridge to Ethereum
           </Button>
         )}
-      </div>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs">
-        <span className="inline-flex items-center gap-1.5 rounded-sm border border-line bg-panel px-2 py-1 font-mono text-2xs text-ink-2">
-          <span>account</span>
-          <ExternalLink
-            href={links.address(account)}
-            full={account}
-            copy
-            className="text-ink"
-            data-testid="wallet-account"
-          >
-            {shortAddress(account)}
-          </ExternalLink>
-        </span>
         {bridge && (
           <Button
-            size="sm"
-            variant="link"
-            className="text-uv-2"
+            variant="ghost"
             disabled={!standing?.registered || standing.depositsClosed}
             onClick={onDeposit}
             data-testid="deposit"
           >
-            Deposit from Ethereum →
+            Bridge from Ethereum
           </Button>
         )}
       </div>
@@ -116,7 +98,7 @@ function AccountTile({
             href={links.address(record.account.address)}
             full={record.account.address}
             className="font-mono text-sm text-ink"
-            data-testid="account-address"
+            data-testid="wallet-account"
           >
             {shortAddress(record.account.address)}
           </ExternalLink>
@@ -219,7 +201,6 @@ export function Wallet({ session }: { session: Session }) {
     <div className="grid gap-4 md:grid-cols-2">
       <TileBoundary name="balance" onError={onError}>
         <BalanceTile
-          account={account}
           balance={balance}
           claims={claims.length}
           onSend={() => setSend(true)}
@@ -239,13 +220,7 @@ export function Wallet({ session }: { session: Session }) {
       </TileBoundary>
       <BridgeProviders>
         <TileBoundary name="bridge" onError={onError} className="md:col-span-2">
-          <BridgeTile
-            session={session}
-            account={account}
-            onDeposit={() => setDeposit({})}
-            onForward={setForward}
-            onRedeem={setRedeem}
-          />
+          <BridgeTile session={session} account={account} onForward={setForward} onRedeem={setRedeem} />
         </TileBoundary>
         <TileBoundary name="arrivals" onError={onError} className="md:col-span-2">
           <ArrivalCard

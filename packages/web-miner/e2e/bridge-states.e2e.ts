@@ -1,6 +1,6 @@
 // The everyday bridge through the page on a bridge-mode run (the portal on the network's anvil, the
 // run's control server for what Yacana does by hand), with the injected test wallet answering from
-// Node: an exit to Ethereum forwarded and minted as YACA; a deposit through the wallet picker whose
+// Node: a withdrawal to Ethereum claimed there as YACA; a deposit through the wallet picker whose
 // wallet starts on the wrong chain, refuses once, is left open once (a reload recovers the crossing
 // from the journal), changes account mid-flow, then lands and is claimed on the arrival card.
 import type { Hex } from 'viem';
@@ -52,14 +52,14 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
   await page.getByTestId('stop').click();
   await page.getByRole('link', { name: 'Wallet' }).click();
-  await expect(page.getByTestId('bridge-tile')).toContainText('exit headroom');
+  await expect(page.getByTestId('nothing-crossing')).toBeVisible();
 
-  // To Ethereum: 1 tYACA to the holder; the card follows it to Ethereum once the epoch is settled and forwarded.
+  // Bridge to Ethereum: 1 tYACA to the holder; the card follows it until it is claimed there.
   await page.getByTestId('to-ethereum').click();
   await page.getByTestId('exit-amount').fill('1');
   await page.getByTestId('exit-to').fill(l1.address);
   await page.getByTestId('exit-review').click();
-  await expect(page.getByTestId('exit-public')).toContainText('This will be public on Ethereum.');
+  await expect(page.getByTestId('exit-public')).toContainText('Public on Ethereum.');
   await page.getByTestId('exit-send').click();
   await expect(page.getByTestId('exit-sent')).toBeVisible({ timeout: 10 * 60_000 });
   await page.getByRole('button', { name: 'Done' }).click();
@@ -67,10 +67,10 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   await expect(exit.getByTestId('crossing-word')).toHaveText('proving to Ethereum', { timeout: 60_000 });
   await expect(page.getByTestId('wallet-balance')).toHaveText('3', { timeout: 60_000 });
   await ctl.settle();
-  await expect(exit.getByTestId('crossing-word')).toHaveText('ready', { timeout: 3 * 60_000 });
-  await expect(exit).toContainText('Yacana forwards exits by hand');
+  await expect(exit.getByTestId('crossing-word')).toHaveText('ready to claim', { timeout: 3 * 60_000 });
+  await expect(exit).toContainText('Claim it on Ethereum');
   expect((await ctl.forward()).forwarded).toBe(1);
-  await expect(exit.getByTestId('crossing-word')).toHaveText('on Ethereum', { timeout: 60_000 });
+  await expect(exit.getByTestId('crossing-word')).toHaveText('claimed', { timeout: 60_000 });
 
   // Deposit: the picker lists the test wallet by name; connected, the row shows the YACA the forward minted.
   await page.getByTestId('deposit').click();

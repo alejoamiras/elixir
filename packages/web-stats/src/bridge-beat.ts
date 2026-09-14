@@ -36,8 +36,8 @@ export interface BridgeExtras {
   /** YACA's total supply on Ethereum: what is there right now. */
   yacaSupply: bigint;
   events: FlowEvent[];
-  /** Unix seconds of the last forward, or null when none happened yet. */
-  lastForwardAt: number | null;
+  /** Unix seconds of the last crossing of any kind, or null when none happened yet. */
+  lastCrossingAt: number | null;
 }
 
 /** What the miner's own counters say: everything that ever left through the portal, everything that arrived. */
@@ -87,44 +87,56 @@ const closed = (v: VersionFlows, nowSeconds: number): boolean =>
   v.deadline !== OPEN_ENDED && BigInt(nowSeconds) > v.deadline;
 
 /**
- * The turnstile in one sentence: what may leave now and what the rest waits for. Headroom is
- * room under the limit, not leave to go: a pause holds it and the deadline ends it, so the line
- * says which; before the flip the limit grows, after it what is beyond the frozen limit never leaves.
+ * The exit limit in one sentence: what may leave now and what the rest waits for. Headroom is room
+ * under the limit, not leave to go: a pause holds it and the last day ends it, so the line says
+ * which; before the upgrade the limit grows, after it what is beyond the frozen limit never leaves.
  */
 export function exitLimitLine(v: VersionFlows, policy: PortalPolicy, nowSeconds: number): string {
   const left = `${yaca(v.exited)} has left`;
   if (closed(v, nowSeconds))
-    return `exits closed on ${day(v.deadline)} · ${left}; nothing more leaves V${v.version}.`;
-  const may = `${yaca(v.headroom)} may leave V${v.version}`;
+    return `last day ${day(v.deadline)} · ${left}; nothing more leaves V${v.registryIndex}.`;
+  const may = `${yaca(v.headroom)} may leave V${v.registryIndex}`;
   if (v.paused) return `${may} once the pause ends · ${left}.`;
   if (v.flipAt > 0n)
-    return `${may} right now · the limit stopped growing at the flip; ${left}. What is beyond it cannot leave this version.`;
+    return `${may} right now · the limit froze at the upgrade; ${left}. What is beyond it cannot leave.`;
   const grows = `grows ${yaca(policy.perHour)} an hour`;
   if (v.launchAt > BigInt(nowSeconds))
-    return `${may} right now · the limit ${grows} from the launch on ${day(v.launchAt)}; exits beyond it wait for it.`;
-  return `${may} right now · ${grows}; exits beyond it wait for it to grow, until the flip freezes it.`;
+    return `${may} right now · the limit ${grows} from the launch on ${day(v.launchAt)}; withdrawals beyond it wait for it.`;
+  return `${may} right now · ${grows}; withdrawals beyond it wait for it to grow, until the upgrade freezes it.`;
 }
 
-/** The pause in one sentence: the portal's word on whether it is on, and what the operators may do with it. */
+/** The exit limit as a row: what may leave now, or why nothing does. */
+export function headroomLine(v: VersionFlows, policy: PortalPolicy, nowSeconds: number): string {
+  if (closed(v, nowSeconds)) return 'last day passed · nothing more leaves';
+  if (v.paused) return `${yaca(v.headroom)} once the pause ends`;
+  if (v.flipAt > 0n) return `${yaca(v.headroom)} may leave · frozen at the upgrade`;
+  return `${yaca(v.headroom)} may leave now · grows ${yaca(policy.perHour)} an hour`;
+}
+
+/** What the governance multisig may do with the pause, from the policy. */
+export const pauseRule = (policy: PortalPolicy): string =>
+  `the governance multisig may pause withdrawals and deposits for up to ${duration(Number(policy.pauseMax))} a call, ${duration(Number(policy.pauseBudget))} in total per version; paused days push the last day back`;
+
+/** The pause in one sentence: the portal's word on whether it is on, and how much of the budget is spent. */
 export function pauseLine(v: VersionFlows, policy: PortalPolicy, nowSeconds: number): string {
-  const limits = `the operators may pause exits and deposits for up to ${duration(Number(policy.pauseMax))} a call, ${duration(Number(policy.pauseBudget))} in total per version`;
-  if (!v.paused) return `not paused · ${limits}`;
+  const spent = `${duration(Number(v.pausedSeconds))} of ${duration(Number(policy.pauseBudget))} used`;
+  if (!v.paused) return `not paused · ${spent}`;
   const more = Number(v.pausedUntil) - nowSeconds;
-  return `paused${more > 0 ? ` for ${duration(more)} more` : ''} · ${duration(Number(v.pausedSeconds))} of the budget spent · ${limits}`;
+  return `paused${more > 0 ? ` for ${duration(more)} more` : ''} · ${spent}`;
 }
 
 export function versionLine(v: VersionFlows, canonical: { version: bigint; index: bigint }): string {
   if (!v.registered) return 'not registered on the portal yet';
   if (v.version === canonical.version)
     return v.depositsClosed
-      ? 'the live version · deposits closed before the flip'
-      : 'the live version · mining, deposits and exits here';
+      ? 'the live version · deposits closed before the upgrade'
+      : 'the live version · mining, deposits and withdrawals here';
   if (v.flipAt > 0n)
     return v.deadline === OPEN_ENDED
-      ? `flipped away from on ${day(v.flipAt)} · exits stay open`
-      : `flipped away from on ${day(v.flipAt)} · exits close on ${day(v.deadline)}`;
-  if (v.registryIndex < canonical.index) return 'flipped away from · the flip not yet recorded on the portal';
-  return 'registered ahead of the flip · not live yet';
+      ? `upgraded from on ${day(v.flipAt)} · no last day yet`
+      : `upgraded from on ${day(v.flipAt)} · last day ${day(v.deadline)}`;
+  if (v.registryIndex < canonical.index) return 'upgraded from · the upgrade not yet recorded on the portal';
+  return 'registered ahead of the upgrade · not live yet';
 }
 
 // ---------------------------------------------------------------- the phases
@@ -158,14 +170,14 @@ const flipPhase = (
   label: `${next} canonical`,
   state: flipped ? 'done' : m ? 'on' : 'todo',
   detail: flipped
-    ? `${shortDay(v.flipAt)} · mining on V${v.version} ended`
-    : `${m ? `~${shortDay(BigInt(m.expectedFlipAt))} · ` : ''}mining on V${v.version} ends`,
+    ? `${shortDay(v.flipAt)} · mining on V${v.registryIndex} ended`
+    : `${m ? `~${shortDay(BigInt(m.expectedFlipAt))} · ` : ''}mining on V${v.registryIndex} ends`,
 });
 
 /** Going quiet is the version's last proof, which nothing announces; the retire message (mining's end) is only its omen, so the phase is never done. */
 const retirePhase = (v: VersionFlows, flipped: boolean): TimelineItem => ({
   id: 'retire',
-  label: `V${v.version} goes quiet`,
+  label: `V${v.registryIndex} goes quiet`,
   state: flipped ? 'on' : 'todo',
   detail: v.retireSent
     ? 'retire message sent · mining ends when the miner consumes it · proving may stop any time'
@@ -176,17 +188,17 @@ const closesPhase = (v: VersionFlows, nowSeconds: number): TimelineItem => {
   const dated = v.deadline !== OPEN_ENDED;
   return {
     id: 'closes',
-    label: 'exits close',
+    label: 'last day',
     state: closed(v, nowSeconds) ? 'done' : dated ? 'on' : 'todo',
     detail: dated
       ? `${shortDay(v.deadline)} · plus paused days`
-      : 'the later of the version after next and 180 d after the flip · plus paused days',
+      : 'the later of the version after next and 180 d after the upgrade · plus paused days',
   };
 };
 
 /**
  * A version's life as a timeline: the launch (from the portal's registration), the announcement
- * (from the build's record, when it carries one), the flip, the retire message, the day its exits close.
+ * (from the build's record, when it carries one), the upgrade, the retire message, its last day.
  */
 export function phasesOf(v: VersionFlows, m: MigrationRecord | null, nowSeconds: number): TimelineItem[] {
   const flipped = v.flipAt > 0n;
@@ -221,13 +233,15 @@ export interface BridgeFigures {
   onEthereum?: bigint;
   /** Everything the miner ever minted by mining: its supply, less what came from Ethereum, plus what left. */
   mined?: bigint;
-  /** Left the miner, not yet through the portal. */
+  /** Burned on the miner, not yet claimed on Ethereum. */
   transit?: bigint;
   /** Through the portal, not yet claimed on the miner. */
   waiting?: bigint;
-  forwards?: number;
-  /** Unix seconds of the last forward; null when none happened; undefined when the history could not be read. */
-  lastForwardAt?: number | null;
+  /** Withdrawals claimed on Ethereum and send-aheads forwarded on, for the live version (the portal's Forwarded events). */
+  withdrawals?: number;
+  sendAheads?: number;
+  /** Unix seconds of the last crossing of any kind through the portal; null when none happened; undefined when the history could not be read. */
+  lastCrossingAt?: number | null;
 }
 
 export function figuresOf(
@@ -243,8 +257,9 @@ export function figuresOf(
     mined: supply !== undefined && miner ? supply - miner.claimedFromL1 + miner.exited : undefined,
     transit: miner && live ? max0(miner.exited - live.exited) : undefined,
     waiting: miner && live ? max0(live.inbound - miner.claimedFromL1) : undefined,
-    forwards: x ? x.events.filter((e) => e.kind !== 'deposit' && mine(e)).length : undefined,
-    lastForwardAt: x ? x.lastForwardAt : undefined,
+    withdrawals: x ? x.events.filter((e) => e.kind === 'exit' && mine(e)).length : undefined,
+    sendAheads: x ? x.events.filter((e) => e.kind === 'send' && mine(e)).length : undefined,
+    lastCrossingAt: x ? x.lastCrossingAt : undefined,
   };
 }
 
@@ -261,13 +276,13 @@ export function sampleBlocks(sorted: readonly bigint[], max: number): bigint[] {
 }
 const figure = (raw: bigint | undefined): string => (raw === undefined ? DASH : whole(raw));
 
-/** "forwarded 2 min ago", "nothing forwarded yet", or that the history could not be read. */
-export const forwardingLine = (lastForwardAt: number | null | undefined, nowSeconds: number): string =>
-  lastForwardAt === undefined
-    ? 'forwarding history unavailable'
-    : lastForwardAt
-      ? `forwarded ${duration(Math.max(0, nowSeconds - lastForwardAt))} ago`
-      : 'nothing forwarded yet';
+/** "last crossed 2 min ago", "nothing has crossed yet", or that the history could not be read. */
+export const crossingLine = (lastCrossingAt: number | null | undefined, nowSeconds: number): string =>
+  lastCrossingAt === undefined
+    ? 'history unavailable'
+    : lastCrossingAt
+      ? `last crossed ${duration(Math.max(0, nowSeconds - lastCrossingAt))} ago`
+      : 'nothing has crossed yet';
 
 /** YACA on Ethereum is one pool across versions; its share of all minted is known only while one version has minted. */
 const ethereumKpi = (f: BridgeFigures, chain: string, onlyVersion: boolean): Kpi => ({
@@ -294,16 +309,16 @@ const aztecKpi = (
   unit: PARAMS.TOKEN_SYMBOL,
   sub:
     f.mined !== undefined && miner
-      ? `${whole(f.mined)} mined − ${whole(miner.exited)} left + ${whole(miner.claimedFromL1)} came back`
+      ? `${whole(f.mined)} mined · ${whole(miner.exited)} left · ${whole(miner.claimedFromL1)} came back`
       : 'the private balances, in sum',
 });
 
 const transitKpi = (f: BridgeFigures): Kpi => ({
   id: 'transit',
-  label: 'in transit',
+  label: 'on the way to Ethereum',
   value: figure(f.transit),
   unit: PARAMS.TOKEN_SYMBOL,
-  sub: f.transit === 0n ? 'nothing between the two' : 'left the miner, not yet forwarded',
+  sub: f.transit === 0n ? 'nothing on the way' : 'burned here, not yet claimed there',
 });
 
 const waitingKpi = (f: BridgeFigures): Kpi => ({
@@ -311,20 +326,17 @@ const waitingKpi = (f: BridgeFigures): Kpi => ({
   label: 'waiting to be claimed',
   value: figure(f.waiting),
   unit: PARAMS.TOKEN_SYMBOL,
-  sub: f.waiting === 0n ? 'every arrival claimed' : 'on Aztec, unclaimed',
+  sub: f.waiting === 0n ? 'every arrival claimed' : 'arrived on Aztec, unclaimed',
 });
 
-const bridgeKpi = (
-  f: BridgeFigures,
-  s: BridgeSnapshot,
-  live: VersionFlows | undefined,
-  nowSeconds: number,
-): Kpi => ({
+const bridgeKpi = (s: BridgeSnapshot, live: VersionFlows | undefined): Kpi => ({
   id: 'bridge',
   label: 'bridge',
   value: live?.paused ? 'paused' : 'open',
-  sub: `${forwardingLine(f.lastForwardAt, nowSeconds)} · paused ${duration(Number(live?.pausedSeconds ?? 0n))} of ${duration(Number(s.policy.pauseBudget))}`,
+  sub: `paused ${duration(Number(live?.pausedSeconds ?? 0n))} of ${duration(Number(s.policy.pauseBudget))}`,
 });
+
+const count = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 
 const leftKpi = (f: BridgeFigures, live: VersionFlows | undefined, v: string): Kpi => ({
   id: 'left',
@@ -332,14 +344,14 @@ const leftKpi = (f: BridgeFigures, live: VersionFlows | undefined, v: string): K
   value: live ? whole(live.exited) : DASH,
   unit: PARAMS.TOKEN_SYMBOL,
   sub:
-    f.forwards === undefined
-      ? 'exits and send-aheads forwarded on'
-      : `${f.forwards} ${f.forwards === 1 ? 'forward' : 'forwards'} · ${live && live.headroom === 0n ? 'exits wait for headroom' : 'headroom under the limit'}`,
+    f.withdrawals === undefined || f.sendAheads === undefined
+      ? 'withdrawals claimed, send-aheads forwarded'
+      : `${count(f.withdrawals, 'withdrawal', 'withdrawals')} claimed${f.sendAheads ? ` · ${count(f.sendAheads, 'send-ahead', 'send-aheads')} forwarded` : ''}`,
 });
 
 /**
- * The six figures: what is on Ethereum (YACA's supply), what is on the live version, what is in
- * transit (left the miner, not yet through the portal), what waits to be claimed (through the
+ * The six figures: what is on Ethereum (YACA's supply), what is on the live version, what is on
+ * the way to Ethereum (burned here, not yet claimed there), what waits to be claimed (through the
  * portal, not yet claimed on the miner), the bridge's state, what left the live version.
  */
 export function kpisOf(
@@ -347,17 +359,17 @@ export function kpisOf(
   live: VersionFlows | undefined,
   miner: MinerFlows | undefined,
   supply: bigint | undefined,
-  nowSeconds: number,
+  _nowSeconds: number,
   chain: string,
 ): Kpi[] {
   const f = figuresOf(s, live, miner, supply);
-  const v = live ? `V${live.version}` : 'this version';
+  const v = live ? `V${live.registryIndex}` : 'this version';
   return [
     ethereumKpi(f, chain, s.versions.length === 1),
     aztecKpi(f, miner, supply, v),
     transitKpi(f),
     waitingKpi(f),
-    bridgeKpi(f, s, live, nowSeconds),
+    bridgeKpi(s, live),
     leftKpi(f, live, v),
   ];
 }
@@ -380,7 +392,13 @@ export function whereOf(
     raw === undefined ? 0 : Number(raw / 10n ** BigInt(Math.max(0, PARAMS.DECIMALS - 6)));
   const shown = (raw: bigint | undefined) => (raw === undefined ? DASH : whole(raw));
   return [
-    { id: 'here', label: `still on V${v.version}`, figure: shown(here), value: n(here), color: 'var(--uv)' },
+    {
+      id: 'here',
+      label: `still on V${v.registryIndex}`,
+      figure: shown(here),
+      value: n(here),
+      color: 'var(--uv)',
+    },
     {
       id: 'eth',
       label: 'left to Ethereum, net',
@@ -391,7 +409,7 @@ export function whereOf(
     { id: 'transit', label: 'crossing', figure: shown(transit), value: n(transit), color: 'var(--warn)' },
     {
       id: 'moved',
-      label: 'moved to the next version',
+      label: 'moved on',
       figure: whole(moved),
       value: n(moved),
       color: 'var(--uv-2)',

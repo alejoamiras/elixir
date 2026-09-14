@@ -38,6 +38,7 @@
     "registry": "0xa0bfb1b494fb49041e5c6e8c2c1be09cd171c6ba",
     "operators": "0xFcc2238319aC360e985f1736aBB3df6251DAF6F5",
     "l1RpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
-    "deployBlock": "11695738"
+    "deployBlock": "11695738",
+    "registryIndex": "5"
   }
 }

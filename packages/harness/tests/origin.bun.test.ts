@@ -75,9 +75,12 @@ describe.skipIf(!enabled)('the versioned origin (origin)', () => {
   beforeAll(async () => {
     rig = await startUpgradeRig();
     node = rig.node as RigNode;
-    const bridge = await deployBridge(rig);
-    v5 = await deployMiner(rig, node, bridge);
-    await registerVersion(v5.operator);
+    const deployedBridge = await deployBridge(rig);
+    v5 = await deployMiner(rig, node, deployedBridge);
+    const bridge = {
+      ...deployedBridge,
+      registryIndex: (await registerVersion(v5.operator)).index.toString(),
+    };
     runFile = join(rig.runRoot, 'run.json');
     const log = openSync(join(rig.runRoot, 'origin.log'), 'w');
     apexPort = await claim({ ...lane, service: 'vite' });

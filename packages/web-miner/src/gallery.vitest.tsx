@@ -119,15 +119,7 @@ beforeEach(() => {
 
 describe('the journal, every state', () => {
   test('an exit and a send-ahead in each state lead with their word, and nothing promises a relayer', () => {
-    const tile = (
-      <BridgeTile
-        session={session}
-        account="0xacc"
-        onDeposit={() => {}}
-        onForward={() => {}}
-        onRedeem={() => {}}
-      />
-    );
+    const tile = <BridgeTile session={session} account="0xacc" onForward={() => {}} onRedeem={() => {}} />;
     const { container } = mount(tile, (s) =>
       s.set(journalAtom, [
         crossing('proving', { state: 'proving' }),
@@ -151,30 +143,22 @@ describe('the journal, every state', () => {
       'sent',
       'proving to Ethereum',
       'proven',
-      'ready',
-      'on Ethereum',
+      'ready to claim',
+      'claimed',
       'paused',
-      'waiting for headroom',
+      'waiting for the limit',
       'closed',
       'undone',
       'held on Ethereum',
       'waiting for Yacana',
       'redeemed',
     ]);
-    expect(container.textContent).not.toMatch(/relayer|within the hour/i);
+    expect(container.textContent).not.toMatch(/relayer/i);
     keep('journal-states', container.innerHTML);
   });
 
   test('a silent RPC is said on the tile, not on the crossing', () => {
-    const tile = (
-      <BridgeTile
-        session={session}
-        account="0xacc"
-        onDeposit={() => {}}
-        onForward={() => {}}
-        onRedeem={() => {}}
-      />
-    );
+    const tile = <BridgeTile session={session} account="0xacc" onForward={() => {}} onRedeem={() => {}} />;
     const { container } = mount(tile, (s) => {
       s.set(bridgeAtom, {
         verdict: { kind: 'before' },
@@ -224,15 +208,7 @@ describe('the arrivals, every state', () => {
         expectedFlipAt: String(SECONDS + 2 * 86_400),
       }),
     );
-    const tile = (
-      <BridgeTile
-        session={session}
-        account="0xacc"
-        onDeposit={() => {}}
-        onForward={() => {}}
-        onRedeem={() => {}}
-      />
-    );
+    const tile = <BridgeTile session={session} account="0xacc" onForward={() => {}} onRedeem={() => {}} />;
     const { container } = mount(
       <>
         <MigrationCard onSendAhead={() => {}} />
@@ -293,7 +269,7 @@ describe('the old app', () => {
     keep('old-app-sent', container.innerHTML);
   });
 
-  test('once exits closed: what is lost, and what was safe', async () => {
+  test('once the last day has passed: what is lost, and what was safe', async () => {
     const { container } = old((s) => {
       s.set(bridgeAtom, {
         verdict: { kind: 'flipped', by: ['registry', 'retired'] },
@@ -307,7 +283,9 @@ describe('the old app', () => {
       ]);
     });
     await waitFor(() => expect(screen.getByTestId('old-quiet').textContent).toContain('cannot leave'));
-    expect(screen.getByTestId('retired').textContent).toContain('V5’s exits have closed. Nothing can leave.');
+    expect(screen.getByTestId('retired').textContent).toContain(
+      'V5’s last day has passed. Nothing can leave.',
+    );
     keep('old-app-quiet', container.innerHTML);
   });
 });
