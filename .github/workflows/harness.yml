@@ -1,0 +1,78 @@
+# The upgrade rig on a runner: a rollup upgrade of the isolated local network, driven by
+# scripts/run/upgrade-rig.ts, as the PR gate for the rig's own inputs. Pull requests run the flip
+# alone (no Yacana involved); a manual dispatch names the cases to run, or runs them all.
+name: harness
+
+on:
+  workflow_dispatch:
+    inputs:
+      cases:
+        description: Space-separated case names under packages/harness/tests (empty runs them all)
+        required: false
+        default: ''
+        type: string
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    uses: ./.github/workflows/_changes.yml
+    permissions:
+      contents: read
+      pull-requests: read
+    with:
+      filters: |
+        relevant:
+          - 'scripts/run/**'
+          - 'packages/harness/**'
+          - 'packages/bridge/**'
+          - 'packages/miner-core/**'
+          - 'packages/portal/**'
+          - 'packages/contracts/**'
+          - 'packages/deploy/**'
+          - '!**/*.md'
+          - '.aztecrc'
+          - 'toolchain.lock.json'
+          - 'package.json'
+          - 'bun.lock'
+          - '.github/workflows/harness.yml'
+          - '.github/actions/**'
+          - '.github/workflows/_changes.yml'
+
+  rig:
+    name: ${{ github.event_name == 'pull_request' && 'The flip alone' || 'The named cases' }}
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup-bun
+      - uses: ./.github/actions/setup-aztec
+      - run: bun test scripts/run/toolchain.test.ts
+        env:
+          YACANA_REQUIRE_TOOLCHAIN: '1'
+      # The flip needs no Yacana; the other cases mine, deploy and forward, so a dispatch builds
+      # the circuits, the contracts and the portal first.
+      - if: github.event_name == 'workflow_dispatch'
+        run: bun run codegen && git diff --exit-code
+      - if: github.event_name == 'workflow_dispatch'
+        run: bun run contracts:compile
+      - if: github.event_name == 'workflow_dispatch'
+        run: bun run portal:build
+      # A pull request runs the flip; a dispatch runs what it names (nothing named: every case).
+      - run: |
+          read -ra cases <<< "$CASES"
+          bun run rig -- "${cases[@]}"
+        env:
+          CASES: ${{ github.event_name == 'pull_request' && 'flip' || inputs.cases }}
+      - name: Keep the networks' logs
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: harness-logs
+          path: .localnet/logs/**
+          if-no-files-found: ignore
+          retention-days: 14

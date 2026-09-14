@@ -1,12 +1,10 @@
 {
-  "name": "@yacana/deploy",
+  "name": "@yacana/harness",
   "version": "0.0.0",
   "private": true,
-  "description": "Sandbox and testnet deployment, calibration, spike and epoch-stats scripts",
+  "description": "The upgrade rig: a programmatic rollup upgrade on the isolated local network, and the migration cases that run on it",
   "type": "module",
   "scripts": {
-    "spike:browser": "bun scripts/spike-browser.ts",
-    "spike:claim": "bun scripts/spike-claim.ts",
     "test": "bun test"
   },
   "dependencies": {
@@ -17,18 +15,16 @@
     "@aztec/constants": "5.2.0",
     "@aztec/ethereum": "5.2.0",
     "@aztec/foundation": "5.2.0",
-    "@aztec/kv-store": "5.2.0",
     "@aztec/l1-artifacts": "5.2.0",
     "@aztec/noir-contracts.js": "5.2.0",
-    "@aztec/noir-noir_js": "5.2.0",
+    "@aztec/noir-protocol-circuits-types": "5.2.0",
+    "@aztec/protocol-contracts": "5.2.0",
     "@aztec/stdlib": "5.2.0",
     "@aztec/wallets": "5.2.0",
+    "@aztec/world-state": "5.2.0",
     "@yacana/bridge": "workspace:*",
+    "@yacana/deploy": "workspace:*",
+    "@yacana/miner-core": "workspace:*",
     "viem": "npm:@aztec/viem@2.38.2"
-  },
-  "devDependencies": {
-    "playwright": "^1.62.1",
-    "vite": "^8.2.2",
-    "vite-plugin-node-polyfills": "^0.28.0"
   }
 }

@@ -23,6 +23,18 @@ import { PARAMS, PROFILE } from '../../miner-core/src/generated/params.ts';
 
 const repo = resolve(import.meta.dir, '../../..');
 
+/** What the L1 deploy script records: the Ethereum side of one profile's bridge. */
+export interface BridgeRecord {
+  chainId: string;
+  portal: string;
+  yaca: string;
+  registry: string;
+  operators: string;
+  l1RpcUrl: string;
+  /** The L1 block the portal was deployed by: where a search of its logs starts. */
+  deployBlock?: string;
+}
+
 export interface Deployment {
   profile: string;
   chainId: string;
@@ -54,6 +66,8 @@ export interface Deployment {
    * source's last seed, both public on the source, so anyone can check the announcement.
    */
   continuation?: { firstEpoch: string; sourceSeed: string; sourceTarget: string; source: string };
+  /** Written by the L1 deploy script once the portal exists on this record's chain. */
+  bridge?: BridgeRecord;
 }
 
 export interface DeployOverrides {

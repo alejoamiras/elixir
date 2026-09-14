@@ -6,10 +6,15 @@
 import { resolve } from 'node:path';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeSecretHash } from '@aztec/stdlib/hash';
 import { masterFromPrf } from '@yacana/miner-core/src/keys/derive.ts';
+import { hashTypedData } from 'viem';
 import { claimContent, exitContent, retireContent, sendAheadContent } from '../src/content.ts';
+import { inboxLeaf } from '../src/inbox.ts';
 import { deriveCrossingSecrets, exitLogTag } from '../src/secrets.ts';
+import { PORTAL_DOMAIN, SIGNED_TYPES } from '../src/signatures.ts';
+import { outboxLeaf } from '../src/witness.ts';
 
 const hex = (v: Fr | bigint) => `0x${(typeof v === 'bigint' ? v : v.toBigInt()).toString(16)}`;
 
@@ -26,6 +31,34 @@ const scope = {
 };
 const master = await masterFromPrf(new Uint8Array(32).map((_, i) => i));
 const crossing = await deriveCrossingSecrets(master, scope, 3);
+
+// The miner's messages as the rollup hashes them, and the digests the portal checks a signature
+// against: pinned so the TypeScript that builds them in the browser and the Solidity that verifies
+// them stay one encoding.
+const miner = AztecAddress.fromStringUnsafe(`0x0a11ce${'00'.repeat(28)}01`);
+const messageScope = { chainId: scope.chainId, rollupVersion: version, miner, portal: scope.portal };
+const inboxIndex = 37n;
+const signed = { epoch: 3n, leafId: 5n, target: version + 1n, expiry: 1_800_000_000n };
+const signedDomain = PORTAL_DOMAIN(scope.chainId, scope.portal.toString());
+const signedMessage = {
+  version,
+  epoch: signed.epoch,
+  leafId: signed.leafId,
+  contentHash: `0x${sendAheadContent(amount, secretHash, redeemKey).toBuffer().toString('hex')}` as const,
+  expiry: signed.expiry,
+};
+const forwardDigest = hashTypedData({
+  domain: signedDomain,
+  types: SIGNED_TYPES,
+  primaryType: 'Forward',
+  message: { ...signedMessage, target: signed.target },
+});
+const redeemDigest = hashTypedData({
+  domain: signedDomain,
+  types: SIGNED_TYPES,
+  primaryType: 'Redeem',
+  message: { ...signedMessage, recipient: recipient.toString() as `0x${string}` },
+});
 
 // The edges: the largest amount, a tag and an address with their top bits set, so every side's
 // word encoding is exercised at full width.
@@ -58,6 +91,21 @@ const vectors = {
   retire: { version: version.toString(), value: hex(retireContent(version)) },
   retireSecretHash: hex(await computeSecretHash(new Fr(0n))),
   exitLogTag: { hashOrTag: hex(tag), value: hex(await exitLogTag(tag)) },
+  messages: {
+    miner: miner.toString(),
+    outboxLeaf: hex(outboxLeaf(messageScope, exitContent(recipient, amount, tag))),
+    inboxIndex: inboxIndex.toString(),
+    inboxLeaf: hex(inboxLeaf(messageScope, claimContent(amount), secretHash, inboxIndex)),
+  },
+  signed: {
+    epoch: signed.epoch.toString(),
+    leafId: signed.leafId.toString(),
+    target: signed.target.toString(),
+    expiry: signed.expiry.toString(),
+    recipient: recipient.toString(),
+    forwardDigest,
+    redeemDigest,
+  },
   crossing: {
     masterPrf: '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f',
     scope: {

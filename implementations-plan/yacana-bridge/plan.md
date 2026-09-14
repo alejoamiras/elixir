@@ -694,7 +694,16 @@ packages/deploy/scripts/l1-deploy.ts --anvil` (its own `aztec-anvil`; deploys, v
 run lint:actions`.
 — arc 1 boundary: the codex loop, then `gh stack add bridge-harness` —
 
-**P4 — the flip alone** (`scripts/run/upgrade-rig.ts`, `packages/harness` H0, `harness.yml`). No Yacana: boot with a
+**P4 ✓ — the flip alone** (green 2026-09-12; `lessons/phase-4.md`; `bun run rig -- flip` 50 s wall on the homelab
+box: network boot ≈ 20 s, both flips and the pinned node's boot, sponsored transaction and settlement in the rest;
+proof-window headroom after each node warp — V5: +61 s → 9 slots, +373 s → 11, +288 s → 10; V6: +360 s → 12,
++61 s → 9, +373 s → 11 — against a 2-epoch (8-slot) submission window, i.e. every warp left the pending chain at
+least one epoch clear of a prune. As built: the pinned node is `scripts/run/pinned-node.mjs`, the local network's
+node construction on the toolchain's packages without its deployment — a plain `aztec start --node --sequencer`
+has no settable clock for the automine sequencer and `--local-network` deploys unless p2p is on, which this
+toolchain's libp2p cannot bind; the sponsored FPC needs no publication (it is in the genesis prefund, as on the
+local network); each pinned node takes two lanes, 4–5 then 6–7.)
+(`scripts/run/upgrade-rig.ts`, `packages/harness` H0, `harness.yml`). No Yacana: boot with a
 five-slot vote, fund the rig's signer under a paused sequencer, `deployNext` (the genesis root from the exported
 constituents), the payload, deposit ≥ 2e24, propose, warp through the node, vote, warp, execute; assert the
 Registry, distinct versions and boxes; pause and stop V5, start the pinned V6 node (compare its logged genesis root
@@ -705,7 +714,19 @@ Gate: `bun run rig -- flip` green locally; `harness.yml` written (the flip job f
 `packages/{harness,portal,contracts,deploy}/**`, `workflow_dispatch` for `all`) and `bun run lint:actions` clean —
 its first green run is verified on the arc-2 PR at Delivery (§10 step 5), since no PR exists before then.
 
-**P5 — the migration cases and the operator script** (`packages/deploy/src/bridge/*`, `packages/harness` H1–H11).
+**P5 ✓ — the migration cases and the operator script** (green 2026-09-13; `lessons/phase-5.md`; `bun run rig -- all`
+967 s (16 min) wall on the homelab box, the six cases one after another on their own networks — alone: bridge 268 s, deposit
+153 s, migration 341 s, skip-version 252 s, never-settled 115 s, flip 50 s; the unit parts `bun test packages/deploy
+packages/harness packages/bridge scripts/run` 41 tests green; `e2e.yml`'s `rig` job on dispatch, actionlint clean. As
+built, three deviations, all in the lessons: H5 asserts the Ethereum side in full — the pending tip rewound to the
+baseline, no root in the pruned position, the kind-1 probe reverting `Outbox__NothingToConsumeAtEpoch` — then that V6
+restarts and serves; the "balance back" reading is not stageable on this toolchain (the automine node keeps the
+orphaned block; a fresh node never finishes its initial sync behind a prune), so the app may claim only those facts
+for an unsettled crossing. "Not yet settled" is unobservable on the auto-settling local network (H3's first forward
+is refused for the missing canonical, not for a missing witness). The operator states `forwardMany`'s gas
+(`LEAF_GAS × leaves + 200k`): an estimate cannot see through the per-leaf try/catch. The Inbox serves a message three
+checkpoints after the tip it was sent at, so the rig's `nudge` warps four slots.)
+(`packages/deploy/src/bridge/*`, `packages/harness` H1–H11).
 H1 K1 round trip on V5 (replay refused) — real proving once for the mined balance, simulation on reruns; H2 K3
 deposit + `claim_from_l1` (`waitForL1ToL2MessageReady`, nudge blocks), then `closeDeposits` refuses the next; H3 the
 migration V5 → V6, in this order: send_ahead → settled → forward refused (no registered canonical) → flip →

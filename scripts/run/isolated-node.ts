@@ -19,9 +19,20 @@ import { jsonRpcReady, killOwned, type Owned, repoRoot, spawnDetached, toolchain
 
 export interface IsolatedNode {
   nodeUrl: string;
+  /** The node's admin API (sequencer pause/resume); unauthenticated on the local network. */
+  adminUrl: string;
   l1RpcUrl: string;
   runId: string;
   runRoot: string;
+  /** Where every child's output goes; kept after teardown, the run's record. */
+  logDir: string;
+  /** Kills the aztec node alone; anvil, the ports and the run dir stay for a successor node. */
+  stopNode: () => void;
+  /**
+   * A child started beside the network (a pinned node) dies with it: on teardown and on a signal,
+   * then `cleanup` runs (its port lanes). The returned function takes it back once stopped by hand.
+   */
+  adopt: (child: Owned, cleanup: () => Promise<void>) => () => void;
   teardown: () => Promise<void>;
 }
 
@@ -80,6 +91,10 @@ function aztecArgs(ports: Ports, runRoot: string, l1RpcUrl: string): string[] {
     // expires CLAIM_TTL_SECONDS after it, so an idle chain would reject every claim as already expired.
     '--sequencer.minTxsPerBlock',
     '0',
+    // The rig pauses the sequencer through the admin API before stopping a node. The CLI offers no
+    // bind address, so the keyless listener is open to whoever reaches this box's ports: a run for
+    // a machine you own, not a shared host.
+    '--disable-admin-api-key',
   ];
 }
 
@@ -96,7 +111,10 @@ export async function startIsolatedNode(opts: IsolatedNodeOptions = {}): Promise
   mkdirSync(childTmp, { recursive: true });
   const l1RpcUrl = `http://127.0.0.1:${ports.anvil}`;
   const nodeUrl = `http://127.0.0.1:${ports.aztec}`;
+  const adminUrl = `http://127.0.0.1:${ports.admin}`;
+  const logDir = join(repoRoot, '.localnet', 'logs', runId);
   const owned: Owned[] = [];
+  const cleanups = new Map<Owned, () => Promise<void>>();
   let torn = false;
   const teardown = async (): Promise<void> => {
     if (torn) return;
@@ -105,8 +123,23 @@ export async function startIsolatedNode(opts: IsolatedNodeOptions = {}): Promise
     (process as EventEmitter).off('SIGINT', onSignal);
     (process as EventEmitter).off('SIGTERM', onSignal);
     for (const o of [...owned].reverse()) killOwned(o);
+    for (const cleanup of cleanups.values()) await cleanup().catch(() => {});
     await release(runId).catch(() => {});
     rmSync(runRoot, { recursive: true, force: true });
+  };
+  const adopt = (child: Owned, cleanup: () => Promise<void>) => {
+    if (torn) {
+      killOwned(child);
+      void cleanup().catch(() => {});
+      throw new Error(`${child.name} started after the network's teardown began`);
+    }
+    owned.push(child);
+    cleanups.set(child, cleanup);
+    return () => {
+      const i = owned.indexOf(child);
+      if (i >= 0) owned.splice(i, 1);
+      cleanups.delete(child);
+    };
   };
   const onSignal = () => {
     void teardown().finally(() => process.exit(130));
@@ -121,6 +154,7 @@ export async function startIsolatedNode(opts: IsolatedNodeOptions = {}): Promise
       ['--host', '127.0.0.1', '--port', String(ports.anvil), '--silent'],
       { TMPDIR: childTmp },
       verbose,
+      join(logDir, 'anvil.log'),
     );
     owned.push(anvil);
     await jsonRpcReady(l1RpcUrl, 'eth_chainId', 60_000, anvil);
@@ -130,6 +164,7 @@ export async function startIsolatedNode(opts: IsolatedNodeOptions = {}): Promise
       aztecArgs(ports, runRoot, l1RpcUrl),
       { ETHEREUM_HOSTS: l1RpcUrl, TMPDIR: childTmp, ...opts.env },
       verbose,
+      join(logDir, 'aztec.log'),
     );
     owned.push(aztec);
     await jsonRpcReady(nodeUrl, 'node_getNodeInfo', 240_000, aztec);
@@ -137,7 +172,11 @@ export async function startIsolatedNode(opts: IsolatedNodeOptions = {}): Promise
     await teardown();
     throw e;
   }
-  return { nodeUrl, l1RpcUrl, runId, runRoot, teardown };
+  const stopNode = () => {
+    const aztec = owned.find((o) => o.name === 'aztec');
+    if (aztec) killOwned(aztec);
+  };
+  return { nodeUrl, adminUrl, l1RpcUrl, runId, runRoot, logDir, stopNode, adopt, teardown };
 }
 
 async function runWithNode(cmd: string[]): Promise<number> {

@@ -4,10 +4,16 @@ import { describe, expect, test } from 'bun:test';
 import { resolve } from 'node:path';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeSecretHash } from '@aztec/stdlib/hash';
 import { masterFromPrf } from '@yacana/miner-core/src/keys/derive.ts';
+import { type Hex, hashTypedData, recoverTypedDataAddress } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { claimContent, exitContent, MAX_AMOUNT, retireContent, sendAheadContent } from './content.ts';
+import { inboxLeaf } from './inbox.ts';
 import { deriveCrossingSecrets, exitLogTag } from './secrets.ts';
+import { PORTAL_DOMAIN, SIGNED_TYPES, signForward } from './signatures.ts';
+import { outboxLeaf } from './witness.ts';
 
 const v = (await Bun.file(resolve(import.meta.dir, '../fixtures/bridge-vectors.json')).json()) as {
   edge: {
@@ -24,6 +30,16 @@ const v = (await Bun.file(resolve(import.meta.dir, '../fixtures/bridge-vectors.j
   retire: { version: string; value: string };
   retireSecretHash: string;
   exitLogTag: { hashOrTag: string; value: string };
+  messages: { miner: string; outboxLeaf: string; inboxIndex: string; inboxLeaf: string };
+  signed: {
+    epoch: string;
+    leafId: string;
+    target: string;
+    expiry: string;
+    recipient: string;
+    forwardDigest: Hex;
+    redeemDigest: Hex;
+  };
   crossing: {
     masterPrf: string;
     scope: { chainId: string; portal: string; version: string };
@@ -83,6 +99,83 @@ describe('bridge vectors', () => {
     expect(other.redeemAddress.equals(d.redeemAddress)).toBe(false);
     const elsewhere = await deriveCrossingSecrets(master, { ...scope, version: scope.version + 1n }, c.index);
     expect(elsewhere.secretHash.equals(d.secretHash)).toBe(false);
+  });
+
+  test('the message leaves and the signed digests, and a forward signature recovers to its key', async () => {
+    const scope = {
+      chainId: BigInt(v.crossing.scope.chainId),
+      rollupVersion: BigInt(v.retire.version),
+      miner: AztecAddress.fromStringUnsafe(v.messages.miner),
+      portal: eth(v.crossing.scope.portal),
+    };
+    const content = exitContent(eth(v.exit.recipient), BigInt(v.exit.amount), fr(v.exit.tag));
+    expect(outboxLeaf(scope, content).toString()).toBe(fr(v.messages.outboxLeaf).toString());
+    const leaf = inboxLeaf(
+      scope,
+      claimContent(BigInt(v.claim.amount)),
+      fr(v.sendAhead.secretHash),
+      BigInt(v.messages.inboxIndex),
+    );
+    expect(leaf.toString()).toBe(fr(v.messages.inboxLeaf).toString());
+
+    const s = v.signed;
+    const message = {
+      version: scope.rollupVersion,
+      epoch: BigInt(s.epoch),
+      leafId: BigInt(s.leafId),
+      contentHash: `0x${fr(v.sendAhead.value).toBuffer().toString('hex')}` as Hex,
+      expiry: BigInt(s.expiry),
+    };
+    const domain = PORTAL_DOMAIN(scope.chainId, v.crossing.scope.portal as Hex);
+    expect(
+      hashTypedData({
+        domain,
+        types: SIGNED_TYPES,
+        primaryType: 'Forward',
+        message: { ...message, target: BigInt(s.target) },
+      }),
+    ).toBe(s.forwardDigest);
+    expect(
+      hashTypedData({
+        domain,
+        types: SIGNED_TYPES,
+        primaryType: 'Redeem',
+        message: { ...message, recipient: s.recipient as Hex },
+      }),
+    ).toBe(s.redeemDigest);
+    const key = `0x${'42'.repeat(32)}` as Hex;
+    const args = {
+      kind: 2 as const,
+      amount: BigInt(v.sendAhead.amount),
+      aux: `0x${fr(v.sendAhead.secretHash).toBuffer().toString('hex')}` as Hex,
+      recipientOrRedeemKey: v.sendAhead.redeemKey as Hex,
+      epoch: BigInt(s.epoch),
+      numCheckpointsInEpoch: 1n,
+      leafIndex: 1n,
+      path: [`0x${'00'.repeat(32)}` as Hex, `0x${'00'.repeat(32)}` as Hex],
+      sig: '0x' as Hex,
+      expiry: BigInt(s.expiry),
+    };
+    const signature = await signForward(
+      key,
+      {
+        chainId: scope.chainId,
+        portal: v.crossing.scope.portal as Hex,
+        version: scope.rollupVersion,
+        expiry: BigInt(s.expiry),
+      },
+      args,
+      BigInt(s.target),
+    );
+    expect(
+      await recoverTypedDataAddress({
+        domain,
+        types: SIGNED_TYPES,
+        primaryType: 'Forward',
+        message: { ...message, target: BigInt(s.target) },
+        signature,
+      }),
+    ).toBe(privateKeyToAccount(key).address);
   });
 
   test('fails closed: a bad master, a negative index, an amount past u128', async () => {

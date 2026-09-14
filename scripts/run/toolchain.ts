@@ -3,9 +3,9 @@
 // a detached child in its own process group, and a JSON-RPC readiness probe that races the child's
 // exit so a foreign process on a claimed port is never mistaken for ours.
 import { type ChildProcess, spawn } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 export const repoRoot = resolve(import.meta.dir, '../..');
@@ -15,7 +15,11 @@ export interface Owned {
   child: ChildProcess;
   pgid: number;
   hasExited: () => boolean;
+  /** The child's last lines of output, for the error of a child that died before readiness. */
+  tail: () => string;
 }
+
+const TAIL_LINES = 40;
 
 export function toolchainBin(name: string): string {
   let pin = '';
@@ -29,13 +33,22 @@ export function toolchainBin(name: string): string {
   return bin;
 }
 
+/**
+ * A child in its own process group, its output kept as a 40-line tail for error messages and, when
+ * `logFile` is given, appended there in full (the file outlives the run's data dir).
+ */
 export function spawnDetached(
   name: string,
   cmd: string,
   args: string[],
   env: Record<string, string>,
   verbose: boolean,
+  logFile?: string,
 ): Owned {
+  const tail: string[] = [];
+  if (logFile) mkdirSync(dirname(logFile), { recursive: true });
+  const log = logFile ? createWriteStream(logFile, { flags: 'a' }) : undefined;
+  log?.on('error', (e) => tail.push(`log error: ${e.message}`));
   const child = spawn(cmd, args, {
     cwd: repoRoot,
     env: { ...process.env, ...env },
@@ -44,6 +57,14 @@ export function spawnDetached(
   });
   const onData = (b: Buffer) => {
     if (verbose) process.stdout.write(`[${name}] ${b.toString()}`);
+    log?.write(b);
+    tail.push(
+      ...b
+        .toString()
+        .split('\n')
+        .filter((l) => l.length > 0),
+    );
+    if (tail.length > TAIL_LINES) tail.splice(0, tail.length - TAIL_LINES);
   };
   child.stdout?.on('data', onData);
   child.stderr?.on('data', onData);
@@ -51,10 +72,19 @@ export function spawnDetached(
   child.on('exit', () => {
     exited = true;
   });
-  child.on('error', () => {
+  // `close` follows the last stdio data; `exit` can precede it.
+  child.on('close', () => log?.end());
+  child.on('error', (e) => {
     exited = true;
+    tail.push(`spawn error: ${e.message}`);
   });
-  return { name, child, pgid: child.pid ?? -1, hasExited: () => exited };
+  return {
+    name,
+    child,
+    pgid: child.pid ?? -1,
+    hasExited: () => exited || child.exitCode !== null || child.signalCode !== null,
+    tail: () => tail.join('\n'),
+  };
 }
 
 export function killOwned(o: Owned): void {
@@ -77,7 +107,9 @@ export async function jsonRpcReady(
   let lastError = '';
   while (Date.now() < deadline) {
     if (owned.hasExited())
-      throw new Error(`${owned.name} exited before readiness (port in use or spawn failed)`);
+      throw new Error(
+        `${owned.name} exited before readiness (port in use or spawn failed):\n${owned.tail()}`,
+      );
     try {
       const res = await fetch(url, {
         method: 'POST',
@@ -92,7 +124,7 @@ export async function jsonRpcReady(
     }
     await delay(500);
   }
-  throw new Error(`${url} (${method}) not ready in ${timeoutMs}ms: ${lastError}`);
+  throw new Error(`${url} (${method}) not ready in ${timeoutMs}ms: ${lastError}\n${owned.tail()}`);
 }
 
 /** One digest over a directory's files (sorted relative paths and contents), for pinning vendored source trees. */

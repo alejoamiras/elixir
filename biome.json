@@ -1,6 +1,10 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.10/schema.json",
-  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "files": {
     "includes": [
       "**",
@@ -9,6 +13,7 @@
       "!**/.run-state",
       "!**/fixtures",
       "!**/generated",
+      "!packages/portal/abi",
       "!packages/contracts/artifacts",
       "!packages/work-circuit/artifacts",
       "!implementations-plan",
@@ -16,19 +21,44 @@
       "!docs/**/*.html"
     ]
   },
-  "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 110 },
-  "javascript": { "formatter": { "quoteStyle": "single", "trailingCommas": "all" } },
-  "css": { "parser": { "tailwindDirectives": true } },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 110
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "trailingCommas": "all"
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
       "preset": "recommended",
-      "suspicious": { "noExplicitAny": "error" },
+      "suspicious": {
+        "noExplicitAny": "error"
+      },
       "complexity": {
-        "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 15 } },
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": {
+            "maxAllowedComplexity": 15
+          }
+        },
         "noExcessiveLinesPerFunction": {
           "level": "error",
-          "options": { "maxLines": 80, "skipBlankLines": true, "skipIifes": false }
+          "options": {
+            "maxLines": 80,
+            "skipBlankLines": true,
+            "skipIifes": false
+          }
         },
         "noExcessiveNestedTestSuites": "error"
       }
@@ -37,7 +67,13 @@
   "overrides": [
     {
       "includes": ["**/*.test.*", "**/*.spec.*", "**/tests/**", "**/e2e/**"],
-      "linter": { "rules": { "complexity": { "noExcessiveLinesPerFunction": "off" } } }
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveLinesPerFunction": "off"
+          }
+        }
+      }
     }
   ]
 }

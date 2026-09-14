@@ -32,6 +32,21 @@
     "hashOrTag": "0x7a9",
     "value": "0x28018c6f7ea31a9e18d31c772ac6382def994fb9a345587c6489002353c5aad6"
   },
+  "messages": {
+    "miner": "0x0a11ce0000000000000000000000000000000000000000000000000000000001",
+    "outboxLeaf": "0x39ca8ce8023161d87b97aa30c9683d7c9aa0d51bf61bbc58534e76722cf963",
+    "inboxIndex": "37",
+    "inboxLeaf": "0xb4eeccc9f9b676ae45447364c472d36b33baf870b2a689a31895ffc1aa0c4b"
+  },
+  "signed": {
+    "epoch": "3",
+    "leafId": "5",
+    "target": "1821665231",
+    "expiry": "1800000000",
+    "recipient": "0x1e5700000000000000000000000000000000c0de",
+    "forwardDigest": "0xf5c9691f195c48e5a37dcff4b99937ca5218f0b37589a4eb81cdd9b071e495fa",
+    "redeemDigest": "0x06d0d8efd2529ff696c3c1bcc3dea71788292c111294678868f78392d575325d"
+  },
   "crossing": {
     "masterPrf": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
     "scope": {
