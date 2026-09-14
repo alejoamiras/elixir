@@ -5,6 +5,7 @@ import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import type { Crossing } from '../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
+import { ownVersionName } from '../../../site/src/browser/version-name.ts';
 import {
   Alert,
   AlertDescription,
@@ -33,7 +34,7 @@ type Step =
   | { kind: 'review'; snap: EthSnapshot }
   | { kind: 'sent'; snap: EthSnapshot; crossing?: Crossing };
 
-const version = () => import.meta.env.VITE_ROLLUP_VERSION;
+const version = (): string => ownVersionName();
 const money = (raw: bigint) => `${fmt(raw, PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL}`;
 
 function Form({
@@ -126,7 +127,7 @@ function Review({
           label="fees"
           value="Aztec: the sponsor · Ethereum: whoever forwards it, Yacana by hand or you"
         />
-        <KvRow label="time" value={`20 s to prove · Ethereum learns of it when V${v} proves the epoch`} />
+        <KvRow label="time" value={`20 s to prove · Ethereum learns of it when ${v} proves the epoch`} />
       </div>
       <Note title="This will be public on Ethereum." tone="warn" data-testid="exit-public">
         {shortAddress(snap.to)} receives {snap.display} YACA. The amount and the address are readable by

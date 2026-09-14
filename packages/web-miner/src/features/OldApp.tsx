@@ -7,6 +7,7 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { useEffect, useState } from 'react';
 import { type Crossing, inFlight } from '../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
+import { ownVersionName } from '../../../site/src/browser/version-name.ts';
 import {
   AmountBlock,
   Button,
@@ -112,7 +113,7 @@ function StillHere({ balance, onSendAhead }: { balance: bigint | null; onSendAhe
   return (
     <Tile className="flex flex-col gap-3.5 border-uv">
       <TileHeader aside="private · can leave while this version proves">
-        still on V{import.meta.env.VITE_ROLLUP_VERSION}
+        still on {ownVersionName()}
       </TileHeader>
       <Kpi
         label={<span className="sr-only">balance</span>}
@@ -166,9 +167,7 @@ function Sent({ sent }: { sent: Crossing[] }) {
           { id: 'left', label: 'left this account', state: 'done' },
           {
             id: 'prove',
-            label: proven
-              ? 'proven to Ethereum'
-              : `not yet proven by V${import.meta.env.VITE_ROLLUP_VERSION}`,
+            label: proven ? 'proven to Ethereum' : `not yet proven by ${ownVersionName()}`,
             state: proven ? 'done' : 'active',
             right: !proven && newest.proofDeadline ? `by ${hhmm(newest.proofDeadline)}` : undefined,
             detail: proven
@@ -200,7 +199,7 @@ function Quiet({ balance, safe }: { balance: bigint | null; safe: Crossing[] }) 
   return (
     <>
       <Tile className="flex flex-col gap-2.5 opacity-55 saturate-[.4]" data-testid="old-quiet">
-        <TileHeader aside="lost">still on V{import.meta.env.VITE_ROLLUP_VERSION}</TileHeader>
+        <TileHeader aside="lost">still on {ownVersionName()}</TileHeader>
         <Kpi
           label={<span className="sr-only">balance</span>}
           value={balance === null ? '…' : fmt(balance, PARAMS.DECIMALS)}
@@ -236,6 +235,7 @@ export function OldApp({ session }: { session?: Session }) {
   const balance = useAtomValue(balanceAtom);
   const [ahead, setAhead] = useState(false);
   const version = import.meta.env.VITE_ROLLUP_VERSION;
+  const name = ownVersionName();
   const sent = journal.filter((c) => c.kind === 2 && c.version === version && c.state !== 'dropped');
   const closed = exitsClosed(view.standing, useChainNow(session, view.readAt));
   const m = momentOf(boot.phase === 'ready', sent, closed);
@@ -247,18 +247,18 @@ export function OldApp({ session }: { session?: Session }) {
     <div className="mx-auto flex max-w-[640px] flex-col gap-[22px] px-5 py-14" data-testid="cockpit">
       <div data-testid="retired">
         <span className="label-mono">
-          aztec v{version} · {m === 'quiet' ? 'quiet' : 'retired'}
+          aztec {name.toLowerCase()} · {m === 'quiet' ? 'quiet' : 'retired'}
           {flipDay ? ` ${flipDay}` : ''}
         </span>
         <h1 className="mt-2 text-balance text-[36px] font-semibold leading-[1.05] tracking-[-0.025em]">
           {m === 'quiet'
-            ? `V${version}’s exits have closed. Nothing can leave.`
+            ? `${name}’s exits have closed. Nothing can leave.`
             : 'Send what is still here ahead.'}
         </h1>
         <p className="mt-3 text-pretty text-base leading-[1.55] text-ink-2 [&_b]:font-medium [&_b]:text-ink">
           {m === 'quiet' ? (
             <>
-              Mining has ended on this version and V{version}’s exit deadline has passed. Balances still here
+              Mining has ended on this version and {name}’s exit deadline has passed. Balances still here
               cannot leave any more, and sends in epochs it never proved were undone back onto it:{' '}
               <b>they are lost</b>. Sends proven to Ethereum in time are safe and arrive at {apexHost()}.
             </>
@@ -266,9 +266,9 @@ export function OldApp({ session }: { session?: Session }) {
             <>
               Mining has ended on this version. Yacana lives at <b>{apexHost()}</b> now; this is the old app,
               kept open so your balance can leave: send ahead to the next version, or to Ethereum, from the
-              wallet. Sending it ahead now is a bet that V{version} proves one more epoch; leaving it is a
-              sure loss. Anything still on V{version} when it goes quiet is lost — it goes quiet after the
-              upgrade, without notice.
+              wallet. Sending it ahead now is a bet that {name} proves one more epoch; leaving it is a sure
+              loss. Anything still on {name} when it goes quiet is lost — it goes quiet after the upgrade,
+              without notice.
             </>
           )}
         </p>

@@ -266,7 +266,7 @@ export function BridgeTurnstile({
   const dashed = (raw: bigint | undefined) => (raw === undefined ? '—' : yaca(raw));
   return (
     <Tile data-testid="bridge-turnstile">
-      <TileHeader aside={`${chainName(chainId)} · ${live ? `V${live.version}` : 'this version'}`}>
+      <TileHeader aside={`${chainName(chainId)} · ${live ? `V${live.registryIndex}` : 'this version'}`}>
         the portal
       </TileHeader>
       <KvRow
@@ -316,7 +316,7 @@ export function BridgePortal({
   className?: string;
 }) {
   const p = snapshot.policy;
-  const v = live ? `V${live.version}` : 'a version';
+  const v = live ? `V${live.registryIndex}` : 'a version';
   return (
     <Tile className={className} data-testid="bridge-portal">
       <TileHeader

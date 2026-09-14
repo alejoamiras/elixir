@@ -10,7 +10,7 @@ import { MAX_RECOVERY_BYTES } from '../../../bridge/src/recovery.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { Button, ExternalLink, JournalCard, Tile, TileHeader } from '../../../ui/src/index.ts';
 import { cardLine, chainName, journalTone, stamp, type Tone, trailOf, whoOf } from '../bridge/copy';
-import { bridgeRecord, isOldRole } from '../bridge/env';
+import { bridgeRecord, isOldRole, versionNameOf } from '../bridge/env';
 import { l1Links } from '../explorer';
 import { duration, amount as fmt, shortAddress } from '../lib/format';
 import type { Session } from '../session';
@@ -51,7 +51,9 @@ function Card({
 }) {
   // The crossing's own version, not the build's: a V5 send viewed on V6 waits for V5's proof, under V5's frozen cap.
   const flipped = view.canonical !== undefined && view.canonical.version !== BigInt(c.version);
-  const line = cardLine(c, Math.floor(now / 1000), c.version, flipped);
+  const own = versionNameOf(c.version, view.canonical);
+  const target = versionNameOf(c.target, view.canonical);
+  const line = cardLine(c, Math.floor(now / 1000), own, flipped, target);
   const l1 = c.l1TxHash ? l1Links.tx(c.l1TxHash) : undefined;
   const forward = line.action === 'forward' || holderMayForward(c, view);
   const actions =
@@ -79,7 +81,7 @@ function Card({
     <JournalCard
       amount={fmt(BigInt(c.amount), PARAMS.DECIMALS)}
       unit={PARAMS.TOKEN_SYMBOL}
-      who={whoOf(c, shortAddress)}
+      who={whoOf(c, shortAddress, target)}
       when={
         <>
           <span className={TONE[line.tone]} data-testid="crossing-word">
@@ -89,7 +91,7 @@ function Card({
           {stamp(c.createdAt)}
         </>
       }
-      trail={trailOf(c)}
+      trail={trailOf(c, target)}
       line={line.sentence}
       actions={actions}
       tone={journalTone(line.tone)}

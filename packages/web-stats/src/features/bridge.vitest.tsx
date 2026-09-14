@@ -27,7 +27,7 @@ const version = (v: bigint, patch: Partial<VersionFlows> = {}): VersionFlows => 
   version: v,
   registered: true,
   miner: `0x${'11'.repeat(32)}`,
-  registryIndex: v - 5n,
+  registryIndex: v,
   flipAt: 0n,
   paused: false,
   headroom: 128n * ONE,

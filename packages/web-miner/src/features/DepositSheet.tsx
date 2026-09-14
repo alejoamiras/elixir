@@ -9,6 +9,7 @@ import { useAccount, useConnect, useConnectors, useDisconnect, useReadContract }
 import type { Crossing } from '../../../bridge/src/journal.ts';
 import { yacaAbi } from '../../../bridge/src/portal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
+import { ownVersionName } from '../../../site/src/browser/version-name.ts';
 import {
   Alert,
   AlertDescription,
@@ -129,7 +130,7 @@ export function WalletPicker({ yaca }: { yaca?: bigint } = {}) {
 type Step = { kind: 'form' } | { kind: 'deposit' } | { kind: 'done'; display: string; crossing?: Crossing };
 
 const firstLine = (e: unknown) => (e instanceof Error ? (e.message.split('\n')[0] ?? '') : String(e));
-const version = () => import.meta.env.VITE_ROLLUP_VERSION;
+const version = (): string => ownVersionName();
 
 /** Before an announced flip a deposit lands on a version about to end: the sheet says so first. */
 function PreFlip() {
@@ -139,7 +140,7 @@ function PreFlip() {
   const day = new Date(Number(m.expectedFlipAt) * 1000).toISOString().slice(0, 10);
   return (
     <Note title={`Aztec V${m.toIndex} is expected around ${day}.`} tone="warn" data-testid="deposit-preflip">
-      A deposit lands on V{version()} and would need sending ahead again before V{version()} stops. Deposit
+      A deposit lands on {version()} and would need sending ahead again before {version()} stops. Deposit
       after the upgrade instead, unless you mean to use it here now.
     </Note>
   );
@@ -396,7 +397,7 @@ export function HeldSheet({
             <AmountBlock
               value={fmt(BigInt(crossing.amount), PARAMS.DECIMALS)}
               unit={PARAMS.TOKEN_SYMBOL}
-              aside={action === 'redeem' || crossing.kind === 1 ? '→ YACA' : `→ V${version()}`}
+              aside={action === 'redeem' || crossing.kind === 1 ? '→ YACA' : `→ ${version()}`}
               tone="quiet"
             />
             {action === 'redeem' && (

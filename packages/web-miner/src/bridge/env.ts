@@ -1,6 +1,8 @@
 // The two bridge blocks the build carries, parsed once per read: nothing else in the page decides
 // whether the bridge exists. Kept free of the wallet stack so a tile can ask without loading it.
+
 import type { BridgeRecord, MigrationRecord } from '../../../bridge/src/record.ts';
+import { ownVersionName } from '../../../site/src/browser/version-name.ts';
 
 /** The build's portal, or null before the L1 deploy: no bridge features then. */
 export const bridgeRecord = (): BridgeRecord | null =>
@@ -12,6 +14,18 @@ export const migrationRecord = (): MigrationRecord | null =>
 
 /** The versioned origin's build: it restores accounts and moves what is left, and mines nothing. */
 export const isOldRole = (): boolean => import.meta.env.VITE_APP_ROLE === 'old';
+
+/** A version by name: this build's from the record, the canonical's from the view, any other by its number. */
+export const versionNameOf = (
+  number: string | bigint | undefined,
+  canonical?: { version: bigint; index: bigint },
+): string => {
+  if (number === undefined) return 'the next version';
+  const n = number.toString();
+  if (n === import.meta.env.VITE_ROLLUP_VERSION) return ownVersionName();
+  if (canonical && canonical.version.toString() === n) return `V${canonical.index}`;
+  return `V${n}`;
+};
 
 export interface ServedBuild {
   miner?: string;

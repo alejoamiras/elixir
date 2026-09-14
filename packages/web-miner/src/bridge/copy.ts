@@ -25,7 +25,7 @@ export const untilOrAgo = (deadline: bigint, nowSeconds: number): string => {
   return delta >= 0 ? `in ${duration(delta)}` : `${duration(-delta)} ago`;
 };
 
-type Line = (c: Crossing, nowSeconds: number, version: string, flipped: boolean) => CardLine;
+type Line = (c: Crossing, nowSeconds: number, version: string, flipped: boolean, target: string) => CardLine;
 
 const LINES: Record<CrossingState, Line> = {
   proving: (c) =>
@@ -49,7 +49,7 @@ const LINES: Record<CrossingState, Line> = {
   }),
   'proven-pending': (c, now, v) => ({
     word: 'proving to Ethereum',
-    sentence: `In a block; Ethereum learns of it when V${v} proves ${c.epoch ? `epoch ${c.epoch}` : 'its epoch'}${
+    sentence: `In a block; Ethereum learns of it when ${v} proves ${c.epoch ? `epoch ${c.epoch}` : 'its epoch'}${
       c.proofDeadline ? ` — due ${untilOrAgo(BigInt(c.proofDeadline), now)}` : ''
     }, usually within a few epochs.`,
     tone: 'busy',
@@ -61,7 +61,7 @@ const LINES: Record<CrossingState, Line> = {
   }),
   'never-proven': (c, _now, v) => ({
     word: 'undone',
-    sentence: `V${v} never proved ${c.epoch ? `epoch ${c.epoch}` : 'its epoch'} in time: the burn was undone and the balance is back on V${v}.`,
+    sentence: `${v} never proved ${c.epoch ? `epoch ${c.epoch}` : 'its epoch'} in time: the burn was undone and the balance is back on ${v}.`,
     tone: 'warn',
     action: 'send-again',
   }),
@@ -80,7 +80,7 @@ const LINES: Record<CrossingState, Line> = {
   }),
   closed: (_c, _now, v) => ({
     word: 'closed',
-    sentence: `V${v}'s exits closed before this one was forwarded. Gone.`,
+    sentence: `${v}'s exits closed before this one was forwarded. Gone.`,
     tone: 'bad',
   }),
   ready: () => ({
@@ -108,9 +108,9 @@ const LINES: Record<CrossingState, Line> = {
     tone: 'warn',
     action: 'redeem',
   }),
-  forwarded: (c) => ({
+  forwarded: (_c, _now, _v, _flipped, target) => ({
     word: 'arrived',
-    sentence: `On Aztec V${c.target ?? '?'}. Claim it there with this passkey.`,
+    sentence: `On Aztec ${target}. Claim it there with this passkey.`,
     tone: 'busy',
   }),
   deposited: () => ({
@@ -131,13 +131,20 @@ const LINES: Record<CrossingState, Line> = {
   }),
 };
 
-/** The card's line for `c`: `version` is the crossing's own, `flipped` whether that version has been flipped away from (its cap frozen). */
-export const cardLine = (c: Crossing, nowSeconds: number, version: string, flipped = false): CardLine =>
+/** The card's line for `c`: `version` names the crossing's own version, `target` the one it lands on, `flipped` whether the own version was flipped away from (its cap frozen). */
+export const cardLine = (
+  c: Crossing,
+  nowSeconds: number,
+  version: string,
+  flipped = false,
+  target = `V${c.target ?? '?'}`,
+): CardLine =>
   (LINES[c.state] ?? (() => ({ word: c.state, sentence: kindNoun(c), tone: 'quiet' as const })))(
     c,
     nowSeconds,
     version,
     flipped,
+    target,
   );
 
 /** A held or ready crossing older than this asks whether something is wrong. */
@@ -171,10 +178,10 @@ export const journalTone = (t: Tone): 'neutral' | 'on' | 'ok' | 'warn' | 'bad' =
   t === 'busy' ? 'on' : t === 'good' ? 'ok' : t === 'quiet' ? 'neutral' : t;
 
 /** Where a crossing goes, beside its amount. */
-export const whoOf = (c: Crossing, short: (a: string) => string): string => {
+export const whoOf = (c: Crossing, short: (a: string) => string, target = `V${c.target ?? '?'}`): string => {
   if (c.kind === 1) return `to Ethereum · Ξ ${short(c.ethAddress)}`;
   if (c.kind === 3) return `from Ethereum · Ξ ${short(c.ethAddress)}`;
-  return c.target ? `sent ahead · to V${c.target}` : 'sent ahead · to the next version';
+  return c.target ? `sent ahead · to ${target}` : 'sent ahead · to the next version';
 };
 
 const st = (label: string, state: TrailItem['state']): TrailItem => ({ label, state });
@@ -202,7 +209,7 @@ const DEPOSIT_TRAIL: Partial<Record<CrossingState, TrailItem[]>> = {
 };
 
 /** The stations of a crossing, for the journal card's rail: what is behind it, where it is, what is left. */
-export function trailOf(c: Crossing): TrailItem[] {
+export function trailOf(c: Crossing, target = `V${c.target ?? '?'}`): TrailItem[] {
   if (c.kind === 3) return DEPOSIT_TRAIL[c.state] ?? [];
   const deadline = c.proofDeadline ? ` · by ${hhmm(c.proofDeadline)}` : '';
   const end = c.kind === 1 ? 'YACA minted' : 'held on Ethereum';
@@ -234,7 +241,7 @@ export function trailOf(c: Crossing): TrailItem[] {
     case 'not-registered':
       return exitTrail(c, st('waiting for Yacana on the next version', 'on'));
     case 'forwarded':
-      return [...exitTrail(c, st('forwarded', 'done')), st(`claim on V${c.target ?? '?'}`, 'on')];
+      return [...exitTrail(c, st('forwarded', 'done')), st(`claim on ${target}`, 'on')];
     case 'claimable':
       return [...exitTrail(c, st('forwarded', 'done')), st('claim', 'on')];
     case 'minted-l2':

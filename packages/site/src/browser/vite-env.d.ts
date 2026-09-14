@@ -11,6 +11,8 @@ interface ImportMetaEnv {
   readonly VITE_BB_VERSION: string;
   readonly VITE_CHAIN_ID: string;
   readonly VITE_ROLLUP_VERSION: string;
+  /** The version's Registry index, empty until the portal registered it. */
+  readonly VITE_VERSION_INDEX: string;
   readonly VITE_ROLLUP_ADDRESS: string;
   readonly VITE_YACANA_MINER: string;
   readonly VITE_YACANA_TOKEN: string;

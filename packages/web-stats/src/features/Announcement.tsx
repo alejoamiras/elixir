@@ -2,6 +2,7 @@
 // build's record says which Registry index comes next and when the flip is expected; the lead in
 // bold, the FAQ one link away.
 import type { MigrationRecord } from '../../../bridge/src/record.ts';
+import { ownVersionName } from '../../../site/src/browser/version-name.ts';
 import { FAQ_HREF } from '../routes';
 
 const migration = (): MigrationRecord | null =>
@@ -9,12 +10,12 @@ const migration = (): MigrationRecord | null =>
 
 /** "Aztec's next version arrives around <day>": the one sentence, from the record's migration block. */
 export const announcementLine = (m: MigrationRecord, version: string): string =>
-  `Aztec's next version arrives around ${new Date(Number(m.expectedFlipAt) * 1000).toISOString().slice(0, 10)}. Mining on V${version} ends at the flip; send what you hold ahead before then, and claim it on the next version with the same passkey. Anything left on V${version} when it goes quiet is lost.`;
+  `Aztec's next version arrives around ${new Date(Number(m.expectedFlipAt) * 1000).toISOString().slice(0, 10)}. Mining on ${version} ends at the flip; send what you hold ahead before then, and claim it on the next version with the same passkey. Anything left on V${version} when it goes quiet is lost.`;
 
 export function Announcement() {
   const m = migration();
   if (!m) return null;
-  const line = announcementLine(m, import.meta.env.VITE_ROLLUP_VERSION);
+  const line = announcementLine(m, ownVersionName());
   const cut = line.indexOf('. ') + 1;
   return (
     <div

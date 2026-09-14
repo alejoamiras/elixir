@@ -6,11 +6,13 @@ import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import { type Crossing, destinationOf, visible } from '../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
+import { ownVersionName } from '../../../site/src/browser/version-name.ts';
 import { Button, cn, HeroCard, Progress, type TrailItem } from '../../../ui/src/index.ts';
 import { cardLine } from '../bridge/copy';
+import { versionNameOf } from '../bridge/env';
 import { amount as fmt } from '../lib/format';
 import type { Session } from '../session';
-import { journalAtom, nowAtom } from '../state';
+import { bridgeAtom, journalAtom, nowAtom } from '../state';
 
 const ARRIVING = new Set<Crossing['state']>(['forwarded', 'deposited', 'claimable']);
 const money = (raw: bigint) => `${fmt(raw, PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL}`;
@@ -22,7 +24,8 @@ const shownHere = (c: Crossing, now: number): boolean =>
     (c.kind === 3 && c.state === 'proving') ||
     (c.state === 'minted-l2' && visible(c, now)));
 
-const from = (c: Crossing): string => (c.kind === 3 ? 'Ethereum' : `Aztec V${c.version}`);
+const from = (c: Crossing, canonical?: { version: bigint; index: bigint }): string =>
+  c.kind === 3 ? 'Ethereum' : `Aztec ${versionNameOf(c.version, canonical)}`;
 
 const dotOf = (c: Crossing): string =>
   c.state === 'minted-l2'
@@ -87,7 +90,14 @@ function Row({
   onClaim: (c: Crossing) => void;
   onResume?: (c: Crossing) => void;
 }) {
-  const line = cardLine(c, Math.floor(now / 1000), c.version);
+  const view = useAtomValue(bridgeAtom);
+  const line = cardLine(
+    c,
+    Math.floor(now / 1000),
+    versionNameOf(c.version, view.canonical),
+    false,
+    ownVersionName(),
+  );
   const landed = c.state === 'minted-l2';
   return (
     <li
@@ -122,6 +132,7 @@ export function ArrivalCard({
 }) {
   const journal = useAtomValue(journalAtom);
   const now = useAtomValue(nowAtom);
+  const view = useAtomValue(bridgeAtom);
   const [busy, setBusy] = useState<string>();
   const [error, setError] = useState<string>();
   const arrivals = journal.filter((c) => shownHere(c, now));
@@ -140,7 +151,7 @@ export function ArrivalCard({
   const landed = arrivals.filter((c) => c.state === 'minted-l2');
   const onWay = arrivals.filter((c) => c.state !== 'minted-l2');
   const forwarded = onWay.every((c) => c.state === 'claimable' || c.state === 'forwarded');
-  const sources = [...new Set(arrivals.map(from))].join(' and ');
+  const sources = [...new Set(arrivals.map((c) => from(c, view.canonical)))].join(' and ');
   const title =
     onWay.length === 0
       ? `${money(sum(landed))} landed.`
@@ -150,7 +161,7 @@ export function ArrivalCard({
   const trail: TrailItem[] = [
     { label: `left ${sources}`, state: 'done' },
     { label: 'proven to Ethereum', state: 'done' },
-    { label: `forwarded to V${import.meta.env.VITE_ROLLUP_VERSION}`, state: forwarded ? 'done' : 'on' },
+    { label: `forwarded to ${ownVersionName()}`, state: forwarded ? 'done' : 'on' },
     onWay.length === 0
       ? { label: 'landed', state: 'done' }
       : { label: `landing · ${onWay.length} of ${arrivals.length} left`, state: 'on' },

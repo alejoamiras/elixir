@@ -27,7 +27,7 @@ const live: VersionFlows = {
   version: 5n,
   registered: true,
   miner: `0x${'11'.repeat(32)}`,
-  registryIndex: 0n,
+  registryIndex: 5n,
   flipAt: 0n,
   paused: false,
   headroom: 128n * ONE,
@@ -49,9 +49,9 @@ describe('the bridge read', () => {
       registered: async () => [5n, 6n],
       flows: async (v: bigint) => {
         calls.push(`flows ${v}`);
-        return { ...live, version: v };
+        return { ...live, version: v, registryIndex: v };
       },
-      canonical: async () => ({ version: 6n, index: 1n }),
+      canonical: async () => ({ version: 6n, index: 6n }),
       policy: async () => policy,
       operators: async () => `0x${'aa'.repeat(20)}` as const,
       forwarders: async () => [`0x${'bb'.repeat(20)}` as const],
@@ -104,15 +104,15 @@ describe('the sentences', () => {
   });
 
   test("a version's line: live, flipped, flipped but unrecorded, ahead of the flip, or not registered", () => {
-    const at5 = { version: 5n, index: 0n };
+    const at5 = { version: 5n, index: 5n };
     expect(versionLine(live, at5)).toBe('the live version · mining, deposits and exits here');
     expect(versionLine({ ...live, depositsClosed: true }, at5)).toContain('deposits closed');
-    const at6 = { version: 6n, index: 1n };
+    const at6 = { version: 6n, index: 6n };
     expect(versionLine({ ...live, flipAt: 1_799_500_000n, deadline: 1_801_000_000n }, at6)).toBe(
       'flipped away from on 2027-01-09 · exits close on 2027-01-26',
     );
     expect(versionLine(live, at6)).toBe('flipped away from · the flip not yet recorded on the portal');
-    expect(versionLine({ ...live, version: 7n, registryIndex: 2n }, at6)).toBe(
+    expect(versionLine({ ...live, version: 7n, registryIndex: 7n }, at6)).toBe(
       'registered ahead of the flip · not live yet',
     );
     expect(versionLine({ ...live, registered: false }, at5)).toBe('not registered on the portal yet');
@@ -166,8 +166,8 @@ describe('where a version’s coins are', () => {
   test('the miner’s figures belong to the build’s version; another version’s are unknown, not zero', async () => {
     const reader = {
       registered: async () => [5n, 6n],
-      flows: async (v: bigint) => ({ ...live, version: v }),
-      canonical: async () => ({ version: 6n, index: 1n }),
+      flows: async (v: bigint) => ({ ...live, version: v, registryIndex: v }),
+      canonical: async () => ({ version: 6n, index: 6n }),
       policy: async () => policy,
       operators: async () => `0x${'aa'.repeat(20)}` as const,
       forwarders: async () => [],
@@ -189,8 +189,8 @@ describe('the share on Ethereum', () => {
   test('is of all minted while one version has minted, and unsaid once YACA spans versions', async () => {
     const reader = (versions: bigint[]) => ({
       registered: async () => versions,
-      flows: async (v: bigint) => ({ ...live, version: v }),
-      canonical: async () => ({ version: versions.at(-1) as bigint, index: 1n }),
+      flows: async (v: bigint) => ({ ...live, version: v, registryIndex: v }),
+      canonical: async () => ({ version: versions.at(-1) as bigint, index: versions.at(-1) as bigint }),
       policy: async () => policy,
       operators: async () => `0x${'aa'.repeat(20)}` as const,
       forwarders: async () => [],

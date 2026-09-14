@@ -20,7 +20,7 @@ import { forwardAll } from '../src/bridge/forward.ts';
 import { openL2 } from '../src/bridge/l2.ts';
 import { loadRecord, operatorFromEnv } from '../src/bridge/operator.ts';
 import { closeDeposits, pause, pauseAll, unpause } from '../src/bridge/pause.ts';
-import { registerVersion, setForwarder } from '../src/bridge/register.ts';
+import { noteRegistryIndex, registerVersion, setForwarder } from '../src/bridge/register.ts';
 import { retireOnL1, retireOnL2 } from '../src/bridge/retire.ts';
 import { registeredVersions, statusLines, versionStatus } from '../src/bridge/status.ts';
 import { noteAllTransitions } from '../src/bridge/transition.ts';
@@ -49,7 +49,8 @@ switch (command) {
   }
   case 'register': {
     const r = await registerVersion(op);
-    console.log(`registered version ${r.version} at Registry index ${r.index}: ${r.txHash}`);
+    noteRegistryIndex(op, r.index);
+    console.log(`registered version ${r.version} at Registry index ${r.index}: ${r.txHash} (index recorded)`);
     break;
   }
   case 'note-transitions': {

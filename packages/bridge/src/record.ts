@@ -9,6 +9,8 @@ export interface BridgeRecord {
   l1RpcUrl: string;
   /** The L1 block the portal was deployed by: where a search of its logs starts. */
   deployBlock?: string;
+  /** The version's Registry index once the portal registered it: what names the version (V5, V6) on every page. */
+  registryIndex?: string;
 }
 
 /**

@@ -94,8 +94,8 @@ const closed = (v: VersionFlows, nowSeconds: number): boolean =>
 export function exitLimitLine(v: VersionFlows, policy: PortalPolicy, nowSeconds: number): string {
   const left = `${yaca(v.exited)} has left`;
   if (closed(v, nowSeconds))
-    return `exits closed on ${day(v.deadline)} · ${left}; nothing more leaves V${v.version}.`;
-  const may = `${yaca(v.headroom)} may leave V${v.version}`;
+    return `exits closed on ${day(v.deadline)} · ${left}; nothing more leaves V${v.registryIndex}.`;
+  const may = `${yaca(v.headroom)} may leave V${v.registryIndex}`;
   if (v.paused) return `${may} once the pause ends · ${left}.`;
   if (v.flipAt > 0n)
     return `${may} right now · the limit stopped growing at the flip; ${left}. What is beyond it cannot leave this version.`;
@@ -158,14 +158,14 @@ const flipPhase = (
   label: `${next} canonical`,
   state: flipped ? 'done' : m ? 'on' : 'todo',
   detail: flipped
-    ? `${shortDay(v.flipAt)} · mining on V${v.version} ended`
-    : `${m ? `~${shortDay(BigInt(m.expectedFlipAt))} · ` : ''}mining on V${v.version} ends`,
+    ? `${shortDay(v.flipAt)} · mining on V${v.registryIndex} ended`
+    : `${m ? `~${shortDay(BigInt(m.expectedFlipAt))} · ` : ''}mining on V${v.registryIndex} ends`,
 });
 
 /** Going quiet is the version's last proof, which nothing announces; the retire message (mining's end) is only its omen, so the phase is never done. */
 const retirePhase = (v: VersionFlows, flipped: boolean): TimelineItem => ({
   id: 'retire',
-  label: `V${v.version} goes quiet`,
+  label: `V${v.registryIndex} goes quiet`,
   state: flipped ? 'on' : 'todo',
   detail: v.retireSent
     ? 'retire message sent · mining ends when the miner consumes it · proving may stop any time'
@@ -351,7 +351,7 @@ export function kpisOf(
   chain: string,
 ): Kpi[] {
   const f = figuresOf(s, live, miner, supply);
-  const v = live ? `V${live.version}` : 'this version';
+  const v = live ? `V${live.registryIndex}` : 'this version';
   return [
     ethereumKpi(f, chain, s.versions.length === 1),
     aztecKpi(f, miner, supply, v),
@@ -380,7 +380,13 @@ export function whereOf(
     raw === undefined ? 0 : Number(raw / 10n ** BigInt(Math.max(0, PARAMS.DECIMALS - 6)));
   const shown = (raw: bigint | undefined) => (raw === undefined ? DASH : whole(raw));
   return [
-    { id: 'here', label: `still on V${v.version}`, figure: shown(here), value: n(here), color: 'var(--uv)' },
+    {
+      id: 'here',
+      label: `still on V${v.registryIndex}`,
+      figure: shown(here),
+      value: n(here),
+      color: 'var(--uv)',
+    },
     {
       id: 'eth',
       label: 'left to Ethereum, net',
