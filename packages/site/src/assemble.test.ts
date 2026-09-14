@@ -10,6 +10,7 @@ import {
   PRODUCTION_OUT,
   productionOutFor,
   REDIRECTS,
+  witnessFiles,
 } from './assemble.ts';
 import type { SiteConfig } from './config.ts';
 
@@ -65,11 +66,30 @@ describe('assembly inspects what it emitted', () => {
 });
 
 describe('assembly', () => {
+  test('the witness archives are served by the version each line names, whatever file it came from', () => {
+    const repoDir = scratch();
+    const dir = join(repoDir, 'deployments/witnesses');
+    mkdirSync(dir, { recursive: true });
+    const line = (version: string, index: number) => JSON.stringify({ version, index, kind: 2 });
+    writeFileSync(join(dir, 'testnet.jsonl'), `${line('5', 0)}\n${line('6', 0)}\n\n${line('5', 1)}\n`);
+    writeFileSync(join(dir, 'other.jsonl'), `${line('6', 1)}\n`);
+    writeFileSync(join(dir, 'notes.txt'), 'not an archive');
+    // Files are read in name order, lines kept in the order met; the outputs come by version.
+    expect(witnessFiles(repoDir)).toEqual([
+      { to: 'witnesses/5.jsonl', lines: [line('5', 0), line('5', 1)] },
+      { to: 'witnesses/6.jsonl', lines: [line('6', 1), line('6', 0)] },
+    ]);
+    writeFileSync(join(dir, 'broken.jsonl'), '{"index":2}\n');
+    expect(() => witnessFiles(repoDir)).toThrow(/broken\.jsonl: an archive line without a version number/);
+    expect(witnessFiles(join(repoDir, 'nowhere'))).toEqual([]);
+  });
+
   test('the rewrites are exact sources to directory targets: no splat, no .html', () => {
     expect(REDIRECTS).toEqual([
       '/mine/wallet /mine/ 200',
       '/mine/settings /mine/ 200',
       '/stats/verify /stats/ 200',
+      '/stats/bridge /stats/ 200',
       '/verify /stats/ 200',
     ]);
     for (const rule of REDIRECTS) expect(rule).toMatch(/^\/[a-z/]+ \/(mine|stats)\/ 200$/);

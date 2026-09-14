@@ -141,8 +141,78 @@ export const copy = {
       { label: 'GitHub', href: LINKS.github },
       { label: 'Docs', href: LINKS.docs },
       { label: 'Stats', href: 'stats' },
+      { label: 'FAQ', href: 'faq' },
       { label: 'Threat model', href: LINKS.threatModel },
     ],
+  },
+  /** The one line every page carries while a migration is announced; `day` is the expected flip's. */
+  announcement: (version: string, day: string) =>
+    `Aztec's next version arrives around ${day}. Mining on V${version} ends at the flip; send what you hold ahead from the miner before then.`,
+  announcementLink: 'what happens →',
+  faq: {
+    title: 'What happens, and what can go wrong',
+    lede: `${symbol} is mined on one Aztec version at a time. When Aztec moves to the next, what you hold moves with you if you send it ahead; the bridge to Ethereum works the same way every day. Six panels, then the questions.`,
+    panels: [
+      {
+        id: 'announced',
+        title: 'Aztec announces the next version',
+        body: 'Every Yacana page says so, with the day it is expected. Mining goes on until the flip.',
+      },
+      {
+        id: 'send',
+        title: 'You send ahead',
+        body: `A private burn on the current version, proved in your browser in about 20 s. The amount, under a one-time secret only your passkey derives, is now the portal's to hold.`,
+      },
+      {
+        id: 'proven',
+        title: 'The version proves the epoch',
+        body: 'Usually within a few epochs. Until then nothing has left; if the version never proves it in time, the burn is undone on the version, and your balance shows again once the node you read from has followed the prune.',
+      },
+      {
+        id: 'held',
+        title: 'Held on Ethereum',
+        body: 'The portal holds it for this account alone. Ethereum sees the amount and when it crossed, not who.',
+      },
+      {
+        id: 'flip',
+        title: 'The flip, then the forward',
+        body: "Aztec names the next version. Yacana forwards held sends into it by hand; you may forward yours from the miner, or redeem it to Ethereum instead, while the old version's exits are open.",
+      },
+      {
+        id: 'landed',
+        title: 'You claim on the next version',
+        body: 'Sign in with the same passkey; one tap, a private mint. Anything still on the old version when it goes quiet is lost — it goes quiet days after the flip, without notice.',
+      },
+    ],
+    questions: [
+      {
+        q: 'How is it mined?',
+        a: `Your browser proves a fixed circuit per nonce; a ticket below the target wins, and the claim is a private transaction that mints ${reward} ${symbol}. ${PARAMS.N} claims close an epoch and the bar moves. No address on the claim, no sponsor's view of who won.`,
+      },
+      {
+        q: 'How does the everyday bridge work?',
+        a: `To Ethereum: a private burn here, proven to Ethereum with the epoch, then minted as YACA (an ERC-20) to the address you named — Yacana forwards exits by hand, and anyone may forward one. From Ethereum: one deposit from your Ethereum wallet, then a tap on the arrival card. The amount and the address are public on Ethereum; that is why it is a choice.`,
+      },
+      {
+        q: 'Who may forward a held send, and why the rule?',
+        a: "Only you — from a device that holds your passkey — or Yacana's listed forwarder. A stranger could otherwise push your send into a rollup about to stop, where it would be stranded. The forwarder holds no funds and cannot redirect them: a forward lands on the version Aztec names, under your secret.",
+      },
+      {
+        q: 'What is public?',
+        a: 'On Aztec: that a coin was mined — a nullifier, a note hash, a counter — never who. On Ethereum: every crossing’s amount and time, and the address an exit names or a deposit comes from. Someone matching amounts and times across the two sides could link them.',
+      },
+      {
+        q: 'What can go wrong?',
+        a: `The version never proves the epoch in time: the burn is undone on the version, your balance shows again once your node has followed the prune, and you send again. The portal is paused: exits and deposits wait, 30 days at most per call and 60 in total per version. More has left the version than its schedule allows: before the flip, exits wait for the limit to grow; after the flip the limit is frozen, and what is beyond it cannot leave that version. A version's exits close at its deadline, 180 days after the flip at the earliest: nothing leaves after it. The old version goes quiet with something still on it: that is lost. Your device forgot the journal: the recovery file restores it, and the twelve words restore the account.`,
+      },
+      {
+        q: 'What does Yacana hold?',
+        a: 'Nothing of yours. The contracts are immutable and no one can raise a limit or move a balance. The operators register which miner a version trusts, once and for good (a wrong first registration would let that miner issue up to the version’s limit and strand sends forwarded into it, which is why the forwarder refuses a version whose miner is not the announced one), pause the portal within its limits, list a forwarder, close deposits before a flip, and may hand the role to another address.',
+      },
+    ],
+    back: '← the argument',
+    mine: 'Open the miner',
+    stats: 'The bridge on stats',
   },
   launch: {
     eyebrow: 'Yacana mainnet · launch',

@@ -16,7 +16,10 @@ export function ChipLink({
   testId?: string;
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-sm border border-line bg-panel px-2 py-1 font-mono text-2xs text-ink-2">
+    <span
+      data-slot="chip-link"
+      className="inline-flex items-center gap-1.5 rounded-sm border border-line bg-panel px-2 py-1 font-mono text-2xs text-ink-2"
+    >
       <span>{label}</span>
       <ExternalLink href={href} full={value} copy className="text-ink" data-testid={testId}>
         {short(value)}

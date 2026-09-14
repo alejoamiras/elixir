@@ -19,15 +19,18 @@ import { deriveSlotTable, loadLayouts } from '../../miner-core/src/slots.ts';
 
 const repo = resolve(import.meta.dir, '../../..');
 
-/** Every epoch from 0 to the open one, oldest first; the slots are derived here, not fetched. */
-export async function epochStats(nodeUrl: string, minerAddress: string): Promise<EpochRow[]> {
+/**
+ * Every epoch from the first (0, or where a continuation started: it has none before) to the open
+ * one, oldest first; the slots are derived here, not fetched.
+ */
+export async function epochStats(nodeUrl: string, minerAddress: string, first = 0): Promise<EpochRow[]> {
   const node = createAztecNodeClient(nodeUrl);
   const miner = AztecAddress.fromStringUnsafe(minerAddress);
   const layout = (await loadLayouts()).miner;
   const open = await readOpenEpochNumber(node, miner, layout);
   const load = (chunk: number) => deriveSlotTable(layout, chunk);
   const rows: EpochRow[] = [];
-  for (let from = 0; from <= open; from += DEFAULT_LIMITS.maxEpochs)
+  for (let from = first; from <= open; from += DEFAULT_LIMITS.maxEpochs)
     rows.push(...(await readEpochs(node, miner, { from, to: open }, load)));
   // Linked once whole: a batch boundary must not leave an epoch looking open.
   return linkRows(rows);
@@ -38,9 +41,13 @@ if (import.meta.main) {
   const jsonIdx = args.indexOf('--json');
   const jsonOut = jsonIdx >= 0 ? args[jsonIdx + 1] : undefined;
   const file = args.find((a) => a.endsWith('.json') && a !== jsonOut) ?? `deployments/${PROFILE}.json`;
-  const deployment = (await Bun.file(resolve(repo, file)).json()) as { miner: string; nodeUrl: string };
+  const deployment = (await Bun.file(resolve(repo, file)).json()) as {
+    miner: string;
+    nodeUrl: string;
+    continuation?: { firstEpoch: string };
+  };
   const nodeUrl = process.env.AZTEC_NODE_URL ?? deployment.nodeUrl;
-  const rows = await epochStats(nodeUrl, deployment.miner);
+  const rows = await epochStats(nodeUrl, deployment.miner, Number(deployment.continuation?.firstEpoch ?? 0));
   console.log('epoch  claims  opened_at (UTC)       duration  retarget  difficulty  closed by');
   for (const r of rows) {
     const opened = new Date(r.openedAt * 1000).toISOString().slice(0, 19);

@@ -25,7 +25,6 @@ const TONE: Record<Tone, string> = {
 
 const OPEN_ENDED = (1n << 256n) - 1n;
 
-/** A held send-ahead may be forwarded by its holder once the Registry names a later version. */
 /** A held send-ahead is forwarded from the version it lands on: the live one, never the old origin. */
 const holderMayForward = (c: Crossing, view: BridgeView): boolean =>
   c.kind === 2 &&
@@ -48,12 +47,9 @@ function Line({
   onForward: (c: Crossing) => void;
   onRedeem: (c: Crossing) => void;
 }) {
-  const line = cardLine(
-    c,
-    Math.floor(now / 1000),
-    import.meta.env.VITE_ROLLUP_VERSION,
-    view.verdict.kind === 'flipped',
-  );
+  // The crossing's own version, not the build's: a V5 send viewed on V6 waits for V5's proof, under V5's frozen cap.
+  const flipped = view.canonical !== undefined && view.canonical.version !== BigInt(c.version);
+  const line = cardLine(c, Math.floor(now / 1000), c.version, flipped);
   const l1 = c.l1TxHash ? l1Links.tx(c.l1TxHash) : undefined;
   return (
     <li

@@ -1,7 +1,6 @@
-// The bridge's operations from the page, each through the one queue and under the miner's
-// `bridge` pause so a proof never fights the prover for memory: a send-ahead, an exit to Ethereum,
-// a claim of an arrival, and the holder's own forward or redeem of a held send-ahead with the
-// redeem key's signature. Every operation writes its crossing before it sends and after it lands.
+// The bridge's operations from the page: each runs through the one queue, under the miner's `bridge`
+// pause so a proof never fights the prover for memory, and writes its crossing before it sends and
+// after it lands.
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { type Contract, NO_WAIT } from '@aztec/aztec.js/contracts';
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
@@ -241,8 +240,8 @@ const givenUp = (ctx: BridgeContext, id: string) =>
   );
 
 /**
- * K3: two wallet transactions on Ethereum; the crossing is recorded before the first, under an
- * index of its own every time. A deposit the wallet never answered is never sent again under the
+ * K3: one wallet transaction on Ethereum; the crossing is recorded before it, under an index of
+ * its own every time. A deposit the wallet never answered is never sent again under the
  * same secret — the wallet may have sent it after all — so the page cannot tell one message from
  * two. One the wallet refused is given up at once; one left open (`resumes`) is given up the
  * moment its replacement is sent; any other waits for Ethereum's event or gives itself up later.
@@ -252,7 +251,7 @@ export function deposit(
   config: WagmiConfig,
   amount: bigint,
   deadline: bigint,
-  onStep?: (step: 'approve' | 'deposit') => void,
+  onStep?: (step: 'deposit') => void,
   resumes?: Crossing,
 ): Promise<Crossing> {
   return guarded(ctx, async () => {
@@ -267,7 +266,6 @@ export function deposit(
       config,
       {
         portal: ctx.portal,
-        yaca: ctx.yaca,
         amount,
         secretHash: secrets.secretHash.toString() as Hex,
         version: ctx.version,

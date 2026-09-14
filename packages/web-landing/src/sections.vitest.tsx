@@ -227,4 +227,32 @@ describe('the launch week', () => {
     expect(launchPhase(700, 100, 600, false)).toBe('launch');
     expect(launchPhase(0, 100, 600, true)).toBe('open');
   });
+
+  test('/faq under the header: six panels, the questions, the two ways out; no sections, no announcement', () => {
+    render(<App live={ready} launch={loading} pathname="/faq" />);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(copy.faq.title);
+    expect(screen.getAllByTestId('faq-panel')).toHaveLength(6);
+    expect(screen.getByTestId('faq-questions').textContent).toContain('why the rule');
+    expect(screen.getByTestId('faq-mine').getAttribute('href')).toBe('/mine/');
+    expect(screen.getByTestId('faq-stats').getAttribute('href')).toBe('/stats/bridge');
+    expect(document.querySelectorAll('main > section')).toHaveLength(0);
+    expect(screen.queryByTestId('announcement')).toBeNull();
+    expect(screen.getByText('FAQ').getAttribute('href')).toBe('/faq');
+  });
+
+  test('an announced migration puts one line on the page, with the expected day and the FAQ', () => {
+    vi.stubEnv('VITE_ROLLUP_VERSION', '5');
+    vi.stubEnv(
+      'VITE_MIGRATION',
+      JSON.stringify({ toIndex: '1', announcedAt: '1799900000', expectedFlipAt: '1800500000' }),
+    );
+    try {
+      render(<App live={ready} launch={loading} />);
+      const line = screen.getByTestId('announcement');
+      expect(line.textContent).toContain('arrives around 2027-01-21. Mining on V5 ends at the flip');
+      expect(line.querySelector('a')?.getAttribute('href')).toBe('/faq');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });

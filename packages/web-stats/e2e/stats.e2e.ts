@@ -257,3 +257,37 @@ test('live on the isolated deployment: epoch 0 renders, ?epoch=0 selects it, Ver
   await expect(page.getByTestId('reproduce')).toContainText('bun run epoch:stats');
   expect(heavy).toEqual([]);
 });
+
+test('the bridge page: this version registered and live on the portal, its turnstile in plain words, the keys; Verify names the Ethereum side', async ({
+  page,
+}) => {
+  const r = run();
+  test.skip(!r.bridge, 'the run had no Ethereum RPC to deploy the portal on');
+  await page.goto(pageUrl(r, '/bridge'));
+  await expect(page).toHaveTitle('Yacana · Bridge');
+  const card = page.getByTestId('bridge-version');
+  await expect(card).toHaveCount(1, { timeout: 60_000 });
+  await expect(card).toHaveAttribute('data-version', r.rollupVersion);
+  await expect(card).toHaveAttribute('data-live', '1');
+  await expect(card.getByTestId('version-line')).toHaveText(
+    'the live version · mining, deposits and exits here',
+  );
+  await expect(card.getByTestId('exit-limit')).toContainText(
+    `may leave V${r.rollupVersion} right now · grows`,
+  );
+  await expect(card.getByTestId('pause-line')).toContainText('not paused');
+  // The phases: nothing announced on this build, nothing flipped.
+  await expect(page.getByTestId('bridge-phases').locator('[data-slot=step]')).toHaveCount(4);
+  await expect(page.getByTestId('bridge-phases')).toContainText('not announced');
+  // The keys: the operators, and the one forwarder the run listed (the same account).
+  const chips = page.getByTestId('bridge-portal').locator('[data-slot=chip-link]');
+  await expect(chips).toHaveCount(5);
+  await expect(page.getByTestId('bridge-portal')).toContainText('exits over it wait for it to grow');
+  await expect(page.getByTestId('bridge-faq')).toHaveAttribute('href', '/faq');
+  await page.getByRole('link', { name: 'Verify' }).click();
+  await expect(page.getByTestId('verify-portal')).toHaveText(r.bridge?.portal ?? '');
+  await expect(page.getByTestId('verify-yaca')).toHaveText(r.bridge?.yaca ?? '');
+  await expect(page.getByTestId('verify-forwarders')).toContainText(
+    (r.bridge?.operators ?? '').toLowerCase(),
+  );
+});

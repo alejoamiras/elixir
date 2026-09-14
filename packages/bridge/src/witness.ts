@@ -5,7 +5,7 @@
 import { MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
 import { sha256Trunc } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { EthAddress } from '@aztec/foundation/eth-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -183,6 +183,37 @@ export function parseArchivedExit(raw: unknown, where: string): ArchivedExit {
     leafIndex,
     path,
   };
+}
+
+/**
+ * The archived entry that is this crossing's, verified, or undefined. Matched by the version, the
+ * kind, the amount, the address the record holds and the aux the master derives — the archive's
+ * own index numbers everyone's exits — then its path folded to the root the source version's
+ * Outbox holds for the epoch (`scope` names that version's miner, not the reader's). A served file
+ * is believed for the leaf's fields alone; its transaction hash is metadata, kept only when the
+ * crossing has none. The entry returned carries the crossing's index.
+ */
+export async function verifiedArchiveEntry(
+  entries: ArchivedExit[],
+  c: { version: string; index: number; kind: ExitKind; amount: string; ethAddress: Hex; txHash?: string },
+  aux: Hex,
+  scope: ExitScope,
+  outboxRoot: (epoch: bigint, numCheckpoints: bigint) => Promise<Hex>,
+): Promise<ArchivedExit | undefined> {
+  const entry = entries.find(
+    (e) =>
+      e.version === c.version &&
+      e.kind === c.kind &&
+      e.amount === c.amount &&
+      e.aux.toLowerCase() === aux.toLowerCase() &&
+      e.recipientOrRedeemKey.toLowerCase() === c.ethAddress.toLowerCase(),
+  );
+  if (!entry) return undefined;
+  const exit: ExitLeaf = { kind: c.kind, amount: BigInt(c.amount), aux, recipientOrRedeemKey: c.ethAddress };
+  const leaf = outboxLeaf(scope, exitMessageContent(exit, EthAddress.fromString(c.ethAddress)));
+  const root = await outboxRoot(BigInt(entry.epoch), BigInt(entry.numCheckpointsInEpoch));
+  if (rootOf(leaf, entry.path, BigInt(entry.leafIndex)) !== root.toLowerCase()) return undefined;
+  return { ...entry, index: c.index, txHash: c.txHash ?? entry.txHash };
 }
 
 /** The archive is JSON lines; a line that does not parse or does not fit is reported, not skipped. */

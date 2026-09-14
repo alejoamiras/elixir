@@ -218,6 +218,33 @@ describe('site config', () => {
     expect(() => appRoleFrom('legacy')).toThrow(/YACANA_APP_ROLE=/);
   });
 
+  test("a continuation's first epoch floors the apps' reads; a genesis starts at 0", () => {
+    const genesis = loadSiteConfig({ ...base, mode: 'production' });
+    expect(genesis.firstEpoch).toBe(0);
+    expect(viteDefine(genesis)['import.meta.env.VITE_FIRST_EPOCH']).toBe('"0"');
+    const continuation = {
+      firstEpoch: '7',
+      sourceSeed: '0x1',
+      sourceTarget: '5',
+      source: 'deployments/old.json',
+    };
+    const continued = loadSiteConfig({
+      ...base,
+      mode: 'production',
+      deployment: { ...deployment, continuation },
+    });
+    expect(continued.firstEpoch).toBe(7);
+    expect(viteDefine(continued)['import.meta.env.VITE_FIRST_EPOCH']).toBe('"7"');
+    // An e2e build may hand its own; production takes the record's whatever the environment says.
+    expect(loadSiteConfig({ ...base, mode: 'e2e', env: { VITE_FIRST_EPOCH: '3' } }).firstEpoch).toBe(3);
+    expect(loadSiteConfig({ ...base, mode: 'production', env: { VITE_FIRST_EPOCH: '3' } }).firstEpoch).toBe(
+      0,
+    );
+    expect(() => loadSiteConfig({ ...base, mode: 'e2e', env: { VITE_FIRST_EPOCH: 'x' } })).toThrow(
+      /first epoch/,
+    );
+  });
+
   test("the record's bridge and migration blocks travel as JSON; an e2e build may hand its own", () => {
     const bridge = {
       chainId: '11155111',
@@ -228,7 +255,11 @@ describe('site config', () => {
       l1RpcUrl: 'https://rpc.example',
     };
     const migration = { toIndex: '1', announcedAt: '1790000000', expectedFlipAt: '1790600000' };
-    const none = loadSiteConfig({ ...base, mode: 'production' });
+    const none = loadSiteConfig({
+      ...base,
+      mode: 'production',
+      deployment: { ...deployment, bridge: undefined, migration: undefined },
+    });
     expect(none.bridge).toBeNull();
     expect(none.migration).toBeNull();
     expect(viteDefine(none)['import.meta.env.VITE_BRIDGE']).toBe('""');
@@ -250,10 +281,14 @@ describe('site config', () => {
     });
     expect(handed.bridge?.portal).toBe(bridge.portal);
     expect(handed.migration?.toIndex).toBe('1');
-    // Production never takes them from the environment.
-    expect(
-      loadSiteConfig({ ...base, mode: 'production', env: { VITE_BRIDGE: JSON.stringify(bridge) } }).bridge,
-    ).toBeNull();
+    // Production never takes them from the environment: the record's block, or none, whatever the env says.
+    const ignored = loadSiteConfig({
+      ...base,
+      mode: 'production',
+      env: { VITE_BRIDGE: JSON.stringify(bridge) },
+    });
+    expect(ignored.bridge?.portal).not.toBe(bridge.portal);
+    expect(ignored.bridge).toEqual(deployment.bridge ?? null);
     expect(() =>
       loadSiteConfig({
         ...base,

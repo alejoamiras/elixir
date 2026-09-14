@@ -1,5 +1,5 @@
-// The map fills in the background, one 48-epoch page per poll interval, newest first, until epoch
-// 0 is held. It is the page's optional work: it runs behind the poll and behind any window the
+// The map fills in the background, one 48-epoch page per poll interval, newest first, until the
+// chain's first epoch is held. It is the page's optional work: it runs behind the poll and behind any window the
 // visitor asked for, and it stops for the visit the moment the node throttles or goes silent —
 // the fill must never be what raises the banner. The cache carries what was read to the next visit.
 import type { EpochRow } from '../../miner-core/src/reader.ts';
@@ -29,19 +29,22 @@ export interface FillDeps {
   serial: (fn: () => Promise<void>) => Promise<void>;
   persist: (h: History, open: number) => void;
   onState: (s: FillState) => void;
+  /** The chain's first epoch (0, or a continuation's start): the fill is complete once it is held. */
+  first?: number;
 }
 
 /** The oldest epoch of the contiguous run held from the newest held epoch at or below `open`. */
-export function readTo(rows: ReadonlyMap<number, EpochRow>, open: number): number | null {
-  let top = -1;
+export function readTo(rows: ReadonlyMap<number, EpochRow>, open: number, first = 0): number | null {
+  let top = first - 1;
   for (const e of rows.keys()) if (e <= open && e > top) top = e;
-  if (top < 0) return null;
+  if (top < first) return null;
   let e = top;
-  while (e > 0 && rows.has(e - 1)) e--;
+  while (e > first && rows.has(e - 1)) e--;
   return e;
 }
 
 export function createFill(deps: FillDeps): { tick: () => Promise<void>; state: () => FillState } {
+  const first = deps.first ?? 0;
   let state = IDLE;
   const set = (next: FillState) => {
     state = next;
@@ -58,8 +61,8 @@ export function createFill(deps: FillDeps): { tick: () => Promise<void>; state: 
     const h = { ...latest.history, rows: next };
     deps.publish(h);
     deps.persist(h, latest.open);
-    const at = readTo(next, latest.open);
-    if (at === 0) stop('complete', 0);
+    const at = readTo(next, latest.open, first);
+    if (at === first) stop('complete', first);
     else set({ phase: 'filling', readTo: at });
   };
 
@@ -67,13 +70,13 @@ export function createFill(deps: FillDeps): { tick: () => Promise<void>; state: 
   const page = async (): Promise<void> => {
     const cur = deps.held();
     if (!cur || deps.foreground() || state.phase === 'stopped') return;
-    const lo = readTo(cur.history.rows, cur.open);
+    const lo = readTo(cur.history.rows, cur.open, first);
     if (lo === null) return;
-    if (lo === 0) return stop('complete', 0);
+    if (lo === first) return stop('complete', first);
     const t = deps.transport();
     if (t !== 'ok') return stop(t, lo);
     try {
-      join(await deps.rows(Math.max(0, lo - WINDOW), lo - 1, cur.open));
+      join(await deps.rows(Math.max(first, lo - WINDOW), lo - 1, cur.open));
     } catch {
       const t = deps.transport();
       stop(t === 'ok' ? 'failed' : t, lo);
@@ -84,9 +87,9 @@ export function createFill(deps: FillDeps): { tick: () => Promise<void>; state: 
     if (state.phase === 'stopped') return;
     const cur = deps.held();
     if (!cur) return;
-    const lo = readTo(cur.history.rows, cur.open);
+    const lo = readTo(cur.history.rows, cur.open, first);
     if (lo === null) return;
-    if (lo === 0) return stop('complete', 0);
+    if (lo === first) return stop('complete', first);
     if (deps.foreground()) return;
     const t = deps.transport();
     if (t !== 'ok') return stop(t, lo);

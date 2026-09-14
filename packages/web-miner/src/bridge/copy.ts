@@ -130,8 +130,7 @@ const LINES: Record<CrossingState, Line> = {
   }),
 };
 
-/** The card's line for `c` on this build's version `version`. */
-/** `flipped`: the build's version has been flipped away from, so its exit capacity is frozen. */
+/** The card's line for `c`: `version` is the crossing's own, `flipped` whether that version has been flipped away from (its cap frozen). */
 export const cardLine = (c: Crossing, nowSeconds: number, version: string, flipped = false): CardLine =>
   (LINES[c.state] ?? (() => ({ word: c.state, sentence: kindNoun(c), tone: 'quiet' as const })))(
     c,

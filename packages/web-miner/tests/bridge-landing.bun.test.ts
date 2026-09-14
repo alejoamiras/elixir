@@ -3,7 +3,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Crossing } from '../../bridge/src/journal.ts';
 import { deriveCrossingSecrets } from '../../bridge/src/secrets.ts';
 import type { Arrivals, Arrived } from '../src/bridge/landing.ts';
-import { arrivalCandidates, landed, matchArrivals } from '../src/bridge/landing.ts';
+import { arrivalCandidates, landed, matchArrivals, twinOf } from '../src/bridge/landing.ts';
 
 const PORTAL = `0x${'be'.repeat(20)}` as const;
 const master = new Uint8Array(32).map((_, i) => i);
@@ -36,6 +36,8 @@ describe('the landing scan', () => {
           amount: 7n,
           inboxIndex: 41n,
           txHash: '0xf1',
+          epoch: 3n,
+          leafId: 2n,
         },
         // Someone else's send-ahead, and one of ours forwarded from a version we did not ask about.
         {
@@ -45,6 +47,8 @@ describe('the landing scan', () => {
           amount: 1n,
           inboxIndex: 42n,
           txHash: '0xf2',
+          epoch: 3n,
+          leafId: 3n,
         },
         {
           secretHash: await hash(4n, 0),
@@ -53,6 +57,8 @@ describe('the landing scan', () => {
           amount: 1n,
           inboxIndex: 43n,
           txHash: '0xf3',
+          epoch: 1n,
+          leafId: 2n,
         },
       ],
       deposited: [
@@ -89,6 +95,80 @@ describe('the landing scan', () => {
       l1TxHash: '0xd1',
       updatedAt: 3_000,
     });
+    // Two devices of one account derived the same index: the second message under it is its own
+    // row, keyed by its message, and the stored row keeps the message it already holds.
+    const [other] = matchArrivals(
+      {
+        forwarded: [],
+        deposited: [
+          { secretHash: await hash(6n, 0), version: 6n, amount: 3n, inboxIndex: 77n, txHash: '0xd9' },
+        ],
+      },
+      candidates,
+      here,
+    ) as [Arrived];
+    const stored = landed(unanswered, dep, 3_000);
+    expect(twinOf(stored, other, 4_000)).toMatchObject({
+      id: `${stored.id}:6:77`,
+      inboxIndex: '77',
+      state: 'deposited',
+      l1TxHash: '0xd9',
+    });
+    expect(twinOf(stored, dep, 4_000)).toBeUndefined();
+    expect(twinOf(unanswered, other, 4_000)).toBeUndefined();
+    // A held send's amount was fixed at its burn: a forwarded message of another amount under its
+    // index is another device's send, left where it is and given its own row.
+    const held: Crossing = {
+      ...(found[0] as Crossing),
+      state: 'held',
+      inboxIndex: undefined,
+      target: undefined,
+      l1TxHash: undefined,
+    };
+    expect(landed(held, send, 5_000)).toMatchObject({ state: 'forwarded', inboxIndex: '41' });
+    const [nine] = matchArrivals(
+      {
+        forwarded: [{ ...arrivals.forwarded[0], amount: 9n, inboxIndex: 52n, txHash: '0xf9' } as never],
+        deposited: [],
+      },
+      candidates,
+      here,
+    ) as [Arrived];
+    expect(landed(held, nine, 5_000)).toBe(held);
+    expect(twinOf(held, nine, 5_000)).toMatchObject({
+      id: `${held.id}:6:52`,
+      amount: '9',
+      state: 'forwarded',
+    });
+    // A witnessed send is its leaf: the same amount under its index from another leaf is another send.
+    const witnessed: Crossing = {
+      ...held,
+      state: 'witnessed',
+      witness: {
+        version: '5',
+        index: 1,
+        kind: 2,
+        amount: '7',
+        aux: await hash(5n, 1),
+        recipientOrRedeemKey: `0x${'22'.repeat(20)}`,
+        txHash: `0x${'33'.repeat(32)}`,
+        epoch: '3',
+        numCheckpointsInEpoch: 1,
+        leafIndex: '0',
+        path: [`0x${'44'.repeat(32)}`],
+      },
+    };
+    expect(landed(witnessed, send, 6_000)).toMatchObject({ state: 'forwarded', inboxIndex: '41' });
+    const [sameAmount] = matchArrivals(
+      {
+        forwarded: [{ ...arrivals.forwarded[0], inboxIndex: 53n, txHash: '0xf7', leafId: 3n } as never],
+        deposited: [],
+      },
+      candidates,
+      here,
+    ) as [Arrived];
+    expect(landed(witnessed, sameAmount, 6_000)).toBe(witnessed);
+    expect(twinOf(witnessed, sameAmount, 6_000)).toMatchObject({ id: `${held.id}:6:53`, state: 'forwarded' });
     // A send forwarded into another version is not an arrival here.
     const elsewhere = matchArrivals(arrivals, candidates, { ...here, current: 7n });
     expect(elsewhere.map((a) => a.crossing(1).kind)).toEqual([3]);

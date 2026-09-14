@@ -20,6 +20,7 @@ jobs:
           - '!packages/web-landing/**/*.md'
           - 'packages/site/**'
           - 'packages/ui/**'
+          - 'packages/bridge/**'
           - 'packages/miner-core/src/**'
           - 'packages/miner-core/scripts/**'
           - 'packages/miner-core/fixtures/**'

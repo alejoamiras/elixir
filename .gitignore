@@ -25,6 +25,7 @@ packages/web-miner/e2e/.timings.json
 packages/web-miner/e2e/.breakdown.json
 packages/web-miner/e2e/.record.json
 packages/web-miner/e2e/.witnesses.jsonl
+packages/web-stats/e2e/.record.json
 packages/web-miner/e2e/.rig-dist-*/
 packages/web-miner/e2e/.rig-report.json
 packages/web-miner/e2e/replay/.run.json

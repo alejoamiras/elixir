@@ -35,6 +35,8 @@ export interface Reader {
   minerLayout: StorageLayout;
   tokenLayout: StorageLayout;
   load: SlotLoader;
+  /** The chain's first epoch (0, or a continuation's start): the history never reaches below it. */
+  first: number;
 }
 
 export interface Live {
@@ -77,6 +79,7 @@ export async function openReader(connection: Connection): Promise<Reader> {
     minerLayout: layout.miner,
     tokenLayout: layout.token,
     load: chunkLoader(),
+    first: connection.firstEpoch,
   };
 }
 
@@ -84,7 +87,7 @@ export async function openReader(connection: Connection): Promise<Reader> {
 const HISTORY_LIMITS = { ...DEFAULT_LIMITS, concurrency: DEFAULT_LIMITS.concurrency - 1 };
 
 async function readRows(r: Reader, open: number): Promise<EpochRow[]> {
-  const from = Math.max(0, open - HISTORY);
+  const from = Math.max(r.first, open - HISTORY);
   const [history, current] = await Promise.all([
     from < open
       ? readEpochs(r.node, r.miner, { from, to: open - 1 }, r.load, { limits: HISTORY_LIMITS })

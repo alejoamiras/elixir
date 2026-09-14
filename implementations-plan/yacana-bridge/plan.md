@@ -83,7 +83,8 @@ a one-tap Claim).
   deadline prunes the epoch and the burn is undone onto V5; V5 keeps producing and settling after the flip only
   while its operators keep it running, without a lifetime signal; balances left on a stopped chain are lost.
 - **The path**: one card, one button (Send ahead, kept on the card while V5 holds anything), a one-tap Claim on the
-  arrival card at V6 sign-in; the card is the status; the flip card names the bet and shows V5's block and settled age;
+  arrival card at V6 sign-in; the card is the status; the flip card names the bet (its "block and settled age" was
+  not built: each crossing's card carries its own proof deadline instead — the cross-arc pass, `lessons/phase-11.md`);
   the old origin is one page; exceptions are one line and one link. Forwarding is by hand or by the user: the copy
   never promises a cadence (D22).
 
@@ -823,13 +824,21 @@ fail-closed production pairing, `v5/wrangler.jsonc`, `build.json.{role,miner}`, 
 old-role preview suffix, `OldTabNotice` on deployment identity).
 — arc 3 boundary: the codex loop, then `gh stack add bridge-stats-docs` —
 
-**P9 — stats, the announcement lines, the FAQ** (`/stats/bridge`, the bridge beat, Etherscan links, Verify's new
-chips; the landing `Alert` and the standalone `/faq` page (`routes/Faq.tsx`, the six panels incl. the forwarding
-rule and its reason), linked from the miner's migration card and the stats bridge page).
-Gate: `bun run test:components && bun run --cwd packages/web-stats test:visual && bun run e2e:agent -- bun run
---cwd packages/web-stats test:e2e && bun run e2e:agent -- bun run --cwd packages/web-landing test:e2e`.
+**P9 ✓ — stats, the announcement lines, the FAQ** (green 2026-09-13; `lessons/phase-9.md`; `bun run
+test:components` (ui 49, landing 13, miner 84, stats 75), `bun run --cwd packages/web-stats test:visual` 4/4
+(baselines refreshed for the nav's third word), `bun run e2e:agent -- bun run --cwd packages/web-stats test:e2e`
+6/6 with the bridge page read from a live portal on the run's anvil, `bun run e2e:agent -- bun run --cwd
+packages/web-landing test:e2e` 4/4 with `/faq` and the announced build's line; `site:e2e` 3/3 covers `/faq` and
+`/stats/bridge` under the one policy.) (`/stats/bridge`, the bridge beat, Etherscan links, Verify's Ethereum
+tile; the landing `Alert` and the standalone `/faq` page (`routes/Faq.tsx`, the six panels incl. the forwarding
+rule and its reason), linked from the miner's migration card and the stats bridge page. The viem-only portal
+reader moved to `packages/bridge/src/portal-reader.ts`, with the per-version flows and the policy.)
 
-**P10 — docs, CI, records** (`docs/bridge.md` — the mechanism, the turnstile stated plainly (no per-crossing
+**P10 ✓ — docs, CI, records** (green 2026-09-13; `lessons/phase-10.md`; `bun run lint && bun run lint:actions &&
+bun run lint:shell` ✓, `bun test packages/deploy packages/site packages/bridge` 109/109, root typecheck clean;
+every runbook step names an operator-script entrypoint the rig exercised, `set-forwarder` added for the one that
+had none; the witness archive served at `/witnesses/<rollupVersion>.jsonl` and read by the miner for an earlier
+version.) (`docs/bridge.md` — the mechanism, the turnstile stated plainly (no per-crossing
 delay; the cap is a cumulative bound net of what came in; the pause stops what comes after it; the deadline ends a
 version) and the forwarding rule with its reason; `docs/upgrades.md` written as the rig's steps with the operator
 script's entrypoints — the day before: `closeDeposits`; minute one: `noteTransition` and `retire`; announcing is a
@@ -841,7 +850,12 @@ CLAUDE.md, `implementations-plan/index.md`; `contracts.yml` filter, `harness.yml
 Gate: `bun run lint && bun run lint:actions && bun run lint:shell`; every runbook step names an operator-script
 entrypoint the rig exercised (no prose-matching test).
 
-**P11 — the testnet rehearsal** (from the arc-4 branch, no merge and no production deploy: Sepolia — an operator EOA, YACA
+**P11 ✓ — the testnet rehearsal** (green 2026-09-13; `lessons/phase-11.md`; portal
+`0xD536D74Eedf1d2308bf8556402f37f4102eD63f7` and YACA verified on Sepolia, the testnet miner redeployed with the
+bridge and registered at index 5, the forwarder listed, one K1 minted, one K3 claimed, one K2 held with its
+witness archived and served, the previews verified against the new record, the `yacana-v5` version serving the
+frozen record; `bun run epoch:stats` ✓, `bun run bridge -- status` ✓, both role builds ✓; the K2 landing
+pending validation.) (from the arc-4 branch, no merge and no production deploy: Sepolia — an operator EOA, YACA
 + portal deployed and verified on Etherscan, a forwarder EOA set; the testnet profile redeployed with the bridge and
 launched per `docs/deployments.md` (a new record; the previous deployment keeps running); the branch's preview site
 verified against the new record; the `v5` Worker's preview version serving the frozen record (proves role, headers

@@ -78,7 +78,7 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   await expect(page.getByTestId('eth-account')).toContainText(short(l1.address));
   await expect(page.getByTestId('yaca-balance')).toHaveText('1', { timeout: 30_000 });
 
-  // Wrong chain: switched on the way; the approval refused: the sheet returns to its form with the reason.
+  // Wrong chain: switched on the way; the deposit refused: the sheet returns to its form with the reason.
   l1.rejectNext('transaction');
   await page.getByTestId('deposit-amount').fill('0.5');
   await page.getByTestId('deposit-go').click();
@@ -91,7 +91,7 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   // A prompt left open: the sheet waits on the wallet; the page must be reloaded to get past it.
   l1.holdNext('transaction');
   await page.getByTestId('deposit-go').click();
-  await expect(page.getByTestId('deposit-go')).toHaveText('Waiting for your wallet · approve…');
+  await expect(page.getByTestId('deposit-go')).toHaveText('Waiting for your wallet · deposit…');
   await expect.poll(() => l1.holdsArmed()).toBe(0);
   await page.reload();
   await openKey(page, account);
@@ -110,10 +110,10 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   await expect(page.getByTestId('eth-account')).toContainText(short(l1.address));
 
   // The deposit goes out under a crossing of its own — the refused one was given up at once, the one
-  // left open is given up as this one is sent — an approval, the deposit, the Deposited event.
+  // left open is given up as this one is sent — the deposit, then its Deposited event.
   await page.getByTestId('deposit-go').click();
   await expect(page.getByTestId('deposit-done')).toBeVisible({ timeout: 2 * 60_000 });
-  expect(l1.calls('eth_sendTransaction')).toBe(4);
+  expect(l1.calls('eth_sendTransaction')).toBe(3);
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.locator('[data-testid=arrival]')).toHaveCount(1);
   await expect(page.locator('[data-testid=arrival]')).toHaveAttribute('data-state', 'deposited', {

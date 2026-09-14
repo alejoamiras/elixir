@@ -1,68 +1,37 @@
-// One version's standing on the portal, as the operator and the stats page read it.
+// One version's standing on the portal as the operator prints it: the shared reader's flows, plus
+// the version after next (the deadline's other arm) the page never needs.
+import { type PortalReader, portalReader, type VersionFlows } from '@yacana/bridge/src/portal-reader.ts';
+import type { Hex } from 'viem';
 import type { Operator } from './operator.ts';
 
-export interface VersionStatus {
-  version: bigint;
-  registered: boolean;
-  miner: string;
-  registryIndex: bigint;
-  launchAt: bigint;
-  flipAt: bigint;
+export interface VersionStatus extends VersionFlows {
   afterNextAt: bigint;
-  exited: bigint;
-  inbound: bigint;
-  cap: bigint;
-  headroom: bigint;
-  /** Unix seconds after which the version's exits are refused; the max uint256 while open-ended. */
-  deadline: bigint;
-  paused: boolean;
-  pausedUntil: bigint;
-  pausedSeconds: bigint;
-  retireSent: boolean;
-  depositsClosed: boolean;
 }
 
+const readerOf = (op: Operator): PortalReader =>
+  portalReader(op.publicClient, {
+    portal: op.record.bridge.portal as Hex,
+    registry: op.record.bridge.registry as Hex,
+    deployBlock: BigInt(op.record.bridge.deployBlock ?? 0),
+  });
+
 export async function versionStatus(op: Operator, version: bigint): Promise<VersionStatus> {
-  const [info, flipAt, afterNextAt, cap, headroom, deadline, paused] = await Promise.all([
-    op.portal.read.versionInfo([version]),
-    op.portal.read.flipAt([version]),
+  const [flows, afterNextAt] = await Promise.all([
+    readerOf(op).flows(version),
     op.portal.read.afterNextAt([version]),
-    op.portal.read.cap([version]),
-    op.portal.read.headroom([version]),
-    op.portal.read.deadline([version]),
-    op.portal.read.isPaused([version]),
   ]);
-  return {
-    version,
-    registered: info.registered,
-    miner: info.miner,
-    registryIndex: BigInt(info.registryIndex),
-    launchAt: BigInt(info.launchAt),
-    flipAt: BigInt(flipAt),
-    afterNextAt: BigInt(afterNextAt),
-    exited: info.exited,
-    inbound: info.inbound,
-    cap,
-    headroom,
-    deadline,
-    paused,
-    pausedUntil: BigInt(info.pausedUntil),
-    pausedSeconds: BigInt(info.pausedSeconds),
-    retireSent: info.retireSent,
-    depositsClosed: info.depositsClosed,
-  };
+  return { ...flows, afterNextAt: BigInt(afterNextAt) };
 }
 
 /** Every version the portal has registered, in registration order. */
-export async function registeredVersions(op: Operator): Promise<bigint[]> {
-  const count = await op.portal.read.registeredCount();
-  const versions: bigint[] = [];
-  for (let i = 0n; i < count; i++) versions.push(await op.portal.read.registeredVersions([i]));
-  return versions;
-}
+export const registeredVersions = (op: Operator): Promise<bigint[]> => readerOf(op).registered();
 
-export const statusLines = (s: VersionStatus): string[] => [
+/** The lines for one version; `recordMiner` adds a warning when the portal registered another miner for it. */
+export const statusLines = (s: VersionStatus, recordMiner?: string): string[] => [
   `version ${s.version}: ${s.registered ? `registered (index ${s.registryIndex}, launch ${s.launchAt})` : 'not registered'}`,
+  ...(s.registered && recordMiner && s.miner.toLowerCase() !== recordMiner.toLowerCase()
+    ? [`  miner mismatch: the portal registered ${s.miner} for this version; the record names ${recordMiner}`]
+    : []),
   `  flip ${s.flipAt || '—'} · after next ${s.afterNextAt || '—'} · deadline ${s.deadline === (1n << 256n) - 1n ? 'open' : s.deadline}`,
   `  exited ${s.exited} · inbound ${s.inbound} · cap ${s.cap} · headroom ${s.headroom}`,
   `  ${s.paused ? `paused until ${s.pausedUntil}` : 'not paused'} (${s.pausedSeconds}s used) · retire ${s.retireSent ? 'sent' : 'not sent'} · deposits ${s.depositsClosed ? 'closed' : 'open'}`,

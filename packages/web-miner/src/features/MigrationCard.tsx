@@ -42,8 +42,9 @@ function Headline({
     <Alert variant="warn" data-testid="flipped-alert">
       <AlertTitle>Mining has ended on V{version}.</AlertTitle>
       <AlertDescription>
-        Yacana’s next app arrives at this address within hours. Send what is left ahead while V{version} still
-        proves — days at most. Anything still here when it goes quiet is lost, without notice.
+        Yacana’s next app arrives at this address once the next version is deployed. Send what is left ahead
+        while V{version}’s epochs are still being proven: each send shows its own proof deadline. Anything
+        still here when it goes quiet is lost, without notice.
       </AlertDescription>
     </Alert>
   );
@@ -108,7 +109,7 @@ export function MigrationCard({ onSendAhead }: { onSendAhead: () => void }) {
       </div>
       <SentAhead ahead={ahead} balance={balance} />
       <p className="mt-2 text-xs text-ink-3">
-        Anything still on V{version} when it goes quiet is lost. V{version} goes quiet days after the upgrade,
+        Anything still on V{version} when it goes quiet is lost. V{version} goes quiet after the upgrade,
         without notice.
       </p>
     </Tile>

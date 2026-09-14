@@ -115,7 +115,11 @@ try {
     return url;
   };
   const baseURL = await serve('vite', OUT_DIR, {});
-  const claimURL = await serve('vite-claim', CLAIM_OUT_DIR, { VITE_EXAMPLE_CLAIM: CLAIM_FILE });
+  // The second build also carries an announced migration: the one line every page shows then.
+  const claimURL = await serve('vite-claim', CLAIM_OUT_DIR, {
+    VITE_EXAMPLE_CLAIM: CLAIM_FILE,
+    VITE_MIGRATION: JSON.stringify({ toIndex: '1', announcedAt: '1799900000', expectedFlipAt: '1800500000' }),
+  });
   const run: E2eRun = {
     baseURL,
     claimURL,

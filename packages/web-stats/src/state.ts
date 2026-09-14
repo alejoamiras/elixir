@@ -1,5 +1,6 @@
 import { atom } from 'jotai';
 import { type EpochRow, linkRows } from '../../miner-core/src/reader.ts';
+import type { BridgeSnapshot } from './bridge-beat';
 import { type FillState, IDLE } from './history-fill';
 
 export interface Genesis {
@@ -55,3 +56,11 @@ export const nowAtom = atom(Date.now());
 export const sinceOpenedAtom = atom<{ supply: bigint; at: number } | null>(null);
 /** Display numbers still gliding to their value, by id; the visual gate waits for the set to empty. */
 export const unsettledAtom = atom<ReadonlySet<string>>(new Set<string>());
+
+/** The bridge page's read: absent on a deployment without a portal, else the portal as last read. */
+export type BridgeStatus =
+  | { phase: 'none' }
+  | { phase: 'loading' }
+  | { phase: 'ready'; snapshot: BridgeSnapshot; unreachable: boolean }
+  | { phase: 'error'; message: string };
+export const bridgeAtom = atom<BridgeStatus>({ phase: 'loading' });

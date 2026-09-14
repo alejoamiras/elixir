@@ -8,17 +8,19 @@
 //                    | note-transitions
 //                    | pause <version> <seconds> | pause-all <seconds> | unpause <version>
 //                    | close-deposits <version>
+//                    | set-forwarder <address> on|off
 //                    | retire <version>            (L1, once; then L2 with YACANA_DEPLOYER_SECRET and the record's node)
 //                    | forward <source-record> [target-record] [--from-archive] [--batch <n>]
 import { Fr } from '@aztec/aztec.js/fields';
 import { errorName } from '@yacana/bridge/src/revert.ts';
+import { getAddress } from 'viem';
 import { PROFILE } from '../../miner-core/src/generated/params.ts';
 import { parseCliArgs } from '../src/bridge/cli.ts';
 import { forwardAll } from '../src/bridge/forward.ts';
 import { openL2 } from '../src/bridge/l2.ts';
 import { loadRecord, operatorFromEnv } from '../src/bridge/operator.ts';
 import { closeDeposits, pause, pauseAll, unpause } from '../src/bridge/pause.ts';
-import { registerVersion } from '../src/bridge/register.ts';
+import { registerVersion, setForwarder } from '../src/bridge/register.ts';
 import { retireOnL1, retireOnL2 } from '../src/bridge/retire.ts';
 import { registeredVersions, statusLines, versionStatus } from '../src/bridge/status.ts';
 import { noteAllTransitions } from '../src/bridge/transition.ts';
@@ -38,7 +40,11 @@ const op = await operatorFromEnv(PROFILE);
 switch (command) {
   case 'status': {
     const versions = args[0] ? [BigInt(args[0])] : await registeredVersions(op);
-    for (const v of versions) for (const line of statusLines(await versionStatus(op, v))) console.log(line);
+    // Only the record's own version is held to the record's miner: earlier versions had their own.
+    for (const v of versions) {
+      const mine = v === BigInt(op.record.rollupVersion) ? op.record.miner : undefined;
+      for (const line of statusLines(await versionStatus(op, v), mine)) console.log(line);
+    }
     break;
   }
   case 'register': {
@@ -63,6 +69,12 @@ switch (command) {
   case 'close-deposits':
     console.log(await closeDeposits(op, BigInt(arg(0, 'version'))));
     break;
+  case 'set-forwarder': {
+    const word = arg(1, 'on|off');
+    if (word !== 'on' && word !== 'off') throw new Error(`set-forwarder takes on or off, not ${word}`);
+    console.log(await setForwarder(op, getAddress(arg(0, 'address')), word === 'on'));
+    break;
+  }
   case 'retire': {
     const version = BigInt(arg(0, 'version'));
     const sent = await retireOnL1(op, version);

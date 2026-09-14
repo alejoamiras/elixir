@@ -36,7 +36,6 @@ export function ArrivalCard({ session, onResume }: { session: Session; onResume?
       setBusy(undefined);
     }
   };
-  const version = import.meta.env.VITE_ROLLUP_VERSION;
   return (
     <Tile data-testid="arrival-card">
       <TileHeader aside={`${arrivals.length} waiting`}>arriving</TileHeader>
@@ -45,7 +44,7 @@ export function ArrivalCard({ session, onResume }: { session: Session; onResume?
       </p>
       <ul className="mt-3 flex flex-col gap-2">
         {arrivals.map((c) => {
-          const line = cardLine(c, Math.floor(now / 1000), version);
+          const line = cardLine(c, Math.floor(now / 1000), c.version);
           return (
             <li
               key={c.id}

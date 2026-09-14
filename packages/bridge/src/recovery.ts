@@ -85,8 +85,10 @@ export function parseCrossing(raw: unknown, where: string): Crossing {
     ethAddress: str('ethAddress', HEX20).toLowerCase() as Hex,
   };
   c.id = crossingId(c);
-  if (o.id !== undefined && o.id !== c.id) fail(where, `id ${String(o.id)} is not ${c.id}`);
   optionalFields(o, c, num);
+  // A twin (another message under one index) keeps the id its message gave it: the crossing's id, then a suffix.
+  if (typeof o.id === 'string' && o.id.startsWith(`${c.id}:`)) c.id = o.id;
+  else if (o.id !== undefined && o.id !== c.id) fail(where, `id ${String(o.id)} is not ${c.id}`);
   if (o.witness !== undefined) {
     const w = parseArchivedExit(o.witness, `${where}.witness`) as ArchivedExit;
     if (!describes(w, c)) fail(where, 'witness does not describe this crossing');

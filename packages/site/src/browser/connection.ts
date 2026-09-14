@@ -8,6 +8,8 @@ export interface Connection {
   ethRpcUrl: string;
   miner: string;
   token: string;
+  /** The first epoch this miner has (0, or a continuation's start): no read goes below it. */
+  firstEpoch: number;
 }
 
 export interface Expected {
@@ -28,11 +30,14 @@ const defaults: Connection = {
   ethRpcUrl: import.meta.env.VITE_ETH_RPC_URL,
   miner: import.meta.env.VITE_YACANA_MINER,
   token: import.meta.env.VITE_YACANA_TOKEN,
+  firstEpoch: Number(import.meta.env.VITE_FIRST_EPOCH || 0),
 };
 
 /** The build's default node: what "Use the default node" restores. */
 export const defaultNodeUrl = (): string => defaults.nodeUrl;
 export const defaultEthRpcUrl = (): string => defaults.ethRpcUrl;
+/** The build's first epoch: the floor of every window, page and history read. */
+export const firstEpoch = (): number => defaults.firstEpoch;
 
 /** Back to the build's node and a fresh boot: the way out of a saved node that does not answer. */
 export const restoreDefaultNode = (): void => {

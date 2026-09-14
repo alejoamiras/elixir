@@ -1,11 +1,12 @@
 // Deploys YACA and the portal through the pinned forge, verifies the code on chain, and writes
-// the bridge block into a deployment record. Every secret comes from the environment and the key
-// is read inside the forge script, never placed on a command line.
+// the bridge block into a deployment record — or, when the record does not exist yet, beside it as
+// deployments/<profile>.bridge.json for `bun run deploy` to fold in. Every secret comes from the
+// environment and the key is read inside the forge script, never placed on a command line.
 //
 //   YACANA_L1_RPC_URL=… YACANA_L1_PRIVATE_KEY=0x… YACANA_REGISTRY=0x… YACANA_OPERATORS=0x… \
 //     bun packages/deploy/scripts/l1-deploy.ts [deployments/<profile>.json]
 //   bun packages/deploy/scripts/l1-deploy.ts --anvil        # its own anvil and a stand-in Registry
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { policyFor } from '@yacana/bridge/src/policy.ts';
 import { PARAMS, PROFILE } from '@yacana/miner-core/src/generated/params.ts';
@@ -161,8 +162,8 @@ if (import.meta.main) {
     const registry = (anvil ? await deployFakeRegistry(rpcUrl, key) : process.env.YACANA_REGISTRY) as Hex;
     if (!operators || !registry) throw new Error('YACANA_REGISTRY and YACANA_OPERATORS are required');
     const bridge = await deployL1({ rpcUrl, key, registry, operators });
-    if (recordPath) {
-      const path = resolve(repoRoot, recordPath);
+    const path = recordPath ? resolve(repoRoot, recordPath) : undefined;
+    if (path && existsSync(path)) {
       const record = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
       // The miner trusts one portal, immutably: a record naming another cannot take this one.
       if (typeof record.portal === 'string' && record.portal.toLowerCase() !== bridge.portal.toLowerCase())
@@ -171,6 +172,16 @@ if (import.meta.main) {
         throw new Error(`${recordPath} is on chain ${record.chainId}, the portal on ${bridge.chainId}`);
       writeFileSync(path, `${JSON.stringify({ ...record, bridge }, null, 2)}\n`);
       console.log(`${recordPath}: bridge block written`);
+    } else if (!anvil) {
+      // No record yet (the portal comes before its first miner): the block waits beside where the
+      // record will be, and `bun run deploy` folds it in.
+      writeFileSync(
+        resolve(repoRoot, `deployments/${PROFILE}.bridge.json`),
+        `${JSON.stringify(bridge, null, 2)}\n`,
+      );
+      console.log(
+        `deployments/${PROFILE}.bridge.json: bridge block written; bun run deploy folds it into the record`,
+      );
     }
     console.log(`${PROFILE} portal ${bridge.portal}, YACA ${bridge.yaca} on chain ${bridge.chainId}`);
   } finally {

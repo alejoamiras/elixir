@@ -26,6 +26,7 @@ const deployment = (await Bun.file(resolve(repo, `deployments/${PROFILE}.json`))
   miner: string;
   nodeUrl: string;
   deployedAt: string;
+  continuation?: { firstEpoch: string };
 };
 const rows: Row[] = [];
 let legacyRows = 0;
@@ -54,7 +55,11 @@ const hours = (to - from) / 3600;
 
 // Epochs active in the window: the one open at `from`, then those opened up to `to`. An epoch only
 // counts as closed when its close also falls inside the window.
-const all = await epochStats(process.env.AZTEC_NODE_URL ?? deployment.nodeUrl, deployment.miner);
+const all = await epochStats(
+  process.env.AZTEC_NODE_URL ?? deployment.nodeUrl,
+  deployment.miner,
+  Number(deployment.continuation?.firstEpoch ?? 0),
+);
 const activeAtStart = all.findLastIndex((e) => e.openedAt <= from);
 // An epoch still open at the cutoff shows the claim count read now, which may include later claims.
 const epochs = all

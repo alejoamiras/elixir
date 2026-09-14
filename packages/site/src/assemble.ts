@@ -3,7 +3,7 @@
 // Worker) or, under YACANA_APP_ROLE=old, packages/site/dist-old (the versioned origin's Worker,
 // v5/wrangler.jsonc); an e2e run passes its own out dir.
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Route as MinerRoute } from '../../web-miner/src/routes.ts';
@@ -32,12 +32,40 @@ export const APPS = [
 ] as const;
 
 /**
+ * The witness archives the operator commits (`deployments/witnesses/*.jsonl`: one file per profile,
+ * every version of that profile in it), served as `/witnesses/<version>.jsonl`: each line goes to
+ * the file of the version it names, so a later version's page reads an earlier version's settled
+ * exits from here once that version's node is gone. A line without a version number fails the build.
+ */
+export function witnessFiles(repoDir: string): { to: string; lines: string[] }[] {
+  const dir = resolve(repoDir, 'deployments/witnesses');
+  if (!existsSync(dir)) return [];
+  const byVersion = new Map<string, string[]>();
+  for (const file of readdirSync(dir)
+    .filter((f) => f.endsWith('.jsonl'))
+    .sort()) {
+    for (const line of readFileSync(resolve(dir, file), 'utf8').split('\n')) {
+      if (!line.trim()) continue;
+      const { version } = JSON.parse(line) as { version?: unknown };
+      if (typeof version !== 'string' || !/^\d+$/.test(version))
+        throw new Error(`deployments/witnesses/${file}: an archive line without a version number`);
+      const lines = byVersion.get(version) ?? [];
+      lines.push(line);
+      byVersion.set(version, lines);
+    }
+  }
+  return [...byVersion]
+    .sort(([a], [b]) => (BigInt(a) < BigInt(b) ? -1 : 1))
+    .map(([version, lines]) => ({ to: `witnesses/${version}.jsonl`, lines }));
+}
+
+/**
  * The nested apps' deep links as exact 200 rewrites to each app's directory: Cloudflare evaluates
  * `_redirects` before static assets (a wildcard would shadow the app's bundle) and turns an
  * `.html` target into a canonical 308.
  */
 const MINER_LINKS: Record<Exclude<MinerRoute, 'mine'>, true> = { wallet: true, settings: true };
-const STATS_LINKS: Record<Exclude<StatsRoute, 'stats'>, true> = { verify: true };
+const STATS_LINKS: Record<Exclude<StatsRoute, 'stats'>, true> = { verify: true, bridge: true };
 export const REDIRECTS = [
   ...Object.keys(MINER_LINKS).map((r) => `/mine/${r} /mine/ 200`),
   ...Object.keys(STATS_LINKS).map((r) => `/stats/${r} /stats/ 200`),
@@ -108,6 +136,10 @@ export async function assemble(
   await steps.copyArtifacts(out);
   console.log(await steps.copySlots(out));
   cpSync(resolve(repo, 'packages/web-landing/public/og.png'), resolve(out, 'og.png'));
+  for (const w of witnessFiles(repo)) {
+    mkdirSync(resolve(out, 'witnesses'), { recursive: true });
+    writeFileSync(resolve(out, w.to), `${w.lines.join('\n')}\n`);
+  }
   writeFileSync(
     resolve(out, '_headers'),
     renderHeaders({ mode: config.mode === 'production' ? 'production' : 'e2e' }),

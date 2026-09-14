@@ -3,6 +3,7 @@
 // over it; ‹ › page, a click or a drag on the map moves the window, ← → step, the URL keeps both.
 import { useEffect } from 'react';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';
+import { firstEpoch } from '../../../site/src/browser/connection.ts';
 import { Badge, Button, cn } from '../../../ui/src/index.ts';
 import type { FillState } from '../history-fill';
 import { type EpochWindow, newerFrom, newestFrom, olderFrom } from '../window';
@@ -27,6 +28,7 @@ export interface StripProps {
 }
 
 const MIN = 6;
+const FIRST = firstEpoch();
 const clock = (unix: number) => new Date(unix * 1000).toISOString().slice(11, 19);
 const HINT =
   '48 epochs at a time · drag the window on the map, or ‹ › to page · the table follows · the URL keeps the window';
@@ -151,9 +153,10 @@ export function arrow(
   open: number,
 ): { select?: number | null; window?: number | null } | null {
   const next = step(rows, current, key === 'ArrowLeft' ? -1 : 1, open);
-  if (next === 'older') return win.from === 0 ? null : { window: olderFrom(win, open), select: win.from - 1 };
+  if (next === 'older')
+    return win.from === FIRST ? null : { window: olderFrom(win, open, FIRST), select: win.from - 1 };
   if (next === 'newer')
-    return { window: newerFrom(win, open), select: win.to + 1 >= open ? null : win.to + 1 };
+    return { window: newerFrom(win, open, FIRST), select: win.to + 1 >= open ? null : win.to + 1 };
   return { select: next };
 }
 
@@ -194,8 +197,8 @@ function Controls({
   onWindow: (from: number | null) => void;
 }) {
   const ready = win !== null && open !== null;
-  // The note once the fill has measured what is missing and not yet reached epoch 0.
-  const incomplete = fill.readTo !== null && fill.readTo > 0;
+  // The note once the fill has measured what is missing and not yet reached the chain's first epoch.
+  const incomplete = fill.readTo !== null && fill.readTo > FIRST;
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-xs text-ink-3">
@@ -210,16 +213,16 @@ function Controls({
       <span className="flex items-center gap-2">
         <Button
           size="sm"
-          disabled={!ready || win.from === 0}
-          onClick={() => ready && onWindow(olderFrom(win, open))}
+          disabled={!ready || win.from === FIRST}
+          onClick={() => ready && onWindow(olderFrom(win, open, FIRST))}
           data-testid="window-older"
         >
           ‹ older
         </Button>
         <Button
           size="sm"
-          disabled={!ready || win.from === newestFrom(open)}
-          onClick={() => ready && onWindow(newerFrom(win, open))}
+          disabled={!ready || win.from === newestFrom(open, FIRST)}
+          onClick={() => ready && onWindow(newerFrom(win, open, FIRST))}
           data-testid="window-newer"
         >
           newer ›

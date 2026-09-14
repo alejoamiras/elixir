@@ -2,10 +2,13 @@
 // the day axis under it. A click centres the window on the epoch under the pointer; the box drags.
 import { memo, type PointerEvent as ReactPointerEvent, useCallback, useRef, useState } from 'react';
 import type { EpochRow } from '../../../miner-core/src/reader.ts';
+import { firstEpoch } from '../../../site/src/browser/connection.ts';
 import { cn } from '../../../ui/src/index.ts';
 import { useWidth } from '../charts/plot';
 import { barsFor, dayTicks, epochAtX, MAP_HEIGHT, type Tone, thinTicks, windowBox } from '../map-geometry';
 import { centredFrom, newestFrom, normaliseFrom } from '../window';
+
+const FIRST = firstEpoch();
 
 const FILL: Record<Tone, string> = {
   harder: 'color-mix(in srgb, var(--uv) 50%, transparent)',
@@ -52,8 +55,8 @@ function useDragWindow(open: number, from: number, onWindow: (from: number | nul
     (e: ReactPointerEvent<HTMLDivElement>) => {
       const s = start.current;
       if (!s || s.width <= 0) return;
-      const cells = Math.round(((e.clientX - s.x) / s.width) * (open + 1));
-      move(Math.min(newestFrom(open), Math.max(0, s.from + cells)));
+      const cells = Math.round(((e.clientX - s.x) / s.width) * (open + 1 - FIRST));
+      move(Math.min(newestFrom(open, FIRST), Math.max(FIRST, s.from + cells)));
     },
     [open, move],
   );
@@ -64,7 +67,7 @@ function useDragWindow(open: number, from: number, onWindow: (from: number | nul
       start.current = null;
       const f = liveRef.current;
       move(null);
-      if (f !== null && f !== from) onWindow(normaliseFrom(f, open));
+      if (f !== null && f !== from) onWindow(normaliseFrom(f, open, FIRST));
     },
     [from, open, onWindow, move],
   );
@@ -82,7 +85,7 @@ function DayAxis({
   open: number;
   width: number;
 }) {
-  const ticks = thinTicks(dayTicks(rows, launchAt, open), width);
+  const ticks = thinTicks(dayTicks(rows, launchAt, open, FIRST), width);
   return (
     <div className="relative h-4 border-line border-t font-mono text-2xs text-ink-3" data-testid="day-axis">
       {ticks.map((t, i) => (
@@ -106,12 +109,12 @@ export const EpochMap = memo(function EpochMap({ rows, open, from, launchAt, onW
   const ref = useRef<HTMLDivElement>(null);
   const width = useWidth(ref);
   const drag = useDragWindow(open, from, onWindow);
-  const bars = barsFor(rows, open);
-  const box = windowBox(drag.from, open);
+  const bars = barsFor(rows, open, FIRST);
+  const box = windowBox(drag.from, open, FIRST);
   const click = (e: ReactPointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     if (rect.width <= 0) return;
-    onWindow(centredFrom(epochAtX((e.clientX - rect.left) / rect.width, open), open));
+    onWindow(centredFrom(epochAtX((e.clientX - rect.left) / rect.width, open, FIRST), open, FIRST));
   };
   return (
     <div ref={ref} className="flex flex-col" data-testid="epoch-map">
@@ -136,8 +139,8 @@ export const EpochMap = memo(function EpochMap({ rows, open, from, launchAt, onW
         <div
           role="slider"
           aria-label="the window on the map"
-          aria-valuemin={0}
-          aria-valuemax={newestFrom(open)}
+          aria-valuemin={FIRST}
+          aria-valuemax={newestFrom(open, FIRST)}
           aria-valuenow={drag.from}
           tabIndex={-1}
           data-testid="map-window"

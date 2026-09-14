@@ -1,5 +1,6 @@
-// The epoch map's geometry, in fractions of its width: every epoch ever has a cell at its absolute
-// index over `[0, open]`, so a page of history arriving adds bars and moves none.
+// The epoch map's geometry, in fractions of its width: every epoch the chain has has a cell at its
+// absolute index over `[first, open]` (`first` is 0, or where a continuation started), so a page of
+// history arriving adds bars and moves none.
 import type { EpochRow } from '../../miner-core/src/reader.ts';
 import { WINDOW } from './window';
 
@@ -15,9 +16,12 @@ export interface Bar {
   tone: Tone;
 }
 
-/** `open + 1` cells across the rail; cell `e` spans `[e / (open + 1), (e + 1) / (open + 1))`. */
-export const cellX = (e: number, open: number): number => e / (open + 1);
-export const cellW = (open: number): number => 1 / (open + 1);
+/** The cells across the rail: one per epoch of `[first, open]`. */
+const cells = (open: number, first: number): number => open + 1 - first;
+
+/** Cell `e` spans `[(e - first) / cells, (e + 1 - first) / cells)`. */
+export const cellX = (e: number, open: number, first = 0): number => (e - first) / cells(open, first);
+export const cellW = (open: number, first = 0): number => 1 / cells(open, first);
 
 /** 3 px at a few seconds, the full 18 px from a day: `clamp(3, log10(duration s) × 4.6, 18)`. */
 export const barHeight = (durationS: number | null): number =>
@@ -31,26 +35,26 @@ export const toneOf = (r: EpochRow, open: number): Tone => {
 };
 
 /** One bar per held row at its absolute cell. */
-export const barsFor = (rows: readonly EpochRow[], open: number): Bar[] =>
+export const barsFor = (rows: readonly EpochRow[], open: number, first = 0): Bar[] =>
   rows
-    .filter((r) => r.epoch <= open)
+    .filter((r) => r.epoch >= first && r.epoch <= open)
     .map((r) => ({
       epoch: r.epoch,
-      x: cellX(r.epoch, open),
-      w: cellW(open),
+      x: cellX(r.epoch, open, first),
+      w: cellW(open, first),
       h: barHeight(r.duration),
       tone: toneOf(r, open),
     }));
 
-/** The window box over cells `[from, min(from + 48, open + 1))`: a full window is 48 cells, epoch 0 alone is one. */
-export const windowBox = (from: number, open: number): { x: number; w: number } => {
+/** The window box over cells `[from, min(from + 48, open + 1))`: a full window is 48 cells, the first epoch alone is one. */
+export const windowBox = (from: number, open: number, first = 0): { x: number; w: number } => {
   const end = Math.min(from + WINDOW, open + 1);
-  return { x: cellX(from, open), w: (end - from) / (open + 1) };
+  return { x: cellX(from, open, first), w: (end - from) / cells(open, first) };
 };
 
 /** The epoch under a fraction of the width. */
-export const epochAtX = (x: number, open: number): number =>
-  Math.min(open, Math.max(0, Math.floor(x * (open + 1))));
+export const epochAtX = (x: number, open: number, first = 0): number =>
+  Math.min(open, Math.max(first, first + Math.floor(x * cells(open, first))));
 
 export interface Tick {
   x: number;
@@ -65,14 +69,14 @@ const mmdd = (unix: number) => new Date(unix * 1000).toISOString().slice(5, 10);
  * later UTC day at its cell, "now" at the right edge. A day with no held epoch has no tick. One pass
  * over the rows: a timestamp far in the future costs nothing more than a label.
  */
-export function dayTicks(rows: readonly EpochRow[], launchAt: number, open: number): Tick[] {
-  const held = [...rows].filter((r) => r.epoch <= open).sort((a, b) => a.epoch - b.epoch);
+export function dayTicks(rows: readonly EpochRow[], launchAt: number, open: number, first = 0): Tick[] {
+  const held = [...rows].filter((r) => r.epoch >= first && r.epoch <= open).sort((a, b) => a.epoch - b.epoch);
   const ticks: Tick[] = [{ x: 0, label: `launch · ${mmdd(launchAt)}` }];
   let lastDay = Math.floor(launchAt / DAY);
   for (const r of held) {
     const day = Math.floor(r.openedAt / DAY);
     if (day <= lastDay) continue;
-    const x = cellX(r.epoch, open);
+    const x = cellX(r.epoch, open, first);
     if (x > (ticks[ticks.length - 1] as Tick).x) ticks.push({ x, label: mmdd(day * DAY) });
     lastDay = day;
   }

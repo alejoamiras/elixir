@@ -23,7 +23,9 @@ import {
 import { settled } from './beats';
 import { POLL_MS } from './chain';
 import { links } from './explorer';
+import { Announcement } from './features/Announcement';
 import { navigate, type Route, useRoute } from './routes';
+import { Bridge } from './routes/Bridge';
 import { Stats } from './routes/Stats';
 import { Verify } from './routes/Verify';
 import { fixedAtom, historyAtom, nowAtom, statusAtom, unsettledAtom } from './state';
@@ -31,9 +33,14 @@ import type { EpochWindow } from './window';
 
 const NAV: { route: Route; label: string }[] = [
   { route: 'stats', label: 'Stats' },
+  { route: 'bridge', label: 'Bridge' },
   { route: 'verify', label: 'Verify' },
 ];
-const TITLE: Record<Route, string> = { stats: 'Yacana · Stats', verify: 'Yacana · Verify' };
+const TITLE: Record<Route, string> = {
+  stats: 'Yacana · Stats',
+  bridge: 'Yacana · Bridge',
+  verify: 'Yacana · Verify',
+};
 
 /**
  * "● block 184,221 · 12 s ago": the last block the node showed, linked, and the age of its slot time.
@@ -126,6 +133,7 @@ function Shell({ children, connection }: { children: ReactNode; connection: Conn
             <AlertDescription>{notice}</AlertDescription>
           </Alert>
         )}
+        <Announcement />
         <NodeBanner
           state={bannerState(health, now, 2 * POLL_MS)}
           settingsHref={NODE_SETTINGS_HREF}
@@ -164,6 +172,7 @@ export function App({
   return (
     <Shell connection={connection}>
       {route === 'stats' && <Stats onWindow={onWindow} nodeUrl={connection.nodeUrl} />}
+      {route === 'bridge' && <Bridge />}
       {route === 'verify' && <Verify nodeUrl={connection.nodeUrl} />}
     </Shell>
   );

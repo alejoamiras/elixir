@@ -66,6 +66,8 @@ export interface SiteConfig {
   migration: MigrationRecord | null;
   /** The record's portal block, or null before the L1 deploy: the bridge features need it. */
   bridge: BridgeRecord | null;
+  /** The first epoch this miner has: 0, or the source's last + 1 for a continuation. Every epoch read floors here. */
+  firstEpoch: number;
   /** The whole deployment record, for the Verify page; its identity fields agree with the ones above. */
   record: DeploymentRecord;
   /** One recorded claim of this deployment for the landing's ledger, or null: the tile then shows dashes. */
@@ -95,6 +97,8 @@ export interface DeploymentRecord {
   tokenClassId: string;
   bridge?: BridgeRecord;
   migration?: MigrationRecord;
+  /** A continuation's start: the epoch after its source's last, with the source's seed and target. */
+  continuation?: { firstEpoch: string; sourceSeed: string; sourceTarget: string; source: string };
   /** The rest of `deployments/<profile>.json` (salts, deployer, params, launch times) travels as is. */
   [extra: string]: unknown;
 }
@@ -148,6 +152,13 @@ const recordOf = (env: Env, deployment: DeploymentRecord, c: SiteConfig): Deploy
 const blockOf = <T>(env: Env, key: string, own: T | undefined): T | null =>
   env[key] ? (JSON.parse(env[key] as string) as T) : (own ?? null);
 
+/** Where the record's epochs begin: a continuation's start (or an e2e override), 0 for a genesis. */
+const firstEpochOf = (pick: (key: string, fallback: string) => string, record: DeploymentRecord): number => {
+  const first = pick('VITE_FIRST_EPOCH', record.continuation?.firstEpoch ?? '0');
+  if (!/^\d+$/.test(first)) throw new Error(`first epoch ${JSON.stringify(first)} is not an epoch number`);
+  return Number(first);
+};
+
 export function loadSiteConfig(opts: {
   mode: SiteMode;
   siteEnv: Record<string, string>;
@@ -200,12 +211,14 @@ export function loadSiteConfig(opts: {
     role,
     migration: null,
     bridge: null,
+    firstEpoch: 0,
     record: deployment,
     exampleClaim: opts.exampleClaim ?? null,
   };
   config.record = recordOf(env, deployment, config);
   config.migration = blockOf<MigrationRecord>(env, 'VITE_MIGRATION', config.record.migration);
   config.bridge = blockOf<BridgeRecord>(env, 'VITE_BRIDGE', config.record.bridge);
+  config.firstEpoch = firstEpochOf(pick, config.record);
   assertExampleClaim(config);
   if (mode === 'production') assertProductionConfig(config, siteEnv);
   return config;
@@ -304,6 +317,7 @@ export const viteDefine = (c: SiteConfig): Record<string, string> =>
       VITE_APP_ROLE: c.role,
       VITE_MIGRATION: c.migration ? JSON.stringify(c.migration) : '',
       VITE_BRIDGE: c.bridge ? JSON.stringify(c.bridge) : '',
+      VITE_FIRST_EPOCH: String(c.firstEpoch),
       VITE_DEPLOYMENT_RECORD: JSON.stringify(c.record),
       VITE_EXAMPLE_CLAIM: c.exampleClaim ? JSON.stringify(c.exampleClaim) : '',
     }).map(([k, v]) => [`import.meta.env.${k}`, JSON.stringify(v)]),

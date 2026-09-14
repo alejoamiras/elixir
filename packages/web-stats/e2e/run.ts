@@ -11,6 +11,8 @@ export interface E2eRun {
   rollupVersion: string;
   vitePid: number;
   runId: string;
+  /** The portal and YACA of the run, when the run had an Ethereum RPC to deploy them on. */
+  bridge?: { portal: string; yaca: string; operators: string; l1RpcUrl: string };
 }
 
 export const RUN_FILE = new URL('./.run.json', import.meta.url).pathname;

@@ -9,14 +9,12 @@
 // proving. The dev server injects Node globals and accepts local nodes on its own, which hid a
 // Worker without `Buffer` once. E2E_SERVER=dev keeps it for debugging with readable stacks.
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
-import { openSync, rmSync, writeFileSync } from 'node:fs';
+import { openSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Fr } from '@aztec/aztec.js/fields';
-import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Hex } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
 import { lanePortBase, runPortWindowBase } from '../../../scripts/run/port-window.ts';
 import {
   type PrestoLane,
@@ -26,10 +24,8 @@ import {
 } from '../../../scripts/run/presto.ts';
 import { waitUntilUp } from '../../../scripts/run/preview.ts';
 import { claim, release } from '../../../scripts/run/registry.ts';
-import { deployL1 } from '../../deploy/scripts/l1-deploy.ts';
-import { confirmed, openOperator, writeOpts } from '../../deploy/src/bridge/operator.ts';
-import { registerVersion } from '../../deploy/src/bridge/register.ts';
-import { type BridgeRecord, type Deployment, deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
+import { deployBridgeForRun, RUN_OPERATORS_KEY, registerForRun } from '../../deploy/src/bridge/run.ts';
+import { deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
 import { e2eBuildEnv } from './build-env.ts';
 import { type E2eBridge, type E2eRun, type E2eServer, type RigStep, RUN_FILE, TIMINGS_FILE } from './run.ts';
 
@@ -46,35 +42,11 @@ const OUT_DIR = 'e2e/.dist';
 // shards skip the twenty seconds of forge.
 const shard = process.env.E2E_SHARD;
 const bridgeMode = process.env.E2E_BRIDGE === '1' || shard === undefined || shard === 'bridge';
-/** Anvil account 1: the run's operators key (account 0 publishes the node's blocks). */
-const OPERATORS_KEY: Hex = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
-/** Anvil account 3: the holder the test wallet signs with. */
+/** Anvil account 3: the holder the test wallet signs with (account 1 operates the bridge, account 0 publishes blocks). */
 const HOLDER_KEY: Hex = '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6';
 /** Relative to the repo root: what the operator functions and the control server open. */
 const RECORD_FILE = 'packages/web-miner/e2e/.record.json';
 const ARCHIVE_FILE = 'packages/web-miner/e2e/.witnesses.jsonl';
-
-/** The portal and YACA against the node's real Registry; the operators key listed as a forwarder too. */
-async function deployBridgeForRun(l1RpcUrl: string): Promise<BridgeRecord> {
-  const info = await createAztecNodeClient(nodeUrl as string).getNodeInfo();
-  return deployL1({
-    rpcUrl: l1RpcUrl,
-    key: OPERATORS_KEY,
-    registry: info.l1ContractAddresses.registryAddress.toString() as Hex,
-    operators: privateKeyToAccount(OPERATORS_KEY).address,
-  });
-}
-
-/** The record with its bridge block on disk, the version registered, the operators key a forwarder. */
-async function registerForRun(deployed: Deployment, bridge: BridgeRecord, l1RpcUrl: string): Promise<void> {
-  writeFileSync(resolve(pkg, '../..', RECORD_FILE), `${JSON.stringify({ ...deployed, bridge }, null, 2)}\n`);
-  rmSync(resolve(pkg, '../..', ARCHIVE_FILE), { force: true });
-  const op = await openOperator({ record: RECORD_FILE, rpcUrl: l1RpcUrl, key: OPERATORS_KEY });
-  await registerVersion(op);
-  await confirmed(op, () =>
-    op.portal.write.setForwarder([privateKeyToAccount(OPERATORS_KEY).address, true], writeOpts(op)),
-  );
-}
 
 async function startControl(log: number, port: number, l1RpcUrl: string): Promise<ChildProcess> {
   const child = spawn(
@@ -84,7 +56,7 @@ async function startControl(log: number, port: number, l1RpcUrl: string): Promis
       cwd: pkg,
       stdio: ['ignore', log, log],
       detached: true,
-      env: { ...process.env, YACANA_L1_PRIVATE_KEY: OPERATORS_KEY },
+      env: { ...process.env, YACANA_L1_PRIVATE_KEY: RUN_OPERATORS_KEY },
     },
   );
   child.unref();
@@ -153,7 +125,7 @@ try {
   const l1RpcUrl = process.env.L1_RPC_URL;
   if (bridgeMode && !l1RpcUrl)
     throw new Error('bridge mode needs L1_RPC_URL: run through `bun run e2e:agent -- …`');
-  const bridge = bridgeMode ? await deployBridgeForRun(l1RpcUrl as string) : null;
+  const bridge = bridgeMode ? await deployBridgeForRun(nodeUrl as string, l1RpcUrl as string) : null;
   if (bridge) lap('bridge deploy (portal + YACA)');
   const target = BigInt(process.env.YACANA_E2E_TARGET ?? String(1n << 127n));
   const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
@@ -162,7 +134,10 @@ try {
   });
   lap('deploy (easy target)');
   if (bridge) {
-    await registerForRun(deployed, bridge, l1RpcUrl as string);
+    await registerForRun(deployed, bridge, l1RpcUrl as string, {
+      recordFile: RECORD_FILE,
+      archiveFile: ARCHIVE_FILE,
+    });
     lap('register the version');
   }
   const hard = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {

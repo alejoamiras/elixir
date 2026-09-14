@@ -22,23 +22,27 @@ Contracts are immutable: a parameter change is a new deployment (`yacana.params.
 `deployments/<profile>.json`, written by the deploy script (and refused as an overwrite unless
 `YACANA_DEPLOY_FORCE=1`).
 
-## Public Aztec testnet — `testnet` profile (2026-09-05, Yacana)
+## Public Aztec testnet — `testnet` profile (2026-09-13, Yacana with the bridge)
 
-First deployment under the Yacana name: new domain tags (`YACA/*`), genesis seed, work-circuit VK
-(`W_VK_HASH` `0x1d1043617e4762fe8a2bb2ecf572de706ae890fdb4a4ff0d8f298e24722ece7b`) and token metadata; the contract
-logic is the hardened one of the archived pre-rename deployment below.
+The miner with its bridge functions (`exit_to_l1`, `send_ahead`, `claim_from_l1`, the retire message), bound
+at deployment to the portal on Sepolia below; the same work-circuit VK
+(`W_VK_HASH` `0x1d1043617e4762fe8a2bb2ecf572de706ae890fdb4a4ff0d8f298e24722ece7b`), domain tags, genesis seed and
+token metadata as the archived 2026-09-05 deployment, which keeps running on its own (it has no bridge). The
+rehearsal of `docs/upgrades.md` step 0 on the public networks (the plan's P11), from the arc-4 branch, on
+preview deployments only.
 
 | | |
 |---|---|
 | Node | `https://v5.testnet.rpc.aztec-labs.com` (L1 chain 11155111, node `5.2.0-nightly.20260815` at deploy time) |
-| Miner (`YacanaMiner`) | `0x2091605cff5bb6658821ef6df7a268e7b499ff326cafba8a5696102212565e3e` |
-| Token (aztec-standards `Token` v5.2.0, minter = miner, `bound_token()`) | `0x2f83633f946bdf7ea294183c9c49dfb4172646b1edf81a6fb4b4f305bbd42d88` |
+| Miner (`YacanaMiner`) | [`0x058c14aeaf1cd0b05d03c642a371cfb00feae0a3118bba4215ce4ef5ae36f38f`](https://testnet.aztecscan.xyz/contracts/instances/0x058c14aeaf1cd0b05d03c642a371cfb00feae0a3118bba4215ce4ef5ae36f38f) |
+| Token (aztec-standards `Token` v5.2.0, minter = miner, `bound_token()`) | [`0x0436563c5d7b05702a0c806c58917ec3377c639bbc04da3b851c393510be45fc`](https://testnet.aztecscan.xyz/contracts/instances/0x0436563c5d7b05702a0c806c58917ec3377c639bbc04da3b851c393510be45fc) |
 | Deployer (initializerless Schnorr account, no privilege after `bind_token`) | `0x2c7a1312299762bab96e91d83c26c4bf1754959bf95854df117b42bca4e3c54b` |
-| Miner salt / token salt | `0x0f4915a7…fa94c` / `0x17a20a0f…6c686` (full values in `deployments/testnet.json`) |
-| Miner class id / token class id | `0x20680945…bebb9` / `0x10fd5603…fecbf` |
-| Rollup version (in the deploy domain) | 1821665230 |
+| Miner salt / token salt | `0x25f925d8…b0796` / `0x0a04360c…f34fa` (full values in `deployments/testnet.json`) |
+| Miner class id / token class id | [`0x09500c6f…ad63a`](https://testnet.aztecscan.xyz/contracts/classes/0x09500c6fc6e6e2731eff89f8c8a9de63fa9915f3aa3b9752d51d7b4b9a1ad63a/versions/1) / `0x10fd5603…fecbf` |
+| Rollup version (in the deploy domain) | 1821665230 (Registry index 5 on the portal) |
+| Portal it trusts | `0xD536D74Eedf1d2308bf8556402f37f4102eD63f7` (Sepolia, below) |
 | Fees | sponsored FPC (`SPONSORED_FPC_SALT`) |
-| Deployed / launched | 2026-09-05T16:38:35.518Z / epoch 0 opened 2026-09-05T16:39:00Z (`launchAt` 1788626340, immediate: no notice or reveal window in this profile) |
+| Deployed / launched | 2026-09-13T11:58:32.147Z / epoch 0 opened at once (`launchAt` 1789300764, immediate: no notice or reveal window in this profile) |
 
 Parameters (the `testnet` profile, also embedded in the contract as compile-time globals):
 
@@ -140,10 +144,88 @@ Zone state on 2026-09-06: Always Use HTTPS on; HSTS from `_headers`; CAA `issue`
 augments them with `issuewild` and its own entries); DNSSEC enabled, the DS at Cloudflare Registrar (key tag 2371), the
 TLD's publication pending; Web Analytics automatic setup off.
 
+### The bridge (Sepolia) and the versioned origin
+
+The record carries two more blocks once the bridge exists (`packages/bridge/src/record.ts`): `bridge` (`chainId`,
+`portal`, `yaca`, `registry`, `operators`, `l1RpcUrl`, `deployBlock`), written by
+`bun packages/deploy/scripts/l1-deploy.ts deployments/<profile>.json` with `YACANA_L1_RPC_URL`,
+`YACANA_L1_PRIVATE_KEY`, `YACANA_REGISTRY` (Aztec's Registry on that chain) and `YACANA_OPERATORS` in the shell
+(the policy comes from `yacana.params.json` through `packages/bridge/src/policy.ts`; the script amends an existing
+record and refuses one whose miner trusts another portal; with no record yet it writes the block beside it as
+`deployments/<profile>.bridge.json`, which `bun run deploy` folds into the record it writes), and `migration`
+(`toIndex`, `announcedAt`, `expectedFlipAt`), written by hand when Aztec announces the next version. A miner is
+deployed with `YACANA_PORTAL` naming the portal it trusts, immutably, so the portal comes first; then
+`bun run bridge -- register` and `bun run bridge -- set-forwarder` (`docs/upgrades.md`, step 0). The site builds both blocks into the apps (`VITE_BRIDGE`, `VITE_MIGRATION`; production
+refuses a plaintext or local RPC); `bun run bridge -- status` reads the portal's view of every registered version.
+
+Sepolia (2026-09-13, the rehearsal; the policy of `packages/bridge/src/policy.ts` for the `testnet` profile:
+`PER_HOUR` 576 tYACA, `ALLOWANCE` 384 tYACA, 180 d exit floor, 30 d / 60 d pause, launch window −7 d / +90 d,
+400 000 gas a leaf):
+
+| | |
+|---|---|
+| Portal (`YacanaPortal`, verified) | [`0xD536D74Eedf1d2308bf8556402f37f4102eD63f7`](https://sepolia.etherscan.io/address/0xD536D74Eedf1d2308bf8556402f37f4102eD63f7#code) |
+| YACA (`tYACA`, ERC-20, minter = the portal, verified) | [`0x109faf880CD5EAB47A3d9eeB4476aB736ea36ed4`](https://sepolia.etherscan.io/address/0x109faf880CD5EAB47A3d9eeB4476aB736ea36ed4#code) |
+| Aztec Registry (the testnet's) | `0xa0bfb1b494fb49041e5c6e8c2c1be09cd171c6ba` |
+| Operators (an EOA; the Safe comes with the mainnet plan) | [`0xFcc2238319aC360e985f1736aBB3df6251DAF6F5`](https://sepolia.etherscan.io/address/0xFcc2238319aC360e985f1736aBB3df6251DAF6F5) |
+| Listed forwarder | the operators' address, listed by [`0x47d74c3e…e658`](https://sepolia.etherscan.io/tx/0x47d74c3e57ab564aa70340b4571ef43759eba85d7ff7901dd35050c779d5e658) (one EOA plays both roles in the rehearsal; a dedicated forwarder is one `set-forwarder` away) |
+| Registration of version 1821665230 (index 5) | [`0xff8724ed…9458`](https://sepolia.etherscan.io/tx/0xff8724ed02e7feb9712ca0683d9a7bf78ee8cca27327f71d3d17027ff0cb9458) |
+| Deploy block / RPC in the record | 11695738 / `https://ethereum-sepolia-rpc.publicnode.com` |
+
+The rehearsal's crossings, by a throwaway holder who mined two real claims on the new miner (the second,
+[`0x282fde31…2727`](https://testnet.aztecscan.xyz/tx-effects/0x282fde31d2f705c1a6f68bbb296dae0c704640c7f703f7389104326ea2c22727),
+is the example claim the landing shows):
+
+| crossing | Aztec | Ethereum |
+|---|---|---|
+| K1: 1 tYACA exited to the operators' address | `exit_to_l1` [`0x2645bcbd…f745`](https://testnet.aztecscan.xyz/tx-effects/0x2645bcbda0c12526b448ee3f81154c675a0b08493c2b0bbbe12c532d091bf745) (epoch 2398 of the rollup) | forwarded and minted by [`0xfb5f7fc8…2888`](https://sepolia.etherscan.io/tx/0xfb5f7fc80f1b1d4f0821fb07cbb89b916f6c9db47df356e5bb66ab4decd02888) once the epoch was proven (`bun run bridge -- forward`, twelve minutes after the exit) |
+| K3: 1 tYACA deposited into the live version, claimed to the holder | `claim_from_l1` [`0x0144c7f3…4cb6`](https://testnet.aztecscan.xyz/tx-effects/0x0144c7f3dbcd476ccd42c186b5943ce959592e2362954b2e88f97b3041ac4cb6) (Inbox index 75569152) | `deposit` [`0x4557ebb3…bb35`](https://sepolia.etherscan.io/tx/0x4557ebb341c77a5ba04696e499e2230dcd7843d83a1ab36d5d1c3e496cc4bb35) from the operators' YACA (the rehearsal's script also sent an `approve` the portal never needs; the page sends none) |
+| K2: 1 tYACA sent ahead, held | `send_ahead` [`0x1da46805…5f8c`](https://testnet.aztecscan.xyz/tx-effects/0x1da46805334bd18e597ea272110c28a8f1d3352dfd218f156d1ce4e8592d5f8c) (redeem address `0x60bb1823…6637`) | held by the portal: no later version is registered, so `forward` keeps it ("no target record"); its witness is archived in `deployments/witnesses/testnet.jsonl` and served at `/witnesses/1821665230.jsonl`. Its landing on a next version is **pending validation**: the public testnet has not flipped |
+
+After them `bun run bridge -- status` reads `exited 1 · inbound 1` for version 1821665230, the stats bridge page
+on the branch preview reads the same from the portal, and the miner's wallet page on that preview shows the
+bridge tile against the live headroom. Every step above ran from the arc-4 branch on preview deployments; the
+apex and the `v5` custom domain are untouched.
+
+The versioned origin: a retired version's last build, assembled with `YACANA_APP_ROLE=old bun run site:build` into
+`packages/site/dist-old` and deployed to the `yacana-v5` Worker (`packages/site/v5/wrangler.jsonc`, custom domain
+`v5.yacana.network`, versions at `<id>-yacana-v5.<account>.workers.dev`). It restores accounts and never creates
+one, sends ahead and exits; mining there has ended. It is kept until the version's deadline has passed
+(`docs/upgrades.md`). Its custom domain is created by its first production deploy, after the merge, never from a
+branch; before that a version of the Worker serving the frozen record proves the role and the headers on a preview
+host. Rehearsed 2026-09-13: the Worker created without its route from a copy of `v5/wrangler.jsonc` minus `routes`
+(so nothing but version previews is reachable), version `86e77d40-bbf3-4716-b8c7-b8ad82372aa7` of commit `bc3cbb4`
+serving the 2026-09-05 record as role `old` at `https://86e77d40-yacana-v5.alejo-amiras.workers.dev` — the same
+policy headers as the apex preview, `build.json` with the role and the old miner, the retired banner, sign-in
+restore-only with the preview notice naming the host.
+
+The witness archive: `deployments/witnesses/<profile>.jsonl`, written by `bun run bridge -- forward` from a
+version's settled exits (every version of the profile in the one file), committed, and served by the site as one
+file per version at `/witnesses/<version>.jsonl`.
+
 ## Mainnet
 
 Not deployed. The `mainnet` profile (N = 24, 1 h epochs, target 2^122, `YACA`) exists in `yacana.params.json`;
 launch is a later plan (`docs/roadmap.md`).
+
+## Archived — Yacana public testnet before the bridge, `testnet` profile (2026-09-05)
+
+First deployment under the Yacana name: new domain tags (`YACA/*`), genesis seed, work-circuit VK and token
+metadata; the contract logic is the hardened one of the pre-rename deployment below, without the bridge
+functions. Still running; its record is `deployments/testnet-2026-09-05.json`, and the `yacana-v5` Worker's
+rehearsal version above serves its last build as the old role.
+
+| | |
+|---|---|
+| Node | `https://v5.testnet.rpc.aztec-labs.com` (L1 chain 11155111, node `5.2.0-nightly.20260815` at deploy time) |
+| Miner (`YacanaMiner`) | `0x2091605cff5bb6658821ef6df7a268e7b499ff326cafba8a5696102212565e3e` |
+| Token (aztec-standards `Token` v5.2.0, minter = miner, `bound_token()`) | `0x2f83633f946bdf7ea294183c9c49dfb4172646b1edf81a6fb4b4f305bbd42d88` |
+| Deployer (initializerless Schnorr account, no privilege after `bind_token`) | `0x2c7a1312299762bab96e91d83c26c4bf1754959bf95854df117b42bca4e3c54b` |
+| Miner salt / token salt | `0x0f4915a7…fa94c` / `0x17a20a0f…6c686` (full values in `deployments/testnet-2026-09-05.json`) |
+| Miner class id / token class id | `0x20680945…bebb9` / `0x10fd5603…fecbf` |
+| Rollup version (in the deploy domain) | 1821665230 |
+| Fees | sponsored FPC (`SPONSORED_FPC_SALT`) |
+| Deployed / launched | 2026-09-05T16:38:35.518Z / epoch 0 opened 2026-09-05T16:39:00Z (`launchAt` 1788626340, immediate: no notice or reveal window in this profile) |
 
 ## Archived — Elixir (pre-rename) public testnet, `testnet` profile (2026-09-04, hardened contract)
 

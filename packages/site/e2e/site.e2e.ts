@@ -49,7 +49,9 @@ test('one origin, three apps: every path serves its app under the same headers; 
   for (const path of [
     '/mine/wallet',
     '/stats?epoch=0',
+    '/stats/bridge',
     '/verify',
+    '/faq',
     '/slots/0.json',
     '/artifacts/yacana_work.json',
   ])
@@ -72,6 +74,12 @@ test('one origin, three apps: every path serves its app under the same headers; 
   await page.goto(`${r.baseURL}/verify${query(r)}`);
   await expect(page.getByTestId('verify')).toBeVisible();
   await expect(page.getByTestId('verify-miner')).toHaveText(r.miner);
+  // The FAQ is the landing's page at the root; the stats app's bridge route is its own page.
+  await page.goto(`${r.baseURL}/faq${query(r)}`);
+  await expect(page.getByTestId('faq-panel')).toHaveCount(6);
+  expect(new URL(page.url()).pathname).toBe('/faq');
+  await page.goto(`${r.baseURL}/stats/bridge${query(r)}`);
+  await expect(page.getByTestId('no-bridge')).toBeVisible();
 });
 
 test('the versioned origin: the old role under the same headers, restore only, and an open tab learns it is behind', async ({

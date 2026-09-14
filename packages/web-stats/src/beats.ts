@@ -41,13 +41,13 @@ const below = (rows: Map<number, EpochRow>, open: number): Map<number, EpochRow>
 /**
  * The first read. Beat one is published the moment it lands; beat two follows with the newest
  * window and the lottery. A history failure still leaves beat one on the page and says so in
- * `history.error`, with no rows.
+ * `history.error`, with no rows. `first` is the chain's first epoch: nothing is read below it.
  */
-export async function bootBeats(read: BeatReads, publish: BeatSinks): Promise<Fixed> {
+export async function bootBeats(read: BeatReads, publish: BeatSinks, first = 0): Promise<Fixed> {
   const fixed = await read.fixed();
   publish.fixed(fixed);
   try {
-    const rows = await read.rows(Math.max(0, fixed.open - WINDOW + 1), fixed.open, fixed.open);
+    const rows = await read.rows(Math.max(first, fixed.open - WINDOW + 1), fixed.open, fixed.open);
     publish.history({ rows: upsert(new Map(), rows), lottery: await lotteryOrNull(read) });
   } catch (e) {
     publish.history({ rows: new Map(), lottery: null, error: message(e) });
@@ -65,10 +65,11 @@ export async function pollBeats(
   read: BeatReads,
   publish: BeatSinks,
   held: { fixed: Fixed; history: History | null },
+  first = 0,
 ): Promise<void> {
   const fixed = await read.fixed();
   publish.fixed(fixed);
-  const from = Math.max(0, Math.min(held.fixed.open, fixed.open) - 1, fixed.open - WINDOW + 1);
+  const from = Math.max(first, Math.min(held.fixed.open, fixed.open) - 1, fixed.open - WINDOW + 1);
   const rows0 = held.history?.rows ?? new Map<number, EpochRow>();
   const top = newest(rows0);
   const base = top === undefined || from <= top + 1 ? rows0 : new Map<number, EpochRow>();
