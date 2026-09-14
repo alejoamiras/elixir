@@ -200,7 +200,7 @@ describe('lost-race recovery', () => {
     controller.dispose();
   });
 
-  test('Stop during a claim: the claim keeps its phase and finishes; mining does not resume after it', async () => {
+  test('Stop during a claim: the claim keeps its phase and finishes; mining does not resume after it, not even through a hidden tab', async () => {
     const controller = await boot(
       fakeDeployment(5n, () => Promise.reject(new Error('Invalid tx: Invalid expiration timestamp'))),
       () => Promise.reject(new Error('unused')),
@@ -209,7 +209,12 @@ describe('lost-race recovery', () => {
     expect(store.get(minerAtom).phase).toBe('claiming');
     controller.stop();
     expect(store.get(minerAtom).phase).toBe('claiming');
+    // The tab hidden and shown again around the claim's end must not re-arm the restart.
+    controller.pause('hidden');
     await settle(() => store.get(minerAtom).notice?.kind === 'expired');
+    expect(store.get(minerAtom).phase).toBe('idle');
+    controller.release('hidden');
+    await new Promise((r) => setTimeout(r, 50));
     expect(store.get(minerAtom).phase).toBe('idle');
     expect(worker.sent.filter((m) => m.type === 'mine')).toHaveLength(1);
     controller.dispose();

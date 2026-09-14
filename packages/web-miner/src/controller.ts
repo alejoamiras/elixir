@@ -358,14 +358,14 @@ export class MinerController {
   /**
    * A page-side pause (battery, hidden tab, …): stops now, restarts by itself once every reason
    * clears. A claim or a rebuild in flight is left to finish; the restart they would have made
-   * waits with the pause.
+   * waits with the pause, unless Stop was pressed during the claim.
    */
   pause(reason: PauseReason) {
     const phase = this.store.get(minerAtom).phase;
     this.pausedBy.add(reason);
     if (phase === 'idle') return;
     if (phase === 'mining') this.dispatch({ type: 'stop' });
-    this.resumeWhenClear = true;
+    this.resumeWhenClear = !this.stopAfterClaim;
   }
 
   release(reason: PauseReason) {

@@ -3,7 +3,7 @@
 // themselves; a dotted word carries its one-line tooltip, one disclosure per card holds the
 // sentence, and the rules live on the FAQ.
 
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { VersionFlows } from '../../../bridge/src/portal-reader.ts';
 import type { MigrationRecord } from '../../../bridge/src/record.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
@@ -54,18 +54,35 @@ const chainName = (chainId: string): string =>
         ? 'anvil'
         : `chain ${chainId}`;
 
-/** A dotted word whose explanation opens on hover or keyboard focus (the gap is part of the hover area), closes on Escape, and describes it to a screen reader. */
+/** A dotted word whose explanation opens on hover or keyboard focus (the gap is part of the hover area) and closes on Escape however it opened. */
 function Term({ title, children }: { title: string; children: React.ReactNode }) {
   const id = useId();
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const shown = hovered || focused;
+  useEffect(() => {
+    if (!shown) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setDismissed(true);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [shown]);
+  const leave = () => {
+    setHovered(false);
+    setDismissed(false);
+  };
   return (
     <span className="group relative inline-block">
       <button
         type="button"
         aria-describedby={id}
-        onMouseLeave={() => setDismissed(false)}
-        onKeyDown={(e) => e.key === 'Escape' && setDismissed(true)}
-        onBlur={() => setDismissed(false)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={leave}
+        onFocus={() => setFocused(true)}
+        onBlur={() => {
+          setFocused(false);
+          setDismissed(false);
+        }}
         className="cursor-help border-0 bg-transparent p-0 font-[inherit] text-[length:inherit] text-inherit underline decoration-dotted underline-offset-[3px] outline-none focus-visible:ring-1 focus-visible:ring-uv"
       >
         {children}
@@ -73,6 +90,8 @@ function Term({ title, children }: { title: string; children: React.ReactNode })
       <span
         role="tooltip"
         id={id}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={leave}
         className={`absolute bottom-full left-0 z-10 w-64 pb-1.5 ${dismissed ? 'hidden' : 'hidden group-focus-within:block group-hover:block'}`}
       >
         <span className="block rounded-[6px] border border-line bg-panel px-2.5 py-2 font-sans text-xs normal-case text-ink-2">
