@@ -1,7 +1,17 @@
 import { describe, expect, test } from 'vitest';
 import type { VersionFlows } from '../../bridge/src/portal-reader.ts';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
-import { chainNow, exitLimitLine, pauseLine, phasesOf, readBridge, versionLine } from './bridge-beat';
+import {
+  chainNow,
+  exitLimitLine,
+  kpisOf,
+  pauseLine,
+  phasesOf,
+  readBridge,
+  sampleBlocks,
+  versionLine,
+  whereOf,
+} from './bridge-beat';
 
 const ONE = 10n ** BigInt(PARAMS.DECIMALS);
 const NEVER = (1n << 256n) - 1n;
@@ -95,7 +105,7 @@ describe('the sentences', () => {
 
   test("a version's line: live, flipped, flipped but unrecorded, ahead of the flip, or not registered", () => {
     const at5 = { version: 5n, index: 0n };
-    expect(versionLine(live, at5)).toBe('the live version · deposits and exits here');
+    expect(versionLine(live, at5)).toBe('the live version · mining, deposits and exits here');
     expect(versionLine({ ...live, depositsClosed: true }, at5)).toContain('deposits closed');
     const at6 = { version: 6n, index: 1n };
     expect(versionLine({ ...live, flipAt: 1_799_500_000n, deadline: 1_801_000_000n }, at6)).toBe(
@@ -110,29 +120,88 @@ describe('the sentences', () => {
 
   test('the phases: announced from the record, the flip and the retire from the portal, the close from the deadline', () => {
     const quiet = phasesOf(live, null, NOW).map((s) => `${s.id}:${s.state}`);
-    expect(quiet).toEqual(['announced:pending', 'flip:pending', 'retire:pending', 'closes:pending']);
+    expect(quiet).toEqual(['launched:done', 'announced:todo', 'flip:todo', 'retire:todo', 'closes:todo']);
     const announced = phasesOf(
       live,
       { toIndex: '1', announcedAt: '1799900000', expectedFlipAt: '1800500000' },
       NOW,
     );
-    expect(announced[0]).toMatchObject({ state: 'done', label: 'announced 2027-01-14' });
-    expect(announced[0]?.detail).toBe('flip expected around 2027-01-21');
+    expect(announced[1]).toMatchObject({ state: 'done', label: 'V1 announced' });
+    expect(announced[1]?.detail).toBe('Jan 14 · send ahead before Jan 21');
+    expect(announced[2]).toMatchObject({ state: 'on', label: 'V1 canonical' });
     const flipped = phasesOf(
       { ...live, flipAt: 1_799_500_000n, retireSent: true, deadline: 1_801_000_000n },
       null,
       NOW,
     );
     expect(flipped.map((s) => `${s.id}:${s.state}`)).toEqual([
+      'launched:done',
       'announced:done',
       'flip:done',
-      'retire:done',
-      'closes:active',
+      'retire:on',
+      'closes:on',
     ]);
-    // Ethereum saw the message sent; whether the miner consumed it is the other chain's to say.
-    expect(flipped[2]).toMatchObject({
-      label: 'retire message sent',
-      detail: 'mining ends once the miner consumes it',
+    // Ethereum saw the retire message sent; the last proof, which is the version going quiet, it never announces.
+    expect(flipped[3]).toMatchObject({
+      label: 'V5 goes quiet',
+      detail: 'retire message sent · mining ends when the miner consumes it · proving may stop any time',
     });
+  });
+});
+
+describe('the block sampler', () => {
+  test('keeps at most the bound, the first and the last always among them', () => {
+    const blocks = Array.from({ length: 240 }, (_, i) => BigInt(1000 + i));
+    for (const n of [1, 119, 120, 121, 239, 240]) {
+      const picked = sampleBlocks(blocks.slice(0, n), 120);
+      expect(picked.length).toBeLessThanOrEqual(120);
+      expect(picked[0]).toBe(1000n);
+      expect(picked.at(-1)).toBe(BigInt(1000 + n - 1));
+    }
+    expect(sampleBlocks(blocks.slice(0, 50), 120)).toEqual(blocks.slice(0, 50));
+  });
+});
+
+describe('where a version’s coins are', () => {
+  test('the miner’s figures belong to the build’s version; another version’s are unknown, not zero', async () => {
+    const reader = {
+      registered: async () => [5n, 6n],
+      flows: async (v: bigint) => ({ ...live, version: v }),
+      canonical: async () => ({ version: 6n, index: 1n }),
+      policy: async () => policy,
+      operators: async () => `0x${'aa'.repeat(20)}` as const,
+      forwarders: async () => [],
+      blockTime: async () => BigInt(NOW),
+    };
+    const s = await readBridge(reader, 7);
+    const miner = { exited: 41n * ONE, claimedFromL1: 0n };
+    const [v5, v6] = s.versions as [VersionFlows, VersionFlows];
+    const here = (segments: ReturnType<typeof whereOf>, id: string) =>
+      segments.find((x) => x.id === id)?.figure;
+    expect(here(whereOf(v6, s, miner, 10n * ONE, '6'), 'here')).toBe('10');
+    expect(here(whereOf(v6, s, miner, 10n * ONE, '6'), 'transit')).toBe('1');
+    expect(here(whereOf(v5, s, miner, 10n * ONE, '6'), 'here')).toBe('—');
+    expect(here(whereOf(v5, s, miner, 10n * ONE, '6'), 'transit')).toBe('—');
+  });
+});
+
+describe('the share on Ethereum', () => {
+  test('is of all minted while one version has minted, and unsaid once YACA spans versions', async () => {
+    const reader = (versions: bigint[]) => ({
+      registered: async () => versions,
+      flows: async (v: bigint) => ({ ...live, version: v }),
+      canonical: async () => ({ version: versions.at(-1) as bigint, index: 1n }),
+      policy: async () => policy,
+      operators: async () => `0x${'aa'.repeat(20)}` as const,
+      forwarders: async () => [],
+      blockTime: async () => BigInt(NOW),
+    });
+    const extras = { yacaSupply: 40n * ONE, events: [], lastForwardAt: null };
+    const miner = { exited: 40n * ONE, claimedFromL1: 0n };
+    const one = { ...(await readBridge(reader([5n]), 7)), extras };
+    const ethereum = (s: typeof one) => kpisOf(s, s.versions[0], miner, 60n * ONE, NOW, 'anvil')[0]?.sub;
+    expect(ethereum(one)).toContain('40 % of all minted');
+    const two = { ...(await readBridge(reader([5n, 6n]), 7)), extras };
+    expect(ethereum(two)).not.toContain('%');
   });
 });

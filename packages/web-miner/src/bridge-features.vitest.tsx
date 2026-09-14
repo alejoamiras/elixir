@@ -14,6 +14,7 @@ import { MigrationCard, moment } from './features/MigrationCard';
 import { SendAheadSheet } from './features/SendAheadSheet';
 import { TakingLongDialog } from './features/TakingLongDialog';
 import { ToEthereumSheet } from './features/ToEthereumSheet';
+import { BalanceTile } from './routes/Wallet';
 import type { Session } from './session';
 import { type BridgeView, balanceAtom, bridgeAtom, journalAtom, nowAtom } from './state';
 
@@ -144,7 +145,6 @@ describe('the bridge tile', () => {
       <BridgeTile
         session={session}
         account="0xabc"
-        onToEthereum={() => {}}
         onDeposit={() => {}}
         onForward={onForward}
         onRedeem={onRedeem}
@@ -158,6 +158,17 @@ describe('the bridge tile', () => {
       'ready',
       'held on Ethereum',
     ]);
+    // Each card carries its stations: a ready exit is proven and waits for its forward.
+    const stations = [
+      ...(screen.getAllByTestId('crossing')[0] as HTMLElement).querySelectorAll('[data-state]'),
+    ];
+    expect(stations.map((s) => s.textContent)).toEqual([
+      'burned',
+      'a block',
+      'proven to Ethereum',
+      'forwarded',
+    ]);
+    expect(stations.map((s) => s.getAttribute('data-state'))).toEqual(['done', 'todo', 'done', 'on']);
     expect(screen.getAllByTestId('forward-myself')).toHaveLength(1);
     fireEvent.click(screen.getByTestId('forward-myself'));
     expect(onForward).toHaveBeenCalledWith(ready);
@@ -180,22 +191,46 @@ describe('the bridge tile', () => {
     expect(screen.getAllByTestId('forward-myself')).toHaveLength(2);
     vi.stubEnv('VITE_ROLLUP_VERSION', '5');
   });
+});
 
-  test('a silent RPC holds back new exits and says so', () => {
+describe('the balance tile and an empty bridge tile', () => {
+  test('a silent RPC holds back new exits and says so; nothing crossing says so too', () => {
     const { session } = stubSession();
+    // The balance tile offers the bridge only on a build that carries a portal.
+    vi.stubEnv(
+      'VITE_BRIDGE',
+      JSON.stringify({
+        chainId: '31337',
+        portal: PORTAL,
+        yaca: `0x${'ca'.repeat(20)}`,
+        registry: `0x${'ee'.repeat(20)}`,
+        operators: `0x${'01'.repeat(20)}`,
+        l1RpcUrl: 'http://rpc.test',
+      }),
+    );
     mount(
-      <BridgeTile
-        session={session}
-        account="0xabc"
-        onToEthereum={() => {}}
-        onDeposit={() => {}}
-        onForward={() => {}}
-        onRedeem={() => {}}
-      />,
+      <>
+        <BalanceTile
+          account="0xabc"
+          balance={ONE}
+          claims={1}
+          onSend={() => {}}
+          onToEthereum={() => {}}
+          onDeposit={() => {}}
+        />
+        <BridgeTile
+          session={session}
+          account="0xabc"
+          onDeposit={() => {}}
+          onForward={() => {}}
+          onRedeem={() => {}}
+        />
+      </>,
       (s) => s.set(bridgeAtom, { verdict: { kind: 'unknown' }, standing, readAt: NOW, rpcFailing: true }),
     );
     expect((screen.getByTestId('to-ethereum') as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId('bridge-tile').textContent).toContain('new exits wait');
+    expect(screen.getByTestId('nothing-crossing').textContent).toContain('nothing crossing');
   });
 });
 
@@ -216,8 +251,10 @@ describe('the arrival card', () => {
       ]),
     );
     const buttons = screen.getAllByTestId('arrival-claim');
-    expect(buttons.map((b) => b.textContent)).toEqual(['Claim', 'arrived']);
-    expect((buttons[1] as HTMLButtonElement).disabled).toBe(true);
+    expect(buttons.map((b) => b.textContent)).toEqual(['Claim']);
+    expect(screen.getAllByTestId('arrival-state').map((s) => s.textContent)).toEqual(['arrived']);
+    expect(screen.getAllByTestId('arrival')).toHaveLength(3);
+    expect(screen.getByTestId('arrival-card').textContent).toContain('on its way');
     fireEvent.click(buttons[0] as HTMLElement);
     await waitFor(() => expect(bridge.claim).toHaveBeenCalledWith(claimable));
     fireEvent.click(screen.getByTestId('arrival-resume'));
@@ -274,16 +311,32 @@ describe('the sheets', () => {
 describe('taking long', () => {
   test('a held crossing older than the stated age opens the dialog once; a fresh one does not', () => {
     const onSettings = vi.fn();
-    const store = mount(<TakingLongDialog onSettings={onSettings} />, (s) =>
+    const store = mount(<TakingLongDialog onSettings={onSettings} onWallet={() => {}} />, (s) =>
       s.set(journalAtom, [
         crossing({ id: 'h', kind: 2, state: 'held', updatedAt: NOW - TAKING_LONG_AFTER_MS - 1 }),
       ]),
     );
     expect(screen.getByTestId('taking-long').textContent).toContain('Redeem it to Ethereum');
     expect(screen.getByTestId('taking-long').textContent).not.toMatch(/relayer|bot/i);
-    fireEvent.click(screen.getByRole('button', { name: 'Understood' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Wait' }));
     expect(screen.queryByTestId('taking-long')).toBeNull();
     act(() => store.set(journalAtom, [crossing({ id: 'r', state: 'ready', updatedAt: NOW - 1000 })]));
+    expect(screen.queryByTestId('taking-long')).toBeNull();
+  });
+
+  test('two slow crossings: Wait shows the next; leaving for the wallet dismisses every one', () => {
+    const onWallet = vi.fn();
+    const old = NOW - TAKING_LONG_AFTER_MS - 1;
+    mount(<TakingLongDialog onSettings={() => {}} onWallet={onWallet} />, (s) =>
+      s.set(journalAtom, [
+        crossing({ id: 'a', kind: 2, state: 'held', updatedAt: old }),
+        crossing({ id: 'b', kind: 2, state: 'held', updatedAt: old }),
+      ]),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Wait' }));
+    expect(screen.getByTestId('taking-long')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Open the bridge tile' }));
+    expect(onWallet).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('taking-long')).toBeNull();
   });
 });

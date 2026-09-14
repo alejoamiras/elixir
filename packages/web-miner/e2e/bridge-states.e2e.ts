@@ -8,7 +8,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { control } from './control-client.ts';
 import { expect, type Page, test } from './fixtures.ts';
 import { connectTestWallet, installL1Wallet } from './helpers/l1-wallet.ts';
-import { BOOT_MS, bootPage, pageUrl, run } from './helpers.ts';
+import { BOOT_MS, bootPage, pageUrl, run, shot } from './helpers.ts';
 
 /** Anvil account 4: another account the wallet can switch to. */
 const OTHER_KEY: Hex = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
@@ -85,6 +85,7 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   await expect(page.getByTestId('deposit-error')).toContainText('User rejected the request.', {
     timeout: 60_000,
   });
+  await shot(page, 'from-ethereum-refused');
   expect(l1.calls('wallet_switchEthereumChain')).toBe(1);
   expect(l1.calls('eth_sendTransaction')).toBe(1);
 
@@ -92,6 +93,7 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   l1.holdNext('transaction');
   await page.getByTestId('deposit-go').click();
   await expect(page.getByTestId('deposit-go')).toHaveText('Waiting for your wallet · deposit…');
+  await shot(page, 'from-ethereum-waiting');
   await expect.poll(() => l1.holdsArmed()).toBe(0);
   await page.reload();
   await openKey(page, account);
@@ -99,6 +101,7 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   const stuck = page.locator('[data-testid=arrival][data-state="proving"]');
   await expect(stuck).toHaveCount(1, { timeout: 60_000 });
   await expect(stuck).toContainText('Waiting for your Ethereum wallet');
+  await shot(page, 'arrival-unanswered');
   await stuck.getByTestId('arrival-resume').click();
   await expect(page.getByTestId('deposit-amount')).toHaveValue(/^0\.5/);
   await connectTestWallet(page);
@@ -119,11 +122,17 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   await expect(page.locator('[data-testid=arrival]')).toHaveAttribute('data-state', 'deposited', {
     timeout: 60_000,
   });
+  await shot(page, 'arrival-deposited');
 
   // The Inbox serves the message a few checkpoints later; the arrival card's one tap claims it privately.
   await ctl.nudge();
   await expect(page.getByTestId('arrival-claim')).toHaveText('Claim', { timeout: 3 * 60_000 });
   await page.getByTestId('arrival-claim').click();
-  await expect(page.locator('[data-testid=arrival]')).toHaveCount(0, { timeout: 10 * 60_000 });
+  // Landed, the row stays on the card as minted, with nothing left to press.
+  await expect(page.locator('[data-testid=arrival][data-state=minted-l2]')).toHaveCount(1, {
+    timeout: 10 * 60_000,
+  });
+  await expect(page.getByTestId('arrival-card')).toContainText('landed');
+  await expect(page.getByTestId('arrival-claim')).toHaveCount(0);
   await expect(page.getByTestId('wallet-balance')).toHaveText('3.5', { timeout: 2 * 60_000 });
 });

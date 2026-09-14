@@ -6,8 +6,8 @@ import { createStore, Provider } from 'jotai';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { isOldRole } from './bridge/env';
 import { CreateKey } from './features/KeyScreen';
+import { OldApp } from './features/OldApp';
 import { OldTabNotice, staleTab } from './features/OldTabNotice';
-import { Retired } from './features/Retired';
 import type { Session } from './session';
 
 afterEach(() => {
@@ -31,15 +31,20 @@ describe('the old role', () => {
     expect(isOldRole()).toBe(false);
     vi.stubEnv('VITE_APP_ROLE', 'old');
     expect(isOldRole()).toBe(true);
+    vi.stubEnv('VITE_RP_ID', 'yacana.network');
     render(
       <Provider store={createStore()}>
-        <Retired />
+        <OldApp />
       </Provider>,
     );
     const head = screen.getByTestId('retired');
+    expect(head.textContent).toContain('Send what is still here ahead.');
     expect(head.textContent).toContain('Mining has ended on this version.');
     expect(head.textContent).toContain('send ahead to the next version, or to Ethereum');
-    expect(head.textContent).toContain('V5 goes quiet after the upgrade, without notice.');
+    expect(head.textContent).toContain('it goes quiet after the upgrade, without notice.');
+    // Signed out: the way in, and no cockpit.
+    expect(screen.getByTestId('sign-in-mine').textContent).toContain('Open with passkey');
+    expect(screen.queryByTestId('start')).toBeNull();
   });
 
   test('the versioned host restores and never creates, and the key screen says so', () => {

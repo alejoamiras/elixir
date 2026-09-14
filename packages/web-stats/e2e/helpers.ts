@@ -5,6 +5,8 @@ import type { Page, Route } from '@playwright/test';
 import { type E2eRun, MOCK_FILE, RUN_FILE } from './run.ts';
 
 export const MOCK_NODE_ORIGIN = 'http://127.0.0.1:1';
+/** The Ethereum RPC the visual build names: the recording answers it, nothing listens there. */
+export const MOCK_ETH_ORIGIN = 'http://127.0.0.1:2';
 
 export const run = (): E2eRun => JSON.parse(readFileSync(RUN_FILE, 'utf8')) as E2eRun;
 

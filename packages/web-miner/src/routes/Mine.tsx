@@ -9,8 +9,8 @@ import { BridgeProviders } from '../features/BridgeProviders';
 import { LedgerTile } from '../features/LedgerTile';
 import { KpiTiles, LoopTile } from '../features/LoopTile';
 import { MigrationCard } from '../features/MigrationCard';
+import { OldApp } from '../features/OldApp';
 import { RailTile } from '../features/RailTile';
-import { Retired } from '../features/Retired';
 import { SendAheadSheet } from '../features/SendAheadSheet';
 import { useTileLog } from '../lib/tile-log';
 import { navigate } from '../routes';
@@ -25,10 +25,14 @@ function GuidedPath({ session }: { session: Session }) {
   return (
     <BridgeProviders>
       <TileBoundary name="migration" onError={onError} className="md:col-span-2 xl:col-span-4">
-        <MigrationCard onSendAhead={() => setAhead(true)} />
+        <MigrationCard onSendAhead={() => setAhead(true)} className="md:col-span-2 xl:col-span-4" />
       </TileBoundary>
       <TileBoundary name="arrivals" onError={onError} className="md:col-span-2 xl:col-span-4">
-        <ArrivalCard session={session} onResume={() => navigate('wallet')} />
+        <ArrivalCard
+          session={session}
+          onResume={() => navigate('wallet')}
+          className="md:col-span-2 xl:col-span-4"
+        />
       </TileBoundary>
       <SendAheadSheet session={session} balance={balance ?? 0n} open={ahead} onOpenChange={setAhead} />
     </BridgeProviders>
@@ -52,6 +56,8 @@ export function Mine({
 }) {
   const onError = useTileLog();
   const ready = useAtomValue(bootAtom).phase === 'ready';
+  // The versioned origin is one page: nothing is mined there, so no cockpit.
+  if (isOldRole()) return <OldApp session={session} />;
   return (
     <div
       className="grid items-start gap-[14px] md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_300px] data-[signed-out]:opacity-[.72] data-[signed-out]:saturate-[.55]"
@@ -60,15 +66,11 @@ export function Mine({
     >
       {session && ready && <GuidedPath session={session} />}
       <TileBoundary name="loop" onError={onError} className="md:col-span-2 xl:col-span-3">
-        {isOldRole() ? (
-          <Retired className="md:col-span-2 xl:col-span-3" />
-        ) : (
-          <LoopTile
-            controller={controller}
-            onStart={onStart ?? (() => controller()?.start())}
-            className="md:col-span-2 xl:col-span-3"
-          />
-        )}
+        <LoopTile
+          controller={controller}
+          onStart={onStart ?? (() => controller()?.start())}
+          className="md:col-span-2 xl:col-span-3"
+        />
       </TileBoundary>
       <TileBoundary name="rail" onError={onError} className="md:order-3 xl:order-none xl:row-span-2">
         <RailTile controller={controller} className="md:order-3 xl:order-none xl:row-span-2" />

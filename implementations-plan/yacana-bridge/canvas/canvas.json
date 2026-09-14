@@ -1,0 +1,376 @@
+{
+  "pages": [
+    {
+      "id": "page-1",
+      "name": "Start here"
+    },
+    {
+      "id": "page-2",
+      "name": "The migration"
+    },
+    {
+      "id": "page-3",
+      "name": "Every day"
+    },
+    {
+      "id": "page-4",
+      "name": "Stats \u00b7 FAQ"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 800,
+      "h": 1240,
+      "page": "page-1"
+    },
+    {
+      "file": "MineAnnounced.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1300,
+      "page": "page-2",
+      "title": "1 \u00b7 Announced: the card, one button"
+    },
+    {
+      "file": "CommitSheet.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 448,
+      "h": 760,
+      "page": "page-2",
+      "title": "2 \u00b7 Commit: the whole balance, the four steps, one button"
+    },
+    {
+      "file": "CommittedSheet.dc.html",
+      "x": 2100,
+      "y": 0,
+      "w": 448,
+      "h": 620,
+      "page": "page-2",
+      "title": "3 \u00b7 Sent ahead"
+    },
+    {
+      "file": "MineCommitted.dc.html",
+      "x": 0,
+      "y": 1440,
+      "w": 1440,
+      "h": 1300,
+      "page": "page-2",
+      "title": "4 \u00b7 Committed: the card is a status, mining continues"
+    },
+    {
+      "file": "MineFlipDetected.dc.html",
+      "x": 1560,
+      "y": 1440,
+      "w": 1440,
+      "h": 1300,
+      "page": "page-2",
+      "title": "5 \u00b7 V6 is live, V5 build still here: mining ended, commit what is left"
+    },
+    {
+      "file": "V6Arriving.dc.html",
+      "x": 0,
+      "y": 2880,
+      "w": 1440,
+      "h": 1300,
+      "page": "page-2",
+      "title": "6 \u00b7 The V6 app, first sign-in: arriving by itself"
+    },
+    {
+      "file": "V6Arrived.dc.html",
+      "x": 1560,
+      "y": 2880,
+      "w": 1440,
+      "h": 1300,
+      "page": "page-2",
+      "title": "7 \u00b7 Arrived, and a pointer to what is still on V5"
+    },
+    {
+      "file": "ArrivalStates.dc.html",
+      "x": 3120,
+      "y": 2880,
+      "w": 960,
+      "h": 3300,
+      "page": "page-2",
+      "title": "The arrival card \u00b7 every state, exceptions included"
+    },
+    {
+      "file": "OldAppSignIn.dc.html",
+      "x": 0,
+      "y": 4320,
+      "w": 1440,
+      "h": 720,
+      "page": "page-2",
+      "title": "8 \u00b7 v5.yacana.network: one page, sign in"
+    },
+    {
+      "file": "OldApp.dc.html",
+      "x": 1560,
+      "y": 4320,
+      "w": 1440,
+      "h": 720,
+      "page": "page-2",
+      "title": "9 \u00b7 v5.yacana.network: one button"
+    },
+    {
+      "file": "OldAppCommitted.dc.html",
+      "x": 0,
+      "y": 5180,
+      "w": 1440,
+      "h": 820,
+      "page": "page-2",
+      "title": "10 \u00b7 v5.yacana.network: sent ahead"
+    },
+    {
+      "file": "OldAppQuiet.dc.html",
+      "x": 1560,
+      "y": 5180,
+      "w": 1440,
+      "h": 760,
+      "page": "page-2",
+      "title": "11 \u00b7 v5.yacana.network: quiet, what is left is lost"
+    },
+    {
+      "file": "TakingLong.dc.html",
+      "x": 4200,
+      "y": 2880,
+      "w": 540,
+      "h": 520,
+      "page": "page-2",
+      "title": "Exception \u00b7 taking long: the one dialog"
+    },
+    {
+      "file": "OldTabNotice.dc.html",
+      "x": 0,
+      "y": 6140,
+      "w": 1440,
+      "h": 150,
+      "page": "page-2",
+      "title": "A V5 tab left open at the apex after the V6 build shipped"
+    },
+    {
+      "file": "Wallet.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 760,
+      "page": "page-3",
+      "title": "Wallet \u00b7 nothing crossing: two buttons and a link"
+    },
+    {
+      "file": "WalletCrossing.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 940,
+      "page": "page-3",
+      "title": "Wallet \u00b7 something crossing: the journal appears"
+    },
+    {
+      "file": "ToEthereum.dc.html",
+      "x": 0,
+      "y": 1080,
+      "w": 448,
+      "h": 620,
+      "page": "page-3",
+      "title": "To Ethereum \u00b7 the form with the three steps"
+    },
+    {
+      "file": "ToEthereumReview.dc.html",
+      "x": 540,
+      "y": 1080,
+      "w": 448,
+      "h": 560,
+      "page": "page-3",
+      "title": "To Ethereum \u00b7 review"
+    },
+    {
+      "file": "ToEthereumSent.dc.html",
+      "x": 1080,
+      "y": 1080,
+      "w": 448,
+      "h": 560,
+      "page": "page-3",
+      "title": "To Ethereum \u00b7 on its way"
+    },
+    {
+      "file": "FromEthereum.dc.html",
+      "x": 1620,
+      "y": 1080,
+      "w": 448,
+      "h": 380,
+      "page": "page-3",
+      "title": "From Ethereum \u00b7 connect"
+    },
+    {
+      "file": "FromEthereumForm.dc.html",
+      "x": 2160,
+      "y": 1080,
+      "w": 448,
+      "h": 660,
+      "page": "page-3",
+      "title": "From Ethereum \u00b7 the form"
+    },
+    {
+      "file": "FromEthereumSent.dc.html",
+      "x": 2700,
+      "y": 1080,
+      "w": 448,
+      "h": 520,
+      "page": "page-3",
+      "title": "From Ethereum \u00b7 on its way, lands at sign-in"
+    },
+    {
+      "file": "FromEthereumPreFlip.dc.html",
+      "x": 1620,
+      "y": 1900,
+      "w": 448,
+      "h": 800,
+      "page": "page-3",
+      "title": "From Ethereum \u00b7 the warning before an expected upgrade"
+    },
+    {
+      "file": "JournalStates.dc.html",
+      "x": 3240,
+      "y": 0,
+      "w": 520,
+      "h": 1900,
+      "page": "page-3",
+      "title": "The journal card \u00b7 every everyday state"
+    },
+    {
+      "file": "StatsBridge.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1560,
+      "page": "page-4",
+      "title": "Stats \u00b7 the Bridge page (B, reworked)"
+    },
+    {
+      "file": "StatsAnnounce.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 300,
+      "page": "page-4",
+      "title": "Stats \u00b7 the observatory with the announcement line"
+    },
+    {
+      "file": "LandingAnnounce.dc.html",
+      "x": 1560,
+      "y": 440,
+      "w": 1440,
+      "h": 400,
+      "page": "page-4",
+      "title": "Landing \u00b7 the announcement line"
+    },
+    {
+      "file": "FAQ.dc.html",
+      "x": 0,
+      "y": 1700,
+      "w": 1440,
+      "h": 1700,
+      "page": "page-4",
+      "title": "Questions \u00b7 the page, with the six panels"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "n-1",
+      "x": 0,
+      "y": -300,
+      "w": 440,
+      "text": "The guided path\nA person acts twice: Commit to V6 before the upgrade, sign in on V6 after it. The card that asks is the same card that reports, on Mine and on Wallet, and it always ends with what is lost and when. Mining keeps going until the flip; the day the flip is detected the same card asks for whatever is left.\n\nWhy commit early: V6's chain starts producing blocks only when it becomes canonical, so Yacana's V6 contract exists hours after V5 is retired; and V5 keeps proving for days at most after losing its validators' rewards, stopping without notice. A committed balance is proven to Ethereum within the hour and is safe from then on.",
+      "page": "page-2"
+    },
+    {
+      "id": "n-2",
+      "x": 1560,
+      "y": -200,
+      "w": 440,
+      "text": "The commit sheet\nThe whole balance by default ('some of it' is a link), because a migration is naturally all-or-nothing and a second commit is always possible. No address to type: the claim on V6 is made by the same account. Four steps with their times; the one thing to keep is the passkey or the words. One button. The consequence sentence closes it.",
+      "page": "page-2"
+    },
+    {
+      "id": "n-3",
+      "x": 3120,
+      "y": 2600,
+      "w": 440,
+      "text": "Arrival by itself\nOn V6, after sign-in, the page scans the portal's events with the account's own secrets, finds the commitments and claims them: a private transaction each, about 20 s, fee sponsored. No Claim button. The card narrates the three normal states and the five exceptions, each with one line and at most one link. 'Taking long' is the only exception that opens a dialog.",
+      "page": "page-2"
+    },
+    {
+      "id": "n-4",
+      "x": 0,
+      "y": 4040,
+      "w": 440,
+      "text": "The old app\nv5.yacana.network is one page: the sentence, the balance still there, one button, and a quiet 'or take it to Ethereum'. No cockpit, no wallet page, no settings; it reads the default V5 node. The passkey works there because the RP ID is the apex. When V5 goes quiet the page says so and shows what was lost and what arrived.",
+      "page": "page-2"
+    },
+    {
+      "id": "n-5",
+      "x": 0,
+      "y": -260,
+      "w": 440,
+      "text": "Every day\nTo Ethereum is the second button on the balance; Deposit from Ethereum is a link under the account chip. The journal tile exists only while something is crossing and states are three per direction; exceptions get a line and a link. A deposit arrives by itself too: the claim runs on sign-in.",
+      "page": "page-3"
+    },
+    {
+      "id": "n-6",
+      "x": 0,
+      "y": -260,
+      "w": 440,
+      "text": "Stats\nThe observatory stays the canonical version and only gains the announcement line during a window. Bridge is its own page: the phases first (your favourite), the coins chart, one card per version with a supply bar and when its exits close, the portal in plain words. 'Headroom' became 'exit limit \u2026 exits over it wait' with its reason; 'pause budget' became 'pause \u2026 up to 30 days at a time, 60 in total per version'.",
+      "page": "page-4"
+    },
+    {
+      "id": "n-7",
+      "x": 1560,
+      "y": 840,
+      "w": 440,
+      "text": "The announcement line\nOne line, the same on the landing and on stats, during the window: what is coming, when, what to do, what is lost. It links to the FAQ's upgrade section.",
+      "page": "page-4"
+    },
+    {
+      "id": "n-9",
+      "x": 900,
+      "y": 0,
+      "w": 440,
+      "text": "Codex (GPT-6 Astra), two rounds\nRound one, on the mechanism: ten blockers, all folded in \u2014 no epoch cutoff (a retire message stops mining on chain instead), versions are hashes not counters, the exit deadline is the later of two dates plus paused days, a stuck move-to-V6 is redeemable on Ethereum after 30 days, the allowance is a rate limit that never refuses.\nRound two, on this take: a send is safe only once its epoch is proven (each has a deadline, shown), a missed one is undone back onto V5 rather than lost, the flip card must show observed events not 'within hours', deposits name the version they expect. Codex preferred 'Send ahead' over 'Commit' and rejected automatic commits at the flip; I took the verb and replaced the flip-time automation with the hourly send the person switches on.",
+      "page": "page-1"
+    },
+    {
+      "id": "n-10",
+      "x": 900,
+      "y": 560,
+      "w": 440,
+      "text": "Fable, the UX critic\nThree failures of the first draft, all fixed here: 'wait' and 'commit' in the same breath on the flip card; 'nothing to do' while mining kept adding to the V5 balance; 'days at most' read as a promise. Its copy for the announced card and the arrival card is what is drawn, nearly verbatim. It also asked for the version stamp in every wordmark, the 'V5 last proved N min ago' line read from Ethereum on the V6 card, and the old-tab notice.",
+      "page": "page-1"
+    },
+    {
+      "id": "n-11",
+      "x": 900,
+      "y": 1000,
+      "w": 440,
+      "text": "Fable, the adversarial critic\nFor the blueprint more than the screens: the account address changes with each Aztec version (the key store must re-derive per account class, or every V6 sign-in fails); the page's fetch guard must admit the Ethereum RPC; the V5 build must persist a balance snapshot for the 'last seen' line; the old origin needs node and RPC settings and file import; the fee sponsor is a testnet artifact. On the screens: the address line on arrival, the note count and proving time on the sheet, three more arrival states (unknown, waiting its turn, landed elsewhere).",
+      "page": "page-1"
+    },
+    {
+      "id": "n-8",
+      "x": 0,
+      "y": 1440,
+      "w": 440,
+      "text": "Questions\nThe six panels are the migration as a picture: you act at 2 and 6. The answers say the loss once, in emphasis, and name every party that can stop or slow the bridge. This page replaces the 'what happens \u2192' links' destination everywhere.",
+      "page": "page-4"
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "page-1"
+  }
+}

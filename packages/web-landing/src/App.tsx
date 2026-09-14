@@ -26,15 +26,22 @@ function Announcement() {
   const m = migrationRecord();
   if (!m) return null;
   const day = new Date(Number(m.expectedFlipAt) * 1000).toISOString().slice(0, 10);
+  const line = copy.announcement(import.meta.env.VITE_ROLLUP_VERSION, day);
+  const cut = line.indexOf('. ') + 1;
   return (
-    <Alert variant="warn" className="mx-4 mt-4 md:mx-5" data-testid="announcement">
-      <AlertDescription>
-        {copy.announcement(import.meta.env.VITE_ROLLUP_VERSION, day)}{' '}
-        <a href={`${import.meta.env.BASE_URL}faq`} className="underline underline-offset-3">
-          {copy.announcementLink}
-        </a>
-      </AlertDescription>
-    </Alert>
+    <div
+      role="status"
+      className="mx-4 mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-[6px] border border-uv/50 px-3.5 py-2.5 text-sm text-ink-2 md:mx-5"
+      data-testid="announcement"
+    >
+      <span>
+        <b className="font-medium text-ink">{line.slice(0, cut)}</b>
+        {line.slice(cut)}
+      </span>
+      <a href={`${import.meta.env.BASE_URL}faq`} className="whitespace-nowrap text-uv-2 hover:underline">
+        {copy.announcementLink}
+      </a>
+    </div>
   );
 }
 

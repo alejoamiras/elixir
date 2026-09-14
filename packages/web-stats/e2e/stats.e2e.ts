@@ -277,8 +277,11 @@ test('the bridge page: this version registered and live on the portal, its turns
   );
   await expect(card.getByTestId('pause-line')).toContainText('not paused');
   // The phases: nothing announced on this build, nothing flipped.
-  await expect(page.getByTestId('bridge-phases').locator('[data-slot=step]')).toHaveCount(4);
+  await expect(page.getByTestId('bridge-phases').locator('[data-slot=timeline] > li')).toHaveCount(5);
   await expect(page.getByTestId('bridge-phases')).toContainText('not announced');
+  // The six figures and the coins chart draw from the extras: YACA's supply and the portal's events.
+  await expect(page.getByTestId('kpi-ethereum')).toContainText('YACA');
+  await expect(page.getByTestId('bridge-turnstile')).toContainText('by hand');
   // The keys: the operators, and the one forwarder the run listed (the same account).
   const chips = page.getByTestId('bridge-portal').locator('[data-slot=chip-link]');
   await expect(chips).toHaveCount(5);

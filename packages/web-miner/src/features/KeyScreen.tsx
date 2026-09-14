@@ -64,6 +64,59 @@ export function CreateKey({
         onBack={() => setWords({ mode: 'none' })}
       />
     );
+  // The versioned origin restores and never creates: the create buttons stay, disabled, so the way in reads the same.
+  if (!canCreate && canRestore)
+    return (
+      <div className="flex flex-col gap-5" data-testid="key-screen">
+        <div>
+          <span className="label-mono">sign in · same passkey or words</span>
+          <h2 className="mt-1 text-[24px] leading-tight">Open the account you already have.</h2>
+        </div>
+        {error && (
+          <Alert variant="bad" data-testid="key-error">
+            <AlertTitle>That did not work</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        <Alert variant="warn" data-testid="host-note">
+          <AlertDescription>
+            Accounts are restored here, not created. Create one at {import.meta.env.VITE_RP_ID}; the same
+            passkey or twelve words open it here.
+          </AlertDescription>
+        </Alert>
+        <div>
+          <Button
+            variant="uv"
+            size="lg"
+            disabled={busy}
+            onClick={() => go(() => session.restoreWithPasskey())}
+            data-testid="restore-passkey"
+          >
+            {busy ? 'Waiting for your device…' : 'Open with passkey'}
+          </Button>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+          <Button
+            variant="link"
+            disabled={busy}
+            onClick={() => setWords({ mode: 'restore' })}
+            data-testid="restore-words"
+          >
+            I have twelve words
+          </Button>
+          <Button variant="link" disabled data-testid="create-passkey">
+            Sign up with a passkey
+          </Button>
+          <Button variant="link" disabled data-testid="use-words">
+            Use twelve words instead
+          </Button>
+          <NotNow onNotNow={onNotNow} />
+        </div>
+        <p className="text-xs text-ink-3">
+          This is another origin, so the passkey asks once and twelve words are typed again. {HOST_WARNING}
+        </p>
+      </div>
+    );
   return (
     <div className="flex flex-col gap-5" data-testid="key-screen">
       <div>

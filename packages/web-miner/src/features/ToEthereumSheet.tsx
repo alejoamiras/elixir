@@ -1,26 +1,213 @@
-// To Ethereum: amount and address → the review (what will be public: the amount and the address;
-// about 20 s to prove; Ethereum learns of it when this version proves the epoch) → sent. The
-// journal card shows the rest.
+// To Ethereum: the figure and the address, the three stations with their times, then the
+// review (what is public: the amount and the address; 20 s to prove; Ethereum learns of it when this
+// version proves the epoch), then "On its way." with the burn's block once the journal has it.
+import { useAtomValue } from 'jotai';
 import { useState } from 'react';
+import type { Crossing } from '../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import {
   Alert,
   AlertDescription,
-  AlertTitle,
+  AmountBlock,
   Button,
   Input,
   KvRow,
   Label,
+  Note,
   Sheet,
   SheetContent,
   SheetDescription,
   SheetTitle,
+  Stepper,
 } from '../../../ui/src/index.ts';
+import { chainName } from '../bridge/copy';
+import { bridgeRecord } from '../bridge/env';
 import { type EthDraft, type EthSnapshot, reviewExit } from '../bridge/forms';
 import { amount as fmt, shortAddress } from '../lib/format';
 import type { Session } from '../session';
+import { journalAtom } from '../state';
+import { AmountInput } from './AmountInput';
 
-type Step = { kind: 'form' } | { kind: 'review'; snap: EthSnapshot } | { kind: 'sent'; snap: EthSnapshot };
+type Step =
+  | { kind: 'form' }
+  | { kind: 'review'; snap: EthSnapshot }
+  | { kind: 'sent'; snap: EthSnapshot; crossing?: Crossing };
+
+const version = () => import.meta.env.VITE_ROLLUP_VERSION;
+const money = (raw: bigint) => `${fmt(raw, PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL}`;
+
+function Form({
+  draft,
+  setDraft,
+  balance,
+  onReview,
+}: {
+  draft: EthDraft;
+  setDraft: (d: EthDraft) => void;
+  balance: bigint;
+  onReview: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <AmountInput
+        id="exit-amount"
+        value={draft.amount}
+        onChange={(amount) => setDraft({ ...draft, amount })}
+        unit={PARAMS.TOKEN_SYMBOL}
+        max={fmt(balance, PARAMS.DECIMALS, PARAMS.DECIMALS)}
+        data-testid="exit-amount"
+      />
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="exit-to" className="text-sm text-ink-2">
+          To · an Ethereum address
+        </Label>
+        <Input
+          id="exit-to"
+          value={draft.to}
+          onChange={(e) => setDraft({ ...draft, to: e.target.value })}
+          placeholder="0x…"
+          autoComplete="off"
+          spellCheck={false}
+          className="font-mono"
+          data-testid="exit-to"
+        />
+      </div>
+      <Stepper
+        steps={[
+          { id: 'burn', label: 'burned here, privately', state: 'pending', right: '20 s' },
+          {
+            id: 'prove',
+            label: 'proven to Ethereum with its epoch',
+            state: 'pending',
+            right: 'a few epochs',
+          },
+          {
+            id: 'mint',
+            label: 'minted as YACA to that address',
+            state: 'pending',
+            right: 'by hand, or by anyone',
+          },
+        ]}
+      />
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="primary" onClick={onReview} data-testid="exit-review">
+          Review
+        </Button>
+        <span className="text-xs text-ink-3">Mining pauses while it is proved.</span>
+      </div>
+    </div>
+  );
+}
+
+function Review({
+  snap,
+  balance,
+  busy,
+  onSend,
+  onBack,
+}: {
+  snap: EthSnapshot;
+  balance: bigint;
+  busy: boolean;
+  onSend: () => void;
+  onBack: () => void;
+}) {
+  const v = version();
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="label-mono">to ethereum · step 2 of 2</p>
+      <AmountBlock
+        value={snap.display}
+        unit={PARAMS.TOKEN_SYMBOL}
+        aside={`→ ${snap.display} YACA`}
+        tone="quiet"
+      />
+      <div>
+        <KvRow label="to" value={`Ξ ${shortAddress(snap.to)}`} />
+        <KvRow
+          label="from"
+          value={`this account's private balance · ${fmt(balance, PARAMS.DECIMALS)} → ${fmt(balance - snap.amount, PARAMS.DECIMALS)}`}
+        />
+        <KvRow
+          label="fees"
+          value="Aztec: the sponsor · Ethereum: whoever forwards it, Yacana by hand or you"
+        />
+        <KvRow label="time" value={`20 s to prove · Ethereum learns of it when V${v} proves the epoch`} />
+      </div>
+      <Note title="This will be public on Ethereum." tone="warn" data-testid="exit-public">
+        {shortAddress(snap.to)} receives {snap.display} YACA. The amount and the address are readable by
+        anyone, forever. The exit is then forwarded by hand, or by you.
+      </Note>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="uv" disabled={busy} onClick={onSend} data-testid="exit-send">
+          {busy ? 'Proving and sending…' : 'Send to Ethereum'}
+        </Button>
+        <Button variant="ghost" disabled={busy} onClick={onBack}>
+          Back
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function Sent({
+  snap,
+  sent,
+  balance,
+  onDone,
+}: {
+  snap: EthSnapshot;
+  sent?: Crossing;
+  balance: bigint;
+  onDone: () => void;
+}) {
+  const journal = useAtomValue(journalAtom);
+  const live = (sent && journal.find((c) => c.id === sent.id)) ?? sent;
+  const block = live?.block
+    ? `✓ burned in block ${live.block.toLocaleString('en-US')}`
+    : '✓ burned · waiting for a block';
+  return (
+    <div className="flex flex-col gap-4" data-testid="exit-sent">
+      <div>
+        <span className="label-mono">to ethereum</span>
+        <SheetTitle className="mt-1.5 text-[22px] leading-[1.2] tracking-[-0.02em]">On its way.</SheetTitle>
+      </div>
+      <AmountBlock
+        value={snap.display}
+        unit={PARAMS.TOKEN_SYMBOL}
+        aside={<span className="text-ok">{block}</span>}
+        tone="ok"
+      />
+      <Stepper
+        steps={[
+          { id: 'burn', label: 'burned here, privately', state: 'done' },
+          {
+            id: 'prove',
+            label: 'being proven to Ethereum',
+            state: 'active',
+            right: live?.epoch ? `epoch ${live.epoch}` : undefined,
+            detail: 'Usually within a few epochs; safe from then on.',
+          },
+          {
+            id: 'mint',
+            label: `minted as YACA to ${shortAddress(snap.to)}`,
+            state: 'pending',
+            right: 'by hand, or by you',
+          },
+        ]}
+      />
+      <KvRow label="balance now" value={`${money(balance)} · private`} />
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="primary" onClick={onDone}>
+          Done
+        </Button>
+        <span className="text-xs text-ink-3">
+          Mining resumed. Progress stays in Wallet until it is minted.
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export function ToEthereumSheet({
   session,
@@ -55,8 +242,8 @@ export function ToEthereumSheet({
     setBusy(true);
     setError(undefined);
     try {
-      await session.bridge?.exitToL1(snap.amount, snap.to);
-      setStep({ kind: 'sent', snap });
+      const crossing = (await session.bridge?.exitToL1(snap.amount, snap.to)) ?? undefined;
+      setStep({ kind: 'sent', snap, crossing });
     } catch (e) {
       setError(e instanceof Error ? (e.message.split('\n')[0] ?? '') : String(e));
     } finally {
@@ -66,96 +253,34 @@ export function ToEthereumSheet({
   return (
     <Sheet open={open} onOpenChange={(o) => (o ? onOpenChange(true) : close())}>
       <SheetContent data-testid="to-ethereum-sheet">
-        <SheetTitle>To Ethereum</SheetTitle>
-        <SheetDescription>
-          From this account's private balance of {fmt(balance, PARAMS.DECIMALS)} {PARAMS.TOKEN_SYMBOL}, as
-          YACA on Ethereum.
-        </SheetDescription>
+        {step.kind !== 'sent' && (
+          <>
+            <SheetTitle className="text-[22px] leading-[1.2] tracking-[-0.02em]">To Ethereum</SheetTitle>
+            <SheetDescription>
+              From this account’s private balance of {money(balance)}, as YACA on{' '}
+              {chainName(bridgeRecord()?.chainId)}.
+            </SheetDescription>
+          </>
+        )}
         {error && (
           <Alert variant="bad" data-testid="to-ethereum-error">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
         {step.kind === 'form' && (
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="exit-amount">Amount</Label>
-              <Input
-                id="exit-amount"
-                value={draft.amount}
-                onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
-                inputMode="decimal"
-                placeholder="0.00"
-                className="font-mono"
-                data-testid="exit-amount"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="exit-to">Ethereum address</Label>
-              <Input
-                id="exit-to"
-                value={draft.to}
-                onChange={(e) => setDraft({ ...draft, to: e.target.value })}
-                placeholder="0x…"
-                autoComplete="off"
-                spellCheck={false}
-                className="font-mono"
-                data-testid="exit-to"
-              />
-            </div>
-            <Button variant="primary" onClick={toReview} data-testid="exit-review">
-              Review
-            </Button>
-          </div>
+          <Form draft={draft} setDraft={setDraft} balance={balance} onReview={toReview} />
         )}
         {step.kind === 'review' && (
-          <div className="flex flex-col gap-4">
-            <p className="label-mono">to ethereum · step 2 of 2</p>
-            <div>
-              <KvRow label="amount" value={`${step.snap.display} ${PARAMS.TOKEN_SYMBOL} → YACA`} />
-              <KvRow label="to" value={shortAddress(step.snap.to)} />
-              <KvRow
-                label="fee"
-                value="paid by the sponsor here; the forward on Ethereum by Yacana or by you"
-              />
-            </div>
-            <Alert variant="warn" data-testid="exit-public">
-              <AlertTitle>This will be public on Ethereum.</AlertTitle>
-              <AlertDescription>
-                The amount and the address are readable by anyone, forever. Ethereum learns of it when V
-                {import.meta.env.VITE_ROLLUP_VERSION} proves the epoch, usually within a few epochs; the exit
-                is then forwarded by hand, or by you.
-              </AlertDescription>
-            </Alert>
-            <div className="flex gap-3">
-              <Button
-                variant="uv"
-                disabled={busy}
-                onClick={() => void send(step.snap)}
-                data-testid="exit-send"
-              >
-                {busy ? 'Proving and sending…' : 'Send to Ethereum'}
-              </Button>
-              <Button variant="ghost" disabled={busy} onClick={() => setStep({ kind: 'form' })}>
-                Back
-              </Button>
-            </div>
-            <p className="text-xs text-ink-3">
-              Mining pauses while the exit is proved in your browser, about 20 s.
-            </p>
-          </div>
+          <Review
+            snap={step.snap}
+            balance={balance}
+            busy={busy}
+            onSend={() => void send(step.snap)}
+            onBack={() => setStep({ kind: 'form' })}
+          />
         )}
         {step.kind === 'sent' && (
-          <div className="flex flex-col gap-4" data-testid="exit-sent">
-            <p className="text-lg font-semibold">Sent.</p>
-            <p className="text-sm text-ink-2">
-              {step.snap.display} {PARAMS.TOKEN_SYMBOL} left this account. The bridge tile follows it to
-              Ethereum.
-            </p>
-            <Button variant="primary" onClick={close}>
-              Done
-            </Button>
-          </div>
+          <Sent snap={step.snap} sent={step.crossing} balance={balance} onDone={close} />
         )}
       </SheetContent>
     </Sheet>
