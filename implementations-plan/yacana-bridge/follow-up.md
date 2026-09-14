@@ -1,18 +1,25 @@
-# Follow-up — what stays after stack #41 merges (2026-09-14)
+# Follow-up — what stays after stack #41 merged (2026-09-14, main at `2f56f86`)
 
-The backlog the six PRs leave behind, gathered from the plan's "not in this plan" list (§1), the lessons' open
+The backlog the six PRs left behind, gathered from the plan's "not in this plan" list (§1), the lessons' open
 items (phases 11–13), the delivery report's confidence table, and the owner's review rounds. Ordered by what
 unlocks what; each item names the evidence it would add. The next blueprint starts from here, on a fresh
 worktree off `main`, not from this branch.
 
 ## 1. Right after the merge (the owner's calls, in this order)
 
-1. **Production deploys.** `bun run site:deploy` for the apex with the new record (the bridge block, `registryIndex: 5`,
-   the first-epoch floor); then `wrangler deploy -c v5/wrangler.jsonc` attaches `v5.yacana.network` to the versioned
-   origin. Then sign in with a real passkey on both hosts (one account across the apex and the versioned origin: the
-   rig's `origin` case proved it on TLS test domains only).
-2. **Dispatch the full rig on CI** (`harness.yml` with `all`): pull requests run only the flip; the migration cases
-   (H3 · H4 · H6 · H11), `deposit`, `browser` and `origin` have run green locally only.
+1. **Production deploys — done 2026-09-14.** Workers Builds deployed the apex from the merge commit by itself
+   (`build.json` reports `2f56f86`, role apex); the versioned origin was deployed by hand on the owner's word
+   (`YACANA_APP_ROLE=old bun run site:build` of `2f56f86`, `wrangler deploy -c v5/wrangler.jsonc`, version
+   `00295ec9-ec53-4664-a9ef-5a3625fbc3c6`), which created `v5.yacana.network`. **Still to do**: sign in with a real
+   passkey on both hosts (one account across the apex and the versioned origin: the rig's `origin` case proved it
+   on TLS test domains only).
+2. **The rig on CI — the headless cases ran green 2026-09-14** (`harness.yml` dispatched from `bridge-post-merge`,
+   run 34888546613: H0, H1 · H6 · H9 · H10, H2, H3 · H4 · H6 · H11, H5, H7). Two dispatches before it
+   (34875890991, 34879827605) had the same protocol cases green and the two page-driven cases failing on the
+   runner itself: `browser` proves claims for real in Chromium and its first stage passed the runner's 45 minutes
+   (192 s on the homelab), `origin` could not reach its TLS test names. Nothing named now means the six headless
+   cases; `browser` and `origin` run when named and stay local until §4's runner. Pull requests keep running only
+   the flip; dispatch again after any change under `packages/harness`, `packages/deploy` or `scripts/run`.
 3. **A dedicated relayer key.** The rehearsal lists the multisig's EOA as the relayer too. One `set-forwarder` call
    once the second key exists; `YACANA_L1_FORWARDER_KEY` is already the script's env for it.
 4. **Forwarding cadence.** The pages promise none: a withdrawal is the holder's claim, a held send-ahead says "Yacana
@@ -20,7 +27,8 @@ worktree off `main`, not from this branch.
    owner's machine, or the copy stays as is. Decide once, write it into `docs/upgrades.md`.
 5. **Keep forwarding the held K2** (1 tYACA in the archive, "no target record"): it lands only once a next testnet
    version is registered.
-6. **Close the worktree**: `agent-worktree done yacana-bridge` after the merge (ExitWorktree first).
+6. **Close the worktree — done 2026-09-14** (`yacana-bridge` removed after the merge; this file and the CI fix
+   travelled on `bridge-post-merge`).
 
 ## 2. The bridge's UI/UX — the next pass over bridging, depositing, sending ahead
 
@@ -80,7 +88,7 @@ What the owner's two review rounds did not reach, and what only a hand on a real
 | leg | today | what raises it |
 |---|---|---|
 | Portal (Solidity) | high on tested paths | Fuzz and invariant tests on the cap's growth and the pause budget; `/harden security` on the portal and the miner's bridge functions; an external audit before mainnet. |
-| Upgrade rig | high locally, moderate as a stand-in for Aztec | `all` on CI (item 1.2); one real testnet upgrade against the runbook (retire, continuation, the old origin's take-down: steps 7–10 have never run outside the rig). |
+| Upgrade rig | high locally; the headless cases green on CI; moderate as a stand-in for Aztec | The two page-driven cases on CI: a runner with the proving budget (a larger runner, or a proverless mode for the `browser` case that keeps one real proof) and the run's TLS names resolved for `origin` (Playwright's host-resolver rules). One real testnet upgrade against the runbook (retire, continuation, the old origin's take-down: steps 7–10 have never run outside the rig). |
 | Guided path | moderate–high | The MetaMask pass (2), the second-device restore (2), a real flip. |
 | Versioned origin | moderate–high | The two deploys and a real passkey on both hosts (1.1). |
 | Governance | EOAs | The Safe as the governance multisig with its signers and threshold (A4); the dedicated relayer key (1.3). |

@@ -198,6 +198,10 @@ host. Rehearsed 2026-09-13: the Worker created without its route from a copy of 
 serving the 2026-09-05 record as role `old` at `https://86e77d40-yacana-v5.alejo-amiras.workers.dev` — the same
 policy headers as the apex preview, `build.json` with the role and the old miner, the retired banner, sign-in
 restore-only with the preview notice naming the host.
+First production deploy 2026-09-14, after stack #41 merged: `YACANA_APP_ROLE=old bun run site:build` of `2f56f86`
+and `wrangler deploy -c v5/wrangler.jsonc` (version `00295ec9-ec53-4664-a9ef-5a3625fbc3c6`) created the custom
+domain; `https://v5.yacana.network/build.json` reports role `old` with the live testnet record. The apex was
+deployed by Workers Builds from the same commit.
 
 The witness archive: `deployments/witnesses/<profile>.jsonl`, written by `bun run bridge -- forward` from a
 version's settled exits (every version of the profile in the one file), committed, and served by the site as one
