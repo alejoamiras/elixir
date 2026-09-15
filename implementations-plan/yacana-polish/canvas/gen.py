@@ -28,39 +28,38 @@ NOTE_W = 340
 # note string, which sits left of the row's boards.
 PAGES = [
     ("picks", "1 · Start here · the picks", (
-        "READ ME FIRST. Eight questions, each with an A/B/C. A is drawn and recommended; the note beside each row "
-        "says what B and C would be. Answer with the pick's number and a letter (\"2A, 5B\"), or say what you'd change. "
-        "Every other page is a flow; boards read left to right."), [
+        "THE PICKS, ANSWERED 2026-09-15: 1A 2A 3A 4A 5B 6A 7A 8A. Each note says what was picked and what the "
+        "alternatives were; the flows on the other pages draw the picked option. Boards read left to right."), [
         [("Picks", X.picks(), 1200, 860, "The picks · A/B/C")],
-        [("PICK 1 · Arrival on /mine.\nA (drawn, recommended): page-first. The live cockpit is the landing; Start mining opens the "
+        [("PICK 1 · Arrival on /mine · PICKED A.\nA (drawn): page-first. The live cockpit is the landing; Start mining opens the "
           "account dialog on the click; a stored account gets Welcome back.\nB: dialog-first, as today, redesigned.\nC: an onboarding "
           "route /mine/start with \"Just watch\" to the cockpit."),
          ("Pick1-Arrival", M.mine_signed_out(), 1440, 960, "Pick 1 · A · page-first: the cockpit, signed out"),
          ("Pick1-Dialog", A.start(), 492, 360, "Pick 1 · A · the dialog on the click")],
-        [("PICK 2 · Where a transaction happens.\nA (recommended): a centred 440 px dialog; form → progress → done; after \"sent\" "
+        [("PICK 2 · Where a transaction happens · PICKED A.\nA: a centred 440 px dialog; form → progress → done; after \"sent\" "
           "the Wallet row owns the progress.\nB: the right-side sheet (today), redesigned.\nC: a page per flow.\nThe board draws all three small."),
          ("Pick2-Container", B.container_options(), 1200, 660, "Pick 2 · the container · A/B/C")],
-        [("PICK 3 · The bridge form.\nA (drawn, recommended): one screen with the live summary rows; the button carries the amount; "
+        [("PICK 3 · The bridge form · PICKED A.\nA (drawn): one screen with the live summary rows; the button carries the amount; "
           "a pasted address shows in full with a tag.\nB: two steps, the review compact (three rows)."),
          ("Pick3-BridgeForm", B.to_eth_form(), 492, 660, "Pick 3 · A · one screen"),
          ("Pick3-Pasted", B.to_eth_form(pasted=True), 492, 780, "Pick 3 · A · a pasted address")],
-        [("PICK 4 · Navigation.\nA (recommended): text tabs with 14 px icons, a gear, an account chip.\nB: text-only tabs, unified "
+        [("PICK 4 · Navigation · PICKED A.\nA: text tabs with 14 px icons, a gear, an account chip.\nB: text-only tabs, unified "
           "across the apps.\nC: an icon rail on the left.\nThe board draws all three headers."),
          ("Pick4-Nav", X.nav_options(), 1500, 1000, "Pick 4 · navigation · A/B/C")],
-        [("PICK 5 · Sign out.\nA (recommended): a plain confirm dialog, with the backup gate when the words aren't backed up.\n"
-          "B: hold-to-confirm, restyled (1.2 s, the progress under the label)."),
-         ("Pick5-A", A.signout(), 492, 300, "Pick 5 · A · confirm"),
-         ("Pick5-B", A.signout_hold(), 492, 360, "Pick 5 · B · hold"),
+        [("PICK 5 · Sign out · PICKED B, without the hint line and the click alternative.\nA: a plain confirm dialog.\n"
+          "B (drawn): hold-to-confirm, 1.2 s, the progress under the label. The backup gate for unbacked words stays."),
+         ("Pick5-B", A.signout_hold(), 492, 330, "Pick 5 · B · hold (picked)"),
+         ("Pick5-A", A.signout(), 492, 300, "Pick 5 · A · confirm (not picked)"),
          ("Pick5-Words", A.signout("unbacked"), 492, 340, "Pick 5 · A · the backup gate")],
-        [("PICK 6 · Power with Presto connected (the cockpit's epoch tile; Settings keeps its slider either way).\n"
-          "A (drawn, recommended): the Presto row replaces the slider; the slider returns when Presto drops out.\nB: the slider "
+        [("PICK 6 · Power with Presto connected · PICKED A (the cockpit's epoch tile; Settings keeps its slider either way).\n"
+          "A (drawn): the Presto row replaces the slider; the slider returns when Presto drops out.\nB: the slider "
           "stays, dimmed, with a one-liner.\nC: hide the slider and show no row; the pill's ✦ is the only sign."),
          ("Pick6-Presto", M.mine_presto(), 1440, 960, "Pick 6 · A · the Presto row"),
          ("Pick6-Fallback", M.mine_presto_fallback(), 1440, 1040, "Pick 6 · A · Presto dropped out: the banner, the slider back")],
-        [("PICK 7 · The old origin (v5.yacana.network).\nA (drawn, recommended): one \"Send ahead\" page, Settings with Account and "
+        [("PICK 7 · The old origin (v5.yacana.network) · PICKED A.\nA (drawn): one \"Send ahead\" page, Settings with Account and "
           "Sign out, Stats ↗ to the apex. No Wallet tab, no landing, no mining.\nB: keep a Wallet tab too."),
          ("Pick7-OldOrigin", U.old_origin(), 1440, 1020, "Pick 7 · A · v5.yacana.network")],
-        [("PICK 8 · Passkey consent.\nA (drawn, recommended): keep the one checkbox, unchecked, the button disabled until it's "
+        [("PICK 8 · Passkey consent · PICKED A.\nA (drawn): keep the one checkbox, unchecked, the button disabled until it's "
           "ticked; friction on purpose.\nB: drop the checkbox; the note carries the fact, and the words flow has its own "
           "confirm-by-typing."),
          ("Pick8-Consent", A.create(), 492, 720, "Pick 8 · A · the checkbox")],
@@ -82,8 +81,8 @@ PAGES = [
          ("Opening3", A.opening(3), 492, 460, "Opening · syncing"),
          ("OpeningErrorProver", A.opening_error("prover"), 492, 480, "Opening · download failed"),
          ("OpeningErrorNode", A.opening_error("node"), 492, 500, "Opening · node silent")],
-        [("SignOut", A.signout(), 492, 300, "Sign out"),
-         ("SignOutHold", A.signout_hold(), 492, 360, "Sign out · hold (B)"),
+        [("SignOutHold", A.signout_hold(), 492, 330, "Sign out · hold (picked)"),
+         ("SignOut", A.signout(), 492, 300, "Sign out · confirm (not picked)"),
          ("SignOutWords", A.signout("unbacked"), 492, 340, "Sign out · not backed up")],
     ]),
     ("mine", "3 · Mine", ("The cockpit signed out, idle (Presto's billboard), mining (the chart, the claiming chip), with Presto, "

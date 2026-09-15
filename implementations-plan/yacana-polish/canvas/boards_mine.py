@@ -15,7 +15,7 @@ LEDGER_ENDED = ('<ol class="ledger">'
 LEDGER_EMPTY = '<ol class="ledger"><li class="ep"><span class="t">16:04:12</span><span class="g">──</span><span>epoch 11 opened · bar 1.0</span></li></ol>'
 
 
-def chart(mining: bool, since: str = "since 16:05", window: str = "now") -> str:
+def chart(mining: bool, foot: str = "3.6 s per proof · 12 proofs", window: str = "now") -> str:
     """The score loop: the bar as a step line, a tick at the epoch close, the win a ring with a short drop above the bar."""
     if not mining:
         return ('<div class="ph-chart">Your proofs draw here once you start.<br><span class="ink3" style="display:inline-block;margin-top:6px">The bar is 1.0 · clear it to win</span></div>')
@@ -34,7 +34,7 @@ def chart(mining: bool, since: str = "since 16:05", window: str = "now") -> str:
             f'<text x="484" y="49" fill="#b39dff">★ 2.8 · a win</text>'
             f'<text x="10" y="64">2.0</text><text x="10" y="88">1.6</text><text x="10" y="144">1</text>'
             f'<text x="{w-10}" y="100" text-anchor="end" fill="rgba(242,239,233,.5)">the bar · clear it to win</text>'
-            f'<text x="40" y="162">{since}</text><text x="{w-10}" y="162" text-anchor="end">{window}</text>'
+            f'<text x="40" y="162">{foot}</text><text x="{w-10}" y="162" text-anchor="end">{window}</text>'
             '</svg>')
 
 
@@ -47,18 +47,18 @@ def loop_tile(state: str) -> str:
         inner = (th("mining ended on v5 · sep 18 14:02")
                  + '<div class="ph-chart">Mining moved to V6 at yacana.network.<br><span class="ink3" style="display:inline-block;margin-top:6px">Your proofs from this session stay below.</span></div>')
         return tile(inner, "loop")
+    foot = "3.6 s per proof · " + ("✦ presto · " if state == "presto" else "") + "12 proofs"
     if state in LIVE:
-        per = "3.6 s per proof · " + ("✦ presto" if state == "presto" else "11 threads") + " · 12 proofs"
         claiming = st("claiming a win · 12 s", "on") if state == "mining" else ""
-        right = f'{claiming}<span class="x2 mono ink3">{per}</span>{btn("Stop", "sm")}'
+        right = f'{claiming}{btn("Stop", "sm")}'
         head = "live · since 16:05"
     elif state == "presto-blocked":
-        right = f'<span class="x2 mono ink3">11 threads</span>{btn("Start mining", "uv sm dis")}'
+        right = btn("Start mining", "uv sm dis")
         head = "your proofs"
     else:
-        right = f'<span class="x2 mono ink3">{"— per proof · " if state == "idle" else ""}11 threads</span>{btn("Start mining", "uv sm")}'
+        right = btn("Start mining", "uv sm")
         head = "your proofs"
-    inner = th(head, right) + chart(state in LIVE)
+    inner = th(head, right) + chart(state in LIVE, foot)
     return tile(inner, "loop")
 
 
@@ -121,7 +121,7 @@ GONE = "Presto stopped answering. Proving in the browser; retry when it's back."
 
 
 def presto_notice(text: str, tone: str = "warn", retry: bool = True) -> str:
-    return alert(text, tone, "browser · 11 threads" if tone == "warn" else "", retry)
+    return alert(text, tone, "", retry)
 
 
 PRESTO_REASONS = [

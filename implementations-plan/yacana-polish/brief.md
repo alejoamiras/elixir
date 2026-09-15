@@ -49,6 +49,13 @@ top; Presto keeps its own billboard and every Presto notice is a banner under th
 tile; no thread count for Presto (it reports none); the power slider lives in Settings too; a running claim
 shows as a chip in the loop tile's header; done stages in a trail carry a ✓; the node row is tiered.
 
+v4.1: the owner's picks are in (§7: 1A 2A 3A 4A 5B 6A 7A 8A; 5B without the hint line) and the second batch
+of UI fixes (§10): the words counter no longer wraps, the loop tile's header holds only the status and the
+button (the per-proof line moved into the chart's footer), no thread count on a Presto banner, done trail
+chips are grey so the green stays for what needs the user, the Send form's How row has no rule above it, the
+amount's unit and MAX sit on one centre line, and the node row is three tiers (what and how, which host,
+the numbers).
+
 ## 1. The owner's list, mapped to surfaces
 
 | # | Surface | The complaint (owner's words, shortened) | Answered in |
@@ -280,7 +287,10 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
   83,164 ↗ · 4 tYACA, privately"; the ledger's legend says "✓ minted, final once its epoch is proven" (the
   same signal as the Wallet's row, §9.3.3). While a claim runs, the loop tile's header carries the chip
   `claiming a win · 12 s` (the ledger row's clock), so a claim is visible without reading the ledger; a claim
-  that misses reads "★ a win · claim didn't land: the epoch closed first". The ended cockpit's ledger shows
+  that misses reads "★ a win · claim didn't land: the epoch closed first". The header holds only the status
+  ("live · since 16:05"), that chip and **Stop**; "3.6 s per proof · 12 proofs" is the chart's footer line, and
+  the thread count lives in the epoch tile's power row alone. Signed out, the header is "your proofs" and
+  **Start mining**, nothing else. The ended cockpit's ledger shows
   what was mined before the end.
 - **The epoch tile**: wins (the epoch closes after four; "claims" was the contract's word), bar, open for,
   expected close, "next bar if it closed now ×0.62", "anyone can
@@ -297,8 +307,8 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
 - **Presto**: probed once at **Start mining**, never on load. Not found: Presto's own billboard under the
   header, as today (the `presto-banners` web component; the owner prefers it to a quiet row), dismissible.
   Installed but blocked, dropped out, or any other reason (board PrestoReasons): a banner under the header in
-  today's notice shape (a dot, one sentence, `browser · 11 threads` at the right, **Retry** where it helps),
-  never inside the chart or the epoch tile. Connected: the status pill reads `mining ✦ presto`; the power
+  today's notice shape (a dot, one sentence, **Retry** where it helps; no thread count, it said nothing
+  useful there), never inside the chart or the epoch tile. Connected: the status pill reads `mining ✦ presto`; the power
   row becomes a Presto row — "✦ **Presto** · native prover · its speed is set in the Presto app" with "Open
   Presto ↗" — and the slider is hidden in the cockpit (option 6; Settings keeps its slider). Presto does not
   report its thread count, so the page never shows one for it. Dropped out: the banner says why, the slider
@@ -326,7 +336,8 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
     counterparty in small mono (`0x90F7…b906`);
   - the state chip at the right and the time;
   - line 2: one sentence;
-  - the chips trail (the owner's favourite), in the vocabulary of §4.3, a ✓ on every stage already done;
+  - the chips trail (the owner's favourite), in the vocabulary of §4.3, a ✓ on every stage already done, in
+    grey: the green is kept for the chip that needs the user (`ready to claim`);
   - the action where one exists: **Claim on Ethereum**, **Claim** (arrivals), **Forward to V6** (on V6 only),
     **Redeem on Ethereum**, **Bridge again** (**Send ahead again** on a send-ahead); a quiet **Details** opens the
     links (Etherscan, block), the
@@ -468,9 +479,10 @@ page controls it; the source is public — run your own build if that matters." 
 **Stay open on this device**: "On: anyone who can use this browser could open and spend from this account
 without your passkey. Off: one touch per open." (was "sealed under a device key").
 
-**The node row** is tiered (the owner: the old line was too much): line 1 the host, a chip (`healthy` /
-`throttled` / `no answer · 2 min`) and `default`; line 2, small, `block 83,117 · 12 s ago`; **Change**. Latency
-and the deployment check show only while a change is probed. It keeps reporting after the edit (rule 8, board
+**The node row** is three tiers (the owner: one line said too much): line 1 the label and a chip (`Aztec
+node` · `healthy` / `throttled` / `no answer · 2 min`); line 2 the host in mono and `default` (or `custom` ·
+"Use the default"); line 3, small, `block 83,117 · 12 s ago`; **Change** at the right. Latency and the
+deployment check show only while a change is probed. It keeps reporting after the edit (rule 8, board
 NodeStates):
 
 - Change → the row becomes a field with **Save** / **Cancel**. Save → an inline stepper under the field:
@@ -492,12 +504,13 @@ Gone: "Check" then "Use", the three paragraphs, "Copy diagnostics".
 
 ### 5.8 Sign out
 
-A plain dialog (option 5): title "Sign out?"; body for a passkey account "Your passkey logs you back in. Your
-balance stays with the account. Mining stops." (the last sentence only while mining); for backed-up words
-"Your 12 words log you back in. Your balance stays with the account."; for words not backed up the primary
-becomes **Back up my 12 words** with "Your 12 words are the only way back in, and they are not backed up yet.
-Yacana keeps no copy." and "sign out anyway" only after the backup. Buttons **Sign out** (danger) · **Cancel**.
-The same dialog answers "Use a different account" on the Welcome screen.
+Hold to confirm (the owner's pick, 5B): title "Sign out?"; body for a passkey account "Your passkey logs you
+back in. Your balance stays with the account. Mining stops." (the last sentence only while mining); for
+backed-up words "Your 12 words log you back in. Your balance stays with the account."; the button **Hold to
+sign out** (danger) fills over 1.2 s and releasing cancels; no hint line under it and no click alternative;
+**Cancel**. For words not backed up the primary becomes **Back up my 12 words** with "Your 12 words are the
+only way back in, and they are not backed up yet. Yacana keeps no copy." and "sign out anyway" only after the
+backup. The same dialog answers "Use a different account" on the Welcome screen.
 
 ### 5.9 The upgrade and the old origin
 
@@ -648,6 +661,10 @@ The full deck is the CopyDeck board (41 rows). The rows that changed in v2:
 | 7 | The old origin | **One "Send ahead" page + Settings (with Account) + Stats ↗.** | Keep a Wallet tab too. | — |
 | 8 | Passkey consent | **Keep the one checkbox**, unchecked, the button disabled until ticked; friction on purpose, not proof. | Drop it; the note carries the fact and the words flow has its own confirm-by-typing. | — |
 
+**Picked (2026-09-15):** 1A (page-first; the account dialog opens on the click), 2A, 3A, 4A, 5B (hold to
+confirm, without the "hold 1.2 s · release to cancel" hint and the "sign out with a click" link), 6A, 7A, 8A.
+The flows above draw the picked options; §5.8 is the 5B version.
+
 ## 8. Progressive disclosure and safety during upgrades
 
 The uncertain moments are three: the days before an upgrade, the hours after it (V5 still proving), and the
@@ -771,3 +788,16 @@ redeem afterwards). Redeem-on-Ethereum lives under the row's sentence and in Det
 | Mobile does not matter for this project. | The five phone boards, the phone options and the phone copy are gone; rule 9 says desktop only. |
 | A ✓ on the trail's done stages. | Done chips read `✓ sent › ✓ block 83,131 › reaching Ethereum`. |
 | The node row says too much; tier it. | Line 1 host · `healthy` · default; line 2 small `block 83,117 · 12 s ago`; latency and the deployment check only while a change is probed. |
+
+**Second batch (2026-09-15, on v4)**
+
+| The owner said | v4.1 |
+|---|---|
+| "12 of 12" wraps vertically under the long words error. | The counter never wraps; the message takes the width. |
+| "11 threads" in the signed-out cockpit reads weird and sticks to the button. | Signed out, the header is "your proofs" and Start mining only; the aside is a spaced row everywhere. |
+| The mining chart's header is crunched: too much information. | The header keeps the status, the claiming chip and Stop; "3.6 s per proof · 12 proofs" is the chart's footer; the thread count is in the power row only. |
+| "browser · 11 threads" on a Presto banner makes no contextual sense. | Gone. |
+| Too much green in Wallet's activity; it steals from "ready to claim". | Done trail chips are grey with their ✓; green is only the chip that needs the user. |
+| The Send form's How row should not have a rule above it. | It has none. |
+| The unit beside MAX is not on the same centre line; it looks broken. | The amount box centres its row: the number, then the unit and MAX as one group on one centre line. |
+| The node row still says too much on one line. | Three tiers: label and chip; host and default; the numbers, small. |

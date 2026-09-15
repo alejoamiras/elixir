@@ -11,7 +11,7 @@ def seg(mode: str) -> str:
     on, off = ("Privately", "Publicly") if mode == "private" else ("Publicly", "Privately")
     a = f'<span class="on">{on}</span>' if mode == "private" else f'<span>{off}</span>'
     b = f'<span>{off}</span>' if mode == "private" else f'<span class="on">{on}</span>'
-    return f'<div class="row sb" style="padding:9px 0;border-top:1px solid var(--line);font-size:13px"><span class="ink2">How</span><div class="seg" style="font-size:12.5px">{a}{b}</div></div>'
+    return f'<div class="row sb" style="padding:2px 0 9px;font-size:13px"><span class="ink2">How</span><div class="seg" style="font-size:12.5px">{a}{b}</div></div>'
 
 
 def send_form(mode: str = "private", unknown: bool = False):

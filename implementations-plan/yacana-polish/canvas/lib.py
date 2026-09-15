@@ -37,7 +37,7 @@ code,.mono{font-family:var(--mono)}
 .tile.hi{border-color:var(--uv)}
 .lm{font:500 11px/1.3 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
 .th{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 12px;font:500 11px/1.3 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
-.th .aside{margin-left:auto;text-align:right;font-weight:400;letter-spacing:.04em;text-transform:none}
+.th .aside{margin-left:auto;text-align:right;font-weight:400;letter-spacing:.04em;text-transform:none;display:inline-flex;align-items:center;gap:12px}
 .eyebrow{font:500 11.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--uv-2)}
 .kv{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding:7px 0;font-size:13px}
 .kv:first-child{border-top:0}
@@ -77,7 +77,7 @@ code,.mono{font-family:var(--mono)}
 .st.warn{color:var(--warn);border-color:rgba(232,181,77,.5)}.st.warn i{background:var(--warn)}
 .st.bad{color:var(--bad);border-color:rgba(229,98,79,.5)}.st.bad i{background:var(--bad)}
 .st.dim{color:var(--ink-3);border-color:var(--line)}.st.dim i{background:var(--ink-4)}
-.st.done{color:var(--ok);border-color:rgba(88,201,139,.35)}
+.st.done{color:var(--ink-3);border-color:var(--line)}
 .alert{display:flex;align-items:center;justify-content:space-between;gap:16px;border:1px solid;border-radius:8px;padding:10px 14px;font-size:13px;line-height:1.4}
 .alert i{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
 .alert.warn{color:var(--warn);border-color:rgba(232,181,77,.5);background:rgba(232,181,77,.06)}
@@ -114,13 +114,15 @@ svg text{font-family:var(--mono);font-size:10px;fill:var(--ink-3)}
 .cb i{flex:none;width:16px;height:16px;border-radius:4px;border:1px solid var(--line-2);margin-top:2px;display:inline-flex;align-items:center;justify-content:center}
 .cb i.on{background:var(--uv);border-color:var(--uv)}
 .cb i.on::after{content:"";width:8px;height:5px;border-left:2px solid var(--uv-ink);border-bottom:2px solid var(--uv-ink);transform:rotate(-45deg);margin-top:-2px}
-.amt{border:1px solid var(--line-2);border-radius:8px;padding:14px 16px;display:flex;align-items:baseline;gap:10px;background:var(--panel)}
+.amt{border:1px solid var(--line-2);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:10px;background:var(--panel)}
+.amt .tail{display:inline-flex;align-items:center;gap:10px;flex:none}
 .amt.on{border-color:var(--uv)}
 .amt .n{font-size:34px;line-height:1;font-weight:600;letter-spacing:-.03em;flex:1;min-width:0}
 .amt .n.ph{color:var(--ink-4);font-weight:500}
-.amt .u{font:500 12px var(--mono);color:var(--ink-3);letter-spacing:.04em}
-.amt .mx{align-self:center;font:600 11px var(--mono);letter-spacing:.08em;color:var(--uv-2);border:1px solid rgba(140,107,255,.5);border-radius:4px;padding:4px 8px}
-.under{display:flex;justify-content:space-between;gap:12px;font:400 12px var(--mono);color:var(--ink-3);padding:0 2px}
+.amt .u{font:500 12px var(--mono);color:var(--ink-3);letter-spacing:.04em;line-height:1}
+.amt .mx{font:600 11px var(--mono);line-height:1;letter-spacing:.08em;color:var(--uv-2);border:1px solid rgba(140,107,255,.5);border-radius:4px;padding:4px 8px}
+.under{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;font:400 12px var(--mono);color:var(--ink-3);padding:0 2px}
+.under>span:first-child{flex:1;min-width:0}.under>span:last-child{flex:none;white-space:nowrap}
 .under a{color:var(--uv-2)}
 .srow{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-top:1px solid var(--line);font-size:13px}
 .srow:first-child{border-top:0}
@@ -379,7 +381,7 @@ def checkbox(label: str, on: bool = False) -> str:
 def amount(value: str, unit: str, placeholder: bool = False, max_chip: bool = True, on: bool = False) -> str:
     mx = '<span class="mx">MAX</span>' if max_chip else ""
     return (f'<div class="amt {"on" if on else ""}"><span class="n {"ph" if placeholder else ""}">{value}</span>'
-            f'<span class="u">{unit}</span>{mx}</div>')
+            f'<span class="tail"><span class="u">{unit}</span>{mx}</span></div>')
 
 
 def srow(label: str, value: str, sub: str = "") -> str:

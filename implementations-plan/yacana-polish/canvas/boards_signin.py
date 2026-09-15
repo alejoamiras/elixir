@@ -168,7 +168,6 @@ def signout(method: str = "passkey", mining: bool = True):
 
 def signout_hold():
     inner = (head("account · 0x22a9db…612a", "Sign out?", "Your passkey logs you back in. Your balance stays with the account.")
-             + '<div class="col" style="gap:6px"><span class="btn danger full" style="position:relative;overflow:hidden"><span style="position:absolute;left:0;top:0;bottom:0;width:58%;background:rgba(229,98,79,.18)"></span><span style="position:relative">Hold to sign out</span></span>'
-             + '<div class="under"><span>hold 1.2 s · release to cancel</span><span><a href="#">sign out with a click</a></span></div></div>'
+             + '<div class="col" style="gap:6px"><span class="btn danger full" style="position:relative;overflow:hidden"><span style="position:absolute;left:0;top:0;bottom:0;width:58%;background:rgba(229,98,79,.18)"></span><span style="position:relative">Hold to sign out</span></span></div>'
              + btn("Cancel", "ghost"))
     return dialog_page(inner)

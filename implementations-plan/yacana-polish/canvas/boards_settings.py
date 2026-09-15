@@ -8,12 +8,12 @@ SLIDER = ('<div class="row sb"><span class="lm">power</span><span class="x2 mono
           '<div class="ticks"><span>eco · 3</span><span>balanced · 6</span><span class="uv2">max · 11</span></div>')
 
 
-def _line1(host: str, chip: str, tag: str = '<span class="ink3">· default</span>') -> str:
-    return f'<span class="mono">{host}</span> {chip} {tag}'
-
-
-def _line2(text: str) -> str:
-    return f'<br><span class="x2 mono ink3">{text}</span>'
+def _tiers(label: str, chip: str, host: str, tag: str, detail: str, right: str) -> str:
+    """Line 1 what and how it is; line 2 which host; line 3 the numbers, small."""
+    t = f' {tag}' if tag else ""
+    return (f'<div class="srl"><div><div class="k row" style="gap:10px;align-items:center">{label}{chip}</div>'
+            f'<div class="h" style="margin-top:6px"><span class="mono ink2">{host}</span>{t}</div>'
+            f'<div class="h x2 mono ink3" style="margin-top:4px">{detail}</div></div>{right}</div>')
 
 
 def _edit(label: str, value: str, help_: str, busy: bool = False, cls: str = "") -> str:
@@ -26,7 +26,7 @@ def _edit(label: str, value: str, help_: str, busy: bool = False, cls: str = "")
 def node_row(state: str = "read", kind: str = "aztec") -> str:
     label, host, health = HOSTS[kind]
     if state == "read":
-        return srl(label, _line1(host, st("healthy", "ok")) + _line2(health), btn("Change", "sm"))
+        return _tiers(label, st("healthy", "ok"), host, '<span class="ink3">· default</span>', health, btn("Change", "sm"))
     if state == "edit":
         return _edit(label, "https://my-node.example.net", f'Any https node on this deployment. {quiet("Use the default")}')
     if state == "checking":
@@ -39,14 +39,13 @@ def node_row(state: str = "read", kind: str = "aztec") -> str:
     if state == "failed":
         return _edit(label, "https://my-node.example.net", f"Couldn't rebuild your view from my-node.example.net: it stopped answering. Kept {host}.", cls="bad")
     if state == "silent":
-        return srl(label, _line1(host, st("no answer · 2 min", "warn"), "") + _line2("your view is from 14:02 · mining paused"),
-                   f'<span class="row" style="gap:8px">{btn("Retry", "sm")}{btn("Change", "sm")}</span>')
+        return _tiers(label, st("no answer · 2 min", "warn"), host, "", "your view is from 14:02 · mining paused",
+                      f'<span class="row" style="gap:8px">{btn("Retry", "sm")}{btn("Change", "sm")}</span>')
     if state == "limited":
-        return srl(label, _line1(host, st("throttled", "warn"), "") + _line2("block 83,117 · 40 s ago · public nodes throttle busy pages; it recovers on its own"),
-                   f'<span class="row" style="gap:8px">{btn("Change", "sm")}</span>')
+        return _tiers(label, st("throttled", "warn"), host, "", "block 83,117 · 40 s ago · public nodes throttle busy pages; it recovers on its own", btn("Change", "sm"))
     # custom, in use
-    return srl(label, _line1("my-node.example.net", st("healthy", "ok"), f'<span class="badge uv" style="padding:1px 6px">custom</span> {quiet("Use the default")}') + _line2("block 83,118 · 4 s ago"),
-               btn("Change", "sm"))
+    return _tiers(label, st("healthy", "ok"), "my-node.example.net", f'<span class="badge uv" style="padding:1px 6px">custom</span> {quiet("Use the default")}',
+                  "block 83,118 · 4 s ago", btn("Change", "sm"))
 
 
 STAY_OPEN = "On: anyone who can use this browser could open and spend from this account without your passkey. Off: one touch per open."

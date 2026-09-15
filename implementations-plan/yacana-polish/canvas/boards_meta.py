@@ -136,14 +136,14 @@ def picks():
         ("2", "The transaction container", "Centred dialog (440 px); form → progress → done.", "The right-side sheet, redesigned.", "A full page per flow."),
         ("3", "The bridge form", "One screen with the live summary; the button carries the amount; a pasted address shows in full with a \"not your connected wallet\" tag.", "Two steps, the review compact.", "—"),
         ("4", "Navigation", "Text + 14 px icons, a gear, an account chip.", "Text-only tabs, unified.", "An icon rail on the left."),
-        ("5", "Sign out", "A confirm dialog (with the backup gate for unbacked words).", "Hold-to-confirm restyled (mono progress under the label, 1.2 s).", "—"),
+        ("5", "Sign out", "A confirm dialog (with the backup gate for unbacked words).", "PICKED · Hold-to-confirm, 1.2 s, no hint line and no click alternative; the backup gate stays.", "—"),
         ("6", "Power with Presto", "The Presto row replaces the slider; the slider returns when Presto drops out.", "The slider dimmed with a one-liner.", "Hide the slider, no row; the pill's ✦ is the only sign."),
         ("7", "The old origin", "One \"Send ahead\" page + Settings (with Account and Sign out) + Stats ↗.", "Keep a Wallet tab too.", "—"),
         ("8", "Passkey consent", "Keep the one checkbox, unchecked, the button disabled until it's ticked. It is friction on purpose, not proof of understanding.", "Drop it; the note carries the fact and the words flow has its own confirm-by-typing.", "—"),
     ]
     cells = "".join(f'<div class="mono uv2" style="font-size:12px">{n}</div><div><b>{q}</b></div><div class="ok" style="color:var(--ink)"><span class="uv2 mono" style="font-size:10.5px;letter-spacing:.08em">A · RECOMMENDED</span><br>{a}</div><div class="ink2"><span class="ink3 mono" style="font-size:10.5px;letter-spacing:.08em">B</span><br>{b}</div><div class="ink2"><span class="ink3 mono" style="font-size:10.5px;letter-spacing:.08em">C</span><br>{c}</div>'
                     for n, q, a, b, c in rows)
-    body = ('<div class="board"><span class="lm">the picks</span><h1>Eight questions for the owner.</h1>'
+    body = ('<div class="board"><span class="lm">the picks · answered 2026-09-15</span><h1>Eight questions, picked: 1A 2A 3A 4A 5B 6A 7A 8A.</h1>'
             '<p>Each row is drawn somewhere on the canvas; the recommended option is what the flows assume. Say A/B/C per row, or "all A".</p>'
             f'<div style="display:grid;grid-template-columns:28px 1.1fr 1.6fr 1.2fr 1.2fr;gap:10px 16px;font-size:13px;line-height:1.45;border-top:1px solid var(--line-2);padding-top:12px">{cells}</div></div>')
     return page(body, 1200)
