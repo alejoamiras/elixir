@@ -35,7 +35,13 @@ state for V5's node being gone; "longer than usual" starts its clock when V6 ope
 held; Presto's row has a line per reason; the phone's activity row is one column; the chips say "reaching
 Ethereum" and "arriving" everywhere; a send-ahead's retry is "Send ahead again"; the words login has the
 checksum error and the empty-account hint; Send has its four field refusals; the ended cockpit's ledger is
-from before the end; the epoch tile counts "wins".
+from before the end; the epoch tile counts "wins". The closing Codex pass on v3 (six findings, all verified) gives
+v3.1: a pause also stops deposits (`deposit` requires the version not paused), so it disables Bridge from
+Ethereum and only warns on the rest; the "could close any day" sentence says "the next Aztec upgrade closes
+V5's exits, later only by the days the bridge was paused" (the observation plus the paused seconds, never a
+schedule); "didn't finish" needs the transaction's enforced expiry persisted before the send and a node synced
+past it (§9.1.10); a passkey account that this device can't open is opened where it works, never by words;
+K2's exit limit is frozen after the upgrade like K1's; the phone sheet names Sepolia and keeps How it works.
 
 ## 1. The owner's list, mapped to surfaces
 
@@ -216,7 +222,7 @@ the button stays):
 | The authenticator can't derive a key (`NoPrfError`) | "This device can't make a Yacana passkey. Its passkeys can't derive a key. Use 12 words instead; they work everywhere." | Use 12 words |
 | No WebAuthn | "This browser has no passkeys. Use a current Chrome, Safari, Edge or Firefox; or use 12 words." | Use 12 words |
 | Log in, the prompt ended without a passkey (WebAuthn cannot tell "none here" from "dismissed") | "Sign-in didn't complete. No passkey was used. If this device has none for Yacana, log in where you created it, or enter your 12 words." | Continue with passkey |
-| Log in, the passkey exists but can't derive the key (`NoPrfError`) | "This device can't open a Yacana passkey. Its passkeys can't derive the key. Log in on a device whose passkeys can, or enter your 12 words." | Enter 12 words |
+| Log in, the passkey exists but can't derive the key (`NoPrfError`) | "This device can't open your passkey. Its passkeys can't derive the key. Open the account on the device or browser where it works; the balance is unchanged." (words open a different account, so they are not offered here; "Use a different account" goes through Sign out) | Try again |
 | Another tab holds this account (`ChainViewHeldError`: there is no takeover; the other connection must close) | "Another tab has this account open. Close that tab, then retry here." | Retry |
 
 "That passkey belongs to a different account" is not a case: Open with passkey restricts the browser to the
@@ -302,9 +308,10 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
   are closed for good. Bridge from Ethereum on V6, at yacana.network, once it opens." (`depositsClosed` is
   permanent per version) / "The Ethereum RPC isn't answering: bridging waits until it does. Settings" /
   "Bridging opens once Yacana registers V5 on Ethereum, at launch." (both bridge buttons: `deposit` needs the
-  version registered too). A pause disables nothing: "The bridge is paused until Sep 20: claims on Ethereum
-  wait until it lifts. Sending and deposits still work; a send now waits on Ethereum." (the L2 send works, the
-  L1 claim waits, and after the flip a user must still be able to leave V5 during a pause).
+  version registered too). A pause disables Bridge from Ethereum (`deposit` requires the version not paused)
+  and only warns on the rest: "The bridge is paused until Sep 20: deposits wait until it lifts, and so do
+  claims on Ethereum. A bridge to Ethereum can start now; its claim waits." (the L2 send and the L2 burn are
+  Aztec transactions that never touch the portal; every Ethereum step, claim, forward, redeem, deposit, waits).
 - **Account tile**: `0x22a9…612a` (link), "passkey" / "12 words · backed up ✓" / "12 words · not backed up ·
   Back up now"; **Sign out**. The sign-out sentence moves into the dialog.
 - **Activity** (one list; the fix for #7 and #22): rows for every crossing, newest first, each with:
@@ -330,20 +337,21 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
 | K1 proven-pending | reaching Ethereum | Reaches Ethereum usually within the hour; then you claim it there. V5 must prove it by 17:03, or the balance comes back here. | — |
 | K1 witnessed | reached Ethereum | Reached Ethereum; reading the bridge for the claim. | — |
 | K1 ready | ready to claim | Ready. Claim it on Ethereum with a wallet on Sepolia; that wallet pays the gas in ETH. | Claim on Ethereum |
-| K1 ready, after the 180 days, the upgrade after V6 not seen yet | could close any day | The 180 days are over. V5's exits close the day the upgrade after V6 lands. Claim it now. | Claim on Ethereum |
+| K1 ready, after the 180 days, the upgrade after V6 not seen yet | could close any day | The 180 days are over. The next Aztec upgrade closes V5's exits, later only by the days the bridge was paused. Claim it now. | Claim on Ethereum |
 | K1 minted-l1 | claimed | 1 YACA at 0x90F7…b906. | Etherscan ↗ |
 | K1 never-proven | undone | V5 didn't prove this in time. The balance is back here. | Bridge again |
 | K1 paused | paused · until Sep 20 | The bridge is paused until Sep 20: claims wait until it lifts. Yacana can pause for 60 days in all over V5's life, and can lift a pause early. | — |
 | K1 headroom, before the flip | waiting for the limit | More has left V5 than its exit limit allows right now. The limit grows by the hour while V5 is current, and this turns ready to claim once it fits; others may use the room first. | — (Claim appears once it fits; nothing goes through by itself) |
 | K1 headroom, after the flip | over the limit | V5's exit limit froze at the upgrade, and this is beyond it. It cannot leave. | Details |
 | K1 closed | last day passed | V5's last day passed before this was claimed. It cannot leave any more. | — |
-| K2 headroom | waiting for the limit | More has left V5 than its exit limit allows right now. Yacana forwards it once there is room, or you do from V6; a redeem waits the same way. | — |
+| K2 headroom, before the flip | waiting for the limit | More has left V5 than its exit limit allows right now. The limit grows by the hour until the upgrade; a redeem waits for room the same way, and the forward comes after the upgrade. | — |
+| K2 headroom, after the flip | over the limit | V5's exit limit froze at the upgrade, and this is beyond it. It cannot be forwarded or redeemed. | Details |
 | K2 closed | last day passed | V5's last day passed before this was forwarded or redeemed. It cannot leave any more. | — |
 | K2 proven-pending | reaching Ethereum | Reaches Ethereum usually within the hour; then held there for V6. V5 must prove it by 14:03, or the balance comes back here. | — |
 | K2 witnessed · held | held for V6 | Held on Ethereum for V6, out of V5's reach. Yacana forwards it into V6 once V6 opens; you can too, from V6. | Details: Redeem on Ethereum instead, until at least Mar 17 (…), while the bridge is open (`_requireOpen` gates `redeem` too: not paused, within the limit, before the last day) |
 | K2 held > 6 h after V6 opened | longer than usual | Yacana hasn't forwarded it yet. Forward it yourself from V6, or check the Ethereum RPC in Settings. | Forward to V6 (on V6) · Redeem on Ethereum |
 | K2 not-registered | waiting for Yacana | V6 is live, but Yacana hasn't opened its contract there yet. You can redeem it on Ethereum until at least Mar 17 (…). | Redeem on Ethereum |
-| K2 held, after the 180 days, the upgrade after V6 not seen yet | could close any day | The 180 days are over. V5's exits close the day the upgrade after V6 lands. Forward it from V6 or redeem it now. | Forward to V6 · Redeem on Ethereum |
+| K2 held, after the 180 days, the upgrade after V6 not seen yet | could close any day | The 180 days are over. The next Aztec upgrade closes V5's exits, later only by the days the bridge was paused. Forward it from V6 or redeem it now. | Forward to V6 · Redeem on Ethereum |
 | K2 forwarded | arriving | Forwarded into V6; claimable there in a few minutes. | — |
 | K2 claimable (on V6) | ready to claim | Arrived from V5. Claim it into your balance: one tap, about 20 s, no fee. | Claim |
 | K2 minted-l2 | claimed | 3.5 tYACA in your balance. Final once its epoch is proven. | — |
@@ -509,12 +517,12 @@ flip: the portal forwards to the canonical registered later version, which need 
 
 **The last day, four readings** (the portal's `deadline()`): before the upgrade, "for at least 180 days after
 the upgrade; after that, until the upgrade after V6 lands"; after it, "until at least Mar 17 (180 days after
-the upgrade); after that day, until the upgrade after V6 lands"; once the upgrade after V6 is scheduled before
-Mar 17, the date is final ("until Mar 17", later only by paused seconds); past Mar 17 with none scheduled, the
-row turns red, `could close any day` · "The 180 days are over. V5's exits close the day the upgrade after V6
-lands. Claim it now." (the portal records that upgrade in the first call that sees it and closes V5 in that
-same block: a cliff, never a future date). "Later if the next upgrade comes later" is gone: it read as time
-gained.
+the upgrade); after that day, until the upgrade after V6 lands"; once the upgrade after V6 has landed before
+Mar 17, the date is final ("until Mar 17", later only by the days the bridge was paused); past Mar 17 with none
+landed, the row turns red, `could close any day` · "The 180 days are over. The next Aztec upgrade closes V5's exits, later only by the days the bridge was paused. Claim it now." (the portal records that upgrade in the first
+call that sees it, and the deadline becomes that moment plus the paused seconds: a cliff softened only by past
+pauses, never a future date the page can promise; a schedule is not a transition). "Later if the next upgrade
+comes later" is gone: it read as time gained.
 
 **How it works** (level 2): the five stages with their times — "Reaches Ethereum with its epoch · usually
 within the hour · V5 must prove the epoch within its deadline, about 40 min after the send (the real time once
@@ -667,7 +675,10 @@ redeem afterwards). Redeem-on-Ethereum lives under the row's sentence and in Det
 10. A `proving` record that survives a reload without a hash: the session recovers the hash by the send's log
     tag (`session.ts` `txByTag`, read when `!c.txHash`), but a send that never reached the chain returns
     nothing and the record stays `proving` for ever (`afterTx` returns on `!f.tx`). Show "checking" while the
-    tag has no log; expire into "didn't finish" only once the transaction's own expiry has passed with no log.
+    tag has no log; "didn't finish" (and Bridge again) needs evidence: the record persists the transaction's
+    enforced expiry before the send (`Crossing` has no such field today), and the row turns only when the node
+    is synced past that expiry with no log for the tag. A node that is behind, or has no history, keeps the
+    row at "checking" without a retry.
 11. `ChainViewHeldError` has no takeover: the other tab's connection must close (`wallet.ts:99`); the dialog
     offers Retry, never "Continue here".
 12. `takingLong` (`bridge/copy.ts`) counts from the record's `updatedAt`, the moment it entered `held`, which
@@ -692,9 +703,9 @@ redeem afterwards). Redeem-on-Ethereum lives under the row's sentence and in Det
 11. `OldTabNotice` copy stays; it is a redeploy guard, not this pass.
 12. One account per browser: a single slot with fail-closed create/login and `excludeCredentials`.
 13. Presto is probed at Start mining, not at cockpit-ready (`boot.ts:159`).
-14. The pause never disables a money button; the row says the claim waits. `deposit` needs the version
-    registered and deposits not closed; `forward` and `redeem` need the bridge open (not paused, within the
-    limit, before the last day).
+14. A pause disables Bridge from Ethereum and nothing else; the rows say the Ethereum step waits. `deposit`
+    needs the version registered, not paused, deposits not closed; `forward` and `redeem` need the bridge open
+    (not paused, within the limit, before the last day); the L2 send and burn need none of it.
 15. The claim dialog maps the portal's revert names from the ABI (`WaitsForHeadroom`, `VersionPaused`,
     `DeadlinePassed`) to the row's sentences.
 16. The old origin's opening never offers Change node; with V5's node gone it shows the "node gone" page.
@@ -715,7 +726,9 @@ redeem afterwards). Redeem-on-Ethereum lives under the row's sentence and in Det
    `block.timestamp`), so V5 closes in that block. The page reads `flipAt`, `afterNextAt` and `pausedSeconds`:
    no flip → "for at least 180 days after the upgrade"; flip, no after-next, before the floor → "until at least
    <flip + 180 d>; after that day, until the upgrade after V6 lands"; after-next before the floor → the date,
-   final but for paused seconds; past the floor with no after-next → `could close any day`. A shown date is
+   final but for paused seconds; past the floor with no after-next → `could close any day`, and once it is
+   observed the deadline is that moment plus the paused seconds (shown as a date then). Every reading comes
+   from recorded transitions and the pause accounting, never from an announced schedule. A shown date is
    re-read at every refresh (an `unpause` refunds unused seconds).
 8. **The payer's ETH.** The claim dialog needs the connected wallet's Sepolia ETH balance (and a gas estimate)
    before asking the wallet, so "no ETH for the gas" is a state, not the wallet's own error.

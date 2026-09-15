@@ -73,7 +73,7 @@ DECK = [
     ("Sign-in", "Sign up with a passkey · Use twelve words instead · I already have a passkey · I have twelve words · Not now — just watch", "Create account · Log in · then Continue with passkey · Use 12 words instead · Just watch for now"),
     ("Sign-in", "I understand my passkey is the only way back into this account. There is no backup of a passkey. + Keep the passkey synced. Lose every copy of the passkey and the account and its balance are lost with it.", "Your passkey is the only key. Keep it in a password manager that syncs and it opens this account on the devices that manager syncs to. Lose every copy and the account is lost; Yacana can't recover it. ☐ I understand my passkey is the only way into this account. (unchecked; the button waits for it)"),
     ("Sign-in", "Welcome back. · Use another passkey · Enter twelve words instead · Create a new account", "Welcome back. · Open with passkey · Just watch for now · Use a different account (opens Sign out first, with its backup check)"),
-    ("Sign-in", "(one error for everything)", "That didn't work: the passkey prompt was dismissed · This device can't make a Yacana passkey: use 12 words · This browser has no passkeys · Sign-in didn't complete · That passkey belongs to a different account · Another tab has this account open: close it, then retry"),
+    ("Sign-in", "(one error for everything)", "That didn't work: the passkey prompt was dismissed · This device can't make a Yacana passkey: use 12 words · This browser has no passkeys · Sign-in didn't complete · This device can't open your passkey: open it where it works · Another tab has this account open: close it, then retry"),
     ("Opening", "A minute the first time. The proving keys are 20 MB, fetched once and kept. After that, opening takes a few seconds.", "Opening your account. ✓ Passkey confirmed · Preparing your miner (first time only, 13 of 20 MB) · Syncing your private balance — reading your notes from the chain, usually under a minute · Ready to mine · Mining starts when this finishes."),
     ("Everywhere", "Whoever serves this page controls it: run your own build if that matters. (six places)", "Once, in Settings › About: Yacana runs in your browser. Whoever serves this page controls it; the source is public — run your own build if that matters. + /faq"),
     ("Mine", "Sign in to mine (the cockpit dimmed) · −3 min", "Start mining (full contrast) · since 16:05 → last 3 min"),
@@ -108,7 +108,7 @@ DECK = [
     ("Settings", "off: one touch per open · on: sealed under a device key", "On: anyone who can use this browser could open and spend from this account without your passkey. Off: one touch per open."),
     ("Settings", "Copy diagnostics (shortened) · The last 200 lines, addresses shortened. It names this account's claims and the node's host.", "(removed)"),
     ("Sign out", "Hold to sign out · Can't hold? Sign out with a click · Signing out returns to the sign-in screen…", "Sign out? · Your passkey logs you back in. Your balance stays with the account. Mining stops. · Sign out / Cancel"),
-    ("Rows", "(no reading of the last day after the 180 days)", "could close any day · The 180 days are over. V5's exits close the day the upgrade after V6 lands. Claim it now. (until then: until at least Mar 17; after that day, until the upgrade after V6 lands)"),
+    ("Rows", "(no reading of the last day after the 180 days)", "could close any day · The 180 days are over. The next Aztec upgrade closes V5's exits, later only by the days the bridge was paused. Claim it now. (until then: until at least Mar 17; after that day, until the upgrade after V6 lands)"),
     ("Mine", "Presto stopped answering (one line for eleven reasons)", "a line per reason: Presto hasn't approved yacana.network yet · in a cooldown after a denial · busy: three proofs refused · returned a proof that didn't verify · needs an update · encrypted connection off · stopped answering · is fetching its prover (not a fault) · the browser blocks local access"),
     ("Old origin", "(nothing once V5's node is gone)", "V5's node has shut down. Nothing more can leave from here. What V5 proved in time is on V6, or held on Ethereum for V6: see it at yacana.network."),
     ("Sign-in", "Word 12 isn't in the list (the only words error)", "+ These 12 words don't form a valid phrase: one is off. · (an empty account after a words login) Expected a balance? A mistyped word opens a different, empty account: check your words."),
@@ -160,11 +160,12 @@ def phone_signin():
 
 
 def bridge_sheet(keyboard: bool = False) -> str:
-    rows = (srow("To", "Rabby · 0x90F7…b906") + srow("Arrives", "usually within the hour; then you claim it there")
+    rows = (srow("To", "Rabby · 0x90F7…b906 · Sepolia") + srow("Arrives", "usually within the hour; then you claim it there")
             + srow("Fee", "none here · gas in ETH when you claim") + srow("Visible on Ethereum", "the amount and 0x90F7…b906; not this account"))
     tail = f'<div class="row sb">{btn("Bridge 3.5 tYACA", "uv lg")}{quiet("How it works")}</div>'
     if keyboard:
         return (head("bridge", "Bridge to Ethereum.") + amount("3.5", "tYACA", on=True) + '<div class="under"><span>balance 3.5 tYACA</span></div>' + rows
+                + f'<div class="row" style="padding:6px 0">{quiet("How it works")}</div>'
                 + f'<div class="row sb" style="position:sticky;bottom:-22px;margin:0 -18px -22px;padding:10px 18px 22px;background:var(--raised);border-top:1px solid var(--line)">{btn("Bridge 3.5 tYACA", "uv lg full")}</div>')
     return head("bridge", "Bridge to Ethereum.") + amount("3.50", "tYACA", on=True) + rows + tail
 

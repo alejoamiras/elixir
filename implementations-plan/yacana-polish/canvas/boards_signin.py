@@ -105,8 +105,8 @@ def account_errors():
                 + btn("Continue with passkey", "uv lg full", icon="finger") + links("Use 12 words instead"), W, back=True)
     d5 = dialog(head("log in", "Welcome back.")
                 + '<div class="row sb" style="border:1px solid var(--line-2);border-radius:8px;padding:12px 14px"><span class="acct" style="border:0;padding:0"><i></i>0x22a9db…612a</span><span class="x2 mono ink3">passkey</span></div>'
-                + note("This device can't open a Yacana passkey.", "Its passkeys can't derive the key. Log in on a device whose passkeys can, or enter your 12 words.", "bad")
-                + btn("Enter 12 words", "uv lg full") + links("Try another device", "Just watch for now"), W)
+                + note("This device can't open your passkey.", "Its passkeys can't derive the key. Open the account on the device or browser where it works; the balance is unchanged.", "bad")
+                + btn("Try again", "uv lg full", icon="finger") + links("Just watch for now", "Use a different account"), W)
     d6 = dialog(head("account", "Opening your account.")
                 + note("Another tab has this account open.", "Close that tab, then retry here.", "warn")
                 + f'<div class="row" style="gap:10px">{btn("Retry", "uv")}{btn("Cancel", "ghost")}</div>', W, close=False)

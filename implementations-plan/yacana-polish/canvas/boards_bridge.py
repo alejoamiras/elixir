@@ -184,7 +184,7 @@ def exit_edge_states():
     r5 = activity("1 tYACA", EXIT_TO, "V5's exit limit froze at the upgrade, and this is beyond it. It cannot leave.",
                   st("over the limit", "bad"), "Sep 19", T_PROVED + [("reached Ethereum", "done"), ("over the frozen limit", "bad")],
                   more='<div class="row sb"><span class="x2 mono ink3">what the limit is · <a href="#">/faq#rules</a></span></div>')
-    r5b = activity("1 tYACA", EXIT_TO, "The 180 days are over. V5's exits close the day the upgrade after V6 lands. Claim it now.",
+    r5b = activity("1 tYACA", EXIT_TO, "The 180 days are over. The next Aztec upgrade closes V5's exits, later only by the days the bridge was paused. Claim it now.",
                    st("could close any day", "bad"), "Mar 18", T_PROVED + [("reached Ethereum", "done"), ("claim on Ethereum", "bad")],
                    more=f'<div class="row sb"><span>{btn("Claim on Ethereum", "uv sm")}</span><span class="x2 mono ink3">why it can close · <a href="#">/faq#rules</a></span></div>', cls="hi")
     r6 = activity("1 tYACA", EXIT_TO, "V5's last day passed before this was claimed. It cannot leave any more.",

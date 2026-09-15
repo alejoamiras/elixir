@@ -22,7 +22,7 @@ ROWS: list[list[tuple]] = [
         ("Main", X.principles(), 1000, 960, "Ten rules"),
         ("Picks", X.picks(), 1200, 860, "The picks · A/B/C"),
         ("IA", X.ia_map(), 1200, 820, "What shows where"),
-        ("States", ST.state_table(), 1200, 2340, "Every crossing state"),
+        ("States", ST.state_table(), 1200, 2440, "Every crossing state"),
     ],
     [  # the account dialog
         ("Start", A.start(), 492, 360, "Account · start"),
