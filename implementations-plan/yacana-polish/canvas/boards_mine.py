@@ -1,0 +1,172 @@
+"""The Mine cockpit: signed out, idle, mining (the chart fixed), Presto states, ended; the upgrade card."""
+from lib import btn, header, kpi, kv, note, page, quiet, st, th, tile, trail
+
+LEDGER_LIVE = ('<ol class="ledger">'
+               '<li class="win"><span class="t">16:07:40</span><span class="g">★</span><span>#12 score 2.8 · 3.61 s · <b class="uv2">a win</b> · claiming, about 20 s</span></li>'
+               '<li><span class="t">16:07:36</span><span class="g"></span><span>#11 score 1.2 · 3.60 s</span></li>'
+               '<li class="ep"><span class="t">16:07:12</span><span class="g">──</span><span>epoch 12 opened · bar 1.6 (×0.83)</span></li>'
+               '<li class="ok"><span class="t">16:06:58</span><span class="g">✓</span><span>minted in block <a href="#">83,164 ↗</a> · 4 tYACA, privately</span></li>'
+               '<li><span class="t">16:06:31</span><span class="g"></span><span>#9 score 1.9 · 3.72 s</span></li></ol>')
+LEDGER_EMPTY = '<ol class="ledger"><li class="ep"><span class="t">16:04:12</span><span class="g">──</span><span>epoch 11 opened · bar 1.0</span></li></ol>'
+
+
+def chart(mining: bool, since: str = "since 16:05", window: str = "now") -> str:
+    """The score loop: the bar as a step line, a tick at the epoch close, the win a ring with a short drop above the bar."""
+    if not mining:
+        return ('<div class="ph-chart">Your proofs draw here once you start.<br><span class="ink3" style="display:inline-block;margin-top:6px">The bar is 1.0 · clear it to win</span></div>')
+    w, h = 730, 170
+    # bar: 2.0 until x=430 (epoch close), then 1.6; y for 2.0 = 60, for 1.6 = 84, baseline 1.0 at y=140
+    dots = "".join(f'<line x1="{x}" y1="{y}" x2="{x}" y2="140" stroke="rgba(242,239,233,.28)" stroke-width="1.5"/>'
+                   for x, y in ((120, 118), (180, 126), (250, 110), (320, 130), (390, 121), (540, 128), (610, 119), (680, 124)))
+    return (f'<svg viewBox="0 0 {w} {h}" style="width:100%;height:auto;display:block" role="img" aria-label="your proofs, live">'
+            f'<line x1="40" y1="140" x2="{w-10}" y2="140" stroke="rgba(242,239,233,.14)"/>'
+            f'{dots}'
+            f'<path d="M40 60 H430 V84 H{w-10}" fill="none" stroke="#8c6bff" stroke-width="2"/>'
+            f'<line x1="430" y1="22" x2="430" y2="140" stroke="rgba(232,181,77,.7)" stroke-dasharray="3 3"/>'
+            f'<text x="436" y="30" fill="#e8b54d">epoch 12 · bar 2.0 → 1.6</text>'
+            f'<line x1="470" y1="52" x2="470" y2="76" stroke="rgba(242,239,233,.28)" stroke-width="1.5"/>'
+            f'<circle cx="470" cy="44" r="6" fill="#0a0a0b" stroke="#b39dff" stroke-width="2"/>'
+            f'<text x="484" y="49" fill="#b39dff">★ 2.8 · a win</text>'
+            f'<text x="10" y="64">2.0</text><text x="10" y="88">1.6</text><text x="10" y="144">1</text>'
+            f'<text x="{w-10}" y="100" text-anchor="end" fill="rgba(242,239,233,.5)">the bar · clear it to win</text>'
+            f'<text x="40" y="162">{since}</text><text x="{w-10}" y="162" text-anchor="end">{window}</text>'
+            '</svg>')
+
+
+NATIVE = ("mining", "presto")
+LIVE = ("mining", "presto", "presto-fallback")
+
+
+def loop_tile(state: str) -> str:
+    if state == "ended":
+        inner = (th("mining ended on v5 · sep 18 14:02")
+                 + '<div class="ph-chart">Mining moved to V6 at yacana.network.<br><span class="ink3" style="display:inline-block;margin-top:6px">Your proofs from this session stay below.</span></div>')
+        return tile(inner, "loop")
+    if state in LIVE:
+        per = "3.6 s per proof · " + ("✦ presto · 12 threads" if state == "presto" else "11 threads") + " · 12 proofs"
+        right = f'<span class="x2 mono ink3">{per}</span>{btn("Stop", "sm")}'
+        head = "live · since 16:05"
+    elif state == "presto-blocked":
+        right = f'<span class="x2 mono ink3">11 threads</span>{btn("Start mining", "uv sm dis")}'
+        head = "your proofs"
+    else:
+        right = f'<span class="x2 mono ink3">{"— per proof · " if state == "idle" else ""}11 threads</span>{btn("Start mining", "uv sm")}'
+        head = "your proofs"
+    blocked = ""
+    if state == "presto-blocked":
+        blocked = (note("Presto is installed, but the browser blocks local access.",
+                        "Allow it for this site, then retry; or mine in the browser.", "warn")
+                   + f'<div class="row" style="gap:12px;margin-top:10px">{btn("Retry", "sm")}{quiet("Mine in the browser")}</div>')
+    inner = th(head, right) + (blocked or chart(state in LIVE))
+    return tile(inner, "loop")
+
+
+def rail_tile(state: str) -> str:
+    on = state in LIVE
+    if state == "ended":
+        rows = kv("claims", "4 of 4") + kv("bar", "1.6") + kv("closed", "Sep 18 14:02")
+        return tile(th("epoch 41", "the last on V5") + '<div class="rail"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>' + rows)
+    seg = '<div class="rail"><i class="me"></i><i class="on"></i><i></i><i></i></div>' if on else '<div class="rail"><i></i><i></i><i></i><i></i></div>'
+    rows = (kv("claims", "2 of 4" if on else "0 of 4") + kv("bar", "1.6" if on else "1.0")
+            + kv("open for", "3 min") + kv("expected close", "5 min") + kv("next bar if it closed now", "×0.62") + kv("closes anyway", "in 4 min"))
+    if state == "presto":
+        power = ('<div class="presto" style="margin-top:14px"><span class="glyph">✦</span><div><b>Presto · native prover</b><span>12 threads, set in the Presto app · <a class="uv2" href="#">Open Presto ↗</a></span></div></div>')
+    elif state == "presto-fallback":
+        power = ('<div class="presto" style="margin-top:14px;border-color:rgba(232,181,77,.5);background:transparent"><span class="glyph" style="background:var(--panel);color:var(--warn)">✦</span><div><b>Presto stopped answering.</b><span>Proving in the browser meanwhile · <a class="uv2" href="#">Retry</a> when it\'s back</span></div></div>'
+                 '<div class="row sb" style="margin-top:12px"><span class="lm">power</span><span class="x2 mono ink3">11 threads</span></div>'
+                 '<div class="slider"><i style="width:100%"></i><b style="left:100%"></b></div>'
+                 '<div class="ticks"><span>eco · 3</span><span>balanced · 6</span><span class="uv2">max · 11</span></div>')
+    else:
+        power = ('<div class="row sb" style="margin-top:14px"><span class="lm">power</span><span class="x2 mono ink3">11 threads</span></div>'
+                 '<div class="slider"><i style="width:100%"></i><b style="left:100%"></b></div>'
+                 '<div class="ticks"><span>eco · 3</span><span>balanced · 6</span><span class="uv2">max · 11</span></div>')
+    return tile(th("epoch 12", "opened 16:07:12") + seg + rows + power)
+
+
+def kpis(state: str) -> str:
+    on = state in LIVE or state == "ended"
+    return ('<div class="grid" style="grid-template-columns:repeat(3,1fr)">'
+            + tile(kpi("rate", "16.2" if on else "—", "proofs/min", "12 proofs this session" if on else "starts with mining"))
+            + tile(kpi("next win, at this rate", "~7" if state in LIVE else "—", "s" if state in LIVE else "", "could be now, could be 3× longer" if state in LIVE else ("the bar is 1.0 · about 1 proof per win" if state != "ended" else "")))
+            + tile(kpi("best this epoch", "2.8" if on else "—", "of 1.6" if on else "", "1 win · 4 tYACA this session" if on else ""))
+            + "</div>")
+
+
+def balance_tile(state: str) -> str:
+    if state == "signed-out":
+        inner = th("balance", "private") + kpi("", "—", "tYACA", lg=True) + f'<p class="sm ink2" style="margin-top:10px">Your balance shows once you log in.</p><div style="margin-top:12px">{quiet("Log in")}</div>'
+    else:
+        inner = th("balance", "private") + kpi("", "3.5", "tYACA", lg=True) + f'<div class="row" style="gap:10px;margin-top:14px">{btn("Send", "primary")}{btn("Wallet →", "ghost")}</div>'
+    return tile(inner)
+
+
+def cockpit(state: str, top: str = "") -> str:
+    status = "mining" if state in LIVE else ("ended" if state == "ended" else "")
+    hdr = header("mine", account=None if state == "signed-out" else "0x22a9…612a", status=status if state != "signed-out" else "")
+    if state == "presto":
+        hdr = hdr.replace('<i></i>mining</span>', '<i></i>mining <span class="uv2">✦ presto</span></span>')
+    ledger = LEDGER_LIVE if state in LIVE or state == "ended" else LEDGER_EMPTY
+    body = (f'<div class="body">{top}<div class="cockpit">{loop_tile(state)}{rail_tile(state)}'
+            f'{kpis(state)}{balance_tile(state)}'
+            f'<div class="span2">{tile(th("proofs, newest first", "★ win · ✓ minted · ── epoch") + ledger)}</div></div></div>')
+    return page(f'<div class="shell">{hdr}{body}</div>', 1440)
+
+
+def presto_row() -> str:
+    return ('<div class="presto" style="border-style:dashed;background:transparent"><span class="glyph" style="background:var(--panel);color:var(--uv-2)">✦</span>'
+            '<div><b>Presto proves natively on this machine, several times faster.</b><span><a class="uv2" href="#">Get Presto ↗</a> · <a href="#">dismiss</a></span></div></div>')
+
+
+def upgrade_card(kind: str = "announced", amount_s: str = "3.5 tYACA", chip: str = "ok") -> str:
+    if kind == "announced":
+        return tile('<div class="col" style="gap:10px"><span class="eyebrow">aztec v6 · expected around sep 18</span>'
+                    '<h2 style="font-size:24px;letter-spacing:-.02em">Aztec upgrades to V6 around Sep 18.</h2>'
+                    '<p class="md ink2" style="max-width:72ch;text-wrap:pretty">Mining continues here until then. Send your balance ahead when you\'re ready: V5 proves it out, it\'s held on Ethereum for V6, and you claim it on V6 with one tap. After the upgrade V5 keeps proving for a while, then stops without notice; send ahead before it does.</p>'
+                    f'<div class="row" style="gap:14px">{btn("Send ahead", "uv")}{quiet("How it works")}</div></div>', "hi")
+    if kind == "sent":
+        return tile('<div class="col" style="gap:10px"><span class="eyebrow">aztec v6 · expected around sep 18</span>'
+                    f'<h2 style="font-size:24px;letter-spacing:-.02em">{amount_s} sent ahead.</h2>'
+                    '<p class="md ink2" style="max-width:72ch">Held on Ethereum for V6 once V5 proves it; you claim it on V6 with one tap. Wins mined since then stay here until you send them too.</p>'
+                    + trail([("sent", "done"), ("reaching Ethereum", "on"), ("held for V6", "dim"), ("forwarded to V6", "dim"), ("claim on V6", "dim")])
+                    + f'<div class="row" style="gap:14px;margin-top:4px">{btn("Send 1.2 tYACA ahead", "uv sm")}<span class="sm ink2">1.2 tYACA mined since</span>{quiet("Wallet · details")}</div></div>', "hi")
+    chips = {"ok": st("V5 proved an epoch 12 min ago", "ok"), "warn": st("no proof from V5 for 3 h", "warn"), "bad": st("V5 stopped proving · Sep 21", "bad")}
+    return tile('<div class="col" style="gap:10px"><div class="row sb wrap"><span class="eyebrow">aztec v6 is live · sep 18 14:02</span>' + chips[chip] + '</div>'
+                '<h2 style="font-size:24px;letter-spacing:-.02em">Mining has ended on V5. Send what\'s left ahead.</h2>'
+                '<p class="md ink2" style="max-width:72ch;text-wrap:pretty">V5 keeps proving for a while after an upgrade, then stops without notice. A send it proves is held on Ethereum for V6; one it never proves comes back here; what\'s still here when it stops can\'t leave.</p>'
+                f'<div class="row" style="gap:14px">{btn(f"Send {amount_s} ahead", "uv")}{quiet("How it works")}</div></div>', "hi").replace('class="tile hi"', 'class="tile hi" style="border-color:var(--warn)"')
+
+
+def mine_signed_out():
+    return cockpit("signed-out")
+
+
+def mine_idle():
+    return cockpit("idle", top=presto_row())
+
+
+def mine_mining():
+    return cockpit("mining")
+
+
+def mine_presto():
+    return cockpit("presto")
+
+
+def mine_presto_blocked():
+    return cockpit("presto-blocked")
+
+
+def mine_presto_fallback():
+    return cockpit("presto-fallback")
+
+
+def mine_announced():
+    return cockpit("mining", top=upgrade_card("announced"))
+
+
+def mine_sent():
+    return cockpit("mining", top=upgrade_card("sent"))
+
+
+def mine_flipped():
+    return cockpit("ended", top=upgrade_card("flipped"))
