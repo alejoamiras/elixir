@@ -23,8 +23,11 @@ interface Flow {
   error?: AccountError;
   busy: boolean;
   canCreate: boolean;
+  /** A fresh phrase for the Words screen; kept by the dialog, so an attempt's failure returns to the same words. */
+  phrase: string;
+  newWords: () => void;
   go: (s: Screen) => void;
-  attempt: (from: Screen, run: () => Promise<void>) => void;
+  attempt: (from: Screen, run: () => Promise<void>) => Promise<void>;
   notNow: () => void;
 }
 
@@ -48,7 +51,11 @@ function Stored({ record, flow }: { record: MasterRecord; flow: Flow }) {
         onSignOut={() => flow.session.forget(record)}
         onBackUp={() => {
           setOther(false);
-          flow.attempt('welcome', () => flow.session.open(record));
+          // The words are sealed until the account opens: the backup is the wallet's, on the way to Sign out.
+          void flow.attempt('welcome', async () => {
+            await flow.session.open(record);
+            if (flow.session.record?.id === record.id) navigate('wallet', 'backup');
+          });
         }}
       />
     </>
@@ -56,8 +63,7 @@ function Stored({ record, flow }: { record: MasterRecord; flow: Flow }) {
 }
 
 function Screens({ current, flow }: { current: Screen; flow: Flow }) {
-  const { session, error, busy, canCreate, go, attempt, notNow } = flow;
-  const [phrase, setPhrase] = useState('');
+  const { session, error, busy, canCreate, phrase, newWords, go, attempt, notNow } = flow;
   switch (current) {
     case 'create':
       return (
@@ -66,7 +72,7 @@ function Screens({ current, flow }: { current: Screen; flow: Flow }) {
           busy={busy}
           onPasskey={() => attempt('create', () => session.createWithPasskey())}
           onWords={() => {
-            setPhrase(session.newWords());
+            newWords();
             go('words');
           }}
           onBack={() => go('start')}
@@ -88,8 +94,8 @@ function Screens({ current, flow }: { current: Screen; flow: Flow }) {
         <WordsBackup
           phrase={phrase}
           error={error}
-          onDone={() => session.createWithWords(phrase, true)}
-          onSkip={() => session.createWithWords(phrase, false)}
+          onDone={() => attempt('words', () => session.createWithWords(phrase, true))}
+          onSkip={() => attempt('words', () => session.createWithWords(phrase, false))}
           onBack={() => go('create')}
         />
       );
@@ -142,7 +148,7 @@ function Body({
       <OpeningFailed
         steps={failed.opening}
         error={failed.error}
-        onRetry={() => flow.attempt('welcome', () => session.open(stored))}
+        onRetry={() => flow.attempt('welcome', () => session.open(stored, failed.typedWords))}
         onChangeNode={() => navigate('settings')}
         onCancel={onCancelFailed}
       />
@@ -151,9 +157,9 @@ function Body({
   return stored ? <Stored record={stored} flow={flow} /> : <Screens current={current} flow={flow} />;
 }
 
-/** The checklist a step failed on, unless Cancel hid that very failure. */
-const failedOpening = (boot: Boot, hidden: Boot | null): Failed | null =>
-  boot.phase === 'signedOut' && boot.opening && boot.error?.step && boot !== hidden ? (boot as Failed) : null;
+/** The checklist a step failed on; Cancel strips it from the boot (`hideOpeningFailure`). */
+const failedOpening = (boot: Boot): Failed | null =>
+  boot.phase === 'signedOut' && boot.opening && boot.error?.step ? (boot as Failed) : null;
 
 /**
  * The account dialog over the cockpit. Signed out, Escape, the veil and "Just watch for now" are one
@@ -170,14 +176,14 @@ export function SignInDialog({ session }: { session: Session }) {
   const signedOut = boot.phase === 'signedOut';
   const open = opening || (signedOut && wanted);
   const [screen, setScreen] = useState<Screen | null>(null);
-  /** A failed checklist dismissed with Cancel: Welcome comes back until the next attempt. */
-  const [hidden, setHidden] = useState<Boot | null>(null);
+  const [phrase, setPhrase] = useState('');
   /** The screen whose attempt failed: its note stays there and nowhere else. */
   const [errorOn, setErrorOn] = useState<Screen | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (open) return;
     setScreen(null);
+    setPhrase('');
     setErrorOn(null);
   }, [open]);
   const canCreate = keysAllowed(location.hostname, 'create');
@@ -188,6 +194,8 @@ export function SignInDialog({ session }: { session: Session }) {
     error: errorFor(boot, errorOn, current),
     busy,
     canCreate,
+    phrase,
+    newWords: () => setPhrase(session.newWords()),
     go: (s) => {
       setScreen(s);
       setErrorOn(null);
@@ -195,7 +203,7 @@ export function SignInDialog({ session }: { session: Session }) {
     attempt: (from, run) => {
       setErrorOn(from);
       setBusy(true);
-      void run().finally(() => setBusy(false));
+      return run().finally(() => setBusy(false));
     },
     notNow: () => close(),
   };
@@ -205,7 +213,7 @@ export function SignInDialog({ session }: { session: Session }) {
     setWanted(false);
   };
   const dismiss = (e: Event) => (opening ? e.preventDefault() : close());
-  const failed = failedOpening(boot, hidden);
+  const failed = failedOpening(boot);
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !opening && close()}>
       <DialogContent
@@ -226,7 +234,7 @@ export function SignInDialog({ session }: { session: Session }) {
           current={current}
           flow={flow}
           onCancelFailed={() => {
-            setHidden(failed);
+            session.hideOpeningFailure();
             close();
           }}
         />

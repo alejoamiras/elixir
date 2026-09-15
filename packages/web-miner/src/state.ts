@@ -22,6 +22,8 @@ export type AccountErrorKind =
   | 'held-tab'
   | 'slot'
   | 'node'
+  /** The proving keys arrived but did not match their pin. */
+  | 'pin'
   | 'other';
 export interface AccountError {
   kind: AccountErrorKind;
@@ -37,7 +39,14 @@ export type Boot =
    * Preflight passed, no account open: the chain shows, the slot decides which screen opens one.
    * `opening` is the checklist as it stood when a step failed, for Retry.
    */
-  | { phase: 'signedOut'; slot: SlotView; error?: AccountError; opening?: OpeningStep[] }
+  | {
+      phase: 'signedOut';
+      slot: SlotView;
+      error?: AccountError;
+      opening?: OpeningStep[];
+      /** The failed attempt typed its words in: a retry of it keeps the empty-account hint. */
+      typedWords?: true;
+    }
   /** An account is opening; the steps drive the dialog's bar. `key` done means the ceremony is over. */
   | { phase: 'opening'; steps: OpeningStep[] }
   /** `typedWords`: the phrase was typed in to log in, so a mistyped word may have opened a different, empty account. */

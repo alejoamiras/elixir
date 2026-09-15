@@ -49,7 +49,6 @@ export function Screen({
   );
 }
 
-/** The one big button of a screen: 46 px, full width. */
 export function Primary({ className, variant = 'uv', ...props }: React.ComponentProps<typeof Button>) {
   return (
     <Button
@@ -61,7 +60,6 @@ export function Primary({ className, variant = 'uv', ...props }: React.Component
   );
 }
 
-/** The quiet ways out under the button. */
 export function Quiet({ className, ...props }: React.ComponentProps<'button'>) {
   return (
     <button

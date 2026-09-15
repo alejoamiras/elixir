@@ -86,7 +86,6 @@ export async function virtualAuthenticator(
   };
 }
 
-/** Through the account dialog: create a passkey account on a first visit, open the device's on a later one. */
 /**
  * The account dialog over the signed-out cockpit: open by itself on a device with an account, else
  * through the balance tile's Log in (no mining intent: the specs press Start themselves).

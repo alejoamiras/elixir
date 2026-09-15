@@ -12,6 +12,11 @@ const verified = new Map<string, Promise<Uint8Array>>();
 
 const TOTAL_BYTES = Object.values(files).reduce((n, f) => n + f.bytes, 0);
 
+/** The bytes arrived but are not the pinned asset: not a network failure, and a retry alone does not fix it. */
+export class CrsPinError extends Error {
+  override readonly name = 'CrsPinError';
+}
+
 const hex = (buf: ArrayBuffer) =>
   Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
 
@@ -43,7 +48,7 @@ export async function streamVerified(
     if (done) break;
     if (at + value.length > pin.bytes) {
       await reader.cancel();
-      throw new Error(`crs: ${name} is longer than its pin (${pin.bytes} bytes)`);
+      throw new CrsPinError(`crs: ${name} is longer than its pin (${pin.bytes} bytes)`);
     }
     out.set(value, at);
     at += value.length;
@@ -51,7 +56,7 @@ export async function streamVerified(
   }
   const digest = hex(await crypto.subtle.digest('SHA-256', out.subarray(0, at)));
   if (at !== pin.bytes || digest !== pin.sha256)
-    throw new Error(`crs: ${name} does not match its pin (${at} bytes, sha256 ${digest})`);
+    throw new CrsPinError(`crs: ${name} does not match its pin (${at} bytes, sha256 ${digest})`);
   return out;
 }
 
@@ -65,12 +70,22 @@ const report = (patch: Partial<CrsProgress>) => {
 function load(name: string): Promise<Uint8Array> {
   let p = verified.get(name);
   if (!p) {
+    let got = 0;
     p = (async () => {
       const pin = files[name];
-      if (!pin) throw new Error(`crs: ${name} is not pinned`);
+      if (!pin) throw new CrsPinError(`crs: ${name} is not pinned`);
       const res = await originalFetch(`/crs/${name}`);
-      return streamVerified(res, pin, name, (n) => report({ loaded: progress.loaded + n }));
+      return streamVerified(res, pin, name, (n) => {
+        got += n;
+        report({ loaded: progress.loaded + n });
+      });
     })();
+    // A file that failed is fetched again by the next run and its bytes leave the count; the files
+    // that verified stay.
+    p.catch(() => {
+      verified.delete(name);
+      report({ loaded: progress.loaded - got });
+    });
     verified.set(name, p);
   }
   return p;
@@ -110,8 +125,9 @@ let crsRun: Promise<void> | undefined;
 
 /**
  * Loads and verifies every pinned asset, with byte progress, from the first moment the page runs:
- * off the preflight's path, so the chain shows while the keys come down. One run per context; a bad
- * pin leaves it failed (only a reload retries) and the failure is in the progress and in `crsReady`.
+ * off the preflight's path, so the chain shows while the keys come down. One run at a time; a run
+ * that failed leaves the failure in the progress and in `crsReady`, and the next call fetches again
+ * only what did not verify.
  */
 export function startCrs(listen?: (p: CrsProgress) => void): Promise<void> {
   if (listen) {
@@ -120,11 +136,13 @@ export function startCrs(listen?: (p: CrsProgress) => void): Promise<void> {
   }
   crsRun ??= (async () => {
     try {
+      report({ error: undefined });
       await purgeCrsCache();
       await Promise.all(Object.keys(files).map(load));
       report({ loaded: TOTAL_BYTES, done: true });
     } catch (e) {
       report({ error: e instanceof Error ? e.message : String(e) });
+      crsRun = undefined;
       throw e;
     }
   })();

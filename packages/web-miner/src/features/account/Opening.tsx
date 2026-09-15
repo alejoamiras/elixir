@@ -50,8 +50,9 @@ function Checklist({ steps }: { steps: OpeningStep[] }) {
 export function Opening({ steps, onCancel }: { steps: OpeningStep[]; onCancel: () => void }) {
   const [settings] = useSettings();
   const intent = useAtomValue(mineIntentAtom);
-  // The first step done means the ceremony (its OS prompt) is over: Cancel is safe from here.
-  const canCancel = steps.find((s) => s.id === 'key')?.state === 'done';
+  // Cancel works between the ceremony (its OS prompt) and the last step: the account is open after that.
+  const canCancel =
+    steps.find((s) => s.id === 'key')?.state === 'done' && steps.some((s) => s.state !== 'done');
   const starts = intent || settings.resumeOnOpen;
   return (
     <Screen eyebrow="account" title="Opening your account." data-testid="opening">
@@ -94,7 +95,7 @@ const nodeHost = (): string => {
 
 const failedCopy = (error: AccountError, steps: OpeningStep[]): FailedCopy => {
   const failed = steps.find((s) => s.state === 'failed');
-  if (failed?.id === 'crs') {
+  if (failed?.id === 'crs' && error.kind !== 'pin') {
     const at = failed.bytes && failed.bytes.total > 0 ? ` at ${bytesDetail(failed.bytes)}` : '';
     return {
       title: "The miner's files didn't download.",

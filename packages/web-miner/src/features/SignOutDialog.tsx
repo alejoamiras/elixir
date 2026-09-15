@@ -17,7 +17,7 @@ const bodyFor = (record: Pick<MasterRecord, 'method' | 'backedUp'>, mining: bool
     return 'Your 12 words are the only way back in, and they are not backed up yet. Yacana keeps no copy.';
   const back =
     record.method === 'passkey' ? 'Your passkey logs you back in.' : 'Your 12 words log you back in.';
-  return `${back} Your balance stays with the account.${mining ? ' Mining stops.' : ''}${claiming ? ' A win is being claimed; sign out waits for it.' : ''}`;
+  return `${back} Your balance stays with the account.${mining && !claiming ? ' Mining stops.' : ''}${claiming ? ' A win is being claimed; sign out waits for it.' : ''}`;
 };
 
 /**

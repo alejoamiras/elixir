@@ -40,11 +40,13 @@ export function LogIn({
             <Icon name="finger" size={15} />
             {busy ? 'Logging in…' : (primary ?? 'Continue with passkey')}
           </Primary>
-          <QuietRow>
-            <Quiet disabled={busy} onClick={onWords} data-testid="restore-words">
-              Use 12 words instead
-            </Quiet>
-          </QuietRow>
+          {error?.kind !== 'no-prf' && (
+            <QuietRow>
+              <Quiet disabled={busy} onClick={onWords} data-testid="restore-words">
+                Use 12 words instead
+              </Quiet>
+            </QuietRow>
+          )}
         </>
       )}
     </Screen>

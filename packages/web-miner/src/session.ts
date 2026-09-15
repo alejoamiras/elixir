@@ -18,6 +18,7 @@ import {
   resetEthRpcHealth,
   startEthRpcHealth,
 } from '../../site/src/browser/eth-rpc.ts';
+import { duration } from '../../site/src/browser/format.ts';
 import { keysAllowed, relyingParty } from '../../site/src/browser/host.ts';
 import { type NodeProbe, probeNode } from '../../site/src/browser/node.ts';
 import { setEthRpcEndpoint } from '../../site/src/browser/node-guard.ts';
@@ -63,7 +64,8 @@ import {
   seal,
   setStayOpen,
 } from './keys/store';
-import { initialSteps, keyStepLabel, type OpeningStep } from './opening-steps';
+import { initialSteps, keyStepLabel, type OpeningStep, type StepId } from './opening-steps';
+import { CrsPinError } from './pinned-crs';
 import { prestoAtom, prestoEligible, probePresto } from './presto';
 import { loadSettings, saveSettings } from './settings';
 import {
@@ -102,13 +104,19 @@ export const classifyAccountError = (e: unknown): AccountError => {
   if (e instanceof ChainViewHeldError) return { kind: 'held-tab', message };
   if (e instanceof SlotError) return { kind: 'slot', message };
   if (e instanceof DOMException && e.name === 'NotAllowedError') return { kind: 'dismissed', message };
+  if (e instanceof CrsPinError) return { kind: 'pin', message };
   if (nodeHealth().transport.kind !== 'ok') return { kind: 'node', message };
   return { kind: 'other', message };
 };
 
-/** The failed step's right column, one or two words: the note under the checklist says the rest. */
-const reasonOf = (e: AccountError): string =>
-  e.kind === 'node' ? 'no answer' : e.kind === 'held-tab' ? 'held by another tab' : 'failed';
+/** The failed step's right column, a few words: the note under the checklist says the rest. */
+const reasonOf = (e: AccountError, step: StepId): string => {
+  if (step === 'crs') return 'download failed';
+  if (e.kind === 'held-tab') return 'held by another tab';
+  if (e.kind !== 'node') return 'failed';
+  const t = nodeHealth().transport;
+  return t.kind === 'silent' ? `no answer for ${duration((Date.now() - t.since) / 1000)}` : 'no answer';
+};
 
 const credentialsOf = (records: MasterRecord[]): Uint8Array[] =>
   records.flatMap((r) => (r.credentialId ? [fromBase64url(r.credentialId)] : []));
@@ -148,7 +156,10 @@ export class Session {
   private unsubFlip: (() => void) | undefined;
 
   /** The open attempt: its generation and the AbortController Cancel aborts once the ceremony is over. */
-  private attempt: { id: number; abort: AbortController; ceremony: boolean; done: Promise<void> } | undefined;
+  /** `ceremony`: the OS prompt is up, Cancel is inert; `adopted`: the slot took the account, Cancel is over. */
+  private attempt:
+    | { id: number; abort: AbortController; ceremony: boolean; adopted: boolean; done: Promise<void> }
+    | undefined;
   private attemptSeq = 0;
 
   readonly ready: Promise<void>;
@@ -215,23 +226,29 @@ export class Session {
   }
 
   /** Back to the signed-out cockpit with the error; `id` names the attempt speaking, if any. */
-  private async fail(e: unknown, id?: number, opening?: OpeningStep[]): Promise<void> {
+  private async fail(e: unknown, id?: number, opening?: OpeningStep[], typed?: true): Promise<void> {
     const slot = await this.slotView();
     if (id !== undefined && this.attempt?.id !== id) return; // a replacement began meanwhile
-    const error = classifyAccountError(e);
+    const classified = classifyAccountError(e);
     const active = opening?.find((s) => s.state === 'active');
     if (!active) {
-      this.store.set(bootAtom, { phase: 'signedOut', slot, error });
+      this.store.set(bootAtom, { phase: 'signedOut', slot, error: classified });
     } else {
+      // Only the sync talks to the node: a silent node explains no other step's failure.
+      const error =
+        classified.kind === 'node' && active.id !== 'notes'
+          ? { ...classified, kind: 'other' as const }
+          : classified;
       // The step that failed stays on the checklist with its reason; Retry keeps what arrived.
       const steps = opening?.map((s) =>
-        s === active ? { ...s, state: 'failed' as const, reason: reasonOf(error) } : s,
+        s === active ? { ...s, state: 'failed' as const, reason: reasonOf(error, active.id) } : s,
       );
       this.store.set(bootAtom, {
         phase: 'signedOut',
         slot,
         error: { ...error, step: active.id },
         opening: steps,
+        ...(typed && { typedWords: true }),
       });
     }
     // No account came up: the public epoch feeds the cockpit again.
@@ -256,7 +273,7 @@ export class Session {
     const key = steps.find((step) => step.id === 'key');
     if (key) key.state = 'active'; // the ceremony is the active step; `done` means Cancel works
     this.store.set(bootAtom, { phase: 'opening', steps });
-    const attempt = { id, abort, ceremony: true, done: Promise.resolve() };
+    const attempt = { id, abort, ceremony: true, adopted: false, done: Promise.resolve() };
     this.attempt = attempt;
     const run = this.attemptBody(id, abort, keyLabel, ceremony, prev).finally(() => {
       if (this.attempt?.id === id) this.attempt = undefined;
@@ -277,6 +294,7 @@ export class Session {
     let started: Started | undefined;
     let reservation: Reservation | undefined;
     let published: OpeningStep[] | undefined;
+    let typed: true | undefined;
     // Whatever the steps returned that the session did not adopt: disposed, and its wallet stopped —
     // awaited, so `done` (and a successor, and the signed-out publish) come after the namespace is free.
     // A reservation not committed hands its lease back (its staged record stays for the next load).
@@ -311,6 +329,7 @@ export class Session {
       const c = await ceremony();
       master = c.master;
       reservation = c.reservation;
+      typed = c.typed;
       const keyMs = performance.now() - t0;
       if (!mine()) return;
       (this.attempt as { ceremony: boolean }).ceremony = false; // the prompt is done: Cancel works
@@ -327,6 +346,7 @@ export class Session {
       });
       if (!mine()) return;
       abort.signal.throwIfAborted(); // a cancel that landed as the last step settled
+      if (this.attempt?.id === id) this.attempt.adopted = true;
       reservation = await this.adopt(reservation, c.record);
       this.controller = started.controller;
       this.wallet = started.wallet;
@@ -349,7 +369,7 @@ export class Session {
       if (!mine()) return; // a stale attempt publishes nothing
       // A cancel wins over whatever the abort made the steps throw (a download that failed later).
       if (isAbort(e) || abort.signal.aborted) await this.toSignedOut(id);
-      else await this.fail(e, id, published);
+      else await this.fail(e, id, published, typed);
     } finally {
       master?.fill(0);
       await discard();
@@ -366,10 +386,13 @@ export class Session {
     this.slot = { record, staged: null, revision: r.revision };
   }
 
-  /** Aborts the open in flight, once its ceremony is over, and waits for its cleanup to finish. */
+  /**
+   * Aborts the open in flight, once its ceremony is over and until the slot adopts the account, and
+   * waits for its cleanup to finish. Past adoption the account is open and Sign out is the way back.
+   */
   async cancelOpening(): Promise<void> {
     const a = this.attempt;
-    if (!a || a.ceremony) return;
+    if (!a || a.ceremony || a.adopted) return;
     this.store.set(mineIntentAtom, false);
     a.abort.abort();
     await a.done.catch(() => {});
@@ -380,6 +403,14 @@ export class Session {
     if (!this.store.get(mineIntentAtom)) return;
     this.store.set(mineIntentAtom, false);
     this.startMining();
+  }
+
+  /** Cancel on a failed checklist: the note stays with Welcome, the checklist does not come back. */
+  hideOpeningFailure(): void {
+    const boot = this.store.get(bootAtom);
+    if (boot.phase !== 'signedOut' || !boot.opening) return;
+    const { opening: _, ...rest } = boot;
+    this.store.set(bootAtom, rest);
   }
 
   /** Back to the signed-out cockpit with no error (a cancel); the public poll feeds the chain again. */
@@ -435,7 +466,8 @@ export class Session {
    * The slot's record (Welcome back): one touch, restricted to its credential, or none when the
    * secret is sealed on this device. `record` names the kind for the dialog; the slot is re-read.
    */
-  async open(record: MasterRecord): Promise<void> {
+  /** `typed`: the record came from words typed in this session (a retry of that login keeps its hint). */
+  async open(record: MasterRecord, typed?: true): Promise<void> {
     const keyLabel = keyStepLabel(record.method === 'passkey' ? 'passkey' : 'words');
     return this.runAttempt(keyLabel, () =>
       this.reserved('open', async (r) => {
@@ -447,6 +479,7 @@ export class Session {
           record: opened.record,
           master: opened.master,
           words: target.method === 'words' ? await openPhrase(target) : undefined,
+          ...(typed && { typed }),
         }));
       }),
     );

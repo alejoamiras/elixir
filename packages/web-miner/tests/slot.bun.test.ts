@@ -82,6 +82,22 @@ describe('the slot', () => {
     expect(await ids()).toEqual(['b']);
   });
 
+  test('an open reserved before a sign-out and a replacement staged cannot commit over them', async () => {
+    await putRecord(record('a', 1));
+    const held = await readSlot();
+    const open = await reserve(held.revision, 'open');
+    await release('a', held.revision);
+    const empty = await readSlot();
+    const create = await reserve(empty.revision, 'create');
+    await stage(create, record('b', 2));
+    await expect(commit(open)).rejects.toMatchObject({ kind: 'changed' });
+    await commit(create);
+    const after = await readSlot();
+    expect(after.record?.id).toBe('b');
+    expect(after.staged).toBeNull();
+    expect(await ids()).toEqual(['b']); // the released record went with the replacement
+  });
+
   test('a cancelled opening keeps the staged record for the next load; opening it commits it', async () => {
     const { revision } = await readSlot();
     const r = await reserve(revision, 'login');

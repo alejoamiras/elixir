@@ -14,9 +14,9 @@ export interface OpeningStep extends Step {
 }
 
 /**
- * The bar's width is the finished steps' weights plus the active keys step's byte fraction. The
- * weights follow the measured cold opening on the isolated network (`lessons/phase-3.md`): the
- * download dominates a first visit; the notes sync is the rest and is not shown on the bar.
+ * The bar's width is the finished steps' weights plus the active keys step's byte fraction. Only the
+ * download has a count, so the bar shows during it alone; the weights size a first visit on a real
+ * network (20 MB of keys against a sync usually under a minute), which a local run cannot measure.
  */
 const WEIGHTS: Record<StepId, number> = { key: 5, crs: 60, notes: 30, ready: 5 };
 

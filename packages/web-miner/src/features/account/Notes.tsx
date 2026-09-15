@@ -66,7 +66,10 @@ export function noteFor(error: AccountError, context: NoteContext): Copy {
             primary: 'Try again',
           };
     case 'no-webauthn':
-      return NO_WEBAUTHN;
+      // A stored passkey account cannot be opened with words: the way out is another browser.
+      return context === 'open'
+        ? { ...NO_WEBAUTHN, body: 'Use a current Chrome, Safari, Edge or Firefox.', primary: undefined }
+        : NO_WEBAUTHN;
     case 'held-tab':
       return {
         title: 'Another tab has this account open.',

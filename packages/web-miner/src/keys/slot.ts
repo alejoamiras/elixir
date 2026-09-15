@@ -139,6 +139,24 @@ export function stage(r: Reservation, record: MasterRecord): Promise<void> {
 }
 
 /**
+ * The record `r` may commit, or null: the staged one under our lease, or the one `open` targeted —
+ * an `open` writes nothing before its commit, so its reservation's revision must still be the
+ * slot's (a sign-out or another tab's create in between would otherwise be undone).
+ */
+function committable(state: SlotState, records: MasterRecord[], r: Reservation): string | null {
+  const id =
+    r.intent === 'open'
+      ? state.revision === r.revision
+        ? (r.record?.id ?? null)
+        : null
+      : ours(state, r)
+        ? state.staged
+        : null;
+  if (id === null || !byId(records, id) || (state.id !== null && state.id !== id)) return null;
+  return id;
+}
+
+/**
  * After a verified opening: the staged record (or the one `open` targeted) is the slot, the lease
  * ends, and a record released earlier is deleted now unless it is the one committed (a login with
  * the same master took it back).
@@ -146,8 +164,8 @@ export function stage(r: Reservation, record: MasterRecord): Promise<void> {
 export function commit(r: Reservation): Promise<void> {
   return transaction([RECORDS, DEVICE], 'readwrite', async (tx) => {
     const { state, records } = await load(tx);
-    const id = r.intent === 'open' ? (r.record?.id ?? null) : ours(state, r) ? state.staged : null;
-    if (id === null || !byId(records, id) || (state.id !== null && state.id !== id)) throw changed();
+    const id = committable(state, records, r);
+    if (id === null) throw changed();
     if (state.released !== null && state.released !== id)
       await request(tx.objectStore(RECORDS).delete(state.released));
     await save(tx, {

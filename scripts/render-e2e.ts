@@ -88,17 +88,17 @@ async function miner(page: Page, width: number) {
     proxyA,
   );
   await page.goto(`${run.baseURL}/`);
-  // Signed out: the dull cockpit behind the sign-in, both on the public chain.
-  await page.getByTestId('sign-in').waitFor({ timeout: 120_000 });
+  // Watching: the page arrives on the cockpit, no dialog, on the public chain.
+  await page.getByTestId('cockpit').waitFor({ timeout: 120_000 });
   await page.getByTestId('epoch').filter({ hasText: /\d/ }).waitFor({ timeout: 120_000 });
   await page.waitForTimeout(400);
-  await shot(page, 'miner-signed-out', width);
-  // Watching: the same cockpit with the sign-in dismissed.
-  await page.getByTestId('not-now').click();
-  await page.getByTestId('sign-in').waitFor({ state: 'detached', timeout: 10_000 });
-  await page.waitForTimeout(300);
   await shot(page, 'miner-watching', width);
-  await page.getByTestId('sign-in-mine').click();
+  // Signed out: the account dialog over it, from the balance tile's Log in (no mining intent: the
+  // shots press Start themselves).
+  await page.getByTestId('sign-in-balance').click();
+  await page.getByTestId('sign-in').waitFor({ timeout: 10_000 });
+  await page.waitForTimeout(300);
+  await shot(page, 'miner-signed-out', width);
   await page.getByTestId('use-words').click({ timeout: 120_000 });
   await page.getByTestId('words-skip').click();
   // Opening: the step list and the bar while the account comes up.

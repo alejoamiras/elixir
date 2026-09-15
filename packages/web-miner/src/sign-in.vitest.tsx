@@ -38,6 +38,7 @@ const session = {
   restoreWithPasskey: vi.fn(async () => {}),
   restoreWithWords: vi.fn(async () => {}),
   forget: vi.fn(async () => {}),
+  hideOpeningFailure: vi.fn(),
   newWords: () => PHRASE,
 } as unknown as Session;
 const record = {
@@ -153,7 +154,7 @@ describe('the cockpit signed out', () => {
 
 describe('the screens', () => {
   test('Create: consent gates the passkey; the words are one link away and come back to Create', async () => {
-    mount();
+    const store = mount();
     openDialog();
     fireEvent.click(screen.getByTestId('start-create'));
     expect(screen.getByText('Create your account.')).toBeTruthy();
@@ -173,6 +174,10 @@ describe('the screens', () => {
     expect((screen.getByTestId('words-done') as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByTestId('words-skip'));
     expect(session.createWithWords).toHaveBeenCalledWith(PHRASE, false);
+    // A refusal before the record is staged (another tab holds the slot): the same words, with the note.
+    fail(store, { kind: 'slot', message: 'Another tab is opening an account.' });
+    await waitFor(() => expect(screen.getByTestId('key-error')).toBeTruthy());
+    expect(screen.getByTestId('words-grid').textContent).toContain('about');
     fireEvent.click(screen.getByTestId('back'));
     expect(screen.getByText('Create your account.')).toBeTruthy();
     fireEvent.click(screen.getByTestId('back'));
@@ -301,9 +306,11 @@ describe('a failed opening', () => {
     expect(screen.getByTestId('key-error').textContent).toContain('Retry, or use another node.');
     expect(screen.getByTestId('opening-change-node')).toBeTruthy();
     fireEvent.click(screen.getByTestId('opening-retry'));
-    expect(session.open).toHaveBeenCalledWith(record);
-    // Cancel hides that failure: the dialog closes, and Welcome is what reopens.
+    expect(session.open).toHaveBeenCalledWith(record, undefined);
+    // Cancel hides that failure through the session: the dialog closes, and Welcome is what reopens.
     fireEvent.click(screen.getByTestId('opening-cancel'));
+    expect(session.hideOpeningFailure).toHaveBeenCalledTimes(1);
+    store.set(bootAtom, { phase: 'signedOut', slot: held, error: { kind: 'node', message: 'fetch failed' } });
     await waitFor(() => expect(screen.queryByTestId('sign-in')).toBeNull());
     expect(store.get(signInAtom)).toBe(false);
     store.set(signInAtom, true);
@@ -322,6 +329,7 @@ describe('a failed opening', () => {
       slot: held,
       error: { kind: 'other', message: 'x', step: 'crs' },
       opening: crsFailed,
+      typedWords: true,
     });
     render(
       <Provider store={s2}>
@@ -333,6 +341,9 @@ describe('a failed opening', () => {
       'The connection dropped at 13.0 of 20 MB. Retry keeps what arrived.',
     );
     expect(screen.queryByTestId('opening-change-node')).toBeNull();
+    // A retry of a typed login keeps the empty-account hint's provenance.
+    fireEvent.click(screen.getByTestId('opening-retry'));
+    expect(session.open).toHaveBeenLastCalledWith(record, true);
   });
 
   test('Cancel is disabled while the ceremony (the key step) is still active', () => {

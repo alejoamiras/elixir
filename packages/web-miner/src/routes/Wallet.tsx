@@ -190,14 +190,18 @@ export function Wallet({ session }: { session: Session }) {
   const boot = useAtomValue(bootAtom);
   const balance = useAtomValue(balanceAtom);
   const claims = useAtomValue(claimsAtom);
-  const [send, setSend] = useState(() => takeIntent() === 'send');
+  const [intent] = useState(takeIntent);
+  const [send, setSend] = useState(intent === 'send');
   const [exit, setExit] = useState(false);
   const [deposit, setDeposit] = useState<false | { resume?: Crossing }>(false);
   const [redeem, setRedeem] = useState<Crossing | null>(null);
   const [forward, setForward] = useState<Crossing | null>(null);
   const [signOut, setSignOut] = useState(false);
-  // A backup opened from the sign-out dialog returns to the dialog once the words are confirmed.
-  const [backup, setBackup] = useState<false | 'account' | 'sign-out'>(false);
+  // A backup opened from the sign-out dialog (here, or Welcome's before the account opened) returns
+  // to the dialog once the words are confirmed.
+  const [backup, setBackup] = useState<false | 'account' | 'sign-out'>(
+    intent === 'backup' ? 'sign-out' : false,
+  );
   if (boot.phase !== 'ready') return null;
   const account = boot.account;
   const words = session.openWords;
