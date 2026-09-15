@@ -1,4 +1,96 @@
-# Recon — what the app says today (2026-09-15, main at 0d9d1ea)
+# Recon — the reuse map for the blueprint (2026-09-15, worktree at 10a932f), then what the app says today
+
+Two parts. **Part 0** is the blueprint's Phase 0.4 recon (one reuse sweep, one mapper of the browser suites): what the
+redesign reuses, adapts or builds, and what its fidelity breaks first in the tests. **Parts A–C** are the design pass's
+recon from 2026-09-15 (verbatim strings as of 0d9d1ea), the brief's source for "what the app says today".
+
+## 0. Reuse map
+
+| Capability the brief needs | Existing code | Verdict |
+|---|---|---|
+| The transaction / account dialog, 440 px centred (§4.3, §9.2.2) | `packages/ui/src/components/dialog.tsx:22-53` (`max-w-md`, close, `hideClose`) | **adapt**: a `size` variant; every sheet consumer (`ToEthereumSheet`, `DepositSheet`, `SendAheadSheet`, `SendSheet`) rebuilt on it; `Sheet` stays exported until no consumer needs it |
+| Stepper with title / detail / right (§4.3, §5.2, §5.7) | `ui/components/stepper.tsx:4-71` (`Step{id,label,state,ms,detail,right}`) | **adapt**: pending title `text-ink-4` → `ink-2` (§9.1.6), detail tone per state, a determinate bar under the active step |
+| The opening checklist (§5.2) | `ui/components/preflight.tsx`, `web-miner/src/opening-steps.ts` (`WEIGHTS` line 12: notes 15, indeterminate) | **adapt**: weights from measured durations; blocks-based sync progress needs a PXE read that does not exist (searched `syncStatus`, `blocksSynced` in `web-miner/src`: none) |
+| Epoch tile (§5.3) | `ui/components/epoch-rail.tsx`, `web-miner/src/features/RailTile.tsx:46-99` | **adapt**: "wins", "anyone can close it", the Presto row ↔ slider swap on the sticky state |
+| Power slider (§5.7) | `ui/components/power-slider.tsx`, used by `RailTile.tsx` and `routes/Settings.tsx:127-132` | **reuse-as-is**: consumers move; the value stored and applied at the next browser build (§9.1.15) |
+| The chart and the ledger (§5.3) | `ui/components/score-loop.tsx` + `score-loop-model.ts`, `proof-line.tsx:110` (`ProofLedger`), `LoopTile.tsx:58,239`, `LedgerTile.tsx:27` | **adapt**: the `−3 min` and the shared x mapping (§9.1.3), the win mark's drop, the claim line per step and outcome |
+| The claiming chip in the loop tile's header (§5.3) | `LoopTile.tsx:169-172` (header: "live · last 3 min" or the pill word); `ClaimStatus.tsx:16-38` (`STEPS` proving/sent/waiting, `ttlDetail`); `lib/reducer.ts:16` (`Phase` incl. `claiming`, `recovering`) | **build new** UI on existing state: the chip reads the step and one clock from the win (the reducer's `claim.since` restarts per step) |
+| Claim outcomes and the two banners (§5.3, board ClaimOutcomes) | `miner-core/src/claim-failure.ts` (`ClaimFailure`, `CLAIM_FAILURE_COPY`); `controller.ts` `claimFailed` (~655), `pauseUntilFinal` (~795), `'discard'` (~503) | **adapt**: the copy table rewritten to §5.3; `other` resumes with Retry (§9.1.14); the discard gets a ledger line |
+| Presto's billboard and banners (§5.3) | `features/PrestoBanner.tsx` (`@alejoamiras/presto-banners`, presto.build), `presto.ts:163-216` (`causeText`, `statusText`, `noticeFor`), `boot.ts:159-164` + `session.ts:612-621` (two probe call sites) | **reuse-as-is** billboard; **adapt** the banner texts to the board and drop the cockpit-ready probe (§9.2.13) |
+| The single account slot, fail-closed (§5.1, §9.2.12) | `keys/store.ts:81-82` (`listRecords` returns all), `keys/passkey.ts:80,108` (`excludeCredentials`, `allowCredentials` already built) | **build new** slot logic on the existing record CRUD; `WelcomeBack` lists one |
+| Sign-in failure notes (§5.1) | `keys/passkey.ts:10` (`NoPrfError`), `wallet.ts:99` (`ChainViewHeldError`, no takeover) | **adapt**: two new notes ("Sign-in didn't complete", the held tab's Retry); no new error class |
+| Words login: checksum, empty-account hint (§5.1) | `WordsScreens.tsx` (paste-only textarea) | **adapt**: the wordlist dependency validates the checksum; the hint is copy |
+| Hold to sign out (§5.8) | `ui/components/hold-button.tsx` (1,200 ms, completion arms, release confirms, Space/Enter), `SignOutDialog.tsx:96-118` (the click link today) | **adapt**: the click link hidden until a hold released early; the hold waits while `phase === 'claiming'`; `session.ts` sign-out reloads |
+| The activity row (§5.4, §9.2.3) | `ui/components/journal-card.tsx:20`, `features/ArrivalCard.tsx`, `features/BridgeTile.tsx` (filters `kind !== 3`: §9.1.4), `bridge/copy.ts` (`cardLine`, `trailOf` line 217, `journalTone`, `whoOf`, `untilOrAgo`, `takingLong` 161-166, `TAKING_LONG_AFTER_MS` 159) | **build new** row that replaces JournalCard + ArrivalCard + both list filters at once; `copy.ts` rewritten to the §5.4 state table and reused by the row; `Trail` adapts (✓ on done stages) |
+| The crossing's states and facts (§5.4) | `packages/bridge/src/journal.ts:13-56` (`CrossingState`, all seventeen), `bridge/session.ts` (803 lines; `txByTag` when `!c.txHash`) | **reuse-as-is** machine; **adapt**: `Crossing` gains the persisted enforced expiry (§9.1.10; searched `expiresAt`, `expiry` in `journal.ts`: none) and the re-adoptable "didn't finish" (§9.1.13) |
+| The deadline's four readings (§5.9, §9.3.4) | `packages/bridge/src/portal-reader.ts:19-100` (`flipAt`, `pausedSeconds`, `deadline`, `headroom`, `depositsClosed`, `registered`; **no `afterNextAt`**: the portal has the getter, `YacanaPortal.sol:211`, and only the operator's `deploy/src/bridge/status.ts:21` reads it), `deadline.ts` | **adapt**: add the `afterNextAt` read to `portal-reader.ts`, then one pure reading function in `packages/bridge/src/deadline.ts`, consumed by `copy.ts` and the stats |
+| `takingLong` from V6's registration (§9.1.12) | `bridge/copy.ts:161-166`, `features/TakingLongDialog.tsx` (same bug twice) | **adapt** once in `copy.ts`; the dialog consumes it, then becomes a row state (§9.3.2) |
+| "V5 proved an epoch 12 min ago" (§9.3.1) | none: `packages/bridge/src/logs.ts` windows `eth_getLogs` for portal events; `deadline.ts` `provenCheckpoint()`/`epochOfCheckpoint()` give proven-ness, not a time (searched `ProofVerified`, `getLogs`, `watchEvent` in bridge, web-miner, site) | **build new**: a timestamped read of the rollup's proof-verified event on `rollupReads`, reusing `logs.ts` windowing |
+| The payer's ETH and a gas estimate (§9.3.8) | none: `bridge/eth.ts` wires `injected()`, `writeContract`, `waitForTransactionReceipt` (searched `getBalance`, `useBalance`: none) | **build new** on wagmi actions |
+| The portal's revert names → sentences (§9.2.15) | `packages/portal/abi/YacanaPortal.ts` (`DeadlinePassed` 1353, `VersionPaused` 1581, `WaitsForHeadroom` 1592), `packages/bridge/src/revert.ts:21-30` (decodes any custom error to its name) | **adapt**: a lookup table over the existing decode |
+| The node row: in-place edit, probe on Save, stepper, `behind` (§5.7) | `components/NodeTile.tsx` (Change → field → Check/Use), `site/src/browser/node.ts:51` (`probeNode`: deployment, block age, latency; rejects nothing), `node-guard.ts`, `node-health.ts`, `connection.ts`, `boot.ts:212` `switchNodeLive` (from `session.ts:559,586`) | **adapt**: the same machine with Save + the inline stepper; the chip needs the tip's age (§9.2.19) and a stale-tip pause that does not exist |
+| The unified header and navigation (§5.10, 4A; §9.1.8) | `web-miner/src/App.tsx:82-139`, `web-stats/src/App.tsx:98-103`, `web-landing/src/sections/Bar.tsx:7-12` (three hand-rolled headers; the logo a `<span>` in all three); `ui/src/mark.ts` | **build new** shared `Header` in `packages/ui` on `Mark`; the three apps consume it |
+| The old origin as one Send-ahead page (§5.9, 7A, §9.2.9) | `site/src/config.ts:11-18` (`YACANA_APP_ROLE`), `assemble.ts:25,124,147,155` (`OLD_OUT`, `_redirects`), `web-miner/src/OldApp.tsx` | **adapt**: the old app's route set and tab; the build and redirect plumbing as is |
+| The recorded stop and the node-retired flag (§9.3.9–10) | `docs/upgrades.md` (no such steps), the deployment record (`packages/bridge/src/record.ts`) | **build new**: two record fields written by the operator script (`packages/deploy/src/bridge/`) and served with the record |
+| The recovery file's prompt after a send-ahead (§9.3.6) | `packages/bridge/src/recovery.ts`, the recovery save/restore features (driven by `bridge.e2e.ts` `recovery-*`) | **adapt**: the prompt's timing and the re-offer once the witness is known |
+| The amount box (§4.3, §9.1.5) | `ui/components/amount-block.tsx:9-42` (read-only), `web-miner/features/AmountInput.tsx` (editable), `SendSheet.tsx` (its own inline field) | **adapt + dedup**: one editable `AmountField` in `packages/ui`; the three collapse into it |
+| Presto's fallback row per reason (§9.3.5) | `presto.ts` `FallbackCause`, `presto-prover.ts` (reports `wasm, sticky:false` per transient refusal), `controller.ts` `active` set on every message | **adapt**: the banner from `noticeFor`; the swap keyed on the sticky state (§9.2.18) |
+| Presto through the PXE's proofs (§9.3.7) | none in the SDK's interface (probe/status/prove only) | **out of scope**: a bounded ask to the SDK (Assumptions) |
+
+Every `build new` above names the search that found nothing; the audits attack those first.
+
+### 0.1 The browser suites the redesign must keep driving
+
+Full map by the mapper (paths and lines as of 10a932f); the parts the plan sequences on:
+
+- **`packages/web-miner/e2e`**, four shards (`shards.json`): `cockpit` = `miner`, `passkey`; `chain` = `states`,
+  `switch`, `presto`; `canary` = `canary`, `withdraw`, `words`, `opening`; `bridge` = `bridge-states`.
+  `proof-inventory.ts` is the meter's floor per test title (titles are the identity, unique across files); under
+  `E2E_PROVERLESS=1` any proof event fails the test, so a redesign must not leave proving on in a proverless
+  shard. `fixtures.ts:32-82` wires the meter into every spec. `bridge.e2e.ts` and `origin.e2e.ts` are rig-only
+  (`playwright.rig.config.ts`, `packages/harness/tests/{browser,origin}.bun.test.ts`, `RIG_STAGE` v5 → v5-flipped
+  → v6; `yacana.test` / `v5.yacana.test` under a shared cert). The replay lane (`e2e/replay/`, `recording.json`,
+  `dialog-geometry.replay.ts` asserting the sign-in dialog fits 480×720 at every screen, `signed-out.replay.ts`)
+  runs on every PR (`web-miner.yml` `replay`, ~10 min) without a node; re-record with
+  `bun run e2e:agent -- bun packages/web-miner/e2e/replay/setup.ts record` after the dialog changes.
+- **CI on a PR**: `web-miner.yml` `test` (lint, typecheck, components, bun test) + `replay`; `harness.yml` the
+  `flip` case only; `web-stats.yml` `test` + `visual` (the pinned full-page screenshots at four widths in the
+  Playwright container image, the one PR-blocking pixel gate; any header change regenerates the baselines);
+  `site.yml`, `web-landing.yml`, `ui.yml` lint/typecheck/unit only. `e2e.yml` is dispatch-only: the shard matrix
+  (proverless except `canary`), the stats and landing suites, the rig (`browser`, `origin` included).
+- **What a fidelity redesign breaks first**, by the number of specs on it: (1) the sign-in screens and their
+  test ids (`key-screen`, `create-passkey`, `restore-*`, `use-words`; `helpers.ts:90-115` `bootPage`/`passKeyScreen`
+  is every spec's entry) plus the replay lane's geometry assert; (2) the sign-out dialog (`sign-out-hold`,
+  `sign-out-plain`, `sign-out-click`, `back-up-first` in `words.e2e.ts:84-101`); (3) Send and the activity row
+  (`withdraw-*`, `crossing-word`, `arrival-*` in `withdraw`, `bridge-states`, `bridge`); (4) the node row
+  (`node-in-use/health/url/check/check-result/use/banner`, "the miner and the token are there" in `switch`);
+  (5) the upgrade card and the old origin (`migration-card[data-moment]`, `ahead-*`, `flipped-alert`, `retired`,
+  `old-tab`, the landing's `announcement`); (6) the Mine vocabulary (`claim-slot[data-state]`, `epoch-claims`,
+  `ledger` text in `miner`, `states`, `canary`); (7) Presto (`presto-billboard`, `presto-notice`, `rate-line`,
+  `power-caption` in `presto.e2e.ts`; `signed-out.replay.ts` "needs an update"); (8) the stats visual gate.
+
+### 0.2 Conventions
+
+`routes/*.tsx` page-level; `features/*.tsx` route-scoped composites; `components/*.tsx` app-local widgets;
+`packages/ui/src/components/*` cross-app primitives exported through `index.ts`. Bridge logic pure in
+`packages/bridge/src` (journal, deadline, portal-reader, revert), page-side wiring in `web-miner/src/bridge/*`
+(session, flows, forms, copy, facts). State: jotai atoms (`state.ts`, `settings.ts`, `presto.ts`);
+`controller.ts` drives `lib/reducer.ts`'s pure `(state, event) → [state, effects]`; `session.ts` composes
+controller + boot + the bridge session; the journal's `advance(crossing, facts)` is pure and shared by live sync
+and file restore. Tests: `*.vitest.tsx` (jsdom, Testing Library) beside components, `*.test.ts` pure,
+`*.e2e.ts` Playwright, `*.bun.test.ts` the rig. `data-testid` is the e2e contract (206 in `web-miner/src`).
+
+### 0.3 Dedup risks
+
+1. Three amount fields (`amount-block.tsx`, `AmountInput.tsx`, `SendSheet.tsx`'s inline one): the new Send must
+   collapse them, not add a fourth.
+2. Three headers: a new nav only in the miner leaves §9.1.8 in stats and the landing.
+3. `BridgeTile` and `ArrivalCard` double bookkeeping: the row replaces both filters at once or the dropped
+   deposit hides again.
+4. `Sheet` vs `Dialog`: remove `Sheet` only once no consumer needs a side panel.
+5. `takingLong` in `copy.ts` and `TakingLongDialog.tsx`: fix once, consume twice.
+
+---
 
 Read-only recon by three Explore agents before the design pass. Verbatim strings; line numbers as of 0d9d1ea.
 Section A: sign-in, mine, settings, nav (this file). Section B: wallet and bridge. Section C: Bazaar's sign-in.

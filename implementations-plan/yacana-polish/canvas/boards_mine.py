@@ -163,7 +163,7 @@ CLAIM_LINES = [
     ("the epoch closed first (reverted)", "win", "★", f"{WIN} · <span class=\"warn\">didn't land: the epoch closed first · the sponsor paid, your proof is unspent · re-syncing, about a minute</span>"),
     ("expired", "win", "★", f"{WIN} · <span class=\"warn\">dropped: no block took it in 10 min · nothing paid · mining continues</span>"),
     ("delivery blocked", "win", "★", f"{WIN} · <span class=\"warn\">didn't land: an earlier reverted claim blocks this account · claims wait for Ethereum's finality, about 40 min</span>"),
-    ("other", "win", "★", f"{WIN} · <span class=\"warn\">claim failed: &lt;the error's first line&gt;</span> · <a href=\"#\">Retry</a>"),
+    ("other", "win", "★", f"{WIN} · <span class=\"warn\">claim failed: &lt;the error's first line&gt; · mining paused</span> · <a href=\"#\">Retry</a>"),
     ("discarded before the claim", "win", "★", f"{WIN} · <span class=\"ink3\">not claimed: the epoch closed before the claim went out</span>"),
 ]
 CLAIM_BANNERS = [

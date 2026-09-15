@@ -310,7 +310,9 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
   about a minute"; expired: "dropped: no block took it in 10 min · nothing paid · mining continues"; delivery
   blocked: "didn't land: an earlier reverted claim blocks this account · claims wait for Ethereum's finality,
   about 40 min"; other: "claim failed: <the
-  error's first line>" with **Retry** (§9.1.14); a win discarded before its claim went out (the reducer drops a
+  error's first line> · mining paused" with **Retry** (§9.1.14; mining stays paused because a retry needs the
+  ticket's secret, which a restart rotates: `controller.ts` `execute('mine')` clears the secrets and the retained
+  ticket, `retryEligible` needs `phase === 'idle'`); a win discarded before its claim went out (the reducer drops a
   win whose epoch changed): "not claimed: the epoch closed before the claim went out", the chart keeps its ring.
   A lost race also shows a banner under the header in the node's shape: "Re-syncing this account from the chain;
   mining resumes in about a minute" (recovering), and, if the delivery is still blocked after that, "Claims from
@@ -759,8 +761,10 @@ redeem afterwards). Redeem-on-Ethereum lives under the row's sentence and in Det
     V6's `VersionRegistered`, and runs only while `canonicalRegistered`.
 13. A "didn't finish" row stays re-adoptable by its tag: a log found later moves it on, never a final state.
 14. A claim failure the code cannot classify (`other`) halts mining on the error's raw first line
-    (`controller.ts` `claimFailed` returns without resuming): the line needs a sentence and a **Retry**, and
-    mining resumes on the open epoch like an expiry does.
+    (`controller.ts` `claimFailed` returns without resuming) and nothing says so: the ledger line needs its
+    sentence ("claim failed: <the error's first line> · mining paused") and a **Retry** that re-sends the retained
+    ticket (`retryEligible`: idle, the secret still current; a restart rotates it and drops the ticket, so mining
+    does not resume by itself); Start mining resumes and drops the ticket.
 15. A power change while Presto proves runs `reconfigure`, a prover rebuild for nothing (`controller.ts`
     `reconfigure` compares threads and the endpoint, not what proves): store the value, apply it at the next
     browser build.
