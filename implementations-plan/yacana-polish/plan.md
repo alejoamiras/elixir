@@ -6,7 +6,7 @@ eli5_mode: artifact
 code_review: off
 hardening: none this arc
 budget: "recon 2 agents (1 reuse sweep, 1 suite mapper); codex at high (GPT-6 Astra); one fable audit on Fable 5.1; the owner asked for the cheap tier on 2026-09-15"
-status: draft — consolidated from plans/{main,codex,fable}.md; Codex's contradiction check (§9.1), both audits (§9.2) and the final Codex pass on the ledger (§9.3) folded; awaiting the owner's approval (Asks 1, 4, 5; Ask 6 decided: the last arc runs everything)
+status: approved 2026-09-15 by the owner (Asks 1 and 4 on their defaults, Ask 5 built at P11, Ask 6 the last arc runs everything); every review folded (§9.1–9.3); implementing from P1
 created: 2026-09-15
 ---
 
@@ -22,7 +22,7 @@ decision came from where; §9 holds the contradiction check and the audits.
 ## 1. Goal
 
 Ship the brief and its canvas with fidelity, desktop only: every screen and state drawn, the copy verbatim from the
-generator, the defects of §9.1 fixed, the decisions of §9.2 followed, the capabilities of §9.3 built (§9.3.7 bounded
+generator, the defects of §9.1 fixed, the decisions of §9.2 followed, the capabilities of §9.3 built (§9.3.7 at P11, the owner's call
 to an ask), the runbook and the operator script extended (the recorded stop, the node-retired flag), the unified
 header on the three apps, and every browser suite adapted so it drives the new screens: the four web-miner shards,
 the replay lane, the rig's browser and origin cases, the site e2e, the stats visual gate and e2e, the landing e2e.
@@ -30,7 +30,7 @@ the replay lane, the rig's browser and origin cases, the site e2e, the stats vis
 **Done means**: every phase's gate green in the transcript (§6); `e2e.yml` dispatched on the stack's top branch
 green (the shard matrix proverless but `canary`, the stats and landing suites, the rig); the stats visual baselines
 regenerated and pinned; every `data-testid` the specs reference present; every "after" string of the copy deck (§6
-of the brief) rendered by the page it names (P11's check); the arcs of §7 stacked as PRs, opened only after the fix
+of the brief) rendered by the page it names (P12's check); the arcs of §7 stacked as PRs, opened only after the fix
 loops of §10. Never merged, never deployed by this plan: `site:deploy` and the `yacana-v5` Worker are the owner's.
 
 ## 2. What the design decided (the short form; the brief is authoritative)
@@ -339,6 +339,11 @@ export interface DeploymentRecord { /* … */ lifecycle?: { stoppedProvingAt?: s
   copy is static; the CSP/COOP/COEP headers unchanged (the site e2e asserts them); the Presto billboard stays behind
   the existing allowlist.
 
+- **Transaction proofs through Presto (P11)**: the private execution steps the PXE hands the prover carry the
+  account's private inputs; with Presto selected they leave the page to a local process on loopback or the local
+  HTTPS port, under the origin approval Presto asks once, and to nothing else (the fetch guard admits `/prove` on
+  the endpoint in use only); the SDK falls back to WASM when Presto is gone mid-proof and never re-sends a job.
+
 ## 5. Assumptions
 
 **Facts** (verified at 10f893c): `claim-failure.ts` classes and copy (6–45); `controller.ts` `claimFailed` returns
@@ -390,9 +395,8 @@ landing can mount `Brand` without any session code (it imports from `packages/ui
 accessibility point vs "no click alternative"; default: reveal); (2) decided, not asked (FA): the `behind` tolerance is more than one checkpoint, sampled every 10 s (the
 node) and 15 s (L1), an L1 sample older than 60 s making the standing `unknown`; (3) decided, not asked (FA): the newest-created legacy record is the slot, the other unlisted (a vitest seeds
 two records and asserts it); (4) the landing's bar: `Brand` + its sections nav + Mine/Stats links (default) or the
-full app tabs; (5) §9.3.7: a bounded feasibility answer from the pinned Presto SDK interface (default: one
-paragraph in `lessons/`, no PXE integration this arc); (6) decided, not asked (O, 2026-09-15): P2–P9 run the shards they touch (the rig's `origin` at P3, both browser
-cases at P10); P11, the stack's last arc, runs everything with a journey record (§6 P11, D15).
+full app tabs; (5) decided (O, 2026-09-15, "hand to Presto too"): the PXE's proofs through Presto, built at P11 behind a spike (D44); (6) decided, not asked (O, 2026-09-15): P2–P9 run the shards they touch (the rig's `origin` at P3, both browser
+cases at P10); P12, the stack's last arc, runs everything with a journey record (§6 P12, D15).
 
 ## 6. Phases with validation gates
 
@@ -456,7 +460,7 @@ Page-first (1A): `signInAtom` defaults to whether a slot exists (Welcome back on
 click otherwise), the undimmed cockpit signed out (§9.2.1), Start mining's intent consumed once, Log in without it;
 the opening checklist (§5.2, §9.1.2): weights from durations measured on the isolated network (cold and warm, the
 numbers into `opening-steps.ts` with the measurement in `lessons/phase-3.md`), real CRS bytes, block progress only
-if the installed PXE exposes it (else elapsed time), Cancel and Retry; the §9.3.7 feasibility paragraph. Specs:
+if the installed PXE exposes it (else elapsed time), Cancel and Retry. Specs:
 `opening`, `miner` (the first-visit flow), replay screens; `origin.e2e.ts:22-40` and `bridge.e2e.ts:41-61` drive
 the dialog's ids through `bootPage`: the rig's `origin` case runs here, at the arc-2 boundary.
 **Gate**: fast · `cockpit` proverless · `canary` real (opening) · replay · `bun run rig -- origin` (tmux) ·
@@ -547,15 +551,52 @@ harness's browser/origin cases, `versioned-origin.vitest`, `packages/deploy` tes
 `test:visual --update-snapshots` then `test:visual` (the stats bridge page's deadline sentences changed) · pass:
 both cases green with the new copy · layers: + rig, visual.
 
-### P11 — The sweep (the stack's last arc runs everything; O, 2026-09-15)
+### P11 — Transaction proofs through Presto (O, 2026-09-15: "hand to Presto too")
+
+The PXE's proofs — the claim, the burn to Ethereum, Send, Send ahead — go through Presto when it is the selected
+prover and its `/health` lists `chonk`; in the browser otherwise, as today. Facts: `EmbeddedWallet.create` takes
+PXE dependency overrides, "custom store, prover, simulator" (`@aztec/wallets` `embedded_wallet.d.ts:35-36,57`),
+and `PXECreationOptions.proverOrOptions` is a `PrivateKernelProver` (`@aztec/pxe` `pxe_creation_options.d.ts:16`);
+the page passes `{ proverEnabled, store }` today (`wallet.ts:72-74`). `@alejoamiras/presto` 5.2.0-revision.2
+(published 2026-09-08; installable under the 7-day gate from 2026-09-16) ships `PrestoProver extends
+BBLazyPrivateKernelProver` (`sdk/src/lib/presto-prover.ts:109`: options `presto`, `onPhase`, `simulator`;
+`setPrestoConfig`, `setOnPhase`, `setForceLocal`; the `/prove` route, chonk; the WASM fallback inside) on
+`@aztec/bb-prover`, `@aztec/simulator` and `@aztec/stdlib` at 5.2.0 exactly; the desktop app and the headless
+`presto-server` 1.1.1 both serve `/prove` (the presto README's package table); the page's guard admits `/health`
+and `/prove/ultra-honk` only (`presto.ts:44`) and the probe asks for `ultra_honk` (`presto.ts:102`).
+Work, in this order: (1) **the spike, alone, on the isolated network**: `PrestoProver` as the wallet's prover with
+`prestoConfig(endpoint)` (`presto-prover.ts:68`), one claim proved through the headless Presto; the timings (WASM
+vs Presto, cold and warm) and the bundle's size delta into `lessons/phase-11.md`. A blocker outside this repo — the
+SDK's peer shape under the hoisted linker, chonk needing a `bb` the pinned server lacks, a proof the node rejects —
+ends the phase there: the blocker written, the dialog keeps "in your browser", arc 7's PR carries P12 only, the
+owner told. (2) `wallet.ts`: the prover chosen at `openWallet` from the sticky Presto state (`presto.selected ===
+'presto'` ∧ `chonk` ∈ `schemes`), `setForceLocal(true)` when Presto steps aside (the fix-it row's Retry rebuilds
+the work prover today, `session.ts:623-630`; the same rebuild sets the wallet's), `onPhase` → the checklist's
+active step; `ROUTES` gains `/prove`; the probe reads `ultra_honk` for the work and `chonk` for the wallet, each
+pill and line following what actually proved (the ✦ rule of §5.3). (3) Copy, from the generator: the dialog's
+proving line "proves through Presto ✦, about N s · mining pauses meanwhile" beside "proves in your browser, about
+20 s" (`boards_send.py:32`); the claim line "claiming: proving through Presto ✦" (`boards_mine.py:159`); How it
+works gains "With Presto, your transaction's private inputs go to Presto on this machine, never elsewhere"; the
+canvas re-rendered (brief v4.3). (4) Security (§4): the private execution steps — the account's private inputs —
+leave the page to a local process, loopback or the local HTTPS port only, under the same origin approval Presto
+asks for the work proofs; the fallback proves in WASM when Presto is gone mid-proof and never re-sends. Specs:
+`presto.e2e.ts` gains "a claim proved through Presto: the dialog says through Presto ✦, the tx mints" and "Presto
+gone mid-proof: the browser finishes, no suffix"; `presto-live.bun.test.ts` a chonk round trip against a started
+server; `wallet.vitest` the prover-choice table.
+**Gate**: fast · `chain` real with the headless Presto (`presto.e2e.ts`, the new cases) · `canary` real ·
+`PRESTO_URL=… bun test packages/web-miner/tests/presto-live.bun.test.ts` · pass: the breakdown's proving column
+shows the transaction proof on Presto, the fallback case green; or the spike's blocker written and the phase closed
+as "not built" with the owner told · layers: + e2e live with Presto.
+
+### P12 — The sweep (the stack's last arc runs everything; O, 2026-09-15)
 
 The FAQ and the announcement lines §6 changed (`copy.ts:150` "ends at the upgrade" → "ends when the upgrade
 lands"); the copy-deck check (every screen's strings live in one module per feature and a Vitest spec asserts the
-table against the generator's; P11 greps the built bundles for the deck's "after" strings as the last smoke);
+table against the generator's; P12 greps the built bundles for the deck's "after" strings as the last smoke);
 `implementations-plan/index.md`. Then the sweep: every layer the repo has, once, on the stack's top, so that a
 user who creates an account, mines, claims, bridges out, bridges in, is forwarded, sends ahead, withdraws, signs
 out and signs back in (on this device and on a new one) is proven whole end to end. Every command's result and the
-executed test titles go into `lessons/phase-11.md` as the sweep record; the journey table below must be filled
+executed test titles go into `lessons/phase-12.md` as the sweep record; the journey table below must be filled
 from that record, one executed title per row, before the phase is ✓.
 
 **Gate** (in this order; long runs in tmux through `bun run e2e:agent`):
@@ -615,7 +656,8 @@ stack position without deleting keys, downgrading journals or touching contracts
 | 3 mine: the claim, Presto, settings | `polish-mine` | P4–P6 | arc 2 |
 | 4 the bridge's facts | `polish-facts` | P7 | arc 3 |
 | 5 the wallet and the dialog | `polish-wallet` | P8–P9 | arc 4 |
-| 6 the upgrade, the old origin, the sweep | `polish-upgrade` | P10–P11 | arc 5 |
+| 6 the upgrade, the old origin | `polish-upgrade` | P10 | arc 5 |
+| 7 transaction proofs through Presto, the sweep | `polish-presto-tx` | P11–P12 | arc 6 |
 
 PRs are opened only in the Delivery step (§10), after every arc's fix loop and the final cross-arc pass converged.
 Merges (`gh stack merge`) and the two production deploys after them (`bun run site:deploy`, the `yacana-v5` Worker
@@ -641,8 +683,8 @@ main (M), codex (C), fable (F); the contradiction check: codex (CC), fable (FC);
 | D11 | Start never waits for the probe; the swap follows the sticky state; a thread change under Presto is stored | R, M, C | — |
 | D12 | The claim's one clock from the win; six outcomes; the banners without "Use another account" | R, M, C | — |
 | D13 | The hold reveals the click path after an early release and on a click-only activation; sign out drains the claim | R (Fable 3), C | the owner's "no click alternative" as an absolute (an Ask) |
-| D14 | Six arcs (C's shape, M's phases merged: 11 phases) | M, C | M's five arcs; C's twelve phases |
-| D15 | Gates: the fast layers everywhere; P2–P9 the shards a phase touches, the rig's `origin` at P3, `browser` + `origin` at P10; P11, the stack's last arc, runs everything the repo has (every miner spec with real proving and again as CI shards it, replay, `rig -- all`, the portal's tests, stats e2e + visual, landing e2e, both site builds + site e2e, the CI dispatch) with a journey record in `lessons/phase-11.md` | O (2026-09-15: "the last branch of the gh stack [runs] everything… extra sure that nothing has been broken"), M | C's common gate G on every phase (roughly triples P2–P9; the owner kept the default there) |
+| D14 | Six arcs (C's shape, M's phases merged: 11 phases); a seventh arc and a twelfth phase added at the gate (D44) | M, C, O | M's five arcs; C's twelve phases |
+| D15 | Gates: the fast layers everywhere; P2–P9 the shards a phase touches, the rig's `origin` at P3, `browser` + `origin` at P10; P12, the stack's last arc, runs everything the repo has (every miner spec with real proving and again as CI shards it, replay, `rig -- all`, the portal's tests, stats e2e + visual, landing e2e, both site builds + site e2e, the CI dispatch) with a journey record in `lessons/phase-12.md` | O (2026-09-15: "the last branch of the gh stack [runs] everything… extra sure that nothing has been broken"), M | C's common gate G on every phase (roughly triples P2–P9; the owner kept the default there) |
 | D16 | Finished rows collapse after seven days, never discarded | C | — |
 | D17 | Copy precedence: the flow boards over the deck where they disagreed; the deck fixed (v4.2.1) | C | — |
 | D18 | `readDeadline` in a new `exit-deadline.ts` (FA's name: it is the portal's exit deadline); `deadline.ts` keeps the rollup's proof reads | F, FA | M's and C's "in deadline.ts" |
@@ -653,7 +695,7 @@ main (M), codex (C), fable (F); the contradiction check: codex (CC), fable (FC);
 | D23 | `checking` / `unfinished` derived at the session's fact refresh and held in the view, never in the journal | M, C | F's persisted non-final `didnt-finish` state (revivable through `adopt`; rejected because a file restore would then disagree with a live sync until its first refresh) |
 | D24 | The proof time is the version's latest `L2ProofVerified` only (the upgrade card's chip); no per-crossing proof time | M, C | F's per-crossing checkpoint time on `proven-pending` (the brief's rows carry none) |
 | D25 | The hold during a claim: dimmed "Claim finishing · Ns", arms when done (the brief) | brief | F's "fill completes and waits" |
-| D26 | Six linear arcs (`gh stack` is linear) | M, C | F's seven arcs with a DAG |
+| D26 | Seven linear arcs (`gh stack` is linear; six until the gate, D44) | M, C, O | F's seven arcs with a DAG |
 | D27 | A revert's cause is verified from the reason string ("stale claim" / "epoch is not open"); other reverts get a neutral sentence | CC | the brief's "the epoch closed first" for every revert |
 | D28 | The mining ledger's settlement is its own adapter on `checkpointOfBlock` + `checkpointProven`; `claimSettled` stays the crossing's | CC | reading the crossing's field for a mining claim |
 | D29 | The journal's commit of hash + expiry (+ the anchor block) is awaited before `target.sendTx`, by the one-shot hook of D40 | CC, CF | "in the same tick" (M) |
@@ -671,9 +713,10 @@ main (M), codex (C), fable (F); the contradiction check: codex (CC), fable (FC);
 | D41 | `unknown` renders the transport's word and keeps a shown `behind`; the chip's suffix is the tip's age; the verdict the checkpoint delta | FA | a fifth chip the board does not draw |
 | D42 | `unfinished`'s coverage read: the deployment-checked node in use serves the send's anchor block (recorded by the hook) and answers "no log" past the expiry; a node without the anchor block stays `checking` | FA, CF | an uncomputable `historyComplete` input; "no log" twice (absence twice is still absence, CF) |
 | D43 | The rig's `origin` case at the arc-2 boundary (the dialog's ids); `browser` at P10 | FA | both at P10 only |
+| D44 | The PXE's transaction proofs through Presto when it is selected and serves `chonk`: `PrestoProver` as the embedded wallet's prover, the dialog says where it proves, a spike opens the arc and a blocker outside the repo closes it honestly | O (2026-09-15) | the feasibility paragraph alone (the default, brief §9.3.7); wiring without the spike |
 
-Open for the owner at the gate: D13 (the reveal, Ask 1). D15 (Ask 6) was decided by the owner on 2026-09-15: the
-last arc runs everything. D2's legacy rule and the `behind` tolerance are decided (Asks 2 and 3, FA).
+Every ask is decided (the owner, 2026-09-15): Asks 1 and 4 on their defaults (D13, D1), Ask 5 built (D44), Ask 6
+the last arc runs everything (D15); Asks 2 and 3 by the Fable audit (D2, D41).
 
 ## 9. Audit verdicts
 
@@ -800,7 +843,7 @@ Use exactly one seed per session; they do not compose. `/goal` is the recommende
 must run inside this worktree (`agent-worktree resume yacana-polish`).
 
 ```
-/goal All eleven phases marked ✓ in implementations-plan/yacana-polish/plan.md (the per-phase headers in the file — not the chat, not the task list), each ✓ backed by its phase's validation gate as written in plan.md §6 reported passing in the transcript; for each phase the agent has printed `LESSONS_FILE=implementations-plan/yacana-polish/lessons/phase-N.md`; at each of the six arc boundaries the codex fix loop of plan.md §10 (steps 2–3, `/codex high`, both verbatim rules, resumed until a round yields nothing material, hard stop at 3) has converged with its rounds logged in lessons; the final cross-arc codex pass over `git diff main...HEAD` has converged; then Delivery per §10 step 5: `gh stack submit --auto`, each PR body ending with the attribution line, `gh pr checks --watch` green on every PR in the stack. Never merge, never deploy production (`site:deploy`, the v5 Worker), never expand scope beyond plan.md and the brief. Fast layers after every meaningful edit: `bun run lint` and `bun test` and the touched packages' `test:components`; `bun run lint:actions` before any workflow push; every e2e through `bun run e2e:agent` in tmux.
+/goal All twelve phases marked ✓ in implementations-plan/yacana-polish/plan.md (the per-phase headers in the file — not the chat, not the task list), each ✓ backed by its phase's validation gate as written in plan.md §6 reported passing in the transcript; for each phase the agent has printed `LESSONS_FILE=implementations-plan/yacana-polish/lessons/phase-N.md`; at each of the seven arc boundaries the codex fix loop of plan.md §10 (steps 2–3, `/codex high`, both verbatim rules, resumed until a round yields nothing material, hard stop at 3) has converged with its rounds logged in lessons; the final cross-arc codex pass over `git diff main...HEAD` has converged; then Delivery per §10 step 5: `gh stack submit --auto`, each PR body ending with the attribution line, `gh pr checks --watch` green on every PR in the stack. Never merge, never deploy production (`site:deploy`, the v5 Worker), never expand scope beyond plan.md and the brief. Fast layers after every meaningful edit: `bun run lint` and `bun test` and the touched packages' `test:components`; `bun run lint:actions` before any workflow push; every e2e through `bun run e2e:agent` in tmux.
 ```
 
 ```
@@ -810,7 +853,7 @@ must run inside this worktree (`agent-worktree resume yacana-polish`).
 3. No task in hand? Pick the next pending step from plan.md and start it. After each meaningful edit run `bun run lint`, `bun test` and the touched packages' `test:components` (`bun run lint:actions` for workflows). Commit → push (`gh stack push`; `gh stack sync` if trunk or a lower arc moved).
 4. Stuck, or facing a decision you would normally bring to me? Do not wait. Call `/codex high` with full context and go back and forth until you reach a defensible decision, then act on it. Log every consult + verdict in lessons/phase-N.md. Hard limits stay hard: never merge, never deploy production, never expand scope beyond plan.md; copy comes from the canvas generator, verbatim.
 5. Same step failed 5 times? Stop retrying; reassess with codex, then continue down the agreed path.
-6. Phase green? Green means the phase's validation gate as written in plan.md §6 passes. Run the full gate, paste the result, mark ✓ in plan.md, file the lessons entry, print `LESSONS_FILE=implementations-plan/yacana-polish/lessons/phase-N.md`, advance. Arc boundary crossed (P1, P3, P6, P7, P9, P11)? Run plan.md §10 steps 2–3 on that arc's diff before `gh stack add` opens the next arc.
+6. Phase green? Green means the phase's validation gate as written in plan.md §6 passes. Run the full gate, paste the result, mark ✓ in plan.md, file the lessons entry, print `LESSONS_FILE=implementations-plan/yacana-polish/lessons/phase-N.md`, advance. Arc boundary crossed (P1, P3, P6, P7, P9, P10, P12)? Run plan.md §10 steps 2–3 on that arc's diff before `gh stack add` opens the next arc.
 7. All phases ✓? Close out per plan.md §10: the fresh cross-arc codex pass over `git diff main...HEAD`, then Delivery (`gh stack submit --auto`, PR bodies with the attribution line, `gh pr checks --watch`). Merging and the two production deploys are mine.
 Keep the native task list current (plan.md stays the source of truth).
 ```
