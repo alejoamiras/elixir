@@ -82,18 +82,21 @@ PAGES = [
          ("OpeningErrorProver", A.opening_error("prover"), 492, 480, "Opening · download failed"),
          ("OpeningErrorNode", A.opening_error("node"), 492, 500, "Opening · node silent")],
         [("SignOutHold", A.signout_hold(), 492, 330, "Sign out · hold (picked)"),
+         ("SignOutHoldAfter", A.signout_hold_after(), 492, 360, "· after a hold released early"),
+         ("SignOutHoldClaiming", A.signout_hold_claiming(), 492, 350, "· a claim in flight"),
          ("SignOut", A.signout(), 492, 300, "Sign out · confirm (not picked)"),
          ("SignOutWords", A.signout("unbacked"), 492, 340, "Sign out · not backed up")],
     ]),
     ("mine", "3 · Mine", ("The cockpit signed out, idle (Presto's billboard), mining (the chart, the claiming chip), with Presto, "
-                          "with Presto blocked or dropped out (banners under the header), and every Presto reason."), [
+                          "with Presto blocked or dropped out (banners under the header), every Presto reason, and a claim's every step and outcome."), [
         [("MineSignedOut", M.mine_signed_out(), 1440, 960, "Signed out"),
          ("MineIdle", M.mine_idle(), 1440, 1100, "Idle · Presto's billboard")],
         [("MineMining", M.mine_mining(), 1440, 960, "Mining · the chart · claiming"),
          ("MinePresto", M.mine_presto(), 1440, 960, "Presto connected")],
         [("MinePrestoBlocked", M.mine_presto_blocked(), 1440, 1040, "Presto blocked · the banner"),
          ("MinePrestoFallback", M.mine_presto_fallback(), 1440, 1120, "Presto dropped out · the banner, the slider back")],
-        [("PrestoReasons", M.presto_reasons(), 760, 1300, "Presto · every reason, as a banner")],
+        [("PrestoReasons", M.presto_reasons(), 760, 1360, "Presto · every reason, as a banner"),
+         ("ClaimOutcomes", M.claim_outcomes(), 760, 1700, "A claim · every step and outcome")],
     ]),
     ("wallet", "4 · Wallet", ("The Wallet, its empty states, the disabled reasons, then the activity row state by state: a bridge to "
                               "Ethereum (main path, rare states), a send ahead, an arrival."), [
@@ -150,7 +153,7 @@ PAGES = [
     ("settings", "7 · Settings", "Settings (the slider is here too), the old origin's Settings, and the node row in every state.", [
         [("Settings", S.settings(), 1440, 1160, "Settings"),
          ("OldSettings", S.old_settings(), 1440, 860, "Settings on v5.yacana.network")],
-        [("NodeStates", S.node_states(), 760, 1420, "Changing a node, and the states after")],
+        [("NodeStates", S.node_states(), 760, 1580, "Changing a node, and the states after")],
     ]),
     ("reference", "8 · Rules, IA, states, copy", "The ten rules, what shows where, every crossing state with its sentence, the navigation options, the copy deck before → after.", [
         [("Main", X.principles(), 1000, 960, "Ten rules"),

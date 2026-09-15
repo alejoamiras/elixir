@@ -69,7 +69,7 @@ def words_login(error: str = ""):
           f'<span>ripple canyon shadow velvet orbit maple signal harbor cobalt meadow lantern {last}</span></div>' if error else
           '<div class="field" style="height:auto;min-height:92px;align-items:flex-start;padding:10px 12px;line-height:1.6">'
           '<span>ripple canyon shadow velvet orbit maple signal <span class="ph">…</span></span></div>')
-    msg = ("These 12 words don\'t form a valid phrase: one is off. Check each against what you saved." if error == "checksum"
+    msg = ("These 12 words don\'t form a valid phrase. Check each word, and their order, against what you saved." if error == "checksum"
            else 'Word 12 isn\'t in the list: check "quartzz".')
     under = (f'<div class="under"><span class="bad">{msg}</span><span>12 of 12</span></div>' if error
              else '<div class="under"><span>7 of 12</span></div>')
@@ -169,5 +169,22 @@ def signout(method: str = "passkey", mining: bool = True):
 def signout_hold():
     inner = (head("account · 0x22a9db…612a", "Sign out?", "Your passkey logs you back in. Your balance stays with the account.")
              + '<div class="col" style="gap:6px"><span class="btn danger full" style="position:relative;overflow:hidden"><span style="position:absolute;left:0;top:0;bottom:0;width:58%;background:rgba(229,98,79,.18)"></span><span style="position:relative">Hold to sign out</span></span></div>'
+             + btn("Cancel", "ghost"))
+    return dialog_page(inner)
+
+
+def signout_hold_after():
+    """After a hold released early: the click path appears (the only path for voice control and switch access)."""
+    inner = (head("account · 0x22a9db…612a", "Sign out?", "Your passkey logs you back in. Your balance stays with the account.")
+             + '<div class="col" style="gap:6px"><span class="btn danger full">Hold to sign out</span>'
+             '<div class="under"><span>hold for 1.2 s</span><a href="#">Sign out with a click</a></div></div>'
+             + btn("Cancel", "ghost"))
+    return dialog_page(inner)
+
+
+def signout_hold_claiming():
+    """A claim in flight: sign out reloads the page, so the hold waits for it."""
+    inner = (head("account · 0x22a9db…612a", "Sign out?", "Your passkey logs you back in. Your balance stays with the account. A win is being claimed; sign out waits for it.")
+             + '<div class="col" style="gap:6px"><span class="btn danger full dis">Claim finishing · 12 s</span></div>'
              + btn("Cancel", "ghost"))
     return dialog_page(inner)

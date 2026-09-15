@@ -2,7 +2,7 @@
 from lib import alert, btn, header, kpi, kv, page, quiet, st, th, tile, trail
 
 LEDGER_LIVE = ('<ol class="ledger">'
-               '<li class="win"><span class="t">16:07:40</span><span class="g">★</span><span>#12 score 2.8 · 3.61 s · <b class="uv2">a win</b> · claiming, about 20 s</span></li>'
+               '<li class="win"><span class="t">16:07:40</span><span class="g">★</span><span>#12 score 2.8 · 3.61 s · <b class="uv2">a win</b> · claiming: proving in your browser, about 20 s</span></li>'
                '<li><span class="t">16:07:36</span><span class="g"></span><span>#11 score 1.2 · 3.60 s</span></li>'
                '<li class="ep"><span class="t">16:07:12</span><span class="g">──</span><span>epoch 12 opened · bar 1.6 (×0.83)</span></li>'
                '<li class="ok"><span class="t">16:06:58</span><span class="g">✓</span><span>minted in block <a href="#">83,164 ↗</a> · 4 tYACA, privately</span></li>'
@@ -12,7 +12,7 @@ LEDGER_ENDED = ('<ol class="ledger">'
                 '<li class="ok"><span class="t">13:58:12</span><span class="g">✓</span><span>minted in block <a href="#">91,204 ↗</a> · 4 tYACA, privately</span></li>'
                 '<li class="win"><span class="t">13:57:50</span><span class="g">★</span><span>#40 score 2.1 · 3.62 s · <b class="uv2">a win</b></span></li>'
                 '<li><span class="t">13:57:46</span><span class="g"></span><span>#39 score 1.1 · 3.60 s</span></li></ol>')
-LEDGER_EMPTY = '<ol class="ledger"><li class="ep"><span class="t">16:04:12</span><span class="g">──</span><span>epoch 11 opened · bar 1.0</span></li></ol>'
+LEDGER_EMPTY = '<ol class="ledger"><li class="ep"><span class="t">16:04:12</span><span class="g">──</span><span>epoch 12 opened · bar 1.0</span></li></ol>'
 
 
 def chart(mining: bool, foot: str = "3.6 s per proof · 12 proofs", window: str = "now") -> str:
@@ -39,7 +39,7 @@ def chart(mining: bool, foot: str = "3.6 s per proof · 12 proofs", window: str 
 
 
 NATIVE = ("mining", "presto")
-LIVE = ("mining", "presto", "presto-fallback")
+LIVE = ("mining", "presto", "presto-fallback", "presto-blocked")
 
 
 def loop_tile(state: str) -> str:
@@ -49,12 +49,9 @@ def loop_tile(state: str) -> str:
         return tile(inner, "loop")
     foot = "3.6 s per proof · " + ("✦ presto · " if state == "presto" else "") + "12 proofs"
     if state in LIVE:
-        claiming = st("claiming a win · 12 s", "on") if state == "mining" else ""
+        claiming = st("claiming · proving · 12 s", "on") if state == "mining" else ""
         right = f'{claiming}{btn("Stop", "sm")}'
         head = "live · since 16:05"
-    elif state == "presto-blocked":
-        right = btn("Start mining", "uv sm dis")
-        head = "your proofs"
     else:
         right = btn("Start mining", "uv sm")
         head = "your proofs"
@@ -71,7 +68,7 @@ def rail_tile(state: str) -> str:
     rows = (kv("wins", "2 of 4" if on else "0 of 4") + kv("bar", "1.6" if on else "1.0")
             + kv("open for", "3 min") + kv("expected close", "5 min") + kv("next bar if it closed now", "×0.62") + kv("anyone can close it", "in 4 min"))
     if state == "presto":
-        power = ('<div class="presto" style="margin-top:14px"><span class="glyph">✦</span><div><b>Presto · native prover</b><span>its speed is set in the Presto app · <a class="uv2" href="#">Open Presto ↗</a></span></div></div>')
+        power = ('<div class="presto" style="margin-top:14px"><span class="glyph">✦</span><div><b>Presto · native prover</b><span>proving on this machine · <a class="uv2" href="#">About Presto ↗</a></span></div></div>')
     else:
         power = ('<div class="row sb" style="margin-top:14px"><span class="lm">power</span><span class="x2 mono ink3">11 threads</span></div>'
                  '<div class="slider"><i style="width:100%"></i><b style="left:100%"></b></div>'
@@ -116,7 +113,7 @@ def presto_row() -> str:
             '<p class="x2 mono ink3" style="margin:6px 0 0">Presto\'s own billboard, the presto-banners component as today</p>')
 
 
-BLOCKED = "Presto is installed, but the browser blocks local access. Allow it for this site, then retry; or mine in the browser."
+BLOCKED = "Your browser blocked local access, so this page can't reach Presto. Allow local network access for this site, then retry. Mining in the browser meanwhile."
 GONE = "Presto stopped answering. Proving in the browser; retry when it's back."
 
 
@@ -126,16 +123,16 @@ def presto_notice(text: str, tone: str = "warn", retry: bool = True) -> str:
 
 PRESTO_REASONS = [
     ("denied", "warn", "Presto hasn't approved yacana.network yet.", "Approve it in the Presto app, then retry. Proving in the browser meanwhile.", True),
-    ("cooldown", "warn", "Presto is in a cooldown after a denial.", "Approve yacana.network in the app, then retry.", True),
+    ("cooldown", "warn", "Presto is in a cooldown after a denial.", "Approve yacana.network in the app; Retry works once the cooldown ends, about a minute.", True),
     ("busy", "warn", "Presto is busy: three proofs in a row refused.", "Proving in the browser; Retry tries it again.", True),
     ("invalid proof", "warn", "Presto returned a winning proof that didn't verify.", "Proving in the browser; check the Presto install, then retry.", True),
-    ("malformed", "warn", "Presto answered with something this page couldn't use.", "Proving in the browser; retry when Presto is updated.", True),
+    ("malformed", "warn", "Presto answered with something this page couldn't use.", "Proving in the browser; Retry tries it again.", True),
     ("update", "warn", "Presto needs an update for this app.", "Open Presto from your menu bar and let it update, then retry.", True),
     ("encrypted off", "warn", "Presto's encrypted connection is off.", "Presto › Settings › Encrypted Connection, then retry.", True),
     ("gone", "warn", "Presto stopped answering.", "Proving in the browser; retry when it's back.", True),
-    ("downloading", "info", "Presto is fetching its prover for Aztec 5.2.0.", "The first native proof takes longer. Proving in the browser until then.", False),
-    ("blocked (probe)", "warn", "Presto is installed, but the browser blocks local access.", "Allow it for this site, then retry; or mine in the browser.", True),
-    ("bad report (probe)", "warn", "Presto answered, but not with a health report this page understands.", "Proving in the browser.", False),
+    ("downloading", "info", "Presto is fetching its prover for Aztec 5.2.0.", "The first native proof waits for it; the rate stalls until then.", False),
+    ("blocked (probe)", "warn", "Your browser blocked local access, so this page can't reach Presto.", "Allow local network access for this site, then retry. Mining in the browser meanwhile.", True),
+    ("bad report (probe)", "warn", "Presto answered, but not with a health report this page understands.", "Proving in the browser; Retry asks again.", True),
 ]
 
 
@@ -146,8 +143,44 @@ def presto_reasons():
         rows += (f'<div class="col" style="gap:6px"><span class="lm">{key}</span>'
                  f'{presto_notice(f"{title} {body}", "uv" if tone == "info" else "warn", retry)}</div>')
     body = ('<div class="board" style="padding:24px"><span class="lm">presto · the banner for every reason it steps aside</span>'
-            '<p>A banner under the header, in today\'s notice shape, never inside the chart or the epoch tile. The pill says what actually proved (✦ only on a native proof). Every fallback keeps mining in the browser and says why in one line; Retry rebuilds the prover. "downloading" is the one that is not a fault.</p>'
+            '<p>A banner under the header, in today\'s notice shape, never inside the chart or the epoch tile. The pill says what actually proved (✦ only on a native proof). Every fallback keeps mining in the browser and says why in one line; Retry rebuilds the prover. "downloading" is the one that is not a fault. Start mining never waits for the probe (it runs beside the first proofs); the row ↔ slider swap in the epoch tile follows the sticky state, not one refused proof; only the pill\'s ✦ follows what proved.</p>'
             f'<div class="col" style="gap:14px;max-width:700px">{rows}</div></div>')
+    return page(body, 760)
+
+
+CLAIM_CHIPS = [
+    ("proving", st("claiming · proving · 12 s", "on") + btn("Stop", "sm")),
+    ("sent", st("claiming · sent · 41 s", "on") + btn("Stop", "sm")),
+    ("in a block", st("claiming · in a block · 58 s", "on") + btn("Stop", "sm")),
+    ("Stop pressed meanwhile", st("stopping · claim finishing · 61 s", "on") + btn("Stop", "sm dis")),
+]
+WIN = '#12 score 2.8 · 3.61 s · <b class="uv2">a win</b>'
+CLAIM_LINES = [
+    ("proving", "win", "★", f"{WIN} · claiming: proving in your browser, about 20 s"),
+    ("sent", "win", "★", f"{WIN} · claiming: sent to the node · drops in 9:41 if no block takes it"),
+    ("in a block", "win", "★", f"{WIN} · claiming: in a block · syncing the note"),
+    ("minted", "ok", "✓", 'minted in block <a href="#">83,164 ↗</a> · 4 tYACA, privately'),
+    ("the epoch closed first (reverted)", "win", "★", f"{WIN} · <span class=\"warn\">didn't land: the epoch closed first · the sponsor paid, your proof is unspent · re-syncing, about a minute</span>"),
+    ("expired", "win", "★", f"{WIN} · <span class=\"warn\">dropped: no block took it in 10 min · nothing paid · mining continues</span>"),
+    ("delivery blocked", "win", "★", f"{WIN} · <span class=\"warn\">didn't land: an earlier reverted claim blocks this account · claims wait for Ethereum's finality, about 40 min</span>"),
+    ("other", "win", "★", f"{WIN} · <span class=\"warn\">claim failed: &lt;the error's first line&gt;</span> · <a href=\"#\">Retry</a>"),
+    ("discarded before the claim", "win", "★", f"{WIN} · <span class=\"ink3\">not claimed: the epoch closed before the claim went out</span>"),
+]
+CLAIM_BANNERS = [
+    ("re-syncing (recovering)", alert("A claim reverted: someone closed the epoch first. Re-syncing this account from the chain; mining resumes in about a minute.", "uv", "", False)),
+    ("claims paused until finality", alert("Claims from this account wait until the reverted one is final on Ethereum. Mining resumes at 16:48.", "warn", "in 38 min", False)),
+]
+
+
+def claim_outcomes():
+    """A claim on Mine: the chip per step, the ledger line per outcome, the two banners after a lost race."""
+    chips = "".join(f'<div class="col" style="gap:6px"><span class="lm">{k}</span>{tile(th("live · since 16:05", r), "", "padding:12px 16px 4px")}</div>' for k, r in CLAIM_CHIPS)
+    lines = "".join(f'<div class="col" style="gap:6px"><span class="lm">{k}</span>{tile(f"<ol class=ledger><li class={c} style=white-space:normal><span class=t>16:07:40</span><span class=g>{g}</span><span>{t}</span></li></ol>", "", "padding:10px 16px")}</div>'
+                    for k, c, g, t in CLAIM_LINES)
+    banners = "".join(f'<div class="col" style="gap:6px"><span class="lm">{k}</span>{b}</div>' for k, b in CLAIM_BANNERS)
+    body = ('<div class="board" style="padding:24px"><span class="lm">a claim · the chip, the ledger line, the banners</span>'
+            '<p>The chip in the loop tile\'s header carries the claim\'s step and one clock counted from the win (proving → sent → in a block), and stays while Stop waits for the claim. The ledger line carries the same step, then one of six outcomes: the code\'s five classes (reverted, expired, delivery blocked, other, discarded) and minted. A lost race re-syncs the account (a banner under the header, mining paused a minute); a delivery still blocked after that waits for Ethereum\'s finality.</p>'
+            f'<div class="col" style="gap:14px;max-width:700px">{chips}{lines}{banners}</div></div>')
     return page(body, 760)
 
 

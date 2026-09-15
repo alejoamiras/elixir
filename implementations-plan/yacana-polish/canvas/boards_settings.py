@@ -42,7 +42,9 @@ def node_row(state: str = "read", kind: str = "aztec") -> str:
         return _tiers(label, st("no answer · 2 min", "warn"), host, "", "your view is from 14:02 · mining paused",
                       f'<span class="row" style="gap:8px">{btn("Retry", "sm")}{btn("Change", "sm")}</span>')
     if state == "limited":
-        return _tiers(label, st("throttled", "warn"), host, "", "block 83,117 · 40 s ago · public nodes throttle busy pages; it recovers on its own", btn("Change", "sm"))
+        return _tiers(label, st("throttled", "warn"), host, "", "block 83,117 · 40 s ago · public nodes throttle busy pages; it recovers on its own · mining pauses if it lasts a minute", btn("Change", "sm"))
+    if state == "behind":
+        return _tiers(label, st("behind · 4 min", "warn"), host, "", "block 83,101 · 4 min ago · the node answers, but its chain is old · mining paused", btn("Change", "sm"))
     # custom, in use
     return _tiers(label, st("healthy", "ok"), "my-node.example.net", f'<span class="badge uv" style="padding:1px 6px">custom</span> {quiet("Use the default")}',
                   "block 83,118 · 4 s ago", btn("Change", "sm"))
@@ -53,8 +55,8 @@ STAY_OPEN = "On: anyone who can use this browser could open and spend from this 
 
 def settings():
     network = tile(th("network") + node_row("read", "aztec") + node_row("read", "eth"))
-    mining = tile(th("mining") + f'<div class="srl" style="flex-direction:column;align-items:stretch;gap:8px">{SLIDER}<div class="h">Applies when proving in the browser; one core stays with the page. With Presto connected, Presto\'s own setting decides.</div></div>'
-                  + srl("Presto", "✦ native prover, several times faster · not installed", quiet("Get Presto ↗"))
+    mining = tile(th("mining") + f'<div class="srl" style="flex-direction:column;align-items:stretch;gap:8px">{SLIDER}<div class="h">This slider affects browser proving only; one core stays with the page.</div></div>'
+                  + srl("Presto", "✦ native prover, several times faster · checked when you start mining", quiet("Get Presto ↗"))
                   + srl("Pause on battery", "", switch(False)) + srl("Keep proving in a background tab", "", switch(True))
                   + srl("Resume mining when the page opens", "", switch(False)))
     alerts = tile(th("alerts") + srl("Notify on a win", "no amounts in the notification", switch(False)) + srl("Sound on a win", "", switch(False))
@@ -85,7 +87,7 @@ def old_settings():
 
 
 def node_states():
-    rows = [node_row(s) for s in ("read", "edit", "checking", "error", "failed", "custom", "silent", "limited")]
+    rows = [node_row(s) for s in ("read", "edit", "checking", "error", "failed", "custom", "silent", "limited", "behind")]
     body = ('<div class="board" style="padding:24px"><span class="lm">changing a node · in place, and the states after</span>'
             f'<div class="col" style="gap:14px;max-width:700px">{"".join(tile(r) for r in rows)}</div></div>')
     return page(body, 760)

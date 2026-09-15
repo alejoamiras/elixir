@@ -56,6 +56,19 @@ chips are grey so the green stays for what needs the user, the Send form's How r
 amount's unit and MAX sit on one centre line, and the node row is three tiers (what and how, which host,
 the numbers).
 
+v4.2 (the targeted round on v4/v4.1, `reviews/round-3.md`): Start mining never waits for Presto (the blocked
+board is the live cockpit under its banner); a claim has three steps and six outcomes, each with its ledger line
+and the chip's one clock from the win (board ClaimOutcomes), and a lost race has its two banners; the node chip
+has a `behind` state because the probe measures the tip's age and rejects nothing; the hold's release is
+specified (before it fills cancels, after it fills signs out), the click path appears after a hold released
+early (voice control and switch access dispatch a click), and the hold waits for a claim in flight; Presto's
+banners say only what the SDK reports (no "installed" from a browser refusal, no update for a malformed
+answer, Retry on the bad-report probe, the first native proof waits for the download); the Presto row claims
+no speed setting; the slider line says what it affects; Settings' Presto row reads "checked when you start
+mining" before a probe; the idle ledger is on the open epoch; the checksum error says the phrase is invalid;
+§9.1 gains the `other` halt and the reconfigure under Presto; §9.2 gains the swap on the sticky state, the
+`behind` pause and the claim's clock.
+
 ## 1. The owner's list, mapped to surfaces
 
 | # | Surface | The complaint (owner's words, shortened) | Answered in |
@@ -286,8 +299,23 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
   "epoch 12 opened · bar 1.6 (×0.83)"; a win reads "★ a win · claiming, about 20 s" until "✓ minted in block
   83,164 ↗ · 4 tYACA, privately"; the ledger's legend says "✓ minted, final once its epoch is proven" (the
   same signal as the Wallet's row, §9.3.3). While a claim runs, the loop tile's header carries the chip
-  `claiming a win · 12 s` (the ledger row's clock), so a claim is visible without reading the ledger; a claim
-  that misses reads "★ a win · claim didn't land: the epoch closed first". The header holds only the status
+  `claiming · proving · 12 s`: the claim's step (proving → sent → in a block, today's `ClaimStatus` steps) and one
+  clock counted from the win across the steps (today's `claim.since` restarts at each), so a claim is visible
+  without reading the ledger; Stop pressed meanwhile turns it into `stopping · claim finishing · 61 s` (today
+  `stop()` only sets `stopAfterClaim` and says nothing). The ledger's win line carries the same step ("claiming:
+  proving in your browser, about 20 s" → "claiming: sent to the node · drops in 9:41 if no block takes it" →
+  "claiming: in a block · syncing the note"), then one of six outcomes (board ClaimOutcomes; the code's five
+  classes in `claim-failure.ts` plus minted): "✓ minted in block 83,164 ↗ · 4 tYACA, privately"; reverted, the
+  stale epoch: "didn't land: the epoch closed first · the sponsor paid, your proof is unspent · re-syncing,
+  about a minute"; expired: "dropped: no block took it in 10 min · nothing paid · mining continues"; delivery
+  blocked: "didn't land: an earlier reverted claim blocks this account · claims wait for Ethereum's finality,
+  about 40 min"; other: "claim failed: <the
+  error's first line>" with **Retry** (§9.1.14); a win discarded before its claim went out (the reducer drops a
+  win whose epoch changed): "not claimed: the epoch closed before the claim went out", the chart keeps its ring.
+  A lost race also shows a banner under the header in the node's shape: "Re-syncing this account from the chain;
+  mining resumes in about a minute" (recovering), and, if the delivery is still blocked after that, "Claims from
+  this account wait until the reverted one is final on Ethereum. Mining resumes at 16:48" (no "Use another
+  account": one slot per browser, §9.2.12). The header holds only the status
   ("live · since 16:05"), that chip and **Stop**; "3.6 s per proof · 12 proofs" is the chart's footer line, and
   the thread count lives in the epoch tile's power row alone. Signed out, the header is "your proofs" and
   **Start mining**, nothing else. The ended cockpit's ledger shows
@@ -304,15 +332,21 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
   needs an update, encrypted connection off, stopped answering, the browser blocks local access, a health
   report the page doesn't understand) with **Retry** where a retry can help; "fetching its prover" is the one
   that is not a fault, and while it runs the pill has no ✦. The pill always says what actually proved.
-- **Presto**: probed once at **Start mining**, never on load. Not found: Presto's own billboard under the
+- **Presto**: probed once at **Start mining**, never on load, and Start never waits for it: the browser prover
+  starts at once, the probe runs beside the first proofs, and the epoch tile swaps to the Presto row when it
+  says yes (board MinePrestoBlocked is the live cockpit under its banner; v4.1 had Start disabled there). Not found: Presto's own billboard under the
   header, as today (the `presto-banners` web component; the owner prefers it to a quiet row), dismissible.
-  Installed but blocked, dropped out, or any other reason (board PrestoReasons): a banner under the header in
+  The browser refusing local access (Presto may or may not be installed: the page cannot know), Presto dropped
+  out, or any other reason (board PrestoReasons): a banner under the header in
   today's notice shape (a dot, one sentence, **Retry** where it helps; no thread count, it said nothing
   useful there), never inside the chart or the epoch tile. Connected: the status pill reads `mining ✦ presto`; the power
-  row becomes a Presto row — "✦ **Presto** · native prover · its speed is set in the Presto app" with "Open
-  Presto ↗" — and the slider is hidden in the cockpit (option 6; Settings keeps its slider). Presto does not
-  report its thread count, so the page never shows one for it. Dropped out: the banner says why, the slider
-  returns in the epoch tile, and the pill drops its ✦ because the pill follows what actually proved.
+  row becomes a Presto row — "✦ **Presto** · native prover · proving on this machine" with "About Presto ↗" (the
+  billboard's link, presto.build; nothing in the SDK opens the app or reads its settings) — and the slider is
+  hidden in the cockpit (option 6; Settings keeps its slider). Presto does not report its thread count, so the
+  page never shows one for it. The row ↔ slider swap follows the sticky state (`selected === 'presto'` with no
+  fallback reason), never one refused proof (`active` flips on each transient refusal); only the pill's ✦ follows
+  what actually proved. Dropped out: the banner says why, the slider returns in the epoch tile, and the pill
+  drops its ✦.
 - **Mining ended** (V5 after the upgrade): the pill reads `ended`; the loop tile's header "mining ended on V5 ·
   Sep 18 14:02" with no button and "Mining moved to V6 at yacana.network. Your proofs from this session stay
   below."; the epoch tile shows the last epoch, closed; no power slider; the ledger keeps the session.
@@ -470,8 +504,10 @@ One screen, no step 2 (option 3): the form carries a live summary and the button
 ### 5.7 Settings
 
 Sections, each a card of rows: **Network** (Aztec node, Ethereum RPC), **Mining** (the power slider, always
-here, with "applies when proving in the browser; with Presto connected, Presto's own setting decides"; the
-Presto row; pause on battery, keep proving in a background tab, resume when the page opens), **Alerts** (notify, sound, tab
+here, with "This slider affects browser proving only; one core stays with the page." (the SDK exposes no Presto
+speed setting); the Presto row: "checked when you start mining" before a probe, then "not found" (never "not
+installed": an installed Presto with encryption off reads as absent), "connected ✦" once native proved, or the
+banner's reason; pause on battery, keep proving in a background tab, resume when the page opens), **Alerts** (notify, sound, tab
 title, mini window), **Account** (address, method, stay open on this device, **Sign out**), **Appearance**,
 **About** (source, build, bb.js, relying party, one line: "Yacana runs in your browser. Whoever serves this
 page controls it; the source is public — run your own build if that matters." + "More on /faq").
@@ -481,8 +517,10 @@ without your passkey. Off: one touch per open." (was "sealed under a device key"
 
 **The node row** is three tiers (the owner: one line said too much): line 1 the label and a chip (`Aztec
 node` · `healthy` / `throttled` / `no answer · 2 min`); line 2 the host in mono and `default` (or `custom` ·
-"Use the default"); line 3, small, `block 83,117 · 12 s ago`; **Change** at the right. Latency and the
-deployment check show only while a change is probed. It keeps reporting after the edit (rule 8, board
+"Use the default"); line 3, small, `block 83,117 · 12 s ago`; **Change** at the right. `healthy` needs three things: an
+answer, this deployment, and a tip under a minute old; an answer with an old tip is `behind · 4 min` (today's
+probe measures the block's age and rejects nothing, and a miner on a stale node mines a closed epoch until the
+claim fails at simulation: §9.2.19). Latency and the deployment check show only while a change is probed. It keeps reporting after the edit (rule 8, board
 NodeStates):
 
 - Change → the row becomes a field with **Save** / **Cancel**. Save → an inline stepper under the field:
@@ -493,8 +531,10 @@ NodeStates):
   v5.testnet…"); a rebuild that fails after a good probe too ("Couldn't rebuild your view from
   my-node.example.net: it stopped answering. Kept v5.testnet…"). The old node stays in use in both.
 - Silent: the chip `no answer · 2 min`; line 2 `your view is from 14:02 · mining paused` · **Retry** · **Change**.
-- Throttled: the chip `throttled`; line 2 `block 83,117 · 40 s ago · public nodes throttle busy pages; it
-  recovers on its own` · **Change**.
+- Throttled: the chip `throttled`; line 3 `block 83,117 · 40 s ago · public nodes throttle busy pages; it
+  recovers on its own · mining pauses if it lasts a minute` (the controller's offline pause) · **Change**.
+- Behind: the chip `behind · 4 min`; line 3 `block 83,101 · 4 min ago · the node answers, but its chain is old ·
+  mining paused` · **Change**.
 - The Ethereum RPC row is the same, line 2 `Sepolia · 0.4 s`.
 
 **The old origin's Settings** (board OldSettings): Network, Account (the same account as yacana.network,
@@ -507,8 +547,14 @@ Gone: "Check" then "Use", the three paragraphs, "Copy diagnostics".
 Hold to confirm (the owner's pick, 5B): title "Sign out?"; body for a passkey account "Your passkey logs you
 back in. Your balance stays with the account. Mining stops." (the last sentence only while mining); for
 backed-up words "Your 12 words log you back in. Your balance stays with the account."; the button **Hold to
-sign out** (danger) fills over 1.2 s and releasing cancels; no hint line under it and no click alternative;
-**Cancel**. For words not backed up the primary becomes **Back up my 12 words** with "Your 12 words are the
+sign out** (danger) fills over 1.2 s: releasing before it fills cancels, releasing after it fills signs out
+(today's `HoldButton`: completion arms, the release confirms, leaving or blurring cancels, Space and Enter hold
+too); no hint line under it and no click alternative at rest. A hold released early reveals one line under the
+button, "hold for 1.2 s · Sign out with a click" (board SignOutHoldAfter): voice control and switch access
+dispatch a click and cannot hold, so the click path exists, one failed hold away, never on the first paint (the
+owner picked 5B without the line; this is the reviewers' accessibility point, for the owner to veto). While a
+claim is in flight the button reads **Claim finishing · 12 s**, dimmed, and arms once the claim is done (board
+SignOutHoldClaiming): sign out reloads the page (`session.ts`) and would abandon the claim. **Cancel**. For words not backed up the primary becomes **Back up my 12 words** with "Your 12 words are the
 only way back in, and they are not backed up yet. Yacana keeps no copy." and "sign out anyway" only after the
 backup. The same dialog answers "Use a different account" on the Welcome screen.
 
@@ -712,6 +758,12 @@ redeem afterwards). Redeem-on-Ethereum lives under the row's sentence and in Det
     while V6 does not exist (`TakingLongDialog` has the same bug). The clock starts at the later of held-at and
     V6's `VersionRegistered`, and runs only while `canonicalRegistered`.
 13. A "didn't finish" row stays re-adoptable by its tag: a log found later moves it on, never a final state.
+14. A claim failure the code cannot classify (`other`) halts mining on the error's raw first line
+    (`controller.ts` `claimFailed` returns without resuming): the line needs a sentence and a **Retry**, and
+    mining resumes on the open epoch like an expiry does.
+15. A power change while Presto proves runs `reconfigure`, a prover rebuild for nothing (`controller.ts`
+    `reconfigure` compares threads and the endpoint, not what proves): store the value, apply it at the next
+    browser build.
 
 ### 9.2 Design decisions the code must follow
 
@@ -728,7 +780,8 @@ redeem afterwards). Redeem-on-Ethereum lives under the row's sentence and in Det
 10. The mining ledger says "claiming" between ★ and ✓; wins are "wins".
 11. `OldTabNotice` copy stays; it is a redeploy guard, not this pass.
 12. One account per browser: a single slot with fail-closed create/login and `excludeCredentials`.
-13. Presto is probed at Start mining, not at cockpit-ready (`boot.ts:159`).
+13. Presto is probed at Start mining, not at cockpit-ready (`boot.ts:159`), and Start never waits for the
+    probe: the browser prover starts at once and swaps when the probe says yes.
 14. A pause disables Bridge from Ethereum and nothing else; the rows say the Ethereum step waits. `deposit`
     needs the version registered, not paused, deposits not closed; `forward` and `redeem` need the bridge open
     (not paused, within the limit, before the last day); the L2 send and burn need none of it.
@@ -736,6 +789,14 @@ redeem afterwards). Redeem-on-Ethereum lives under the row's sentence and in Det
     `DeadlinePassed`) to the row's sentences.
 16. The old origin's opening never offers Change node; with V5's node gone it shows the "node gone" page.
 17. The chips are one word per state everywhere: "reaching Ethereum", "arriving", "could close any day".
+18. The epoch tile's row ↔ slider swap (option 6) follows the sticky prover state (`selected === 'presto'` with
+    no fallback reason); the pill's ✦ alone follows `active`.
+19. The node chip's `healthy` needs a fresh tip (under a minute old) besides an answer and this deployment;
+    `behind · N min` otherwise, and a stale tip pauses mining like silence does (today nothing does).
+20. The claim's chip and ledger line carry the step (proving → sent → in a block) and one clock from the win;
+    each of the code's failure classes has its own sentence (§5.3), and a win discarded before its claim has a
+    line.
+21. Sign out waits for a claim in flight; the click path to sign out appears after a hold released early.
 
 ### 9.3 Capabilities the design needs and the app lacks
 
@@ -801,3 +862,16 @@ redeem afterwards). Redeem-on-Ethereum lives under the row's sentence and in Det
 | The Send form's How row should not have a rule above it. | It has none. |
 | The unit beside MAX is not on the same centre line; it looks broken. | The amount box centres its row: the number, then the unit and MAX as one group on one centre line. |
 | The node row still says too much on one line. | Three tiers: label and chip; host and default; the numbers, small. |
+
+**The targeted round (2026-09-15, Codex r4 and Fable r3 on v4.1; `reviews/round-3.md`)**
+
+| The reviewers found | v4.2 |
+|---|---|
+| Start mining disabled under the Presto-blocked banner, while the banner promises the browser. | Start never waits for the probe; MinePrestoBlocked is the live cockpit under its banner. |
+| "The epoch closed first" is one of five failure classes; the recovery states had no home. | Board ClaimOutcomes: the chip per step, a ledger line per outcome, the two banners (§5.3). |
+| The chip and row collapsed the three claim steps and lost the TTL. | Both carry the step; "drops in 9:41 if no block takes it" is back. |
+| `healthy` says nothing about the tip's age. | `behind · 4 min`, and it pauses mining (§5.7, §9.2.19). |
+| 6A keyed on `active` flaps on one refused proof. | The swap follows the sticky state (§9.2.18). |
+| 5B removed the only path for voice control and switch access; a reload cuts a claim off. | The click path after a hold released early; the hold waits for a claim (§5.8). |
+| Presto banners said more than the SDK knows. | Rewritten to the code's lines (board PrestoReasons); no speed setting; Settings' row "checked when you start mining". |
+| Lows: idle ledger on epoch 11, the checksum error counting words, Stop during a claim silent, `reconfigure` under Presto. | All in (§5.3, §9.1.14–15, board WordsLogInChecksum). |
