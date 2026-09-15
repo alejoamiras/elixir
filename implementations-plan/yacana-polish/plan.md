@@ -6,7 +6,7 @@ eli5_mode: artifact
 code_review: off
 hardening: none this arc
 budget: "recon 2 agents (1 reuse sweep, 1 suite mapper); codex at high (GPT-6 Astra); one fable audit on Fable 5.1; the owner asked for the cheap tier on 2026-09-15"
-status: draft — consolidated from plans/{main,codex,fable}.md; Codex's contradiction check (§9.1) and audit (§9.2) folded; the Fable audit (§9.2) folded; the final Codex pass on the ledger pending
+status: draft — consolidated from plans/{main,codex,fable}.md; Codex's contradiction check (§9.1), both audits (§9.2) and the final Codex pass on the ledger (§9.3) folded; awaiting the owner's approval (Asks 1, 4, 5, 6)
 created: 2026-09-15
 ---
 
@@ -119,9 +119,9 @@ export type DeadlineReading =
 export function readDeadline(s: DeadlineFacts): DeadlineReading;                    // pure; the uint256 max is never a date
 
 // packages/bridge/src/journal.ts (additions)
-export interface Crossing { /* … */ expiresAt?: string }                            // unix s, the sent tx's expirationTimestamp
+export interface Crossing { /* … */ expiresAt?: string; anchorBlock?: number }       // unix s, the sent tx's expirationTimestamp; the tx's anchor block (the earliest block it can land after), both written by the one-shot hook
 export type RowState = CrossingState | 'checking' | 'unfinished';                   // derived; a later log re-adopts either
-export function rowState(c: Crossing, f: { sourceTipAt: bigint | null; historyComplete: boolean }): RowState;
+export function rowState(c: Crossing, f: { sourceTipAt: bigint | null; covered: boolean }): RowState;   // covered = the deployment-checked node in use served `getBlockData(c.anchorBlock)` this refresh (D42)
 
 // packages/bridge/src/proofs.ts
 export interface ProofReader { latestProvenAt(): Promise<{ at: bigint; checkpoint: bigint; block: bigint } | null> } // null = unknown (an incomplete scan), never "none"
@@ -131,7 +131,7 @@ export interface RowLine { chip: { word: string; tone: Tone }; sentence: string;
 export function rowLine(c: Crossing, f: RowFacts): RowLine;                          // exhaustive over RowState × kind; unknown facts → an "unknown" sentence and a disabled reason
 
 // packages/web-miner/src/lib/reducer.ts (additions)
-export type ClaimOutcome = 'minted' | 'reverted' | 'expired' | 'delivery-blocked' | 'other' | 'discarded';
+export type ClaimOutcome = 'minted' | 'reverted' | 'expired' | 'delivery-blocked' | 'other' | 'discarded' | 'refused';   // refused = the simulation's "epoch is not open", nothing paid (D36)
 export interface ClaimProgress { step: 'proving' | 'sent' | 'waiting'; wonAt: number; stepAt: number; expiresAt?: number }
 export type LedgerLine = ProofLine & { id: number; claim?: { step?: ClaimProgress['step']; outcome?: ClaimOutcome; note?: string; settled?: 'pending' | 'settled' | 'pruned' } };
 
@@ -144,12 +144,12 @@ export function standing(h: NodeHealth, now: number): NodeStanding;   // behind 
 export function readSlot(): Promise<{ record: MasterRecord | null; staged: MasterRecord | null; revision: number }>;
 export function reserve(expectedRevision: number, intent: 'create' | 'login' | 'open'): Promise<Reservation>;   // BEFORE the WebAuthn prompt. create and login need an EMPTY slot (login = a restore onto a new device or the old origin); open needs a HELD slot (Welcome back: `allowCredentials` restricted to its credential, the fingerprint must match). A lease (tab id, timestamp) another tab cannot take for 2 min, reclaimable after
 export function stage(r: Reservation, record: MasterRecord): Promise<void>;                          // the created or restored credential, durable before the PXE boots (as today); a staged record found on a later load is Welcome's candidate ("Finish opening"), never lost
-export function commit(r: Reservation): Promise<void>;                                              // after a verified opening: the staged record is the slot; a record released earlier (see release) is deleted now
+export function commit(r: Reservation): Promise<void>;                                              // after a verified opening: the staged record is the slot; a record released earlier (see release) is deleted now only when its id differs from the committed one (a matching login re-adopted it, D39)
 export function cancel(r: Reservation): Promise<void>;                                              // a cancelled or failed opening keeps the staged record for the next load
 export function release(id: string, expectedRevision: number): Promise<void>;                       // sign out empties the slot but keeps the record unlisted until a replacement commits (brief §5.1: "replaced only after the new account has opened"); a login whose master matches an unlisted record re-adopts it; a legacy second record, if any, becomes the slot
 
-// packages/bridge/src/record.ts (additions, build-time like `migration`)
-export interface BridgeRecord { /* … */ stoppedProvingAt?: string; nodeRetired?: boolean }
+// packages/bridge/src/record.ts (additions, build-time like `migration`): a top-level block, never inside `bridge` (`carriedBridge` copies that whole block to a continuation, `deploy/src/bridge-block.ts:7-15`; D35)
+export interface DeploymentRecord { /* … */ lifecycle?: { stoppedProvingAt?: string; nodeRetired?: boolean } }
 ```
 
 ### 3.3 Data and control flow (the critical paths)
@@ -158,8 +158,10 @@ export interface BridgeRecord { /* … */ stoppedProvingAt?: string; nodeRetired
   chain reads run. A new visitor sees no dialog: Start mining records the intent and opens it, Log in opens it
   without. A device with a slot gets Welcome back on arrival (brief §5.1). Create: consent → `reserve('create')`
   (refuses before any prompt when a record holds the slot) → WebAuthn create with `excludeCredentials` from the
-  slot → `stage` (durable before the PXE boots, as today) → `commit` after a verified opening, `cancel` otherwise. Log in:
-  `allowCredentials` restricted to the slot's credential → PRF → the master; `NoPrfError` → the PRF note (open
+  slot → `stage` (durable before the PXE boots, as today) → `commit` after a verified opening, `cancel` otherwise. Open (Welcome back):
+  `reserve('open')` → `allowCredentials` restricted to the slot's credential → PRF → the master (the fingerprint must
+  match). Log in on an empty slot: `reserve('login')` → unrestricted discovery, as today (`session.ts:352-369`) → PRF →
+  the master; a master matching an unlisted record re-adopts it (D39), an unknown master creates a record; `NoPrfError` → the PRF note (open
   it where it works); a second tab's `ChainViewHeldError` → Retry, never a takeover. Words: the wordlist and the
   checksum validated in-page. Opening: the checklist from `opening-steps.ts` with weights from durations measured
   in P3, the bar on the active step, real CRS bytes, elapsed time where the PXE exposes no progress, Cancel tears
@@ -179,10 +181,10 @@ export interface BridgeRecord { /* … */ stoppedProvingAt?: string; nodeRetired
 - **A crossing, send to row.** The dialog runs the stepper: `ensureChain` visible, prove (mining pauses), send. The
   journal persists the crossing first; the bridge flow installs a one-shot hook on the wallet's send observer for its own transaction (the
   mining claim's `sendTx` stays synchronous, `wallet.ts:47-59` feeds its TTL as today) and that hook awaits the
-  journal's commit of the hash and `expirationTimestamp` BEFORE `target.sendTx`; a storage failure refuses the
+  journal's commit of the hash, `expirationTimestamp` and the anchor block BEFORE `target.sendTx`; a storage failure refuses the
   submission (nothing reaches the network without its durable record). Refresh reads facts (node, portal, wallet) → `advance` → `rowState` (`checking` while
   the tag has no log and the node in use has not passed `expiresAt`; `unfinished` once the tag query was answered
-  by the deployment-checked node in use with its tip past `expiresAt` and no log; a log found later re-adopts
+  by the deployment-checked node in use that serves the send's anchor block, with its tip past `expiresAt` and no log; a log found later re-adopts
   either; `expiresAt` is authoritative only when this page observed the send: a recovery file's restore strips
   it, `asHint`, and a node changed since the send keeps the row at `checking` until that node too is past it) → `rowLine` → `ActivityRow`. Deposits persist the
   calldata deadline and reconcile on receipts and events by L1 time; the two-hour device-clock give-up goes. The
@@ -217,19 +219,26 @@ export interface BridgeRecord { /* … */ stoppedProvingAt?: string; nodeRetired
 - **The proof-verified timestamp.** The Rollup emits `L2ProofVerified(uint256 indexed checkpointNumber, address
   indexed proverId)` (`@aztec/l1-artifacts` `RollupAbi.js:4113`). `proofs.ts` scans newest-first from the L1 head (`logs.ts` gains a backward walk: today it walks forward
   and `first` stops at the first match, `logs.ts:31-47`) under a per-refresh request budget (the scan resumes from its cursor on the next refresh, so
-  a cold start never monopolises the bridge's 15 s), the record's `deployBlock` as the floor, an overlap on
-  refresh (reorgs), and returns the event's block timestamp; an incomplete scan (an RPC that refuses the window)
-  is `null` = unknown, and the chip says "checking", never "no proof". "V5 proved an epoch 12 min ago" is that
+  a cold start never monopolises the bridge's 15 s), the block of the Registry's `CanonicalRollupUpdated(instance, version)` for the version (both
+  arguments indexed: one `getLogs`, cached in the session's facts) as the floor — `deployBlock` is the L1 head at the
+  portal's deploy (`l1-deploy.ts:149`), not the rollup's birth — an overlap on refresh (reorgs), and returns the event's block timestamp; an incomplete scan (an RPC that refuses the window)
+  is `null` = unknown, and the chip says "checking", never "no proof"; the floor reached without an event is the true
+  negative "no proof yet". "V5 proved an epoch 12 min ago" is that
   timestamp; "no proof for 3 h" the same aged; "stopped" only from `stoppedProvingAt`.
-- **`expiresAt` and "didn't finish".** The page already observes every `sendTx` and records the tx's
-  `expirationTimestamp` (`wallet.ts:47-66`, a synchronous callback before `target.sendTx`); the observer becomes
-  async and awaits the journal's commit of hash + expiry before the submission. `unfinished` needs: the same deployment (the node in use passed the deployment check), that node's tip past
-  `expiresAt`, and "no log for the tag" answered by it on two refreshes at least a slot apart (`getPublicLogsByTags`
-  returns empty for "no log" and "not synced" alike, `bridge/session.ts:189-192`: the second answer past the
-  expiry is the coverage read; a node synced from a snapshot after the send's block is out of scope, an
-  Inference, and its honest outcome is `checking` for ever, never a retry). Anything short of that is
-  `checking`, no retry; an imported
-  recovery file's expiry alone never authorizes a retry (the file's node may be behind).
+- **`expiresAt` and "didn't finish".** The page already observes every `sendTx` through a synchronous callback
+  (`wallet.ts:47-66`, before `target.sendTx`); that observer stays as it is. The bridge flow installs a one-shot hook
+  before its own send (D40): the hook awaits the journal's durable commit of the hash, the tx's `expirationTimestamp`
+  and its anchor block (`tx.data.constants.anchorBlockHeader`'s number, the earliest block the send can land after)
+  before `target.sendTx`, and is removed when the send returns, fails or is cancelled; a mining claim's send meets no
+  hook. `unfinished` needs: the same deployment (the node in use passed the deployment check), coverage — that node
+  serves the anchor block (`getBlockData(anchorBlock)` answers; the archiver's history is contiguous, so a node holding
+  the anchor block with a tip past `expiresAt` indexes every block the log could be in) — that tip past `expiresAt`,
+  and "no log for the tag" answered by it (`getPublicLogsByTags` is empty for "no log" and "not synced" alike,
+  `bridge/session.ts:189-197`: only the coverage test tells them apart; the SDK's `referenceBlock` on that query is a
+  reorg anchor, not a coverage signal). A node that returns no anchor block (synced from a snapshot after the send,
+  a pruned history) keeps the row at `checking` for as long as it is the node in use, never a retry; anything short
+  of the four is `checking`, no retry; an imported recovery file's expiry alone never authorizes a retry (the file's
+  node may be behind).
 - **The four readings** are pure over `flipAt`, `afterNextAt`, `pausedSeconds`, the floor and `l1Now`, read in
   one block; the page and the stats share the function; a shown date is re-read at every refresh (an unpause
   refunds unused seconds); `closed` is `l1Now > deadline` (the contract admits equality).
@@ -240,7 +249,8 @@ export interface BridgeRecord { /* … */ stoppedProvingAt?: string; nodeRetired
 - **The mining ledger's ✓.** `claimSettled` belongs to bridge crossings (`bridge/session.ts:521-543`:
   `checkpointOfBlock` + `checkpointProven`); the mining ledger gets its own adapter in P4 on the same two helpers:
   a claim's block → its checkpoint → proven on the version's Rollup → `settled`; a nullifier gone from a node past
-  the block → `pruned` and the re-offer. `claimsAtom` entries gain the tx hash, the checkpoint and the settlement.
+  the block → `pruned`, and the re-offer only while the ticket is still eligible (D32: the epoch open, no retirement,
+  Start not pressed since), else the line says pruned and why no retry. `claimsAtom` entries gain the tx hash, the checkpoint and the settlement.
 - **A revert's cause is verified, never assumed.** The miner asserts "stale claim" in public (`main.nr:231`) and
   "epoch is not open" at simulation (`main.nr:188`); `classifyClaimFailure`'s `reverted` matches any revert
   (`claim-failure.ts:14-24`, a retire reverts too). "stale claim" is a public revert: the sponsor paid, and the ledger says "didn't
@@ -250,9 +260,11 @@ export interface BridgeRecord { /* … */ stoppedProvingAt?: string; nodeRetired
   Any other revert reads "didn't land: it reverted (<reason>) · the sponsor paid, your proof is unspent ·
   re-syncing, about a minute". The finality banner says "about 16:48": the controller's timer is an estimate.
 - **The `behind` pause** is a new `PauseReason` beside `offline` in the controller's set. `behind` is anchored on
-  L1, not on the tip's age: the rollup's `getPendingCheckpointNumber()` (one `readContract` on the bridge's 15 s refresh,
-  its L1 client) minus the node's `getCheckpointNumber('checkpointed')` (on the 10 s health tick) > 1. A successful RPC does not clear it, a caught-up tip does; without an L1 read the standing
-  is `unknown` and nothing pauses. The row's line 3 still shows `block · age` (the age is information, not the
+  L1, not on the tip's age: the rollup's `getPendingCheckpointNumber()` (one `readContract` every 15 s by the health
+  sampler's own viem client on the record's L1 RPC — signed out or in, independent of the bridge session, which needs
+  an account; D33) minus the node's `getCheckpointNumber('checkpointed')` (on the 10 s health tick) > 1. A successful
+  RPC does not clear it, a caught-up tip does; without a fresh L1 sample (none, or older than 60 s) the standing is
+  `unknown`: no new pause is raised, a `behind` pause already in force stays until a fresh sample clears it (D41). The row's line 3 still shows `block · age` (the age is information, not the
   verdict). `STALE_AFTER_MS` (60 s, `App.tsx:68`) keeps its job for the banner's read age.
 - **The swap on the sticky Presto state**: `RailTile` reads `presto.selected === 'presto' && !presto.fallbackReason`;
   the pill alone reads `active`. A thread change while native proves is stored and applied at the next browser
@@ -569,14 +581,14 @@ carrying the record flags) are the owner's explicit call, never a branch action.
 ## 8. Decision ledger
 
 Sources: the owner (O: the brief's picks and §10), the design reviews (R: `reviews/round-1..3.md`), the drafts:
-main (M), codex (C), fable (F); the contradiction check: codex (CC), fable (FC); the audits: codex (CA), fable (FA).
+main (M), codex (C), fable (F); the contradiction check: codex (CC), fable (FC); the audits: codex (CA), fable (FA); the final Codex pass: CF.
 
 | # | decision | source | rejected alternatives |
 |---|---|---|---|
 | D1 | One `Header` in ui with a `right` slot; the landing composes `Brand` with its sections nav | M, C | three headers with shared pieces (M's rejected); the full app tabs on the landing (an Ask) |
-| D2 | The single slot as a transactional ownership layer with reserve (before WebAuthn) / stage / commit / cancel / release; both sides closed (create stores unconditionally today, login makes records for unknown masters); legacy: the newest-created record; per browser profile and origin; release only by Sign out | C (the reservation semantics, legacy rule, per-origin; CC on the ordering), F (the login side), M (the store boundary) | main's `claimSlot(record)` after the prompt (CC: too late); "most recently opened" (unknowable); F's `lastOpenedAt` stamp; C's "retain the former until the replacement opens" (the brief routes replacement through Sign out) |
+| D2 | The single slot as a transactional ownership layer with reserve (before WebAuthn) / stage / commit / cancel / release; both sides closed (create stores unconditionally today, login makes records for unknown masters); legacy: the newest-created record; per browser profile and origin; release only by Sign out | C (the reservation semantics, legacy rule, per-origin; CC on the ordering), F (the login side), M (the store boundary) | main's `claimSlot(record)` after the prompt (CC: too late); "most recently opened" (unknowable); F's `lastOpenedAt` stamp |
 | D3 | `other` keeps mining paused with Retry (the retained ticket needs its secret) | code (`execute('mine')`, `retryEligible`), F (retain the pause) | main's, v4.2's and C's "resume on the open epoch" (C's draft kept a retry handle across the restart, which the secret rotation defeats) |
-| D4 | `expiresAt` from `wallet.ts`'s send observer, awaited before the send resolves; `unfinished` needs a complete history and a tip past it; re-adoptable | M (the hook), C (evidence bar, re-adoption) | a persisted `RowState`; the wallet's TTL constant as a fallback |
+| D4 | `expiresAt` from `wallet.ts`'s send observer, awaited before the send resolves; `unfinished` needs the node's coverage of the send's window (D42) and a tip past the expiry; re-adoptable | M (the hook), C (evidence bar, re-adoption) | a persisted `RowState`; the wallet's TTL constant as a fallback |
 | D5 | Deposits reconcile on receipts, events and the calldata deadline by L1 time; the two-hour give-up goes (§9.1.16) | C | keep the heuristic |
 | D6 | `afterNextAt` added to `portal-reader.ts`; `readDeadline` pure over one block; `closed` = `l1Now > deadline` | C (the missing read, equality), M (the type) | recon's "already read" |
 | D7 | `proofs.ts` scans for the latest `L2ProofVerified` with a cursor and an overlap; unknown on an incomplete scan | M (the event), C (latest-not-first, reorg overlap, unknown) | the page's checkpoint observation |
@@ -601,7 +613,7 @@ main (M), codex (C), fable (F); the contradiction check: codex (CC), fable (FC);
 | D26 | Six linear arcs (`gh stack` is linear) | M, C | F's seven arcs with a DAG |
 | D27 | A revert's cause is verified from the reason string ("stale claim" / "epoch is not open"); other reverts get a neutral sentence | CC | the brief's "the epoch closed first" for every revert |
 | D28 | The mining ledger's settlement is its own adapter on `checkpointOfBlock` + `checkpointProven`; `claimSettled` stays the crossing's | CC | reading the crossing's field for a mining claim |
-| D29 | The journal's commit of hash + expiry is awaited before `target.sendTx` | CC | "in the same tick" (M) |
+| D29 | The journal's commit of hash + expiry (+ the anchor block) is awaited before `target.sendTx`, by the one-shot hook of D40 | CC, CF | "in the same tick" (M) |
 | D30 | Welcome back on arrival when a slot exists; the chip → Wallet on the miner | brief (§5.1, §5.10), CC | P3's "never on arrival"; the chip → Settings (F) |
 | D31 | Login onto an empty slot is a restore (a new device, the old origin); the fingerprint check applies only against a held slot | CA | `reserve('login')` refusing an empty slot |
 | D32 | `submit()` retains an ordinary failed ticket; Retry reconciles then re-sends; a pruned mining claim is reported, re-offered only with an eligible ticket | CA | Retry on a paused controller with nothing retained; the bridge's unconditional re-offer applied to mining |
@@ -614,10 +626,11 @@ main (M), codex (C), fable (F); the contradiction check: codex (CC), fable (FC);
 | D39 | Sign out keeps the record unlisted until a replacement commits (brief §5.1); a matching login re-adopts it | FA (the brief's rule), C | deleting at sign out (today's `forgetMaster`) |
 | D40 | The journal-before-send hook is one-shot, installed by the bridge flow; mining claims stay synchronous | FA | an async observer on every `sendTx` (CA's D29 as first written) |
 | D41 | `unknown` renders the transport's word and keeps a shown `behind`; the chip's suffix is the tip's age; the verdict the checkpoint delta | FA | a fifth chip the board does not draw |
-| D42 | `unfinished`'s coverage read: "no log" twice from the deployment-checked node past the expiry; a snapshot-synced node stays `checking` | FA | an uncomputable `historyComplete` input |
+| D42 | `unfinished`'s coverage read: the deployment-checked node in use serves the send's anchor block (recorded by the hook) and answers "no log" past the expiry; a node without the anchor block stays `checking` | FA, CF | an uncomputable `historyComplete` input; "no log" twice (absence twice is still absence, CF) |
 | D43 | The rig's `origin` case at the arc-2 boundary (the dialog's ids); `browser` at P10 | FA | both at P10 only |
 
-Open for the owner at the gate: D13 (the reveal, Ask 1), D15 (gate weight, Ask 6), D2's legacy rule (Ask 3).
+Open for the owner at the gate: D13 (the reveal, Ask 1), D15 (gate weight, Ask 6). D2's legacy rule and the `behind`
+tolerance are decided (Asks 2 and 3, FA).
 
 ## 9. Audit verdicts
 
@@ -648,7 +661,7 @@ The Fable contradiction check was started and stopped when the owner downgraded 
 | 2 | high | Retry had nothing to retry: `submit()` retains only the canary's tampered ticket. | `controller.ts:582-589,623`. | **accept** (D32): ordinary failures retained; eligibility ends on an epoch change, a retirement, Start. |
 | 3 | high | A pruned mining claim cannot be re-offered like a bridge arrival (the epoch must be open). | `main.nr:188,231`; `controller.ts:477-481`. | **accept** (D32). |
 | 4 | high | Health sampling lived in `NodeTile`'s effect (Settings only); the bridge session needs an account; a lagging L1 RPC is not fresh evidence. | `NodeTile.tsx:20-30`, `session.ts:455-460`. | **accept** (D33). |
-| 5 | high | `rowState` could not tell an imported expiry from an observed one; "history complete" undefined. | `recovery.ts:168-176`, `bridge/session.ts:189-204`. | **accept** (D34); no `referenceBlock` exists in the repo (searched `bridge/session.ts`, `packages/bridge/src`): coverage is the deployment-checked node in use past `expiresAt`. |
+| 5 | high | `rowState` could not tell an imported expiry from an observed one; "history complete" undefined. | `recovery.ts:168-176`, `bridge/session.ts:189-204`. | **accept** (D34); `referenceBlock` exists in the SDK's `LogsQuery` (`@aztec/stdlib` `logs_query.ts:35-39`) as a reorg anchor, not a coverage signal; coverage is the anchor-block test of D42. |
 | 6 | high | Flags on `BridgeRecord` would be inherited by a continuation. | `deploy/src/bridge-block.ts:7-15`. | **accept** (D35): a top-level `lifecycle` block. |
 | 7 | medium | Reservation recovery, stale leases, staged records, storage rollback unspecified. | `store.ts:44` opens version 1. | **accept**: leases with a 2 min reclaim, staged records offered on the next load, the database stays at version 1; P2 tests. |
 | 8 | medium | The log scan's total work unbounded; `deployBlock` is the portal's. | `logs.ts:35-48`, `l1-deploy.ts:149`. | **accept**: newest-first with a per-refresh budget and a resumable cursor; `deployBlock` the floor. |
@@ -680,7 +693,21 @@ was wrong (one `getCheckpointNumber` per tick; fixed in §5); the RPC risk is th
 Its Asks: 2 and 3 were decisions (made); `unknown`'s rendering and the §5.1 amendment were the missing ones (D41,
 D39).
 
-### 9.3 The final Codex pass on the ledger — pending
+### 9.3 The final Codex pass on the ledger (Codex, resumed session, 2026-09-15; CF) — REVISE, folded
+
+| # | Sev | Finding | Checked | Verdict · the plan now |
+|---|---|---|---|---|
+| 1 | high | D42's "no log twice" is absence twice, not coverage; `referenceBlock` exists in the SDK. | `logs_query.ts:35-39` (a reorg anchor); `bridge/session.ts:189-197`. | **accept**: coverage = the node serves the send's anchor block, recorded by the hook (§3.5, D42, D4, §9.2 row 5). |
+| 2 | medium | §3.3 still restricted every login, re-offered unconditionally, sampled L1 on the bridge session and cleared `behind` on `unknown`. | D31–D33, D41. | **accept**: the flow rewritten (open vs login; the eligible-ticket re-offer; the sampler's own L1 client; a shown `behind` stays). |
+| 3 | medium | §3.2 kept the flags on `BridgeRecord` and six outcomes. | D35, D36. | **accept**: a top-level `lifecycle` block; `refused` in `ClaimOutcome`. |
+| 4 | medium | `deployBlock` is the L1 head at the portal's deploy, not the rollup's birth. | `l1-deploy.ts:141-149`; `RegistryAbi` has `CanonicalRollupUpdated(instance, version)`, both indexed, no `InstanceAdded`. | **accept**: the version's `CanonicalRollupUpdated` block is the floor; reaching it is the true negative. |
+| 5 | medium | D2's rejected column still rejected retaining the former record; `commit` deleted a re-adopted one. | D39. | **accept**: the rejection removed; `commit` deletes a released record only when its id differs. |
+| 6 | medium | §3.5 still made the observer async on every send. | D40, `wallet.ts:47-66`. | **accept**: the one-shot hook, removed on return, failure or cancel; mining claims meet no hook. |
+| 7 | low | Ask 3 "decided" in §5 but open in §8. | — | **accept**: §8's list corrected. |
+| 8 | low | D15's gate weight is unapproved and D43 does not settle it. | — | **as presented**: Ask 6 is the owner's at the gate, which §8 says. |
+
+Its verdict line was REVISE with these eight; every one is folded above, none disputed. No further Codex round at
+this tier: the fold is mechanical and the owner reads the ledger at the gate.
 
 ## 10. Post-implementation (self-contained — the implementing session executes this from here)
 
