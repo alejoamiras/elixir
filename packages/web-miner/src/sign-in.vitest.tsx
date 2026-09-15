@@ -6,10 +6,18 @@ import { SignInDialog } from './features/SignInDialog';
 import { useHotkeys } from './features/use-page-behaviour';
 import type { SlotView } from './keys/slot';
 import type { MasterRecord } from './keys/store';
-import { initialSteps } from './opening-steps';
+import { initialSteps, type OpeningStep } from './opening-steps';
 import { Mine } from './routes/Mine';
 import type { Session } from './session';
-import { type AccountError, bootAtom, epochAtom, nowAtom, rulesAtom, signInAtom } from './state';
+import {
+  type AccountError,
+  bootAtom,
+  epochAtom,
+  mineIntentAtom,
+  nowAtom,
+  rulesAtom,
+  signInAtom,
+} from './state';
 
 afterEach(cleanup);
 // jsdom has no matchMedia; the score loop's reduced-motion hook reads it.
@@ -62,6 +70,7 @@ function mount(slot: SlotView = empty, error?: AccountError) {
   });
   store.set(nowAtom, Date.now());
   store.set(bootAtom, { phase: 'signedOut', slot, error });
+  store.set(signInAtom, slot.record !== null || slot.staged !== null); // as the boot decides on arrival
   render(
     <Provider store={store}>
       <Mine controller={() => undefined} />
@@ -74,33 +83,41 @@ function mount(slot: SlotView = empty, error?: AccountError) {
 const fail = (store: ReturnType<typeof createStore>, error: AccountError, slot: SlotView = empty) =>
   store.set(bootAtom, { phase: 'signedOut', slot, error });
 
+/** The balance tile's Log in: the dialog without the mining intent. */
+const openDialog = () => fireEvent.click(screen.getByTestId('sign-in-balance'));
+
 describe('the cockpit signed out', () => {
-  test('is dull, shows the epoch, swaps Start for Sign in to mine, and the dialog opens on Start without a corner X', () => {
-    mount();
-    expect(screen.getByTestId('cockpit').hasAttribute('data-signed-out')).toBe(true);
+  test('a new visitor gets the page first: no dialog, the cockpit at full contrast, Start mining and Log in open it', () => {
+    const store = mount();
+    expect(screen.queryByTestId('sign-in')).toBeNull();
+    const cockpit = screen.getByTestId('cockpit');
+    expect(cockpit.hasAttribute('data-signed-out')).toBe(true);
+    expect(cockpit.className).not.toMatch(/opacity|saturate/);
     expect(screen.getByTestId('epoch-claims').textContent).toContain('3 of 4');
-    expect(screen.getByTestId('sign-in-mine').textContent).toBe('Sign in to mine');
+    expect(screen.getByTestId('sign-in-mine').textContent).toBe('Start mining');
     expect(screen.queryByTestId('start')).toBeNull();
+    expect(screen.getByTestId('balance').textContent).toBe('—');
+    expect(screen.getByTestId('sign-in-balance').textContent).toBe('Log in');
+    // Start mining opens the dialog and records the intent; the corner X is gone.
+    fireEvent.click(screen.getByTestId('sign-in-mine'));
     expect(screen.getByTestId('sign-in')).toBeTruthy();
+    expect(store.get(mineIntentAtom)).toBe(true);
     expect(screen.getByText('Mine with an account.')).toBeTruthy();
     expect(screen.getByTestId('start-create')).toBeTruthy();
     expect(screen.getByTestId('start-login')).toBeTruthy();
     expect(screen.queryByLabelText('Close')).toBeNull();
-    expect(screen.getByTestId('balance').textContent).toBe('—');
   });
 
-  test('Just watch for now leaves the cockpit dull; either sign-in button reopens the dialog', async () => {
+  test('Just watch for now closes the dialog and forgets the intent; Log in reopens it without one', async () => {
     const store = mount();
+    fireEvent.click(screen.getByTestId('sign-in-mine'));
     fireEvent.click(screen.getByTestId('not-now'));
     await waitFor(() => expect(screen.queryByTestId('sign-in')).toBeNull());
     expect(store.get(signInAtom)).toBe(false);
-    expect(screen.getByTestId('cockpit').hasAttribute('data-signed-out')).toBe(true);
-    fireEvent.click(screen.getByTestId('sign-in-mine'));
+    expect(store.get(mineIntentAtom)).toBe(false);
+    openDialog();
     await waitFor(() => expect(screen.getByTestId('sign-in')).toBeTruthy());
-    fireEvent.click(screen.getByTestId('not-now'));
-    await waitFor(() => expect(screen.queryByTestId('sign-in')).toBeNull());
-    fireEvent.click(screen.getByTestId('sign-in-balance'));
-    await waitFor(() => expect(screen.getByTestId('sign-in')).toBeTruthy());
+    expect(store.get(mineIntentAtom)).toBe(false);
   });
 
   test('a device with an account gets Welcome back: the chip, one touch, and another account through Sign out', async () => {
@@ -137,6 +154,7 @@ describe('the cockpit signed out', () => {
 describe('the screens', () => {
   test('Create: consent gates the passkey; the words are one link away and come back to Create', async () => {
     mount();
+    openDialog();
     fireEvent.click(screen.getByTestId('start-create'));
     expect(screen.getByText('Create your account.')).toBeTruthy();
     expect(screen.getByText('Your passkey is the only key.')).toBeTruthy();
@@ -163,6 +181,7 @@ describe('the screens', () => {
 
   test('Log in with words: the counter, the wordlist and checksum refusals, then the phrase opens', async () => {
     mount();
+    openDialog();
     fireEvent.click(screen.getByTestId('start-login'));
     expect(screen.getByText('Log in with the passkey you created, or your 12 words.')).toBeTruthy();
     fireEvent.click(screen.getByTestId('restore-passkey'));
@@ -195,6 +214,7 @@ describe('the screens', () => {
 
   test('a failure notes on the screen it came from, with the primary the note names, and nowhere else', async () => {
     const store = mount();
+    openDialog();
     fireEvent.click(screen.getByTestId('start-create'));
     fireEvent.click(screen.getByTestId('consent'));
     fireEvent.click(screen.getByTestId('create-passkey'));
@@ -212,34 +232,112 @@ describe('the screens', () => {
   });
 });
 
+const opening = (over: Partial<Record<OpeningStep['id'], Partial<OpeningStep>>>) =>
+  initialSteps().map((x) => ({ ...x, ...over[x.id] }));
+const mountOpening = (steps: OpeningStep[], intent = false) => {
+  const store = createStore();
+  store.set(nowAtom, 60_000);
+  store.set(mineIntentAtom, intent);
+  store.set(bootAtom, { phase: 'opening', steps });
+  render(
+    <Provider store={store}>
+      <SignInDialog session={session} />
+    </Provider>,
+  );
+  return store;
+};
+
 describe('the opening body', () => {
-  test('the bar reflects the step states and the notes step is indeterminate', () => {
+  test('the bar shows under the keys step while its bytes land; the sync shows its elapsed time and no bar', () => {
+    mountOpening(
+      opening({ key: { state: 'done' }, crs: { state: 'active', bytes: { loaded: 5, total: 20 } } }),
+    );
+    expect(screen.getByText('Opening your account.')).toBeTruthy();
+    expect(screen.getByText('Passkey confirmed')).toBeTruthy();
+    expect(screen.getByText('0.0 of 0 MB')).toBeTruthy();
+    // key 5 + crs 60×0.25 = 20.
+    expect(screen.getByTestId('opening-bar').getAttribute('aria-valuenow')).toBe('20');
+    expect(screen.getByText('Kept on this device; next time this step is skipped.')).toBeTruthy();
+    expect(screen.getByText(/You can start mining when this finishes/)).toBeTruthy();
+    // Cancel is available: the ceremony (the key step) is done.
+    expect((screen.getByTestId('opening-cancel') as HTMLButtonElement).disabled).toBe(false);
+    cleanup();
+    mountOpening(
+      opening({ key: { state: 'done' }, crs: { state: 'done' }, notes: { state: 'active', since: 18_000 } }),
+      true,
+    );
+    expect(screen.queryByTestId('opening-bar')).toBeNull();
+    expect(screen.getByText('0:42')).toBeTruthy();
+    expect(screen.getByText('first time only')).toBeTruthy();
+    expect(screen.getByText(/Reading your notes from the chain/)).toBeTruthy();
+    expect(screen.getByText(/Mining starts when this finishes/)).toBeTruthy();
+  });
+});
+
+describe('a failed opening', () => {
+  test('a step that failed keeps the checklist: the reason, the note, Retry, Change node for the node, Cancel', async () => {
     const store = createStore();
-    const steps = initialSteps('passkey');
-    const crs = steps.find((x) => x.id === 'crs');
-    if (crs) {
-      crs.state = 'active';
-      crs.bytes = { loaded: 5, total: 20 };
-    }
-    store.set(bootAtom, { phase: 'opening', steps });
+    store.set(nowAtom, 60_000);
+    store.set(signInAtom, true);
+    const steps = opening({
+      key: { state: 'done' },
+      crs: { state: 'done' },
+      notes: { state: 'failed', reason: 'no answer' },
+    });
+    store.set(bootAtom, {
+      phase: 'signedOut',
+      slot: held,
+      error: { kind: 'node', message: 'fetch failed', step: 'notes' },
+      opening: steps,
+    });
     render(
       <Provider store={store}>
         <SignInDialog session={session} />
       </Provider>,
     );
-    const bar = screen.getByTestId('opening-bar');
-    // key 5 + node 5 + crs 70×0.25 = 27.5 → 28; determinate here.
-    expect(bar.getAttribute('aria-valuenow')).toBe('28');
-    expect(bar.hasAttribute('data-indeterminate')).toBe(false);
-    // Cancel is available: the ceremony (the key step) is done.
-    expect((screen.getByTestId('opening-cancel') as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByTestId('opening-failed')).toBeTruthy();
+    expect(screen.getByText('no answer')).toBeTruthy();
+    expect(screen.getByText("The Aztec node isn't answering.")).toBeTruthy();
+    expect(screen.getByTestId('key-error').textContent).toContain('Retry, or use another node.');
+    expect(screen.getByTestId('opening-change-node')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('opening-retry'));
+    expect(session.open).toHaveBeenCalledWith(record);
+    // Cancel hides that failure: the dialog closes, and Welcome is what reopens.
+    fireEvent.click(screen.getByTestId('opening-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('sign-in')).toBeNull());
+    expect(store.get(signInAtom)).toBe(false);
+    store.set(signInAtom, true);
+    await waitFor(() => expect(screen.getByText('Welcome back.')).toBeTruthy());
+    expect(screen.queryByTestId('opening-failed')).toBeNull();
+    // The keys step failing names the download; a held tab keeps its own note.
+    cleanup();
+    const crsFailed = opening({
+      key: { state: 'done' },
+      crs: { state: 'failed', reason: 'failed', bytes: { loaded: 13 * 2 ** 20, total: 20 * 2 ** 20 } },
+    });
+    const s2 = createStore();
+    s2.set(signInAtom, true);
+    s2.set(bootAtom, {
+      phase: 'signedOut',
+      slot: held,
+      error: { kind: 'other', message: 'x', step: 'crs' },
+      opening: crsFailed,
+    });
+    render(
+      <Provider store={s2}>
+        <SignInDialog session={session} />
+      </Provider>,
+    );
+    expect(screen.getByText("The miner's files didn't download.")).toBeTruthy();
+    expect(screen.getByTestId('key-error').textContent).toContain(
+      'The connection dropped at 13.0 of 20 MB. Retry keeps what arrived.',
+    );
+    expect(screen.queryByTestId('opening-change-node')).toBeNull();
   });
 
   test('Cancel is disabled while the ceremony (the key step) is still active', () => {
     const store = createStore();
-    const steps = initialSteps('passkey');
-    const key = steps.find((x) => x.id === 'key');
-    if (key) key.state = 'active';
+    const steps = opening({ key: { state: 'active' } });
     store.set(bootAtom, { phase: 'opening', steps });
     render(
       <Provider store={store}>

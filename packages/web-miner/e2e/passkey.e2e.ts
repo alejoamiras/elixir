@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures.ts';
-import { BOOT_MS, bootPage, pageUrl, run, virtualAuthenticator } from './helpers.ts';
+import { BOOT_MS, bootPage, openDialog, pageUrl, run, virtualAuthenticator } from './helpers.ts';
 
 const HEX64 = /0x[0-9a-f]{64}/gi;
 
@@ -32,7 +32,7 @@ test('a passkey account: create, mine, claim, reload with one touch, the balance
   page.on('pageerror', (e) => console.log(`[page error] ${e.message}`));
   const auth = await virtualAuthenticator(page);
   await page.goto(pageUrl(r));
-  await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
+  await openDialog(page);
   await page.getByTestId('start-create').click();
   await expect(page.getByTestId('create-passkey')).toBeDisabled();
   await page.getByTestId('consent').check();

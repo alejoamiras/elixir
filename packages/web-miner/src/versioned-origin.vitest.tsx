@@ -9,7 +9,7 @@ import { OldApp } from './features/OldApp';
 import { OldTabNotice, staleTab } from './features/OldTabNotice';
 import { SignInDialog } from './features/SignInDialog';
 import type { Session } from './session';
-import { bootAtom } from './state';
+import { bootAtom, signInAtom } from './state';
 
 afterEach(() => {
   cleanup();
@@ -54,6 +54,7 @@ describe('the old role', () => {
     vi.stubEnv('VITE_SITE_MODE', 'production');
     const store = createStore();
     store.set(bootAtom, { phase: 'signedOut', slot: { record: null, staged: null, revision: 0 } });
+    store.set(signInAtom, true); // the tile's button; nothing opens by itself on a device without an account
     render(
       <Provider store={store}>
         <SignInDialog session={{} as Session} />

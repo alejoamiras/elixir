@@ -7,7 +7,7 @@ import type { SlotView } from './keys/slot';
 import type { MasterRecord } from './keys/store';
 import type { EpochInfo, MinerState } from './lib/reducer';
 import { initial } from './lib/reducer';
-import type { OpeningStep } from './opening-steps';
+import type { OpeningStep, StepId } from './opening-steps';
 import type { CrsProgress } from './pinned-crs';
 
 /**
@@ -15,17 +15,29 @@ import type { CrsProgress } from './pinned-crs';
  * (`dismissed`: WebAuthn cannot tell "none here" from "cancelled"), the authenticator cannot derive
  * a key, no WebAuthn at all, another tab holds the chain view, the slot refused, or anything else.
  */
-export type AccountErrorKind = 'dismissed' | 'no-prf' | 'no-webauthn' | 'held-tab' | 'slot' | 'other';
+export type AccountErrorKind =
+  | 'dismissed'
+  | 'no-prf'
+  | 'no-webauthn'
+  | 'held-tab'
+  | 'slot'
+  | 'node'
+  | 'other';
 export interface AccountError {
   kind: AccountErrorKind;
   message: string;
+  /** The opening step that failed, once the ceremony was over: the dialog keeps the checklist up. */
+  step?: StepId;
 }
 
 export type Boot =
   /** Isolation, node, deployment: each row with its evidence (the proving keys stream beside it). */
   | { phase: 'preflight'; rows: PreflightRow[] }
-  /** Preflight passed, no account open: the chain shows, the slot decides which screen opens one. */
-  | { phase: 'signedOut'; slot: SlotView; error?: AccountError }
+  /**
+   * Preflight passed, no account open: the chain shows, the slot decides which screen opens one.
+   * `opening` is the checklist as it stood when a step failed, for Retry.
+   */
+  | { phase: 'signedOut'; slot: SlotView; error?: AccountError; opening?: OpeningStep[] }
   /** An account is opening; the steps drive the dialog's bar. `key` done means the ceremony is over. */
   | { phase: 'opening'; steps: OpeningStep[] }
   /** `typedWords`: the phrase was typed in to log in, so a mistyped word may have opened a different, empty account. */
@@ -48,8 +60,13 @@ export const claimsAtom = atom<{ epoch: bigint; block: number; at: number }[]>([
 export const logAtom = atom<string[]>([]);
 /** The proving keys' download, from page load; the wallet's and the prover's start wait for `done`. */
 export const crsAtom = atom<CrsProgress>({ loaded: 0, total: 0, done: false });
-/** The sign-in dialog is wanted while no account is open: "Not now" clears it, the cockpit's buttons set it. */
-export const signInAtom = atom(true);
+/**
+ * The account dialog is wanted while no account is open: a device with a stored account wants it on
+ * arrival, a new visitor on the click; "Just watch for now" clears it.
+ */
+export const signInAtom = atom(false);
+/** Start mining opened the dialog: mining starts once the account is ready, then the intent is spent. */
+export const mineIntentAtom = atom(false);
 export const nowAtom = atom(Date.now());
 
 /** The open account's crossings, newest first; empty until the bridge session lists them. */

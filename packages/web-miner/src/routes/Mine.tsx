@@ -60,7 +60,7 @@ export function Mine({
   if (isOldRole()) return <OldApp session={session} />;
   return (
     <div
-      className="grid items-start gap-[14px] md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_300px] data-[signed-out]:opacity-[.72] data-[signed-out]:saturate-[.55]"
+      className="grid items-start gap-[14px] md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_300px]"
       data-signed-out={ready ? undefined : ''}
       data-testid="cockpit"
     >

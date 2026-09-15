@@ -39,7 +39,7 @@ const readWords = async (page: Page): Promise<string[]> =>
 async function keyScreen(page: Page): Promise<void> {
   await expect(page.getByTestId('cockpit')).toBeVisible({ timeout: BOOT_MS });
   const screen = page.getByTestId('key-screen');
-  if (!(await screen.isVisible())) await page.getByTestId('sign-in-mine').click();
+  if (!(await screen.isVisible())) await page.getByTestId('sign-in-balance').click();
   await expect(screen).toBeVisible({ timeout: 10_000 });
 }
 

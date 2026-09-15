@@ -63,10 +63,18 @@ import {
   seal,
   setStayOpen,
 } from './keys/store';
-import { initialSteps } from './opening-steps';
+import { initialSteps, keyStepLabel, type OpeningStep } from './opening-steps';
 import { prestoAtom, prestoEligible, probePresto } from './presto';
 import { loadSettings, saveSettings } from './settings';
-import { type AccountError, balanceAtom, bootAtom, bridgeAtom, bridgeSessionAtom, epochAtom } from './state';
+import {
+  type AccountError,
+  balanceAtom,
+  bootAtom,
+  bridgeAtom,
+  bridgeSessionAtom,
+  epochAtom,
+  mineIntentAtom,
+} from './state';
 import { ChainViewHeldError } from './wallet';
 
 type Store = ReturnType<typeof createStore>;
@@ -94,8 +102,13 @@ export const classifyAccountError = (e: unknown): AccountError => {
   if (e instanceof ChainViewHeldError) return { kind: 'held-tab', message };
   if (e instanceof SlotError) return { kind: 'slot', message };
   if (e instanceof DOMException && e.name === 'NotAllowedError') return { kind: 'dismissed', message };
+  if (nodeHealth().transport.kind !== 'ok') return { kind: 'node', message };
   return { kind: 'other', message };
 };
+
+/** The failed step's right column, one or two words: the note under the checklist says the rest. */
+const reasonOf = (e: AccountError): string =>
+  e.kind === 'node' ? 'no answer' : e.kind === 'held-tab' ? 'held by another tab' : 'failed';
 
 const credentialsOf = (records: MasterRecord[]): Uint8Array[] =>
   records.flatMap((r) => (r.credentialId ? [fromBase64url(r.credentialId)] : []));
@@ -202,10 +215,25 @@ export class Session {
   }
 
   /** Back to the signed-out cockpit with the error; `id` names the attempt speaking, if any. */
-  private async fail(e: unknown, id?: number): Promise<void> {
+  private async fail(e: unknown, id?: number, opening?: OpeningStep[]): Promise<void> {
     const slot = await this.slotView();
     if (id !== undefined && this.attempt?.id !== id) return; // a replacement began meanwhile
-    this.store.set(bootAtom, { phase: 'signedOut', slot, error: classifyAccountError(e) });
+    const error = classifyAccountError(e);
+    const active = opening?.find((s) => s.state === 'active');
+    if (!active) {
+      this.store.set(bootAtom, { phase: 'signedOut', slot, error });
+    } else {
+      // The step that failed stays on the checklist with its reason; Retry keeps what arrived.
+      const steps = opening?.map((s) =>
+        s === active ? { ...s, state: 'failed' as const, reason: reasonOf(error) } : s,
+      );
+      this.store.set(bootAtom, {
+        phase: 'signedOut',
+        slot,
+        error: { ...error, step: active.id },
+        opening: steps,
+      });
+    }
     // No account came up: the public epoch feeds the cockpit again.
     this.pre?.publicEpoch.start();
   }
@@ -248,6 +276,7 @@ export class Session {
     let master: Uint8Array | undefined;
     let started: Started | undefined;
     let reservation: Reservation | undefined;
+    let published: OpeningStep[] | undefined;
     // Whatever the steps returned that the session did not adopt: disposed, and its wallet stopped —
     // awaited, so `done` (and a successor, and the signed-out publish) come after the namespace is free.
     // A reservation not committed hands its lease back (its staged record stays for the next load).
@@ -290,8 +319,11 @@ export class Session {
         signal: abort.signal,
         keyLabel,
         keyMs,
-        nodeMs: (this.pre as Preflighted).nodeMs,
-        publish: (steps) => mine() && this.store.set(bootAtom, { phase: 'opening', steps }),
+        publish: (steps) => {
+          if (!mine()) return;
+          published = steps;
+          this.store.set(bootAtom, { phase: 'opening', steps });
+        },
       });
       if (!mine()) return;
       abort.signal.throwIfAborted(); // a cancel that landed as the last step settled
@@ -311,12 +343,13 @@ export class Session {
         record: c.record,
         ...(c.typed && { typedWords: true }),
       });
+      this.spendIntent();
     } catch (e) {
       await discard();
       if (!mine()) return; // a stale attempt publishes nothing
       // A cancel wins over whatever the abort made the steps throw (a download that failed later).
       if (isAbort(e) || abort.signal.aborted) await this.toSignedOut(id);
-      else await this.fail(e, id);
+      else await this.fail(e, id, published);
     } finally {
       master?.fill(0);
       await discard();
@@ -337,8 +370,16 @@ export class Session {
   async cancelOpening(): Promise<void> {
     const a = this.attempt;
     if (!a || a.ceremony) return;
+    this.store.set(mineIntentAtom, false);
     a.abort.abort();
     await a.done.catch(() => {});
+  }
+
+  /** Start mining opened the dialog: the account is ready, so mining starts, and the intent is spent. */
+  private spendIntent(): void {
+    if (!this.store.get(mineIntentAtom)) return;
+    this.store.set(mineIntentAtom, false);
+    this.startMining();
   }
 
   /** Back to the signed-out cockpit with no error (a cancel); the public poll feeds the chain again. */
@@ -362,7 +403,7 @@ export class Session {
 
   /** The record is staged before the wallet opens: a boot failure must not lose a fresh passkey. */
   async createWithPasskey(): Promise<void> {
-    return this.runAttempt('passkey', () => {
+    return this.runAttempt(keyStepLabel('passkey'), () => {
       this.guardHost('create');
       return this.reserved('create', async (r) => {
         const { credentialId, prf } = await this.createPasskey({
@@ -395,7 +436,7 @@ export class Session {
    * secret is sealed on this device. `record` names the kind for the dialog; the slot is re-read.
    */
   async open(record: MasterRecord): Promise<void> {
-    const keyLabel = record.method === 'passkey' ? 'passkey' : 'twelve words';
+    const keyLabel = keyStepLabel(record.method === 'passkey' ? 'passkey' : 'words');
     return this.runAttempt(keyLabel, () =>
       this.reserved('open', async (r) => {
         const target = r.record as MasterRecord;
@@ -426,7 +467,7 @@ export class Session {
    * out, or one from before the slot) takes its record back; a new one gets a record.
    */
   async restoreWithPasskey(): Promise<void> {
-    return this.runAttempt('passkey', () => {
+    return this.runAttempt(keyStepLabel('passkey'), () => {
       this.guardHost('restore');
       return this.reserved('login', async (r) => {
         const { credentialId, prf } = await this.assertPasskey({ rpId: this.rpId });
@@ -458,7 +499,7 @@ export class Session {
 
   /** Words keys seal their entropy: nothing re-derives it, and a skipped backup can be shown later. */
   async createWithWords(phrase: string, backedUp: boolean): Promise<void> {
-    return this.runAttempt('twelve words', () => {
+    return this.runAttempt(keyStepLabel('words'), () => {
       this.guardHost('create');
       return this.reserved('create', (r) => this.wordsRecord(r, phrase, backedUp));
     });
@@ -490,7 +531,7 @@ export class Session {
 
   /** Log in with the words: the phrase takes its record back if this device has one, or gets a new (sealed) one. */
   async restoreWithWords(phrase: string): Promise<void> {
-    return this.runAttempt('twelve words', () => {
+    return this.runAttempt(keyStepLabel('words'), () => {
       this.guardHost('restore');
       return this.reserved('login', async (r) => {
         const master = await masterFromMnemonic(phrase);

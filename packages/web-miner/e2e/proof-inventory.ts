@@ -45,7 +45,7 @@ export const INVENTORY: Readonly<Record<string, Readonly<Record<string, number>>
     'a words account: create, quiz, mine, sign out, restore, same address': 0,
   },
   'opening.e2e.ts': {
-    'a cancel mid-opening returns to signed out; the account opens on the next try': 0,
+    'page first; a cancel mid-opening forgets the intent, a Start mining that opens the account spends it': 0,
   },
   'switch.e2e.ts': {
     'a live switch A → B while mining, a claim after it, and the banner on a dead node': 1,

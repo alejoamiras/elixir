@@ -1,4 +1,4 @@
-import { BOOT_MS, virtualAuthenticator } from '../helpers.ts';
+import { openDialog, virtualAuthenticator } from '../helpers.ts';
 import { expect, type Page, test } from './fixtures.ts';
 
 /**
@@ -30,7 +30,7 @@ test('the account screens and their notes fit the dialog at 720 px tall', async 
   await page.setViewportSize({ width: 900, height: 720 });
   await virtualAuthenticator(page); // no credential on it: a log in with a passkey fails, honestly
   await page.goto(replay.url());
-  await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
+  await openDialog(page);
   await fits(page, 'start-create');
 
   await page.getByTestId('start-create').click();
@@ -47,7 +47,7 @@ test('the account screens and their notes fit the dialog at 720 px tall', async 
   await fits(page, 'words-open');
 
   await page.reload();
-  await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
+  await openDialog(page);
   await page.getByTestId('start-create').click();
   await page.getByTestId('use-words').click();
   await expect(page.getByTestId('words-backup')).toBeVisible();

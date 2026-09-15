@@ -1,5 +1,5 @@
 import { expect, type Page, test } from './fixtures.ts';
-import { BOOT_MS, holdThrough, pageUrl, run } from './helpers.ts';
+import { BOOT_MS, holdThrough, openDialog, pageUrl, run } from './helpers.ts';
 
 /** The twelve words as shown, read once from the grid before it is hidden. */
 const readWords = async (page: Page): Promise<string[]> =>
@@ -18,7 +18,7 @@ test('a words account: create, quiz, mine, sign out, restore, same address', asy
   page.on('pageerror', (e) => console.log(`[page error] ${e.message}`));
   // The impossible target: this spec needs proofs, never a claim (a win would take the Stop button away).
   await page.goto(pageUrl(r, { miner: r.hardMiner, token: r.hardToken }));
-  await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
+  await openDialog(page);
   await page.getByTestId('start-create').click();
   await page.getByTestId('use-words').click();
   const words = await readWords(page);
@@ -58,8 +58,9 @@ test('a words account: create, quiz, mine, sign out, restore, same address', asy
   await expect(page.getByTestId('sign-out-dialog')).toBeVisible();
   await expect(page.getByTestId('sign-out-click')).toBeVisible();
   await holdThrough(page, 'sign-out-hold');
-  // The session ends with a reload onto a device that holds no account: the Start screen.
-  await expect(page.getByTestId('start-create')).toBeVisible({ timeout: BOOT_MS });
+  // The session ends with a reload onto a device that holds no account: the cockpit, the Start screen on the click.
+  await openDialog(page);
+  await expect(page.getByTestId('start-create')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Mine with an account.' })).toBeVisible();
 
   // Log in with the words: the hostname line, paste allowed, the same address.

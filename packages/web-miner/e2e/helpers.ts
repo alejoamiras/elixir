@@ -87,12 +87,19 @@ export async function virtualAuthenticator(
 }
 
 /** Through the account dialog: create a passkey account on a first visit, open the device's on a later one. */
-export async function passKeyScreen(page: Page): Promise<void> {
-  // The dialog opens by itself over the signed-out cockpit; a dismissed one reopens from the cockpit.
+/**
+ * The account dialog over the signed-out cockpit: open by itself on a device with an account, else
+ * through the balance tile's Log in (no mining intent: the specs press Start themselves).
+ */
+export async function openDialog(page: Page): Promise<void> {
   await expect(page.getByTestId('cockpit')).toBeVisible({ timeout: BOOT_MS });
   const screen = page.getByTestId('key-screen');
-  if (!(await screen.isVisible())) await page.getByTestId('sign-in-mine').click();
+  if (!(await screen.isVisible())) await page.getByTestId('sign-in-balance').click();
   await expect(screen).toBeVisible({ timeout: 10_000 });
+}
+
+export async function passKeyScreen(page: Page): Promise<void> {
+  await openDialog(page);
   const open = page.getByTestId('open-key');
   if (await open.isVisible()) return open.click();
   await page.getByTestId('start-create').click();
@@ -116,7 +123,8 @@ export async function signOut(page: Page): Promise<void> {
   await page.getByTestId('sign-out').click();
   await expect(page.getByTestId('sign-out-dialog')).toBeVisible();
   await holdThrough(page, 'sign-out-hold');
-  await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
+  // The page reloads onto a device without an account: the cockpit first, the dialog on the click.
+  await openDialog(page);
 }
 
 export async function bootPage(
@@ -128,5 +136,13 @@ export async function bootPage(
   await page.goto(url);
   await passKeyScreen(page);
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
+  await logOpening(page);
   return auth;
+}
+
+/** The session's `opened:` line (the keys and notes steps' durations), for the run's log. */
+export async function logOpening(page: Page): Promise<void> {
+  const lines = await page.evaluate(() => window.yacana?.log() ?? []);
+  const line = lines.reverse().find((l) => l.includes('opened:'));
+  if (line) console.log(`[opening] ${line}`);
 }

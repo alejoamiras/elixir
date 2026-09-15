@@ -31,9 +31,8 @@ test('the versioned origin: the same passkey restores the apex’s account there
   await expect(page.getByTestId('retired')).toBeVisible();
   await expect(page.getByTestId('retired')).toContainText('Mining has ended on this version');
   await expect(page.getByTestId('start')).toHaveCount(0);
-  // The dialog opens on Log in here (nothing is created on this origin): Escape leaves it.
+  // No account on this origin, so no dialog on arrival; the tile's button opens it on Log in.
   const screen = page.getByTestId('key-screen');
-  if (await screen.isVisible()) await page.keyboard.press('Escape');
   await expect(screen).toBeHidden();
   await shot(page, 'old-app-signed-out');
   await page.getByTestId('sign-in-mine').click();

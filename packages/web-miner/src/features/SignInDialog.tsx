@@ -1,13 +1,15 @@
-import { useAtom, useAtomValue } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useEffect, useState } from 'react';
 import { keysAllowed } from '../../../site/src/browser/host.ts';
 import { Dialog, DialogContent, DialogTitle } from '../../../ui/src/index.ts';
 import type { MasterRecord } from '../keys/store';
+import type { OpeningStep } from '../opening-steps';
+import { navigate } from '../routes';
 import type { Session } from '../session';
-import { type AccountError, type Boot, bootAtom, signInAtom } from '../state';
+import { type AccountError, type Boot, bootAtom, mineIntentAtom, signInAtom } from '../state';
 import { Create } from './account/Create';
 import { LogIn } from './account/LogIn';
-import { Opening } from './account/Opening';
+import { Opening, OpeningFailed } from './account/Opening';
 import { Start } from './account/Start';
 import { Welcome } from './account/Welcome';
 import { WordsBackup } from './account/Words';
@@ -113,6 +115,46 @@ const screenFor = (stored: MasterRecord | null, chosen: Screen | null, canCreate
 const errorFor = (boot: Boot, errorOn: Screen | null, current: Screen): AccountError | undefined =>
   boot.phase === 'signedOut' && (errorOn === current || current === 'welcome') ? boot.error : undefined;
 
+type SignedOut = Extract<Boot, { phase: 'signedOut' }>;
+type Failed = SignedOut & { opening: OpeningStep[]; error: AccountError };
+
+/** What the dialog holds: the checklist while opening or after a step failed, else the account's screen. */
+function Body({
+  boot,
+  failed,
+  stored,
+  current,
+  flow,
+  onCancelFailed,
+}: {
+  boot: Boot;
+  failed: Failed | null;
+  stored: MasterRecord | null;
+  current: Screen;
+  flow: Flow;
+  onCancelFailed: () => void;
+}) {
+  const { session } = flow;
+  if (boot.phase === 'opening')
+    return <Opening steps={boot.steps} onCancel={() => void session.cancelOpening()} />;
+  if (failed && stored)
+    return (
+      <OpeningFailed
+        steps={failed.opening}
+        error={failed.error}
+        onRetry={() => flow.attempt('welcome', () => session.open(stored))}
+        onChangeNode={() => navigate('settings')}
+        onCancel={onCancelFailed}
+      />
+    );
+  if (boot.phase !== 'signedOut') return null;
+  return stored ? <Stored record={stored} flow={flow} /> : <Screens current={current} flow={flow} />;
+}
+
+/** The checklist a step failed on, unless Cancel hid that very failure. */
+const failedOpening = (boot: Boot, hidden: Boot | null): Failed | null =>
+  boot.phase === 'signedOut' && boot.opening && boot.error?.step && boot !== hidden ? (boot as Failed) : null;
+
 /**
  * The account dialog over the cockpit. Signed out, Escape, the veil and "Just watch for now" are one
  * action: dismiss (the cockpit's buttons reopen it). A device with an account gets Welcome, whatever
@@ -123,10 +165,13 @@ const errorFor = (boot: Boot, errorOn: Screen | null, current: Screen): AccountE
 export function SignInDialog({ session }: { session: Session }) {
   const boot = useAtomValue(bootAtom);
   const [wanted, setWanted] = useAtom(signInAtom);
+  const setIntent = useSetAtom(mineIntentAtom);
   const opening = boot.phase === 'opening';
   const signedOut = boot.phase === 'signedOut';
   const open = opening || (signedOut && wanted);
   const [screen, setScreen] = useState<Screen | null>(null);
+  /** A failed checklist dismissed with Cancel: Welcome comes back until the next attempt. */
+  const [hidden, setHidden] = useState<Boot | null>(null);
   /** The screen whose attempt failed: its note stays there and nowhere else. */
   const [errorOn, setErrorOn] = useState<Screen | null>(null);
   const [busy, setBusy] = useState(false);
@@ -152,11 +197,17 @@ export function SignInDialog({ session }: { session: Session }) {
       setBusy(true);
       void run().finally(() => setBusy(false));
     },
-    notNow: () => setWanted(false),
+    notNow: () => close(),
   };
-  const dismiss = (e: Event) => (opening ? e.preventDefault() : setWanted(false));
+  // Leaving the dialog forgets why it was opened: a later Start mining sets the intent again.
+  const close = () => {
+    setIntent(false);
+    setWanted(false);
+  };
+  const dismiss = (e: Event) => (opening ? e.preventDefault() : close());
+  const failed = failedOpening(boot, hidden);
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && !opening && setWanted(false)}>
+    <Dialog open={open} onOpenChange={(o) => !o && !opening && close()}>
       <DialogContent
         hideClose
         size="tx"
@@ -168,13 +219,17 @@ export function SignInDialog({ session }: { session: Session }) {
         data-testid="sign-in"
       >
         <DialogTitle className="sr-only">{opening ? 'Opening your account' : 'Account'}</DialogTitle>
-        {opening ? (
-          <Opening steps={boot.steps} onCancel={() => void session.cancelOpening()} />
-        ) : !signedOut ? null : stored ? (
-          <Stored record={stored} flow={flow} />
-        ) : (
-          <Screens current={current} flow={flow} />
-        )}
+        <Body
+          boot={boot}
+          failed={failed}
+          stored={stored}
+          current={current}
+          flow={flow}
+          onCancelFailed={() => {
+            setHidden(failed);
+            close();
+          }}
+        />
       </DialogContent>
     </Dialog>
   );

@@ -24,7 +24,7 @@ import { crsReady } from './pinned-crs';
 import { type PrestoEndpoint, prestoAtom, prestoEligible, prestoEndpoint, probePresto } from './presto';
 import { type PublicEpochPoll, publicEpochReader, startPublicEpoch } from './public-epoch';
 import { loadSettings } from './settings';
-import { bootAtom, crsAtom, logAtom, rulesAtom } from './state';
+import { bootAtom, crsAtom, logAtom, rulesAtom, signInAtom } from './state';
 import {
   ChainViewHeldError,
   type OpenedWallet,
@@ -159,7 +159,10 @@ export async function preflight(store: Store, connection: Connection): Promise<P
   await preparePasskeys();
   const publicEpoch = startPublicChain(store, connection, node, minerArtifact);
   const nodeMs = rows.filter((r) => r.id !== 'isolation').reduce((n, r) => n + (r.ms ?? 0), 0);
-  store.set(bootAtom, { phase: 'signedOut', slot: await readSlot() });
+  const slot = await readSlot();
+  // A device with an account wants the dialog on arrival (Welcome back); a new visitor gets the page first.
+  store.set(signInAtom, slot.record !== null || slot.staged !== null);
+  store.set(bootAtom, { phase: 'signedOut', slot });
   // The cockpit is ready: ask Presto now (the billboard may show before any account), never wait for it.
   const presto = prestoEndpoint();
   if (presto) void probePresto(store, presto).catch(() => undefined);
@@ -246,9 +249,13 @@ export interface OpeningOpts {
   /** The first step's label for the account's kind (a passkey, twelve words), and how long it took. */
   keyLabel?: string;
   keyMs?: number;
-  /** How long the node step took, back in the preflight. */
-  nodeMs?: number;
 }
+
+const openedLine = (steps: OpeningStep[]): string =>
+  `opened: ${steps
+    .filter((s) => s.ms !== undefined)
+    .map((s) => `${s.id} ${((s.ms as number) / 1000).toFixed(1)} s`)
+    .join(' · ')}`;
 
 export interface Started {
   controller: MinerController;
@@ -271,8 +278,7 @@ export async function startSession(
   opts: OpeningOpts,
 ): Promise<Started> {
   const steps = initialSteps(opts.keyLabel);
-  if (opts.keyMs !== undefined) (steps[0] as OpeningStep).ms = opts.keyMs;
-  if (opts.nodeMs !== undefined) (steps[1] as OpeningStep).ms = opts.nodeMs;
+  steps[0] = { ...(steps[0] as OpeningStep), state: 'done', ms: opts.keyMs };
   const set = (id: OpeningStep['id'], patch: Partial<OpeningStep>) => {
     const i = steps.findIndex((s) => s.id === id);
     steps[i] = { ...(steps[i] as OpeningStep), ...patch };
@@ -284,7 +290,7 @@ export async function startSession(
   // The proving keys: downloading since page load. Show the bytes as they land, then wait for the pin.
   // The wait is this attempt's, not the download's: a cancel leaves the shared download running.
   const t0 = performance.now();
-  set('crs', { state: 'active' });
+  set('crs', { state: 'active', since: Date.now() });
   const onCrs = () => {
     const c = store.get(crsAtom);
     set('crs', { state: 'active', bytes: { loaded: c.loaded, total: c.total }, detail: bytesDetail(c) });
@@ -301,7 +307,7 @@ export async function startSession(
 
   // Notes and balance: the wallet, the account, the deployment, and the controller's first read.
   const t1 = performance.now();
-  set('notes', { state: 'active' });
+  set('notes', { state: 'active', since: Date.now() });
   let opened: OpenedWallet | undefined;
   let controller: MinerController | undefined;
   try {
@@ -368,6 +374,7 @@ export async function startSession(
     opts.signal.throwIfAborted();
     set('notes', { state: 'done', ms: performance.now() - t1 });
     set('ready', { state: 'done' });
+    controller.log(openedLine(steps)); // the diagnostics line the bar's weights were measured from
     // Over the mutable handle: a rebuild (a lost race, a node switch) replaces `opened`.
     return { controller, wallet: () => (opened as OpenedWallet).wallet, threads };
   } catch (e) {

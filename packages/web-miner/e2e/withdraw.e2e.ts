@@ -1,5 +1,5 @@
 import { expect, type Page, test } from './fixtures.ts';
-import { BOOT_MS, bootPage, holdThrough, pageUrl, run, signOut } from './helpers.ts';
+import { BOOT_MS, bootPage, holdThrough, openDialog, pageUrl, run, signOut } from './helpers.ts';
 
 /** The twelve words as shown, read once from the grid before it is hidden. */
 const readWords = async (page: Page): Promise<string[]> =>
@@ -61,7 +61,8 @@ test('withdraw: private to a second key on this device, public to an address', a
   await page.getByTestId('words-done').click();
   await expect(page.getByTestId('sign-out-hold')).toBeVisible();
   await holdThrough(page, 'sign-out-hold');
-  await expect(page.getByTestId('start-login')).toBeVisible({ timeout: BOOT_MS });
+  await openDialog(page);
+  await expect(page.getByTestId('start-login')).toBeVisible();
   expect(await logInWithPasskey(page)).toBe(a);
   await page.getByRole('link', { name: 'Wallet' }).click();
   await page.getByTestId('withdraw').click();
