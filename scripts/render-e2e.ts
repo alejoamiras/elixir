@@ -99,6 +99,7 @@ async function miner(page: Page, width: number) {
   await page.getByTestId('sign-in').waitFor({ timeout: 10_000 });
   await page.waitForTimeout(300);
   await shot(page, 'miner-signed-out', width);
+  await page.getByTestId('start-create').click();
   await page.getByTestId('use-words').click({ timeout: 120_000 });
   await page.getByTestId('words-skip').click();
   // Opening: the step list and the bar while the account comes up.

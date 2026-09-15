@@ -27,37 +27,47 @@ export interface CrsProgress {
   error?: string;
 }
 
+/** A download in progress or interrupted: the buffer and how far it got, resumed by the next attempt. */
+export interface Download {
+  out: Uint8Array<ArrayBuffer>;
+  at: number;
+}
+
 /**
  * Streams a pinned asset into a buffer of exactly its pinned size, reporting bytes as they land, and
  * checks the whole against the pin at the end: a wrong hash can only be known after the download; a
- * body longer than the pin fails the moment it overflows, never buffered whole.
+ * body longer than the pin fails the moment it overflows, never buffered whole. A 206 continues
+ * `p` from where it stopped; any other answer starts the buffer over (the bytes leave the count).
  */
 export async function streamVerified(
   res: Response,
   pin: { bytes: number; sha256: string },
   name: string,
   onBytes: (n: number) => void,
+  p: Download = { out: new Uint8Array(pin.bytes), at: 0 },
 ): Promise<Uint8Array> {
   if (!res.ok) throw new Error(`crs: /crs/${name} → HTTP ${res.status}`);
   const reader = res.body?.getReader();
   if (!reader) throw new Error(`crs: ${name} came without a body`);
-  const out = new Uint8Array(pin.bytes);
-  let at = 0;
+  if (p.at > 0 && !(res.status === 206 && res.headers.get('content-range')?.startsWith(`bytes ${p.at}-`))) {
+    onBytes(-p.at);
+    p.at = 0;
+  }
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
-    if (at + value.length > pin.bytes) {
+    if (p.at + value.length > pin.bytes) {
       await reader.cancel();
       throw new CrsPinError(`crs: ${name} is longer than its pin (${pin.bytes} bytes)`);
     }
-    out.set(value, at);
-    at += value.length;
+    p.out.set(value, p.at);
+    p.at += value.length;
     onBytes(value.length);
   }
-  const digest = hex(await crypto.subtle.digest('SHA-256', out.subarray(0, at)));
-  if (at !== pin.bytes || digest !== pin.sha256)
-    throw new CrsPinError(`crs: ${name} does not match its pin (${at} bytes, sha256 ${digest})`);
-  return out;
+  const digest = hex(await crypto.subtle.digest('SHA-256', p.out.subarray(0, p.at)));
+  if (p.at !== pin.bytes || digest !== pin.sha256)
+    throw new CrsPinError(`crs: ${name} does not match its pin (${p.at} bytes, sha256 ${digest})`);
+  return p.out;
 }
 
 let progress: CrsProgress = { loaded: 0, total: TOTAL_BYTES, done: false };
@@ -67,25 +77,32 @@ const report = (patch: Partial<CrsProgress>) => {
   onProgress?.(progress);
 };
 
+/** What an interrupted download left, per file: the next run asks for the rest. */
+const partials = new Map<string, Download>();
+
 function load(name: string): Promise<Uint8Array> {
   let p = verified.get(name);
   if (!p) {
-    let got = 0;
+    const pin = files[name];
+    const partial = partials.get(name) ?? { out: new Uint8Array(pin?.bytes ?? 0), at: 0 };
     p = (async () => {
-      const pin = files[name];
       if (!pin) throw new CrsPinError(`crs: ${name} is not pinned`);
-      const res = await originalFetch(`/crs/${name}`);
-      return streamVerified(res, pin, name, (n) => {
-        got += n;
-        report({ loaded: progress.loaded + n });
-      });
+      const range = partial.at > 0 ? { headers: { range: `bytes=${partial.at}-` } } : undefined;
+      const res = await originalFetch(`/crs/${name}`, range);
+      return streamVerified(res, pin, name, (n) => report({ loaded: progress.loaded + n }), partial);
     })();
-    // A file that failed is fetched again by the next run and its bytes leave the count; the files
-    // that verified stay.
-    p.catch(() => {
-      verified.delete(name);
-      report({ loaded: progress.loaded - got });
-    });
+    // A dropped connection keeps what arrived for the next run's range request; bytes that failed
+    // their pin are worthless and leave the count.
+    p.then(
+      () => partials.delete(name),
+      (e: unknown) => {
+        verified.delete(name);
+        if (e instanceof CrsPinError) {
+          partials.delete(name);
+          report({ loaded: progress.loaded - partial.at });
+        } else partials.set(name, partial);
+      },
+    );
     verified.set(name, p);
   }
   return p;

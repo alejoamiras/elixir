@@ -174,7 +174,10 @@ describe('the screens', () => {
     expect((screen.getByTestId('words-done') as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByTestId('words-skip'));
     expect(session.createWithWords).toHaveBeenCalledWith(PHRASE, false);
-    // A refusal before the record is staged (another tab holds the slot): the same words, with the note.
+    // The attempt shows the checklist (the Words screen unmounts); a refusal before the record is
+    // staged (another tab holds the slot) comes back to the same words, with the note.
+    store.set(bootAtom, { phase: 'opening', steps: initialSteps() });
+    await waitFor(() => expect(screen.queryByTestId('words-grid')).toBeNull());
     fail(store, { kind: 'slot', message: 'Another tab is opening an account.' });
     await waitFor(() => expect(screen.getByTestId('key-error')).toBeTruthy());
     expect(screen.getByTestId('words-grid').textContent).toContain('about');

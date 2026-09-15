@@ -374,7 +374,7 @@ export async function startSession(
     opts.signal.throwIfAborted();
     set('notes', { state: 'done', ms: performance.now() - t1 });
     set('ready', { state: 'done' });
-    controller.log(openedLine(steps)); // the diagnostics line the bar's weights were measured from
+    controller.log(openedLine(steps));
     // Over the mutable handle: a rebuild (a lost race, a node switch) replaces `opened`.
     return { controller, wallet: () => (opened as OpenedWallet).wallet, threads };
   } catch (e) {

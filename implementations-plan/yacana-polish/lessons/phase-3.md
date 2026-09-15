@@ -75,3 +75,32 @@ all of it the notes sync — which is why the sync's line carries the elapsed ti
   RPC, the old Presto, the public poll).
 - `bun run rig -- origin` (tmux): the apex's passkey restores the same account on the versioned origin,
   which creates nothing and mines nothing; no dialog on arrival there either — 1 passed (22.2 s).
+
+## Arc-2 boundary — the codex fix loop (§10)
+
+Session `01a0a72e-905c-79b2-8407-11de519f21a0` (Astra, `high`, read-only), the arc's diff against
+`worktree-yacana-polish`, the plan, the brief, the canvas generator, the five asks (adversarial on the slot
+and the master's lifetime, copy against the generator, the suites' honesty, the state-machine trace, later
+arcs) and the two verbatim rules.
+
+### Round 1 — REVISE, twelve findings; all verified, all fixed (`11fbd35`)
+
+| # | sev | claim | verified | fix |
+|---|---|---|---|---|
+| 1 | high | `commit` of an `open` reservation ignores the revision: reserve-open A → sign out A → stage B → commit A makes A held again, B's commit fails | reproduced by reading `slot.ts`: `open` writes nothing at reserve, and `commit` checked only `state.id` | `committable()`: an `open` commits only on its reservation's revision; the interleaving is a slot test |
+| 2 | medium | Cancel during `adopt`/`openBridge` resolves with boot `ready` | true: the last `throwIfAborted` is before `adopt` | the cancel window ends at adoption: `attempt.adopted` makes `cancelOpening` inert, the dialog's Cancel is disabled once every step is done. Not the teardown codex proposed: the account is verified open at that point and Sign out is the way back; the window is one IDB commit and the bridge's open |
+| 3 | medium | the download's Retry cannot retry: `crsRun ??=` keeps the rejected run, `verified` the rejected file | true (the docstring even said "only a reload retries") | a failed run is dropped, a failed file leaves `verified` and its bytes leave the count; the verified files stay, which is what "Retry keeps what arrived" now means (no byte-range resume of one file: not worth the surface) |
+| 4 | medium | `node` is inferred from the transport for any error; every keys failure reads as a dropped connection, a hash mismatch included | true | `CrsPinError` → `kind: 'pin'` → the plain note with the message; `node` kept only when the failed step is the sync (the one that talks to the node) |
+| 5 | medium | the Words screen's phrase is lost when a create fails before staging (the attempt publishes `opening` at once, `Screens` unmounts); its submissions bypass `attempt`, so the note never lands there | true | the phrase is the dialog's state; both submissions are `attempt('words', …)`; a spec |
+| 6 | medium | Welcome's "Back up my 12 words" only opens the account | true | open, then `navigate('wallet', 'backup')`; the wallet starts on the backup and returns to its sign-out dialog (`Intent = 'send' \| 'backup'`) |
+| 7 | medium | Welcome's no-webauthn primary says "Use 12 words" and runs the passkey open; Log in offers words after `no-prf`, which the brief forbids | true | the open context drops the words primary and the "; or use 12 words" clause (a passkey account cannot open with words); Log in hides the words link after `no-prf` |
+| 8 | low | Retry after a typed login's sync failure loses `typed`, so the empty-account hint is lost | true | the failed boot carries `typedWords`; Retry passes it to `open` |
+| 9 | low | Cancel's `hidden` is dialog state: a Settings round trip remounts the dialog and the cancelled checklist comes back | true (`App.tsx` unmounts the dialog on Settings) | `session.hideOpeningFailure()` strips `opening` from the boot; `hidden` deleted |
+| 10 | medium | `site.e2e.ts` and `scripts/render-e2e.ts` still expect a dialog on arrival, `/mine/wallet` to stay, a disabled create button on the old origin | true — neither is in P2/P3's gate, both are P12's | both follow page-first; the site e2e and the cockpit shard run after the commit |
+| 11 | low | copy: the keys step's reason "failed" (canvas "download failed"), the node's without its duration, "Mining stops." added during a claim | true | `reasonOf(error, step)`; "no answer for N min" from the transport's `since`; the claim body as the canvas |
+| 12 | low | comments: the weights comment cites a phase log and claims a measurement the log denies; two restating comments in `Screen.tsx`; a stray doc line in `helpers.ts` | true | rewritten to the constraint; deleted |
+
+Looks fine per codex: no dependency change; the credential restrictions, the master's zeroing, the backup
+gate, the claim and queue draining; the arrival/intent trace; inventory titles and floors; the deliberate
+departures (Welcome's "Open", no device link, the old origin's dismissal, the wallet eyebrow, the elapsed
+sync); no interface a later arc must undo.

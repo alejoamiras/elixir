@@ -22,6 +22,38 @@ const body = () =>
   );
 
 describe('the streamed CRS load', () => {
+  test('a 206 continues an interrupted buffer where it stopped; a full answer starts it over', async () => {
+    const sha256 = hex(await crypto.subtle.digest('SHA-256', whole));
+    const rest = (status: number, headers: Record<string, string>) =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            for (const c of chunks.slice(1)) controller.enqueue(c);
+            controller.close();
+          },
+        }),
+        { status, headers },
+      );
+    const partial = { out: new Uint8Array(16), at: 5 };
+    partial.out.set(chunks[0] as Uint8Array, 0);
+    const seen: number[] = [];
+    const out = await streamVerified(
+      rest(206, { 'content-range': 'bytes 5-15/16' }),
+      { bytes: 16, sha256 },
+      'g1',
+      (n) => seen.push(n),
+      { ...partial },
+    );
+    expect(seen).toEqual([7, 4]);
+    expect(Array.from(out)).toEqual(Array.from(whole));
+    // The server ignored the range: the five bytes leave the count and the body is the whole file again.
+    const over: number[] = [];
+    await expect(
+      streamVerified(body(), { bytes: 16, sha256 }, 'g1', (n) => over.push(n), { ...partial }),
+    ).resolves.toBeTruthy();
+    expect(over).toEqual([-5, 5, 7, 4]);
+  });
+
   test('bytes are reported as they land and total the pin; the whole matches it', async () => {
     const sha256 = hex(await crypto.subtle.digest('SHA-256', whole));
     const seen: number[] = [];

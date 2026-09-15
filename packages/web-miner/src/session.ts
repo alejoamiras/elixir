@@ -96,7 +96,10 @@ interface Ceremony {
   typed?: true;
 }
 
-/** The note the dialog draws for a failed opening, by what failed. */
+/** The JSON-RPC client's transport failures: a network error, or a status the node (or the guard's cooldown answer) returned. */
+const NODE_REQUEST = /^Error (?:fetching from host|\d{3} from server) /;
+
+/** The note the dialog draws for a failed opening, by what failed. `node` needs a node request that failed while the transport is down. */
 export const classifyAccountError = (e: unknown): AccountError => {
   const message = e instanceof Error ? e.message : String(e);
   if (e instanceof NoPrfError) return { kind: 'no-prf', message };
@@ -105,7 +108,7 @@ export const classifyAccountError = (e: unknown): AccountError => {
   if (e instanceof SlotError) return { kind: 'slot', message };
   if (e instanceof DOMException && e.name === 'NotAllowedError') return { kind: 'dismissed', message };
   if (e instanceof CrsPinError) return { kind: 'pin', message };
-  if (nodeHealth().transport.kind !== 'ok') return { kind: 'node', message };
+  if (NODE_REQUEST.test(message) && nodeHealth().transport.kind !== 'ok') return { kind: 'node', message };
   return { kind: 'other', message };
 };
 
@@ -155,8 +158,10 @@ export class Session {
   private unsubBalance: (() => void) | undefined;
   private unsubFlip: (() => void) | undefined;
 
-  /** The open attempt: its generation and the AbortController Cancel aborts once the ceremony is over. */
-  /** `ceremony`: the OS prompt is up, Cancel is inert; `adopted`: the slot took the account, Cancel is over. */
+  /**
+   * The open attempt: its generation and the AbortController Cancel aborts. `ceremony`: the OS prompt
+   * is up, Cancel is inert; `adopted`: adoption has begun (the commit, then the bridge), Cancel is over.
+   */
   private attempt:
     | { id: number; abort: AbortController; ceremony: boolean; adopted: boolean; done: Promise<void> }
     | undefined;
@@ -229,16 +234,11 @@ export class Session {
   private async fail(e: unknown, id?: number, opening?: OpeningStep[], typed?: true): Promise<void> {
     const slot = await this.slotView();
     if (id !== undefined && this.attempt?.id !== id) return; // a replacement began meanwhile
-    const classified = classifyAccountError(e);
+    const error = classifyAccountError(e);
     const active = opening?.find((s) => s.state === 'active');
     if (!active) {
-      this.store.set(bootAtom, { phase: 'signedOut', slot, error: classified });
+      this.store.set(bootAtom, { phase: 'signedOut', slot, error });
     } else {
-      // Only the sync talks to the node: a silent node explains no other step's failure.
-      const error =
-        classified.kind === 'node' && active.id !== 'notes'
-          ? { ...classified, kind: 'other' as const }
-          : classified;
       // The step that failed stays on the checklist with its reason; Retry keeps what arrived.
       const steps = opening?.map((s) =>
         s === active ? { ...s, state: 'failed' as const, reason: reasonOf(error, active.id) } : s,
@@ -465,8 +465,8 @@ export class Session {
   /**
    * The slot's record (Welcome back): one touch, restricted to its credential, or none when the
    * secret is sealed on this device. `record` names the kind for the dialog; the slot is re-read.
+   * `typed`: the record came from words typed in this session (a retry of that login keeps its hint).
    */
-  /** `typed`: the record came from words typed in this session (a retry of that login keeps its hint). */
   async open(record: MasterRecord, typed?: true): Promise<void> {
     const keyLabel = keyStepLabel(record.method === 'passkey' ? 'passkey' : 'words');
     return this.runAttempt(keyLabel, () =>
