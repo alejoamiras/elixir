@@ -1,5 +1,5 @@
-"""The boards that explain: principles, the IA map, the navigation options, the copy deck, the picks; the phone."""
-from lib import ICONS, MARK, btn, header, page, phone, quiet, tabbar, tile, th, kpi, checklist, amount, srow
+"""The boards that explain: principles, the IA map, the navigation options, the copy deck, the picks."""
+from lib import ICONS, MARK, btn, header, page, quiet, tile, th
 
 from boards_signin import head
 
@@ -12,7 +12,7 @@ RULES = [
     ("Buttons are verb + noun and carry the amount.", "\"Bridge 3.5 tYACA\", \"Claim on Ethereum\", \"Send 3.5 tYACA ahead\". Sentence case, no period."),
     ("Deadlines are facts, not bets; nothing is \"safe\".", "\"By 14:03 (in 40 min)\" and what happens after it: \"If V5 misses it, the balance comes back here.\" A proven send still needs forwarding or redeeming before V5's last day, and a balance on V5 can lose its way out at any time; so the word never appears."),
     ("Settings edit in place.", "One field per value, Save probes it, the old value stays live until the probe passes, the error sits under the field."),
-    ("Four destinations, a gear, an account chip.", "Icon + label on the phone, text tabs on the desktop; the logo is the app's home; Testnet is a neutral tag."),
+    ("Four destinations, a gear, an account chip.", "Text tabs with small icons; the logo is the app's home; Testnet is a neutral tag. Desktop only: mining needs a desktop browser."),
     ("The old origin has one job.", "Get what's left out: the balance, one button, the activity, the settings that make it work. Nothing else."),
 ]
 
@@ -37,7 +37,7 @@ def ia_map():
             + col("Settings (gear)", ["Network: Aztec node, Ethereum RPC — edit in place; silent and throttled states", "Mining: power, Presto, battery, background, resume", "Alerts", "Account: stay open (what it means), Sign out", "Appearance · About (the one host line, /faq)"], "diagnostics, paragraphs")
             + col("Dialogs", ["Account: Start → Create / Log in → words → Welcome back → Opening; six failures, one note each", "Transaction: form → progress → done; Send; Claim; Send ahead", "Sign out (also behind \"Use a different account\")"], "a second confirmation, footers")
             + col("v5.yacana.network", ["Send ahead: balance · Send ahead to V6 · or bridge to Ethereum · activity · Log in", "Settings (node, RPC, account with Sign out, about) · Stats ↗ (the apex)"], "the landing, mining, deposits, a Wallet tab, forwarding (that happens on V6)")
-            + col("Stats ↗ · Verify ↗", ["the public view, unchanged in this pass", "opens in a new tab: mining lives in this one", "on the phone, Verify is a tab inside Stats"], "")
+            + col("Stats ↗ · Verify ↗", ["the public view, unchanged in this pass", "opens in a new tab: mining lives in this one"], "")
             + col("/faq", ["the rules (six drawings)", "Who controls this page?", "What if I lose my passkey?", "The upgrade, in full; what a relayer is"], "")
             + col("Disclosure", ["0 · a tag: V6 · Sep 18, ready to claim", "1 · a card: fact, next step, one button", "2 · How it works / Details: stages, times, links", "3 · /faq#rules"], "a fourth level")
             + '</div></div>')
@@ -54,17 +54,16 @@ def nav_options():
             '<div style="border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:14px;padding-top:12px">'
             + "".join(f'<span style="display:flex;flex-direction:column;align-items:center;gap:3px;font:500 9.5px var(--sans);color:{"var(--ink)" if k == "mine" else "var(--ink-3)"}"><span style="width:20px;height:20px;stroke:currentColor;fill:none">{ICONS[k].replace("<svg", "<svg width=20 height=20 style=stroke:currentColor;fill:none;stroke-width:1.6")}</span>{l}</span>' for l, k in (("Mine", "mine"), ("Wallet", "wallet"), ("Stats", "stats"), ("Verify", "verify")))
             + f'</div><div class="row sb" style="padding:0 20px;height:52px;border-bottom:1px solid var(--line)"><span class="brand">{MARK}Yacana<span class="vtag">V5</span></span><span class="row"><span class="badge net">testnet</span><span class="pill mining"><i></i>mining</span><span class="acct"><i></i>0x22a9…612a</span><span class="gear">{ICONS["settings"]}</span></span></div></div>')
-    ph = f'<div class="phone" style="min-height:160px;width:390px;border:1px solid var(--line);border-radius:12px"><div class="top"><span class="brand">{MARK}Yacana<span class="vtag">V5</span></span><span class="row" style="gap:8px"><span class="badge net">testnet</span><span class="acct"><i></i>0x22a9</span><span class="gear">{ICONS["settings"]}</span></span></div>{tabbar("mine").replace("Wallet</a>", BADGE_TAB + "</a>")}</div>'
 
     def opt(tag, name, mini, pro, pick=False):
         return f'<div class="opt {"pick" if pick else ""}"><div class="hd"><b>{name}</b><span class="tag">{tag}</span></div><div class="mini">{mini}</div><p class="pro">{pro}</p></div>'
     body = ('<div class="board"><span class="lm">option 4 · navigation</span><h1>Four destinations, a gear, an account chip.</h1>'
-            '<p>The logo is the app\'s home (/mine on the miner, /stats on the stats app, the top on the landing). Stats and Verify open in a new tab because mining lives in this one; the ↗ says so. "testnet · fees sponsored" becomes a neutral "testnet" tag; sponsorship is said where a fee would be expected. The phone\'s bar carries the Wallet badge; Verify is a tab inside Stats there.</p>'
+            '<p>The logo is the app\'s home (/mine on the miner, /stats on the stats app, the top on the landing). Stats and Verify open in a new tab because mining lives in this one; the ↗ says so. "testnet · fees sponsored" becomes a neutral "testnet" tag; sponsorship is said where a fee would be expected.</p>'
             '<div class="opts" style="grid-template-columns:1fr">'
-            + opt("A · recommended", "Text with 14 px icons, a gear, an account chip", a, "<b>Icons give the four destinations a shape at a glance and carry over to the phone's bar unchanged.</b> The gear keeps Settings off the tab row (it is a rarely-used destination); the account chip answers \"who am I\" and opens Wallet (Settings on the old origin, which has no Wallet).", True)
-            + opt("B", "Text-only tabs, unified across the apps", b, "Today's look, with the gear, the chip and the logo link. Cleaner, but the four words compete equally and the phone bar needs icons anyway.")
+            + opt("A · recommended", "Text with 14 px icons, a gear, an account chip", a, "<b>Icons give the four destinations a shape at a glance.</b> The gear keeps Settings off the tab row (it is a rarely-used destination); the account chip answers \"who am I\" and opens Wallet (Settings on the old origin, which has no Wallet).", True)
+            + opt("B", "Text-only tabs, unified across the apps", b, "Today's look, with the gear, the chip and the logo link. Cleaner, but the four words compete equally.")
             + opt("C", "An icon rail on the left (desktop)", rail, "Room for growth (Material 3's rail); but four destinations don't need it, and the cockpit's width matters more than a rail.")
-            + f'</div><span class="lm">the phone · a bottom bar with icon and label, the badge on the item</span>{ph}</div>')
+            + '</div></div>')
     return page(body, 1500)
 
 
@@ -79,8 +78,8 @@ DECK = [
     ("Mine", "Sign in to mine (the cockpit dimmed) · −3 min", "Start mining (full contrast) · since 16:05 → last 3 min"),
     ("Mine", "1 claim this session · account 0x22a9…612a", "(removed — the KPI already says 1 win · 4 tYACA this session)"),
     ("Mine", "escape hatch · if it closed now", "anyone can close it · next bar if it closed now"),
-    ("Mine", "✓ claim in block 83,164 · 4 tYACA minted", "★ a win · claiming, about 20 s → ✓ minted in block 83,164 ↗ · 4 tYACA, privately"),
-    ("Mine", "Presto’s speed setting in its app decides the threads; this slider applies when proving in the browser.", "✦ Presto · native prover · 12 threads, set in the Presto app · Open Presto ↗ / Presto stopped answering. Proving in the browser meanwhile · Retry when it's back"),
+    ("Mine", "✓ claim in block 83,164 · 4 tYACA minted", "★ a win · claiming, about 20 s → ✓ minted in block 83,164 ↗ · 4 tYACA, privately; meanwhile the loop tile's header carries the chip claiming a win · 12 s; a miss reads ★ a win · claim didn't land: the epoch closed first"),
+    ("Mine", "Presto’s speed setting in its app decides the threads; this slider applies when proving in the browser.", "✦ Presto · native prover · its speed is set in the Presto app · Open Presto ↗ (no thread count: Presto doesn't report one) / a banner under the header: Presto stopped answering. Proving in the browser; retry when it's back · Retry"),
     ("Mine", "Your browser blocked local access. Allow local network access for this site, then retry. (on page load)", "(at Start mining) Presto is installed, but the browser blocks local access. Allow it for this site, then retry; or mine in the browser."),
     ("Header", "testnet · fees sponsored (amber)", "testnet (a neutral tag)"),
     ("Wallet", "nothing crossing · Withdrawals to Ethereum, deposits from it and moves to the next Aztec version show here, with where they are.", "Nothing crossing yet. Bridges and send-aheads show here, with where they are. (on V6: Sent ahead from V5 on another device? It shows here once Yacana forwards it; until then, restore its recovery file.)"),
@@ -104,7 +103,7 @@ DECK = [
     ("Old origin", "Mining has ended on this version. Yacana lives at yacana.network now; this is the old app, kept open so your balance can leave: send ahead to the next version, or to Ethereum, from the wallet. (+ the bet)", "Mining moved to V6 at yacana.network. Your balance can still leave while V5 keeps proving, and V5 can stop at any time: send it ahead to V6 now, or bridge it to Ethereum."),
     ("Old origin", "Open with passkey or words · This is another origin, so the passkey asks once and twelve words are typed again. Accounts are restored here, not created.", "Log in · Accounts are restored here, not created. The passkey or 12 words from yacana.network open it."),
     ("Old origin", "(after the last day) …", "V5's last day has passed. Nothing more can leave. What V5 proved in time is on V6, or held on Ethereum for it. What was still here can no longer leave."),
-    ("Settings", "Another node · Check · Use this node · Applies at once; your account's view of the chain is rebuilt from the new node (about a minute) and mining carries on. The page checks any node against this deployment before it reads a number from it.", "Change · Save · Cancel · ✓ Reachable · ✓ This deployment · ● Switching · rebuilding your view, about a minute, mining pauses / no answer for 2 min · Retry · Change / answering slowly · rate-limited"),
+    ("Settings", "Another node · Check · Use this node · Applies at once; your account's view of the chain is rebuilt from the new node (about a minute) and mining carries on. The page checks any node against this deployment before it reads a number from it.", "the row, tiered: host · healthy · default, then block 83,117 · 12 s ago in small · Change · Save · Cancel · ✓ Reachable · ✓ This deployment · ● Switching · rebuilding your view, about a minute, mining pauses / no answer · 2 min · Retry · Change / throttled"),
     ("Settings", "off: one touch per open · on: sealed under a device key", "On: anyone who can use this browser could open and spend from this account without your passkey. Off: one touch per open."),
     ("Settings", "Copy diagnostics (shortened) · The last 200 lines, addresses shortened. It names this account's claims and the node's host.", "(removed)"),
     ("Sign out", "Hold to sign out · Can't hold? Sign out with a click · Signing out returns to the sign-in screen…", "Sign out? · Your passkey logs you back in. Your balance stays with the account. Mining stops. · Sign out / Cancel"),
@@ -134,9 +133,9 @@ def copy_deck():
 def picks():
     rows = [
         ("1", "Arrival on /mine", "Page-first: the live cockpit with Start mining; the dialog opens on the click; a stored account gets the lock screen.", "Dialog-first (today), redesigned.", "An onboarding route /mine/start (Bazaar's page) with \"Just watch\" to the cockpit."),
-        ("2", "The transaction container", "Centred dialog (440 px) → a bottom sheet on the phone (it scrolls; the keyboard pushes the button up); form → progress → done.", "The right-side sheet, redesigned.", "A full page per flow."),
+        ("2", "The transaction container", "Centred dialog (440 px); form → progress → done.", "The right-side sheet, redesigned.", "A full page per flow."),
         ("3", "The bridge form", "One screen with the live summary; the button carries the amount; a pasted address shows in full with a \"not your connected wallet\" tag.", "Two steps, the review compact.", "—"),
-        ("4", "Navigation", "Text + 14 px icons, a gear, an account chip; phone bottom bar with four icon + label items, the badge on the item.", "Text-only tabs, unified.", "An icon rail on the left."),
+        ("4", "Navigation", "Text + 14 px icons, a gear, an account chip.", "Text-only tabs, unified.", "An icon rail on the left."),
         ("5", "Sign out", "A confirm dialog (with the backup gate for unbacked words).", "Hold-to-confirm restyled (mono progress under the label, 1.2 s).", "—"),
         ("6", "Power with Presto", "The Presto row replaces the slider; the slider returns when Presto drops out.", "The slider dimmed with a one-liner.", "Hide the slider, no row; the pill's ✦ is the only sign."),
         ("7", "The old origin", "One \"Send ahead\" page + Settings (with Account and Sign out) + Stats ↗.", "Keep a Wallet tab too.", "—"),
@@ -148,49 +147,3 @@ def picks():
             '<p>Each row is drawn somewhere on the canvas; the recommended option is what the flows assume. Say A/B/C per row, or "all A".</p>'
             f'<div style="display:grid;grid-template-columns:28px 1.1fr 1.6fr 1.2fr 1.2fr;gap:10px 16px;font-size:13px;line-height:1.45;border-top:1px solid var(--line-2);padding-top:12px">{cells}</div></div>')
     return page(body, 1200)
-
-
-def phone_signin():
-    sheet = (head("account", "Mine with an account.", "Your balance lives in an account only you can open. It takes a tap.")
-             + f'<div class="col" style="gap:10px">{btn("Create account", "uv lg full")}{btn("Log in", "lg full")}</div>'
-             + f'<div class="row" style="justify-content:center">{quiet("Just watch for now")}</div>')
-    body = (tile(th("your proofs", btn("Start mining", "uv sm")) + '<div class="ph-chart" style="min-height:120px">Your proofs draw here once you start.</div>')
-            + tile(th("epoch 12", "opened 16:07") + '<div class="rail"><i></i><i></i><i></i><i></i></div>' + '<div class="kv"><span>bar</span><span>1.0</span></div><div class="kv"><span>expected close</span><span>5 min</span></div>'))
-    return page(phone(body, "mine", sheet=sheet), 390, height=844)
-
-
-def bridge_sheet(keyboard: bool = False) -> str:
-    rows = (srow("To", "Rabby · 0x90F7…b906 · Sepolia") + srow("Arrives", "usually within the hour; then you claim it there")
-            + srow("Fee", "none here · gas in ETH when you claim") + srow("Visible on Ethereum", "the amount and 0x90F7…b906; not this account"))
-    tail = f'<div class="row sb">{btn("Bridge 3.5 tYACA", "uv lg")}{quiet("How it works")}</div>'
-    if keyboard:
-        return (head("bridge", "Bridge to Ethereum.") + amount("3.5", "tYACA", on=True) + '<div class="under"><span>balance 3.5 tYACA</span></div>' + rows
-                + f'<div class="row" style="padding:6px 0">{quiet("How it works")}</div>'
-                + f'<div class="row sb" style="position:sticky;bottom:-22px;margin:0 -18px -22px;padding:10px 18px 22px;background:var(--raised);border-top:1px solid var(--line)">{btn("Bridge 3.5 tYACA", "uv lg full")}</div>')
-    return head("bridge", "Bridge to Ethereum.") + amount("3.50", "tYACA", on=True) + rows + tail
-
-
-def phone_bridge():
-    body = tile(th("balance", "private") + kpi("", "3.5", "tYACA", lg=True))
-    return page(phone(body, "wallet", sheet=bridge_sheet()), 390, height=844)
-
-
-KEYS = [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], [".", "0", "⌫"]]
-
-
-def phone_keyboard():
-    """The sheet with the keyboard up: the amount focused, the rows scroll, the button sticks above the keyboard."""
-    kb = '<div class="kbd">' + "".join('<div class="r">' + "".join(f'<span class="{"d" if k in (".", "⌫") else ""}">{k}</span>' for k in row) + "</div>" for row in KEYS) + "</div>"
-    body = tile(th("balance", "private") + kpi("", "3.5", "tYACA", lg=True))
-    html = page(phone(body, "wallet", sheet=bridge_sheet(keyboard=True)), 390, height=844)
-    html = html.replace('<div class="sheet">', '<div class="sheet" style="bottom:270px;max-height:440px;overflow:auto">', 1)
-    return html.replace('<nav class="tabbar">', kb + '<nav class="tabbar" style="display:none">', 1)
-
-
-def phone_opening():
-    sheet = (head("account", "Opening your account.")
-             + checklist([("Passkey confirmed", "done", ""), ("Preparing your miner", "done", ""), ("Syncing your private balance", "on", "block 83,102 of 83,117"), ("Ready to mine", "todo", "")])
-             + '<div class="bar"><i style="width:91%"></i></div><p class="sm ink3">Reading your notes from the chain. Usually under a minute.</p>'
-             + f'<div class="row sb"><span class="xs ink3">Mining starts when this finishes.</span>{btn("Cancel", "sm")}</div>')
-    body = tile(th("your proofs") + '<div class="ph-chart" style="min-height:120px">Your proofs draw here once you start.</div>')
-    return page(phone(body, "mine", sheet=sheet), 390, height=844)

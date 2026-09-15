@@ -211,9 +211,9 @@ def container_options():
     def opt(tag, name, mini, pro, pick=False):
         return (f'<div class="opt {"pick" if pick else ""}"><div class="hd"><b>{name}</b><span class="tag">{tag}</span></div>{mini}<p class="pro">{pro}</p></div>')
     body = ('<div class="board"><span class="lm">option 2 · the transaction container</span><h1>Where a bridge happens.</h1>'
-            '<p>The same frame carries bridge to, bridge from, claim, send and send ahead. After "sent", the Wallet row owns the progress in every option. The phone gets a bottom sheet in A and B (drawn on the phone boards: it scrolls, the keyboard pushes the button up, focus returns to the row that opened it).</p>'
+            '<p>The same frame carries bridge to, bridge from, claim, send and send ahead. After "sent", the Wallet row owns the progress in every option.</p>'
             '<div class="opts" style="grid-template-columns:repeat(3,1fr)">'
-            + opt("A · recommended", "Centred dialog", mini_a, "<b>Focused, one thing at a time; the crypto norm (Uniswap, Across, Rainbow). Becomes a bottom sheet on the phone. Nothing behind it competes with the amount.</b> Costs the context of the page while open.", True)
+            + opt("A · recommended", "Centred dialog", mini_a, "<b>Focused, one thing at a time; the crypto norm (Uniswap, Across, Rainbow). Nothing behind it competes with the amount.</b> Costs the context of the page while open.", True)
             + opt("B", "Right-side sheet", mini_b, "Today's frame, redesigned. Keeps the page visible; but a drawer reads as detail or settings, not as a transaction, and the eye splits between the form and the cockpit behind it.")
             + opt("C", "A page of its own", mini_c, "Room for the form and the explanation side by side; NN/g's answer for multi-step flows. But the flow is one screen now, and a page loses the wallet's activity list where the progress lives.")
             + '</div></div>')

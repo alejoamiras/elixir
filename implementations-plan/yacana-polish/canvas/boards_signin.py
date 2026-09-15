@@ -76,7 +76,7 @@ def words_login(error: str = ""):
     inner = (head("log in · 12 words", "Enter your 12 words.", "Type or paste the words you saved.")
              + '<p class="sm ink3">You\'re on <b class="ink2">yacana.network</b>. Yacana never asks for your words in chat, email or support.</p>'
              + ta + under
-             + btn("Log in", "uv lg full" + (" dis" if error else "")) + links("Back"))
+             + btn("Log in", "uv lg full" + (" dis" if error else "")))
     return page(f'<div style="padding:26px">{dialog(inner, W, back=True)}</div>', W + 52)
 
 
@@ -99,7 +99,7 @@ def account_errors():
                 + btn("Use 12 words", "uv lg full") + links("Try another device"), W, back=True)
     d3 = dialog(head("create account", "Create your account.", "A passkey signs you in with your face, fingerprint or device PIN.")
                 + note("This browser has no passkeys.", "Use a current Chrome, Safari, Edge or Firefox; or use 12 words.", "bad")
-                + btn("Use 12 words", "uv lg full") + links("Back"), W, back=True)
+                + btn("Use 12 words", "uv lg full"), W, back=True)
     d4 = dialog(head("log in", "Welcome back.", "Log in with the passkey you created, or your 12 words.")
                 + note("Sign-in didn't complete.", "No passkey was used. If this device has none for Yacana, log in where you created it, or enter your 12 words.", "bad")
                 + btn("Continue with passkey", "uv lg full", icon="finger") + links("Use 12 words instead"), W, back=True)

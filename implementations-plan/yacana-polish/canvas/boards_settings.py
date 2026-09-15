@@ -1,8 +1,19 @@
 """Settings: Network in place, Mining, Alerts, Account, Appearance, About; the node-change states; the old origin's."""
-from lib import btn, field, header, kv, page, quiet, srl, steps, switch, th, tile
+from lib import btn, field, header, kv, page, quiet, srl, st, steps, switch, th, tile
 
-HOSTS = {"aztec": ("Aztec node", "v5.testnet.rpc.aztec-labs.com", "block 83,117 · 12 s ago · 1.0 s · this deployment ✓"),
-         "eth": ("Ethereum RPC", "ethereum-sepolia-rpc.publicnode.com", "Sepolia · the bridge is there ✓ · 0.4 s")}
+HOSTS = {"aztec": ("Aztec node", "v5.testnet.rpc.aztec-labs.com", "block 83,117 · 12 s ago"),
+         "eth": ("Ethereum RPC", "ethereum-sepolia-rpc.publicnode.com", "Sepolia · 0.4 s")}
+SLIDER = ('<div class="row sb"><span class="lm">power</span><span class="x2 mono ink3">11 threads</span></div>'
+          '<div class="slider"><i style="width:100%"></i><b style="left:100%"></b></div>'
+          '<div class="ticks"><span>eco · 3</span><span>balanced · 6</span><span class="uv2">max · 11</span></div>')
+
+
+def _line1(host: str, chip: str, tag: str = '<span class="ink3">· default</span>') -> str:
+    return f'<span class="mono">{host}</span> {chip} {tag}'
+
+
+def _line2(text: str) -> str:
+    return f'<br><span class="x2 mono ink3">{text}</span>'
 
 
 def _edit(label: str, value: str, help_: str, busy: bool = False, cls: str = "") -> str:
@@ -15,7 +26,7 @@ def _edit(label: str, value: str, help_: str, busy: bool = False, cls: str = "")
 def node_row(state: str = "read", kind: str = "aztec") -> str:
     label, host, health = HOSTS[kind]
     if state == "read":
-        return srl(label, f'<span class="mono">{host}</span> <span class="ink4">·</span> {health} <span class="ink3">· default</span>', btn("Change", "sm"))
+        return srl(label, _line1(host, st("healthy", "ok")) + _line2(health), btn("Change", "sm"))
     if state == "edit":
         return _edit(label, "https://my-node.example.net", f'Any https node on this deployment. {quiet("Use the default")}')
     if state == "checking":
@@ -28,13 +39,14 @@ def node_row(state: str = "read", kind: str = "aztec") -> str:
     if state == "failed":
         return _edit(label, "https://my-node.example.net", f"Couldn't rebuild your view from my-node.example.net: it stopped answering. Kept {host}.", cls="bad")
     if state == "silent":
-        return srl(label, f'<span class="mono">{host}</span> <span class="ink4">·</span> <span class="warn">no answer for 2 min</span> · your view is from 14:02 · mining paused',
+        return srl(label, _line1(host, st("no answer · 2 min", "warn"), "") + _line2("your view is from 14:02 · mining paused"),
                    f'<span class="row" style="gap:8px">{btn("Retry", "sm")}{btn("Change", "sm")}</span>')
     if state == "limited":
-        return srl(label, f'<span class="mono">{host}</span> <span class="ink4">·</span> <span class="warn">answering slowly · rate-limited</span> · block 83,117 · 40 s ago',
-                   f'<span class="row" style="gap:8px">{btn("Change", "sm")}</span>').replace('40 s ago</div>', '40 s ago<br>Public nodes throttle busy pages. It recovers on its own.</div>')
+        return srl(label, _line1(host, st("throttled", "warn"), "") + _line2("block 83,117 · 40 s ago · public nodes throttle busy pages; it recovers on its own"),
+                   f'<span class="row" style="gap:8px">{btn("Change", "sm")}</span>')
     # custom, in use
-    return srl(label, f'<span class="mono">my-node.example.net</span> <span class="ink4">·</span> block 83,118 · 4 s ago · 0.6 s · this deployment ✓ <span class="badge uv" style="padding:1px 6px">custom</span> {quiet("Use the default")}', btn("Change", "sm"))
+    return srl(label, _line1("my-node.example.net", st("healthy", "ok"), f'<span class="badge uv" style="padding:1px 6px">custom</span> {quiet("Use the default")}') + _line2("block 83,118 · 4 s ago"),
+               btn("Change", "sm"))
 
 
 STAY_OPEN = "On: anyone who can use this browser could open and spend from this account without your passkey. Off: one touch per open."
@@ -42,7 +54,7 @@ STAY_OPEN = "On: anyone who can use this browser could open and spend from this 
 
 def settings():
     network = tile(th("network") + node_row("read", "aztec") + node_row("read", "eth"))
-    mining = tile(th("mining") + srl("Power", "11 of 12 threads · one core stays with the page", '<span class="x2 mono ink3">eco · balanced · <b class="uv2">max</b></span>')
+    mining = tile(th("mining") + f'<div class="srl" style="flex-direction:column;align-items:stretch;gap:8px">{SLIDER}<div class="h">Applies when proving in the browser; one core stays with the page. With Presto connected, Presto\'s own setting decides.</div></div>'
                   + srl("Presto", "✦ native prover, several times faster · not installed", quiet("Get Presto ↗"))
                   + srl("Pause on battery", "", switch(False)) + srl("Keep proving in a background tab", "", switch(True))
                   + srl("Resume mining when the page opens", "", switch(False)))

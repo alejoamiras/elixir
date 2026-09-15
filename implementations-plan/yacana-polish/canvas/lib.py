@@ -77,6 +77,12 @@ code,.mono{font-family:var(--mono)}
 .st.warn{color:var(--warn);border-color:rgba(232,181,77,.5)}.st.warn i{background:var(--warn)}
 .st.bad{color:var(--bad);border-color:rgba(229,98,79,.5)}.st.bad i{background:var(--bad)}
 .st.dim{color:var(--ink-3);border-color:var(--line)}.st.dim i{background:var(--ink-4)}
+.st.done{color:var(--ok);border-color:rgba(88,201,139,.35)}
+.alert{display:flex;align-items:center;justify-content:space-between;gap:16px;border:1px solid;border-radius:8px;padding:10px 14px;font-size:13px;line-height:1.4}
+.alert i{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+.alert.warn{color:var(--warn);border-color:rgba(232,181,77,.5);background:rgba(232,181,77,.06)}
+.alert.uv{color:var(--uv-2);border-color:rgba(140,107,255,.4);background:var(--uv-dim)}
+.alert .btn{color:var(--ink)}
 .trail{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font:400 11px var(--mono);color:var(--ink-3)}
 .trail .arr{color:var(--ink-4);padding:0 1px}
 .seg{display:inline-flex;overflow:hidden;border-radius:6px;border:1px solid var(--line-2);font-size:13px}
@@ -348,7 +354,17 @@ def st(label: str, kind: str = "dim") -> str:
 
 
 def trail(items: list[tuple[str, str]]) -> str:
-    return '<div class="trail">' + '<span class="arr">›</span>'.join(st(l, k) for l, k in items) + "</div>"
+    def chip(l, k):
+        return f'<span class="st done">✓ {l}</span>' if k == "done" else st(l, k)
+    return '<div class="trail">' + '<span class="arr">›</span>'.join(chip(l, k) for l, k in items) + "</div>"
+
+
+def alert(text: str, tone: str = "warn", right: str = "", retry: bool = True) -> str:
+    """Today's notice banner under the header: a dot, one sentence, the mono aside, Retry."""
+    r = f'<span class="x2 mono" style="opacity:.75">{right}</span>' if right else ""
+    b = btn("Retry", "sm") if retry else ""
+    return (f'<div class="alert {tone}"><span class="row" style="gap:10px"><i></i><span>{text}</span></span>'
+            f'<span class="row" style="gap:14px;white-space:nowrap">{r}{b}</span></div>')
 
 
 def note(title: str, body: str, kind: str = "") -> str:

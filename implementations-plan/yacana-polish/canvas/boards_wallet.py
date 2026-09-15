@@ -1,5 +1,5 @@
-"""The Wallet: balance, account, one Activity list (deposits included), wins, phone."""
-from lib import activity, btn, header, kpi, page, phone, quiet, st, th, tile
+"""The Wallet: balance, account, one Activity list (deposits included), wins."""
+from lib import activity, btn, header, kpi, page, quiet, st, th, tile
 from boards_states import DEADLINE_PRE
 
 FINAL = '<span class="x2 mono ink3">final once its epoch is proven, usually within the hour</span>'
@@ -66,13 +66,3 @@ def wallet(state: str = "active"):
     bal = balance_tile() if state != "empty-v6" else balance_tile(n="0")
     body = f'<div class="body"><div class="grid" style="grid-template-columns:1fr 1fr">{bal}{account_tile()}</div>{act}</div>'
     return page(f'<div class="shell">{hdr}{body}</div>', 1440)
-
-
-BADGE_TAB = '<span style="position:relative">Wallet<span style="position:absolute;top:-30px;left:26px;min-width:16px;height:16px;border-radius:8px;background:var(--uv);color:var(--uv-ink);font:600 10px/16px var(--mono);text-align:center;padding:0 4px">2</span></span>'
-
-
-def wallet_phone():
-    body = (tile(th("balance", "private") + kpi("", "3.5", "tYACA", lg=True) + f'<div class="col" style="gap:8px;margin-top:12px">{btn("Send", "primary full")}{btn("Bridge to Ethereum", "full")}{btn("Bridge from Ethereum", "full")}</div>')
-            + tile(th("activity", "5") + '<div class="col" style="gap:10px">' + ROW_EXIT_PROVING + ROW_DEPOSIT_READY + "</div>"))
-    html = page(phone(body, "wallet", right='<span class="pill mining"><i></i>mining</span>'), 390, height=844)
-    return html.replace("Wallet</a>", BADGE_TAB + "</a>", 1)

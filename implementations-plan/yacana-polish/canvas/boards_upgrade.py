@@ -38,8 +38,8 @@ def how_it_works():
                       ("Forwarded into V6", "todo", "by Yacana, or by you", "Yacana runs a relayer (an address its multisig lists) that forwards held sends once V6 opens. You can forward yours from V6 with an Ethereum wallet paying gas. Forwarding ends the option below."),
                       ("You claim it on V6", "todo", "one tap", "A private claim this page makes, no fee, about 20 s. Same passkey.")])
              + note("If V6 never opens, or Yacana is late", f"This account can redeem it on Ethereum as YACA instead, {DEADLINE_PRE}. A pause or the exit limit can delay it.", "")
-             + f'<div class="row sb"><span class="x2 mono ink3"><a class="uv2" href="#">the rules, on /faq ↗</a></span>{btn("Back", "sm")}</div>')
-    return page(f'<div style="padding:26px">{dialog(inner, W)}</div>', W + 52)
+             + '<div class="row sb"><span class="x2 mono ink3"><a class="uv2" href="#">the rules, on /faq ↗</a></span></div>')
+    return page(f'<div style="padding:26px">{dialog(inner, W, back=True)}</div>', W + 52)
 
 
 OLD_ROWS = [

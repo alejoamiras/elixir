@@ -1,5 +1,5 @@
 """The Mine cockpit: signed out, idle, mining (the chart fixed), Presto states, ended; the upgrade card."""
-from lib import btn, header, kpi, kv, note, page, quiet, st, th, tile, trail
+from lib import alert, btn, header, kpi, kv, page, quiet, st, th, tile, trail
 
 LEDGER_LIVE = ('<ol class="ledger">'
                '<li class="win"><span class="t">16:07:40</span><span class="g">★</span><span>#12 score 2.8 · 3.61 s · <b class="uv2">a win</b> · claiming, about 20 s</span></li>'
@@ -48,8 +48,9 @@ def loop_tile(state: str) -> str:
                  + '<div class="ph-chart">Mining moved to V6 at yacana.network.<br><span class="ink3" style="display:inline-block;margin-top:6px">Your proofs from this session stay below.</span></div>')
         return tile(inner, "loop")
     if state in LIVE:
-        per = "3.6 s per proof · " + ("✦ presto · 12 threads" if state == "presto" else "11 threads") + " · 12 proofs"
-        right = f'<span class="x2 mono ink3">{per}</span>{btn("Stop", "sm")}'
+        per = "3.6 s per proof · " + ("✦ presto" if state == "presto" else "11 threads") + " · 12 proofs"
+        claiming = st("claiming a win · 12 s", "on") if state == "mining" else ""
+        right = f'{claiming}<span class="x2 mono ink3">{per}</span>{btn("Stop", "sm")}'
         head = "live · since 16:05"
     elif state == "presto-blocked":
         right = f'<span class="x2 mono ink3">11 threads</span>{btn("Start mining", "uv sm dis")}'
@@ -57,12 +58,7 @@ def loop_tile(state: str) -> str:
     else:
         right = f'<span class="x2 mono ink3">{"— per proof · " if state == "idle" else ""}11 threads</span>{btn("Start mining", "uv sm")}'
         head = "your proofs"
-    blocked = ""
-    if state == "presto-blocked":
-        blocked = (note("Presto is installed, but the browser blocks local access.",
-                        "Allow it for this site, then retry; or mine in the browser.", "warn")
-                   + f'<div class="row" style="gap:12px;margin-top:10px">{btn("Retry", "sm")}{quiet("Mine in the browser")}</div>')
-    inner = th(head, right) + (blocked or chart(state in LIVE))
+    inner = th(head, right) + chart(state in LIVE)
     return tile(inner, "loop")
 
 
@@ -75,12 +71,7 @@ def rail_tile(state: str) -> str:
     rows = (kv("wins", "2 of 4" if on else "0 of 4") + kv("bar", "1.6" if on else "1.0")
             + kv("open for", "3 min") + kv("expected close", "5 min") + kv("next bar if it closed now", "×0.62") + kv("anyone can close it", "in 4 min"))
     if state == "presto":
-        power = ('<div class="presto" style="margin-top:14px"><span class="glyph">✦</span><div><b>Presto · native prover</b><span>12 threads, set in the Presto app · <a class="uv2" href="#">Open Presto ↗</a></span></div></div>')
-    elif state == "presto-fallback":
-        power = ('<div class="presto" style="margin-top:14px;border-color:rgba(232,181,77,.5);background:transparent"><span class="glyph" style="background:var(--panel);color:var(--warn)">✦</span><div><b>Presto stopped answering.</b><span>Proving in the browser meanwhile · <a class="uv2" href="#">Retry</a> when it\'s back</span></div></div>'
-                 '<div class="row sb" style="margin-top:12px"><span class="lm">power</span><span class="x2 mono ink3">11 threads</span></div>'
-                 '<div class="slider"><i style="width:100%"></i><b style="left:100%"></b></div>'
-                 '<div class="ticks"><span>eco · 3</span><span>balanced · 6</span><span class="uv2">max · 11</span></div>')
+        power = ('<div class="presto" style="margin-top:14px"><span class="glyph">✦</span><div><b>Presto · native prover</b><span>its speed is set in the Presto app · <a class="uv2" href="#">Open Presto ↗</a></span></div></div>')
     else:
         power = ('<div class="row sb" style="margin-top:14px"><span class="lm">power</span><span class="x2 mono ink3">11 threads</span></div>'
                  '<div class="slider"><i style="width:100%"></i><b style="left:100%"></b></div>'
@@ -113,13 +104,24 @@ def cockpit(state: str, top: str = "", balance: str = "3.5") -> str:
     ledger = LEDGER_ENDED if state == "ended" else (LEDGER_LIVE if state in LIVE else LEDGER_EMPTY)
     body = (f'<div class="body">{top}<div class="cockpit">{loop_tile(state)}{rail_tile(state)}'
             f'{kpis(state)}{balance_tile(state, balance)}'
-            f'<div class="span2">{tile(th("proofs, newest first", "★ win · ✓ minted, final once its epoch is proven · ── epoch") + ledger)}</div></div></div>')
+            f'<div class="span2">{tile(th("proofs, newest first", "★ win · claiming · ✓ minted, final once its epoch is proven · ── epoch") + ledger)}</div></div></div>')
     return page(f'<div class="shell">{hdr}{body}</div>', 1440)
 
 
 def presto_row() -> str:
-    return ('<div class="presto" style="border-style:dashed;background:transparent"><span class="glyph" style="background:var(--panel);color:var(--uv-2)">✦</span>'
-            '<div><b>Presto proves natively on this machine, several times faster.</b><span><a class="uv2" href="#">Get Presto ↗</a> · <a href="#">dismiss</a></span></div></div>')
+    """Presto's own billboard (the presto-banners web component, as today); drawn as a stand-in."""
+    return ('<div class="presto" style="padding:14px 16px;gap:16px"><span class="glyph" style="width:36px;height:36px;font-size:19px">✦</span>'
+            '<div style="flex:1"><b style="font-size:15px">Mine faster with Presto.</b><span>A native prover on this machine, several times faster than the browser. Free, open source.</span></div>'
+            f'<span class="row" style="gap:12px;white-space:nowrap">{btn("Get Presto ↗", "uv sm")}<a class="x2 mono ink3" href="#">not now</a></span></div>'
+            '<p class="x2 mono ink3" style="margin:6px 0 0">Presto\'s own billboard, the presto-banners component as today</p>')
+
+
+BLOCKED = "Presto is installed, but the browser blocks local access. Allow it for this site, then retry; or mine in the browser."
+GONE = "Presto stopped answering. Proving in the browser; retry when it's back."
+
+
+def presto_notice(text: str, tone: str = "warn", retry: bool = True) -> str:
+    return alert(text, tone, "browser · 11 threads" if tone == "warn" else "", retry)
 
 
 PRESTO_REASONS = [
@@ -141,14 +143,10 @@ def presto_reasons():
     """Presto's row, one line per reason the SDK reports (presto.ts causeText, statusText, noticeFor)."""
     rows = ""
     for key, tone, title, body, retry in PRESTO_REASONS:
-        color = "var(--warn)" if tone == "warn" else "var(--uv-2)"
-        border = "rgba(232,181,77,.5)" if tone == "warn" else "var(--line-2)"
-        tail = ' · <a class="uv2" href="#">Retry</a>' if retry else ""
         rows += (f'<div class="col" style="gap:6px"><span class="lm">{key}</span>'
-                 f'<div class="presto" style="border-color:{border};background:transparent"><span class="glyph" style="background:var(--panel);color:{color}">✦</span>'
-                 f'<div><b>{title}</b><span>{body}{tail}</span></div></div></div>')
-    body = ('<div class="board" style="padding:24px"><span class="lm">presto · the row for every reason it steps aside</span>'
-            '<p>The pill says what actually proved (✦ only on a native proof). Every fallback keeps mining in the browser and says why in one line; Retry rebuilds the prover. "downloading" is the one that is not a fault.</p>'
+                 f'{presto_notice(f"{title} {body}", "uv" if tone == "info" else "warn", retry)}</div>')
+    body = ('<div class="board" style="padding:24px"><span class="lm">presto · the banner for every reason it steps aside</span>'
+            '<p>A banner under the header, in today\'s notice shape, never inside the chart or the epoch tile. The pill says what actually proved (✦ only on a native proof). Every fallback keeps mining in the browser and says why in one line; Retry rebuilds the prover. "downloading" is the one that is not a fault.</p>'
             f'<div class="col" style="gap:14px;max-width:700px">{rows}</div></div>')
     return page(body, 760)
 
@@ -189,11 +187,11 @@ def mine_presto():
 
 
 def mine_presto_blocked():
-    return cockpit("presto-blocked")
+    return cockpit("presto-blocked", top=presto_notice(BLOCKED))
 
 
 def mine_presto_fallback():
-    return cockpit("presto-fallback")
+    return cockpit("presto-fallback", top=presto_notice(GONE))
 
 
 def mine_announced():

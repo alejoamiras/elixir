@@ -43,6 +43,12 @@ schedule); "didn't finish" needs the transaction's enforced expiry persisted bef
 past it (§9.1.10); a passkey account that this device can't open is opened where it works, never by words;
 K2's exit limit is frozen after the upgrade like K1's; the phone sheet names Sepolia and keeps How it works.
 
+v4 (the owner's feedback on v3.1, §10): the canvas is eight pages, the first one the picks with a sticky note
+per pick; the phone boards are gone (desktop only); no "Back" at the bottom of a dialog that has one at the
+top; Presto keeps its own billboard and every Presto notice is a banner under the header, never inside a
+tile; no thread count for Presto (it reports none); the power slider lives in Settings too; a running claim
+shows as a chip in the loop tile's header; done stages in a trail carry a ✓; the node row is tiered.
+
 ## 1. The owner's list, mapped to surfaces
 
 | # | Surface | The complaint (owner's words, shortened) | Answered in |
@@ -115,9 +121,9 @@ They read one sentence, then look for the button. Everything else is one level d
    V5's last day, and a balance on V5 can lose its way out at any time; so the word never appears. Never "a sure loss"; "without notice" is a fact about V5, said once, not a threat.
 8. **Settings edit in place.** One field per value, Save probes it, the old value stays live until the probe
    passes, the error sits under the field; the row keeps saying how the node is doing.
-9. **Four destinations, a gear, an account chip.** Icon + label on the phone, text tabs on the desktop; the
-   logo is the app's home; "Testnet" is a neutral tag. Stats and Verify open in a new tab because mining
-   lives in this one.
+9. **Four destinations, a gear, an account chip.** Text tabs with small icons; the logo is the app's home;
+   "Testnet" is a neutral tag. Stats and Verify open in a new tab because mining lives in this one. Desktop
+   only: mining needs a desktop browser (WASM proving, Presto), so nothing is designed for the phone.
 10. **The old origin has one job.** Get what's left out. It shows the balance, one button, the activity, the
     settings that make it work. Nothing else.
 
@@ -129,7 +135,7 @@ They read one sentence, then look for the button. Everything else is one level d
 |---|---|---|
 | **Mine** | Your proofs live, the epoch, the bar, rate/next/best, the proofs ledger (★ win · claiming · ✓ minted), your balance with Send / Wallet, the upgrade card when one is announced, the Presto row when it is in the way. | Account chips, session claim counts, host warnings, the bridge. |
 | **Wallet** | The balance with the three money actions (a disabled one says why), the account (address, method, backed up, Sign out), **Activity** (every crossing: to Ethereum, from Ethereum, send-aheads; seventeen states, one sentence each, the action where you must act), wins collapsed, the upgrade card when announced, "advanced" (recovery file, restore). | Contract addresses (Stats › Bridge has them), host warnings. |
-| **Stats ↗ / Verify ↗** | The public view (unchanged in this pass). On the phone Verify is a tab inside Stats. | — |
+| **Stats ↗ / Verify ↗** | The public view (unchanged in this pass). | — |
 | **Settings** (gear) | Network (Aztec node, Ethereum RPC, with their silent and throttled states), Mining, Alerts, Account (Stay open, said plainly; Sign out), Appearance, About. | Diagnostics copy, prose paragraphs. |
 | **The account dialog** | Create / Log in / Welcome back / Opening; six failures, each one note. | Warnings that belong to the FAQ. |
 | **The transaction dialog** | One flow at a time: form → progress → done; Send; Claim; Send ahead. | A second confirmation. |
@@ -161,8 +167,7 @@ They read one sentence, then look for the button. Everything else is one level d
   `sent from Rabby › crossed to Aztec › claim › in your balance` (from Ethereum), `sent › reached Ethereum ›
   held for V6 › forwarded to V6 › claim on V6` (send ahead). A "claimed" row carries "final once its epoch is
   proven" until it is settled.
-- **Transaction dialog**: 440 px centred on desktop, a bottom sheet on the phone that scrolls and whose
-  button rides above the keyboard; the same frame for send, bridge to/from, claim, send ahead.
+- **Transaction dialog**: 440 px centred; the same frame for send, bridge to/from, claim, send ahead.
 - **Account dialog**: 440 px centred; each screen has one primary and at most two quiet links; a failure is a
   note under the button, which stays.
 - **Status chips** (`.st`): the dot + mono label; ok / on / warn / bad / dim. A chip is never a button.
@@ -273,7 +278,10 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
   at the proof's own x, so a step under a win stays visible (MineMining draws it). The proofs ledger keeps
   "epoch 12 opened · bar 1.6 (×0.83)"; a win reads "★ a win · claiming, about 20 s" until "✓ minted in block
   83,164 ↗ · 4 tYACA, privately"; the ledger's legend says "✓ minted, final once its epoch is proven" (the
-  same signal as the Wallet's row, §9.3.3). The ended cockpit's ledger shows what was mined before the end.
+  same signal as the Wallet's row, §9.3.3). While a claim runs, the loop tile's header carries the chip
+  `claiming a win · 12 s` (the ledger row's clock), so a claim is visible without reading the ledger; a claim
+  that misses reads "★ a win · claim didn't land: the epoch closed first". The ended cockpit's ledger shows
+  what was mined before the end.
 - **The epoch tile**: wins (the epoch closes after four; "claims" was the contract's word), bar, open for,
   expected close, "next bar if it closed now ×0.62", "anyone can
   close it in 4 min" (`escapeHatchIn`: when the roll becomes callable by anyone, not an automatic close; was
@@ -281,21 +289,20 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
   and the FAQ.
 - **Balance tile**: amount, "private", **Send**, **Wallet →**. No account chip, no session count (the "best
   this epoch" KPI already says "1 win · 4 tYACA this session").
-- **Presto's reasons** (board PrestoReasons): the row says why it stepped aside, one line per reason the SDK
+- **Presto's reasons** (board PrestoReasons): a banner under the header says why it stepped aside, one line per reason the SDK
   reports (not approved yet, cooldown, busy, a proof that didn't verify, an answer the page couldn't use,
   needs an update, encrypted connection off, stopped answering, the browser blocks local access, a health
   report the page doesn't understand) with **Retry** where a retry can help; "fetching its prover" is the one
   that is not a fault, and while it runs the pill has no ✦. The pill always says what actually proved.
-- **Presto**: probed once at **Start mining**, never on load. Not found: after that first start, a quiet row
-  under the loop tile, "✦ Presto proves natively on this machine, several times faster · Get Presto ↗",
-  dismissible. Installed but blocked: at Start mining, a note in the loop tile: "**Presto is installed, but the
-  browser blocks local access.** Allow it for this site, then retry; or mine in the browser." **Retry** ·
-  quiet "Mine in the browser". Connected: the status pill reads `mining ✦ presto`; the power row becomes a
-  Presto row — "✦ **Presto** · native prover · 12 threads, set in the Presto app" with "Open Presto ↗" — and
-  the slider is hidden (option 6). Dropped out (Presto stopped answering, busy, a proof that didn't verify: the
-  SDK's reasons, one line each): the row turns amber — "✦ Presto stopped answering. Proving in the browser
-  meanwhile · Retry when it's back" — the slider returns under it, and the pill drops its ✦ because the
-  pill follows what actually proved.
+- **Presto**: probed once at **Start mining**, never on load. Not found: Presto's own billboard under the
+  header, as today (the `presto-banners` web component; the owner prefers it to a quiet row), dismissible.
+  Installed but blocked, dropped out, or any other reason (board PrestoReasons): a banner under the header in
+  today's notice shape (a dot, one sentence, `browser · 11 threads` at the right, **Retry** where it helps),
+  never inside the chart or the epoch tile. Connected: the status pill reads `mining ✦ presto`; the power
+  row becomes a Presto row — "✦ **Presto** · native prover · its speed is set in the Presto app" with "Open
+  Presto ↗" — and the slider is hidden in the cockpit (option 6; Settings keeps its slider). Presto does not
+  report its thread count, so the page never shows one for it. Dropped out: the banner says why, the slider
+  returns in the epoch tile, and the pill drops its ✦ because the pill follows what actually proved.
 - **Mining ended** (V5 after the upgrade): the pill reads `ended`; the loop tile's header "mining ended on V5 ·
   Sep 18 14:02" with no button and "Mining moved to V6 at yacana.network. Your proofs from this session stay
   below."; the epoch tile shows the last epoch, closed; no power slider; the ledger keeps the session.
@@ -319,7 +326,7 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
     counterparty in small mono (`0x90F7…b906`);
   - the state chip at the right and the time;
   - line 2: one sentence;
-  - the chips trail (the owner's favourite), in the vocabulary of §4.3;
+  - the chips trail (the owner's favourite), in the vocabulary of §4.3, a ✓ on every stage already done;
   - the action where one exists: **Claim on Ethereum**, **Claim** (arrivals), **Forward to V6** (on V6 only),
     **Redeem on Ethereum**, **Bridge again** (**Send ahead again** on a send-ahead); a quiet **Details** opens the
     links (Etherscan, block), the
@@ -387,7 +394,7 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
 - **Wins**: a collapsed row "Wins · 12" that expands to the ledger ("claims" was the contract's word).
 - **Advanced** (quiet row): "Save a recovery file" · "Restore from a file". The contract chips move to Stats ›
   Bridge.
-- The Wallet tab carries a count badge when a row needs the user (`Wallet · 2`), on the phone's bar too.
+- The Wallet tab carries a count badge when a row needs the user (`Wallet · 2`).
 
 ### 5.5 Bridge to Ethereum
 
@@ -451,8 +458,9 @@ One screen, no step 2 (option 3): the form carries a live summary and the button
 
 ### 5.7 Settings
 
-Sections, each a card of rows: **Network** (Aztec node, Ethereum RPC), **Mining** (power, Presto row, pause
-on battery, keep proving in a background tab, resume when the page opens), **Alerts** (notify, sound, tab
+Sections, each a card of rows: **Network** (Aztec node, Ethereum RPC), **Mining** (the power slider, always
+here, with "applies when proving in the browser; with Presto connected, Presto's own setting decides"; the
+Presto row; pause on battery, keep proving in a background tab, resume when the page opens), **Alerts** (notify, sound, tab
 title, mini window), **Account** (address, method, stay open on this device, **Sign out**), **Appearance**,
 **About** (source, build, bb.js, relying party, one line: "Yacana runs in your browser. Whoever serves this
 page controls it; the source is public — run your own build if that matters." + "More on /faq").
@@ -460,8 +468,10 @@ page controls it; the source is public — run your own build if that matters." 
 **Stay open on this device**: "On: anyone who can use this browser could open and spend from this account
 without your passkey. Off: one touch per open." (was "sealed under a device key").
 
-**The node row** reads `v5.testnet.rpc.aztec-labs.com` · `block 83,117 · 12 s ago · 1.0 s · this deployment ✓`
-· **Change**, and keeps reporting after the edit (rule 8, board NodeStates):
+**The node row** is tiered (the owner: the old line was too much): line 1 the host, a chip (`healthy` /
+`throttled` / `no answer · 2 min`) and `default`; line 2, small, `block 83,117 · 12 s ago`; **Change**. Latency
+and the deployment check show only while a change is probed. It keeps reporting after the edit (rule 8, board
+NodeStates):
 
 - Change → the row becomes a field with **Save** / **Cancel**. Save → an inline stepper under the field:
   ✓ Reachable · ✓ This deployment · ● Switching · "Rebuilding your view of the chain from the new node. Mining
@@ -470,10 +480,10 @@ without your passkey. Off: one touch per open." (was "sealed under a device key"
 - A failed probe stays under the field ("Not this deployment's node (it serves rollup 1782110044). Kept
   v5.testnet…"); a rebuild that fails after a good probe too ("Couldn't rebuild your view from
   my-node.example.net: it stopped answering. Kept v5.testnet…"). The old node stays in use in both.
-- Silent: `no answer for 2 min · your view is from 14:02 · mining paused` · **Retry** · **Change**.
-- Throttled: `answering slowly · rate-limited · block 83,117 · 40 s ago` · "Public nodes throttle busy pages.
-  It recovers on its own." · **Change**.
-- The Ethereum RPC row is the same with "Sepolia · the bridge is there ✓ · 0.4 s".
+- Silent: the chip `no answer · 2 min`; line 2 `your view is from 14:02 · mining paused` · **Retry** · **Change**.
+- Throttled: the chip `throttled`; line 2 `block 83,117 · 40 s ago · public nodes throttle busy pages; it
+  recovers on its own` · **Change**.
+- The Ethereum RPC row is the same, line 2 `Sepolia · 0.4 s`.
 
 **The old origin's Settings** (board OldSettings): Network, Account (the same account as yacana.network,
 **Sign out**), Appearance, About. The account chip in its header opens Settings, since there is no Wallet.
@@ -582,8 +592,7 @@ Desktop header: `[Yacana V5]` (link → the app's home) · **Mine** · **Wallet*
 `testnet` (neutral) · the status pill · the account chip (`0x22a9…612a`, → Wallet; → Settings on the old
 origin) · the gear (Settings). Icons at 14 px beside the labels. Stats and Verify open the stats app in a new
 tab (mining lives in this tab; the ↗ says so). On the stats app: **Stats** · **Bridge** · **Verify** · **Mine
-↗**. Phone: a bottom bar with four icon+label items (Mine, Wallet with its badge, Stats ↗, Settings); Verify
-is a tab inside Stats there; the account chip in the top bar. The "V5" tag stays by the logo. "testnet · fees
+↗**. The "V5" tag stays by the logo. "testnet · fees
 sponsored" → `testnet`; sponsorship is said where a fee would be expected ("no fee · Yacana sponsors it").
 
 ## 6. The copy deck (before → after)
@@ -631,9 +640,9 @@ The full deck is the CopyDeck board (41 rows). The rows that changed in v2:
 | # | Question | A (recommended) | B | C |
 |---|---|---|---|---|
 | 1 | Arrival on /mine | **Page-first**: the live cockpit with Start mining; the dialog opens on the click; a stored account gets the lock screen. | Dialog-first (today's), redesigned. | An onboarding route `/mine/start` (Bazaar's page) with "Just watch" to the cockpit. |
-| 2 | The transaction container | **Centred dialog** (440 px) → a bottom sheet on the phone that scrolls, the keyboard pushing the button up; form → progress → done. | The right-side sheet, redesigned. | A full page per flow (`/mine/wallet/bridge`). |
+| 2 | The transaction container | **Centred dialog** (440 px); form → progress → done. | The right-side sheet, redesigned. | A full page per flow (`/mine/wallet/bridge`). |
 | 3 | Bridge form | **One screen** with the live summary; the button carries the amount; a pasted address shows in full with its tag. | Two steps, the review compact (3 rows). | — |
-| 4 | Navigation | **Text + 14 px icons**, a gear, an account chip; phone bottom bar with 4 icon+label items, the badge on the item. | Text-only tabs, unified across apps. | An icon rail on the left (desktop). |
+| 4 | Navigation | **Text + 14 px icons**, a gear, an account chip. | Text-only tabs, unified across apps. | An icon rail on the left (desktop). |
 | 5 | Sign out | **A confirm dialog** (with the backup gate). | Hold-to-confirm restyled (mono progress under the label, 1.2 s). | — |
 | 6 | Power with Presto | **The Presto row replaces the slider**; the slider returns when Presto drops out. | The slider dimmed with a one-liner. | Hide the slider, no row; the pill's ✦ is the only sign. |
 | 7 | The old origin | **One "Send ahead" page + Settings (with Account) + Stats ↗.** | Keep a Wallet tab too. | — |
@@ -745,3 +754,20 @@ redeem afterwards). Redeem-on-Ethereum lives under the row's sentence and in Det
    again once the witness is known.
 7. **Whether the PXE's burn/claim/send-ahead proofs could run through Presto** is a question for the SDK,
    not this pass; the stepper says "in your browser" until then.
+
+## 10. The owner's feedback on v3.1 (2026-09-15) and what v4 does
+
+| The owner said | v4 |
+|---|---|
+| Too many screens to find what needs picking; put the picks somewhere, or sticky notes. | The canvas is eight pages; page 1 is the picks: the table, then one row per pick with a sticky note (the question, A/B/C, what to answer) beside the boards that draw it. |
+| Split the flows in pages. | Pages 2–7 are Account, Mine, Wallet, the transaction dialog, the upgrade and v5, Settings; page 8 the rules, the IA, the state table and the copy deck. |
+| Keep iterating with Codex and Fable? It was worth it. | Yes, once more and targeted: the v4 changes are UI, and the reviewers' value was the contract check; one pass on the changed boards after the owner's picks, then the blueprint's own dual audit. |
+| No "Back" at the bottom of a dialog that has one at the top. | Gone from the words login, the no-passkeys note and How it works (which now has the top-left Back). |
+| The current Presto banner is better than the proposed row. | Presto's own billboard stays, as today (`presto-banners`); the quiet row is gone. |
+| The power slider is missing from Settings. | It is there, with the one line on what it applies to. |
+| Presto's thread count cannot be read. | Right (`presto.ts` reports none): no thread count anywhere for Presto; "its speed is set in the Presto app". |
+| Presto's errors inside the graph look weird; on top, like the banners. | Every Presto notice is a banner under the header in today's notice shape (board PrestoReasons); the chart and the epoch tile carry none. |
+| Where does "claiming" go on Mine? | Twice: the chip `claiming a win · 12 s` in the loop tile's header while it runs, and the ledger row (★ claiming → ✓ minted, or "claim didn't land: the epoch closed first"). |
+| Mobile does not matter for this project. | The five phone boards, the phone options and the phone copy are gone; rule 9 says desktop only. |
+| A ✓ on the trail's done stages. | Done chips read `✓ sent › ✓ block 83,131 › reaching Ethereum`. |
+| The node row says too much; tier it. | Line 1 host · `healthy` · default; line 2 small `block 83,117 · 12 s ago`; latency and the deployment check only while a change is probed. |
