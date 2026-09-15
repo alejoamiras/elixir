@@ -122,7 +122,7 @@ context-specific notes, the typed retry and the boot-held dismissal.
 
 The cockpit shard on the round-1 commit: 7 passed (5.6 min).
 
-### Round 3 (the hard stop) — REVISE, one finding; fixed without a fourth round (`f0d0a1c`-ish, see git)
+### Round 3 (the hard stop) — REVISE, one finding; fixed without a fourth round (`05c0d32`)
 
 | # | sev | claim | verified | fix |
 |---|---|---|---|---|
