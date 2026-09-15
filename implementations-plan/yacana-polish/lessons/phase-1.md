@@ -47,3 +47,29 @@ Arc 1 (`worktree-yacana-polish`, stacks on main). Started 2026-09-15.
   reviewed by eye (the desktop header right at 1280/1440; at 390 the first cut overflowed to 654 px — the old
   baseline already overflowed to 474 — fixed by the phone layout, now 390 px wide with the brand, the right side
   and the tabs on their own rows), then `test:visual`: 8 passed (8.0 s).
+
+## Arc-1 boundary — the codex fix loop (§10 steps 2–3)
+
+**Round 1** (`/codex high`, session `01a0a6a5-b5f2-7700-bafb-eab0de087fe2`, the arc diff + plan + ledger + the
+arc map + both verbatim rules): REVISE, four findings, all verified and taken (commit `a60c738`).
+
+1. medium · `hold-button.tsx` — a click-only activation (voice control, switch access dispatch a click and cannot
+   hold) never revealed the click path; D13 says it does. → `onClick` reveals (never confirms) unless disabled
+   or waiting; a pointer early release already revealed through `abandon`, so pointer users see no change.
+   Regression test added.
+2. low · `header.tsx` — Brand, the tabs, the chip and the gear cancelled every click when a callback existed, so
+   Ctrl/Cmd/Shift-click routed in-app instead of opening a tab. → one `select` helper: plain primary clicks
+   only. Test: a ctrl-click is neither cancelled nor routed.
+3. low · `amount-field.tsx` — MAX stayed live on a `readOnly` field. → hidden like `disabled`; test extended.
+4. low · comments — five docstrings narrating their component (Brand, AccountChip, Gear, Stepper, Bar) and two
+   test comments restating their assertion → deleted; AmountField's intro cut to the one sentence that says
+   what the code cannot (parsing belongs to the form).
+
+Not taken: the 390 px baseline shows three rows with the long fixture version (cosmetic; the baseline is what
+the owner reviews). Codex could not run Vitest in its read-only sandbox; the fast layers ran here: lint clean,
+ui typecheck clean, `test:components` ui 67/67 · web-miner 95/95 · web-landing 14/14.
+
+**Round 2** (the same session resumed with the fix diff): APPROVE, nothing material. Its two notes, neither
+taken: a completed hold followed by the browser's trailing click reveals the fallback on a button still mounted
+and enabled (it cannot confirm again; the sign-out consumer sets `busy` at once, and the dialog goes); `select`
+ignores `defaultPrevented` (no consumer cancels a click before the header sees it). Converged in two rounds.
