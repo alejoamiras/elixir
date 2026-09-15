@@ -33,12 +33,17 @@ Arc 1 (`worktree-yacana-polish`, stacks on main). Started 2026-09-15.
 - **`AccountChip`'s avatar** is a conic gradient from tokens (`color-mix` for the dark stop): `tokens.test.ts`
   refuses literal colours in components, rightly.
 
-## Gate
+## Gate — green 2026-09-15
 
-- Fast layers: ui (66 specs), web-miner (95), web-stats (84), web-landing (14) green; `bun run lint`, every
-  `typecheck`, `bun test` (418 pass, 39 skip) green.
-- Replay: the first recording attempt failed — this worktree had no `packages/contracts/target/` (gitignored; the
-  record's deploy reads the miner artifact from there). Compiled with `~/.aztec/versions/5.2.0/bin` on PATH
-  (`bun run contracts:compile`), then re-recorded.
-- Visual: baselines regenerated in the pinned image and reviewed by eye (the desktop header right; the phone
-  header on two rows after the fix above).
+- Fast layers: `bun run lint` clean (580 files); `typecheck` in ui, web-miner, web-stats, web-landing clean;
+  `bun test` 418 pass · 39 skip · 0 fail (98 files, 93.8 s); `test:components` ui 66/66, web-miner 95/95,
+  web-stats 84/84, web-landing 14/14.
+- Replay: the first recording attempt failed — this worktree had no `packages/contracts/target/` (gitignored;
+  the record's deploy reads the miner artifact from there). Compiled with `~/.aztec/versions/5.2.0/bin` on PATH
+  (`bun run contracts:compile`), re-recorded on a fresh isolated network (12 answers), then
+  `bun run --cwd packages/web-miner test:replay`: 4 passed (41.5 s) — the dialog geometry at 720 px, the
+  malformed RPC, the old Presto's update row, the public epoch poll from the recording and nothing else.
+- Visual: `test:visual --update-snapshots` in `mcr.microsoft.com/playwright:v1.62.1-noble`, the eight baselines
+  reviewed by eye (the desktop header right at 1280/1440; at 390 the first cut overflowed to 654 px — the old
+  baseline already overflowed to 474 — fixed by the phone layout, now 390 px wide with the brand, the right side
+  and the tabs on their own rows), then `test:visual`: 8 passed (8.0 s).

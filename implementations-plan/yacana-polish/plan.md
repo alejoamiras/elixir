@@ -424,7 +424,7 @@ bun run --cwd packages/web-stats test:visual --update-snapshots    # inside the 
 bun run e2e:agent -- bun run --cwd packages/web-landing test:e2e
 ```
 
-### P1 — The primitives and the header
+### P1 ✓ — The primitives and the header (green 2026-09-15, `lessons/phase-1.md`)
 
 `Header` + `Brand` + the four tab icons in ui; the three apps consume them (the miner: Mine · Wallet · Stats ↗ ·
 Verify ↗, the testnet badge neutral, the pill, the account chip → Wallet (→ Settings on the old origin), the gear; stats: Stats · Bridge ·
