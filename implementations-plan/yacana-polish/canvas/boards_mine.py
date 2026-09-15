@@ -161,6 +161,7 @@ CLAIM_LINES = [
     ("in a block", "win", "★", f"{WIN} · claiming: in a block · syncing the note"),
     ("minted", "ok", "✓", 'minted in block <a href="#">83,164 ↗</a> · 4 tYACA, privately'),
     ("the epoch closed first (reverted)", "win", "★", f"{WIN} · <span class=\"warn\">didn't land: the epoch closed first · the sponsor paid, your proof is unspent · re-syncing, about a minute</span>"),
+    ("refused at simulation", "win", "★", f"{WIN} · <span class=\"warn\">didn't go out: the epoch closed before it was sent · nothing paid · mining continues</span>"),
     ("expired", "win", "★", f"{WIN} · <span class=\"warn\">dropped: no block took it in 10 min · nothing paid · mining continues</span>"),
     ("delivery blocked", "win", "★", f"{WIN} · <span class=\"warn\">didn't land: an earlier reverted claim blocks this account · claims wait for Ethereum's finality, about 40 min</span>"),
     ("other", "win", "★", f"{WIN} · <span class=\"warn\">claim failed: &lt;the error's first line&gt; · mining paused</span> · <a href=\"#\">Retry</a>"),
@@ -168,7 +169,7 @@ CLAIM_LINES = [
 ]
 CLAIM_BANNERS = [
     ("re-syncing (recovering)", alert("A claim reverted: someone closed the epoch first. Re-syncing this account from the chain; mining resumes in about a minute.", "uv", "", False)),
-    ("claims paused until finality", alert("Claims from this account wait until the reverted one is final on Ethereum. Mining resumes at 16:48.", "warn", "in 38 min", False)),
+    ("claims paused until finality", alert("Claims from this account wait until the reverted one is final on Ethereum. Mining resumes about 16:48.", "warn", "in 38 min", False)),
 ]
 
 
@@ -179,7 +180,7 @@ def claim_outcomes():
                     for k, c, g, t in CLAIM_LINES)
     banners = "".join(f'<div class="col" style="gap:6px"><span class="lm">{k}</span>{b}</div>' for k, b in CLAIM_BANNERS)
     body = ('<div class="board" style="padding:24px"><span class="lm">a claim · the chip, the ledger line, the banners</span>'
-            '<p>The chip in the loop tile\'s header carries the claim\'s step and one clock counted from the win (proving → sent → in a block), and stays while Stop waits for the claim. The ledger line carries the same step, then one of six outcomes: the code\'s five classes (reverted, expired, delivery blocked, other, discarded) and minted. A lost race re-syncs the account (a banner under the header, mining paused a minute); a delivery still blocked after that waits for Ethereum\'s finality.</p>'
+            '<p>The chip in the loop tile\'s header carries the claim\'s step and one clock counted from the win (proving → sent → in a block), and stays while Stop waits for the claim. The ledger line carries the same step, then one of seven outcomes: minted, the code\'s five failure classes (reverted, expired, delivery blocked, other, discarded) and a refusal at simulation, before anything was sent or paid. A lost race re-syncs the account (a banner under the header, mining paused a minute); a delivery still blocked after that waits for Ethereum\'s finality.</p>'
             f'<div class="col" style="gap:14px;max-width:700px">{chips}{lines}{banners}</div></div>')
     return page(body, 760)
 

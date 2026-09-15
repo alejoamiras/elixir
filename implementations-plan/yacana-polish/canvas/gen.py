@@ -96,7 +96,7 @@ PAGES = [
         [("MinePrestoBlocked", M.mine_presto_blocked(), 1440, 1040, "Presto blocked · the banner"),
          ("MinePrestoFallback", M.mine_presto_fallback(), 1440, 1120, "Presto dropped out · the banner, the slider back")],
         [("PrestoReasons", M.presto_reasons(), 760, 1360, "Presto · every reason, as a banner"),
-         ("ClaimOutcomes", M.claim_outcomes(), 760, 1700, "A claim · every step and outcome")],
+         ("ClaimOutcomes", M.claim_outcomes(), 760, 1800, "A claim · every step and outcome")],
     ]),
     ("wallet", "4 · Wallet", ("The Wallet, its empty states, the disabled reasons, then the activity row state by state: a bridge to "
                               "Ethereum (main path, rare states), a send ahead, an arrival."), [

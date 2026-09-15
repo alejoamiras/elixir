@@ -304,10 +304,12 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
   without reading the ledger; Stop pressed meanwhile turns it into `stopping · claim finishing · 61 s` (today
   `stop()` only sets `stopAfterClaim` and says nothing). The ledger's win line carries the same step ("claiming:
   proving in your browser, about 20 s" → "claiming: sent to the node · drops in 9:41 if no block takes it" →
-  "claiming: in a block · syncing the note"), then one of six outcomes (board ClaimOutcomes; the code's five
-  classes in `claim-failure.ts` plus minted): "✓ minted in block 83,164 ↗ · 4 tYACA, privately"; reverted, the
+  "claiming: in a block · syncing the note"), then one of seven outcomes (board ClaimOutcomes; minted, the code's five
+  classes in `claim-failure.ts`, and a refusal at simulation): "✓ minted in block 83,164 ↗ · 4 tYACA, privately"; reverted, the
   stale epoch: "didn't land: the epoch closed first · the sponsor paid, your proof is unspent · re-syncing,
-  about a minute"; expired: "dropped: no block took it in 10 min · nothing paid · mining continues"; delivery
+  about a minute"; refused at simulation (the miner's "epoch is not open" check runs before proving, so nothing was sent or paid):
+  "didn't go out: the epoch closed before it was sent · nothing paid · mining continues"; expired: "dropped: no
+  block took it in 10 min · nothing paid · mining continues"; delivery
   blocked: "didn't land: an earlier reverted claim blocks this account · claims wait for Ethereum's finality,
   about 40 min"; other: "claim failed: <the
   error's first line> · mining paused" with **Retry** (§9.1.14; mining stays paused because a retry needs the
@@ -316,8 +318,8 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
   win whose epoch changed): "not claimed: the epoch closed before the claim went out", the chart keeps its ring.
   A lost race also shows a banner under the header in the node's shape: "Re-syncing this account from the chain;
   mining resumes in about a minute" (recovering), and, if the delivery is still blocked after that, "Claims from
-  this account wait until the reverted one is final on Ethereum. Mining resumes at 16:48" (no "Use another
-  account": one slot per browser, §9.2.12). The header holds only the status
+  this account wait until the reverted one is final on Ethereum. Mining resumes about 16:48" (an estimate from
+  the rollup's constants; no "Use another account": one slot per browser, §9.2.12). The header holds only the status
   ("live · since 16:05"), that chip and **Stop**; "3.6 s per proof · 12 proofs" is the chart's footer line, and
   the thread count lives in the epoch tile's power row alone. Signed out, the header is "your proofs" and
   **Start mining**, nothing else. The ended cockpit's ledger shows
