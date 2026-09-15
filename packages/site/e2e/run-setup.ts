@@ -39,7 +39,10 @@ const e2eEnv = (d: Deployment, role: 'apex' | 'old', oldAppOrigin: string): Node
   VITE_DEPLOYMENT_RECORD: JSON.stringify(d),
 });
 
-/** Two wranglers side by side: each needs its own inspector port, or the second dies on 9229. */
+/**
+ * Two wranglers side by side: each needs its own inspector port, or the second dies on 9229, and its
+ * own state directory, or the two open one SQLite store at once and workerd dies on SQLITE_BUSY.
+ */
 function startServer(log: number, port: number, inspector: number, dir: string): ChildProcess {
   const args = [
     'wrangler',
@@ -52,6 +55,8 @@ function startServer(log: number, port: number, inspector: number, dir: string):
     String(inspector),
     '--ip',
     'localhost',
+    '--persist-to',
+    resolve(pkg, '.wrangler', `state-${port}`),
   ];
   const child = spawn('bunx', args, {
     cwd: pkg,

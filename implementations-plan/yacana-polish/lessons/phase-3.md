@@ -104,3 +104,20 @@ Looks fine per codex: no dependency change; the credential restrictions, the mas
 gate, the claim and queue draining; the arrival/intent trace; inventory titles and floors; the deliberate
 departures (Welcome's "Open", no device link, the old origin's dismissal, the wallet eyebrow, the elapsed
 sync); no interface a later arc must undo.
+
+### Round 2 — REVISE, five findings; the round-1 fixes hold (`2376fd1`)
+
+| # | sev | claim | verified | fix |
+|---|---|---|---|---|
+| 1 | medium | the renderer clicks `use-words` on the Start screen | true (the dialog opens on Start; the words are on Create) | `start-create` first |
+| 2 | medium | `node` inside the sync step still catches an IndexedDB or quota error during an outage | true | evidence: the message has the JSON-RPC client's transport shape (`Error fetching from host …` / `Error NNN from server …`, the guard's cooldown answer included) and the transport is down; the step condition went |
+| 3 | low | "Retry keeps what arrived" overstates (only whole files were kept) and the count shown at failure was the retained bytes, not where reception stopped | true | the download resumes: an interrupted file keeps its buffer, the next run sends a range request; a 206 continues, anything else restarts the file (its bytes leave the count); a pin failure drops the partial. The brief's sentence (§5.2) stays true; the alternative was to weaken it |
+| 4 | low | the phrase spec never unmounted the Words screen | true | the spec publishes `opening` before the refusal |
+| 5 | low | a comment on `boot.ts` still claimed the weights were measured; two docblocks doubled | true | deleted; merged |
+
+Codex accepted the Cancel boundary (adoption ends the cancel window: coherent, smaller than rolling back an
+adopted wallet), the slot's revision check, the CRS retry (a controlled stream: the failed file alone is fetched
+again, verification still enforced), the phrase ownership, the Welcome → wallet backup → Sign out path, the
+context-specific notes, the typed retry and the boot-held dismissal.
+
+The cockpit shard on the round-1 commit: 7 passed (5.6 min).

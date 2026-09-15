@@ -64,6 +64,15 @@ export async function streamVerified(
     p.at += value.length;
     onBytes(value.length);
   }
+  return checkPin(p, pin, name);
+}
+
+/** The buffer against its pin: how every download ends, and all a complete buffer needs. */
+async function checkPin(
+  p: Download,
+  pin: { bytes: number; sha256: string },
+  name: string,
+): Promise<Uint8Array> {
   const digest = hex(await crypto.subtle.digest('SHA-256', p.out.subarray(0, p.at)));
   if (p.at !== pin.bytes || digest !== pin.sha256)
     throw new CrsPinError(`crs: ${name} does not match its pin (${p.at} bytes, sha256 ${digest})`);
@@ -87,6 +96,8 @@ function load(name: string): Promise<Uint8Array> {
     const partial = partials.get(name) ?? { out: new Uint8Array(pin?.bytes ?? 0), at: 0 };
     p = (async () => {
       if (!pin) throw new CrsPinError(`crs: ${name} is not pinned`);
+      // Every byte arrived before the stream broke: nothing to ask for (a range past the end is a 416).
+      if (partial.at === pin.bytes) return checkPin(partial, pin, name);
       const range = partial.at > 0 ? { headers: { range: `bytes=${partial.at}-` } } : undefined;
       const res = await originalFetch(`/crs/${name}`, range);
       return streamVerified(res, pin, name, (n) => report({ loaded: progress.loaded + n }), partial);
@@ -108,7 +119,12 @@ function load(name: string): Promise<Uint8Array> {
   return p;
 }
 
-const originalFetch = globalThis.fetch.bind(globalThis);
+let originalFetch = globalThis.fetch.bind(globalThis);
+
+/** Tests only: the fetch behind `/crs/<name>`, bound at import (one realm's suites share the module). */
+export const setCrsFetchForTests = (f: typeof globalThis.fetch): void => {
+  originalFetch = f;
+};
 
 function requestedRange(init: RequestInit | undefined, total: number): [number, number] {
   const header = new Headers(init?.headers).get('range');
