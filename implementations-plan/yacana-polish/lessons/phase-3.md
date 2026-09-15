@@ -60,4 +60,18 @@ under a minute": key 5 · crs 60 · notes 30 · ready 5) and the bar shows only 
 the count is known. The local numbers say what the warm opening costs on this rollup: under ten seconds,
 all of it the notes sync — which is why the sync's line carries the elapsed time and no fake percentage.
 
-## Gate — pending
+## Gate — green 2026-09-15
+
+- Fast layers: `bun run lint` clean; `typecheck` web-miner clean; `bun test` (web-miner, site, scripts) 260 pass ·
+  1 skip · 0 fail; `test:components` web-miner 102/102, ui 67/67, web-landing 14/14.
+- `cockpit` proverless: 7 passed (5.2 min), twice (before and after the wallet-route fix).
+- `canary` real: 4 passed (5.0 min) on the third run. The first run failed `withdraw` and `words` after a
+  sign-out: the page reloads on `/wallet`, which renders nothing without an account, and the specs waited
+  for a cockpit — fixed in the app (`8e3a3e3`: a signed-out wallet route goes to the cockpit), not in the
+  specs. The second run failed `words` at its last line, which expected the Start screen after the
+  click-only sign-out; page first, the dialog is opened (`f75247b`).
+- Replay: re-recorded (12 answers); the lane's first run failed the old-Presto test on a `not-now` click
+  the arrival no longer offers (`b2e52a0`); then 4 passed (the account screens at 720 px, the malformed
+  RPC, the old Presto, the public poll).
+- `bun run rig -- origin` (tmux): the apex's passkey restores the same account on the versioned origin,
+  which creates nothing and mines nothing; no dialog on arrival there either — 1 passed (22.2 s).
