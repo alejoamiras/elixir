@@ -120,7 +120,6 @@ test('a words account: create, quiz, mine, sign out, restore, same address', asy
   await expect(page.getByTestId('sign-out-hold')).toBeVisible();
   await page.getByTestId('sign-out-hold').dispatchEvent('click');
   await page.getByTestId('sign-out-click').click();
-  await expect(page.getByRole('heading', { name: 'Mine with an account.' })).toBeVisible({
-    timeout: BOOT_MS,
-  });
+  await openDialog(page);
+  await expect(page.getByRole('heading', { name: 'Mine with an account.' })).toBeVisible();
 });
