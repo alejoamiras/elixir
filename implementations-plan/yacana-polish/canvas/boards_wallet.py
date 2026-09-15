@@ -1,12 +1,12 @@
 """The Wallet: balance, account, one Activity list (deposits included), wins, phone."""
 from lib import activity, btn, header, kpi, page, phone, quiet, st, th, tile
-from boards_states import DEADLINE
+from boards_states import DEADLINE_PRE
 
 FINAL = '<span class="x2 mono ink3">final once its epoch is proven, usually within the hour</span>'
 
 ROW_EXIT_PROVING = activity("2 tYACA", "→ Ethereum · 0x90F7…b906",
-                            "Reaches Ethereum usually within the hour, by 17:03 at the latest; then you claim it there.",
-                            st("on its way to Ethereum", "on"), "16:09 · Sep 15",
+                            "Reaches Ethereum usually within the hour; then you claim it there. V5 must prove it by 17:03, or the balance comes back here.",
+                            st("reaching Ethereum", "on"), "16:09 · Sep 15",
                             [("sent", "done"), ("block 83,131", "done"), ("reaching Ethereum", "on"), ("claim on Ethereum", "dim")])
 ROW_DEPOSIT_READY = activity("0.5 YACA", "→ here · from Rabby 0x90F7…b906",
                              "Arrived. Claim it into your private balance: one tap, about 20 s, no fee.",
@@ -22,7 +22,7 @@ ROW_AHEAD_HELD = activity("3.5 tYACA", "→ V6",
                           "Held on Ethereum for V6, out of V5's reach. Yacana forwards it into V6 once V6 opens; you can too, from V6.",
                           st("held for V6", "on"), "Sep 14",
                           [("sent", "done"), ("reached Ethereum", "done"), ("held for V6", "on"), ("forwarded to V6", "dim"), ("claim on V6", "dim")],
-                          more=f'<div class="row sb"><span class="xs ink3">Or <a href="#">redeem it on Ethereum</a> as YACA, {DEADLINE}.</span><span class="x2 mono ink3"><a href="#">Details</a></span></div>')
+                          more=f'<div class="row sb"><span class="xs ink3">Or <a href="#">redeem it on Ethereum</a> as YACA, {DEADLINE_PRE}.</span><span class="x2 mono ink3"><a href="#">Details</a></span></div>')
 ROW_DONE = activity("0.5 YACA", "→ here", "0.5 tYACA in your balance.", st("claimed", "dim"), "Sep 14", more=FINAL)
 
 ADVANCED = '<span class="x2 mono ink3">advanced · <a href="#">save a recovery file</a> · <a href="#">restore from a file</a></span>'

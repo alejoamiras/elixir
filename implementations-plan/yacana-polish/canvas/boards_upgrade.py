@@ -1,7 +1,7 @@
 """The upgrade: the send-ahead dialog, the old origin (v5.yacana.network), V6's first login, how it works."""
 from lib import (activity, amount, btn, dialog, dialog_page, header, kpi, note, page, quiet, srow, st, steps, th, tile)
 from boards_signin import head
-from boards_states import DEADLINE
+from boards_states import DEADLINE, DEADLINE_PRE
 
 W = 440
 
@@ -26,7 +26,7 @@ def send_ahead_sent():
                       ("You claim it on V6", "todo", "one tap", "")])
              + '<p class="xs ink3" style="border-top:1px solid var(--line);padding-top:12px">You can close this. Wallet follows it here, and on V6 once you log in there.</p>'
              + f'<div class="row sb" style="margin-top:4px">{btn("Done", "primary")}{quiet("Save a recovery file")}</div>'
-             + '<p class="x2 mono ink3">a recovery file finishes this send from a device that never held it</p>')
+             + '<p class="x2 mono ink3">a recovery file lets another device pick this send up</p>')
     return dialog_page(inner)
 
 
@@ -37,7 +37,7 @@ def how_it_works():
                       ("Held on Ethereum for V6", "todo", "until V6 opens", "Out of V5's reach, held for this account alone. The amount is visible there; the account is not."),
                       ("Forwarded into V6", "todo", "by Yacana, or by you", "Yacana runs a relayer (an address its multisig lists) that forwards held sends once V6 opens. You can forward yours from V6 with an Ethereum wallet paying gas. Forwarding ends the option below."),
                       ("You claim it on V6", "todo", "one tap", "A private claim this page makes, no fee, about 20 s. Same passkey.")])
-             + note("If V6 never opens, or Yacana is late", f"This account can redeem it on Ethereum as YACA instead, {DEADLINE}.", "")
+             + note("If V6 never opens, or Yacana is late", f"This account can redeem it on Ethereum as YACA instead, {DEADLINE_PRE}. A pause or the exit limit can delay it.", "")
              + f'<div class="row sb"><span class="x2 mono ink3"><a class="uv2" href="#">the rules, on /faq ↗</a></span>{btn("Back", "sm")}</div>')
     return page(f'<div style="padding:26px">{dialog(inner, W)}</div>', W + 52)
 
@@ -46,7 +46,7 @@ OLD_ROWS = [
     activity("3.5 tYACA", "→ V6", "Held on Ethereum for V6, out of V5's reach. Yacana forwards it into V6 once V6 opens; you can too, from V6.",
              st("held for V6", "on"), "Sep 18", [("sent", "done"), ("reached Ethereum", "done"), ("held for V6", "on"), ("forwarded to V6", "dim"), ("claim on V6", "dim")],
              more=f'<div class="row sb"><span class="xs ink3">Or <a href="#">redeem it on Ethereum</a> as YACA, {DEADLINE}.</span><span class="x2 mono ink3"><a href="#">Details</a></span></div>'),
-    activity("2 tYACA", "→ V6", "Reaches Ethereum usually within the hour, by 14:03 at the latest; then held for V6.", st("on its way to Ethereum", "on"), "Sep 18 14:12",
+    activity("2 tYACA", "→ V6", "Reaches Ethereum usually within the hour; then held for V6. V5 must prove it by 14:52, or the balance comes back here.", st("reaching Ethereum", "on"), "Sep 18 14:12",
              [("sent", "done"), ("block 91,204", "done"), ("reaching Ethereum", "on"), ("held for V6", "dim")]),
 ]
 
@@ -55,6 +55,7 @@ CHIPS = {
     "silent": st("no proof from V5 for 3 h", "warn"),
     "quiet": st("V5 stopped proving · Sep 21", "bad"),
     "signed-out": st("V5 proved an epoch 12 min ago", "ok"),
+    "gone": st("V5's node has shut down", "bad"),
 }
 
 
@@ -62,8 +63,12 @@ def old_hero(state: str) -> str:
     chip = CHIPS[state]
     if state == "quiet":
         return ('<div class="hero"><div class="row sb wrap"><span class="eyebrow">aztec v5 · retired · sep 18</span>' + chip + '</div>'
-                '<h1>V5\'s last day has passed. Nothing more can leave.</h1>'
-                '<p>What V5 proved in time is on V6, or held on Ethereum for it. What was still here can no longer leave.</p></div>')
+                '<h1>V5 has stopped proving. Nothing more can leave.</h1>'
+                '<p>What V5 proved in time is on V6, or held on Ethereum for V6, redeemable until at least Mar 17. What was still here when it stopped can no longer leave.</p></div>')
+    if state == "gone":
+        return ('<div class="hero"><div class="row sb wrap"><span class="eyebrow">aztec v5 · retired · sep 18</span>' + chip + '</div>'
+                '<h1>V5\'s node has shut down. Nothing more can leave from here.</h1>'
+                '<p>What V5 proved in time is on V6, or held on Ethereum for V6: see it at <b>yacana.network</b>. A device that never held a send restores its recovery file there.</p></div>')
     if state == "silent":
         return ('<div class="hero"><div class="row sb wrap"><span class="eyebrow">aztec v5 · retired · sep 18</span>' + chip + '</div>'
                 '<h1>Send what\'s still here ahead.</h1>'
@@ -74,20 +79,24 @@ def old_hero(state: str) -> str:
 
 
 def old_origin(state: str = "signed-in"):
-    hdr = header("mine", app="old", version="V5 · retired", account="0x22a9…612a" if state != "signed-out" else None, status=None)
-    if state == "signed-out":
+    hdr = header("mine", app="old", version="V5 · retired", account="0x22a9…612a" if state not in ("signed-out", "gone") else None, status=None)
+    if state == "gone":
+        card = tile(th("still on V5") + '<p class="md ink2">Logging in here needed V5\'s node, and it is gone. Nothing on this page can change any more.</p>'
+                    + f'<div class="row" style="gap:12px;margin-top:12px">{btn("Open yacana.network", "uv")}</div>')
+        rows = ""
+    elif state == "signed-out":
         card = tile(th("still on V5") + '<p class="md ink2">Log in to see what\'s still here.</p>' + f'<div class="row" style="gap:12px;margin-top:12px">{btn("Log in", "uv")}</div>'
                     + '<p class="xs ink3" style="margin-top:12px">Accounts are restored here, not created. The passkey or 12 words from yacana.network open it.</p>')
         rows = ""
     elif state == "quiet":
-        card = tile(th("still on V5", "cannot leave") + kpi("", "1.2", "tYACA", lg=True) + '<p class="sm ink3" style="margin-top:8px">Left here after V5 stopped proving.</p>')
+        card = tile(th("still on V5", "cannot leave") + kpi("", "1.2", "tYACA", lg=True) + '<p class="sm ink3" style="margin-top:8px">Left here when V5 stopped proving.</p>')
         rows = tile(th("proven in time") + '<div class="col" style="gap:10px">' + OLD_ROWS[0] + "</div>")
     else:
         card = tile(th("still on V5", "private · can leave while V5 proves") + kpi("", "3.5", "tYACA", lg=True)
                     + f'<div class="row" style="gap:14px;margin-top:14px">{btn("Send ahead to V6", "uv lg")}{quiet("or bridge to Ethereum")}</div>'
                     + '<p class="xs ink3" style="margin-top:12px">Then claim it on V6 with one tap, at yacana.network. Same passkey.</p>', "hi")
         rows = tile(th("activity", "2") + '<div class="col" style="gap:10px">' + "".join(OLD_ROWS) + "</div>")
-    adv = '<p class="x2 mono ink3">advanced · <a href="#">save a recovery file</a> · <a href="#">restore from a file</a></p>' if state != "signed-out" else ""
+    adv = '<p class="x2 mono ink3">advanced · <a href="#">save a recovery file</a> · <a href="#">restore from a file</a></p>' if state not in ("signed-out", "gone") else ""
     body = f'<div class="body" style="max-width:760px;margin:0 auto;width:100%;padding-top:36px">{old_hero(state)}{card}{rows}{adv}</div>'
     return page(f'<div class="shell">{hdr}{body}</div>', 1440)
 
@@ -110,7 +119,7 @@ def disclosure_board():
     from boards_mine import upgrade_card
     lvl0 = ('<div class="row" style="gap:10px"><span class="vtag">V5</span><span class="badge uv">V6 · Sep 18</span><span class="badge net">testnet</span></div>')
     body = ('<div class="board"><span class="lm">the upgrade · progressive disclosure</span><h1>Four levels, never a bet.</h1>'
-            '<p>Level 0 is a tag; level 1 a card with the fact, the next step and the one consequence of not acting; level 2 the stages with times; level 3 the contract\'s rules on /faq. The live chip (V5 proved an epoch 12 min ago) does the reassuring: it is true and it updates, and silence reads as silence ("no proof from V5 for 3 h"). Nothing says "safe": a send is safe once V5 proves it; a balance on V5 never is.</p>'
+            '<p>Level 0 is a tag; level 1 a card with the fact, the next step and the one consequence of not acting; level 2 the stages with times; level 3 the contract\'s rules on /faq. The live chip (V5 proved an epoch 12 min ago) does the reassuring: it is true and it updates, and silence reads as silence ("no proof from V5 for 3 h"). Nothing says "safe": a proven send still needs forwarding or redeeming before V5\'s last day, and a balance on V5 can lose its way out at any time.</p>'
             '<div class="grid" style="grid-template-columns:1fr 1fr;gap:18px">'
             f'<div class="col"><span class="lm">level 0 · the header</span>{lvl0}<span class="lm" style="margin-top:8px">level 1 · the card on Mine and Wallet</span>{upgrade_card("announced")}{upgrade_card("flipped")}</div>'
             f'<div class="col"><span class="lm">level 2 · how it works</span>{dialog(head("send ahead · how it works", "What happens to 3.5 tYACA.") + steps([("Leaves V5, privately", "todo", "about 20 s"), ("Reaches Ethereum with its epoch", "todo", "usually within the hour", "Within its epoch\'s deadline, about 40 min after the send. If V5 misses it, the balance comes back here."), ("Held on Ethereum for V6", "todo", "until V6 opens"), ("Forwarded into V6", "todo", "by Yacana, or by you"), ("You claim it on V6", "todo", "one tap")]), 440)}'

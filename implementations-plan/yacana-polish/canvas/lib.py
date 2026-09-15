@@ -176,6 +176,7 @@ svg text{font-family:var(--mono);font-size:10px;fill:var(--ink-3)}
 .tabbar svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .phone{width:390px;min-height:844px;position:relative;background:var(--ground);overflow:hidden}
 .phone .top{display:flex;align-items:center;justify-content:space-between;height:52px;padding:0 16px;border-bottom:1px solid var(--line)}
+.phone .act{grid-template-columns:1fr}.phone .act .r{flex-direction:row;align-items:center;justify-content:space-between}
 .phone .pbody{padding:16px;display:flex;flex-direction:column;gap:14px;padding-bottom:84px}
 .sheet{position:absolute;left:0;right:0;bottom:0;border-top:1px solid var(--line-2);border-radius:14px 14px 0 0;background:var(--raised);padding:14px 18px 22px;display:flex;flex-direction:column;gap:14px}
 .sheet .grab{width:36px;height:4px;border-radius:2px;background:var(--line-2);margin:0 auto 4px}

@@ -1,4 +1,4 @@
-# Yacana polish — the UX/UI redesign brief (design pass, 2026-09-15, v2)
+# Yacana polish — the UX/UI redesign brief (design pass, 2026-09-15, v3)
 
 The bridge shipped and works (stack #41, #44, #45 on `main`). The owner walked the live site by hand and the
 verdict was: the paths work, the experience is "pretty awful". This pass designs the application the owner
@@ -6,9 +6,9 @@ would be proud to ship to the masses: onboarding, copy, states, navigation, the 
 UX and UI only; the implementation blueprint follows the owner's approval of this brief and its canvas.
 
 Inputs: the owner's list (§1), what the app says today (`recon.md` §A–B), Bazaar's sign-in (`recon.md` §C),
-the research digest with sources (`research.md`), the review rounds (`reviews/round-1.md`: Codex and a Fable
-reviewer, both REVISE; every finding checked against the portal contract and the crossing journal). Output:
-this brief (the decisions, the copy deck, the options), the canvas (`canvas/`, 79 artboards, published as a
+the research digest with sources (`research.md`), the review rounds (`reviews/round-1.md`, `reviews/round-2.md`:
+Codex and a Fable reviewer; every finding checked against the portal contract and the crossing journal). Output:
+this brief (the decisions, the copy deck, the options), the canvas (`canvas/`, 84 artboards, published as a
 Claude Design artifact) and the list the blueprint carries (§9).
 
 v2 changes, in one paragraph: nothing says "safe" any more; the last day is "at least Mar 17" until the contract
@@ -16,6 +16,26 @@ sets it; the send-ahead shows its forward step and the relayer is defined once; 
 seventeen states has a sentence and a board; the account dialog has its six failures; the claim on Ethereum
 states the network, who pays and the rejection; the Send flow is drawn; a disabled button says why; the
 cockpit loses "escape hatch"; the stepper renders right; the testnet tag is neutral.
+
+v3 changes (round 2), in one paragraph: a record that lost its hash says "checking" while the session looks
+for it by its log tag, and "didn't finish" only once nothing is on the chain after the send expired; "by 17:03
+at the latest" becomes "V5 must prove it by 17:03, or the balance comes back here" (a deadline for V5, not an
+arrival promise); the pause copy follows the contract (60 days in all, liftable early, stacking from the
+current pause) and a pause warns without disabling anything; the exit limit has no queue ("whoever claims first
+uses it"); redeeming needs the bridge open; deposits closed is for good; an unregistered version disables
+deposits too; the pruned claim names Aztec, not a version; the old origin's end state is "V5 has stopped
+proving" (the last day is months later and has its own row); the recovery file "lets another device pick this
+send up"; Send shows the full address and asks to confirm it with the recipient, and the code validates what
+is submitted; the claim dialog has a no-ETH state; sign-in failures say what the browser can know ("Sign-in
+didn't complete", "close that tab, then retry"); a node switch pauses mining; the epoch tile says "anyone can
+close it"; MineSent's balance is what is left; nothing "is safe" anywhere in the brief either. From the Fable
+round: the last day has four readings, and after the 180 days with no upgrade after V6 in sight the row turns
+red, "could close any day" (the portal closes V5 the moment that upgrade is observed); the old origin has a
+state for V5's node being gone; "longer than usual" starts its clock when V6 opens, not when the send was
+held; Presto's row has a line per reason; the phone's activity row is one column; the chips say "reaching
+Ethereum" and "arriving" everywhere; a send-ahead's retry is "Send ahead again"; the words login has the
+checksum error and the empty-account hint; Send has its four field refusals; the ended cockpit's ledger is
+from before the end; the epoch tile counts "wins".
 
 ## 1. The owner's list, mapped to surfaces
 
@@ -80,12 +100,13 @@ They read one sentence, then look for the button. Everything else is one level d
    once it exists.
 5. **Every wait is a stepper.** Named stages, a checkmark per stage, a time expectation once ("usually under a
    minute"), a determinate bar where bytes or blocks are known, elapsed time otherwise. Never a bare spinner,
-   never a label on a button as the only status, never "do not close".
+   never a label on a button as the only status; "keep this tab open" only while the browser is still proving
+   (a closed tab there is a send that never happened), never once a transaction is sent.
 6. **Buttons are verb + noun, sentence case, carrying the amount when money moves.** "Bridge 3.5 tYACA",
    "Claim on Ethereum", "Send 3.5 tYACA ahead". No article, no period.
 7. **Deadlines are facts, not bets; nothing is "safe".** "By 14:03 (in 40 min)" and what happens after it:
-   "If V5 misses it, the balance comes back here." A send is safe once V5 proves it; a balance on V5 never is;
-   so the word never appears. Never "a sure loss"; "without notice" is a fact about V5, said once, not a threat.
+   "If V5 misses it, the balance comes back here." A proven send still needs forwarding or redeeming before
+   V5's last day, and a balance on V5 can lose its way out at any time; so the word never appears. Never "a sure loss"; "without notice" is a fact about V5, said once, not a threat.
 8. **Settings edit in place.** One field per value, Save probes it, the old value stays live until the probe
    passes, the error sits under the field; the row keeps saying how the node is doing.
 9. **Four destinations, a gear, an account chip.** Icon + label on the phone, text tabs on the desktop; the
@@ -191,12 +212,19 @@ the button stays):
 
 | Case | Note | Primary |
 |---|---|---|
-| The passkey prompt was dismissed | "That didn't work. The passkey prompt was dismissed. Try again, or use 12 words." | Continue with passkey |
+| The passkey prompt was dismissed or timed out | "That didn't work. The passkey prompt was dismissed or timed out. Try again, or use 12 words." | Continue with passkey |
 | The authenticator can't derive a key (`NoPrfError`) | "This device can't make a Yacana passkey. Its passkeys can't derive a key. Use 12 words instead; they work everywhere." | Use 12 words |
 | No WebAuthn | "This browser has no passkeys. Use a current Chrome, Safari, Edge or Firefox; or use 12 words." | Use 12 words |
-| Log in, no passkey here | "No passkey for Yacana on this device. Log in on the device that has it, or enter your 12 words if the account has them." | Continue with passkey |
-| A different account is stored | "That passkey belongs to a different account. This browser holds 0x22a9…612a. Sign that account out first to switch; it asks about backup before it goes." | Open with passkey |
-| Another tab holds this account (`ChainViewHeldError`) | "Another tab holds this account. Close it, or continue here; that tab stops mining." | Continue here |
+| Log in, the prompt ended without a passkey (WebAuthn cannot tell "none here" from "dismissed") | "Sign-in didn't complete. No passkey was used. If this device has none for Yacana, log in where you created it, or enter your 12 words." | Continue with passkey |
+| Log in, the passkey exists but can't derive the key (`NoPrfError`) | "This device can't open a Yacana passkey. Its passkeys can't derive the key. Log in on a device whose passkeys can, or enter your 12 words." | Enter 12 words |
+| Another tab holds this account (`ChainViewHeldError`: there is no takeover; the other connection must close) | "Another tab has this account open. Close that tab, then retry here." | Retry |
+
+"That passkey belongs to a different account" is not a case: Open with passkey restricts the browser to the
+stored credential (`allowCredentials`), and Log in is offered only when nothing is stored. The words login has
+two refusals: "Word 12 isn't in the list: check "quartzz"." and, for twelve listed words that fail the phrase's
+checksum, "These 12 words don't form a valid phrase: one is off. Check each against what you saved." A words
+login that opens an empty account gets one line on the Wallet's empty state: "Expected a balance? A mistyped
+word opens a different, empty account: check your words."
 
 Gone: "Sign up with a passkey", "I already have a passkey", "I have twelve words", "Use another passkey",
 "Enter twelve words instead", "Create a new account", the two footers, the dimmed cockpit, "synced by your
@@ -216,8 +244,9 @@ only where the count is known:
    elapsed time (`0:42`).
 4. **Ready to mine**.
 
-Footer: "Mining starts when this finishes. Cancel keeps you watching the chain." **Cancel** (nothing has been
-submitted; it is a plain cancel). The dialog closes itself on Ready; mining starts because Start mining opened
+Footer: "Mining starts when this finishes. Cancel keeps you watching the chain." when Start mining opened the
+dialog; "You can start mining when this finishes." from Log in. **Cancel** (nothing has been submitted; it is
+a plain cancel). The dialog closes itself on Ready; mining starts because Start mining opened
 it (or, from Log in, if "Resume mining when the page opens" is on).
 
 **Failures** (board OpeningError…): a failed stage gets a red dot and its reason at the right; a note under
@@ -237,12 +266,20 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
   `epoch 12 · bar 2.0 → 1.6`; a win is a ring above the line with a short drop that ends above the bar, drawn
   at the proof's own x, so a step under a win stays visible (MineMining draws it). The proofs ledger keeps
   "epoch 12 opened · bar 1.6 (×0.83)"; a win reads "★ a win · claiming, about 20 s" until "✓ minted in block
-  83,164 ↗ · 4 tYACA, privately".
-- **The epoch tile**: claims, bar, open for, expected close, "next bar if it closed now ×0.62", "closes anyway
-  in 4 min" (the time cap; was "escape hatch"). "Epoch" stays: it is the product's word on Stats, the landing
+  83,164 ↗ · 4 tYACA, privately"; the ledger's legend says "✓ minted, final once its epoch is proven" (the
+  same signal as the Wallet's row, §9.3.3). The ended cockpit's ledger shows what was mined before the end.
+- **The epoch tile**: wins (the epoch closes after four; "claims" was the contract's word), bar, open for,
+  expected close, "next bar if it closed now ×0.62", "anyone can
+  close it in 4 min" (`escapeHatchIn`: when the roll becomes callable by anyone, not an automatic close; was
+  "escape hatch"). "Epoch" stays: it is the product's word on Stats, the landing
   and the FAQ.
 - **Balance tile**: amount, "private", **Send**, **Wallet →**. No account chip, no session count (the "best
   this epoch" KPI already says "1 win · 4 tYACA this session").
+- **Presto's reasons** (board PrestoReasons): the row says why it stepped aside, one line per reason the SDK
+  reports (not approved yet, cooldown, busy, a proof that didn't verify, an answer the page couldn't use,
+  needs an update, encrypted connection off, stopped answering, the browser blocks local access, a health
+  report the page doesn't understand) with **Retry** where a retry can help; "fetching its prover" is the one
+  that is not a fault, and while it runs the pill has no ✦. The pill always says what actually proved.
 - **Presto**: probed once at **Start mining**, never on load. Not found: after that first start, a quiet row
   under the loop tile, "✦ Presto proves natively on this machine, several times faster · Get Presto ↗",
   dismissible. Installed but blocked: at Start mining, a note in the loop tile: "**Presto is installed, but the
@@ -261,10 +298,13 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
 ### 5.4 Wallet
 
 - **Balance tile**: `3.5 tYACA` · "private"; **Send** (primary) · **Bridge to Ethereum** · **Bridge from
-  Ethereum**. A disabled button says why in one line under the row (board WalletReasons): "Deposits are closed
-  until V6 opens, at yacana.network." / "The Ethereum RPC isn't answering: bridging waits until it does.
-  Settings" / "Bridging to Ethereum opens once Yacana registers V5 on Ethereum, at launch." / "The bridge is
-  paused until Sep 20 (30 days at most a call). Sends inside Aztec still run."
+  Ethereum**. A disabled button says why in one line under the row (board WalletReasons): "Deposits into V5
+  are closed for good. Bridge from Ethereum on V6, at yacana.network, once it opens." (`depositsClosed` is
+  permanent per version) / "The Ethereum RPC isn't answering: bridging waits until it does. Settings" /
+  "Bridging opens once Yacana registers V5 on Ethereum, at launch." (both bridge buttons: `deposit` needs the
+  version registered too). A pause disables nothing: "The bridge is paused until Sep 20: claims on Ethereum
+  wait until it lifts. Sending and deposits still work; a send now waits on Ethereum." (the L2 send works, the
+  L1 claim waits, and after the flip a user must still be able to leave V5 during a pause).
 - **Account tile**: `0x22a9…612a` (link), "passkey" / "12 words · backed up ✓" / "12 words · not backed up ·
   Back up now"; **Sign out**. The sign-out sentence moves into the dialog.
 - **Activity** (one list; the fix for #7 and #22): rows for every crossing, newest first, each with:
@@ -274,7 +314,8 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
   - line 2: one sentence;
   - the chips trail (the owner's favourite), in the vocabulary of §4.3;
   - the action where one exists: **Claim on Ethereum**, **Claim** (arrivals), **Forward to V6** (on V6 only),
-    **Redeem on Ethereum**, **Bridge again**; a quiet **Details** opens the links (Etherscan, block), the
+    **Redeem on Ethereum**, **Bridge again** (**Send ahead again** on a send-ahead); a quiet **Details** opens the
+    links (Etherscan, block), the
     deadline, "Save a recovery file".
   - **Every state has a sentence** (board States; the table below is the spec). Money-loss states are red and
     say what happened.
@@ -282,30 +323,35 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
 | Kind · state | Chip | Sentence | Action |
 |---|---|---|---|
 | K1 proving | proving · 8 s | Proving privately, about 20 s. | — |
-| K1 proving, no hash after a reload | didn't finish | This didn't finish. Nothing left your balance. | Bridge again |
+| K1 proving, no hash after a reload | checking | The page closed while this was sent. Checking the chain for it. | — (`txByTag` recovers the hash) |
+| K1 checking, nothing on the chain after the send expired | didn't finish | This didn't finish. Nothing left your balance. | Bridge again |
 | K1 sent | sent | Sent. Waiting for a block. | — |
 | K1 dropped | not included | The node never included it. Nothing left your balance. | Bridge again |
-| K1 proven-pending | on its way to Ethereum | Reaches Ethereum usually within the hour, by 17:03 at the latest; then you claim it there. | — |
+| K1 proven-pending | reaching Ethereum | Reaches Ethereum usually within the hour; then you claim it there. V5 must prove it by 17:03, or the balance comes back here. | — |
 | K1 witnessed | reached Ethereum | Reached Ethereum; reading the bridge for the claim. | — |
 | K1 ready | ready to claim | Ready. Claim it on Ethereum with a wallet on Sepolia; that wallet pays the gas in ETH. | Claim on Ethereum |
+| K1 ready, after the 180 days, the upgrade after V6 not seen yet | could close any day | The 180 days are over. V5's exits close the day the upgrade after V6 lands. Claim it now. | Claim on Ethereum |
 | K1 minted-l1 | claimed | 1 YACA at 0x90F7…b906. | Etherscan ↗ |
 | K1 never-proven | undone | V5 didn't prove this in time. The balance is back here. | Bridge again |
-| K1 paused | paused · until Sep 20 | The bridge is paused until Sep 20. It moves again when the pause lifts; a pause is 30 days at most, 60 in a version's life. | — |
-| K1 headroom, before the flip | waiting for the limit | More has left V5 than its exit limit allows for now. It goes through as the limit grows, in order. | — |
+| K1 paused | paused · until Sep 20 | The bridge is paused until Sep 20: claims wait until it lifts. Yacana can pause for 60 days in all over V5's life, and can lift a pause early. | — |
+| K1 headroom, before the flip | waiting for the limit | More has left V5 than its exit limit allows right now. The limit grows by the hour while V5 is current, and this turns ready to claim once it fits; others may use the room first. | — (Claim appears once it fits; nothing goes through by itself) |
 | K1 headroom, after the flip | over the limit | V5's exit limit froze at the upgrade, and this is beyond it. It cannot leave. | Details |
 | K1 closed | last day passed | V5's last day passed before this was claimed. It cannot leave any more. | — |
-| K2 proven-pending | on its way to Ethereum | Reaches Ethereum usually within the hour, by 14:03 at the latest; then held there for V6. | — |
-| K2 witnessed · held | held for V6 | Held on Ethereum for V6, out of V5's reach. Yacana forwards it into V6 once V6 opens; you can too, from V6. | Details: Redeem on Ethereum instead, until at least Mar 17 (…) |
+| K2 headroom | waiting for the limit | More has left V5 than its exit limit allows right now. Yacana forwards it once there is room, or you do from V6; a redeem waits the same way. | — |
+| K2 closed | last day passed | V5's last day passed before this was forwarded or redeemed. It cannot leave any more. | — |
+| K2 proven-pending | reaching Ethereum | Reaches Ethereum usually within the hour; then held there for V6. V5 must prove it by 14:03, or the balance comes back here. | — |
+| K2 witnessed · held | held for V6 | Held on Ethereum for V6, out of V5's reach. Yacana forwards it into V6 once V6 opens; you can too, from V6. | Details: Redeem on Ethereum instead, until at least Mar 17 (…), while the bridge is open (`_requireOpen` gates `redeem` too: not paused, within the limit, before the last day) |
 | K2 held > 6 h after V6 opened | longer than usual | Yacana hasn't forwarded it yet. Forward it yourself from V6, or check the Ethereum RPC in Settings. | Forward to V6 (on V6) · Redeem on Ethereum |
 | K2 not-registered | waiting for Yacana | V6 is live, but Yacana hasn't opened its contract there yet. You can redeem it on Ethereum until at least Mar 17 (…). | Redeem on Ethereum |
-| K2 forwarded | arriving on V6 | Forwarded into V6; claimable there in a few minutes. | — |
+| K2 held, after the 180 days, the upgrade after V6 not seen yet | could close any day | The 180 days are over. V5's exits close the day the upgrade after V6 lands. Forward it from V6 or redeem it now. | Forward to V6 · Redeem on Ethereum |
+| K2 forwarded | arriving | Forwarded into V6; claimable there in a few minutes. | — |
 | K2 claimable (on V6) | ready to claim | Arrived from V5. Claim it into your balance: one tap, about 20 s, no fee. | Claim |
 | K2 minted-l2 | claimed | 3.5 tYACA in your balance. Final once its epoch is proven. | — |
 | K2 minted-l1 (redeemed) | redeemed | Redeemed: 3.5 YACA at 0x90F7…b906 on Ethereum. | Etherscan ↗ |
 | K2 flip verdict unknown | can't read the upgrade | Can't read the upgrade's state: the Ethereum RPC isn't answering. | Settings |
-| K3 proving | waiting for Rabby | Confirm the deposit in Rabby. If its prompt is gone, bridge again. | Bridge again |
+| K3 proving | waiting for Rabby | Confirm the deposit in Rabby. Nothing leaves your wallet until you do. | — (a dismissed prompt becomes `not sent`, which carries Bridge again; a prompt that is merely gone is not evidence the deposit was not sent) |
 | K3 sent · deposited | crossing to Aztec | Sent from Rabby; crossing to Aztec, a few minutes. | Etherscan ↗ |
-| K3 dropped | not sent | Rabby never sent it, or Ethereum didn't include it in time. Nothing left your wallet. | Bridge again |
+| K3 dropped | not sent | Rabby never sent it, or Ethereum didn't include it in time. No YACA left your wallet; if it was sent, the gas is spent. | Bridge again |
 | K3 claimable | ready to claim | Arrived. Claim it into your private balance: one tap, about 20 s, no fee. | Claim |
 | K3 claiming | claiming · 12 s | Claiming privately, about 20 s. | — |
 | K3 minted-l2 | claimed | 0.5 tYACA in your balance. Final once its epoch is proven. | — |
@@ -322,8 +368,13 @@ answering, or is rate-limiting this page. Retry, or use another node." (**Retry*
   Publicly; rows "Fee · none · Yacana sponsors it", "Visible · nothing; a private transfer" (public: "the
   amount and the address, to anyone", with the warn note "This will be public…"); an address the chain does
   not know as an account gets the inline note "Nothing on the chain knows that address as an account. Sent
-  privately, it could never be read there. Check the address, or send publicly." Button **Send 1 tYACA
-  privately**. Sent: ✓ Proved privately · 20 s → ✓ Sent · block 83,140 · "1 tYACA to 0x1a2b…9c8d, privately.
+  privately, it could never be read there. Confirm the address with the recipient before sending." The pasted
+  address shows in full (wrapping), never shortened, in every state of the form. Button **Send 1 tYACA
+  privately**; under it, "proves in your browser, about 20 s · mining pauses meanwhile". The four refusals
+  (board SendErrors) sit under their field the moment they are known: "Enter an amount." · "More than your
+  balance." · "That's this account." · "Not an Aztec address: 66 characters, starting with 0x."; the button
+  waits. The code validates the exact address, amount and mode it submits (not the values the probe saw) and
+  freezes the form while it proves. Sent: ✓ Proved privately · 20 s → ✓ Sent · block 83,140 · "1 tYACA to 0x1a2b…9c8d, privately.
   Your balance: 2.5 tYACA." + "Final once its epoch is proven." **Done**.
 - **Wins**: a collapsed row "Wins · 12" that expands to the ledger ("claims" was the contract's word).
 - **Advanced** (quiet row): "Save a recovery file" · "Restore from a file". The contract chips move to Stats ›
@@ -344,8 +395,8 @@ One screen, no step 2 (option 3): the form carries a live summary and the button
 - **Proving** (same dialog, form replaced): title "Bridging 3.5 tYACA". Stepper: ● Proving privately · 12 s
   (bar) — "In your browser; Presto proves only mining work." (#16) → ○ Sent → ○ Reaching Ethereum · usually
   within the hour → ○ Claim on Ethereum. Footer: "Keep this tab open while it proves, about 20 s." No close.
-- **Sent**: ✓ Proved and sent · block 83,120 → ● Reaching Ethereum · usually within the hour — "By 17:03 at
-  the latest. If V5 misses that, the balance comes back here." → ○ Claim on Ethereum — "With a wallet on
+- **Sent**: ✓ Proved and sent · block 83,120 → ● Reaching Ethereum · usually within the hour — "V5 must prove
+  it by 17:03. If it doesn't, the balance comes back here." → ○ Claim on Ethereum — "With a wallet on
   Sepolia; it pays the gas in ETH." Footer: "You can close this. Wallet shows the progress and a **Claim**
   button when it's ready." **Done**.
 - **Ready**: the row's chip `ready to claim` and **Claim on Ethereum**. The claim dialog: title "Claim 1 YACA
@@ -356,10 +407,14 @@ One screen, no step 2 (option 3): the form carries a live summary and the button
   the primary becomes **Switch Rabby to Sepolia**. Then ● Confirm in Rabby — "Rabby asks you to confirm the
   claim and shows the gas." → ● Claiming · waiting for Ethereum → ✓ Claimed · block 6,912,004 · "View on
   Etherscan ↗" · **Done**. Rejected in the wallet: the step turns red, "Rabby rejected it. Nothing was claimed;
-  the YACA is still yours to claim." **Try again**. No ETH: the wallet's own error; the row keeps its Claim.
+  the YACA is still yours to claim." **Try again**. No ETH (board ClaimNoEth; the page reads the payer's balance
+  before asking the wallet): the note "Rabby has no Sepolia ETH for the gas. Add some to 0x90F7…b906, then
+  claim. The YACA waits for you." with the button disabled; the row keeps its Claim. A portal refusal between
+  the page's last read and the transaction (the limit, a pause, the last day: the ABI names them) is mapped to
+  the row's own sentence, never shown as the wallet's raw error.
   The row after: `claimed` · "1 YACA at 0x90F7…b906."
 - **Undone** (V5 missed the proof deadline): the row `undone` · "V5 didn't prove this in time. The balance is
-  back here." **Bridge again**. The rare states (didn't finish, not included, paused, the limit, closed) are
+  back here." **Bridge again**. The rare states (checking, didn't finish, not included, paused, the limit, closed) are
   on board ExitEdge and in the table above.
 
 ### 5.6 Bridge from Ethereum
@@ -373,9 +428,9 @@ One screen, no step 2 (option 3): the form carries a live summary and the button
   Rabby · none here"; "Visible on Ethereum · your wallet and the amount; not this account". Button **Bridge
   0.5 YACA**. The announced-upgrade note stays (warn): "**Aztec upgrades to V6 around Sep 18.** A deposit now
   lands on V5 and would need sending ahead afterwards. Unless you need it here now, bridge after the upgrade,
-  at yacana.network." Deposits closed (the day before the flip, or a pause): the note "**Deposits are closed
-  until V6 opens.** Aztec upgrades around Sep 18; Yacana closed V5's deposits the day before. Bridge again once
-  V6 is live at yacana.network." and the button disabled.
+  at yacana.network." Deposits closed (`close-deposits`, permanent for the version; a pause does not close
+  them): the note "**Deposits into V5 are closed for good.** Aztec upgrades around Sep 18 and Yacana closed V5's
+  deposits ahead of it. Bridge from Ethereum on V6, at yacana.network, once it opens." and the button disabled.
 - **Progress** — ● Confirm in Rabby — "Rabby asks you to confirm the deposit and shows the gas." → ○ Crossing
   to Aztec · a few minutes → ○ Claim here · one tap. Then ✓ Sent from Rabby · Etherscan ↗ → ● Crossing to Aztec
   · a few minutes → ○ Claim here · one tap, no fee. Footer "You can close this. Wallet shows a **Claim**
@@ -402,13 +457,14 @@ without your passkey. Off: one touch per open." (was "sealed under a device key"
 
 - Change → the row becomes a field with **Save** / **Cancel**. Save → an inline stepper under the field:
   ✓ Reachable · ✓ This deployment · ● Switching · "Rebuilding your view of the chain from the new node. Mining
-  carries on." · then the row again with `custom` and quiet "Use the default".
+  pauses until it's done." (`switchNodeLive` pauses the cockpit) · then the row again with `custom` and quiet
+  "Use the default".
 - A failed probe stays under the field ("Not this deployment's node (it serves rollup 1782110044). Kept
   v5.testnet…"); a rebuild that fails after a good probe too ("Couldn't rebuild your view from
   my-node.example.net: it stopped answering. Kept v5.testnet…"). The old node stays in use in both.
 - Silent: `no answer for 2 min · your view is from 14:02 · mining paused` · **Retry** · **Change**.
 - Throttled: `answering slowly · rate-limited · block 83,117 · 40 s ago` · "Public nodes throttle busy pages.
-  It recovers on its own; your own node never throttles you." · **Change**.
+  It recovers on its own." · **Change**.
 - The Ethereum RPC row is the same with "Sepolia · the bridge is there ✓ · 0.4 s".
 
 **The old origin's Settings** (board OldSettings): Network, Account (the same account as yacana.network,
@@ -447,21 +503,33 @@ Ethereum · the amount, not the account". Button **Send 3.5 tYACA ahead**. Quiet
 Sent: ✓ Proved and sent · block 83,120 → ● Reaching Ethereum · by 14:03 (in 40 min) — "If V5 misses it, the
 balance comes back here." → ○ Held on Ethereum for V6 → ○ Forwarded into V6 — "By Yacana once V6 opens, or by
 you from V6." → ○ You claim it on V6 · one tap. Footer "You can close this. Wallet follows it here, and on V6
-once you log in there." **Done**; quiet "Save a recovery file" with "a recovery file finishes this send from a
-device that never held it". Nothing is clickable but Done while it proves.
+once you log in there." **Done**; quiet "Save a recovery file" with "a recovery file lets another device pick
+this send up". Nothing is clickable but Done while it proves. V6 is "expected" in every sentence before the
+flip: the portal forwards to the canonical registered later version, which need not be V6.
+
+**The last day, four readings** (the portal's `deadline()`): before the upgrade, "for at least 180 days after
+the upgrade; after that, until the upgrade after V6 lands"; after it, "until at least Mar 17 (180 days after
+the upgrade); after that day, until the upgrade after V6 lands"; once the upgrade after V6 is scheduled before
+Mar 17, the date is final ("until Mar 17", later only by paused seconds); past Mar 17 with none scheduled, the
+row turns red, `could close any day` · "The 180 days are over. V5's exits close the day the upgrade after V6
+lands. Claim it now." (the portal records that upgrade in the first call that sees it and closes V5 in that
+same block: a cliff, never a future date). "Later if the next upgrade comes later" is gone: it read as time
+gained.
 
 **How it works** (level 2): the five stages with their times — "Reaches Ethereum with its epoch · usually
 within the hour · V5 must prove the epoch within its deadline, about 40 min after the send (the real time once
 it is in a block). If it doesn't, the balance comes back here." — "Forwarded into V6 · by Yacana, or by you ·
 Yacana runs a relayer (an address its multisig lists) that forwards held sends once V6 opens. You can forward
 yours from V6 with an Ethereum wallet paying gas. Forwarding ends the option below." — and the note "If V6
-never opens, or Yacana is late: this account can redeem it on Ethereum as YACA instead, until at least Mar 17
-(180 days after the upgrade; later if the bridge pauses or the next upgrade comes later)."
+never opens, or Yacana is late: this account can redeem it on Ethereum as YACA instead, for at least 180 days
+after the upgrade; after that, until the upgrade after V6 lands. A pause or the exit limit can delay it."
 
 **The Wallet row** — `3.5 tYACA → V6` · `held for V6` · "Held on Ethereum for V6, out of V5's reach. Yacana
 forwards it into V6 once V6 opens; you can too, from V6." + "Or redeem it on Ethereum as YACA, until at least
 Mar 17 (…)". Six hours after V6 opened with nothing forwarded: `longer than usual` · "Yacana hasn't forwarded
-it yet. Forward it yourself from V6, or check the Ethereum RPC in Settings." V6 live but unregistered:
+it yet. Forward it yourself from V6, or check the Ethereum RPC in Settings." (the clock starts when V6 opens,
+not when the send was held: a send held three days before the upgrade is not "longer than usual" on day one;
+§9.1.12). V6 live but unregistered:
 `waiting for Yacana` · "V6 is live, but Yacana hasn't opened its contract there yet. You can redeem it on
 Ethereum meanwhile." **Redeem on Ethereum**. Board AheadRows draws the six rows to "claimed".
 
@@ -482,11 +550,18 @@ quiet "or bridge to Ethereum" · "Then claim it on V6 with one tap, at yacana.ne
 activity rows below. Advanced: recovery file · restore (no "forward it myself": forwarding happens on V6).
 Silent (no proof for hours): the chip amber and the body "V5 hasn't proved an epoch for 3 hours and may have
 stopped. A send it never proves comes back here; one it proves is held on Ethereum for V6." Signed out: "Log in
-to see what's still here." **Log in** (the Log in screen with the restore note). Quiet (last day passed): the
-chip `V5 stopped proving · Sep 21`; title "V5's last day has passed. Nothing more can leave."; body "What V5
-proved in time is on V6, or held on Ethereum for it. What was still here can no longer leave."; the card `1.2
-tYACA · cannot leave · Left here after V5 stopped proving.` Tabs: Send ahead, Settings, Stats ↗. No Wallet
-tab, no landing, no mining, no deposits.
+to see what's still here." **Log in** (the Log in screen with the restore note). Quiet (V5 stopped proving, a
+few days after the flip; the last day is months later and is a row state, not a page state): the chip `V5
+stopped proving · Sep 21`; title "V5 has stopped proving. Nothing more can leave."; body "What V5 proved in
+time is on V6, or held on Ethereum for V6, redeemable until at least Mar 17. What was still here when it
+stopped can no longer leave."; the card `1.2 tYACA · cannot leave · Left here when V5 stopped proving.`; the
+held row stays (it can still be forwarded or redeemed). Tabs: Send ahead, Settings, Stats ↗. No Wallet tab, no
+landing, no mining, no deposits. The activity's second row sends at 14:12 with its deadline at 14:52. Node gone
+(the runbook retires V5's node long before the last day; board OldOriginGone): the chip `V5's node has shut
+down`; title "V5's node has shut down. Nothing more can leave from here."; body "What V5 proved in time is on
+V6, or held on Ethereum for V6: see it at yacana.network. A device that never held a send restores its
+recovery file there."; the card "Logging in here needed V5's node, and it is gone." **Open yacana.network**. No
+log in, no Change node: the page has nothing to read.
 
 **V6, first login** — the Wallet row `3.5 tYACA from V5` · `ready to claim` · "Arrived from V5. Claim it into
 your balance: one tap, about 20 s, no fee." **Claim**. Before the forward: `held for V6` on V6 too, with
@@ -510,25 +585,25 @@ The full deck is the CopyDeck board (41 rows). The rows that changed in v2:
 | Where | Before | After |
 |---|---|---|
 | Sign-in | Keep the passkey synced… it opens this account on every device | Keep it in a password manager that syncs and it opens this account on the devices that manager syncs to. Lose every copy and the account is lost; Yacana can't recover it. |
-| Sign-in | (one error for everything) | six notes: dismissed · can't make a Yacana passkey · no passkeys in this browser · no passkey for Yacana here · belongs to a different account · another tab holds it |
+| Sign-in | (one error for everything) | six notes: dismissed or timed out · can't make a Yacana passkey · no passkeys in this browser · sign-in didn't complete (no passkey here, or dismissed) · this device can't open a Yacana passkey · another tab has it open: close it, then retry |
 | Sign-in | passkey · synced | passkey |
 | Opening | Preparing the prover | Preparing your miner |
-| Mine | escape hatch · if it closed now | closes anyway · next bar if it closed now |
+| Mine | escape hatch · if it closed now | anyone can close it · next bar if it closed now |
 | Mine | ✓ claim in block 83,164 · 4 tYACA minted | ★ a win · claiming, about 20 s → ✓ minted in block 83,164 ↗ · 4 tYACA, privately |
 | Mine | (Presto silently falls back) | ✦ Presto stopped answering. Proving in the browser meanwhile · Retry when it's back |
 | Header | testnet (amber) | testnet (neutral) |
 | Wallet | mining claims · 12 | wins · 12 |
-| Wallet | (a disabled button, no reason) | Deposits are closed until V6 opens, at yacana.network. / The Ethereum RPC isn't answering: bridging waits until it does. |
+| Wallet | (a disabled button, no reason) | Deposits into V5 are closed for good. Bridge from Ethereum on V6, at yacana.network, once it opens. / The Ethereum RPC isn't answering: bridging waits until it does. |
 | Wallet | Send (a two-step sheet) | Send to an account. · Privately \| Publicly · Fee: none · Yacana sponsors it · Send 1 tYACA privately |
 | Rows | proved › proven to Ethereum › claim on Ethereum | sent › block 83,131 › reached Ethereum › claim on Ethereum |
-| Rows | proving to Ethereum | on its way to Ethereum |
-| Rows | (no sentence for six states) | didn't finish · not included · waiting for the limit · over the limit · last day passed · waiting for Yacana · longer than usual · arriving on V6 |
+| Rows | proving to Ethereum | reaching Ethereum (the chip and the trail say the same word) |
+| Rows | (no sentence for six states) | checking · didn't finish · not included · waiting for the limit · over the limit · last day passed · waiting for Yacana · longer than usual · arriving on V6 |
 | Rows | claimed | claimed · final once its epoch is proven, usually within the hour |
 | To Ethereum | Arrives · about an hour | Arrives · usually within the hour; then you claim it there |
-| To Ethereum | Proven to Ethereum (the active step) | Reaching Ethereum · by 17:03 at the latest. If V5 misses that, the balance comes back here. |
+| To Ethereum | Proven to Ethereum (the active step) | Reaching Ethereum · usually within the hour. V5 must prove it by 17:03. If it doesn't, the balance comes back here. |
 | To Ethereum | (a pasted address, no second look) | the full address · pasted · not your connected wallet · Check every character. A bridge can't be recalled. |
 | Claim | To · Rabby 0x90F7…b906 · Gas · paid by your wallet | To · 0x90F7…b906 · chosen when you bridged · Paid by · Rabby, in Sepolia ETH / Rabby is on Ethereum mainnet: Switch Rabby to Sepolia / Rabby rejected it. Nothing was claimed. |
-| From Ethereum | (no closed state) | Deposits are closed until V6 opens. Aztec upgrades around Sep 18; Yacana closed V5's deposits the day before. |
+| From Ethereum | (no closed state) | Deposits into V5 are closed for good. Aztec upgrades around Sep 18 and Yacana closed V5's deposits ahead of it. |
 | Send ahead | Leaves V5 · within the hour · Lands on V6 · when you log in there, one tap | Leaves V5 · usually within the hour · Then · held on Ethereum; Yacana forwards it into V6 (or you do, from V6) · On V6 · you claim it, one tap |
 | Send ahead | Whole balance by default (a helper) | balance 3.5 tYACA |
 | Send ahead | Held for V6 → Lands on V6 when you log in | Held on Ethereum for V6 → Forwarded into V6 · by Yacana once V6 opens, or by you from V6 → You claim it on V6 |
@@ -538,7 +613,7 @@ The full deck is the CopyDeck board (41 rows). The rows that changed in v2:
 | Upgrade | V5 proving ✓ · last proof 12 min ago | V5 proved an epoch 12 min ago / no proof from V5 for 3 h / V5 stopped proving · Sep 21 |
 | Old origin | Move out (the tab) | Send ahead |
 | Old origin | Your balance is safe here while V5 keeps proving | Your balance can still leave while V5 keeps proving, and V5 can stop at any time: send it ahead to V6 now, or bridge it to Ethereum. |
-| Old origin | Sends proven in time are safe… What was still here is gone. | What V5 proved in time is on V6, or held on Ethereum for it. What was still here can no longer leave. |
+| Old origin | Sends proven in time are safe… What was still here is gone. | V5 has stopped proving. Nothing more can leave. What V5 proved in time is on V6, or held on Ethereum for V6, redeemable until at least Mar 17. What was still here when it stopped can no longer leave. |
 | Old origin | advanced · forward it myself | (removed; forwarding happens on V6) |
 | Settings | off: one touch per open · on: sealed under a device key | On: anyone who can use this browser could open and spend from this account without your passkey. Off: one touch per open. |
 | Settings | (the row goes quiet) | no answer for 2 min · your view is from 14:02 · mining paused · Retry / answering slowly · rate-limited |
@@ -560,9 +635,10 @@ The full deck is the CopyDeck board (41 rows). The rows that changed in v2:
 
 The uncertain moments are three: the days before an upgrade, the hours after it (V5 still proving), and the
 "stopped proving" end. The rule: at level 1 say the fact, the next step, and the one consequence of not acting;
-at level 2 the stages with times and who does what; at level 3 the contract. Never a bet, never "safe": a send
-is safe once V5 proves it (it is then on Ethereum, held for this account), a balance on V5 never is, and the
-copy says exactly that much. The live chip (`V5 proved an epoch 12 min ago`) does the reassuring because it is
+at level 2 the stages with times and who does what; at level 3 the contract. Never a bet, never "safe": a
+proven send is on Ethereum, held for this account, and still needs forwarding or redeeming before V5's last
+day; a balance on V5 can lose its way out at any time; the copy says exactly that much and no more. The last
+day itself has four readings (§5.9), and the only one that promises a date is the one where the portal has it. The live chip (`V5 proved an epoch 12 min ago`) does the reassuring because it is
 true and it updates; silence reads as silence (`no proof from V5 for 3 h`, amber), and "stopped" appears only
 once the stop is recorded. The deadline is a time and a countdown beside the step it governs, once it exists;
 the outcome of missing it is a fact in plain words ("the balance comes back here"). The last day is "at least
@@ -574,8 +650,8 @@ redeem afterwards). Redeem-on-Ethereum lives under the row's sentence and in Det
 
 ### 9.1 Defects (fix regardless of the design)
 
-1. Two account records can coexist (`keys/store.ts`, `WelcomeBack` lists all): a single slot with fail-closed
-   create/login and `excludeCredentials`; existing double records survive until one is signed out.
+1. Two account records can coexist (`keys/store.ts`, `WelcomeBack` lists all); existing double records
+   survive until one is signed out (the single slot is decision 9.2.12).
 2. The opening bar: `notes` is indeterminate and weighted 15 while it is the long stage; the weights should
    follow measured durations, and the sync should report blocks if the PXE exposes them.
 3. The chart's `−3 min` before any sample; the bar step and the win mark share one x mapping and the mark's
@@ -588,9 +664,17 @@ redeem afterwards). Redeem-on-Ethereum lives under the row's sentence and in Det
    version" inside `V${…}`.
 8. The logo is a `<span>` in the miner and stats apps.
 9. The old origin serves the landing at `/` and keeps the full tab bar.
-10. A `proving` record that survives a reload without a hash never moves (`afterTx` needs `f.tx`): expire
-    hashless `proving` records on load into "didn't finish".
-11. Presto probed at cockpit-ready (`boot.ts:159`): move to Start mining.
+10. A `proving` record that survives a reload without a hash: the session recovers the hash by the send's log
+    tag (`session.ts` `txByTag`, read when `!c.txHash`), but a send that never reached the chain returns
+    nothing and the record stays `proving` for ever (`afterTx` returns on `!f.tx`). Show "checking" while the
+    tag has no log; expire into "didn't finish" only once the transaction's own expiry has passed with no log.
+11. `ChainViewHeldError` has no takeover: the other tab's connection must close (`wallet.ts:99`); the dialog
+    offers Retry, never "Continue here".
+12. `takingLong` (`bridge/copy.ts`) counts from the record's `updatedAt`, the moment it entered `held`, which
+    before the flip is when it was witnessed: a send held days before the upgrade reads "longer than usual"
+    while V6 does not exist (`TakingLongDialog` has the same bug). The clock starts at the later of held-at and
+    V6's `VersionRegistered`, and runs only while `canonicalRegistered`.
+13. A "didn't finish" row stays re-adoptable by its tag: a log found later moves it on, never a final state.
 
 ### 9.2 Design decisions the code must follow
 
@@ -606,20 +690,45 @@ redeem afterwards). Redeem-on-Ethereum lives under the row's sentence and in Det
 9. The old origin's tab is "Send ahead"; its Settings has Account; no forward action there.
 10. The mining ledger says "claiming" between ★ and ✓; wins are "wins".
 11. `OldTabNotice` copy stays; it is a redeploy guard, not this pass.
+12. One account per browser: a single slot with fail-closed create/login and `excludeCredentials`.
+13. Presto is probed at Start mining, not at cockpit-ready (`boot.ts:159`).
+14. The pause never disables a money button; the row says the claim waits. `deposit` needs the version
+    registered and deposits not closed; `forward` and `redeem` need the bridge open (not paused, within the
+    limit, before the last day).
+15. The claim dialog maps the portal's revert names from the ABI (`WaitsForHeadroom`, `VersionPaused`,
+    `DeadlinePassed`) to the row's sentences.
+16. The old origin's opening never offers Change node; with V5's node gone it shows the "node gone" page.
+17. The chips are one word per state everywhere: "reaching Ethereum", "arriving", "could close any day".
 
 ### 9.3 Capabilities the design needs and the app lacks
 
-1. **The proving chip's source.** "V5 proved an epoch 12 min ago" needs the page to record when the proven
-   checkpoint last advanced (the session reads the number, not its time); "no proof for 3 h" is the same
-   record aged; "stopped" is the runbook's recorded stop or the deadline.
+1. **The proving chip's source.** "V5 proved an epoch 12 min ago" takes its time from Ethereum: the block
+   timestamp of the rollup's last proof-verified event, read through the Ethereum RPC (never the moment this
+   page noticed the checkpoint move, which proves nothing about when Ethereum received the proof); "no proof
+   for 3 h" is that timestamp aged; "stopped" is the runbook's recorded stop (§9.3.9), never the deadline.
 2. **The forward step.** `held` → `forwarded` is read today; the row needs the "longer than usual" clock
    (`takingLong`, 6 h) surfaced as a row state, not a dialog.
 3. **The claim's settlement.** `claimSettled` drives "final once its epoch is proven" and the pruned-claim
    re-offer sentence; the mining ledger's ✓ needs the same signal.
-4. **The deadline sentence.** `deadline()` is `max` until both transitions are recorded: the page shows "at
-   least <flip + 180 d>" from the flip alone, the date once set (+ paused seconds).
+4. **The deadline's four readings.** `deadline()` is `max` until both transitions are recorded; when the
+   version after next is observed after the floor, the observation itself is the deadline (`_sync` writes
+   `block.timestamp`), so V5 closes in that block. The page reads `flipAt`, `afterNextAt` and `pausedSeconds`:
+   no flip → "for at least 180 days after the upgrade"; flip, no after-next, before the floor → "until at least
+   <flip + 180 d>; after that day, until the upgrade after V6 lands"; after-next before the floor → the date,
+   final but for paused seconds; past the floor with no after-next → `could close any day`. A shown date is
+   re-read at every refresh (an `unpause` refunds unused seconds).
+8. **The payer's ETH.** The claim dialog needs the connected wallet's Sepolia ETH balance (and a gas estimate)
+   before asking the wallet, so "no ETH for the gas" is a state, not the wallet's own error.
+9. **The stopped-proving record.** "V5 stopped proving · Sep 21" needs the runbook's recorded stop (or the
+   chip's age past a threshold the operator sets); the page never infers a stop from one silent hour.
+   `docs/upgrades.md` has no such step today: the blueprint adds one, or the age rule.
+10. **The old origin's "node gone" page** needs the page to tell "V5's node is retired" from "no answer for
+    2 min": a served flag in the record (the runbook's node-retirement step), not a timeout.
 5. **Presto's fallback row**: the SDK's `FallbackReason` and the invalid-proof cause, one line each, with
    Retry; the pill follows what proved.
-6. **The recovery file's prompt** after a send-ahead (the runbook's device-that-never-held-it case).
+6. **The recovery file's prompt** after a send-ahead (the runbook's device-that-never-held-it case). The file
+   carries the record and whatever the journal knows at save time; a restore re-reads the chain and the
+   served witness archive, so a file saved before the proof still completes, and the page offers to save it
+   again once the witness is known.
 7. **Whether the PXE's burn/claim/send-ahead proofs could run through Presto** is a question for the SDK,
    not this pass; the stepper says "in your browser" until then.

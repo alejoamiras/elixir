@@ -25,7 +25,7 @@ PASSKEY_NOTE = note("Your passkey is the only key.",
 
 
 def create(error: bool = False):
-    err = note("That didn't work.", "The passkey prompt was dismissed. Try again, or use 12 words.", "bad") if error else ""
+    err = note("That didn't work.", "The passkey prompt was dismissed or timed out. Try again, or use 12 words.", "bad") if error else ""
     inner = (head("create account", "Create your account.",
                   "A passkey signs you in with your face, fingerprint or device PIN. Nothing to write down.")
              + PASSKEY_NOTE
@@ -47,7 +47,7 @@ WORDS = ["ripple", "canyon", "shadow", "velvet", "orbit", "maple", "signal", "ha
 
 
 def words_create(confirm: bool = False):
-    cells = "".join(f'<div style="display:flex;gap:8px;align-items:baseline;border:1px solid var(--line);border-radius:6px;padding:8px 10px;font:500 13px var(--mono)"><span class="ink4" style="font-size:10.5px">{i+1:02d}</span><span>{"••••••" if confirm else w}</span></div>'
+    cells = "".join(f'<div style="display:flex;gap:8px;align-items:baseline;border:1px solid var(--line);border-radius:6px;padding:8px 10px;font:500 13px var(--mono)"><span class="ink3" style="font-size:10.5px">{i+1:02d}</span><span>{"••••••" if confirm else w}</span></div>'
                     for i, w in enumerate(WORDS))
     grid = f'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">{cells}</div>'
     conf = ""
@@ -63,12 +63,15 @@ def words_create(confirm: bool = False):
     return page(f'<div style="padding:26px">{dialog(inner, W, back=True)}</div>', W + 52)
 
 
-def words_login(error: bool = False):
+def words_login(error: str = ""):
+    last = "quartz" if error == "checksum" else "quartzz"
     ta = ('<div class="field" style="height:auto;min-height:92px;align-items:flex-start;padding:10px 12px;line-height:1.6' + (';border-color:var(--bad)' if error else '') + '">'
-          '<span>ripple canyon shadow velvet orbit maple signal harbor cobalt meadow lantern quartzz</span></div>' if error else
+          f'<span>ripple canyon shadow velvet orbit maple signal harbor cobalt meadow lantern {last}</span></div>' if error else
           '<div class="field" style="height:auto;min-height:92px;align-items:flex-start;padding:10px 12px;line-height:1.6">'
           '<span>ripple canyon shadow velvet orbit maple signal <span class="ph">…</span></span></div>')
-    under = ('<div class="under"><span class="bad">Word 12 isn\'t in the list: check "quartzz".</span><span>12 of 12</span></div>' if error
+    msg = ("These 12 words don\'t form a valid phrase: one is off. Check each against what you saved." if error == "checksum"
+           else 'Word 12 isn\'t in the list: check "quartzz".')
+    under = (f'<div class="under"><span class="bad">{msg}</span><span>12 of 12</span></div>' if error
              else '<div class="under"><span>7 of 12</span></div>')
     inner = (head("log in · 12 words", "Enter your 12 words.", "Type or paste the words you saved.")
              + '<p class="sm ink3">You\'re on <b class="ink2">yacana.network</b>. Yacana never asks for your words in chat, email or support.</p>'
@@ -89,7 +92,7 @@ def welcome(method: str = "passkey"):
 def account_errors():
     """The six ways the account dialog fails, each a note under the button that stays."""
     d1 = dialog(head("create account", "Create your account.", "A passkey signs you in with your face, fingerprint or device PIN.")
-                + note("That didn't work.", "The passkey prompt was dismissed. Try again, or use 12 words.", "bad")
+                + note("That didn't work.", "The passkey prompt was dismissed or timed out. Try again, or use 12 words.", "bad")
                 + btn("Continue with passkey", "uv lg full", icon="finger") + links("Use 12 words instead"), W, back=True)
     d2 = dialog(head("create account", "Create your account.", "A passkey signs you in with your face, fingerprint or device PIN.")
                 + note("This device can't make a Yacana passkey.", "Its passkeys can't derive a key. Use 12 words instead; they work everywhere.", "bad")
@@ -98,22 +101,22 @@ def account_errors():
                 + note("This browser has no passkeys.", "Use a current Chrome, Safari, Edge or Firefox; or use 12 words.", "bad")
                 + btn("Use 12 words", "uv lg full") + links("Back"), W, back=True)
     d4 = dialog(head("log in", "Welcome back.", "Log in with the passkey you created, or your 12 words.")
-                + note("No passkey for Yacana on this device.", "Log in on the device that has it, or enter your 12 words if the account has them.", "bad")
+                + note("Sign-in didn't complete.", "No passkey was used. If this device has none for Yacana, log in where you created it, or enter your 12 words.", "bad")
                 + btn("Continue with passkey", "uv lg full", icon="finger") + links("Use 12 words instead"), W, back=True)
     d5 = dialog(head("log in", "Welcome back.")
                 + '<div class="row sb" style="border:1px solid var(--line-2);border-radius:8px;padding:12px 14px"><span class="acct" style="border:0;padding:0"><i></i>0x22a9db…612a</span><span class="x2 mono ink3">passkey</span></div>'
-                + note("That passkey belongs to a different account.", "This browser holds 0x22a9…612a. Sign that account out first to switch; it asks about backup before it goes.", "warn")
-                + btn("Open with passkey", "uv lg full", icon="finger") + links("Use a different account", "Just watch for now"), W)
+                + note("This device can't open a Yacana passkey.", "Its passkeys can't derive the key. Log in on a device whose passkeys can, or enter your 12 words.", "bad")
+                + btn("Enter 12 words", "uv lg full") + links("Try another device", "Just watch for now"), W)
     d6 = dialog(head("account", "Opening your account.")
-                + note("Another tab holds this account.", "Close it, or continue here; that tab stops mining.", "warn")
-                + f'<div class="row" style="gap:10px">{btn("Continue here", "uv")}{btn("Cancel", "ghost")}</div>', W, close=False)
+                + note("Another tab has this account open.", "Close that tab, then retry here.", "warn")
+                + f'<div class="row" style="gap:10px">{btn("Retry", "uv")}{btn("Cancel", "ghost")}</div>', W, close=False)
     body = ('<div class="board"><span class="lm">the account dialog · every failure</span>'
-            '<p>Each failure is one note under the button, one line what happened and one what to do. The button stays. Where a passkey cannot work on this device, the primary becomes the words.</p>'
+            '<p>Each failure is one note under the button, one line what happened and one what to do. The button stays. Where a passkey cannot work on this device, the primary becomes the words. "Dismissed" and "no passkey here" are one browser error, so the log-in note covers both.</p>'
             f'<div class="grid" style="grid-template-columns:repeat(3,{W}px);gap:22px;align-items:start">{d1}{d2}{d3}{d4}{d5}{d6}</div></div>')
     return page(body, 1440)
 
 
-def opening(stage: int = 3):
+def opening(stage: int = 3, intent: str = "mine"):
     items = [("Passkey confirmed", "done", ""),
              ("Preparing your miner", "done" if stage > 2 else "on", "first time only"),
              ("Syncing your private balance", "on" if stage == 3 else ("done" if stage > 3 else "todo"), "block 83,102 of 83,117" if stage == 3 else ""),
@@ -129,7 +132,8 @@ def opening(stage: int = 3):
            if stage == 3 else ('<p class="sm ink3">Kept on this device; next time this step is skipped.</p>' if stage == 2 else ""))
     inner = (head("account", "Opening your account.")
              + checklist(items) + bar + sub
-             + '<div class="row sb" style="border-top:1px solid var(--line);padding-top:14px"><span class="xs ink3">Mining starts when this finishes. Cancel keeps you watching the chain.</span>'
+             + '<div class="row sb" style="border-top:1px solid var(--line);padding-top:14px"><span class="xs ink3">'
+             + ("Mining starts when this finishes." if intent == "mine" else "You can start mining when this finishes.") + ' Cancel keeps you watching the chain.</span>'
              + btn("Cancel", "sm") + "</div>")
     return page(f'<div style="padding:26px">{dialog(inner, W, close=False)}</div>', W + 52)
 

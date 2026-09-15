@@ -8,9 +8,9 @@ RULES = [
     ("The sentence first, the mechanism one level down.", "A card says what is true and what happens next; \"How it works\" opens the stages; the contract's rules live on /faq#rules."),
     ("Say what happens next, not how the machine works.", "\"Reaches Ethereum usually within the hour\" beats \"proven to Ethereum with its epoch\". Balance, send, claim, bridge; not burn, exit, witness."),
     ("Risk only where the user can act, said once.", "The host-trust sentence lives on /faq and in Settings › About. A deadline sits beside the button that meets it."),
-    ("Every wait is a stepper.", "Named stages, a checkmark per stage, a time expectation once, a bar where bytes or blocks are known. Never a spinner, never a label on a button as the only status."),
+    ("Every wait is a stepper.", "Named stages, a checkmark per stage, a time expectation once, a bar where bytes or blocks are known. Never a spinner, never a label on a button as the only status; \"keep this tab open\" only while the browser is still proving, never after a send."),
     ("Buttons are verb + noun and carry the amount.", "\"Bridge 3.5 tYACA\", \"Claim on Ethereum\", \"Send 3.5 tYACA ahead\". Sentence case, no period."),
-    ("Deadlines are facts, not bets; nothing is \"safe\".", "\"By 14:03 (in 40 min)\" and what happens after it: \"If V5 misses it, the balance comes back here.\" A send is safe once V5 proves it; a balance on V5 never is, so the word never appears."),
+    ("Deadlines are facts, not bets; nothing is \"safe\".", "\"By 14:03 (in 40 min)\" and what happens after it: \"If V5 misses it, the balance comes back here.\" A proven send still needs forwarding or redeeming before V5's last day, and a balance on V5 can lose its way out at any time; so the word never appears."),
     ("Settings edit in place.", "One field per value, Save probes it, the old value stays live until the probe passes, the error sits under the field."),
     ("Four destinations, a gear, an account chip.", "Icon + label on the phone, text tabs on the desktop; the logo is the app's home; Testnet is a neutral tag."),
     ("The old origin has one job.", "Get what's left out: the balance, one button, the activity, the settings that make it work. Nothing else."),
@@ -19,7 +19,7 @@ RULES = [
 
 def principles():
     rules = "".join(f"<div><div><b>{t}</b><span>{s}</span></div></div>" for t, s in RULES)
-    body = ('<div class="board"><span class="lm">yacana polish · the design pass · v2</span><h1>Ten rules, then the flows.</h1>'
+    body = ('<div class="board"><span class="lm">yacana polish · the design pass · v3</span><h1>Ten rules, then the flows.</h1>'
             '<p>What the owner saw on the live site, turned into a design the app can be proud of. Read this board, then the flows left to right: account → mine → wallet → the transaction dialog → the upgrade → settings → navigation and the phone. Boards marked A/B/C are picks; the recommended one is outlined. Every sentence on a board was checked against the portal contract and the crossing journal.</p>'
             f'<div class="rules">{rules}</div></div>')
     return page(body, 1000)
@@ -73,24 +73,24 @@ DECK = [
     ("Sign-in", "Sign up with a passkey · Use twelve words instead · I already have a passkey · I have twelve words · Not now — just watch", "Create account · Log in · then Continue with passkey · Use 12 words instead · Just watch for now"),
     ("Sign-in", "I understand my passkey is the only way back into this account. There is no backup of a passkey. + Keep the passkey synced. Lose every copy of the passkey and the account and its balance are lost with it.", "Your passkey is the only key. Keep it in a password manager that syncs and it opens this account on the devices that manager syncs to. Lose every copy and the account is lost; Yacana can't recover it. ☐ I understand my passkey is the only way into this account. (unchecked; the button waits for it)"),
     ("Sign-in", "Welcome back. · Use another passkey · Enter twelve words instead · Create a new account", "Welcome back. · Open with passkey · Just watch for now · Use a different account (opens Sign out first, with its backup check)"),
-    ("Sign-in", "(one error for everything)", "That didn't work: the passkey prompt was dismissed · This device can't make a Yacana passkey: use 12 words · This browser has no passkeys · No passkey for Yacana on this device · That passkey belongs to a different account · Another tab holds this account"),
+    ("Sign-in", "(one error for everything)", "That didn't work: the passkey prompt was dismissed · This device can't make a Yacana passkey: use 12 words · This browser has no passkeys · Sign-in didn't complete · That passkey belongs to a different account · Another tab has this account open: close it, then retry"),
     ("Opening", "A minute the first time. The proving keys are 20 MB, fetched once and kept. After that, opening takes a few seconds.", "Opening your account. ✓ Passkey confirmed · Preparing your miner (first time only, 13 of 20 MB) · Syncing your private balance — reading your notes from the chain, usually under a minute · Ready to mine · Mining starts when this finishes."),
     ("Everywhere", "Whoever serves this page controls it: run your own build if that matters. (six places)", "Once, in Settings › About: Yacana runs in your browser. Whoever serves this page controls it; the source is public — run your own build if that matters. + /faq"),
     ("Mine", "Sign in to mine (the cockpit dimmed) · −3 min", "Start mining (full contrast) · since 16:05 → last 3 min"),
     ("Mine", "1 claim this session · account 0x22a9…612a", "(removed — the KPI already says 1 win · 4 tYACA this session)"),
-    ("Mine", "escape hatch · if it closed now", "closes anyway · next bar if it closed now"),
+    ("Mine", "escape hatch · if it closed now", "anyone can close it · next bar if it closed now"),
     ("Mine", "✓ claim in block 83,164 · 4 tYACA minted", "★ a win · claiming, about 20 s → ✓ minted in block 83,164 ↗ · 4 tYACA, privately"),
     ("Mine", "Presto’s speed setting in its app decides the threads; this slider applies when proving in the browser.", "✦ Presto · native prover · 12 threads, set in the Presto app · Open Presto ↗ / Presto stopped answering. Proving in the browser meanwhile · Retry when it's back"),
     ("Mine", "Your browser blocked local access. Allow local network access for this site, then retry. (on page load)", "(at Start mining) Presto is installed, but the browser blocks local access. Allow it for this site, then retry; or mine in the browser."),
     ("Header", "testnet · fees sponsored (amber)", "testnet (a neutral tag)"),
     ("Wallet", "nothing crossing · Withdrawals to Ethereum, deposits from it and moves to the next Aztec version show here, with where they are.", "Nothing crossing yet. Bridges and send-aheads show here, with where they are. (on V6: Sent ahead from V5 on another device? It shows here once Yacana forwards it; until then, restore its recovery file.)"),
     ("Wallet", "mining claims · 12", "wins · 12"),
-    ("Wallet", "Yacana may forward send-aheads to V6 by hand; feel free to bridge or send ahead yourself.", "(on the row) Held on Ethereum for V6, out of V5's reach. Yacana forwards it into V6 once V6 opens; you can too, from V6. Or redeem it on Ethereum as YACA, until at least Mar 17 (…)."),
-    ("Wallet", "(a disabled button, no reason)", "Deposits are closed until V6 opens, at yacana.network. / The Ethereum RPC isn't answering: bridging waits until it does. Settings"),
+    ("Wallet", "Yacana may forward send-aheads to V6 by hand; feel free to bridge or send ahead yourself.", "(on the row) Held on Ethereum for V6, out of V5's reach. Yacana forwards it into V6 once V6 opens; you can too, from V6. Or redeem it on Ethereum as YACA, until at least Mar 17 (…), while the bridge is open."),
+    ("Wallet", "(a disabled button, no reason)", "Deposits into V5 are closed for good. Bridge from Ethereum on V6, at yacana.network, once it opens. / The Ethereum RPC isn't answering: bridging waits until it does. Settings"),
     ("Wallet", "Send (a sheet in two steps)", "Send to an account. · 1.00 tYACA · to 0x… · Privately | Publicly · Fee: none · Yacana sponsors it · Visible: nothing; a private transfer · Send 1 tYACA privately"),
     ("To Ethereum", "bridge to ethereum · step 1 of 2 → step 2 of 2 · fees: none here · gas on Ethereum when you claim · claimable: usually within the hour · undone if the epoch is never proven", "Bridge to Ethereum (one screen) · Arrives: usually within the hour; then you claim it there · Fee: none here · gas in ETH when you claim, from the wallet that claims"),
     ("To Ethereum", "Public on Ethereum. 0x90F7…b906 receives 1 YACA; anyone can see that.", "Visible on Ethereum · the amount and 0x90F7…b906; not this account"),
-    ("To Ethereum", "Proving and sending… (the button) · ✓ burned in block 83,074 (on the amount) · pending: claim on Ethereum · 0xEf4d…5f2d — from the wallet page", "● Proving privately · 12 s (a bar; in your browser, Presto proves only mining work) → ✓ Proved and sent · block 83,074 → ● Reaching Ethereum · usually within the hour, by 17:03 at the latest → ○ Claim on Ethereum"),
+    ("To Ethereum", "Proving and sending… (the button) · ✓ burned in block 83,074 (on the amount) · pending: claim on Ethereum · 0xEf4d…5f2d — from the wallet page", "● Proving privately · 12 s (a bar; in your browser, Presto proves only mining work) → ✓ Proved and sent · block 83,074 → ● Reaching Ethereum · usually within the hour; V5 must prove it by 17:03 → ○ Claim on Ethereum"),
     ("To Ethereum", "Progress stays in Wallet; claim it there once it is proven.", "You can close this. Wallet shows the progress and a Claim button when it's ready."),
     ("To Ethereum", "Proven. Claim it on Ethereum with a wallet: one transaction, you pay the gas.", "Ready. Claim it on Ethereum with a wallet on Sepolia; that wallet pays the gas in ETH."),
     ("Claim", "(the wallet's own prompts)", "To · 0x90F7…b906 · chosen when you bridged · Paid by · Rabby, in Sepolia ETH · Then · 1 YACA at that address / Rabby is on Ethereum mainnet: Switch Rabby to Sepolia / Rabby rejected it. Nothing was claimed."),
@@ -104,10 +104,15 @@ DECK = [
     ("Old origin", "Mining has ended on this version. Yacana lives at yacana.network now; this is the old app, kept open so your balance can leave: send ahead to the next version, or to Ethereum, from the wallet. (+ the bet)", "Mining moved to V6 at yacana.network. Your balance can still leave while V5 keeps proving, and V5 can stop at any time: send it ahead to V6 now, or bridge it to Ethereum."),
     ("Old origin", "Open with passkey or words · This is another origin, so the passkey asks once and twelve words are typed again. Accounts are restored here, not created.", "Log in · Accounts are restored here, not created. The passkey or 12 words from yacana.network open it."),
     ("Old origin", "(after the last day) …", "V5's last day has passed. Nothing more can leave. What V5 proved in time is on V6, or held on Ethereum for it. What was still here can no longer leave."),
-    ("Settings", "Another node · Check · Use this node · Applies at once; your account's view of the chain is rebuilt from the new node (about a minute) and mining carries on. The page checks any node against this deployment before it reads a number from it.", "Change · Save · Cancel · ✓ Reachable · ✓ This deployment · ● Switching · rebuilding your view, about a minute / no answer for 2 min · Retry · Change / answering slowly · rate-limited"),
+    ("Settings", "Another node · Check · Use this node · Applies at once; your account's view of the chain is rebuilt from the new node (about a minute) and mining carries on. The page checks any node against this deployment before it reads a number from it.", "Change · Save · Cancel · ✓ Reachable · ✓ This deployment · ● Switching · rebuilding your view, about a minute, mining pauses / no answer for 2 min · Retry · Change / answering slowly · rate-limited"),
     ("Settings", "off: one touch per open · on: sealed under a device key", "On: anyone who can use this browser could open and spend from this account without your passkey. Off: one touch per open."),
     ("Settings", "Copy diagnostics (shortened) · The last 200 lines, addresses shortened. It names this account's claims and the node's host.", "(removed)"),
     ("Sign out", "Hold to sign out · Can't hold? Sign out with a click · Signing out returns to the sign-in screen…", "Sign out? · Your passkey logs you back in. Your balance stays with the account. Mining stops. · Sign out / Cancel"),
+    ("Rows", "(no reading of the last day after the 180 days)", "could close any day · The 180 days are over. V5's exits close the day the upgrade after V6 lands. Claim it now. (until then: until at least Mar 17; after that day, until the upgrade after V6 lands)"),
+    ("Mine", "Presto stopped answering (one line for eleven reasons)", "a line per reason: Presto hasn't approved yacana.network yet · in a cooldown after a denial · busy: three proofs refused · returned a proof that didn't verify · needs an update · encrypted connection off · stopped answering · is fetching its prover (not a fault) · the browser blocks local access"),
+    ("Old origin", "(nothing once V5's node is gone)", "V5's node has shut down. Nothing more can leave from here. What V5 proved in time is on V6, or held on Ethereum for V6: see it at yacana.network."),
+    ("Sign-in", "Word 12 isn't in the list (the only words error)", "+ These 12 words don't form a valid phrase: one is off. · (an empty account after a words login) Expected a balance? A mistyped word opens a different, empty account: check your words."),
+    ("Send", "(no field errors; the sheet refuses silently)", "Enter an amount. · More than your balance. · That's this account. · Not an Aztec address: 66 characters, starting with 0x."),
     ("Sheets", "step titles at 22 % ink, their details at 64 %", "titles ink-2, the active one ink, details ink-3"),
 ]
 
@@ -159,7 +164,8 @@ def bridge_sheet(keyboard: bool = False) -> str:
             + srow("Fee", "none here · gas in ETH when you claim") + srow("Visible on Ethereum", "the amount and 0x90F7…b906; not this account"))
     tail = f'<div class="row sb">{btn("Bridge 3.5 tYACA", "uv lg")}{quiet("How it works")}</div>'
     if keyboard:
-        return head("bridge", "Bridge to Ethereum.") + amount("3.5", "tYACA", on=True) + '<div class="under"><span>balance 3.5 tYACA</span></div>' + f'<div class="row sb" style="margin-top:2px">{btn("Bridge 3.5 tYACA", "uv lg full")}</div>'
+        return (head("bridge", "Bridge to Ethereum.") + amount("3.5", "tYACA", on=True) + '<div class="under"><span>balance 3.5 tYACA</span></div>' + rows
+                + f'<div class="row sb" style="position:sticky;bottom:-22px;margin:0 -18px -22px;padding:10px 18px 22px;background:var(--raised);border-top:1px solid var(--line)">{btn("Bridge 3.5 tYACA", "uv lg full")}</div>')
     return head("bridge", "Bridge to Ethereum.") + amount("3.50", "tYACA", on=True) + rows + tail
 
 
@@ -172,11 +178,11 @@ KEYS = [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], [".", "0", "⌫"]]
 
 
 def phone_keyboard():
-    """The sheet with the keyboard up: the amount focused, the button above the keyboard, the rows hidden below it."""
+    """The sheet with the keyboard up: the amount focused, the rows scroll, the button sticks above the keyboard."""
     kb = '<div class="kbd">' + "".join('<div class="r">' + "".join(f'<span class="{"d" if k in (".", "⌫") else ""}">{k}</span>' for k in row) + "</div>" for row in KEYS) + "</div>"
     body = tile(th("balance", "private") + kpi("", "3.5", "tYACA", lg=True))
     html = page(phone(body, "wallet", sheet=bridge_sheet(keyboard=True)), 390, height=844)
-    html = html.replace('<div class="sheet">', '<div class="sheet" style="bottom:270px">', 1)
+    html = html.replace('<div class="sheet">', '<div class="sheet" style="bottom:270px;max-height:440px;overflow:auto">', 1)
     return html.replace('<nav class="tabbar">', kb + '<nav class="tabbar" style="display:none">', 1)
 
 

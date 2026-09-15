@@ -7,6 +7,11 @@ LEDGER_LIVE = ('<ol class="ledger">'
                '<li class="ep"><span class="t">16:07:12</span><span class="g">──</span><span>epoch 12 opened · bar 1.6 (×0.83)</span></li>'
                '<li class="ok"><span class="t">16:06:58</span><span class="g">✓</span><span>minted in block <a href="#">83,164 ↗</a> · 4 tYACA, privately</span></li>'
                '<li><span class="t">16:06:31</span><span class="g"></span><span>#9 score 1.9 · 3.72 s</span></li></ol>')
+LEDGER_ENDED = ('<ol class="ledger">'
+                '<li class="ep"><span class="t">14:02:11</span><span class="g">──</span><span>epoch 41 closed · the last on V5</span></li>'
+                '<li class="ok"><span class="t">13:58:12</span><span class="g">✓</span><span>minted in block <a href="#">91,204 ↗</a> · 4 tYACA, privately</span></li>'
+                '<li class="win"><span class="t">13:57:50</span><span class="g">★</span><span>#40 score 2.1 · 3.62 s · <b class="uv2">a win</b></span></li>'
+                '<li><span class="t">13:57:46</span><span class="g"></span><span>#39 score 1.1 · 3.60 s</span></li></ol>')
 LEDGER_EMPTY = '<ol class="ledger"><li class="ep"><span class="t">16:04:12</span><span class="g">──</span><span>epoch 11 opened · bar 1.0</span></li></ol>'
 
 
@@ -64,11 +69,11 @@ def loop_tile(state: str) -> str:
 def rail_tile(state: str) -> str:
     on = state in LIVE
     if state == "ended":
-        rows = kv("claims", "4 of 4") + kv("bar", "1.6") + kv("closed", "Sep 18 14:02")
+        rows = kv("wins", "4 of 4") + kv("bar", "1.6") + kv("closed", "Sep 18 14:02")
         return tile(th("epoch 41", "the last on V5") + '<div class="rail"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>' + rows)
     seg = '<div class="rail"><i class="me"></i><i class="on"></i><i></i><i></i></div>' if on else '<div class="rail"><i></i><i></i><i></i><i></i></div>'
-    rows = (kv("claims", "2 of 4" if on else "0 of 4") + kv("bar", "1.6" if on else "1.0")
-            + kv("open for", "3 min") + kv("expected close", "5 min") + kv("next bar if it closed now", "×0.62") + kv("closes anyway", "in 4 min"))
+    rows = (kv("wins", "2 of 4" if on else "0 of 4") + kv("bar", "1.6" if on else "1.0")
+            + kv("open for", "3 min") + kv("expected close", "5 min") + kv("next bar if it closed now", "×0.62") + kv("anyone can close it", "in 4 min"))
     if state == "presto":
         power = ('<div class="presto" style="margin-top:14px"><span class="glyph">✦</span><div><b>Presto · native prover</b><span>12 threads, set in the Presto app · <a class="uv2" href="#">Open Presto ↗</a></span></div></div>')
     elif state == "presto-fallback":
@@ -92,29 +97,60 @@ def kpis(state: str) -> str:
             + "</div>")
 
 
-def balance_tile(state: str) -> str:
+def balance_tile(state: str, n: str = "3.5") -> str:
     if state == "signed-out":
         inner = th("balance", "private") + kpi("", "—", "tYACA", lg=True) + f'<p class="sm ink2" style="margin-top:10px">Your balance shows once you log in.</p><div style="margin-top:12px">{quiet("Log in")}</div>'
     else:
-        inner = th("balance", "private") + kpi("", "3.5", "tYACA", lg=True) + f'<div class="row" style="gap:10px;margin-top:14px">{btn("Send", "primary")}{btn("Wallet →", "ghost")}</div>'
+        inner = th("balance", "private") + kpi("", n, "tYACA", lg=True) + f'<div class="row" style="gap:10px;margin-top:14px">{btn("Send", "primary")}{btn("Wallet →", "ghost")}</div>'
     return tile(inner)
 
 
-def cockpit(state: str, top: str = "") -> str:
+def cockpit(state: str, top: str = "", balance: str = "3.5") -> str:
     status = "mining" if state in LIVE else ("ended" if state == "ended" else "")
     hdr = header("mine", account=None if state == "signed-out" else "0x22a9…612a", status=status if state != "signed-out" else "")
     if state == "presto":
         hdr = hdr.replace('<i></i>mining</span>', '<i></i>mining <span class="uv2">✦ presto</span></span>')
-    ledger = LEDGER_LIVE if state in LIVE or state == "ended" else LEDGER_EMPTY
+    ledger = LEDGER_ENDED if state == "ended" else (LEDGER_LIVE if state in LIVE else LEDGER_EMPTY)
     body = (f'<div class="body">{top}<div class="cockpit">{loop_tile(state)}{rail_tile(state)}'
-            f'{kpis(state)}{balance_tile(state)}'
-            f'<div class="span2">{tile(th("proofs, newest first", "★ win · ✓ minted · ── epoch") + ledger)}</div></div></div>')
+            f'{kpis(state)}{balance_tile(state, balance)}'
+            f'<div class="span2">{tile(th("proofs, newest first", "★ win · ✓ minted, final once its epoch is proven · ── epoch") + ledger)}</div></div></div>')
     return page(f'<div class="shell">{hdr}{body}</div>', 1440)
 
 
 def presto_row() -> str:
     return ('<div class="presto" style="border-style:dashed;background:transparent"><span class="glyph" style="background:var(--panel);color:var(--uv-2)">✦</span>'
             '<div><b>Presto proves natively on this machine, several times faster.</b><span><a class="uv2" href="#">Get Presto ↗</a> · <a href="#">dismiss</a></span></div></div>')
+
+
+PRESTO_REASONS = [
+    ("denied", "warn", "Presto hasn't approved yacana.network yet.", "Approve it in the Presto app, then retry. Proving in the browser meanwhile.", True),
+    ("cooldown", "warn", "Presto is in a cooldown after a denial.", "Approve yacana.network in the app, then retry.", True),
+    ("busy", "warn", "Presto is busy: three proofs in a row refused.", "Proving in the browser; Retry tries it again.", True),
+    ("invalid proof", "warn", "Presto returned a winning proof that didn't verify.", "Proving in the browser; check the Presto install, then retry.", True),
+    ("malformed", "warn", "Presto answered with something this page couldn't use.", "Proving in the browser; retry when Presto is updated.", True),
+    ("update", "warn", "Presto needs an update for this app.", "Open Presto from your menu bar and let it update, then retry.", True),
+    ("encrypted off", "warn", "Presto's encrypted connection is off.", "Presto › Settings › Encrypted Connection, then retry.", True),
+    ("gone", "warn", "Presto stopped answering.", "Proving in the browser; retry when it's back.", True),
+    ("downloading", "info", "Presto is fetching its prover for Aztec 5.2.0.", "The first native proof takes longer. Proving in the browser until then.", False),
+    ("blocked (probe)", "warn", "Presto is installed, but the browser blocks local access.", "Allow it for this site, then retry; or mine in the browser.", True),
+    ("bad report (probe)", "warn", "Presto answered, but not with a health report this page understands.", "Proving in the browser.", False),
+]
+
+
+def presto_reasons():
+    """Presto's row, one line per reason the SDK reports (presto.ts causeText, statusText, noticeFor)."""
+    rows = ""
+    for key, tone, title, body, retry in PRESTO_REASONS:
+        color = "var(--warn)" if tone == "warn" else "var(--uv-2)"
+        border = "rgba(232,181,77,.5)" if tone == "warn" else "var(--line-2)"
+        tail = ' · <a class="uv2" href="#">Retry</a>' if retry else ""
+        rows += (f'<div class="col" style="gap:6px"><span class="lm">{key}</span>'
+                 f'<div class="presto" style="border-color:{border};background:transparent"><span class="glyph" style="background:var(--panel);color:{color}">✦</span>'
+                 f'<div><b>{title}</b><span>{body}{tail}</span></div></div></div>')
+    body = ('<div class="board" style="padding:24px"><span class="lm">presto · the row for every reason it steps aside</span>'
+            '<p>The pill says what actually proved (✦ only on a native proof). Every fallback keeps mining in the browser and says why in one line; Retry rebuilds the prover. "downloading" is the one that is not a fault.</p>'
+            f'<div class="col" style="gap:14px;max-width:700px">{rows}</div></div>')
+    return page(body, 760)
 
 
 def upgrade_card(kind: str = "announced", amount_s: str = "3.5 tYACA", chip: str = "ok") -> str:
@@ -165,7 +201,7 @@ def mine_announced():
 
 
 def mine_sent():
-    return cockpit("mining", top=upgrade_card("sent"))
+    return cockpit("mining", top=upgrade_card("sent"), balance="1.2")
 
 
 def mine_flipped():

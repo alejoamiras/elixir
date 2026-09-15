@@ -15,13 +15,13 @@ def _edit(label: str, value: str, help_: str, busy: bool = False, cls: str = "")
 def node_row(state: str = "read", kind: str = "aztec") -> str:
     label, host, health = HOSTS[kind]
     if state == "read":
-        return srl(label, f'<span class="mono">{host}</span> <span class="ink4">·</span> {health} <span class="ink4">· default</span>', btn("Change", "sm"))
+        return srl(label, f'<span class="mono">{host}</span> <span class="ink4">·</span> {health} <span class="ink3">· default</span>', btn("Change", "sm"))
     if state == "edit":
         return _edit(label, "https://my-node.example.net", f'Any https node on this deployment. {quiet("Use the default")}')
     if state == "checking":
         return (f'<div class="srl" style="flex-direction:column;align-items:stretch;gap:8px"><div class="k">{label}</div>'
                 f'<div class="row" style="gap:8px">{field("https://my-node.example.net")}{btn("Saving…", "primary sm dis", busy=True)}</div>'
-                + steps([("Reachable", "done", "0.6 s"), ("This deployment", "done", ""), ("Switching", "on", "about a minute", "Rebuilding your view of the chain from the new node. Mining carries on.")])
+                + steps([("Reachable", "done", "0.6 s"), ("This deployment", "done", ""), ("Switching", "on", "about a minute", "Rebuilding your view of the chain from the new node. Mining pauses until it's done.")])
                 + "</div>")
     if state == "error":
         return _edit(label, "https://other.example.net", f"Not this deployment's node (it serves rollup 1782110044). Kept {host}.", cls="bad")
@@ -32,7 +32,7 @@ def node_row(state: str = "read", kind: str = "aztec") -> str:
                    f'<span class="row" style="gap:8px">{btn("Retry", "sm")}{btn("Change", "sm")}</span>')
     if state == "limited":
         return srl(label, f'<span class="mono">{host}</span> <span class="ink4">·</span> <span class="warn">answering slowly · rate-limited</span> · block 83,117 · 40 s ago',
-                   f'<span class="row" style="gap:8px">{btn("Change", "sm")}</span>').replace('40 s ago</div>', '40 s ago<br>Public nodes throttle busy pages. It recovers on its own; your own node never throttles you.</div>')
+                   f'<span class="row" style="gap:8px">{btn("Change", "sm")}</span>').replace('40 s ago</div>', '40 s ago<br>Public nodes throttle busy pages. It recovers on its own.</div>')
     # custom, in use
     return srl(label, f'<span class="mono">my-node.example.net</span> <span class="ink4">·</span> block 83,118 · 4 s ago · 0.6 s · this deployment ✓ <span class="badge uv" style="padding:1px 6px">custom</span> {quiet("Use the default")}', btn("Change", "sm"))
 

@@ -49,7 +49,7 @@ def to_eth_proving():
 def to_eth_sent():
     inner = (head("bridge", "3.5 tYACA on its way.")
              + steps([("Proved and sent", "done", "block 83,120"),
-                      ("Reaching Ethereum", "on", "usually within the hour", "By 17:03 at the latest. If V5 misses that, the balance comes back here."),
+                      ("Reaching Ethereum", "on", "usually within the hour", "V5 must prove it by 17:03. If it doesn't, the balance comes back here."),
                       ("Claim on Ethereum", "todo", "", "With a wallet on Sepolia; it pays the gas in ETH.")])
              + '<p class="xs ink3" style="border-top:1px solid var(--line);padding-top:12px">You can close this. Wallet shows the progress and a <b class="ink2">Claim</b> button when it\'s ready.</p>'
              + actions(btn("Done", "primary")))
@@ -65,6 +65,10 @@ def claim_dialog(stage: str = "ready"):
         inner = (head("claim", "Claim 1 YACA on Ethereum.") + rows
                  + note("Rabby is on Ethereum mainnet.", "The bridge is on Sepolia. Switch, then claim; Rabby asks you to confirm the switch.", "warn")
                  + actions(btn("Switch Rabby to Sepolia", "uv lg"), "Not now"))
+    elif stage == "noeth":
+        inner = (head("claim", "Claim 1 YACA on Ethereum.") + rows
+                 + note("Rabby has no Sepolia ETH for the gas.", "Add some to 0x90F7…b906, then claim. The YACA waits for you.", "warn")
+                 + actions(btn("Claim with Rabby", "uv lg dis"), "Not now"))
     elif stage == "wallet":
         inner = (head("claim", "Claim 1 YACA on Ethereum.")
                  + steps([("Confirm in Rabby", "on", "", "Rabby asks you to confirm the claim and shows the gas."),
@@ -98,7 +102,7 @@ def from_eth_connect(picker: bool = False):
 def from_eth_form(preflip: bool = False, closed: bool = False):
     pre = note("Aztec upgrades to V6 around Sep 18.", "A deposit now lands on V5 and would need sending ahead afterwards. Unless you need it here now, bridge after the upgrade, at yacana.network.", "warn") if preflip else ""
     if closed:
-        pre = note("Deposits are closed until V6 opens.", "Aztec upgrades around Sep 18; Yacana closed V5's deposits the day before. Bridge again once V6 is live at yacana.network.", "warn")
+        pre = note("Deposits into V5 are closed for good.", "Aztec upgrades around Sep 18 and Yacana closed V5's deposits ahead of it. Bridge from Ethereum on V6, at yacana.network, once it opens.", "warn")
     inner = (head("bridge", "Bridge from Ethereum.")
              + f'<div class="row sb">{WALLET_CHIP}<span class="row" style="gap:10px"><span class="x2 mono ink3">7 YACA available</span><span class="ink3">✕</span></span></div>'
              + pre
@@ -149,7 +153,7 @@ def exit_row_states():
     """The main path of a bridge to Ethereum: proving → on its way → ready → claimed; and undone."""
     r1 = activity("1 tYACA", EXIT_TO, "Proving privately, about 20 s.", st("proving · 8 s", "on"), "16:09",
                   [("proving", "on"), ("sent", "dim"), ("reached Ethereum", "dim"), ("claim on Ethereum", "dim")], more='<div class="bar" style="margin-top:0"><i style="width:40%"></i></div>')
-    r2 = activity("1 tYACA", EXIT_TO, "Reaches Ethereum usually within the hour, by 17:03 at the latest; then you claim it there.", st("on its way to Ethereum", "on"), "16:09",
+    r2 = activity("1 tYACA", EXIT_TO, "Reaches Ethereum usually within the hour; then you claim it there. V5 must prove it by 17:03, or the balance comes back here.", st("reaching Ethereum", "on"), "16:09",
                   T_PROVED + [("reaching Ethereum", "on"), ("claim on Ethereum", "dim")])
     r3 = activity("1 tYACA", EXIT_TO, "Ready. Claim it on Ethereum with a wallet on Sepolia; that wallet pays the gas in ETH.", st("ready to claim", "ok"), "16:51",
                   T_PROVED + [("reached Ethereum", "done"), ("claim on Ethereum", "on")],
@@ -165,23 +169,28 @@ def exit_row_states():
 
 def exit_edge_states():
     """The states a user meets rarely, each with its sentence and its way out."""
+    r0 = activity("1 tYACA", EXIT_TO, "The page closed while this was sent. Checking the chain for it.", st("checking", "on"), "Sep 13",
+                  [("sent?", "on")], more='<div class="row sb"><span class="x2 mono ink3">found on the chain, it carries on from where it is</span></div>')
     r1 = activity("1 tYACA", EXIT_TO, "This didn't finish. Nothing left your balance.", st("didn't finish", "warn"), "Sep 13",
-                  [("proving", "warn")], more=f'<div class="row sb"><span>{btn("Bridge again", "sm")}</span><span class="x2 mono ink3">the tab closed while it proved</span></div>')
+                  [("proving", "warn")], more=f'<div class="row sb"><span>{btn("Bridge again", "sm")}</span><span class="x2 mono ink3">the send never reached the chain</span></div>')
     r2 = activity("1 tYACA", EXIT_TO, "The node never included it. Nothing left your balance.", st("not included", "warn"), "Sep 13",
                   [("sent", "done"), ("not included", "warn")], more=f'<div class="row sb"><span>{btn("Bridge again", "sm")}</span></div>')
-    r3 = activity("1 tYACA", EXIT_TO, "The bridge is paused until Sep 20. It moves again when the pause lifts; a pause is 30 days at most, 60 in a version's life.",
+    r3 = activity("1 tYACA", EXIT_TO, "The bridge is paused until Sep 20: claims wait until it lifts. Yacana can pause for 60 days in all over V5's life, and can lift a pause early.",
                   st("paused · until Sep 20", "warn"), "Sep 13", T_PROVED + [("reached Ethereum", "done"), ("paused", "warn"), ("claim on Ethereum", "dim")],
                   more='<div class="row sb"><span class="x2 mono ink3">why a bridge can pause · <a href="#">/faq#rules</a></span></div>')
-    r4 = activity("1 tYACA", EXIT_TO, "More has left V5 than its exit limit allows for now. It goes through as the limit grows, in order; nothing to do.",
+    r4 = activity("1 tYACA", EXIT_TO, "More has left V5 than its exit limit allows right now. The limit grows by the hour while V5 is current, and this turns ready to claim once it fits; others may use the room first.",
                   st("waiting for the limit", "warn"), "Sep 13", T_PROVED + [("reached Ethereum", "done"), ("waiting for the limit", "warn"), ("claim on Ethereum", "dim")],
-                  more='<div class="row sb"><span class="x2 mono ink3">the limit grows by the hour · <a href="#">/faq#rules</a></span></div>')
+                  more='<div class="row sb"><span class="x2 mono ink3">Claim appears once it fits · <a href="#">/faq#rules</a></span></div>')
     r5 = activity("1 tYACA", EXIT_TO, "V5's exit limit froze at the upgrade, and this is beyond it. It cannot leave.",
                   st("over the limit", "bad"), "Sep 19", T_PROVED + [("reached Ethereum", "done"), ("over the frozen limit", "bad")],
                   more='<div class="row sb"><span class="x2 mono ink3">what the limit is · <a href="#">/faq#rules</a></span></div>')
+    r5b = activity("1 tYACA", EXIT_TO, "The 180 days are over. V5's exits close the day the upgrade after V6 lands. Claim it now.",
+                   st("could close any day", "bad"), "Mar 18", T_PROVED + [("reached Ethereum", "done"), ("claim on Ethereum", "bad")],
+                   more=f'<div class="row sb"><span>{btn("Claim on Ethereum", "uv sm")}</span><span class="x2 mono ink3">why it can close · <a href="#">/faq#rules</a></span></div>', cls="hi")
     r6 = activity("1 tYACA", EXIT_TO, "V5's last day passed before this was claimed. It cannot leave any more.",
                   st("last day passed", "bad"), "Mar 20", T_PROVED + [("reached Ethereum", "done"), ("last day passed", "bad")])
     body = ('<div class="board" style="padding:24px"><span class="lm">a bridge to Ethereum · the rare states</span>'
-            f'<div class="col" style="gap:12px;max-width:760px">{r1}{r2}{r3}{r4}{r5}{r6}</div></div>')
+            f'<div class="col" style="gap:12px;max-width:760px">{r0}{r1}{r2}{r3}{r4}{r5}{r5b}{r6}</div></div>')
     return page(body, 820)
 
 
