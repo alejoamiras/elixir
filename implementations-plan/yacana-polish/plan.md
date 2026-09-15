@@ -1,12 +1,12 @@
 ---
 plan: yacana-polish
-tier: deep
+tier: mid (started as deep: three drafts and one Codex contradiction check were made before the owner downgraded it; the Fable contradiction check was stopped)
 driver: claude-code
 eli5_mode: artifact
 code_review: off
 hardening: none this arc
-budget: "recon 2 agents (1 reuse sweep, 1 suite mapper); codex at high (GPT-6 Astra); fable legs on Fable 5.1"
-status: draft — consolidated from plans/{main,codex,fable}.md (every claim verified at 10f893c); contradiction check and audits pending
+budget: "recon 2 agents (1 reuse sweep, 1 suite mapper); codex at high (GPT-6 Astra); one fable audit on Fable 5.1; the owner asked for the cheap tier on 2026-09-15"
+status: draft — consolidated from plans/{main,codex,fable}.md; Codex's contradiction check folded (§9.1); the dual audit and the final Codex pass pending
 created: 2026-09-15
 ---
 
@@ -135,14 +135,17 @@ export interface ClaimProgress { step: 'proving' | 'sent' | 'waiting'; wonAt: nu
 export type LedgerLine = ProofLine & { id: number; claim?: { step?: ClaimProgress['step']; outcome?: ClaimOutcome; note?: string; settled?: 'pending' | 'settled' | 'pruned' } };
 
 // packages/site/src/browser/node-health.ts (additions)
-export interface NodeHealth { /* transport as today */ tip: { block: bigint; at: number; observedAt: number } | null; l1Tip: { block: bigint; at: number } | null; deploymentOk: boolean | null; generation: number }
+export interface NodeHealth { /* transport as today */ tip: { block: bigint; checkpoint: bigint; at: number; observedAt: number } | null; l1: { pendingCheckpoint: bigint; at: number } | null; deploymentOk: boolean | null; generation: number }
 export type NodeStanding = 'healthy' | 'behind' | 'throttled' | 'silent' | 'unknown';
-export function standing(h: NodeHealth, now: number): NodeStanding;   // behind = the rollup on L1 knows a block newer than the node's tip by more than BEHIND_BLOCKS (2); healthy = ok transport ∧ deploymentOk ∧ not behind; l1Tip null → never behind (unknown, no pause)
+export function standing(h: NodeHealth, now: number): NodeStanding;   // behind = l1.pendingCheckpoint − tip.checkpoint > BEHIND_CHECKPOINTS (1): the node's `getCheckpointNumber('checkpointed')` vs the Rollup's `getPendingCheckpointNumber()`; healthy = ok transport ∧ deploymentOk ∧ not behind; l1 null → never behind (unknown, no pause)
 
-// packages/web-miner/src/keys/slot.ts (over store.ts's CRUD; every mutation one IDB readwrite transaction with a revision check)
-export function readSlot(): Promise<{ record: MasterRecord; revision: number } | null>;
-export function claimSlot(candidate: MasterRecord, expectedRevision: number): Promise<void>;   // SlotTakenError when another id holds it
-export function releaseSlot(id: string, expectedRevision: number): Promise<void>;               // sign out; a legacy second record, if any, becomes the slot
+// packages/web-miner/src/keys/slot.ts (over store.ts's CRUD; every mutation one IDB readwrite transaction with a revision check; an empty slot has a revision too)
+export function readSlot(): Promise<{ record: MasterRecord | null; revision: number }>;
+export function reserve(expectedRevision: number, intent: 'create' | 'login'): Promise<Reservation>;   // BEFORE the WebAuthn prompt: SlotTakenError when a record holds the slot (create) or when none does (login)
+export function stage(r: Reservation, record: MasterRecord): Promise<void>;                          // the created credential, durable before the PXE boots (as today)
+export function commit(r: Reservation): Promise<void>;                                              // after a verified opening: the staged record is the slot
+export function cancel(r: Reservation): Promise<void>;                                              // a failed or cancelled opening: the staged record stays recoverable (its credential exists), unlisted
+export function release(id: string, expectedRevision: number): Promise<void>;                       // sign out (the only path that empties the slot); a legacy second record, if any, becomes the slot
 
 // packages/bridge/src/record.ts (additions, build-time like `migration`)
 export interface BridgeRecord { /* … */ stoppedProvingAt?: string; nodeRetired?: boolean }
@@ -151,9 +154,10 @@ export interface BridgeRecord { /* … */ stoppedProvingAt?: string; nodeRetired
 ### 3.3 Data and control flow (the critical paths)
 
 - **Arrival → account → opening → cockpit.** `/mine` renders the live cockpit signed out at full contrast; the
-  chain reads run. Start mining records the intent and opens the account dialog; Log in opens it without. Create:
-  consent → `claimSlot` (refuses when another id holds the slot) → WebAuthn create with `excludeCredentials` from
-  the slot → the record staged before the PXE boots (as today) → commit after a verified opening. Log in:
+  chain reads run. A new visitor sees no dialog: Start mining records the intent and opens it, Log in opens it
+  without. A device with a slot gets Welcome back on arrival (brief §5.1). Create: consent → `reserve('create')`
+  (refuses before any prompt when a record holds the slot) → WebAuthn create with `excludeCredentials` from the
+  slot → `stage` (durable before the PXE boots, as today) → `commit` after a verified opening, `cancel` otherwise. Log in:
   `allowCredentials` restricted to the slot's credential → PRF → the master; `NoPrfError` → the PRF note (open
   it where it works); a second tab's `ChainViewHeldError` → Retry, never a takeover. Words: the wordlist and the
   checksum validated in-page. Opening: the checklist from `opening-steps.ts` with weights from durations measured
@@ -169,9 +173,9 @@ export interface BridgeRecord { /* … */ stoppedProvingAt?: string; nodeRetired
   line> · mining paused" with **Retry** (re-sends the retained ticket while `retryEligible`), mining stays paused
   (§9.1.14). Stop during a claim → the pill `stopping · claim finishing`, Stop disabled, `stopAfterClaim`.
 - **A crossing, send to row.** The dialog runs the stepper: `ensureChain` visible, prove (mining pauses), send. The
-  journal persists the crossing first; the send observer (`wallet.ts` `observeSends`) hands the hash and
-  `expirationTimestamp` to the journal in the same tick, awaited before the send's promise resolves; a storage
-  failure refuses the send. Refresh reads facts (node, portal, wallet) → `advance` → `rowState` (`checking` while
+  journal persists the crossing first; the send observer (`wallet.ts` `observeSends`, made async) awaits the
+  journal's commit of the hash and `expirationTimestamp` BEFORE calling `target.sendTx`; a storage failure
+  refuses the submission (nothing reaches the network without its durable record). Refresh reads facts (node, portal, wallet) → `advance` → `rowState` (`checking` while
   the tag has no log and the source tip ≤ `expiresAt` or the history is incomplete; `unfinished` once the tip is
   past it with no log; a log found later re-adopts either) → `rowLine` → `ActivityRow`. Deposits persist the
   calldata deadline and reconcile on receipts and events by L1 time; the two-hour device-clock give-up goes. The
@@ -182,7 +186,7 @@ export interface BridgeRecord { /* … */ stoppedProvingAt?: string; nodeRetired
   boot error's reload path shows, never "Kept" over a dead account. Responses from an earlier generation are
   dropped. The poll carries the node's tip and the bridge's L1 refresh carries the rollup's latest block (the
   `Rollup` on L1 knows every block the node should have); `standing()` yields `behind` when the node lags it by
-  more than two blocks, the controller pauses with a new reason, released when the node catches up; polling
+  more than one checkpoint, the controller pauses with a new reason, released when the node catches up; polling
   continues while paused. The tip's age alone is never the signal: an idle local network builds no blocks, and
   testnet's cadence is not the node's fault.
 
@@ -190,7 +194,7 @@ export interface BridgeRecord { /* … */ stoppedProvingAt?: string; nodeRetired
 
 | package | added | modified | deleted |
 |---|---|---|---|
-| ui | `header.tsx` (+ `Brand`), `amount-field.tsx`, `activity-row.tsx`, `claim-chip.tsx`, `icons.tsx`, their specs | `dialog.tsx`, `stepper.tsx`, `trail.tsx`, `hold-button.tsx`, `status-pill.tsx`, `score-loop.tsx`, `score-loop-model.ts`, `proof-line.tsx`, `index.ts`, `bridge-types.ts` | `journal-card.tsx`, `sheet.tsx` (P9, once unused) |
+| ui | `header.tsx` (+ `Brand`), `amount-field.tsx`, `activity-row.tsx`, `claim-chip.tsx`, `icons.tsx`, their specs | `dialog.tsx`, `stepper.tsx`, `trail.tsx`, `hold-button.tsx`, `status-pill.tsx`, `score-loop.tsx`, `score-loop-model.ts`, `proof-line.tsx`, `index.ts`, `bridge-types.ts` | `journal-card.tsx` (P9), `sheet.tsx` (P10, once `OldApp` is on the dialog) |
 | bridge | `proofs.ts` (+ test on a recorded event), `deadline.test.ts` cases | `portal-reader.ts` (`afterNextAt`), `deadline.ts`, `journal.ts` (+ tests), `revert.ts`, `record.ts`, `recovery.ts` (the file carries `expiresAt`) | — |
 | miner-core | — | `claim-failure.ts` (the copy table to §5.3) | — |
 | web-miner | `keys/slot.ts`, `features/account/{Start,Create,Welcome,LogIn,Words,WordsLogIn,Notes,Opening}.tsx`, `features/ActivityList.tsx`, `features/dialogs/{ToEthereum,FromEthereum,Send,SendAhead,Claim}.tsx`, `bridge/eth-balance.ts`, specs | `App.tsx`, `keys/store.ts`, `keys/passkey.ts`, `session.ts`, `boot.ts`, `wallet.ts`, `opening-steps.ts`, `controller.ts`, `lib/reducer.ts`, `lib/status.ts`, `features/{LoopTile,LedgerTile,RailTile,ClaimStatus,PrestoBanner,SignOutDialog,MigrationCard,OldApp,SignInDialog}.tsx`, `bridge/{copy,facts,flows,forms,session}.ts`, `components/NodeTile.tsx`, `routes/{Mine,Wallet,Settings}.tsx`, `presto.ts`, `settings.ts`, `state.ts` | `features/{BridgeTile,ArrivalCard,ToEthereumSheet,DepositSheet,SendSheet,SendAheadSheet,ClaimSlot,AmountInput,KeyScreen,WordsScreens,TakingLongDialog}.tsx` |
@@ -209,8 +213,8 @@ export interface BridgeRecord { /* … */ stoppedProvingAt?: string; nodeRetired
   is `null` = unknown, and the chip says "checking", never "no proof". "V5 proved an epoch 12 min ago" is that
   timestamp; "no proof for 3 h" the same aged; "stopped" only from `stoppedProvingAt`.
 - **`expiresAt` and "didn't finish".** The page already observes every `sendTx` and records the tx's
-  `expirationTimestamp` (`wallet.ts:47-66`); the bridge flow awaits the journal write of hash + expiry inside that
-  observer. `unfinished` needs: the same deployment, the source node's history complete over the send's window,
+  `expirationTimestamp` (`wallet.ts:47-66`, a synchronous callback before `target.sendTx`); the observer becomes
+  async and awaits the journal's commit of hash + expiry before the submission. `unfinished` needs: the same deployment, the source node's history complete over the send's window,
   its tip past `expiresAt`, no log for the tag. Anything short of that is `checking`, no retry; an imported
   recovery file's expiry alone never authorizes a retry (the file's node may be behind).
 - **The four readings** are pure over `flipAt`, `afterNextAt`, `pausedSeconds`, the floor and `l1Now`, read in
@@ -220,9 +224,18 @@ export interface BridgeRecord { /* … */ stoppedProvingAt?: string; nodeRetired
   while the canonical target is registered; `launchAt` is `registerVersion`'s parameter (the miner's launch time,
   `YacanaPortal.sol:111,220`), not the registration's time, so the event is read through `logs.ts` once and cached
   in the bridge session's facts; the predicate stays pure in `copy.ts`, the dialog gone.
+- **The mining ledger's ✓.** `claimSettled` belongs to bridge crossings (`bridge/session.ts:521-543`:
+  `checkpointOfBlock` + `checkpointProven`); the mining ledger gets its own adapter in P4 on the same two helpers:
+  a claim's block → its checkpoint → proven on the version's Rollup → `settled`; a nullifier gone from a node past
+  the block → `pruned` and the re-offer. `claimsAtom` entries gain the tx hash, the checkpoint and the settlement.
+- **A revert's cause is verified, never assumed.** The miner asserts "stale claim" in public (`main.nr:231`) and
+  "epoch is not open" at simulation (`main.nr:188`); `classifyClaimFailure`'s `reverted` matches any revert
+  (`claim-failure.ts:14-24`, a retire reverts too). The ledger says "the epoch closed first" only when the reason
+  carries one of those two strings; any other revert reads "didn't land: it reverted (<reason>) · the sponsor
+  paid, your proof is unspent · re-syncing, about a minute".
 - **The `behind` pause** is a new `PauseReason` beside `offline` in the controller's set. `behind` is anchored on
-  L1, not on the tip's age: the rollup contract's latest block (already read by the bridge's refresh) minus the
-  node's tip > 2 blocks. A successful RPC does not clear it, a caught-up tip does; without an L1 read the standing
+  L1, not on the tip's age: the rollup's `getPendingCheckpointNumber()` (one `readContract` on the bridge's 15 s refresh,
+  its L1 client) minus the node's `getCheckpointNumber('checkpointed')` (on the 10 s health tick) > 1. A successful RPC does not clear it, a caught-up tip does; without an L1 read the standing
   is `unknown` and nothing pauses. The row's line 3 still shows `block · age` (the age is information, not the
   verdict). `STALE_AFTER_MS` (60 s, `App.tsx:68`) keeps its job for the banner's read age.
 - **The swap on the sticky Presto state**: `RailTile` reads `presto.selected === 'presto' && !presto.fallbackReason`;
@@ -241,6 +254,8 @@ export interface BridgeRecord { /* … */ stoppedProvingAt?: string; nodeRetired
   new record). Legacy: two records (§9.1.1) → the newest-created record is the slot (last-opened is unknowable:
   records carry no open timestamp); the other stays in IndexedDB unlisted; `releaseSlot` promotes it. The slot is
   per browser profile and origin (the apex and the old origin each have one). Nothing is deleted by the migration.
+  "Use a different account" routes through Sign out (§9.2.8): the slot is released by that explicit act before a
+  new create; a create over a held slot is refused before any prompt.
 - **The record flags** are build-time, like `migration`: `note-stop` / `retire-node` write the deployment record,
   and the old origin's Worker is redeployed to carry them (the runbook's step, the owner's action). The old origin
   reads `nodeRetired` before any node access and shows the "node gone" page without an opening.
@@ -249,8 +264,9 @@ export interface BridgeRecord { /* … */ stoppedProvingAt?: string; nodeRetired
 
 - A runtime-fetched status file for the flags (no redeploy): rejected for this arc; the record is already the
   served truth and announce is already a redeploy; revisit if the runbook shows the redeploy is the slow step.
-- Persisting `RowState` in the journal: rejected; `checking`/`unfinished` derive from facts the journal restores,
-  and a persisted state would let a file restore disagree with a live sync.
+- Persisting `RowState` in the journal: rejected; `checking`/`unfinished` are verdicts about evidence that
+  the next refresh re-derives conservatively (a restore normalises state already, `recovery.ts:172`; a derived
+  verdict needs no normalisation and cannot outlive the evidence).
 - Reading the proof timestamp from the page's observation of the checkpoint: rejected by §9.3.1.
 - Keeping "Use another account" on the lost-race banner: rejected (§9.2.12); the banner waits.
 - Resuming mining after an unknown claim failure: rejected; a restart rotates the secret and drops the retained
@@ -298,12 +314,18 @@ rebuild marks the session dead with a reload path (588–596); `wallet.ts` obser
 `Transport` is transport-only (9–12) and `bannerState`'s `stale` is the page's read age (178–194);
 `App.tsx` `STALE_AFTER_MS` = 60 s (68); `keys/store.ts` `listRecords` returns all (81–82), records carry no open
 timestamp; `session.ts` `restoreWithPasskey` makes a record for an unknown master (352–373) while
-`createWithPasskey` already passes `excludeCredentials` over every record (296–324); `state.ts:39`
+`createWithPasskey` lists exclusions but stores the new credential unconditionally (296–320: exclusions are
+not slot ownership); the miner asserts "epoch is not open" (`yacana_miner/src/main.nr:188`) and "stale claim"
+(231); `claimSettled` is updated by `bridge/session.ts` `recheckClaim` (521–543) through `checkpointOfBlock` and
+`deadline.ts` `checkpointProven` (43); `OldApp.tsx` consumes `SendAheadSheet` (27, 300); `state.ts:39`
 `signInAtom = atom(true)` opens the dialog on arrival (specs assert it: `sign-in.vitest.tsx:66-76`,
 `opening.e2e.ts:18`, `passkey.e2e.ts:35-38`); `deadline.ts` is the rollup's proof reader (`RollupReads`, 7–12),
 not the portal's deadline; `launchAt` is `registerVersion`'s parameter (`YacanaPortal.sol:111,220`);
 `web-landing/src/copy.ts:150` says "Mining on V5 ends at the upgrade" (a schedule claim); `assemble.ts` `APPS`
-(28–32) serves the landing at `/` for every role; `passkey.ts` has `excludeCredentials` (80) and `allowCredentials` (108); `journal.ts` has no expiry
+(28–32) serves the landing at `/` for every role; the node exposes `getCheckpointNumber(tip?)`
+(`@aztec/stdlib` `aztec-node.d.ts:152`) and the Rollup ABI `getPendingCheckpointNumber()` and `getTips()`, so an
+L1-anchored `behind` compares like with like; the bridge session refreshes every 15 s (`bridge/session.ts:79`),
+the node health ticks every 10 s (`NodeTile.tsx:12`); `passkey.ts` has `excludeCredentials` (80) and `allowCredentials` (108); `journal.ts` has no expiry
 field; `facts.ts` `DEPOSIT_GIVES_UP_MS` two-hour device-clock heuristic (41); `portal-reader.ts` reads `flipAt`,
 `pausedSeconds`, `deadline`, `headroom`, `depositsClosed`, `registered` and **not** `afterNextAt` (19–100; the
 getter is `YacanaPortal.sol:211`, read by `deploy/src/bridge/status.ts:21`); `_requireOpen` admits equality
@@ -324,11 +346,13 @@ recording re-records in one isolated run; public Sepolia RPCs accept `logs.ts`'s
 landing can mount `Brand` without any session code (it imports from `packages/ui` only).
 
 **Asks** (the owner decides at the gate): (1) the click path revealed after a hold released early (the reviewers'
-accessibility point vs "no click alternative"; default: reveal); (2) the `behind` threshold: 60 s (the banner's)
-or longer (default: 60 s); (3) the legacy second record: the newest-created becomes the slot (default) or the
+accessibility point vs "no click alternative"; default: reveal); (2) the `behind` tolerance: more than one checkpoint behind the rollup's pending checkpoint, sampled every 10 s
+(the node) and 15 s (L1), an L1 sample older than 60 s making the standing `unknown` (default as stated); (3) the legacy second record: the newest-created becomes the slot (default) or the
 owner names another rule; (4) the landing's bar: `Brand` + its sections nav + Mine/Stats links (default) or the
 full app tabs; (5) §9.3.7: a bounded feasibility answer from the pinned Presto SDK interface (default: one
-paragraph in `lessons/`, no PXE integration this arc).
+paragraph in `lessons/`, no PXE integration this arc); (6) the gates' weight: the shards a phase touches with the
+rig at P10–P11 (default, §6), or every shard, the replay lane and the rig on every phase (Codex read the Phase 0
+answer that way; it roughly triples the wall-clock of P2–P9).
 
 ## 6. Phases with validation gates
 
@@ -340,19 +364,26 @@ groups); shard runs pass only when every title of the shard executed with its in
 (`bun run --cwd packages/web-miner test:replay`; re-record first when the account dialog or the signed-out page
 changed: `bun run e2e:agent -- bun packages/web-miner/e2e/replay/setup.ts record`). Long commands, verbatim:
 
-```
-SHARD='bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e'
-E2E_PROVERLESS=1 E2E_SHARD=cockpit $SHARD · E2E_PROVERLESS=1 E2E_SHARD=chain $SHARD · E2E_SHARD=canary $SHARD · E2E_PROVERLESS=1 E2E_SHARD=bridge $SHARD
+```sh
+bun run lint && bun test
+bun run --cwd packages/ui test:components          # also web-miner, web-stats, web-landing (the packages that expose it)
+E2E_PROVERLESS=1 E2E_SHARD=cockpit bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e
+E2E_PROVERLESS=1 E2E_SHARD=chain   bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e
+E2E_SHARD=canary                   bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e   # E2E_PROVERLESS unset: it proves
+E2E_PROVERLESS=1 E2E_SHARD=bridge  bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e
+bun run e2e:agent -- bun packages/web-miner/e2e/replay/setup.ts record   # then:
+bun run --cwd packages/web-miner test:replay
 bun run rig -- browser origin
 bun run e2e:agent -- bun run site:e2e
-bun run e2e:agent -- bun run --cwd packages/web-stats test:e2e · bun run --cwd packages/web-stats test:visual [--update-snapshots]
+bun run e2e:agent -- bun run --cwd packages/web-stats test:e2e
+bun run --cwd packages/web-stats test:visual --update-snapshots    # inside the pinned Playwright image; then without the flag
 bun run e2e:agent -- bun run --cwd packages/web-landing test:e2e
 ```
 
 ### P1 — The primitives and the header
 
 `Header` + `Brand` + the four tab icons in ui; the three apps consume them (the miner: Mine · Wallet · Stats ↗ ·
-Verify ↗, the testnet badge neutral, the pill, the account chip → Settings, the gear; stats: Stats · Bridge ·
+Verify ↗, the testnet badge neutral, the pill, the account chip → Wallet (→ Settings on the old origin), the gear; stats: Stats · Bridge ·
 Verify · Mine ↗; the landing: `Brand` + its sections nav + Mine/Stats); `Dialog size="tx"`; `Stepper` tones and
 bar; `AmountField`; `Trail` ✓; `ClaimChip`; `HoldButton` props; `StatusPill` `stopping`; the logo as `Mark` in all
 three (§9.1.8). Specs: a vitest per new primitive; `shell.vitest.tsx`, `stats.e2e.ts` and `landing.e2e.ts` nav asserts;
@@ -378,8 +409,8 @@ layers: + e2e live, replay.
 
 ### P3 — Arrival and the opening
 
-Page-first (1A): `signInAtom` defaults to false (the dialog opens on the click, never on arrival), the
-undimmed cockpit signed out (§9.2.1), Start mining's intent consumed once, Log in without it;
+Page-first (1A): `signInAtom` defaults to whether a slot exists (Welcome back on arrival with one; on the
+click otherwise), the undimmed cockpit signed out (§9.2.1), Start mining's intent consumed once, Log in without it;
 the opening checklist (§5.2, §9.1.2): weights from durations measured on the isolated network (cold and warm, the
 numbers into `opening-steps.ts` with the measurement in `lessons/phase-3.md`), real CRS bytes, block progress only
 if the installed PXE exposes it (else elapsed time), Cancel and Retry; the §9.3.7 feasibility paragraph. Specs:
@@ -390,8 +421,8 @@ if the installed PXE exposes it (else elapsed time), Cancel and Retry; the §9.3
 
 The chip and the ledger line per step with one clock from the win (`ClaimProgress.wonAt`, `stepAt`); the six
 outcomes' lines and the two banners (§5.3, board ClaimOutcomes; `claim-failure.ts`'s copy table rewritten);
-`other` paused with Retry (§9.1.14); the discard line; `stopping`; the ✓'s `settled` from `claimSettled` (§9.3.3)
-and the pruned-claim re-offer; `MintedMarks` kept under Details. Specs: `miner`, `states` (the lost race), `canary`
+`other` paused with Retry (§9.1.14); the discard line; `stopping`; the mining settlement adapter (§3.5: the claim's checkpoint proven → `settled`, the nullifier gone → `pruned`
+and the re-offer; §9.3.3); the verified revert cause (§3.5); `MintedMarks` kept under Details. Specs: `miner`, `states` (the lost race), `canary`
 (the same-ticket proof: Stop during the claim, then `retryPendingClaim`), `cockpit.vitest`.
 **Gate**: fast · `cockpit` proverless · `chain` proverless · `canary` real · pass: the canary refuses before
 sending and the restored claim mints · layers: + e2e live.
@@ -444,7 +475,8 @@ agree · layers: + e2e live with the injected wallet.
 The five dialogs on `Dialog size="tx"` (§5.5, §5.6, §5.4 Send, §5.9 Send ahead, the claim on Ethereum with
 `ensureChain` visible, the payer, the fixed recipient, the no-ETH state, the revert mapping; the wallet picker
 deduplicated); Send one-screen with the blur probe and the four field refusals; the full pasted address; the
-recovery file's prompt and re-offer (§9.3.6); `Sheet`, the four sheets, `ClaimSlot`, `AmountInput` deleted.
+recovery file's prompt and re-offer (§9.3.6); `ToEthereumSheet`, `DepositSheet`, `SendSheet`, `ClaimSlot`,
+`AmountInput` deleted; `SendAheadSheet` and `Sheet` stay until P10 (`OldApp.tsx` consumes the former).
 Specs: `withdraw`, `bridge-states` (wrong network, refused, left open, account changed), `forms.vitest`.
 **Gate**: fast · `canary` real (withdraw) · `bridge` shard · replay · pass: cancellation boundaries and disabled
 reasons match the send's ownership · layers: + e2e live.
@@ -457,7 +489,7 @@ dialog and How it works; the old origin as one Send-ahead page (7A, §9.2.9, §9
 with Account; the old role's page set in `assemble.ts` (the miner at `/`, no landing, no stats; `_redirects`
 for `/mine/` → `/`, exact sources only); V6's first login; the stats bridge page on `readDeadline`; `note-stop` and `retire-node` in
 `scripts/bridge.ts` with `flags.ts`; `docs/upgrades.md` (the stop, the retirement, the old origin's redeploy that
-carries them, the witness archive line); `OldTabNotice` untouched (§9.2.11). Specs: `bridge.e2e.ts` and
+carries them, the witness archive line); `OldTabNotice` untouched (§9.2.11); `SendAheadSheet` and `Sheet` deleted here, once the old app is on the dialog. Specs: `bridge.e2e.ts` and
 `origin.e2e.ts` through the rig (`migration-card[data-moment]`, `ahead-*`, `flipped-alert`, `retired`), the
 harness's browser/origin cases, `versioned-origin.vitest`, `packages/deploy` tests.
 **Gate**: fast · `bun test packages/deploy packages/harness` · `bun run rig -- browser origin` (tmux) · pass:
@@ -500,8 +532,8 @@ main (M), codex (C), fable (F); the contradiction check: codex (CC), fable (FC);
 | # | decision | source | rejected alternatives |
 |---|---|---|---|
 | D1 | One `Header` in ui with a `right` slot; the landing composes `Brand` with its sections nav | M, C | three headers with shared pieces (M's rejected); the full app tabs on the landing (an Ask) |
-| D2 | The single slot as a transactional ownership layer over the record CRUD; the login side closed (`restoreWithPasskey` refuses an unknown master); legacy: the newest-created record; per browser profile and origin | C (transactional, legacy rule, per-origin), F (the login side is the open one; create already fails closed), M (API shape) | main's untransacted `claimSlot`; "most recently opened" (unknowable); F's `lastOpenedAt` stamp (nothing to stamp before the first open under the new code) |
-| D3 | `other` keeps mining paused with Retry (the retained ticket needs its secret) | code (`execute('mine')`, `retryEligible`), C | main's and v4.2's "resume on the open epoch" |
+| D2 | The single slot as a transactional ownership layer with reserve (before WebAuthn) / stage / commit / cancel / release; both sides closed (create stores unconditionally today, login makes records for unknown masters); legacy: the newest-created record; per browser profile and origin; release only by Sign out | C (the reservation semantics, legacy rule, per-origin; CC on the ordering), F (the login side), M (the store boundary) | main's `claimSlot(record)` after the prompt (CC: too late); "most recently opened" (unknowable); F's `lastOpenedAt` stamp; C's "retain the former until the replacement opens" (the brief routes replacement through Sign out) |
+| D3 | `other` keeps mining paused with Retry (the retained ticket needs its secret) | code (`execute('mine')`, `retryEligible`), F (retain the pause) | main's, v4.2's and C's "resume on the open epoch" (C's draft kept a retry handle across the restart, which the secret rotation defeats) |
 | D4 | `expiresAt` from `wallet.ts`'s send observer, awaited before the send resolves; `unfinished` needs a complete history and a tip past it; re-adoptable | M (the hook), C (evidence bar, re-adoption) | a persisted `RowState`; the wallet's TTL constant as a fallback |
 | D5 | Deposits reconcile on receipts, events and the calldata deadline by L1 time; the two-hour give-up goes (§9.1.16) | C | keep the heuristic |
 | D6 | `afterNextAt` added to `portal-reader.ts`; `readDeadline` pure over one block; `closed` = `l1Now > deadline` | C (the missing read, equality), M (the type) | recon's "already read" |
@@ -513,7 +545,7 @@ main (M), codex (C), fable (F); the contradiction check: codex (CC), fable (FC);
 | D12 | The claim's one clock from the win; six outcomes; the banners without "Use another account" | R, M, C | — |
 | D13 | The hold reveals the click path after an early release and on a click-only activation; sign out drains the claim | R (Fable 3), C | the owner's "no click alternative" as an absolute (an Ask) |
 | D14 | Six arcs (C's shape, M's phases merged: 11 phases) | M, C | M's five arcs; C's twelve phases |
-| D15 | Gates: the fast layers everywhere, the shards a phase touches, the rig at P10 and P11, site/stats/landing at P1 (visual) and P11 | O (Phase 0), M | C's common gate G (every shard and the rig on every phase) |
+| D15 | Gates: the fast layers everywhere, the shards a phase touches, the rig at P10 and P11, site/stats/landing at P1 (visual) and P11; the owner confirms or widens at the gate (Ask 6) | M (the skill's "heavier layers where they warrant"), O's layer list | C's common gate G (every shard, replay and the rig on every phase: CC reads the Phase 0 answer that way) |
 | D16 | Finished rows collapse after seven days, never discarded | C | — |
 | D17 | Copy precedence: the flow boards over the deck where they disagreed; the deck fixed (v4.2.1) | C | — |
 | D18 | `readDeadline` in a new `deadline-reading.ts`; `deadline.ts` keeps the rollup's proof reads | F | M's and C's "in deadline.ts" |
@@ -525,12 +557,35 @@ main (M), codex (C), fable (F); the contradiction check: codex (CC), fable (FC);
 | D24 | The proof time is the version's latest `L2ProofVerified` only (the upgrade card's chip); no per-crossing proof time | M, C | F's per-crossing checkpoint time on `proven-pending` (the brief's rows carry none) |
 | D25 | The hold during a claim: dimmed "Claim finishing · Ns", arms when done (the brief) | brief | F's "fill completes and waits" |
 | D26 | Six linear arcs (`gh stack` is linear) | M, C | F's seven arcs with a DAG |
+| D27 | A revert's cause is verified from the reason string ("stale claim" / "epoch is not open"); other reverts get a neutral sentence | CC | the brief's "the epoch closed first" for every revert |
+| D28 | The mining ledger's settlement is its own adapter on `checkpointOfBlock` + `checkpointProven`; `claimSettled` stays the crossing's | CC | reading the crossing's field for a mining claim |
+| D29 | The journal's commit of hash + expiry is awaited before `target.sendTx` | CC | "in the same tick" (M) |
+| D30 | Welcome back on arrival when a slot exists; the chip → Wallet on the miner | brief (§5.1, §5.10), CC | P3's "never on arrival"; the chip → Settings (F) |
 
-Still disputed for the contradiction check: D1 (the landing's bar), D8 (the L1 anchor's block count), D13 (the reveal), D23 (derived vs persisted), D15 (gate weight).
+Open for the owner at the gate: D13 (the reveal, Ask 1), D15 (gate weight, Ask 6), D2's legacy rule (Ask 3).
 
 ## 9. Audit verdicts
 
-Pending: the contradiction check (codex, fable), audit round 1 (codex, fable), the final fresh-context codex pass.
+### 9.1 The contradiction check (Codex, resumed session, 2026-09-15) — REVISE, folded
+
+| # | Sev | Finding | Checked | Verdict · the plan now |
+|---|---|---|---|---|
+| 1 | high | Three `behind` thresholds (checkpoints, blocks, 60 s) across §3 and the Asks. | The node's `getCheckpointNumber` and the Rollup's `getPendingCheckpointNumber` exist. | **accept**: checkpoints everywhere; the cadence, the tolerance and the stale-L1 rule in §3.2, §3.5, Ask 2. |
+| 2 | high | `claimSlot(record)` ran after WebAuthn; `createWithPasskey` stores unconditionally, so "create already fails closed" was wrong. | `session.ts:296-320`. | **accept**: reserve / stage / commit / cancel / release (§3.2, D2); release only through Sign out. |
+| 3 | high | "Awaited before the send resolves" is weaker than durable-before-submission; the observer calls `target.sendTx` right after a sync callback. | `wallet.ts:48-54`. | **accept**: the observer awaits the journal's commit before `target.sendTx` (D29). |
+| 4 | high | D15 drops gates the Phase 0 answer required; `$SHARD` notation not executable; `test:components` only where it exists. | The answer listed layers, not their placement. | **accept in part**: executable commands; Ask 6 lets the owner widen; D15 stands as the default. |
+| 5 | medium | "Never on arrival" contradicts Welcome back on arrival; the miner's chip → Wallet, not Settings. | `brief.md` §5.1 Arrival, §5.10. | **accept** (D30). |
+| 6 | high | `claimSettled` is the crossing's; mining records only epoch/block/time. | `bridge/session.ts:521-543`, `state.ts:34`. | **accept**: the mining settlement adapter in P4 (D28). |
+| 7 | medium | P9 deleted `SendAheadSheet` while `OldApp` (P10) consumes it. | `OldApp.tsx:27,300`. | **accept**: the deletion moves to P10. |
+| 8 | medium | "The epoch closed first" for every `reverted` asserts an unverified cause. | `claim-failure.ts:14-24`; the contract's strings at `main.nr:188,231`. | **accept**: the cause verified from the reason (D27). |
+| 9 | low | D3's attribution reversed. | — | **accept**. |
+| 10 | low | D23's justification overstated (a restore normalises state already). | `recovery.ts:172`. | **accept**: the reasoning reworded (§3.6). |
+
+The Fable contradiction check was started and stopped when the owner downgraded the tier to `mid`.
+
+### 9.2 The dual audit — pending (Codex resumed; one Fable subagent)
+
+### 9.3 The final Codex pass on the ledger — pending
 
 ## 10. Post-implementation (self-contained — the implementing session executes this from here)
 
