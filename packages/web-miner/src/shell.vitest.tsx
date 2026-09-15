@@ -3,6 +3,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { hostKind, keysAllowed, previewNotice, relyingParty } from '../../site/src/browser/host.ts';
 import { queryOverridesAllowed } from './config';
 import { isDesktop } from './desktop';
+import { minerTabs } from './lib/tabs';
 import { navigate, pathFor, routeFromPath, useRoute } from './routes';
 import { tabTitle } from './tab-status';
 
@@ -32,6 +33,21 @@ describe('routes', () => {
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
     expect(result.current).toBe('settings');
+  });
+});
+
+describe('the header', () => {
+  test('Mine · Wallet · Stats ↗ · Verify ↗; the two read-only destinations open the stats app in another tab', () => {
+    const go = vi.fn();
+    const tabs = minerTabs('wallet', go, '/stats/');
+    expect(tabs.map((t) => t.label)).toEqual(['Mine', 'Wallet', 'Stats', 'Verify']);
+    expect(tabs.map((t) => t.current ?? false)).toEqual([false, true, false, false]);
+    expect(tabs.map((t) => t.external ?? false)).toEqual([false, false, true, true]);
+    expect(tabs.map((t) => t.href)).toEqual(['/', '/wallet', '/stats/', '/stats/verify']);
+    expect(tabs.map((t) => t.icon)).toEqual(['mine', 'wallet', 'stats', 'verify']);
+    tabs[0]?.onSelect?.();
+    expect(go).toHaveBeenCalledWith('mine');
+    expect(tabs[2]?.onSelect).toBeUndefined();
   });
 });
 

@@ -11,7 +11,12 @@ type Owner = number | 'Space' | 'Enter';
  * The hold gesture: the fill runs for `holdMs` on the frame clock while held; `onConfirm` fires once, on the
  * release by the same pointer or key that began the hold, after the fill completed. Anything else cancels.
  */
-function useHold(onConfirm: () => void, holdMs: number, disabled: boolean | undefined) {
+function useHold(
+  onConfirm: () => void,
+  holdMs: number,
+  disabled: boolean | undefined,
+  onAbandon?: () => void,
+) {
   const [progress, setProgress] = useState(0);
   const armed = useRef(false);
   const holding = useRef(false);
@@ -27,6 +32,13 @@ function useHold(onConfirm: () => void, holdMs: number, disabled: boolean | unde
     owner.current = null;
     setProgress(0);
   }, []);
+
+  /** A hold the user let go of, or left, before it filled: cancels, and says so once. */
+  const abandon = useCallback(() => {
+    const early = holding.current && !armed.current;
+    cancel();
+    if (early) onAbandon?.();
+  }, [cancel, onAbandon]);
 
   const begin = useCallback(
     (by: Owner) => {
@@ -52,10 +64,12 @@ function useHold(onConfirm: () => void, holdMs: number, disabled: boolean | unde
     (by: Owner) => {
       if (owner.current !== by) return;
       const confirm = armed.current;
-      cancel();
-      if (confirm) onConfirm();
+      if (confirm) {
+        cancel();
+        onConfirm();
+      } else abandon();
     },
-    [cancel, onConfirm],
+    [cancel, abandon, onConfirm],
   );
 
   useEffect(() => {
@@ -70,7 +84,7 @@ function useHold(onConfirm: () => void, holdMs: number, disabled: boolean | unde
     if (disabled) cancel();
   }, [disabled, cancel]);
 
-  return { progress, begin, release, cancel, owns: (by: Owner) => owner.current === by };
+  return { progress, begin, release, cancel, abandon, owns: (by: Owner) => owner.current === by };
 }
 
 /** With the pointer captured, leave events never fire: the bounds are checked on every move instead. */
@@ -83,35 +97,48 @@ const keyOwner = (e: React.KeyboardEvent): 'Space' | 'Enter' | null =>
   e.key === ' ' ? 'Space' : e.key === 'Enter' ? 'Enter' : null;
 
 /**
- * A destructive action confirmed by a completed gesture the user can still abort. The gesture is never the
- * only path: callers also offer a plain click, and eligibility lives in `onConfirm`.
+ * A destructive action confirmed by a completed gesture the user can still abort. Nothing but the hold
+ * shows at rest; `reveal` (the click path, for whoever can only click) appears under the button once a
+ * hold was let go of early. `waitingLabel` replaces the gesture while the action must wait (a claim in
+ * flight): the button reads it, dimmed, and arms once the label is gone. Eligibility lives in `onConfirm`.
  */
 export function HoldButton({
   onConfirm,
   holdMs = 1200,
   disabled,
+  waitingLabel,
+  reveal,
   className,
   children,
   variant = 'danger',
   ...props
 }: Omit<React.ComponentProps<'button'>, 'onClick'> &
-  VariantProps<typeof buttonVariants> & { onConfirm: () => void; holdMs?: number }) {
-  const hold = useHold(onConfirm, holdMs, disabled);
+  VariantProps<typeof buttonVariants> & {
+    onConfirm: () => void;
+    holdMs?: number;
+    waitingLabel?: React.ReactNode;
+    reveal?: React.ReactNode;
+  }) {
+  const waiting = waitingLabel !== undefined;
+  const [revealed, setRevealed] = useState(false);
+  const onAbandon = useCallback(() => setRevealed(true), []);
+  const hold = useHold(onConfirm, holdMs, disabled || waiting, onAbandon);
   const hint = useId();
-  return (
+  const button = (
     <Button
       type="button"
       variant={variant}
-      disabled={disabled}
+      disabled={disabled || waiting}
       aria-describedby={hint}
-      className={cn('relative overflow-hidden', className)}
+      data-waiting={waiting || undefined}
+      className={cn('relative overflow-hidden', waiting && 'opacity-60', className)}
       onPointerDown={(e) => hold.begin(e.pointerId) && e.currentTarget.setPointerCapture?.(e.pointerId)}
-      onPointerMove={(e) => hold.owns(e.pointerId) && !inside(e) && hold.cancel()}
-      onPointerUp={(e) => (inside(e) ? hold.release(e.pointerId) : hold.cancel())}
-      onPointerCancel={hold.cancel}
-      onLostPointerCapture={hold.cancel}
-      onPointerLeave={hold.cancel}
-      onBlur={hold.cancel}
+      onPointerMove={(e) => hold.owns(e.pointerId) && !inside(e) && hold.abandon()}
+      onPointerUp={(e) => (inside(e) ? hold.release(e.pointerId) : hold.abandon())}
+      onPointerCancel={hold.abandon}
+      onLostPointerCapture={hold.abandon}
+      onPointerLeave={hold.abandon}
+      onBlur={hold.abandon}
       onKeyDown={(e) => {
         const by = keyOwner(e);
         if (!by || e.repeat) return;
@@ -129,7 +156,7 @@ export function HoldButton({
         className="pointer-events-none absolute inset-y-0 left-0 bg-bad/25"
         style={{ width: `${hold.progress * 100}%` }}
       />
-      <span className="relative">{children}</span>
+      <span className="relative">{waiting ? waitingLabel : children}</span>
       <span
         role="progressbar"
         aria-valuemin={0}
@@ -142,5 +169,16 @@ export function HoldButton({
         hold, then release
       </span>
     </Button>
+  );
+  if (reveal === undefined) return button;
+  return (
+    <span data-slot="hold" className="inline-flex flex-col items-start gap-1.5">
+      {button}
+      {revealed && (
+        <span data-slot="hold-reveal" className="text-xs text-ink-2">
+          {reveal}
+        </span>
+      )}
+    </span>
   );
 }

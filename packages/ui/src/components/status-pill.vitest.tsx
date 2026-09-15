@@ -6,6 +6,7 @@ const CASES: [Status, string][] = [
   ['idle', 'idle'],
   ['mining', 'mining'],
   ['claiming', 'claiming'],
+  ['stopping', 'stopping'],
   ['minted', 'minted'],
   ['not-backed-up', 'not backed up'],
   ['paused', 'paused'],
@@ -24,10 +25,12 @@ describe('StatusPill', () => {
       <>
         <StatusPill status="mining" />
         <StatusPill status="claiming" />
+        <StatusPill status="stopping" />
       </>,
     );
     expect(screen.getByText('mining').closest('span')).toHaveClass('[&>i]:animate-pulse');
     expect(screen.getByText('claiming').closest('span')).not.toHaveClass('[&>i]:animate-pulse');
+    expect(screen.getByText('stopping').closest('span')).not.toHaveClass('[&>i]:animate-pulse');
   });
 
   test('custom text overrides the label', () => {

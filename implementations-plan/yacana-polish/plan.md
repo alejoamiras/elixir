@@ -645,7 +645,7 @@ with the hold, Welcome back and the new-device login, P7–P9 the wallet specs w
 
 ## 7. Delivery — arcs → stacked PRs
 
-Six arcs, one branch each, stacked on `main` with `gh stack` (installed, v0.1.0); `code_review: off` on every arc.
+Seven arcs, one branch each, stacked on `main` with `gh stack` (installed, v0.1.0); `code_review: off` on every arc.
 Storage changes are additive (the slot layer, `expiresAt`, the record flags): every arc reverts cleanly at its
 stack position without deleting keys, downgrading journals or touching contracts.
 
@@ -805,7 +805,7 @@ Then Delivery.
 1. **`/code-review`: not run.** `code_review: off` — the codex fix loop is the review. Do not add it.
 2. **Codex audit** (`/codex high`, GPT-6 Astra, `~/.claude/skills/codex/scripts/run-codex.sh <prompt> <cwd> high`):
    send the arc's diff (`git diff <arc-base>...HEAD`), this plan.md, the decision ledger (§8), the arc map ("this
-   is arc N of 6; later arcs build X on it"), the adversarial/security ask ("What could go wrong? What would an
+   is arc N of 7; later arcs build X on it"), the adversarial/security ask ("What could go wrong? What would an
    attacker target? What are we trusting that we shouldn't? Where are the supply-chain / crypto / least-privilege
    weaknesses?"), the copy ask ("Is every sentence the brief's, verbatim from the canvas generator? Does any state
    lack its sentence?"), and both rules below verbatim.
@@ -837,7 +837,7 @@ At each phase-gate pass: `agent-worktree status yacana-polish "phase N green: <n
 `lessons/phase-N.md`; every consult logged. Commits signed (this machine's key is non-interactive), conventional,
 with the attribution trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 
-## Seeds (DRAFT — finalized after the approval gate)
+## Seeds (final — approved 2026-09-15)
 
 Use exactly one seed per session; they do not compose. `/goal` is the recommended one. The implementing session
 must run inside this worktree (`agent-worktree resume yacana-polish`).

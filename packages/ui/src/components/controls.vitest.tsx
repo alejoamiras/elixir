@@ -159,6 +159,51 @@ describe('HoldButton keyboard path', () => {
   });
 });
 
+describe('HoldButton wait and reveal', () => {
+  test('nothing under the button at rest; a hold let go of early reveals the click path, once', () => {
+    const frames = fakeFrames();
+    const onConfirm = vi.fn();
+    render(
+      <HoldButton onConfirm={onConfirm} reveal={<button type="button">Sign out with a click</button>}>
+        Hold to sign out
+      </HoldButton>,
+    );
+    expect(screen.queryByRole('button', { name: 'Sign out with a click' })).toBeNull();
+    const button = screen.getByRole('button', { name: /hold to sign out/i });
+    (button as HTMLButtonElement & { setPointerCapture: () => void }).setPointerCapture = () => {};
+    button.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        right: 100,
+        bottom: 40,
+        width: 100,
+        height: 40,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    fireEvent.pointerDown(button, { pointerId: 1, clientX: 50, clientY: 20 });
+    frames.tick(400);
+    fireEvent.pointerUp(button, { pointerId: 1, clientX: 50, clientY: 20 });
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Sign out with a click' })).toBeInTheDocument();
+  });
+
+  test('a waiting label replaces the gesture and disables it; the hold arms once the wait is over', () => {
+    const { rerender } = render(
+      <HoldButton onConfirm={() => {}} waitingLabel="Claim finishing · 12 s">
+        Hold to sign out
+      </HoldButton>,
+    );
+    const waiting = screen.getByRole('button', { name: /claim finishing/i });
+    expect(waiting).toBeDisabled();
+    expect(waiting).toHaveAttribute('data-waiting', 'true');
+    rerender(<HoldButton onConfirm={() => {}}>Hold to sign out</HoldButton>);
+    expect(screen.getByRole('button', { name: /hold to sign out/i })).toBeEnabled();
+  });
+});
+
 describe('RadioCards', () => {
   test('one checked card, each stating its consequence; choosing another reports it', () => {
     const onChange = vi.fn();

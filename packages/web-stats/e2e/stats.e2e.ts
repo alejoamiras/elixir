@@ -294,3 +294,21 @@ test('the bridge page: this version registered and live on the portal, its turns
     (r.bridge?.operators ?? '').toLowerCase(),
   );
 });
+
+test('the header: Stats · Bridge · Verify · Mine ↗, the version by the logo, testnet said quietly', async ({
+  page,
+}) => {
+  const r = run();
+  await mockNode(page, r);
+  await page.goto(pageUrl(r, '', { node: MOCK_NODE_ORIGIN }));
+  const nav = page.getByRole('navigation', { name: 'stats' });
+  await expect(nav.getByRole('link')).toHaveText(['Stats', 'Bridge', 'Verify', 'Mine ↗']);
+  await expect(nav.getByRole('link', { name: 'Stats' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByTestId('nav-mine')).toHaveAttribute('href', '/mine/');
+  await expect(page.getByTestId('nav-mine')).toHaveAttribute('target', '_blank');
+  await expect(page.getByTestId('brand-version')).toHaveText(/^V\d+$/);
+  await expect(page.locator('[data-slot=badge][data-variant=net]')).toHaveText('testnet');
+  await page.getByRole('link', { name: 'Bridge' }).click();
+  await expect(nav.getByRole('link', { name: 'Bridge' })).toHaveAttribute('aria-current', 'page');
+  await expect(page).toHaveTitle('Yacana · Bridge');
+});
