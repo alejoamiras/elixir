@@ -6,7 +6,7 @@ eli5_mode: artifact
 code_review: off
 hardening: none this arc
 budget: "recon 2 agents (1 reuse sweep, 1 suite mapper); codex at high (GPT-6 Astra); one fable audit on Fable 5.1; the owner asked for the cheap tier on 2026-09-15"
-status: draft — consolidated from plans/{main,codex,fable}.md; Codex's contradiction check (§9.1), both audits (§9.2) and the final Codex pass on the ledger (§9.3) folded; awaiting the owner's approval (Asks 1, 4, 5, 6)
+status: draft — consolidated from plans/{main,codex,fable}.md; Codex's contradiction check (§9.1), both audits (§9.2) and the final Codex pass on the ledger (§9.3) folded; awaiting the owner's approval (Asks 1, 4, 5; Ask 6 decided: the last arc runs everything)
 created: 2026-09-15
 ---
 
@@ -391,9 +391,8 @@ accessibility point vs "no click alternative"; default: reveal); (2) decided, no
 node) and 15 s (L1), an L1 sample older than 60 s making the standing `unknown`; (3) decided, not asked (FA): the newest-created legacy record is the slot, the other unlisted (a vitest seeds
 two records and asserts it); (4) the landing's bar: `Brand` + its sections nav + Mine/Stats links (default) or the
 full app tabs; (5) §9.3.7: a bounded feasibility answer from the pinned Presto SDK interface (default: one
-paragraph in `lessons/`, no PXE integration this arc); (6) the gates' weight (the rig's `origin` case now also runs at the arc-2 boundary, P3): the shards a phase touches with the
-rig at P10–P11 (default, §6), or every shard, the replay lane and the rig on every phase (Codex read the Phase 0
-answer that way; it roughly triples the wall-clock of P2–P9).
+paragraph in `lessons/`, no PXE integration this arc); (6) decided, not asked (O, 2026-09-15): P2–P9 run the shards they touch (the rig's `origin` at P3, both browser
+cases at P10); P11, the stack's last arc, runs everything with a journey record (§6 P11, D15).
 
 ## 6. Phases with validation gates
 
@@ -548,16 +547,60 @@ harness's browser/origin cases, `versioned-origin.vitest`, `packages/deploy` tes
 `test:visual --update-snapshots` then `test:visual` (the stats bridge page's deadline sentences changed) · pass:
 both cases green with the new copy · layers: + rig, visual.
 
-### P11 — The sweep
+### P11 — The sweep (the stack's last arc runs everything; O, 2026-09-15)
 
 The FAQ and the announcement lines §6 changed (`copy.ts:150` "ends at the upgrade" → "ends when the upgrade
-lands");
-the copy-deck check (every screen's strings live in one module per feature and a Vitest spec asserts the
-table against the generator's; P11 greps the built bundles for the deck's "after" strings as the last smoke); the
-four shards + replay + the rig + the site e2e + the stats e2e and visual + the landing e2e in one run each on the
-stack's top; `e2e.yml` dispatched on the branch; `implementations-plan/index.md`.
-**Gate**: every command of the list above green · `gh run watch` on the dispatch green with executed titles ==
-the inventory · layers: everything.
+lands"); the copy-deck check (every screen's strings live in one module per feature and a Vitest spec asserts the
+table against the generator's; P11 greps the built bundles for the deck's "after" strings as the last smoke);
+`implementations-plan/index.md`. Then the sweep: every layer the repo has, once, on the stack's top, so that a
+user who creates an account, mines, claims, bridges out, bridges in, is forwarded, sends ahead, withdraws, signs
+out and signs back in (on this device and on a new one) is proven whole end to end. Every command's result and the
+executed test titles go into `lessons/phase-11.md` as the sweep record; the journey table below must be filled
+from that record, one executed title per row, before the phase is ✓.
+
+**Gate** (in this order; long runs in tmux through `bun run e2e:agent`):
+1. fast: `bun run lint` · `bun run lint:shell` · `bun run lint:actions` · `bun run typecheck` and
+   `bun run --cwd packages/<web-miner|web-stats|web-landing|site> typecheck` · `bun test` · `bun run test:components`.
+2. the chains' own suites: `bun run portal:test` (forward, redeem, deposit, retire: what the page's dialogs sign) ·
+   `bun run contracts:test` only if `packages/contracts` changed on the stack (it should not; the record says so).
+3. the miner, every spec, real proving, Presto beside it: `bun run e2e:agent -- bun run --cwd packages/web-miner
+   test:e2e` (presto-server installed, so `presto.e2e.ts` runs; `e2e/.breakdown.json` kept in the record) · then as
+   CI runs it, `E2E_PROVERLESS=1 E2E_SHARD=<cockpit|chain|bridge> …` and `E2E_SHARD=canary …` (the meter and the
+   inventory) · `bun run --cwd packages/web-miner test:replay` (re-recorded first when the dialog or the signed-out
+   page changed on the stack).
+4. the rig, every case: `bun run rig -- all` (flip, bridge, deposit, migration, skip-version, never-settled,
+   browser, origin; each boots its own network): `browser` drives `bridge.e2e.ts` through V5 → flipped → V6,
+   `origin` drives `origin.e2e.ts`.
+5. the read-only apps and the site: `bun run e2e:agent -- bun run --cwd packages/web-stats test:e2e` ·
+   `bun run --cwd packages/web-stats test:visual` · `bun run e2e:agent -- bun run --cwd packages/web-landing test:e2e` ·
+   `bun run site:build` and `YACANA_APP_ROLE=old bun run site:build` (both production guards) ·
+   `bun run e2e:agent -- bun run site:e2e`.
+6. CI: `e2e.yml` dispatched on the stack's top; `gh run watch` green; executed titles == the inventory.
+7. the copy-deck grep of the built bundles.
+
+**Journeys** (each row names the spec whose executed title the record must show; P2–P3 extend the account specs
+with the hold, Welcome back and the new-device login, P7–P9 the wallet specs with the row states):
+
+| journey | proven by |
+|---|---|
+| create an account with a passkey · mine · claim · the balance · reload with one touch | `passkey.e2e.ts`, `miner.e2e.ts` |
+| create with words · the quiz · mine · sign out (the hold) · restore with the words · the same address | `words.e2e.ts` |
+| sign out, then Welcome back and open on this device; log in on a new device (a second browser profile); create refused over a held slot | `passkey.e2e.ts`, `words.e2e.ts` (P2–P3) |
+| cancel mid-opening; the account opens on the next try | `opening.e2e.ts` |
+| bridge out: exit → forwarded → minted on Ethereum · bridge in: a deposit through the picker | `bridge-states.e2e.ts` (the page on the isolated network), `bridge.e2e.ts` v5 (the rig) |
+| forward (the operator's script, the witness archive) | rig `bridge` (H1/H6/H9/H10), `bridge.e2e.ts` "forwarded" |
+| send ahead before the flip · the flip · the same words on V6 · the recovery file · a held send-ahead forwarded on V6 | rig `browser` → `bridge.e2e.ts` (v5, v5-flipped, v6) |
+| the old origin: the same passkey restores the apex account, creates nothing, mines nothing | rig `origin` → `origin.e2e.ts` |
+| withdraw: private to a second key on this device, public to an address | `withdraw.e2e.ts` |
+| a lost race reverts, the view rebuilds, the next claim mints · the node away pauses mining, back resumes it | `states.e2e.ts` |
+| a live node switch while mining, a claim after it, the banner on a dead node | `switch.e2e.ts` |
+| Presto proves (the ✦ pill), the browser fallback, the billboard when nothing answers | `presto.e2e.ts` |
+| a tampered claim refused at proving, the untampered one mints (real proving) | `canary.e2e.ts` |
+| deposits, migrations, a skipped version, never settled, the flip itself | rig `deposit`, `migration`, `skip-version`, `never-settled`, `flip` |
+| the stats (the map, the bridge page, verify), the landing's demo proof, the assembled site's paths and headers | web-stats e2e + visual, web-landing e2e, `site:e2e` |
+| the signed-out page and the dialog's geometry, no node | `test:replay` |
+
+**pass**: every command green · the record complete, one executed title per journey row · layers: everything.
 
 ## 7. Delivery — arcs → stacked PRs
 
@@ -599,7 +642,7 @@ main (M), codex (C), fable (F); the contradiction check: codex (CC), fable (FC);
 | D12 | The claim's one clock from the win; six outcomes; the banners without "Use another account" | R, M, C | — |
 | D13 | The hold reveals the click path after an early release and on a click-only activation; sign out drains the claim | R (Fable 3), C | the owner's "no click alternative" as an absolute (an Ask) |
 | D14 | Six arcs (C's shape, M's phases merged: 11 phases) | M, C | M's five arcs; C's twelve phases |
-| D15 | Gates: the fast layers everywhere, the shards a phase touches, the rig at P10 and P11, site/stats/landing at P1 (visual) and P11; the owner confirms or widens at the gate (Ask 6) | M (the skill's "heavier layers where they warrant"), O's layer list | C's common gate G (every shard, replay and the rig on every phase: CC reads the Phase 0 answer that way) |
+| D15 | Gates: the fast layers everywhere; P2–P9 the shards a phase touches, the rig's `origin` at P3, `browser` + `origin` at P10; P11, the stack's last arc, runs everything the repo has (every miner spec with real proving and again as CI shards it, replay, `rig -- all`, the portal's tests, stats e2e + visual, landing e2e, both site builds + site e2e, the CI dispatch) with a journey record in `lessons/phase-11.md` | O (2026-09-15: "the last branch of the gh stack [runs] everything… extra sure that nothing has been broken"), M | C's common gate G on every phase (roughly triples P2–P9; the owner kept the default there) |
 | D16 | Finished rows collapse after seven days, never discarded | C | — |
 | D17 | Copy precedence: the flow boards over the deck where they disagreed; the deck fixed (v4.2.1) | C | — |
 | D18 | `readDeadline` in a new `exit-deadline.ts` (FA's name: it is the portal's exit deadline); `deadline.ts` keeps the rollup's proof reads | F, FA | M's and C's "in deadline.ts" |
@@ -629,8 +672,8 @@ main (M), codex (C), fable (F); the contradiction check: codex (CC), fable (FC);
 | D42 | `unfinished`'s coverage read: the deployment-checked node in use serves the send's anchor block (recorded by the hook) and answers "no log" past the expiry; a node without the anchor block stays `checking` | FA, CF | an uncomputable `historyComplete` input; "no log" twice (absence twice is still absence, CF) |
 | D43 | The rig's `origin` case at the arc-2 boundary (the dialog's ids); `browser` at P10 | FA | both at P10 only |
 
-Open for the owner at the gate: D13 (the reveal, Ask 1), D15 (gate weight, Ask 6). D2's legacy rule and the `behind`
-tolerance are decided (Asks 2 and 3, FA).
+Open for the owner at the gate: D13 (the reveal, Ask 1). D15 (Ask 6) was decided by the owner on 2026-09-15: the
+last arc runs everything. D2's legacy rule and the `behind` tolerance are decided (Asks 2 and 3, FA).
 
 ## 9. Audit verdicts
 
