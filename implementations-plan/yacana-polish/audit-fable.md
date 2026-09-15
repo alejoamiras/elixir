@@ -1,6 +1,6 @@
 # Fable audit — yacana-polish plan (2026-09-15)
 
-Fable 5.1, read-only, every citation checked at fb3a54c.
+Read-only; every citation checked at fb3a54c.
 
 ## Findings
 
@@ -12,19 +12,19 @@ Fable 5.1, read-only, every citation checked at fb3a54c.
 
 ### Medium
 
-3. **§3.2 `NodeStanding` `'unknown'` (l.139-140), §3.5, Ask 2 — a state with no board.** The canvas NodeStates board draws `healthy`, `throttled`, `no answer · 2 min`, `behind · 4 min` and nothing else; "copy verbatim" leaves `unknown` without a chip. §3.2 also says both "healthy = … ∧ not behind" and "l1 null → unknown", and P6's pass criterion "`healthy` needs a fresh tip" is false under the L1 anchor when the L1 sample is missing. And `4 min` is an age while the verdict is a checkpoint delta. Fix: decide and write: `unknown` renders as `healthy` (line 3's age is the honest information) or a board is added; the chip's minutes are the tip's age when the delta says behind.
+3. **§3.2 `NodeStanding` `'unknown'` (l.139-140), §3.5, Ask 2 — a state with no board.** The canvas NodeStates board draws `healthy`, `throttled`, `no answer · 2 min`, `behind · 4 min` and nothing else; "copy verbatim" leaves `unknown` without a chip. §3.2 says both "healthy = … ∧ not behind" and "l1 null → unknown", and P6's pass "`healthy` needs a fresh tip" is false when the L1 sample is missing. `4 min` is an age; the verdict is a checkpoint delta. Fix: write which — `unknown` renders as `healthy` (line 3's age is the honest information) or a board is added; the chip's minutes are the tip's age.
 
-4. **§3.5 `proofs.ts` — the helper cannot find "latest".** `scanLogs` walks forward from `fromBlock` in 10,000-block windows and `first` stops at the FIRST match (`logs.ts:31-47`). The latest event means a walk from `deployBlock` to head on every fresh visitor (a months-old Sepolia deployment = dozens of `eth_getLogs`, the 429 the plan's own `throttled` state exists for). Fix: scan backward from head, stop at the first non-empty window (a proof lands every ~40 min ≈ 200 blocks); a `direction` on `scanLogs` or a sibling; the overlap cursor stays.
+4. **§3.5 `proofs.ts` — the helper cannot find "latest".** `scanLogs` walks forward from `fromBlock` in 10,000-block windows and `first` stops at the FIRST match (`logs.ts:31-47`). The latest event means a walk from `deployBlock` to head for every fresh visitor: dozens of `eth_getLogs` on a months-old Sepolia deployment, the 429 the plan's `throttled` state exists for. Fix: scan backward from head, stop at the first non-empty window (a proof every ~40 min ≈ 200 blocks); the overlap cursor stays.
 
-5. **§3.3/§3.5 `unfinished` needs `historyComplete`; nothing computes it.** `rowState` takes it (l.123); `txByTag` is `getPublicLogsByTags` (`bridge/session.ts:189-192`), which returns empty for "no log" and for "not synced" alike. Undefined, the row is `checking` forever (§9.1.10 under a new word) or `unfinished` on missing evidence — a double burn after "Bridge again". Fix: name the read (the node's tips vs the send's window; or: the URL the send went through, tip past `expiresAt`, still no log one refresh later) and add the never-true case to P7's tests.
+5. **§3.3/§3.5 `unfinished` needs `historyComplete`; nothing computes it.** `rowState` takes it (l.123); `txByTag` is `getPublicLogsByTags` (`bridge/session.ts:189-192`), empty for "no log" and "not synced" alike. Undefined, the row is `checking` forever (§9.1.10 under a new word) or `unfinished` on missing evidence — a double burn after "Bridge again". Fix: name the read (the node's tips vs the send's window; or the send's own node URL, tip past `expiresAt`, no log one refresh later too) and test the never-true case at P7.
 
-6. **§3.3 D29 — the async observer sits on the claim path.** The same wallet's `sendTx` carries every mining claim (`wallet.ts:47-59`; `lastSent()` feeds the claim TTL). An awaited journal commit and "a storage failure refuses the submission" would delay or drop claims for a bridge's sake. Fix: the flow installs a one-shot hook before its send; the observer awaits only when one is installed; claims stay synchronous.
+6. **§3.3 D29 — the async observer sits on the claim path.** The same wallet's `sendTx` carries every mining claim (`wallet.ts:47-59`; `lastSent()` feeds the claim TTL); an awaited journal commit and "a storage failure refuses the submission" would delay or drop claims for a bridge's sake. Fix: the flow installs a one-shot hook before its send; the observer awaits only then.
 
-7. **§6 D15 — the rig first sees the new dialog at P10.** `bridge.e2e.ts:41-61` and `origin.e2e.ts:22-40` drive `key-screen`, `use-words`, `restore-words`, `create-passkey`, `bootPage`; P2 rewrites all of them. Eight phases of drift on the two specs with the highest floors (`RIG_ONLY` 5+1). Fix: `bun run rig -- origin` (nothing proved) at the arc-2 boundary.
+7. **§6 D15 — the rig first sees the new dialog at P10.** `bridge.e2e.ts:41-61` and `origin.e2e.ts:22-40` drive `key-screen`, `use-words`, `restore-words`, `create-passkey`, `bootPage`; P2 rewrites all of them: eight phases of drift on the specs with the highest floors (`RIG_ONLY` 5+1). Fix: `bun run rig -- origin` (nothing proved) at the arc-2 boundary.
 
-8. **§6 P2 vs `words.e2e.ts:66-101`.** The spec's second half creates a second account over the first (`create-new-key`, l.72) and asserts Welcome back with two records; under the slot a second create is refused, the scenario vanishes, and Ask 3's legacy rule has no test. Fix: P2 re-plots it (sign out → create → the backup gate → Welcome back with one) and seeds two records in IDB directly for the legacy rule's vitest.
+8. **§6 P2 vs `words.e2e.ts:66-101`.** The spec creates a second account over the first (`create-new-key`, l.72) and asserts Welcome back with two records; under the slot the scenario vanishes and Ask 3's legacy rule has no test. Fix: P2 re-plots it (sign out → create → the backup gate) and seeds two records in IDB for the legacy rule's vitest.
 
-9. **§8 D2 amends brief §5.1 silently.** The brief: "the stored record is replaced only after the new account has opened"; D2 rejects that ("release only by Sign out") and §9 lists no amendment. Today Sign out deletes the record (`session.ts:443-448`); `release` "empties the slot" — say whether it deletes. Fix: either retain the old record unlisted until `commit` (cheap: the slot already distinguishes listed from stored) or mark the brief amended at P2.
+9. **§8 D2 amends brief §5.1 silently.** The brief: "the stored record is replaced only after the new account has opened"; D2 rejects that and §9 lists no amendment. Today Sign out deletes the record (`session.ts:443-448`); `release` "empties the slot" without saying whether it deletes. Fix: retain the old record unlisted until `commit` (the slot already tells listed from stored) or mark the brief amended at P2.
 
 ### Low
 
