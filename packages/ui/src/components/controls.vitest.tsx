@@ -190,6 +190,29 @@ describe('HoldButton wait and reveal', () => {
     expect(screen.getByRole('button', { name: 'Sign out with a click' })).toBeInTheDocument();
   });
 
+  test('a click no hold produced (voice control, switch access) reveals the click path and confirms nothing', () => {
+    const onConfirm = vi.fn();
+    const { rerender } = render(
+      <HoldButton
+        onConfirm={onConfirm}
+        waitingLabel="Claim finishing · 12 s"
+        reveal={<a href="#out">click</a>}
+      >
+        Hold to sign out
+      </HoldButton>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /claim finishing/i }));
+    expect(screen.queryByRole('link', { name: 'click' })).toBeNull();
+    rerender(
+      <HoldButton onConfirm={onConfirm} reveal={<a href="#out">click</a>}>
+        Hold to sign out
+      </HoldButton>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /hold to sign out/i }));
+    expect(screen.getByRole('link', { name: 'click' })).toBeInTheDocument();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
   test('a waiting label replaces the gesture and disables it; the hold arms once the wait is over', () => {
     const { rerender } = render(
       <HoldButton onConfirm={() => {}} waitingLabel="Claim finishing · 12 s">

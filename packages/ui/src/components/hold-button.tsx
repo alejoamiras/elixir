@@ -99,7 +99,8 @@ const keyOwner = (e: React.KeyboardEvent): 'Space' | 'Enter' | null =>
 /**
  * A destructive action confirmed by a completed gesture the user can still abort. Nothing but the hold
  * shows at rest; `reveal` (the click path, for whoever can only click) appears under the button once a
- * hold was let go of early. `waitingLabel` replaces the gesture while the action must wait (a claim in
+ * hold was let go of early, or on a click no hold produced (voice control and switch access dispatch a
+ * click and cannot hold). `waitingLabel` replaces the gesture while the action must wait (a claim in
  * flight): the button reads it, dimmed, and arms once the label is gone. Eligibility lives in `onConfirm`.
  */
 export function HoldButton({
@@ -139,6 +140,7 @@ export function HoldButton({
       onLostPointerCapture={hold.abandon}
       onPointerLeave={hold.abandon}
       onBlur={hold.abandon}
+      onClick={() => !(disabled || waiting) && setRevealed(true)}
       onKeyDown={(e) => {
         const by = keyOwner(e);
         if (!by || e.repeat) return;

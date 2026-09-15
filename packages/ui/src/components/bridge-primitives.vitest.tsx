@@ -34,7 +34,6 @@ describe('the bridge primitives', () => {
     expect(states).toEqual(['done', 'on', 'todo']);
     expect(container.textContent).toContain('›');
     expect(container.querySelector('[data-variant="chips"]')).toBeTruthy();
-    // A done station carries ✓ where the others carry their light.
     expect(container.querySelector('[data-state="done"]')?.textContent).toMatch(/^✓/);
     expect(container.querySelector('[data-state="done"] i')).toBeNull();
     expect(container.querySelector('[data-state="on"] i')).toBeTruthy();

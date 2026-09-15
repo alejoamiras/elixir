@@ -33,6 +33,9 @@ describe('Header', () => {
     expect(mine.querySelector('[data-icon=mine]')).toBeTruthy();
     fireEvent.click(mine);
     expect(onSelect).toHaveBeenCalledTimes(1);
+    // A modified click is the browser's (a new tab): not intercepted, not routed.
+    expect(fireEvent.click(mine, { ctrlKey: true })).toBe(true);
+    expect(onSelect).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('link', { name: 'Wallet' })).not.toHaveAttribute('aria-current');
 
     const stats = screen.getByTestId('nav-stats');

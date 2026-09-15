@@ -1,10 +1,7 @@
 import type * as React from 'react';
 import { cn } from '../lib/cn.ts';
 
-/**
- * The amount being typed: the number, the unit and the MAX chip on one baseline, what sits under
- * it ("balance 3.5 tYACA") said once. Parsing and refusals belong to the form; the field only edits text.
- */
+/** Parsing and refusals belong to the form; the field only edits text. */
 export function AmountField({
   id,
   value,
@@ -55,7 +52,7 @@ export function AmountField({
           <span className="font-mono text-xs font-medium leading-none tracking-[0.04em] text-ink-3">
             {unit}
           </span>
-          {max !== undefined && !disabled && (
+          {max !== undefined && !disabled && !props.readOnly && (
             <button
               type="button"
               data-slot="max"

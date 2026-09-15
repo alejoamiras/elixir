@@ -28,7 +28,15 @@ export interface HeaderProps extends Omit<React.ComponentProps<'header'>, 'child
   onHome?: () => void;
 }
 
-/** The logo, the name and the version tag, linking to the app's home. */
+/** In-app navigation on a plain primary click; a modified one (a new tab, a window) keeps the link's own behaviour. */
+const select = (onSelect?: () => void) =>
+  onSelect &&
+  ((e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    onSelect();
+  });
+
 export function Brand({
   version,
   homeHref,
@@ -47,13 +55,7 @@ export function Brand({
       href={homeHref}
       data-slot="brand"
       className={cn('flex items-center gap-2 text-[15px] font-semibold text-ink', className)}
-      onClick={
-        onHome &&
-        ((e) => {
-          e.preventDefault();
-          onHome();
-        })
-      }
+      onClick={select(onHome)}
       {...props}
     >
       <Mark state={mark} />
@@ -104,13 +106,7 @@ export function Header({
             aria-current={t.current ? 'page' : undefined}
             data-testid={t.testId}
             {...(t.external && { target: '_blank', rel: 'noopener noreferrer' })}
-            onClick={
-              t.onSelect &&
-              ((e) => {
-                e.preventDefault();
-                t.onSelect?.();
-              })
-            }
+            onClick={select(t.onSelect)}
             className={cn(
               'inline-flex shrink-0 items-center gap-[7px] border-b-2 border-transparent pt-[15px] pb-[13px] text-ink-2 hover:text-ink max-md:pt-2 max-md:pb-2.5',
               t.current && 'border-ink text-ink',
@@ -134,7 +130,6 @@ export function Header({
   );
 }
 
-/** The signed-in account in the header: a coloured dot and the short address, linking to where the money is. */
 export function AccountChip({
   address,
   href,
@@ -150,13 +145,7 @@ export function AccountChip({
         'inline-flex items-center gap-[7px] rounded-[6px] border border-line py-1 pr-2 pl-[5px] font-mono text-[11.5px] text-ink-2 hover:text-ink',
         className,
       )}
-      onClick={
-        onSelect &&
-        ((e) => {
-          e.preventDefault();
-          onSelect();
-        })
-      }
+      onClick={select(onSelect)}
       {...props}
     >
       <i
@@ -172,7 +161,6 @@ export function AccountChip({
   );
 }
 
-/** The gear: Settings, reached from every screen, named for assistive tech by its label alone. */
 export function Gear({
   href,
   onSelect,
@@ -189,13 +177,7 @@ export function Gear({
         'inline-flex size-[30px] items-center justify-center rounded-[6px] border border-line text-ink-2 hover:text-ink',
         className,
       )}
-      onClick={
-        onSelect &&
-        ((e) => {
-          e.preventDefault();
-          onSelect();
-        })
-      }
+      onClick={select(onSelect)}
       {...props}
     >
       <Icon name="settings" size={15} />

@@ -44,7 +44,6 @@ const RIGHT: Record<StepState, string> = {
 export const fmtSeconds = (ms: number): string =>
   ms >= 60_000 ? `${(ms / 60_000).toFixed(1)} min` : `${(ms / 1000).toFixed(1)} s`;
 
-/** Named stages down a line: a ring per stage (✓ when done, lit while active), the detail under the title, the time or link at the right. */
 export function Stepper({
   steps,
   className,

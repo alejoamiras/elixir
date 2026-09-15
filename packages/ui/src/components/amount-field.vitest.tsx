@@ -28,12 +28,14 @@ describe('AmountField', () => {
     expect(screen.getByText('balance 3.5 tYACA')).toBeInTheDocument();
   });
 
-  test('no MAX without a ceiling or while disabled; invalid marks the field', () => {
+  test('no MAX without a ceiling, while disabled or read-only; invalid marks the field', () => {
     const { rerender } = render(<AmountField id="amt" value="" onChange={() => {}} unit="YACA" invalid />);
     expect(screen.queryByRole('button', { name: 'MAX' })).toBeNull();
     expect(screen.getByRole('textbox')).toHaveAttribute('aria-invalid', 'true');
     rerender(<AmountField id="amt" value="" onChange={() => {}} unit="YACA" max="1" disabled />);
     expect(screen.queryByRole('button', { name: 'MAX' })).toBeNull();
     expect(screen.getByRole('textbox')).toBeDisabled();
+    rerender(<AmountField id="amt" value="" onChange={() => {}} unit="YACA" max="1" readOnly />);
+    expect(screen.queryByRole('button', { name: 'MAX' })).toBeNull();
   });
 });

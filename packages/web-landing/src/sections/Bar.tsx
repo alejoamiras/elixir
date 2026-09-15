@@ -3,7 +3,6 @@ import { Badge, Brand, Button } from '../../../ui/src/index.ts';
 import { copy } from '../copy';
 import { appHref } from '../state';
 
-/** The landing's own bar: the shared brand, the page's sections, and the two apps at the right. */
 export function Bar({ live }: { live: boolean }) {
   return (
     <header className="sticky top-0 z-10 flex h-[52px] items-center gap-5 border-b border-line bg-ground/90 px-5 backdrop-blur">
