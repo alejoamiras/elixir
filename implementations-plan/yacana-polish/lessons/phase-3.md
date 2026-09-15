@@ -121,3 +121,24 @@ again, verification still enforced), the phrase ownership, the Welcome → walle
 context-specific notes, the typed retry and the boot-held dismissal.
 
 The cockpit shard on the round-1 commit: 7 passed (5.6 min).
+
+### Round 3 (the hard stop) — REVISE, one finding; fixed without a fourth round (`f0d0a1c`-ish, see git)
+
+| # | sev | claim | verified | fix |
+|---|---|---|---|---|
+| 1 | medium | a file whose every byte arrived before the stream broke keeps `at === bytes`; the retry sends a range past the end, gets a 416 (not a pin error) and keeps the partial forever | true | a complete buffer is checked against its pin on the next run, never requested; a test through `startCrs` on a stubbed fetch (the module is shared by one realm's suites, so the loader got a tests-only fetch setter, as the guard has) |
+
+Codex accepted: the node evidence (an outage plus a QuotaExceededError → `other`; a transport-shaped error →
+`node`), the 206 continuation and 200 restart, the renderer's Create entry, the phrase spec, the adoption
+boundary, the comments. §10 stops the loop at three rounds: the last round's one finding was a real edge
+of round 2's resume, small, fixed and covered; it is surfaced here rather than sent to a fourth round.
+
+### The suites after the loop
+
+- Fast layers: lint clean; typecheck clean; `bun test` web-miner + site 249 pass · 1 skip; Vitest 102/102.
+- `cockpit` proverless on the round-1 commit: 7 passed (5.6 min).
+- `bun run site:e2e` (the assembled site under wrangler, apex + versioned origin): the first run died before any
+  test — the two `wrangler dev` started side by side on one `.wrangler/state` and workerd failed on
+  `SQLITE_BUSY` (wrangler 4.127's local SQLite stores). Each server now gets its own `--persist-to` directory;
+  the rerun: 3 passed (1.0 min), on the page-first arrival (`/mine/wallet` signed out → the cockpit at `/mine/`,
+  the balance tile's Log in; the old origin's dialog restores only).
