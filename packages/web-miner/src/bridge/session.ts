@@ -444,6 +444,11 @@ export class BridgeSession {
     this.timer = undefined;
   }
 
+  /** Resolves once every operation queued so far has settled: what a sign-out waits for before the page goes. */
+  drain(): Promise<void> {
+    return this.ctx.queue.drain();
+  }
+
   private async publishJournal(): Promise<Crossing[]> {
     const list = (await this.journal.list()).sort((a, b) => b.createdAt - a.createdAt);
     this.d.store.set(journalAtom, list);

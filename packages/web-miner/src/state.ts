@@ -3,20 +3,33 @@ import type { FlipVerdict } from '../../bridge/src/flip.ts';
 import type { Crossing } from '../../bridge/src/journal.ts';
 import type { PreflightRow } from '../../ui/src/index.ts';
 import type { BridgeSession } from './bridge/session';
+import type { SlotView } from './keys/slot';
 import type { MasterRecord } from './keys/store';
 import type { EpochInfo, MinerState } from './lib/reducer';
 import { initial } from './lib/reducer';
 import type { OpeningStep } from './opening-steps';
 import type { CrsProgress } from './pinned-crs';
 
+/**
+ * Why an account did not open, for the note under the button: the prompt ended without a passkey
+ * (`dismissed`: WebAuthn cannot tell "none here" from "cancelled"), the authenticator cannot derive
+ * a key, no WebAuthn at all, another tab holds the chain view, the slot refused, or anything else.
+ */
+export type AccountErrorKind = 'dismissed' | 'no-prf' | 'no-webauthn' | 'held-tab' | 'slot' | 'other';
+export interface AccountError {
+  kind: AccountErrorKind;
+  message: string;
+}
+
 export type Boot =
   /** Isolation, node, deployment: each row with its evidence (the proving keys stream beside it). */
   | { phase: 'preflight'; rows: PreflightRow[] }
-  /** Preflight passed, no account open: the chain shows, the key screen decides how to open. */
-  | { phase: 'signedOut'; records: MasterRecord[]; error?: string }
+  /** Preflight passed, no account open: the chain shows, the slot decides which screen opens one. */
+  | { phase: 'signedOut'; slot: SlotView; error?: AccountError }
   /** An account is opening; the steps drive the dialog's bar. `key` done means the ceremony is over. */
   | { phase: 'opening'; steps: OpeningStep[] }
-  | { phase: 'ready'; account: string; threads: number; record: MasterRecord }
+  /** `typedWords`: the phrase was typed in to log in, so a mistyped word may have opened a different, empty account. */
+  | { phase: 'ready'; account: string; threads: number; record: MasterRecord; typedWords?: true }
   | { phase: 'error'; message: string };
 
 export interface Rules {

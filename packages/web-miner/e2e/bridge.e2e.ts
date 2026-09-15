@@ -45,6 +45,7 @@ async function keyScreen(page: Page): Promise<void> {
 
 async function createWordsAccount(page: Page): Promise<{ words: string[]; account: string }> {
   await keyScreen(page);
+  await page.getByTestId('start-create').click();
   await page.getByTestId('use-words').click();
   const words = await readWords(page);
   await page.getByTestId('written').check();
@@ -58,6 +59,7 @@ async function createWordsAccount(page: Page): Promise<{ words: string[]; accoun
 
 async function restoreWords(page: Page, words: string[]): Promise<string> {
   await keyScreen(page);
+  await page.getByTestId('start-login').click();
   await page.getByTestId('restore-words').click();
   await page.getByTestId('words-input').fill(words.join(' '));
   await page.getByTestId('words-open').click();

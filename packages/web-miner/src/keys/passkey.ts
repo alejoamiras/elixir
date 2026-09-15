@@ -6,9 +6,17 @@ export interface PasskeyResult {
   prf: Uint8Array;
 }
 
-/** The authenticator made a credential but cannot evaluate PRF: the key screen offers the words. */
+/** The authenticator made a credential but cannot evaluate PRF: the dialog offers the words. */
 export class NoPrfError extends Error {
   override readonly name = 'NoPrfError';
+}
+
+/** No `navigator.credentials` at all: the dialog offers the words and names a current browser. */
+export class NoWebAuthnError extends Error {
+  override readonly name = 'NoWebAuthnError';
+  constructor() {
+    super('this browser has no passkeys');
+  }
 }
 
 const PRF_LABEL = 'yacana.passkey.prf.v1';
@@ -67,6 +75,7 @@ export async function createPasskey(
 ): Promise<PasskeyResult> {
   const first = input();
   const credentials = o.credentials ?? navigator.credentials;
+  if (!credentials) throw new NoWebAuthnError();
   const cred = (await credentials.create({
     ...(o.signal && { signal: o.signal }),
     publicKey: {
@@ -98,6 +107,7 @@ export async function createPasskey(
 export async function assertPasskey(o: CeremonyOptions & { allow?: Uint8Array[] }): Promise<PasskeyResult> {
   const first = input();
   const credentials = o.credentials ?? navigator.credentials;
+  if (!credentials) throw new NoWebAuthnError();
   const cred = (await credentials.get({
     ...(o.signal && { signal: o.signal }),
     publicKey: {

@@ -35,8 +35,8 @@ export interface MasterRecord {
 }
 
 export const DB_NAME = 'yacana-keys';
-const RECORDS = 'records';
-const DEVICE = 'device';
+export const RECORDS = 'records';
+export const DEVICE = 'device';
 const DEVICE_KEY = 'aes-gcm';
 
 const open = (): Promise<IDBDatabase> =>
@@ -50,22 +50,26 @@ const open = (): Promise<IDBDatabase> =>
     req.onerror = () => reject(req.error);
   });
 
-const request = <T>(r: IDBRequest<T>): Promise<T> =>
+export const request = <T>(r: IDBRequest<T>): Promise<T> =>
   new Promise((resolve, reject) => {
     r.onsuccess = () => resolve(r.result);
     r.onerror = () => reject(r.error);
   });
 
-/** A write resolves once its transaction committed: a request's success is not yet durable. */
-async function withStore<T>(
-  name: string,
+/**
+ * One transaction over `names`; a write resolves once it committed (a request's success is not yet
+ * durable). `fn` may await this transaction's own requests only: any other await lets it commit
+ * under the next request, which then throws TransactionInactiveError.
+ */
+export async function transaction<T>(
+  names: string[],
   mode: IDBTransactionMode,
-  fn: (s: IDBObjectStore) => IDBRequest<T>,
+  fn: (tx: IDBTransaction) => Promise<T>,
 ): Promise<T> {
   const db = await open();
   try {
-    const tx = db.transaction(name, mode);
-    const result = await request(fn(tx.objectStore(name)));
+    const tx = db.transaction(names, mode);
+    const result = await fn(tx);
     if (mode === 'readwrite')
       await new Promise<void>((resolve, reject) => {
         tx.oncomplete = () => resolve();
@@ -77,6 +81,9 @@ async function withStore<T>(
     db.close();
   }
 }
+
+const withStore = <T>(name: string, mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>) =>
+  transaction([name], mode, (tx) => request(fn(tx.objectStore(name))));
 
 export const listRecords = (): Promise<MasterRecord[]> =>
   withStore(RECORDS, 'readonly', (s) => s.getAll() as IDBRequest<MasterRecord[]>);

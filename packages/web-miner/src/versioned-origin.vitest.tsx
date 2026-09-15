@@ -5,10 +5,11 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { createStore, Provider } from 'jotai';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { isOldRole } from './bridge/env';
-import { CreateKey } from './features/KeyScreen';
 import { OldApp } from './features/OldApp';
 import { OldTabNotice, staleTab } from './features/OldTabNotice';
+import { SignInDialog } from './features/SignInDialog';
 import type { Session } from './session';
+import { bootAtom } from './state';
 
 afterEach(() => {
   cleanup();
@@ -47,16 +48,24 @@ describe('the old role', () => {
     expect(screen.queryByTestId('start')).toBeNull();
   });
 
-  test('the versioned host restores and never creates, and the key screen says so', () => {
+  test('the versioned host restores and never creates: the dialog opens on Log in, with the note and no Start', () => {
     // jsdom's hostname is localhost; naming it the versioned origin makes this page that origin.
     vi.stubEnv('VITE_OLD_APP_ORIGIN', 'http://localhost');
     vi.stubEnv('VITE_SITE_MODE', 'production');
-    render(<CreateKey session={{} as Session} />);
+    const store = createStore();
+    store.set(bootAtom, { phase: 'signedOut', slot: { record: null, staged: null, revision: 0 } });
+    render(
+      <Provider store={store}>
+        <SignInDialog session={{} as Session} />
+      </Provider>,
+    );
+    expect(screen.getByText('Log in with the passkey you created, or your 12 words.')).toBeTruthy();
     expect(screen.getByTestId('host-note').textContent).toContain('Accounts are restored here, not created.');
-    expect((screen.getByTestId('create-passkey') as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByTestId('use-words') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('host-note').textContent).toContain('from yacana.network open it');
+    expect(screen.queryByTestId('start-create')).toBeNull();
+    expect(screen.queryByTestId('back')).toBeNull();
     expect((screen.getByTestId('restore-passkey') as HTMLButtonElement).disabled).toBe(false);
-    expect((screen.getByTestId('restore-words') as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByTestId('restore-words')).toBeTruthy();
   });
 });
 

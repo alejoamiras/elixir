@@ -87,7 +87,7 @@ export const SPEC_FILES: readonly string[] = Object.keys(INVENTORY);
 
 /** The replay lane's tests (`e2e/replay/*.replay.ts`); sharded + `MOVED_TO_REPLAY` is the original nineteen plus the canary. */
 export const REPLAYED: Readonly<Record<string, readonly string[]>> = {
-  'dialog-geometry.replay.ts': ['the sign-in screens and their error state fit the dialog at 720 px tall'],
+  'dialog-geometry.replay.ts': ['the account screens and their notes fit the dialog at 720 px tall'],
   'signed-out.replay.ts': [
     'a malformed RPC payload is rejected, not acted on',
     'an old Presto answers: the update row, and Retry re-asks',
@@ -95,7 +95,7 @@ export const REPLAYED: Readonly<Record<string, readonly string[]>> = {
   ],
 };
 export const MOVED_TO_REPLAY: readonly string[] = [
-  'the sign-in screens and their error state fit the dialog at 720 px tall',
+  'the account screens and their notes fit the dialog at 720 px tall',
   'a malformed RPC payload is rejected, not acted on',
   'an old Presto answers: the update row, and Retry re-asks',
 ];

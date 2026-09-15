@@ -15,6 +15,7 @@ test('a cancel mid-opening returns to signed out; the account opens on the next 
   await expect(page.getByTestId('cockpit')).toBeVisible({ timeout: BOOT_MS });
   // The sign-in opens over the dull cockpit; the epoch is already there, from public storage.
   await expect(page.getByTestId('epoch')).not.toBeEmpty({ timeout: BOOT_MS });
+  await page.getByTestId('start-create').click();
   await page.getByTestId('consent').check();
   await page.getByTestId('create-passkey').click();
 
@@ -24,8 +25,9 @@ test('a cancel mid-opening returns to signed out; the account opens on the next 
   await expect(page.getByTestId('phase')).toHaveText(/opening/i, { timeout: 60_000 });
   await cancel.click();
 
-  // Back to signed out with the saved account (the record was written before the wallet opened).
+  // Back to signed out with the account staged before the wallet opened: Welcome offers it, not a new create.
   await expect(page.getByTestId('open-key')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId('start-create')).toHaveCount(0);
   await expect(page.getByTestId('phase')).not.toHaveText(/opening/i);
 
   // The next open reaches the account: one PXE, no second one from the cancelled attempt.

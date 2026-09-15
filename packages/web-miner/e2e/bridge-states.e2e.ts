@@ -23,10 +23,8 @@ const short = (a: string) => `${a.slice(0, 8)}…${a.slice(-4)}`;
 
 const openKey = async (page: Page, address: string) => {
   await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
-  await page
-    .locator('[data-slot=tile]', { hasText: short(address) })
-    .getByTestId('open-key')
-    .click();
+  await expect(page.getByTestId('key-address')).toHaveText(short(address));
+  await page.getByTestId('open-key').click();
   await page.getByRole('link', { name: 'Mine' }).click();
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
 };

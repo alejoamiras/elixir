@@ -33,6 +33,7 @@ test('a passkey account: create, mine, claim, reload with one touch, the balance
   const auth = await virtualAuthenticator(page);
   await page.goto(pageUrl(r));
   await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
+  await page.getByTestId('start-create').click();
   await expect(page.getByTestId('create-passkey')).toBeDisabled();
   await page.getByTestId('consent').check();
   await page.getByTestId('create-passkey').click();
@@ -62,12 +63,13 @@ test('a passkey account: create, mine, claim, reload with one touch, the balance
   await expect(page.getByTestId('balance')).toHaveText('4');
   await page.getByTestId('stop').click();
 
-  // Second visit: Welcome back, one touch, same key, same balance.
+  // Second visit: Welcome back, one touch, same key, same balance; no Create or Log in offered.
   await page.reload();
   await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
-  // The explorer link carries a screen-reader suffix after the shortened address.
-  await expect(page.getByTestId('key-address')).toContainText(`${account.slice(0, 8)}…${account.slice(-4)}`);
+  await expect(page.getByTestId('key-address')).toHaveText(`${account.slice(0, 8)}…${account.slice(-4)}`);
   await expect(page.getByTestId('key-address')).toHaveAttribute('title', account);
+  await expect(page.getByTestId('start-create')).toHaveCount(0);
+  await expect(page.getByTestId('open-key')).toHaveText('Open with passkey');
   await page.getByTestId('open-key').click();
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
   expect(await page.getByTestId('account').getAttribute('title')).toBe(account);
@@ -92,6 +94,7 @@ test('a passkey account: create, mine, claim, reload with one touch, the balance
   // The reload lands on Settings, which stays free of the sign-in: the Account tile is the way in.
   await page.getByTestId('sign-in-settings').click({ timeout: BOOT_MS });
   await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
+  await expect(page.getByTestId('open-key')).toHaveText('Open');
   await page.getByTestId('open-key').click();
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });
   expect(await page.getByTestId('account').getAttribute('title')).toBe(account);
@@ -110,6 +113,7 @@ test('a known account whose passkey is gone does not open; the record stays', as
   await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
   await page.getByTestId('open-key').click();
   await expect(page.getByTestId('key-error')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId('key-error')).toContainText("That didn't work.");
   await expect(page.getByTestId('account')).toHaveCount(0);
   expect((await vault(page)).records.map((x) => (x.account as { address: string }).address)).toEqual([
     account,

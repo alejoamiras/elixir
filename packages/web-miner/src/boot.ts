@@ -17,7 +17,8 @@ import type { Connection } from './config';
 import { MinerController, type Rebound } from './controller';
 import { currentAccountClassId } from './keys/classes';
 import { preparePasskeys } from './keys/passkey';
-import { assertNoLegacyWalletDb, currentAddress, listRecords, type MasterRecord } from './keys/store';
+import { readSlot } from './keys/slot';
+import { assertNoLegacyWalletDb, currentAddress, type MasterRecord } from './keys/store';
 import { bytesDetail, initialSteps, type OpeningStep } from './opening-steps';
 import { crsReady } from './pinned-crs';
 import { type PrestoEndpoint, prestoAtom, prestoEligible, prestoEndpoint, probePresto } from './presto';
@@ -158,7 +159,7 @@ export async function preflight(store: Store, connection: Connection): Promise<P
   await preparePasskeys();
   const publicEpoch = startPublicChain(store, connection, node, minerArtifact);
   const nodeMs = rows.filter((r) => r.id !== 'isolation').reduce((n, r) => n + (r.ms ?? 0), 0);
-  store.set(bootAtom, { phase: 'signedOut', records: await listRecords() });
+  store.set(bootAtom, { phase: 'signedOut', slot: await readSlot() });
   // The cockpit is ready: ask Presto now (the billboard may show before any account), never wait for it.
   const presto = prestoEndpoint();
   if (presto) void probePresto(store, presto).catch(() => undefined);

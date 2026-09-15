@@ -4,11 +4,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { MinerController } from './controller';
 import { SignInDialog } from './features/SignInDialog';
 import { useHotkeys } from './features/use-page-behaviour';
+import type { SlotView } from './keys/slot';
 import type { MasterRecord } from './keys/store';
 import { initialSteps } from './opening-steps';
 import { Mine } from './routes/Mine';
 import type { Session } from './session';
-import { bootAtom, epochAtom, nowAtom, rulesAtom, signInAtom } from './state';
+import { type AccountError, bootAtom, epochAtom, nowAtom, rulesAtom, signInAtom } from './state';
 
 afterEach(cleanup);
 // jsdom has no matchMedia; the score loop's reduced-motion hook reads it.
@@ -20,22 +21,30 @@ beforeEach(() =>
   })),
 );
 
+const PHRASE =
+  'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 const session = {
   createWithPasskey: vi.fn(async () => {}),
+  createWithWords: vi.fn(async () => {}),
   open: vi.fn(async () => {}),
   restoreWithPasskey: vi.fn(async () => {}),
-  newWords: () => 'a b c d e f g h i j k l',
+  restoreWithWords: vi.fn(async () => {}),
+  forget: vi.fn(async () => {}),
+  newWords: () => PHRASE,
 } as unknown as Session;
 const record = {
   id: 'r1',
   v: 1,
   method: 'passkey',
   askEveryOpen: true,
+  backedUp: false,
   account: { address: `0x${'ab'.repeat(32)}`, index: 0 },
 } as unknown as MasterRecord;
+const empty: SlotView = { record: null, staged: null, revision: 0 };
+const held: SlotView = { record, staged: null, revision: 3 };
 
 /** The cockpit and the dialog on a store that holds the chain and no account. */
-function mount(records: MasterRecord[] = []) {
+function mount(slot: SlotView = empty, error?: AccountError) {
   const store = createStore();
   const nowSec = Math.floor(Date.now() / 1000);
   store.set(epochAtom, {
@@ -52,7 +61,7 @@ function mount(records: MasterRecord[] = []) {
     REWARD: 4_000_000_000_000_000_000n,
   });
   store.set(nowAtom, Date.now());
-  store.set(bootAtom, { phase: 'signedOut', records });
+  store.set(bootAtom, { phase: 'signedOut', slot, error });
   render(
     <Provider store={store}>
       <Mine controller={() => undefined} />
@@ -62,20 +71,25 @@ function mount(records: MasterRecord[] = []) {
   return store;
 }
 
+const fail = (store: ReturnType<typeof createStore>, error: AccountError, slot: SlotView = empty) =>
+  store.set(bootAtom, { phase: 'signedOut', slot, error });
+
 describe('the cockpit signed out', () => {
-  test('is dull, shows the epoch, swaps Start for Sign in to mine, and the dialog is open without a corner X', () => {
+  test('is dull, shows the epoch, swaps Start for Sign in to mine, and the dialog opens on Start without a corner X', () => {
     mount();
     expect(screen.getByTestId('cockpit').hasAttribute('data-signed-out')).toBe(true);
     expect(screen.getByTestId('epoch-claims').textContent).toContain('3 of 4');
     expect(screen.getByTestId('sign-in-mine').textContent).toBe('Sign in to mine');
     expect(screen.queryByTestId('start')).toBeNull();
     expect(screen.getByTestId('sign-in')).toBeTruthy();
-    expect(screen.getByTestId('create-passkey')).toBeTruthy();
+    expect(screen.getByText('Mine with an account.')).toBeTruthy();
+    expect(screen.getByTestId('start-create')).toBeTruthy();
+    expect(screen.getByTestId('start-login')).toBeTruthy();
     expect(screen.queryByLabelText('Close')).toBeNull();
     expect(screen.getByTestId('balance').textContent).toBe('—');
   });
 
-  test('Not now leaves the cockpit dull; either sign-in button reopens the dialog', async () => {
+  test('Just watch for now leaves the cockpit dull; either sign-in button reopens the dialog', async () => {
     const store = mount();
     fireEvent.click(screen.getByTestId('not-now'));
     await waitFor(() => expect(screen.queryByTestId('sign-in')).toBeNull());
@@ -89,12 +103,112 @@ describe('the cockpit signed out', () => {
     await waitFor(() => expect(screen.getByTestId('sign-in')).toBeTruthy());
   });
 
-  test('a returning device gets Welcome back with the saved account, Open and the same way out', () => {
-    mount([record]);
+  test('a device with an account gets Welcome back: the chip, one touch, and another account through Sign out', async () => {
+    mount(held);
     expect(screen.getByText('Welcome back.')).toBeTruthy();
     expect(screen.getByTestId('key-address').textContent).toContain('0xababab');
-    expect(screen.getByTestId('open-key')).toBeTruthy();
+    expect(screen.getByTestId('key-address').getAttribute('title')).toBe(record.account.address);
+    expect(screen.getByText('passkey')).toBeTruthy();
+    expect(screen.getByTestId('open-key').textContent).toBe('Open with passkey');
+    expect(screen.queryByTestId('start-create')).toBeNull();
     expect(screen.getByTestId('not-now')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('use-other'));
+    await waitFor(() => expect(screen.getByTestId('sign-out-dialog')).toBeTruthy());
+    expect(
+      screen.getByText('Your passkey logs you back in. Your balance stays with the account.'),
+    ).toBeTruthy();
+    expect(screen.getByTestId('sign-out-hold')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByTestId('sign-out-dialog')).toBeNull());
+    fireEvent.click(screen.getByTestId('open-key'));
+    expect(session.open).toHaveBeenCalledWith(record);
+    // The attempt runs: every way out waits for it.
+    expect((screen.getByTestId('use-other') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  test('a staged record (a create that never finished) is Welcome’s candidate; a sealed one opens without a touch', () => {
+    mount({ record: null, staged: { ...record, method: 'words' } as MasterRecord, revision: 1 });
+    expect(screen.getByText('Welcome back.')).toBeTruthy();
+    expect(screen.getByText('12 words')).toBeTruthy();
+    expect(screen.getByTestId('open-key').textContent).toBe('Open');
+  });
+});
+
+describe('the screens', () => {
+  test('Create: consent gates the passkey; the words are one link away and come back to Create', async () => {
+    mount();
+    fireEvent.click(screen.getByTestId('start-create'));
+    expect(screen.getByText('Create your account.')).toBeTruthy();
+    expect(screen.getByText('Your passkey is the only key.')).toBeTruthy();
+    const create = screen.getByTestId('create-passkey') as HTMLButtonElement;
+    expect(create.disabled).toBe(true);
+    fireEvent.click(screen.getByTestId('consent'));
+    expect(create.disabled).toBe(false);
+    fireEvent.click(create);
+    expect(session.createWithPasskey).toHaveBeenCalledTimes(1);
+    // The links wait for the attempt; the mock resolves at once.
+    expect((screen.getByTestId('use-words') as HTMLButtonElement).disabled).toBe(true);
+    await waitFor(() => expect((screen.getByTestId('use-words') as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByTestId('use-words'));
+    expect(screen.getByText('Write down your 12 words.')).toBeTruthy();
+    expect(screen.getByTestId('words-grid').querySelectorAll('li')).toHaveLength(12);
+    expect((screen.getByTestId('words-done') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTestId('words-skip'));
+    expect(session.createWithWords).toHaveBeenCalledWith(PHRASE, false);
+    fireEvent.click(screen.getByTestId('back'));
+    expect(screen.getByText('Create your account.')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('back'));
+    expect(screen.getByText('Mine with an account.')).toBeTruthy();
+  });
+
+  test('Log in with words: the counter, the wordlist and checksum refusals, then the phrase opens', async () => {
+    mount();
+    fireEvent.click(screen.getByTestId('start-login'));
+    expect(screen.getByText('Log in with the passkey you created, or your 12 words.')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('restore-passkey'));
+    expect(session.restoreWithPasskey).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect((screen.getByTestId('restore-words') as HTMLButtonElement).disabled).toBe(false),
+    );
+    fireEvent.click(screen.getByTestId('restore-words'));
+    expect(screen.getByText('Enter your 12 words.')).toBeTruthy();
+    expect(screen.getByTestId('host-banner').textContent).toContain('localhost');
+    const input = screen.getByTestId('words-input');
+    const open = screen.getByTestId('words-open') as HTMLButtonElement;
+    fireEvent.change(input, { target: { value: 'abandon abandon abandon' } });
+    expect(screen.getByTestId('words-under').textContent).toBe('3 of 12');
+    expect(open.disabled).toBe(true);
+    fireEvent.change(input, { target: { value: 'abandon abandon quartzz' } });
+    expect(screen.getByTestId('words-under').textContent).toContain(
+      'Word 3 isn\'t in the list: check "quartzz".',
+    );
+    fireEvent.change(input, { target: { value: 'abandon '.repeat(12).trim() } });
+    expect(screen.getByTestId('words-under').textContent).toContain(
+      "These 12 words don't form a valid phrase.",
+    );
+    expect(open.disabled).toBe(true);
+    fireEvent.change(input, { target: { value: PHRASE } });
+    expect(screen.getByTestId('words-under').textContent).toBe('12 of 12');
+    fireEvent.click(open);
+    expect(session.restoreWithWords).toHaveBeenCalledWith(PHRASE);
+  });
+
+  test('a failure notes on the screen it came from, with the primary the note names, and nowhere else', async () => {
+    const store = mount();
+    fireEvent.click(screen.getByTestId('start-create'));
+    fireEvent.click(screen.getByTestId('consent'));
+    fireEvent.click(screen.getByTestId('create-passkey'));
+    fail(store, { kind: 'no-prf', message: 'no prf' });
+    await waitFor(() => expect(screen.getByTestId('key-error')).toBeTruthy());
+    expect(screen.getByText("This device can't make a Yacana passkey.")).toBeTruthy();
+    expect(screen.getByTestId('use-words').textContent).toBe('Use 12 words');
+    expect(screen.queryByTestId('create-passkey')).toBeNull();
+    fireEvent.click(screen.getByTestId('back'));
+    expect(screen.queryByTestId('key-error')).toBeNull();
+    // On Welcome, another tab's hold on the chain view: the note and Retry.
+    fail(store, { kind: 'held-tab', message: 'held' }, held);
+    await waitFor(() => expect(screen.getByText('Another tab has this account open.')).toBeTruthy());
+    expect(screen.getByTestId('open-key').textContent).toBe('Retry');
   });
 });
 

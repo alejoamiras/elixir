@@ -24,6 +24,7 @@ test('a live switch A → B while mining, a claim after it, and the banner on a 
   );
   await page.goto(`${r.baseURL}/`);
   await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
+  await page.getByTestId('start-create').click();
   await page.getByTestId('use-words').click();
   await page.getByTestId('words-skip').click();
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });

@@ -86,20 +86,37 @@ export async function virtualAuthenticator(
   };
 }
 
-/** Through the key screen: create a passkey key on a first visit, open the known one on a later one. */
+/** Through the account dialog: create a passkey account on a first visit, open the device's on a later one. */
 export async function passKeyScreen(page: Page): Promise<void> {
   // The dialog opens by itself over the signed-out cockpit; a dismissed one reopens from the cockpit.
   await expect(page.getByTestId('cockpit')).toBeVisible({ timeout: BOOT_MS });
   const screen = page.getByTestId('key-screen');
   if (!(await screen.isVisible())) await page.getByTestId('sign-in-mine').click();
   await expect(screen).toBeVisible({ timeout: 10_000 });
-  const create = page.getByTestId('create-passkey');
-  if (await create.isVisible()) {
-    await page.getByTestId('consent').check();
-    await create.click();
-  } else {
-    await page.getByTestId('open-key').first().click();
-  }
+  const open = page.getByTestId('open-key');
+  if (await open.isVisible()) return open.click();
+  await page.getByTestId('start-create').click();
+  await page.getByTestId('consent').check();
+  await page.getByTestId('create-passkey').click();
+}
+
+/** The hold gesture on a HoldButton, through its fill (1.2 s) and the release that confirms. */
+export async function holdThrough(page: Page, testId: string): Promise<void> {
+  const button = page.getByTestId(testId);
+  const box = (await button.boundingBox()) as { x: number; y: number; width: number; height: number };
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(1400);
+  await page.mouse.up();
+}
+
+/** Sign out from the Wallet's account tile: the dialog, the hold; the page reloads signed out. */
+export async function signOut(page: Page): Promise<void> {
+  await page.getByRole('link', { name: 'Wallet' }).click();
+  await page.getByTestId('sign-out').click();
+  await expect(page.getByTestId('sign-out-dialog')).toBeVisible();
+  await holdThrough(page, 'sign-out-hold');
+  await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
 }
 
 export async function bootPage(
