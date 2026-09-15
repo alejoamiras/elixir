@@ -1,4 +1,4 @@
-# Follow-up — what stays after stack #41 merged (2026-09-14, main at `2f56f86`)
+# Follow-up — what stays after stack #41 merged (2026-09-14, main at `c902b61`)
 
 The backlog the six PRs left behind, gathered from the plan's "not in this plan" list (§1), the lessons' open
 items (phases 11–13), the delivery report's confidence table, and the owner's review rounds. Ordered by what
@@ -10,9 +10,10 @@ worktree off `main`, not from this branch.
 1. **Production deploys — done 2026-09-14.** Workers Builds deployed the apex from the merge commit by itself
    (`build.json` reports `2f56f86`, role apex); the versioned origin was deployed by hand on the owner's word
    (`YACANA_APP_ROLE=old bun run site:build` of `2f56f86`, `wrangler deploy -c v5/wrangler.jsonc`, version
-   `00295ec9-ec53-4664-a9ef-5a3625fbc3c6`), which created `v5.yacana.network`. **Still to do**: sign in with a real
-   passkey on both hosts (one account across the apex and the versioned origin: the rig's `origin` case proved it
-   on TLS test domains only).
+   `00295ec9-ec53-4664-a9ef-5a3625fbc3c6`), which created `v5.yacana.network`. **The owner walked the live site by hand
+   2026-09-14**: the paths work, the experience does not ("pretty awful"); §2 is a whole redesign arc, the next
+   blueprint's brief. One passkey across the apex and the versioned origin is still unconfirmed by hand (the rig's
+   `origin` case proved it on TLS test domains only).
 2. **The rig on CI — the headless cases ran green 2026-09-14** (`harness.yml` dispatched from `bridge-post-merge`,
    run 34888546613: H0, H1 · H6 · H9 · H10, H2, H3 · H4 · H6 · H11, H5, H7). Two dispatches before it
    (34875890991, 34879827605) had the same protocol cases green and the two page-driven cases failing on the
@@ -20,11 +21,15 @@ worktree off `main`, not from this branch.
    (192 s on the homelab), `origin` could not reach its TLS test names. Nothing named now means the six headless
    cases; `browser` and `origin` run when named and stay local until §4's runner. Pull requests keep running only
    the flip; dispatch again after any change under `packages/harness`, `packages/deploy` or `scripts/run`.
-3. **A dedicated relayer key.** The rehearsal lists the multisig's EOA as the relayer too. One `set-forwarder` call
-   once the second key exists; `YACANA_L1_FORWARDER_KEY` is already the script's env for it.
-4. **Forwarding cadence.** The pages promise none: a withdrawal is the holder's claim, a held send-ahead says "Yacana
-   forwards it once the next version opens; you can too". Either a cron runs `bun run bridge -- forward` on the
-   owner's machine, or the copy stays as is. Decide once, write it into `docs/upgrades.md`.
+3. **A dedicated relayer key — done 2026-09-14** on the owner's word. The relayer is `0x6792D5eb…8bac`
+   (`0x6792D5eb75e1F025438349d454AC91378d9F8bac`), a fresh EOA whose key lives beside the rehearsal's in the operator's `.env` (nulo's
+   bridge-core) as `YACANA_L1_FORWARDER_KEY`, its address as `YACANA_L1_FORWARDER_ADDRESS`; never in this repo. Funded
+   0.2 Sepolia ETH from the operators EOA ([`0xa46ee51d…61c2`](https://sepolia.etherscan.io/tx/0xa46ee51defb2f44074adf52890669d505299bc9f3b3e7fd3a2cd975a91b661c2)), listed ([`0x0453f88d…e250`](https://sepolia.etherscan.io/tx/0x0453f88d88b19eb14f311552499b429f05f938b6b6a59ba59af46d32614de250)), and the operators EOA unlisted
+   ([`0xec860848…e103`](https://sepolia.etherscan.io/tx/0xec8608486bc1668479600d86b6ca8e4242b186799ac47444e25dfae611d9e103)) so the roles are separate. The stats bridge page and Verify read the list from the portal's
+   `ForwarderSet` logs: nothing in the record changed. `docs/deployments.md` carries the row.
+4. **Forwarding cadence — decided 2026-09-14: no cron.** Forwarding stays by hand under the relayer key
+   (`docs/upgrades.md`, step 9), and the pages' copy stays as it is: a withdrawal is the holder's claim, a held
+   send-ahead says "Yacana forwards it once the next version opens; you can too".
 5. **Keep forwarding the held K2** (1 tYACA in the archive, "no target record"): it lands only once a next testnet
    version is registered.
 6. **Close the worktree — done 2026-09-14** (`yacana-bridge` removed after the merge; this file and the CI fix
@@ -32,7 +37,9 @@ worktree off `main`, not from this branch.
 
 ## 2. The bridge's UI/UX — the next pass over bridging, depositing, sending ahead
 
-What the owner's two review rounds did not reach, and what only a hand on a real wallet will find.
+What the owner's two review rounds did not reach, and what only a hand on a real wallet will find. The owner's
+verdict after walking the live site by hand (2026-09-14): the paths work, the experience is poor. This section is
+a whole redesign arc, not a list of touch-ups; the next blueprint starts here.
 
 - **A pass by hand with MetaMask on the preview.** Every browser path ran with the injected test wallet; no one has
   bridged to Ethereum, claimed there, deposited and sent ahead with a real wallet on the preview. Expect the
@@ -91,7 +98,7 @@ What the owner's two review rounds did not reach, and what only a hand on a real
 | Upgrade rig | high locally; the headless cases green on CI; moderate as a stand-in for Aztec | The two page-driven cases on CI: a runner with the proving budget (a larger runner, or a proverless mode for the `browser` case that keeps one real proof) and the run's TLS names resolved for `origin` (Playwright's host-resolver rules). One real testnet upgrade against the runbook (retire, continuation, the old origin's take-down: steps 7–10 have never run outside the rig). |
 | Guided path | moderate–high | The MetaMask pass (2), the second-device restore (2), a real flip. |
 | Versioned origin | moderate–high | The two deploys and a real passkey on both hosts (1.1). |
-| Governance | EOAs | The Safe as the governance multisig with its signers and threshold (A4); the dedicated relayer key (1.3). |
+| Governance | EOAs, the relayer its own key since 2026-09-14 | The Safe as the governance multisig with its signers and threshold (A4). |
 | CI | high | A real-proving canary of the bridge functions (exit, claim from L1) beside the mining canary. |
 | Design | high for composition, moderate for polish | The owner's eye over `fidelity.md` pairs and the preview; the MetaMask pass. |
 
