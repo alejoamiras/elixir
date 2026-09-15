@@ -24,7 +24,15 @@ describe('ProofLedger', () => {
   test('renders the four line kinds with their glyphs', () => {
     const lines: (ProofLine & { id: number })[] = [
       { id: 1, kind: 'attempt', time: '03:34:07', n: 1302, score: 3.9, proveMs: 3260, best: true },
-      { id: 2, kind: 'win', time: '03:34:04', n: 1301, score: 51.4, proveMs: 3240 },
+      {
+        id: 2,
+        kind: 'win',
+        time: '03:34:04',
+        n: 1301,
+        score: 51.4,
+        proveMs: 3240,
+        note: { text: 'claim failed: x · mining paused', tone: 'warn', action: 'Retry' },
+      },
       {
         id: 3,
         kind: 'minted',
@@ -35,7 +43,8 @@ describe('ProofLedger', () => {
       { id: 4, kind: 'failed', time: '03:33:10', text: 'claim reverted' },
       { id: 5, kind: 'epoch', time: '03:33:51', text: 'epoch 22 opened · difficulty 33.1' },
     ];
-    render(<ProofLedger lines={lines} />);
+    const acted: number[] = [];
+    render(<ProofLedger lines={lines} onAction={(id) => acted.push(id)} />);
     const items = screen.getAllByRole('listitem');
     expect(items.map((li) => li.getAttribute('data-kind'))).toEqual([
       'attempt',
@@ -47,8 +56,11 @@ describe('ProofLedger', () => {
     expect(items[0]).toHaveTextContent(/#1302.*score 3\.9.*3\.26 s.*best this epoch/);
     expect(items[1]).toHaveTextContent('★');
     expect(items[1].querySelector('.sr-only')).toHaveTextContent('win');
+    expect(items[1]).toHaveTextContent('a win · claim failed: x · mining paused · Retry');
+    items[1].querySelector('button')?.click();
+    expect(acted).toEqual([2]);
     expect(items[2]).toHaveTextContent('✓');
-    expect(items[2]).toHaveTextContent('claim in block 184,209 · 4 YACA minted, privately');
+    expect(items[2]).toHaveTextContent('minted in block 184,209 · 4 YACA minted, privately');
     expect(items[2].querySelector('a')).toBeNull();
     expect(items[3]).toHaveTextContent('✗');
     expect(items[4]).toHaveTextContent(/──.*epoch 22 opened · difficulty 33\.1.*──/);

@@ -1,7 +1,7 @@
 // The miner's state machine, kept pure so the epoch-switch, secret-rotation and claim-outcome
 // rules are unit tested without a Worker or a chain: the controller feeds it events, it says what
 // to do next.
-import { CLAIM_FAILURE_COPY, type ClaimFailure } from '../../../miner-core/src/claim-failure.ts';
+import { type ClaimFailure, revertCause } from '../../../miner-core/src/claim-failure.ts';
 import type { ProofLine, Sample } from '../../../ui/src/index.ts';
 
 export interface EpochInfo {
@@ -15,15 +15,38 @@ export interface EpochInfo {
 /** `recovering`: the chain view is being rebuilt after a lost race; `start` waits for it. */
 export type Phase = 'idle' | 'mining' | 'claiming' | 'recovering';
 
-export type LedgerLine = ProofLine & { id: number };
+/** How a claim ended; `refused` is the simulation's "epoch is not open" (nothing sent, nothing paid). */
+export type ClaimOutcome = ClaimFailure | 'minted' | 'discarded';
+
+/** What the win line carries after its "a win": the claim's step while it runs, then its outcome. */
+export interface ClaimNote {
+  step?: ClaimProgress['step'];
+  /** Unix seconds; the sequencer drops the claim past this (the `sent` step's countdown). */
+  expiresAt?: number;
+  outcome?: ClaimOutcome;
+  /** `reverted`: the verified cause; `other`: the error's first line. */
+  reason?: string;
+  /** `other`: the ticket is retained and Retry can send it again. */
+  retry?: boolean;
+  /** `expired`: how long the node was given, from the send. */
+  ttlMinutes?: number;
+  /** `delivery-blocked`, once the pause is known: the wait for Ethereum's finality. */
+  waitMinutes?: number;
+}
+
+export type LedgerLine = ProofLine & { id: number; claim?: ClaimNote };
 
 /** The claim in flight: `proving` in-page, `sent` to the node (the TTL runs), `waiting` for its note. */
 export interface ClaimProgress {
   step: 'proving' | 'sent' | 'waiting';
+  /** Wall clock (ms) of the win: the one clock the chip and the line count from. */
+  wonAt: number;
   /** Wall clock (ms) when the current step started. */
   since: number;
   /** Durations (ms) of the finished steps, in order. */
   done: number[];
+  /** The win line this claim annotates; null when the win came without its attempt line. */
+  lineId: number | null;
   txHash?: string;
   /** Unix seconds; the sequencer drops the claim past this. */
   expiresAt?: number;
@@ -48,7 +71,7 @@ export const MINTED_FRESH_MS = 10_000;
 export const mintedFresh = (m: Minted | null, nowMs: number): boolean =>
   m !== null && nowMs - m.at < MINTED_FRESH_MS;
 
-export type NoticeKind = 'reverted' | 'expired' | 'failed' | 'prover-dead' | 'offline' | 'paused';
+export type NoticeKind = 'reverted' | 'failed' | 'prover-dead' | 'offline' | 'paused';
 
 /** The card under the loop. `until` (ms) is when a pause ends. */
 export interface Notice {
@@ -77,8 +100,12 @@ export interface MinerState {
   winAt: number | null;
   /** Newest first, at most LEDGER lines. */
   ledger: LedgerLine[];
+  /** The id of the last win's line: the claim that follows annotates it. */
+  winLineId: number | null;
   wins: number;
   claim: ClaimProgress | null;
+  /** Stop pressed while the claim runs: it finishes, mining does not resume after it. */
+  stopping: boolean;
   minted: Minted | null;
   notice: Notice | null;
   /** Set once the prover is abandoned (start failure or repeated crashes): only a reload helps. */
@@ -96,8 +123,10 @@ export const initial: MinerState = {
   samples: [],
   winAt: null,
   ledger: [],
+  winLineId: null,
   wins: 0,
   claim: null,
+  stopping: false,
   minted: null,
   notice: null,
   proverDead: false,
@@ -146,12 +175,29 @@ let lineId = 0;
 const line = (state: MinerState, l: ProofLine): LedgerLine[] =>
   [{ ...l, id: ++lineId }, ...state.ledger].slice(0, LEDGER);
 
+/**
+ * The win line `id` with `note` merged over what it carried (`fresh`: replacing it, a claim sent
+ * again); a line already out of the window is left alone.
+ */
+const annotate = (state: MinerState, id: number | null, note: ClaimNote, fresh = false): LedgerLine[] =>
+  id === null
+    ? state.ledger
+    : state.ledger.map((l) => (l.id === id ? { ...l, claim: fresh ? note : { ...l.claim, ...note } } : l));
+
+/** The claim's outcome on its win line, or — a win that came without its line — a ✗ line of its own. */
+function outcomeLine(state: MinerState, lineId: number | null, note: ClaimNote, at?: number): LedgerLine[] {
+  if (lineId !== null && state.ledger.some((l) => l.id === lineId)) return annotate(state, lineId, note);
+  const text =
+    note.outcome === 'discarded'
+      ? 'not claimed'
+      : `claim ${note.outcome}${note.reason ? `: ${note.reason}` : ''}`;
+  return line(state, { kind: 'failed', time: clock(at), text });
+}
+
 function startJob(state: MinerState, epoch: EpochInfo): [MinerState, Command[]] {
   const secretId = state.secretId + 1;
   const job = { epoch: epoch.epoch, seed: epoch.seed, target: epoch.target, secretId };
-  // An expiry card outlives the automatic restart that follows it; the next winner clears it.
-  const notice = state.notice?.kind === 'expired' ? state.notice : null;
-  return [{ ...state, phase: 'mining', job, secretId, notice }, [{ type: 'mine', ...job }]];
+  return [{ ...state, phase: 'mining', job, secretId, notice: null }, [{ type: 'mine', ...job }]];
 }
 
 function attempt(state: MinerState, e: Extract<Event, { type: 'attempt' }>): MinerState {
@@ -171,6 +217,7 @@ function attempt(state: MinerState, e: Extract<Event, { type: 'attempt' }>): Min
         proveMs: e.proveMs,
         best: e.score === best,
       };
+  const ledger = line(state, l);
   return {
     ...state,
     tickets,
@@ -179,7 +226,8 @@ function attempt(state: MinerState, e: Extract<Event, { type: 'attempt' }>): Min
     best,
     samples,
     winAt: e.win ? e.t : state.winAt,
-    ledger: line(state, l),
+    ledger,
+    winLineId: e.win ? (ledger[0]?.id ?? null) : state.winLineId,
   };
 }
 
@@ -203,14 +251,33 @@ function epochSwitch(state: MinerState, e: Extract<Event, { type: 'epoch' }>): [
   return [next, [{ type: 'halt' }, ...commands]];
 }
 
+/** A claim from the win `at`, annotating the last win line; the previous mint's acknowledgement goes. */
+function claiming(state: MinerState, at: number | undefined): [MinerState, Command[]] {
+  const t = now(at);
+  const claim: ClaimProgress = { step: 'proving', wonAt: t, since: t, done: [], lineId: state.winLineId };
+  return [
+    {
+      ...state,
+      phase: 'claiming',
+      claim,
+      minted: null,
+      notice: null,
+      stopping: false,
+      ledger: annotate(state, claim.lineId, { step: 'proving' }, true),
+    },
+    [{ type: 'submit' }],
+  ];
+}
+
 function winner(state: MinerState, e: Extract<Event, { type: 'winner' }>): [MinerState, Command[]] {
   // Only a winner for the job that is still current gets submitted; a stale one is discarded.
   if (state.phase !== 'mining' || !state.job) return [state, []];
   if (e.epoch !== state.job.epoch || e.secretId !== state.job.secretId)
-    return [state, [{ type: 'discard', reason: 'won against a closed epoch' }]];
-  // A new claim in flight replaces the last mint's acknowledgement.
-  const claim: ClaimProgress = { step: 'proving', since: now(e.at), done: [] };
-  return [{ ...state, phase: 'claiming', claim, minted: null, notice: null }, [{ type: 'submit' }]];
+    return [
+      { ...state, ledger: outcomeLine(state, state.winLineId, { outcome: 'discarded' }, e.at) },
+      [{ type: 'discard', reason: 'won against a closed epoch' }],
+    ];
+  return claiming(state, e.at);
 }
 
 /** Moves the claim to its next step, closing the elapsed time of the current one. */
@@ -223,51 +290,94 @@ function advance(
   if (!state.claim) return state;
   const t = now(at);
   const done = [...state.claim.done, Math.max(0, t - state.claim.since)];
-  return { ...state, claim: { ...state.claim, ...patch, step, since: t, done } };
+  const claim = { ...state.claim, ...patch, step, since: t, done };
+  const ttl =
+    step === 'sent' && claim.expiresAt
+      ? { ttlMinutes: Math.max(1, Math.round((claim.expiresAt - t / 1000) / 60)) }
+      : {};
+  return {
+    ...state,
+    claim,
+    ledger: annotate(state, claim.lineId, { step, expiresAt: claim.expiresAt, ...ttl }),
+  };
 }
 
 function claimed(state: MinerState, e: Extract<Event, { type: 'claimed' }>): MinerState {
   const { type: _, reward, at, t: __, ...rest } = e;
   const minted: Minted = { ...rest, at: now(at) };
+  // The win line's step ends with the ✓ line under it.
+  const settled = { ...state, ledger: annotate(state, state.claim?.lineId ?? null, { outcome: 'minted' }) };
   return {
-    ...state,
+    ...settled,
     phase: 'idle',
     job: null,
     wins: state.wins + 1,
     claim: null,
+    stopping: false,
     minted,
-    ledger: line(state, {
+    ledger: line(settled, {
       kind: 'minted',
       time: clock(at),
-      text: `${reward} minted, privately`,
+      text: `${reward}, privately`,
       links: { block: e.block, tx: e.txHash },
     }),
   };
 }
 
+/** The recovering banner: the verified cause for a stale claim, the brief's plain sentence otherwise. */
+const RECOVERING: Record<'stale' | 'other', string> = {
+  stale:
+    'A claim reverted: someone closed the epoch first. Re-syncing this account from the chain; mining resumes in about a minute.',
+  other: 'Re-syncing this account from the chain; mining resumes in about a minute.',
+};
+
+/** What the win line says of a failed claim; a revert's cause is read from the message, never assumed. */
+function failureNote(e: Extract<Event, { type: 'failed' }> & { kind: ClaimFailure }): ClaimNote {
+  if (e.kind === 'reverted') {
+    const cause = revertCause(e.error);
+    return { outcome: 'reverted', reason: cause.stale ? undefined : cause.reason };
+  }
+  if (e.kind === 'other') return { outcome: 'other', reason: e.error, retry: true };
+  return { outcome: e.kind };
+}
+
 function failed(state: MinerState, e: Extract<Event, { type: 'failed' }>): [MinerState, Command[]] {
+  const lineId = state.claim?.lineId ?? null;
+  // A failure that is not a claim's (the rebuilt view's read): the card under the loop and a ✗ line.
+  if (!e.kind) {
+    const notice: Notice = { kind: 'failed', title: 'claim failed', body: e.error };
+    return [
+      {
+        ...state,
+        claim: null,
+        stopping: false,
+        phase: 'idle',
+        job: null,
+        notice,
+        ledger: line(state, { kind: 'failed', time: clock(e.at), text: e.error }),
+      },
+      [{ type: 'halt' }],
+    ];
+  }
   const base = {
     ...state,
     claim: null,
-    ledger: line(state, { kind: 'failed', time: clock(e.at), text: e.error }),
+    stopping: false,
+    job: null,
+    ledger: outcomeLine(state, lineId, failureNote({ ...e, kind: e.kind }), e.at),
   };
-  if (e.kind === 'expired')
-    return [
-      { ...base, phase: 'idle', job: null, notice: { kind: 'expired', ...CLAIM_FAILURE_COPY.expired } },
-      [],
-    ];
-  if (e.kind === 'reverted' || e.kind === 'delivery-blocked')
-    return [
-      {
-        ...base,
-        phase: 'recovering',
-        job: null,
-        notice: { kind: 'reverted', ...CLAIM_FAILURE_COPY[e.kind] },
-      },
-      [],
-    ];
-  const notice: Notice = { kind: 'failed', title: CLAIM_FAILURE_COPY.other.title, body: e.error };
-  return [{ ...base, phase: 'idle', job: null, notice }, [{ type: 'halt' }]];
+  if (e.kind === 'expired' || e.kind === 'refused') return [{ ...base, phase: 'idle' }, []];
+  if (e.kind === 'reverted' || e.kind === 'delivery-blocked') {
+    const stale = e.kind === 'reverted' && revertCause(e.error).stale;
+    const notice: Notice = {
+      kind: 'reverted',
+      title: 'lost a race',
+      body: RECOVERING[stale ? 'stale' : 'other'],
+    };
+    return [{ ...base, phase: 'recovering', notice }, []];
+  }
+  // `other`: mining stays paused with the ticket retained; the line offers Retry.
+  return [{ ...base, phase: 'idle' }, [{ type: 'halt' }]];
 }
 
 export function reduce(state: MinerState, event: Event): [MinerState, Command[]] {
@@ -287,19 +397,11 @@ export function reduce(state: MinerState, event: Event): [MinerState, Command[]]
         [],
       ];
     case 'stop':
+      // The submission cannot be abandoned: the claim finishes, marked, and mining does not resume after it.
+      if (state.phase === 'claiming') return [{ ...state, stopping: true }, []];
       return [{ ...state, phase: 'idle', job: null }, state.phase === 'idle' ? [] : [{ type: 'halt' }]];
     case 'retry':
-      return state.phase === 'idle'
-        ? [
-            {
-              ...state,
-              phase: 'claiming',
-              claim: { step: 'proving', since: now(event.at), done: [] },
-              notice: null,
-            },
-            [{ type: 'submit' }],
-          ]
-        : [state, []];
+      return state.phase === 'idle' ? claiming(state, event.at) : [state, []];
     case 'epoch':
       return epochSwitch(state, event);
     case 'attempt':
@@ -329,14 +431,20 @@ export function reduce(state: MinerState, event: Event): [MinerState, Command[]]
         [],
       ];
     case 'paused': {
-      const minutes = Math.max(1, Math.round((event.until - now(event.at)) / 60_000));
       const notice: Notice = {
         kind: 'paused',
         title: 'claims paused',
-        body: `The reset did not unblock this account. It can claim again once the reverted claim finalizes on L1, in about ${minutes} min. Mining resumes by itself.`,
+        body: `Claims from this account wait until the reverted one is final on Ethereum. Mining resumes about ${clock(event.until).slice(0, 5)}.`,
         until: event.until,
       };
-      return [{ ...state, phase: 'idle', notice }, []];
+      // The blocked claim's line learns the wait now that it is known.
+      const waitMinutes = Math.max(1, Math.round((event.until - now(event.at)) / 60_000));
+      const ledger = state.ledger.map((l) =>
+        l.id === state.winLineId && l.claim?.outcome === 'delivery-blocked'
+          ? { ...l, claim: { ...l.claim, waitMinutes } }
+          : l,
+      );
+      return [{ ...state, phase: 'idle', notice, ledger }, []];
     }
     case 'offline':
       return [

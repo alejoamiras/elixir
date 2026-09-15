@@ -80,7 +80,7 @@ export function Mine({
       </TileBoundary>
       <div className="contents md:order-4 md:flex md:flex-col md:gap-[14px] xl:contents">
         <TileBoundary name="ledger" onError={onError} className="xl:col-span-3">
-          <LedgerTile className="xl:col-span-3" />
+          <LedgerTile controller={controller} className="xl:col-span-3" />
         </TileBoundary>
         <TileBoundary name="balance" onError={onError}>
           <BalanceCard />

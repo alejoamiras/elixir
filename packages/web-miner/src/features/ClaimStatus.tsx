@@ -48,7 +48,7 @@ export function MintedMarks({ minted }: { minted: Minted }) {
   const rules = useAtomValue(rulesAtom);
   const closed = rules && minted.claims[1] >= rules.N;
   return (
-    <div data-testid="minted" className="flex flex-col gap-2">
+    <div data-testid="minted-marks" className="flex flex-col gap-2">
       <p className="text-xs text-ink-2">
         this transaction's effects · block {minted.block.toLocaleString('en-US')} · {PARAMS.TOKEN_SYMBOL}{' '}
         minted privately
@@ -66,29 +66,21 @@ export function MintedMarks({ minted }: { minted: Minted }) {
 
 const VARIANT: Record<Notice['kind'], 'bad' | 'warn' | 'neutral'> = {
   reverted: 'warn',
-  expired: 'neutral',
   failed: 'bad',
   'prover-dead': 'bad',
   offline: 'warn',
   paused: 'warn',
 };
 
-/** The card under the loop. A reverted claim offers the fresh-key route; a dead prover a reload. */
-export function NoticeCard({ notice, recovering }: { notice: Notice; recovering: boolean }) {
+/** The banner under the header: a lost race, the pause until finality, a silent node, a dead prover (reload). */
+export function NoticeCard({ notice }: { notice: Notice }) {
   const now = useAtomValue(nowAtom);
   const minutes = notice.until ? Math.max(0, Math.ceil((notice.until - now) / 60_000)) : undefined;
   return (
     <Alert variant={VARIANT[notice.kind]} data-testid={`notice-${notice.kind}`}>
       <AlertTitle>{notice.title}</AlertTitle>
       <AlertDescription data-testid="miner-error">{notice.body}</AlertDescription>
-      {minutes !== undefined && <p className="mt-1 font-mono text-2xs">resumes in ~{minutes} min</p>}
-      {(notice.kind === 'reverted' || notice.kind === 'paused') && !recovering && (
-        <div className="mt-2">
-          <Button size="sm" onClick={() => location.reload()} data-testid="fresh-key">
-            Use another account
-          </Button>
-        </div>
-      )}
+      {minutes !== undefined && <p className="mt-1 font-mono text-2xs">in {minutes} min</p>}
       {notice.kind === 'prover-dead' && (
         <div className="mt-2">
           <Button size="sm" onClick={() => location.reload()}>

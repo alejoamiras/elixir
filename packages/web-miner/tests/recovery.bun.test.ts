@@ -76,6 +76,9 @@ const REVERTED = new Error(
 );
 const BLOCKED = new Error('Simulation error: Nullifier read request failed for note 0x3');
 
+/** The newest ledger line's text; a proof line has none. */
+const textOf = (l: { kind: string; text?: string } | undefined): string | undefined => l?.text;
+
 const settle = async (done: () => boolean) => {
   for (let i = 0; i < 300 && !done(); i++) await new Promise((r) => setTimeout(r, 10));
   expect(done()).toBe(true);
@@ -165,7 +168,7 @@ describe('lost-race recovery', () => {
     );
     worker.emit(winner);
     await settle(() => store.get(minerAtom).notice?.kind === 'paused');
-    expect(store.get(minerAtom).notice?.body).toContain('about 38 min');
+    expect(store.get(minerAtom).notice?.body).toMatch(/Mining resumes about \d\d:\d\d\./);
     expect(controller.deployment).toBe(reopened);
     controller.dispose();
   });
@@ -191,12 +194,51 @@ describe('lost-race recovery', () => {
     worker.emit(winner);
     expect(store.get(minerAtom).phase).toBe('claiming');
     controller.pause('hidden');
-    await settle(() => store.get(minerAtom).notice?.kind === 'expired');
-    expect(store.get(minerAtom).phase).toBe('idle');
+    await settle(() => textOf(store.get(minerAtom).ledger[0]) === 'claim expired');
+    expect(store.get(minerAtom)).toMatchObject({ phase: 'idle', notice: null });
     expect(worker.sent.filter((m) => m.type === 'mine')).toHaveLength(1);
     controller.release('hidden');
     await settle(() => worker.sent.filter((m) => m.type === 'mine').length === 2);
-    expect(store.get(minerAtom)).toMatchObject({ phase: 'mining', notice: { kind: 'expired' } });
+    expect(store.get(minerAtom).phase).toBe('mining');
+    controller.dispose();
+  });
+
+  test('a claim refused at simulation (the epoch closed) was never sent: mining goes on', async () => {
+    const controller = await boot(
+      fakeDeployment(5n, () =>
+        Promise.reject(new Error('Simulation error: Assertion failed: epoch is not open')),
+      ),
+      () => Promise.reject(new Error('unused')),
+    );
+    worker.emit(winner);
+    await settle(() => worker.sent.filter((m) => m.type === 'mine').length === 2);
+    expect(store.get(minerAtom)).toMatchObject({ phase: 'mining', notice: null });
+    expect(textOf(store.get(minerAtom).ledger[0])).toBe('claim refused');
+    controller.dispose();
+  });
+
+  test('an unclassified failure keeps the ticket: mining pauses, Retry sends the same claim again', async () => {
+    let sends = 0;
+    const controller = await boot(
+      fakeDeployment(5n, () =>
+        Promise.reject(
+          new Error(++sends === 1 ? 'Circuit execution failed: x' : 'Invalid expiration timestamp'),
+        ),
+      ),
+      () => Promise.reject(new Error('unused')),
+    );
+    worker.emit(winner);
+    await settle(() => store.get(minerAtom).phase === 'idle');
+    expect(textOf(store.get(minerAtom).ledger[0])).toBe('claim other: Circuit execution failed: x');
+    expect(worker.sent.filter((m) => m.type === 'mine')).toHaveLength(1);
+    expect(await controller.retryPendingClaim()).toBe(true);
+    expect(await controller.retryPendingClaim()).toBe(false); // spent
+    await settle(() => sends === 2 && store.get(minerAtom).phase === 'mining');
+    // No win line came from the fake worker: each outcome is a ✗ line of its own.
+    expect(store.get(minerAtom).ledger.map(textOf)).toEqual([
+      'claim expired',
+      'claim other: Circuit execution failed: x',
+    ]);
     controller.dispose();
   });
 
@@ -208,11 +250,11 @@ describe('lost-race recovery', () => {
     worker.emit(winner);
     expect(store.get(minerAtom).phase).toBe('claiming');
     controller.stop();
-    expect(store.get(minerAtom).phase).toBe('claiming');
+    expect(store.get(minerAtom)).toMatchObject({ phase: 'claiming', stopping: true });
     // The tab hidden and shown again around the claim's end must not re-arm the restart.
     controller.pause('hidden');
-    await settle(() => store.get(minerAtom).notice?.kind === 'expired');
-    expect(store.get(minerAtom).phase).toBe('idle');
+    await settle(() => textOf(store.get(minerAtom).ledger[0]) === 'claim expired');
+    expect(store.get(minerAtom)).toMatchObject({ phase: 'idle', stopping: false });
     controller.release('hidden');
     await new Promise((r) => setTimeout(r, 50));
     expect(store.get(minerAtom).phase).toBe('idle');

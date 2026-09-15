@@ -72,7 +72,7 @@ describe('miner reducer', () => {
     [s] = reduce(s, { type: 'claimed', block: 184209, reward: '4 tYACA', ...MINTED });
     expect(s.ledger[0]).toMatchObject({
       kind: 'minted',
-      text: '4 tYACA minted, privately',
+      text: '4 tYACA, privately',
       links: { block: 184209, tx: MINTED.txHash },
     });
     expect(s.wins).toBe(1);
@@ -111,9 +111,16 @@ describe('miner reducer', () => {
   test('the claim walks proving → sent (with the expiry) → waiting → minted; the mint survives the restart and the next proof, fades after ten seconds, and a new claim replaces it', () => {
     let [s] = reduce(initial, { type: 'start', epoch: epoch(3n) });
     [s] = reduce(s, { type: 'winner', epoch: 3n, secretId: 1, at: 1000 });
-    expect(s.claim).toEqual({ step: 'proving', since: 1000, done: [] });
+    expect(s.claim).toMatchObject({ step: 'proving', wonAt: 1000, since: 1000, done: [] });
     [s] = reduce(s, { type: 'sent', txHash: '0xab', expiresAt: 600, at: 41_000 });
-    expect(s.claim).toEqual({ step: 'sent', since: 41_000, done: [40_000], txHash: '0xab', expiresAt: 600 });
+    expect(s.claim).toMatchObject({
+      step: 'sent',
+      wonAt: 1000,
+      since: 41_000,
+      done: [40_000],
+      txHash: '0xab',
+      expiresAt: 600,
+    });
     [s] = reduce(s, { type: 'included', block: 9, at: 50_000 });
     expect(s.claim).toMatchObject({ step: 'waiting', done: [40_000, 9000] });
     [s] = reduce(s, { type: 'claimed', block: 9, reward: '4 tYACA', ...MINTED, at: 51_000 });
@@ -157,7 +164,7 @@ describe('miner reducer', () => {
     expect(reduce(m, { type: 'retry' })).toEqual([m, []]);
   });
 
-  test('an expired claim goes idle with its card, which survives the restart that follows', () => {
+  test('an expired claim goes idle with no card (the line says it); the restart that follows is clean', () => {
     let [s] = reduce(initial, { type: 'start', epoch: epoch(3n) });
     [s] = reduce(s, { type: 'winner', epoch: 3n, secretId: 1 });
     const [next, cmds] = reduce(s, {
@@ -165,14 +172,14 @@ describe('miner reducer', () => {
       error: 'Invalid expiration timestamp',
       kind: 'expired',
     });
-    expect(next).toMatchObject({ phase: 'idle', job: null, claim: null, notice: { kind: 'expired' } });
+    expect(next).toMatchObject({ phase: 'idle', job: null, claim: null, notice: null });
     expect(cmds).toEqual([]);
-    expect(next.ledger[0]).toMatchObject({ kind: 'failed', text: 'Invalid expiration timestamp' });
+    // No win line preceded this winner: the outcome gets a ✗ line of its own.
+    expect(next.ledger[0]).toMatchObject({ kind: 'failed', text: 'claim expired' });
     // The controller restarts on the epoch open now (a newer one here), under a fresh secret.
     const [again, restart] = reduce(next, { type: 'start', epoch: epoch(4n, 9n) });
-    expect(again).toMatchObject({ phase: 'mining', secretId: 2, notice: { kind: 'expired' } });
+    expect(again).toMatchObject({ phase: 'mining', secretId: 2, notice: null });
     expect(restart).toEqual([{ type: 'mine', epoch: 4n, seed: 9n, target: 1n << 122n, secretId: 2 }]);
-    expect(reduce(again, { type: 'winner', epoch: 4n, secretId: 2 })[0].notice).toBeNull();
   });
 
   test('a reverted or blocked claim enters recovering; recovered returns to idle, paused waits', () => {
@@ -191,7 +198,7 @@ describe('miner reducer', () => {
     const [paused] = reduce(r, { type: 'paused', until: 100 + 25 * 60_000, at: 100 });
     expect(paused.phase).toBe('idle');
     expect(paused.notice).toMatchObject({ kind: 'paused', until: 100 + 25 * 60_000 });
-    expect(paused.notice?.body).toContain('about 25 min');
+    expect(paused.notice?.body).toMatch(/Mining resumes about \d\d:\d\d\./);
   });
 
   test('offline shows a card that online clears, without touching any other notice', () => {

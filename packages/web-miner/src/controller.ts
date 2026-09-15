@@ -2,7 +2,7 @@
 // chain-view reset after a lost race.
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
-import type { TxEffect } from '@aztec/stdlib/tx';
+import { type TxEffect, TxHash } from '@aztec/stdlib/tx';
 import type { createStore } from 'jotai';
 import {
   claimFailureMessage,
@@ -135,8 +135,12 @@ export class MinerController {
   private timer: ReturnType<typeof setInterval> | undefined;
   /** The e2e canary's fault: the next claim goes out with a bound public input altered. */
   private tamperNext = false;
-  /** The tampered claim as it was before the fault, kept only while its refusal is the last thing that happened. */
-  private retained: NonNullable<MinerController['pending']> | null = null;
+  /**
+   * A ticket whose claim failed for an unclassified reason (or the canary's tampered one, as it was
+   * before the fault), kept while that failure is the last thing that happened: Retry sends it again.
+   * `txHash` when the failure came after the send, so Retry first asks whether it landed after all.
+   */
+  private retained: (NonNullable<MinerController['pending']> & { txHash?: string }) | null = null;
   private pauseTimer: ReturnType<typeof setTimeout> | undefined;
   private domain: string | undefined;
   private prover: Prover;
@@ -310,10 +314,7 @@ export class MinerController {
   stop() {
     this.stops++;
     this.resumeWhenClear = false;
-    if (this.store.get(minerAtom).phase === 'claiming') {
-      this.stopAfterClaim = true;
-      return;
-    }
+    if (this.store.get(minerAtom).phase === 'claiming') this.stopAfterClaim = true;
     this.dispatch({ type: 'stop' });
   }
 
@@ -589,51 +590,92 @@ export class MinerController {
       this.tamperNext = false;
       this.log('e2e: this claim goes out with a bound public input altered');
     }
-    const before = this.store.get(epochAtom)?.claims ?? 0;
     this.log(`claiming in epoch ${p.epoch}: proving the claim in-page…`);
+    let txHash: string | undefined;
     try {
       const sent = await sendClaim(this.d, this.account, this.fee, { ...p, secret, recipient: this.account });
+      txHash = sent.txHash;
       const ttl = sent.expiresAt
         ? `expires ${new Date(sent.expiresAt * 1000).toISOString().slice(11, 19)}`
         : 'expiry unknown';
       this.log(`claim ${short(sent.txHash)} sent (${ttl})`);
       this.dispatch({ type: 'sent', txHash: sent.txHash, expiresAt: sent.expiresAt, at: Date.now() });
       const { block, effect } = await sent.wait();
-      this.dispatch({ type: 'included', block, at: Date.now() });
-      const marks = await claimMarks(effect, p.digest, this.d.miner.address, p.prover);
-      this.lastClaim = marks;
-      await this.refresh();
-      const reward = `${amount(PARAMS.REWARD, PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL}`;
-      this.log(`claim mined in block ${block}: +${reward}`);
-      this.store.set(claimsAtom, (c) => [...c, { epoch: p.epoch, block, at: Date.now() }]);
-      this.dispatch({
-        type: 'claimed',
-        block,
-        reward,
-        txHash: sent.txHash,
-        nullifier: marks.nullifier,
-        noteHash: marks.noteHash,
-        noteHashes: marks.noteHashes.length,
-        claims: [before, before + 1],
-        at: Date.now(),
-      });
-      this.announceWin(block);
-      this.resumeAfterClaim();
+      await this.minted(p, sent.txHash, block, effect);
     } catch (e) {
-      this.retained = restore;
+      // An unclassified failure keeps the ticket for Retry (the canary's tampered one as it was).
+      this.retained = restore ?? (classifyClaimFailure(e) === 'other' ? { ...p, txHash } : null);
       await this.claimFailed(e);
     }
   }
 
-  /** The refused claim again, its input restored; false unless that refusal is what the page is idle on. */
-  retryPendingClaim(): boolean {
+  /** The claim is in a block: its marks, the balance, the ledger's ✓, the device's record of it. */
+  private async minted(
+    p: NonNullable<MinerController['pending']>,
+    txHash: string,
+    block: number,
+    effect: TxEffect,
+  ) {
+    const before = this.store.get(epochAtom)?.claims ?? 0;
+    this.dispatch({ type: 'included', block, at: Date.now() });
+    const marks = await claimMarks(effect, p.digest, this.d.miner.address, p.prover);
+    this.lastClaim = marks;
+    await this.refresh();
+    const reward = `${amount(PARAMS.REWARD, PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL}`;
+    this.log(`claim mined in block ${block}: +${reward}`);
+    this.store.set(claimsAtom, (c) => [
+      ...c,
+      { epoch: p.epoch, block, at: Date.now(), txHash, nullifier: marks.nullifier, settled: 'pending' },
+    ]);
+    this.dispatch({
+      type: 'claimed',
+      block,
+      reward,
+      txHash,
+      nullifier: marks.nullifier,
+      noteHash: marks.noteHash,
+      noteHashes: marks.noteHashes.length,
+      claims: [before, before + 1],
+      at: Date.now(),
+    });
+    this.announceWin(block);
+    this.resumeAfterClaim();
+  }
+
+  /**
+   * The retained claim again (the ledger's Retry; the canary's control): false unless that failure is
+   * what the page is idle on. A claim that was sent is reconciled first — in a block after all, it is
+   * minted, not sent twice.
+   */
+  async retryPendingClaim(): Promise<boolean> {
     const claim = this.retained;
-    if (!retryEligible(claim, this.secrets, this.store.get(minerAtom).phase)) return false;
+    if (this.retired || !retryEligible(claim, this.secrets, this.store.get(minerAtom).phase)) return false;
     this.retained = null;
-    this.pending = claim;
-    this.log('e2e: the refused claim goes out again, its input restored');
+    const { txHash, ...ticket } = claim;
+    if (txHash) {
+      const landed = await this.landed(txHash);
+      if (landed) {
+        this.log(`claim ${short(txHash)} was in block ${landed.block} after all`);
+        this.dispatch({ type: 'retry', at: Date.now() });
+        await this.minted(ticket, txHash, landed.block, landed.effect).catch((e) => this.claimFailed(e));
+        return true;
+      }
+    }
+    this.pending = ticket;
+    this.log('the retained claim goes out again');
     this.dispatch({ type: 'retry', at: Date.now() });
     return true;
+  }
+
+  /** Whether a sent claim made it into a block, with its effects; null when it did not or the node cannot say. */
+  private async landed(txHash: string): Promise<{ block: number; effect: TxEffect } | null> {
+    try {
+      const r = await this.d.node.getTxReceipt(TxHash.fromString(txHash), { includeTxEffect: true });
+      if (r.executionResult !== 'success' || r.blockNumber === undefined || !r.txEffect) return null;
+      return { block: Number(r.blockNumber), effect: r.txEffect };
+    } catch {
+      return null;
+    }
   }
 
   /** Never an amount: the notification and the tab are the only things another app can read. */
@@ -660,8 +702,8 @@ export class MinerController {
     const message = claimFailureMessage(e);
     this.log(`claim failed (${kind}): ${message}`);
     this.dispatch({ type: 'failed', error: message, kind, at: Date.now() });
-    // Nothing was spent by an expired claim: mining goes on, on whatever epoch is open now.
-    if (kind === 'expired') return this.resumeAfterClaim();
+    // Nothing was spent by an expired claim or one refused at simulation: mining goes on, on whatever epoch is open now.
+    if (kind === 'expired' || kind === 'refused') return this.resumeAfterClaim();
     if (kind !== 'reverted' && kind !== 'delivery-blocked') return;
     // A delivery still blocked after a rebuild is the PXE waiting for L1: only time helps.
     const rebuilt = this.rebuiltAt !== null && Date.now() - this.rebuiltAt < (await this.finalityMs());

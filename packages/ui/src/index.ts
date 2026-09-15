@@ -41,7 +41,13 @@ export { Note, type NoteTone } from './components/note.tsx';
 export { clampThreads, PowerSlider, powerLabels, powerRange } from './components/power-slider.tsx';
 export { Preflight, type PreflightRow } from './components/preflight.tsx';
 export { Progress } from './components/progress.tsx';
-export { LEDGER_WINDOW, type LedgerLinks, ProofLedger, type ProofLine } from './components/proof-line.tsx';
+export {
+  LEDGER_WINDOW,
+  type LedgerLinks,
+  ProofLedger,
+  type ProofLine,
+  type WinNote,
+} from './components/proof-line.tsx';
 export { type RadioCardOption, RadioCards } from './components/radio-cards.tsx';
 export { ScoreLoop, type ScoreLoopProps } from './components/score-loop.tsx';
 export { Segmented, type SegmentedOption } from './components/segmented.tsx';

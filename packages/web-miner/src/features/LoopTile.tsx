@@ -5,6 +5,7 @@ import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { difficulty, nextWinSeconds, proofsPerMinute } from '../../../miner-core/src/metrics.ts';
 import {
   Button,
+  ClaimChip,
   cn,
   Kpi,
   Mark,
@@ -15,6 +16,7 @@ import {
   useTweenedNumber,
 } from '../../../ui/src/index.ts';
 import type { MinerController } from '../controller';
+import { chipStep } from '../lib/claim-copy';
 import { amount, compact, durationParts } from '../lib/format';
 import type { MinerState } from '../lib/reducer';
 import { pillStatus } from '../lib/status';
@@ -153,6 +155,7 @@ function StartControl({
       <Button
         size="sm"
         data-testid="stop"
+        disabled={miner.stopping}
         title={
           miner.phase === 'claiming' ? 'The claim finishes; mining does not resume after it.' : undefined
         }
@@ -180,6 +183,19 @@ function HeaderText({ status, ready }: { status: ReturnType<typeof pillStatus>; 
   return <>{status === 'mining' || !ready ? 'live · last 3 min' : status}</>;
 }
 
+/** The claim's step and one clock from the win, beside the status; the wait once Stop was pressed. */
+function HeaderClaim({ miner, now }: { miner: MinerState; now: number }) {
+  if (!miner.claim) return null;
+  return (
+    <ClaimChip
+      step={chipStep(miner.claim.step)}
+      seconds={(now - miner.claim.wonAt) / 1000}
+      stopping={miner.stopping}
+      data-testid="claim-chip"
+    />
+  );
+}
+
 /** The rate line: dashes before any account, the session's numbers once proofs exist; "native" instead of threads under Presto. */
 function RateLine({
   ready,
@@ -205,7 +221,7 @@ function RateLine({
   );
 }
 
-/** The header row is a fixed-height status line: the claim's progress lives in the rail, not here. */
+/** The header row is a fixed-height status line with the claim's chip; the stepper lives in the rail. */
 export function LoopTile({ controller, onStart, className }: Controls & { className?: string }) {
   const boot = useAtomValue(bootAtom);
   const miner = useAtomValue(minerAtom);
@@ -220,11 +236,6 @@ export function LoopTile({ controller, onStart, className }: Controls & { classN
   const threads = boot.phase === 'ready' ? boot.threads : (settings.threads ?? Math.max(1, cores() - 1));
   const bar = epoch ? difficulty(epoch.target) : null;
   const status = pillStatus(miner, now);
-  const nonClaimNotice =
-    miner.notice &&
-    (miner.notice.kind === 'prover-dead' || miner.notice.kind === 'offline' || miner.notice.kind === 'paused')
-      ? miner.notice
-      : null;
   return (
     <Tile className={cn('flex flex-col gap-4', className)}>
       <TileHeader
@@ -243,7 +254,10 @@ export function LoopTile({ controller, onStart, className }: Controls & { classN
           </span>
         }
       >
-        <HeaderText status={status} ready={ready} />
+        <span className="flex items-center gap-3">
+          <HeaderText status={status} ready={ready} />
+          <HeaderClaim miner={miner} now={now} />
+        </span>
       </TileHeader>
       <ScoreLoop
         calm
@@ -253,7 +267,7 @@ export function LoopTile({ controller, onStart, className }: Controls & { classN
         height={230}
         placeholder={ready ? undefined : 'sign in to start proving'}
       />
-      {nonClaimNotice && <NoticeCard notice={nonClaimNotice} recovering={miner.phase === 'recovering'} />}
+      {miner.notice && <NoticeCard notice={miner.notice} />}
     </Tile>
   );
 }

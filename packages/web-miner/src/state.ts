@@ -65,7 +65,16 @@ export const minerAtom = atom<MinerState>(initial);
 export const epochAtom = atom<EpochInfo | null>(null);
 export const rulesAtom = atom<Rules | null>(null);
 export const balanceAtom = atom<bigint | null>(null);
-export const claimsAtom = atom<{ epoch: bigint; block: number; at: number }[]>([]);
+/** A mint of this account on this device; `settled` follows the rollup's proof of its block. */
+export interface ClaimRecord {
+  epoch: bigint;
+  block: number;
+  at: number;
+  txHash?: string;
+  nullifier?: string;
+  settled?: 'pending' | 'settled' | 'pruned';
+}
+export const claimsAtom = atom<ClaimRecord[]>([]);
 export const logAtom = atom<string[]>([]);
 /** The proving keys' download, from page load; the wallet's and the prover's start wait for `done`. */
 export const crsAtom = atom<CrsProgress>({ loaded: 0, total: 0, done: false });

@@ -98,7 +98,14 @@ describe('the claim slot', () => {
   test('idle is a dashed placeholder; a claim in flight shows the stepper; a fresh mint its ✓ with the block linked', () => {
     expect(withMiner({}, 0).getByTestId('claim-slot').textContent).toContain('no claim in flight');
     cleanup();
-    const claim = { step: 'sent' as const, since: 50_000, done: [12_400], txHash: '0xab' };
+    const claim = {
+      step: 'sent' as const,
+      wonAt: 37_600,
+      since: 50_000,
+      done: [12_400],
+      lineId: 1,
+      txHash: '0xab',
+    };
     const inFlight = withMiner({ phase: 'claiming', claim }, 60_000);
     expect(inFlight.getByTestId('claim-slot').getAttribute('data-state')).toBe('claim');
     expect(inFlight.queryByTestId('claim-stepper')).not.toBeNull();
@@ -109,20 +116,12 @@ describe('the claim slot', () => {
     expect(fresh.getByRole('link', { name: /block 73,162/ }).getAttribute('href')).toContain('/blocks/73162');
   });
 
-  test('the ✓ fades after ten seconds, a claim notice outranks everything, and the pill follows the same clock', () => {
+  test('the ✓ fades after ten seconds, its marks sit under Details, and the pill follows the same clock', () => {
     const stale = withMiner({ minted: MINTED }, 110_001);
     expect(stale.getByTestId('claim-slot').textContent).toContain('no claim in flight');
     cleanup();
-    const notice = {
-      kind: 'reverted' as const,
-      title: 'lost a race',
-      body: 'someone closed the epoch first',
-    };
-    const failed = withMiner(
-      { minted: MINTED, notice, claim: { step: 'proving', since: 0, done: [] } },
-      105_000,
-    );
-    expect(failed.getByTestId('claim-slot').getAttribute('data-state')).toBe('notice');
+    const fresh = withMiner({ minted: MINTED }, 105_000);
+    expect(fresh.getByTestId('minted-details').textContent).toContain('Details');
     expect(slotState({ ...initial, minted: MINTED }, 105_000)).toBe('minted');
     expect(slotState({ ...initial, minted: MINTED }, 110_000)).toBe('idle');
     expect(pillStatus({ ...initial, minted: MINTED }, 105_000)).toBe('minted');
@@ -150,7 +149,18 @@ describe('the start and stop buttons', () => {
     store.set(minerAtom, {
       ...initial,
       phase: 'claiming',
-      claim: { step: 'sent', since: 50_000, done: [12_400], txHash: '0xab' },
+      claim: { step: 'sent', wonAt: 19_000, since: 50_000, done: [12_400], lineId: 1, txHash: '0xab' },
+      ledger: [
+        {
+          id: 1,
+          kind: 'win',
+          time: '00:00:19',
+          n: 12,
+          score: 2.8,
+          proveMs: 3610,
+          claim: { step: 'sent', expiresAt: 660 },
+        },
+      ],
     });
     store.set(nowAtom, 60_000);
     const { getByTestId } = render(
@@ -159,5 +169,57 @@ describe('the start and stop buttons', () => {
       </Provider>,
     );
     expect(getByTestId('stop').getAttribute('title')).toContain('does not resume');
+    // The chip: the step and one clock from the win; the ledger's win line the same step with its countdown.
+    expect(getByTestId('claim-chip').textContent).toBe('claiming · sent · 41 s');
+    expect(getByTestId('ledger').textContent).toContain(
+      'a win · claiming: sent to the node · drops in 10:00 if no block takes it',
+    );
+    cleanup();
+    store.set(minerAtom, { ...store.get(minerAtom), stopping: true });
+    const stopping = render(
+      <Provider store={store}>
+        <Mine controller={() => undefined} />
+      </Provider>,
+    );
+    expect(stopping.getByTestId('claim-chip').textContent).toBe('stopping · claim finishing · 41 s');
+    expect((stopping.getByTestId('stop') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  test('a lost race is a banner under the header, no way out but time; a paused account names its clock', () => {
+    const store = createStore();
+    store.set(nowAtom, 60_000);
+    store.set(minerAtom, {
+      ...initial,
+      phase: 'recovering',
+      notice: {
+        kind: 'reverted',
+        title: 'lost a race',
+        body: 'Re-syncing this account from the chain; mining resumes in about a minute.',
+      },
+    });
+    const { getByTestId, queryByTestId } = render(
+      <Provider store={store}>
+        <Mine controller={() => undefined} />
+      </Provider>,
+    );
+    expect(getByTestId('notice-reverted').textContent).toContain('Re-syncing this account');
+    expect(queryByTestId('fresh-key')).toBeNull();
+    expect(getByTestId('claim-slot').textContent).toContain('no claim in flight');
+    cleanup();
+    store.set(minerAtom, {
+      ...initial,
+      notice: {
+        kind: 'paused',
+        title: 'claims paused',
+        body: 'Mining resumes about 16:48.',
+        until: 60_000 + 38 * 60_000,
+      },
+    });
+    const paused = render(
+      <Provider store={store}>
+        <Mine controller={() => undefined} />
+      </Provider>,
+    );
+    expect(paused.getByTestId('notice-paused').textContent).toContain('in 38 min');
   });
 });

@@ -3,6 +3,7 @@
 // it, and the operations the sheets call. One instance per open account, started with it and
 // stopped with it; nothing sends or claims on its own — every crossing begins with a tap.
 import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { siloNullifier } from '@aztec/stdlib/hash';
@@ -42,7 +43,7 @@ import {
 import { readBalanceSnapshot, saveBalanceSnapshot } from '../bridge/snapshot.ts';
 import type { Connection } from '../config';
 import { fingerprintOf } from '../keys/classes';
-import { type BridgeView, bridgeAtom, journalAtom } from '../state';
+import { type BridgeView, bridgeAtom, type ClaimRecord, claimsAtom, journalAtom } from '../state';
 import { servedBuild, staleTab } from './env.ts';
 import { type PortalReader, portalReader, type WagmiConfig, wagmiConfigFor } from './eth.ts';
 import { type FactReads, factsFor } from './facts.ts';
@@ -77,6 +78,8 @@ export interface BridgeSessionDeps {
 }
 
 const REFRESH_MS = 15_000;
+/** Mints asked about per refresh: the newest first, the rest on later ticks. */
+const SETTLE_AT_MOST = 8;
 /** One refresh reads the clock for every crossing it holds against a deadline; one block answers them all. */
 const L1_CLOCK_MS = 2_000;
 /** The portal's events are scanned again every so many refreshes: a forward by Yacana lands while the page is open. */
@@ -499,6 +502,44 @@ export class BridgeSession {
         await this.recheckClaim(c, now);
     }
     await this.publishJournal();
+    await this.settleMiningClaims();
+  }
+
+  /**
+   * The mining ledger's ✓ is final once the rollup's proof covers the claim's block; a nullifier
+   * gone from a node past that block means the block was pruned with its epoch. The same two
+   * readings as a crossing's claim, on the device's record of mints.
+   */
+  private async settleMiningClaims(): Promise<void> {
+    const open = this.d.store.get(claimsAtom).filter((c) => c.txHash && c.settled === 'pending');
+    if (!open.length) return;
+    const rollup = await this.rollupFor(this.ctx.version.toString());
+    for (const c of open.slice(-SETTLE_AT_MOST)) {
+      let settled: ClaimRecord['settled'] | undefined;
+      try {
+        settled = await this.miningSettlement(c, rollup);
+      } catch {
+        continue; // asked again next refresh
+      }
+      if (settled && settled !== 'pending')
+        this.d.store.set(claimsAtom, (all) =>
+          all.map((x) => (x.txHash === c.txHash ? { ...x, settled } : x)),
+        );
+    }
+  }
+
+  private async miningSettlement(c: ClaimRecord, rollup: RollupReads): Promise<ClaimRecord['settled']> {
+    const checkpoint = await this.checkpointOfBlock(c.block, c.txHash);
+    if (checkpoint === 'gone') {
+      // Pruned only from a node that has reached the claim's block; the nullifier's absence confirms it.
+      if ((await this.d.node.getBlockNumber()) < c.block || !c.nullifier) return 'pending';
+      const [leaf] = await this.d.node.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [
+        Fr.fromString(c.nullifier),
+      ]);
+      return leaf ? 'pending' : 'pruned';
+    }
+    if (typeof checkpoint !== 'bigint') return 'pending';
+    return (await checkpointProven(rollup, checkpoint)) ? 'settled' : 'pending';
   }
 
   /**

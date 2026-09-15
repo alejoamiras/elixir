@@ -104,6 +104,11 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
   await page.getByTestId('start').click();
   await expect(page.getByTestId('claim-stepper')).toBeVisible({ timeout: 10 * 60_000 });
   await expect(page.getByTestId('notice-reverted')).toBeVisible({ timeout: 15 * 60_000 });
+  // The verified cause on the win line: the miner's own "stale claim", never assumed.
+  await expect(page.getByTestId('ledger')).toContainText(
+    "a win · didn't land: the epoch closed first · the sponsor paid, your proof is unspent",
+  );
+  await expect(page.getByTestId('notice-reverted')).toContainText('someone closed the epoch first');
   await closing;
   await expect(page.getByTestId('phase')).toHaveText('mining', { timeout: 5 * 60_000 });
   await expect(page.getByText('chain view rebuilt')).toBeVisible();

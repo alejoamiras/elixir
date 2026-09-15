@@ -1,12 +1,37 @@
 import { useAtomValue } from 'jotai';
-import { ProofLedger, Tile, TileHeader } from '../../../ui/src/index.ts';
+import { ProofLedger, type ProofLine, Tile, TileHeader } from '../../../ui/src/index.ts';
+import type { MinerController } from '../controller';
 import { ledgerLinks } from '../explorer';
+import { settlementSuffix, winNote } from '../lib/claim-copy';
 import type { LedgerLine } from '../lib/reducer';
-import { epochAtom, minerAtom } from '../state';
+import { type ClaimRecord, claimsAtom, epochAtom, minerAtom, nowAtom } from '../state';
 
-export function LedgerTile({ className }: { className?: string }) {
+/** The lines as the ledger draws them: the win's note as of `now`, the minted line's settlement by its transaction. */
+export const shownLines = (
+  lines: readonly LedgerLine[],
+  claims: readonly ClaimRecord[],
+  nowMs: number,
+): (ProofLine & { id: number })[] =>
+  lines.map((l) => {
+    if (l.kind === 'win') return { ...l, note: winNote(l.claim, nowMs) };
+    if (l.kind === 'minted' && l.links) {
+      const suffix = settlementSuffix(claims.find((c) => c.txHash === l.links?.tx)?.settled);
+      return suffix ? { ...l, suffix } : l;
+    }
+    return l;
+  });
+
+export function LedgerTile({
+  controller,
+  className,
+}: {
+  controller: () => MinerController | undefined;
+  className?: string;
+}) {
   const miner = useAtomValue(minerAtom);
   const epoch = useAtomValue(epochAtom);
+  const claims = useAtomValue(claimsAtom);
+  const now = useAtomValue(nowAtom);
   // Before any proof the ledger still has one true line: when the open epoch opened.
   const lines: LedgerLine[] = miner.ledger.length
     ? miner.ledger
@@ -22,11 +47,14 @@ export function LedgerTile({ className }: { className?: string }) {
       : [];
   return (
     <Tile className={className}>
-      <TileHeader aside="★ win · ✓ minted · ✗ failed · ── epoch">proofs, newest first</TileHeader>
+      <TileHeader aside="★ win · ✓ minted, final once its epoch is proven · ✗ failed · ── epoch">
+        proofs, newest first
+      </TileHeader>
       {lines.length ? (
         <ProofLedger
-          lines={lines}
+          lines={shownLines(lines, claims, now)}
           linkFor={ledgerLinks}
+          onAction={() => void controller()?.retryPendingClaim()}
           className="max-h-80 overflow-y-auto"
           data-testid="ledger"
         />
