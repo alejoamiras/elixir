@@ -437,7 +437,7 @@ and reviewed by eye.
 --update-snapshots` then `test:visual` green · pass: exit 0, the four widths' images reviewed · layers: lint,
 unit, component, replay, visual.
 
-### P2 — The account
+### P2 ✓ — The account (green 2026-09-15, `lessons/phase-2.md`)
 
 `keys/slot.ts` over the record CRUD (transactional; the legacy rule); `passkey.ts` wired to the slot's
 `excludeCredentials` / `allowCredentials`; the dialog's screens and notes (§5.1: Start, Create with consent, Welcome
