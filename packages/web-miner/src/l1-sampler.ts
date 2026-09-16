@@ -57,13 +57,15 @@ export function startL1Sampler(o: {
     recordL1({ pendingCheckpoint: Number(pending), head: Number(head) });
   };
   const tick = (): Promise<void> => {
-    if (!inflight)
-      inflight = read()
-        .catch((e: unknown) => o.log?.(`L1 sample: ${e instanceof Error ? e.message : String(e)}`))
-        .finally(() => {
-          inflight = undefined;
-        });
-    return inflight;
+    if (inflight) return inflight;
+    const run: Promise<void> = read()
+      .catch((e: unknown) => o.log?.(`L1 sample: ${e instanceof Error ? e.message : String(e)}`))
+      .finally(() => {
+        // A reading a switch left behind must not clear the one that replaced it.
+        if (inflight === run) inflight = undefined;
+      });
+    inflight = run;
+    return run;
   };
   void tick();
   const timer = setInterval(() => void tick(), o.intervalMs ?? L1_SAMPLE_MS);

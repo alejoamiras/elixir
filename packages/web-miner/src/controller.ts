@@ -667,8 +667,8 @@ export class MinerController {
       const { block, effect } = await sent.wait();
       await this.minted(p, sent.txHash, block, effect);
     } catch (e) {
-      // A send that failed after the wallet handed the transaction to the node: the hash it observed
-      // going out is the retained claim's, so a Retry reconciles rather than sends again.
+      // A send that failed after the wallet handed a transaction to the node: the hash it observed
+      // going out is reconciled by a Retry before anything is sent again (`adopt` checks it is this claim's).
       const observed = this.d.lastSent();
       const hash = txHash ?? (observed && observed !== sentBefore ? observed.txHash : undefined);
       // An unclassified failure keeps the ticket for Retry; the canary's tampered claim, as it was.
@@ -717,9 +717,12 @@ export class MinerController {
    * that cannot say, keeps it for a later Retry. One at a time: a second Retry would adopt it twice.
    */
   retryPendingClaim(): Promise<boolean> {
-    this.retrying ??= this.retryOnce().finally(() => {
-      this.retrying = undefined;
-    });
+    // The whole of it is a tracked operation: a switch's drain waits for it and refuses it meanwhile.
+    this.retrying ??= this.track(() => this.retryOnce())
+      .catch(() => false)
+      .finally(() => {
+        this.retrying = undefined;
+      });
     return this.retrying;
   }
 
@@ -728,7 +731,7 @@ export class MinerController {
     if (this.retired || claim === null || this.store.get(minerAtom).phase !== 'idle') return false;
     const { txHash, ...ticket } = claim;
     if (txHash) {
-      const fate = await this.track(() => this.fate(txHash)).catch(() => 'unknown' as const);
+      const fate = await this.fate(txHash);
       // The page moved on while the node was asked (Start, a switch, another claim): the answer is stale.
       if (this.retained !== claim || this.store.get(minerAtom).phase !== 'idle' || this.disposed)
         return false;
@@ -741,23 +744,45 @@ export class MinerController {
         await this.claimFailed(new Error(`claim ${short(txHash)} reverted in a block`), ticket.epoch);
         return true;
       }
-      if (fate !== 'dropped') {
-        this.retained = null;
-        this.log(`claim ${short(txHash)} was in block ${fate.block} after all`);
-        // `claiming` from here on: the switch's drain waits for the adoption like any claim.
-        this.dispatch({ type: 'reconciled', at: Date.now() });
-        await this.minted(ticket, txHash, fate.block, fate.effect).catch((e) =>
-          this.claimFailed(e, ticket.epoch),
-        );
-        return true;
-      }
+      if (fate !== 'dropped') return this.adopt(claim, txHash, fate.block, fate.effect);
     }
-    // Sent again only with its secret current and its epoch still open: a closed epoch's ticket is worthless.
+    // Sent again only idle and unpaused, with its secret current and its epoch still open.
+    if (this.disposed || this.pausedBy.size) return false;
     if (!retryEligible(claim, this.secrets, 'idle', this.store.get(epochAtom)?.epoch)) return false;
     this.retained = null;
     this.pending = ticket;
     this.log('the retained claim goes out again');
     this.dispatch({ type: 'retry', at: Date.now() });
+    return true;
+  }
+
+  /**
+   * A retained claim found in a block. The wallet is shared with the bridge, so the hash observed
+   * going out may be another transaction's: the ticket's nullifier in the effects is what makes it
+   * this claim's; without it the hash is dropped and the next Retry sends the claim itself. The
+   * record is kept until the adoption succeeds: a note that fails to sync is retried, not lost.
+   */
+  private async adopt(
+    claim: NonNullable<MinerController['retained']>,
+    txHash: string,
+    block: number,
+    effect: TxEffect,
+  ): Promise<boolean> {
+    const { txHash: _, ...ticket } = claim;
+    const ours = (await ticketNullifier(Fr.fromString(ticket.digest), this.d.miner.address)).toString();
+    if (!effect.nullifiers.some((n) => n.toString() === ours)) {
+      this.log(`transaction ${short(txHash)} is not this claim's; it will be sent`);
+      this.retained = { ...ticket };
+      return false;
+    }
+    this.log(`claim ${short(txHash)} was in block ${block} after all`);
+    this.dispatch({ type: 'reconciled', at: Date.now() });
+    try {
+      await this.minted(ticket, txHash, block, effect);
+      this.retained = null;
+    } catch (e) {
+      await this.claimFailed(e, ticket.epoch);
+    }
     return true;
   }
 

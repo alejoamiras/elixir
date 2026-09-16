@@ -162,6 +162,8 @@ export class Session {
   private slot: SlotView | undefined;
   /** What the attempt adopted: the wallet getter the bridge reads through after a rebuild. */
   private started: Started | undefined;
+  /** An RPC change's bridge reopening in flight. */
+  private reopening: Promise<void> | undefined;
   /** The open account's bridge, when the build carries a portal; opened before `ready` is published. */
   bridge: BridgeSession | undefined;
   private ethRpc: string;
@@ -716,7 +718,11 @@ export class Session {
     void this.l1?.switched();
     if (!this.bridge) return;
     this.closeBridge();
-    await this.openBridge();
+    // Tracked: a node switch begun meanwhile waits for the reopened bridge, so it is the one it suspends.
+    this.reopening = this.openBridge().finally(() => {
+      this.reopening = undefined;
+    });
+    await this.reopening;
   }
 
   /** The node in use; the switch target's identity was checked by the caller (the Node tile's probe). */
@@ -776,6 +782,7 @@ export class Session {
       }
       // The bridge's operations and readings finish on the node they started on; none may start until
       // the switch is over, or it would be signed against one node's view and sent to another.
+      await this.reopening;
       await this.bridge?.suspend('a node switch is underway; try again when it is done').catch(() => {});
       await switchNodeLive({ controller: this.controller, switchable: pre.switchable, url });
     })()

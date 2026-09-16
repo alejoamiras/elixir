@@ -122,6 +122,8 @@ export class BridgeSession {
   private readonly scope: ExitScope;
   private refreshes = 0;
   private settleFrom = 0;
+  private closed = false;
+  private suspended = false;
 
   private constructor(
     private readonly d: BridgeSessionDeps,
@@ -446,13 +448,25 @@ export class BridgeSession {
     try {
       await this.refresh();
     } finally {
-      this.timer = setInterval(() => void this.refresh(), REFRESH_MS);
+      this.schedule();
     }
   }
 
-  stop(): void {
+  /** The refresh timer, unless the session is closed or suspended meanwhile (a start is asynchronous). */
+  private schedule(): void {
+    if (this.closed || this.suspended) return;
+    this.timer ??= setInterval(() => void this.refresh(), REFRESH_MS);
+  }
+
+  private unschedule(): void {
     if (this.timer) clearInterval(this.timer);
     this.timer = undefined;
+  }
+
+  /** Closed for good: no refresh runs after this, and no resume brings it back. */
+  stop(): void {
+    this.closed = true;
+    this.unschedule();
   }
 
   /** Resolves once every operation queued so far has settled: what a sign-out waits for before the page goes. */
@@ -466,15 +480,17 @@ export class BridgeSession {
    */
   async suspend(reason: string): Promise<void> {
     this.ctx.queue.refuse(reason);
-    this.stop();
+    this.suspended = true;
+    this.unschedule();
     await this.ctx.queue.drain();
     await this.refreshing?.catch(() => {});
   }
 
-  /** The switch is over: operations and the refreshes again. */
+  /** The switch is over: operations and the refreshes again (unless closed meanwhile). */
   resume(): void {
     this.ctx.queue.refuse(null);
-    this.timer ??= setInterval(() => void this.refresh(), REFRESH_MS);
+    this.suspended = false;
+    this.schedule();
   }
 
   private async publishJournal(): Promise<Crossing[]> {

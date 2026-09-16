@@ -133,3 +133,27 @@ polls until the balance matches the claims).
 | 12 | low | three comments assert false invariants | true | corrected |
 
 Fast layers after the fixes: lint clean, `tsc -b` clean, `bun test` 456 pass, web-miner Vitest 109.
+
+The chain shard on `867278b`: 8/8 (6.5 min; the foreign node refused under the field, the lost race's balance
+polled, the behind case caught up under the warp).
+
+### Round 3 — REVISE, 6 findings (the hard stop); fixes applied without a further consult
+
+| # | sev | claim | verified | done |
+|---|---|---|---|---|
+| 1 | high | only the receipt lookup is tracked: the drain passes while the adoption is `claiming`; a hashless Retry resends after dispose or under a pause | true | the whole Retry runs inside `track()` (the drain waits for it, a switch refuses it); a resend needs no pause and no dispose |
+| 2 | med | `retained` is cleared before `minted()` finishes: a note that fails to sync leaves nothing to retry | true | cleared only once the adoption succeeded |
+| 3 | med | the wallet is shared with the bridge: the observed hash may be a bridge transaction's | true | `adopt()` requires the ticket's nullifier among the effects; otherwise the hash is dropped and the next Retry sends the claim |
+| 4 | med | `start()`'s `finally` installs the timer after a suspension or a close; `resume()` after a close restarts it | true | `closed` / `suspended` flags; `schedule()` honours both |
+| 5 | med | an RPC change's bridge reopening in flight leaves a node switch nothing to suspend | true | the reopening is tracked (`reopening`); the switch awaits it before suspending |
+| 6 | med | an obsolete reading's `finally` clears the newer reading's `inflight` | true | cleared only when it is still the completing promise |
+
+Codex on the round-2 declines: #8 (the stale wording for a chain-inferred revert) stays "an acknowledged
+inference" to surface to the owner; D27 names reason-string verification. **For the owner:** a mined revert's
+receipt carries no reason on 5.2.0; today the ledger says "the epoch closed first" when the chain's open epoch
+has moved past the claimed one at the time the revert is seen. If that reading is too strong, the neutral
+"it reverted" sentence is one line in `claimFailed` (drop the `epochClosedSince` branch).
+
+The loop ended at the hard stop with round 3 REVISE: its six findings were small, verified races and were
+fixed (this commit), but no round 4 was run, so nothing foreign has reviewed these last fixes. The arc's
+journey run covers them end to end.
