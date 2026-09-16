@@ -194,3 +194,58 @@ by a couple of seconds). They are now disposed in an `afterEach`.
 | `test:components` (ui 68, web-landing 14, web-miner 109, web-stats 84) | green |
 | `bun run e2e:agent -- bun test packages/bridge` | 38 pass, 1 skip |
 | `bridge` shard, proverless | 1/1 (138.9 s) |
+
+### Round 2 — resumed, verdict **REVISE**, 9 findings
+
+Prompt: `scratchpad/codex-arc4-round2.md` over `git diff HEAD~1` (the round-1 commit `7099739`), the same two
+rules, the same session. Its own verification: 25 passed, 2 skipped. Four of the nine it reproduced. Every
+one was a real defect; all nine are applied.
+
+The proof scan took six of them (#3, #4, #5, #6 plus round 1's #7 and #8), and patching them one by one was
+not going to hold, because they were all the same missing invariant: the reader would report an event it had
+found while blocks above it were still unread. `proofs.ts` is now written around an explicit `ScanState` —
+`scannedTo` (the highest block read, so `(scannedTo, head]` is unread), `complete` (the whole floor-to-frontier
+range has been read, which is the only thing that makes `known` its *newest* event), `cursor` (an unfinished
+downward walk's next bound) — with the module-level `confirm`, `forward`, `walkDown` and `answer` taking it.
+`answer()` is the contract: an event only when `complete && scannedTo >= head`, `unknown` otherwise. What that
+fixed, in codex's numbering:
+
+- **#3** `catchUp()` set `searchedFrom = head` after reading only part of the way there, so `take()` then
+  marked never-read blocks as searched and a proof above them could be skipped for good. Reproduced. There is
+  no `catchUp` any more: a downward walk finishes before the frontier is followed, so nothing unread is ever
+  claimed as read, and one budget is shared between the confirm and the pass that follows it.
+- **#4** a reorg that took the known event while an *older* one survived in the overlap left `known` in place,
+  and the reader went on reporting a block that no longer existed. Reproduced. `confirm` now treats an overlap
+  whose newest event is older than the known one as the reorg it is.
+- **#5** a short reorg could put a newer proof just below the frontier, where neither the overlap around the
+  known event nor a forward pass starting above the frontier would ever read it. Reproduced. The forward pass
+  always starts `overlap` blocks behind the frontier, and runs even when the frontier is already at the head.
+- **#6** the reader answered a stale event while newer blocks were unread — "V5 proved an epoch 3 h ago" when
+  it might have proved two minutes ago. That is the finding that set the invariant above. The cost is that a
+  first scan of a long chain says "checking" for a few refreshes, which is what the chip is for.
+
+The rest:
+
+- **#1 high** — the clock was read *after* the negative receipt on both chains, so a send included in between
+  read as dropped. `reads.tx` now reads the tip and the node's reach first (`Promise.all`), then the receipt;
+  `depositFacts` reads Ethereum's clock before `l1Tx`. Both clocks are held for one window (`CLOCK_MS`), so a
+  refresh judges every deadline by one sample taken before the readings it judges.
+- **#2 high** — a hashed send's negative rested on the expiry alone, so an honest replacement node with a late
+  tip but no history of the send could end a crossing that had landed. `covers()`'s test is now
+  `servesHistory(c)` and `reads.tx` requires it too; `pastExpiry` without a recorded expiry is no longer
+  "past" but "no evidence", so such a record waits instead of being given up.
+- **#7 medium** — the request ticket guarded `setFunds` but not the click: an overtaken reading still returned
+  its refusal to `go()`, and an obsolete success could carry on into a submission for a payer whose funds were
+  never checked. `readFunds` returns `'stale'` and the click abandons.
+- **#8 medium** — codex was right that I dismissed the seam too fast: `Object.create(BridgeSession.prototype)`
+  with fake dependencies runs the real `factReads()` under bun, no IndexedDB and no Vite env.
+  `tests/bridge-reads.bun.test.ts` uses it for exactly what no pure function can show — that the tip and the
+  node's reach are asked *before* the receipt, and what each answer is and is not worth.
+- **#9 low** — the orphaned revert doc-comment left annotating `flippedAway` is gone, and `depositFacts`'s
+  paragraph no longer implies protection from a lying RPC: a dishonest "no such receipt" is indistinguishable
+  from an honest empty node, and that honest-endpoint assumption is now stated where the reading rests on it.
+
+Codex's "looks fine" this round: the estimate-time signatures are gone, `claimSettled()` introduces no queue
+cycle, hashless rows sample the tip before the reads and distinguish a failed query, the receipt-log identity
+checks and the exact-versus-guessed floor are sound, rendering a temporary row state for a revert mutates
+nothing, and the narrowed e2e claim is reasonable with no RPC proxy needed.

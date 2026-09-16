@@ -43,6 +43,12 @@ const event = (blockNumber: bigint, checkpointNumber: bigint, logIndex = 0): Fak
   args: { checkpointNumber, proverId: `0x${'01'.repeat(20)}` },
 });
 const exact = (block: bigint) => async (): Promise<ProofFloor> => ({ block, exact: true });
+/** Refreshes until the scan has an answer: an unfinished one says `unknown` however much it holds. */
+const settles = async (reader: { latestProvenAt(): Promise<unknown> }, calls = 16) => {
+  let read = await reader.latestProvenAt();
+  for (let i = 0; i < calls && read === 'unknown'; i++) read = await reader.latestProvenAt();
+  return read;
+};
 const guessed = (block: bigint) => async (): Promise<ProofFloor> => ({ block, exact: false });
 
 describe("the rollup's latest proof on Ethereum", () => {
@@ -102,27 +108,45 @@ describe("the rollup's latest proof on Ethereum", () => {
     expect(await reader.latestProvenAt()).toEqual({ at: 500n, checkpoint: 1n, block: 50n });
   });
 
-  test('a proof that arrives above a walk already under way is found, not missed by the cursor', async () => {
+  test('a proof that arrives above a walk already under way is reached once the walk finishes', async () => {
     const c = chain(45_000n, []);
-    const reader = proofReader(c.client, { rollup: ROLLUP, floor: exact(0n), budget: 2 });
+    const reader = proofReader(c.client, { rollup: ROLLUP, floor: exact(0n), budget: 2, overlap: 5n });
     expect(await reader.latestProvenAt()).toBe('unknown');
     // The chain moves on and a proof lands at the new head, above where the walk started.
     c.state.head = 46_000n;
     c.events.push(event(45_500n, 9n));
-    expect(await reader.latestProvenAt()).toMatchObject({ checkpoint: 9n, block: 45_500n });
+    expect(await settles(reader)).toMatchObject({ checkpoint: 9n, block: 45_500n });
   });
 
-  test('the forward scan keeps its progress: a far newer proof is reached over refreshes, not re-sought from scratch', async () => {
+  test('an incomplete scan says so: the known proof is kept, never reported while newer blocks are unread', async () => {
     const c = chain(1_000n, [event(900n, 4n)]);
     const reader = proofReader(c.client, { rollup: ROLLUP, floor: exact(0n), budget: 2, overlap: 5n });
     expect(await reader.latestProvenAt()).toMatchObject({ checkpoint: 4n });
     c.state.head = 60_000n;
     c.events.push(event(59_000n, 9n));
-    // One confirm plus one window per call: the walk advances instead of restarting at the known event.
-    let read = await reader.latestProvenAt();
-    for (let i = 0; i < 8 && (read as { checkpoint?: bigint }).checkpoint !== 9n; i++)
-      read = await reader.latestProvenAt();
-    expect(read).toMatchObject({ checkpoint: 9n, block: 59_000n });
+    // Dating the last proof at block 900 while 59 000 blocks are unread would be a wrong sentence.
+    expect(await reader.latestProvenAt()).toBe('unknown');
+    // The frontier advances a window per call rather than restarting at the known event.
+    expect(await settles(reader)).toMatchObject({ checkpoint: 9n, block: 59_000n });
+  });
+
+  test('a reorg that takes the known event but leaves an older one in the overlap is still a reorg', async () => {
+    const c = chain(1_000n, [event(899n, 3n), event(900n, 4n)]);
+    const reader = proofReader(c.client, { rollup: ROLLUP, floor: exact(0n), overlap: 5n });
+    expect(await reader.latestProvenAt()).toMatchObject({ checkpoint: 4n, block: 900n });
+    c.events.length = 0;
+    c.events.push(event(899n, 3n));
+    // The overlap is not empty, but its newest event is older than the one reported: 900 is gone.
+    expect(await reader.latestProvenAt()).toMatchObject({ checkpoint: 3n, block: 899n });
+  });
+
+  test('a proof that appears just below the frontier is read: the forward pass starts behind it', async () => {
+    const c = chain(1_000n, [event(900n, 4n)]);
+    const reader = proofReader(c.client, { rollup: ROLLUP, floor: exact(0n), overlap: 5n });
+    expect(await reader.latestProvenAt()).toMatchObject({ checkpoint: 4n, block: 900n });
+    // A short reorg leaves 900 alone and puts a newer proof at 999, below the head already read.
+    c.events.push(event(999n, 5n));
+    expect(await reader.latestProvenAt()).toMatchObject({ checkpoint: 5n, block: 999n });
   });
 
   test('a head that retreats does not strand the walk: progress above it is dropped and read again', async () => {

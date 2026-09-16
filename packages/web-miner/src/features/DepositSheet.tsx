@@ -130,7 +130,6 @@ type Step = { kind: 'form' } | { kind: 'deposit' } | { kind: 'done'; display: st
 
 const firstLine = (e: unknown) => (e instanceof Error ? (e.message.split('\n')[0] ?? '') : String(e));
 const version = (): string => ownVersionName();
-/** A known portal revert in the row's words; anything else by its first line. */
 /** Whether the crossing's own version has been upgraded away from, which freezes its exit limit. */
 const flippedAway = (canonical: bigint | undefined, version: string | undefined): boolean =>
   canonical !== undefined && version !== undefined && canonical !== BigInt(version);
@@ -418,13 +417,16 @@ export function HeldSheet({
     onOpenChange(false);
   };
   const latest = useRef(0);
-  const readFunds = async (): Promise<string | null> => {
+  /** The refusal, null when the wallet can pay or there is nothing to price, `stale` when overtaken. */
+  const readFunds = async (): Promise<string | null | 'stale'> => {
     const a = payerAsk(crossing, account.address, action);
     if (!a || !account.address || !session.bridge) return null;
     const mine = ++latest.current;
     const refused = noEth(await session.bridge.payerFunds(account.address, a), account.connector?.name);
-    // A reading overtaken by a newer one (another account, another row) is no longer on screen.
-    if (mine === latest.current) setFunds(refused);
+    // Overtaken by a newer reading (another account, another row): it was read for a wallet that is
+    // not the one which would pay now, so neither the note nor the click may act on it.
+    if (mine !== latest.current) return 'stale';
+    setFunds(refused);
     return refused;
   };
   // On open and at every account change: the wallet's ETH against this claim's gas, before it is asked.
@@ -443,6 +445,7 @@ export function HeldSheet({
     try {
       // Read again on the click: the balance may have moved since the sheet opened.
       const refused = await readFunds().catch(() => null);
+      if (refused === 'stale') return;
       if (refused) {
         setError(refused);
         return;

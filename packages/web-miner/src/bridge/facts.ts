@@ -52,11 +52,15 @@ const AT_DESTINATION = new Set<Crossing['state']>(['forwarded', 'deposited']);
  * made, or the revert that spent the gas for nothing), else its calldata deadline against
  * Ethereum's clock — the portal refuses a deposit past it, so beyond it nothing the wallet sent
  * can land and the record gives itself up; the landing scan revives it should the event exist
- * after all. The device's clock is never consulted, and a receipt the RPC would not read is not
- * an absence: giving a deposit up on a lying or broken RPC would offer a second burn of the same
- * coins, so an unreadable receipt leaves the record where it is however late.
+ * after all. The device's clock is never consulted. Two orderings matter. The clock is read first:
+ * read after a negative receipt it could be past a deadline the deposit made it under, and one
+ * included in between would be given up on. And a receipt the RPC would not read is not an
+ * absence, or a broken RPC would have the page burn the same coins twice; a dishonest one that
+ * answers "no such receipt" is indistinguishable from an honest empty node, which is the
+ * honest-endpoint assumption every reading here rests on.
  */
 async function depositFacts(reads: FactReads, c: Crossing, f: Facts): Promise<Facts> {
+  const expired = c.expiresAt ? (await reads.nowSeconds()) > BigInt(c.expiresAt) : false;
   if (c.l1TxHash) {
     const receipt = await reads.l1Tx(c);
     if (receipt === 'unreadable') return f;
@@ -64,8 +68,7 @@ async function depositFacts(reads: FactReads, c: Crossing, f: Facts): Promise<Fa
       return { ...f, deposited: { txHash: c.l1TxHash, inboxIndex: receipt.inboxIndex } };
     if (receipt?.status === 'reverted') return { ...f, tx: { status: 'dropped' } };
   }
-  if (!c.expiresAt) return f;
-  return (await reads.nowSeconds()) > BigInt(c.expiresAt) ? { ...f, tx: { status: 'dropped' } } : f;
+  return expired ? { ...f, tx: { status: 'dropped' } } : f;
 }
 
 /** A send without a hash is still asked about: the node may know it by its tag. */

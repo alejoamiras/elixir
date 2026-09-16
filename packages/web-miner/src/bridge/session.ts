@@ -132,8 +132,8 @@ export function rotate<T>(items: readonly T[], from: number, n: number): T[] {
   const start = from % items.length;
   return [...items.slice(start), ...items.slice(0, start)].slice(0, n);
 }
-/** One refresh reads the clock for every crossing it holds against a deadline; one block answers them all. */
-const L1_CLOCK_MS = 2_000;
+/** One refresh reads each chain's clock once: every deadline in it is measured against one sample. */
+const CLOCK_MS = 2_000;
 /** The portal's events are scanned again every so many refreshes: a forward by Yacana lands while the page is open. */
 const LANDING_EVERY = 4;
 
@@ -445,11 +445,13 @@ export class BridgeSession {
       tx: async (c) => {
         if (!this.servesVersion(c)) return this.txFromArchive(c);
         if (!c.txHash) return this.txByTag(c);
+        // Both read before the receipt, because both are what makes a missing one mean anything: a
+        // hash the node does not hold reads as dropped, and that covers one a block could still
+        // take and one whose block this node never had. Read afterwards, the tip could be past an
+        // expiry the send made it under, and a send included in between would be called dropped.
+        const [expired, served] = await Promise.all([this.pastExpiry(c), this.servesHistory(c)]);
         const r = await d.node.getTxReceipt(TxHash.fromString(c.txHash));
-        // A hash the node does not hold reads as dropped, and that includes one it has not been
-        // given yet: the record's hash is durable before the send, so the answer only binds once
-        // no block could still take it.
-        if (r.status === 'dropped') return (await this.pastExpiry(c)) ? { status: 'dropped' } : undefined;
+        if (r.status === 'dropped') return expired && served ? { status: 'dropped' } : undefined;
         if (r.status === 'pending') return { status: 'pending' };
         const block = Number(r.blockNumber ?? 0);
         return { status: 'mined', block, epoch: (await this.epochOfBlock(block)).toString() };
@@ -575,7 +577,7 @@ export class BridgeSession {
   private l1Now(): Promise<bigint> {
     if (this.d.now) return Promise.resolve(BigInt(Math.floor(this.d.now() / 1000)));
     const at = Date.now();
-    if (!this.l1Clock || at - this.l1Clock.at > L1_CLOCK_MS) {
+    if (!this.l1Clock || at - this.l1Clock.at > CLOCK_MS) {
       const value = this.client.getBlock({ blockTag: 'latest' }).then((b) => b.timestamp);
       value.catch(() => {
         if (this.l1Clock?.value === value) this.l1Clock = undefined;
@@ -732,16 +734,22 @@ export class BridgeSession {
   /**
    * Whether every block that could still carry the send is built: the sequencer refuses a
    * transaction whose expiry is below the block it would build, so a tip past it settles the
-   * question. A record kept before the expiry was, or restored without it, has nothing to wait for.
+   * question. A record with no expiry recorded carries no evidence either way, and is never past.
    */
   private async pastExpiry(c: Crossing): Promise<boolean> {
-    if (!c.expiresAt) return true;
+    if (!c.expiresAt) return false;
     const at = await this.sourceTipAt();
     return at !== null && at > BigInt(c.expiresAt);
   }
 
-  /** The timestamp of the node's tip, or null when it has none to give. */
-  private async sourceTipAt(): Promise<bigint | null> {
+  /** The timestamp of the node's tip; one reading per clock window, so a refresh judges by one sample. */
+  private sourceTipAt(): Promise<bigint | null> {
+    const at = Date.now();
+    if (!this.tipClock || at - this.tipClock.at > CLOCK_MS) this.tipClock = { at, value: this.readTip() };
+    return this.tipClock.value;
+  }
+
+  private async readTip(): Promise<bigint | null> {
     try {
       const tip = await this.d.node.getBlockNumber();
       const data = await this.d.node.getBlockData(tip);
@@ -752,16 +760,22 @@ export class BridgeSession {
   }
 
   /**
-   * Whether the node in use can say a send never happened: it serves this crossing's own version,
-   * passed the deployment check, and holds the send's anchor block — the archiver's history is
-   * contiguous, so from there it indexes every block the log could be in. A node missing that
-   * block (synced from a snapshot after the send, a pruned history) can only say "checking".
-   * Honest answers assumed: a node that lies about its blocks is trusted for everything else too.
+   * Whether the node in use can speak for this crossing's history: it serves the crossing's own
+   * version, passed the deployment check, and holds the send's anchor block — the archiver's
+   * history is contiguous, so from there it indexes every block the send could be in. A node
+   * missing that block (synced from a snapshot after the send, a pruned history) cannot say a send
+   * never happened, whatever its tip says. Honest answers assumed: a node that lies about its
+   * blocks is trusted for everything else here too.
    */
-  private async covers(c: Crossing): Promise<boolean> {
-    if (!hashless(c) || c.anchorBlock === undefined) return false;
+  private async servesHistory(c: Crossing): Promise<boolean> {
+    if (c.anchorBlock === undefined) return false;
     if (!this.servesVersion(c) || nodeHealth().deploymentOk !== true) return false;
     return (await this.d.node.getBlockData(c.anchorBlock as never).catch(() => undefined)) !== undefined;
+  }
+
+  /** The same reach, for the send whose hash was never recorded: the only record a missing log speaks for. */
+  private async covers(c: Crossing): Promise<boolean> {
+    return hashless(c) && (await this.servesHistory(c));
   }
 
   /**
@@ -947,6 +961,9 @@ export class BridgeSession {
     }
     return floor;
   }
+
+  /** The node's tip timestamp, held for one clock window; the L1 clock's counterpart. */
+  private tipClock: { at: number; value: Promise<bigint | null> } | undefined;
 
   /** The Registry's versions before this one: where a send-ahead to here may have come from. */
   private async sourceVersions(): Promise<bigint[]> {
