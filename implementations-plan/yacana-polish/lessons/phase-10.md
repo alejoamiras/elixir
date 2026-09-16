@@ -99,4 +99,18 @@
 
 ## Gate (2026-09-16)
 
-(filled below as each layer reports)
+| layer | result |
+|---|---|
+| lint (biome, sorted package.json) | clean |
+| typecheck: root, web-miner, web-stats, web-landing (`tsc -b`), ui (`tsc -p`) | clean (the root check excludes every app's `src`: see the `Sheet` departure) |
+| `bun test` (every suite) | 494 pass, 41 skip, 0 fail once the deletions were staged (the rename guard reads the tracked files) |
+| `bun test packages/deploy packages/harness` (+ site, the guard) | 109 pass, 30 skip (the harness cases skip without `YACANA_RIG`) |
+| `test:components`: web-miner 119 (22 files), web-stats 84, ui 69, web-landing 14 | green |
+| `bun run rig -- browser origin` (tmux) | browser 3/3: V5 3.2 min · flip 10.9 s · V6 1.2 min; origin failed once (no `account` on the rewritten page: the apex carries it on the balance card's sr-only line; the old card got the same, `ac74377`), then 1/1 in 20.8 s |
+| `test:visual --update-snapshots`, then `test:visual` | 8/8 both runs; the four `bridge-*.png` baselines changed: the last-day phase now says "the later of V2 going live and 180 d after the upgrade · plus paused days" for the recorded version instead of the generic sentence |
+
+Pass criteria: both rig cases green with the new copy — the announced card sends ahead twice and the sum
+reads "2 tYACA sent ahead"; the flipped card says "Mining has ended on V0. Send what's left ahead.", "what's
+still here when it stops can't leave.", shows the chip and the sum after a restore; the old origin's hero
+says "Send what's still here ahead." under the two-tab header with no pill, restores the apex's passkey,
+shows the still-here card with the chip and the activity list.
