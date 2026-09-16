@@ -157,3 +157,25 @@ has moved past the claimed one at the time the revert is seen. If that reading i
 The loop ended at the hard stop with round 3 REVISE: its six findings were small, verified races and were
 fixed (this commit), but no round 4 was run, so nothing foreign has reviewed these last fixes. The arc's
 journey run covers them end to end.
+
+## The arc-3 journey (the owner's ask: every path, tested, before the arc ends)
+
+On `a780013`, 2026-09-16 10:35 → 11:47, sequential and alone in tmux, every step exit 0:
+
+| step | result |
+|---|---|
+| lint, lint:shell, lint:actions, five typechecks | clean |
+| `bun test` | 456 pass, 39 skip |
+| `test:components` | ui 68, landing 14, miner 109, stats 84 |
+| `portal:test` (Foundry) | green |
+| the miner's full e2e, real proving, Presto beside it | 20/20 (19.5 min) |
+| shards: cockpit · chain · bridge (proverless) · canary (real) | 7/7 · 8/8 · 1/1 · 4/4 |
+| replay | 4/4 |
+| `rig -- all` | 13 pass: H0 the flip, bridge (exit forwarded and minted, deposit, redeem), deposit and the close, migration (retire, the continuation, forward from the archive), never-settled, skip-version, browser (V5 mine · exit · deposit · send ahead twice · recovery file → the flip → V6 restore · the holder's forward and claim · redeem), origin (one passkey across the apex and the old origin) |
+| stats e2e · visual (8 renders) | 7/7 · 8/8 |
+| landing e2e | 5/5 |
+| `site:build`, `YACANA_APP_ROLE=old site:build`, site e2e under wrangler dev | green · green · 3/3 |
+
+What this proves for the owner's list: bridge in (deposit → claim), out (exit → forward → mint), forward (send-ahead
+held → forwarded by the holder and by the listed forwarder → claimed), mine, sign in, sign out, restore on both
+origins, the node switch and its refusals, the behind pause, the lost race, the canary's refusal and mint.
