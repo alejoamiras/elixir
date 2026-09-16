@@ -126,3 +126,56 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
   expect(later?.nullifiers).toContain(later?.ticketNullifier);
   expect(later?.noteHashes).toHaveLength(1);
 });
+
+/** The rollup's L1 view as a stub the page's health sampler reads: the chain id the node reports, a head that moves, a pending checkpoint of the test's choosing. */
+async function l1Stub(page: Page, nodeUrl: string, pending: () => bigint): Promise<string> {
+  const chainId = (
+    (await (
+      await fetch(nodeUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'node_getChainId', params: [] }),
+      })
+    ).json()) as { result: number }
+  ).result;
+  const url = 'http://127.0.0.1:1/l1';
+  let head = 1_000;
+  await page.route(`${url}**`, async (route) => {
+    const body = JSON.parse(route.request().postData() ?? '{}') as { id: number; method: string };
+    const hex = (n: bigint) => `0x${n.toString(16)}`;
+    const result =
+      body.method === 'eth_chainId'
+        ? hex(BigInt(chainId))
+        : body.method === 'eth_blockNumber'
+          ? hex(BigInt(++head))
+          : body.method === 'eth_call'
+            ? `0x${pending().toString(16).padStart(64, '0')}`
+            : null;
+    await route.fulfill({ json: { jsonrpc: '2.0', id: body.id, result } });
+  });
+  return url;
+}
+
+test('a node behind the rollup on L1 pauses mining; its catching up resumes it', async ({ page }) => {
+  const r = run();
+  // The rollup says a checkpoint far ahead of anything the node has; then it agrees with the node.
+  let pending = 0n;
+  const ethRpc = await l1Stub(page, r.nodeUrl, () => pending);
+  await bootPage(page, pageUrl(r, { miner: r.hardMiner, token: r.hardToken, ethRpc }));
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('phase')).toHaveText('mining');
+  pending = 1_000_000n;
+  await expect(page.getByTestId('notice-behind')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId('phase')).toHaveText('paused');
+  // The Settings row names the lag and the pause.
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await expect(page.getByTestId('node-chip')).toContainText('behind');
+  await expect(page.getByTestId('node-line')).toContainText(
+    'the node answers, but its chain is old · mining paused',
+  );
+  await page.getByRole('link', { name: 'Mine' }).click();
+  pending = 0n;
+  await expect(page.getByTestId('notice-behind')).toHaveCount(0, { timeout: 60_000 });
+  await expect(page.getByTestId('phase')).toHaveText('mining');
+  await page.getByTestId('stop').click();
+});

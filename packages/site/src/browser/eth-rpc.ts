@@ -48,6 +48,18 @@ export async function probeEthRpc(
   }
 }
 
+const CHAINS: Record<string, string> = {
+  '1': 'Ethereum',
+  '11155111': 'Sepolia',
+  '17000': 'Holesky',
+  '560048': 'Hoodi',
+  '31337': 'local chain',
+};
+
+/** The chain by its id, as the row names it; an unknown id is said as a number. */
+export const ethChainName = (chainId: string | bigint): string =>
+  CHAINS[chainId.toString()] ?? `chain ${chainId.toString()}`;
+
 export type EthRpcHealth =
   | { kind: 'unknown' }
   | { kind: 'ok'; latencyMs: number; at: number }

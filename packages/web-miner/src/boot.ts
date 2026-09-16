@@ -8,9 +8,15 @@ import type { createStore } from 'jotai';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { deriveAccountFields } from '../../miner-core/src/keys/derive.ts';
 import { type ExpectedDeployment, expectedFromStrings } from '../../miner-core/src/reader.ts';
-import { probeNode, type SwitchableNode, switchableNode } from '../../site/src/browser/node.ts';
+import { probeNode, readTip, type SwitchableNode, switchableNode } from '../../site/src/browser/node.ts';
 import { endpointFingerprint, setNodeEndpoint } from '../../site/src/browser/node-guard.ts';
-import { markRead, resetNodeHealth, startNodeHealth } from '../../site/src/browser/node-health.ts';
+import {
+  markDeployment,
+  markRead,
+  recordTip,
+  resetNodeHealth,
+  startNodeHealth,
+} from '../../site/src/browser/node-health.ts';
 import { clampThreads, type PreflightRow } from '../../ui/src/index.ts';
 import { attachDeployment, loadArtifact, type Node, readEpochRules } from './chain';
 import type { Connection } from './config';
@@ -151,6 +157,9 @@ export async function preflight(store: Store, connection: Connection): Promise<P
       () => node,
     );
     markRead();
+    markDeployment(true);
+    // The tip beside the check: the Settings row has a block and an age from the first paint.
+    await readTip(node).then(recordTip, () => {});
     return {
       evidence: `miner ${short(connection.miner)} · class ${short(import.meta.env.VITE_YACANA_MINER_CLASS)} · block ${probe.block.toLocaleString('en-US')}, ${probe.blockAgeS} s old`,
       value: artifact,
@@ -206,11 +215,26 @@ function startPublicChain(
   return poll;
 }
 
+/** A switch whose rebuild failed: `kept` says whether the former node's view came back. */
+export class SwitchFailed extends Error {
+  constructor(
+    message: string,
+    readonly kept: boolean,
+  ) {
+    super(message);
+    this.name = 'SwitchFailed';
+  }
+}
+
+const reason = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
 /**
  * Points every holder at another node without a reload: mining pauses, whatever is in flight
  * finishes, the handle moves, an open account's chain view is rebuilt from the new node (the
  * lost-race path, since the PXE's view is per rollup and a node behind or lying can prune or poison
- * it), mining resumes. The caller checked the candidate against this deployment first.
+ * it), mining resumes. The caller checked the candidate against this deployment first. A rebuild
+ * that fails moves the handle back and rebuilds from the former node before anything is said:
+ * "Kept" is only true once that view is back; if it is not, the prover is given up (a reload).
  */
 export async function switchNodeLive(o: {
   controller: MinerController | undefined;
@@ -219,14 +243,31 @@ export async function switchNodeLive(o: {
   deadlineMs?: number;
 }): Promise<void> {
   const c = o.controller;
+  const deadlineMs = o.deadlineMs ?? NODE_REQUEST_MS;
+  const former = o.switchable.current();
+  const move = (url: string) => {
+    // The guard first: a URL it refuses (a collision with the accelerator set) throws before anything moved.
+    setNodeEndpoint(url, deadlineMs);
+    o.switchable.use(url);
+    resetNodeHealth();
+    markDeployment(true);
+  };
   c?.pause('switch');
   try {
     await c?.drain();
-    // The guard first: a URL it refuses (a collision with the accelerator set) throws before anything moved.
-    setNodeEndpoint(o.url, o.deadlineMs ?? NODE_REQUEST_MS);
-    o.switchable.use(o.url);
-    resetNodeHealth();
-    await c?.rebuildForNewNode();
+    move(o.url);
+    try {
+      await c?.rebuildForNewNode();
+    } catch (e) {
+      move(former);
+      try {
+        await c?.rebuildForNewNode();
+      } catch (again) {
+        c?.giveUp(`the chain view could not be rebuilt: ${reason(again)}`);
+        throw new SwitchFailed(reason(e), false);
+      }
+      throw new SwitchFailed(reason(e), true);
+    }
   } finally {
     c?.endSwitch();
     c?.release('switch');

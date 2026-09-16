@@ -70,12 +70,12 @@ describe('the cockpit grid', () => {
     expect(getByTestId('epoch').textContent).toBe('38');
     expect(getByTestId('epoch-claims').textContent).toContain('3 of 4');
     // Signed out: the loop's header names the tile, the balance tile says what fills it, the KPIs what starts it.
-    expect(getByText('your proofs')).toBeInTheDocument();
-    expect(getByText('Your balance shows once you log in.')).toBeInTheDocument();
-    expect(getByText('starts with mining')).toBeInTheDocument();
-    expect(getByText('the bar is 64.0 · about 64 proofs per win')).toBeInTheDocument();
-    expect(getByText('anyone can close it')).toBeInTheDocument();
-    expect(getByText('next bar if it closed now')).toBeInTheDocument();
+    expect(getByText('your proofs')).toBeTruthy();
+    expect(getByText('Your balance shows once you log in.')).toBeTruthy();
+    expect(getByText('starts with mining')).toBeTruthy();
+    expect(getByText('the bar is 64.0 · about 64 proofs per win')).toBeTruthy();
+    expect(getByText('anyone can close it')).toBeTruthy();
+    expect(getByText('next bar if it closed now')).toBeTruthy();
   });
 });
 

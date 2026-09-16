@@ -23,7 +23,15 @@ import { keysAllowed, relyingParty } from '../../site/src/browser/host.ts';
 import { type NodeProbe, probeNode } from '../../site/src/browser/node.ts';
 import { setEthRpcEndpoint } from '../../site/src/browser/node-guard.ts';
 import { nodeHealth, waitTurn } from '../../site/src/browser/node-health.ts';
-import { expectedOf, type Preflighted, preflight, type Started, startSession, switchNodeLive } from './boot';
+import {
+  expectedOf,
+  type Preflighted,
+  preflight,
+  type Started,
+  SwitchFailed,
+  startSession,
+  switchNodeLive,
+} from './boot';
 import { bridgeRecord, isOldRole } from './bridge/env';
 import { BridgeSession } from './bridge/session';
 import {
@@ -64,6 +72,7 @@ import {
   seal,
   setStayOpen,
 } from './keys/store';
+import { type L1Sampler, startL1Sampler } from './l1-sampler';
 import { initialSteps, keyStepLabel, type OpeningStep, type StepId } from './opening-steps';
 import { CrsPinError } from './pinned-crs';
 import { prestoAtom, prestoEligible, probePresto } from './presto';
@@ -75,6 +84,7 @@ import {
   bridgeAtom,
   bridgeSessionAtom,
   epochAtom,
+  logAtom,
   mineIntentAtom,
 } from './state';
 import { ChainViewHeldError } from './wallet';
@@ -155,6 +165,8 @@ export class Session {
   /** The open account's bridge, when the build carries a portal; opened before `ready` is published. */
   bridge: BridgeSession | undefined;
   private ethRpc: string;
+  /** The rollup's L1 view for the node's standing; lives as long as the page. */
+  readonly l1: L1Sampler | undefined;
   private unsubBalance: (() => void) | undefined;
   private unsubFlip: (() => void) | undefined;
 
@@ -190,10 +202,18 @@ export class Session {
     this.createPasskey = deps.createPasskey ?? createPasskey;
     this.assertPasskey = deps.assertPasskey ?? assertPasskey;
     this.ethRpc = connection.ethRpcUrl;
-    // The guard admits the RPC in use from the first request; a build without a portal never asks it.
-    if (bridgeRecord()) {
+    // The guard admits the RPC in use from the first request; a build without one never asks L1.
+    if (this.ethRpc) {
       setEthRpcEndpoint(this.ethRpc, ETH_RPC_DEADLINE_MS);
       startEthRpcHealth();
+      const expected = expectedOf(connection);
+      this.l1 = startL1Sampler({
+        rpcUrl: () => this.ethRpc,
+        rollup: expected.rollupAddress,
+        chainId: expected.chainId,
+        log: (line) =>
+          store.set(logAtom, (l) => [...l.slice(-199), `${new Date().toISOString().slice(11, 19)} ${line}`]),
+      });
     }
     this.ready = this.runPreflight();
   }
@@ -752,8 +772,10 @@ export class Session {
       await switchNodeLive({ controller: this.controller, switchable: pre.switchable, url });
     })()
       .catch((e: unknown) => {
-        // A rebuild that failed left no working wallet: the boot error carries the way out, and the
-        // next node choice reboots rather than live-switching a dead account.
+        // The former node's view came back: the row says "Kept …" and nothing else changes.
+        if (e instanceof SwitchFailed && e.kept) throw e;
+        // A rebuild that failed on both nodes left no working wallet: the boot error carries the
+        // way out, and the next node choice reboots rather than live-switching a dead account.
         this.dead = true;
         const message = e instanceof Error ? e.message : String(e);
         this.store.set(bootAtom, {

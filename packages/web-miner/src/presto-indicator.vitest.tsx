@@ -99,8 +99,7 @@ describe('the native indicator', () => {
       );
     expect(screen.getByTestId('rate-line').textContent).toBe('0.8 s per proof · ✦ presto · 12 proofs');
     expect(screen.getByTestId('presto-row').textContent).toContain('proving on this machine');
-    expect(screen.getByRole('link', { name: /About Presto/ })).toHaveAttribute(
-      'href',
+    expect(screen.getByRole('link', { name: /About Presto/ }).getAttribute('href')).toBe(
       'https://presto.build',
     );
     expect(screen.queryByRole('slider')).toBeNull();
@@ -108,7 +107,7 @@ describe('the native indicator', () => {
     store.set(prestoAtom, { ...initialPresto, selected: 'presto', active: 'wasm' });
     again();
     expect(screen.getByTestId('rate-line').textContent).toBe('0.8 s per proof · 12 proofs');
-    expect(screen.getByTestId('presto-row')).toBeInTheDocument();
+    expect(screen.getByTestId('presto-row')).toBeTruthy();
     // The Worker's sticky verdict: the slider and its line are back.
     store.set(prestoAtom, { ...initialPresto, selected: 'presto', active: 'wasm', fallbackReason: 'denied' });
     again();

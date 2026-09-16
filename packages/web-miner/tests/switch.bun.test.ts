@@ -191,31 +191,72 @@ describe('the live node switch', () => {
     expect(store.get(minerAtom).phase).toBe('idle'); // …but mining did not start
   });
 
-  test('a strict rebuild failure surfaces (no reopen): the switch rejects and the prover is abandoned', async () => {
+  test('a rebuild that fails on the new node is retried from the former one; failing there too abandons the prover', async () => {
+    const moves: string[] = [];
+    let current = 'https://a.example';
     const switchable: SwitchableNode = {
       node: {} as never,
-      use: () => {},
-      current: () => 'https://a.example',
-    };
-    const controller = new MinerController({
-      store,
-      spawnWorker: () => worker as unknown as Worker,
-      threads: 1,
-      deployment: fakeDeployment(async () => 5n),
-      account,
-      fee,
-      chainId: 1n,
-      rollupVersion: 1n,
-      recover: async () => {
-        throw new Error('the fresh node would not sync');
+      use: (url) => {
+        moves.push(url);
+        current = url;
       },
+      current: () => current,
+    };
+    let attempts = 0;
+    const make = (recover: () => Promise<Rebound>) =>
+      new MinerController({
+        store,
+        spawnWorker: () => worker as unknown as Worker,
+        threads: 1,
+        deployment: fakeDeployment(async () => 5n),
+        account,
+        fee,
+        chainId: 1n,
+        rollupVersion: 1n,
+        recover,
+      });
+    // Neither node rebuilds: the switch rejects with `kept: false` and the prover is given up.
+    const dead = make(async () => {
+      attempts++;
+      throw new Error('the fresh node would not sync');
     });
-    await controller.ready();
-    await controller.begin();
-    await expect(
-      boot.switchNodeLive({ controller, switchable, url: 'https://b.example', deadlineMs: 5_000 }),
-    ).rejects.toThrow(/would not sync/);
+    await dead.ready();
+    await dead.begin();
+    const failed = boot.switchNodeLive({
+      controller: dead,
+      switchable,
+      url: 'https://b.example',
+      deadlineMs: 5_000,
+    });
+    await expect(failed).rejects.toThrow(/would not sync/);
+    await expect(failed).rejects.toMatchObject({ kept: false });
+    expect(attempts).toBe(2);
+    expect(moves).toEqual(['https://b.example', 'https://a.example']);
+    expect(guard.currentNodeEndpoint()).toBe(guard.normaliseEndpoint('https://a.example'));
     expect(store.get(minerAtom).proverDead).toBe(true);
+    dead.dispose();
+
+    // The former node answers: the handle is back on it, the view rebuilt, the prover alive, `kept: true`.
+    store = createStore();
+    worker = new FakeWorker();
+    moves.length = 0;
+    const alive = make(async () => {
+      if (current === 'https://b.example') throw new Error('the fresh node would not sync');
+      return { deployment: fakeDeployment(async () => 5n), fee, rebuilt: true };
+    });
+    await alive.ready();
+    await alive.begin();
+    const kept = boot.switchNodeLive({
+      controller: alive,
+      switchable,
+      url: 'https://b.example',
+      deadlineMs: 5_000,
+    });
+    await expect(kept).rejects.toMatchObject({ kept: true });
+    expect(moves).toEqual(['https://b.example', 'https://a.example']);
+    expect(store.get(minerAtom).proverDead).toBeFalsy();
+    expect(store.get(epochAtom)).not.toBeNull(); // the former node's view was read again
+    alive.dispose();
   });
 
   test('a tracked operation is drained before the swap, and none may start across the switch', async () => {

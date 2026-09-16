@@ -33,9 +33,9 @@ const defaults: Connection = {
   firstEpoch: Number(import.meta.env.VITE_FIRST_EPOCH || 0),
 };
 
-/** The build's default node: what "Use the default node" restores. */
-export const defaultNodeUrl = (): string => defaults.nodeUrl;
-export const defaultEthRpcUrl = (): string => defaults.ethRpcUrl;
+/** The build's default node: what "Use the default" restores (read live, so a test may stub it). */
+export const defaultNodeUrl = (): string => import.meta.env.VITE_AZTEC_NODE_URL;
+export const defaultEthRpcUrl = (): string => import.meta.env.VITE_ETH_RPC_URL;
 /** The build's first epoch: the floor of every window, page and history read. */
 export const firstEpoch = (): number => defaults.firstEpoch;
 

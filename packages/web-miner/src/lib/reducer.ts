@@ -73,7 +73,7 @@ export const MINTED_FRESH_MS = 10_000;
 export const mintedFresh = (m: Minted | null, nowMs: number): boolean =>
   m !== null && nowMs - m.at < MINTED_FRESH_MS;
 
-export type NoticeKind = 'reverted' | 'failed' | 'prover-dead' | 'offline' | 'paused';
+export type NoticeKind = 'reverted' | 'failed' | 'prover-dead' | 'offline' | 'behind' | 'paused';
 
 /** The card under the loop. `until` (ms) is when a pause ends. */
 export interface Notice {
@@ -163,6 +163,9 @@ export type Event =
   | { type: 'paused'; until: number; at?: number }
   | { type: 'offline'; since: number }
   | { type: 'online' }
+  /** The node answers but lags the rollup on L1; `ageS` is its tip's age. */
+  | { type: 'behind'; ageS: number }
+  | { type: 'caught-up' }
   | { type: 'prover-dead'; error: string };
 
 export type Command =
@@ -177,6 +180,8 @@ const LEDGER = 200;
 export const SAMPLE_SPAN_MS = 180_000;
 
 const clock = (at?: number): string => new Date(at ?? Date.now()).toISOString().slice(11, 19);
+/** Seconds as the chip says them: minutes from a minute and a half. */
+export const ageWord = (s: number): string => (s >= 90 ? `${Math.round(s / 60)} min` : `${s} s`);
 const now = (at?: number): number => at ?? Date.now();
 
 let lineId = 0;
@@ -467,18 +472,39 @@ export function reduce(state: MinerState, event: Event): [MinerState, Command[]]
       return [{ ...state, phase: 'idle', notice, ledger }, []];
     }
     case 'offline':
-      return [
-        {
-          ...state,
-          notice: {
-            kind: 'offline',
-            title: 'node unreachable',
-            body: `No answer from the node since ${clock(event.since)}. Mining is paused; it resumes when the node answers.`,
-          },
-        },
-        [],
-      ];
     case 'online':
-      return [state.notice?.kind === 'offline' ? { ...state, notice: null } : state, []];
+    case 'behind':
+    case 'caught-up':
+      return [nodeNotice(state, event), []];
+  }
+}
+
+type NodeEvent = Extract<Event, { type: 'offline' | 'online' | 'behind' | 'caught-up' }>;
+
+/** The node's own notices: silence and a lag each raise one, and each clears only its own. */
+function nodeNotice(state: MinerState, event: NodeEvent): MinerState {
+  switch (event.type) {
+    case 'offline':
+      return {
+        ...state,
+        notice: {
+          kind: 'offline',
+          title: 'node unreachable',
+          body: `No answer from the node since ${clock(event.since)}. Mining is paused; it resumes when the node answers.`,
+        },
+      };
+    case 'behind':
+      return {
+        ...state,
+        notice: {
+          kind: 'behind',
+          title: 'node behind',
+          body: `The node answers, but its chain is ${ageWord(event.ageS)} old. Mining is paused; it resumes when the node catches up.`,
+        },
+      };
+    case 'online':
+      return state.notice?.kind === 'offline' ? { ...state, notice: null } : state;
+    case 'caught-up':
+      return state.notice?.kind === 'behind' ? { ...state, notice: null } : state;
   }
 }

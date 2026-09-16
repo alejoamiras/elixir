@@ -14,7 +14,14 @@ import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { difficulty } from '../../miner-core/src/metrics.ts';
 import { deployDomain, ticketNullifier } from '../../miner-core/src/proof.ts';
 import { newEpochSecret } from '../../miner-core/src/secret.ts';
-import { markRead } from '../../site/src/browser/node-health.ts';
+import { readTip } from '../../site/src/browser/node.ts';
+import {
+  markRead,
+  nodeHealth,
+  recordTip,
+  subscribeNodeHealth,
+  tipAgeS,
+} from '../../site/src/browser/node-health.ts';
 import { type Deployment, type Fee, readBalance, readEpoch, sendClaim, sendRoll } from './chain';
 import { chime } from './chime';
 import { amount } from './lib/format';
@@ -35,7 +42,15 @@ const MAX_CRASHES = 3;
 /** The pause when the rollup's constants cannot be read either. */
 const FALLBACK_FINALITY_S = 40 * 60;
 
-export type PauseReason = 'battery' | 'hidden' | 'withdraw' | 'offline' | 'lost-race' | 'switch' | 'bridge';
+export type PauseReason =
+  | 'battery'
+  | 'hidden'
+  | 'withdraw'
+  | 'offline'
+  | 'behind'
+  | 'lost-race'
+  | 'switch'
+  | 'bridge';
 
 interface Prover {
   worker: Worker;
@@ -162,6 +177,9 @@ export class MinerController {
   private reads = 0;
   private lastRead = Date.now();
   private offline = false;
+  /** The store's last verdict acted on: the node behind the rollup pauses mining like silence does. */
+  private behind = false;
+  private unsubscribeHealth: (() => void) | undefined;
   /** When the chain view was last rebuilt; a block that survives a rebuild gets the pause instead. */
   private rebuiltAt: number | null = null;
   /** A rebuilt view that has not been read yet: Start reads it before anything mines. */
@@ -280,12 +298,40 @@ export class MinerController {
     ).toString();
     await this.refresh();
     this.timer = setInterval(() => void this.poll(), EPOCH_POLL_MS);
+    this.unsubscribeHealth = subscribeNodeHealth(() => this.onHealth());
+    this.onHealth();
+  }
+
+  /** The store's `behind` verdict in and out: a pause of its own, released when the node catches up. */
+  private onHealth() {
+    const h = nodeHealth();
+    if (h.behind === this.behind || this.disposed) return;
+    this.behind = h.behind;
+    if (h.behind) {
+      this.log('node behind the rollup: mining paused');
+      this.pause('behind');
+      this.dispatch({ type: 'behind', ageS: tipAgeS(h, Date.now()) ?? 0 });
+      return;
+    }
+    this.log('node caught up with the rollup');
+    this.dispatch({ type: 'caught-up' });
+    this.release('behind');
+  }
+
+  /** The node's tip beside the refresh, for the Settings row; a node that cannot say is not a failed refresh. */
+  private async sampleTip() {
+    try {
+      recordTip(await readTip(this.d.node));
+    } catch {
+      /* the refresh is the health signal; the tip is what the row shows */
+    }
   }
 
   /** Ends the timers and the Worker; the page (or a failed boot) owns nothing of this afterwards. */
   dispose() {
     this.disposed = true;
     if (this.timer) clearInterval(this.timer);
+    this.unsubscribeHealth?.();
     if (this.pauseTimer) clearTimeout(this.pauseTimer);
     this.generations++;
     this.prover.worker.terminate();
@@ -412,6 +458,7 @@ export class MinerController {
       await this.refresh();
       this.lastRead = Date.now();
       markRead(this.lastRead);
+      void this.sampleTip();
       if (!this.offline) return;
       this.offline = false;
       this.log('node reachable again');
@@ -771,6 +818,11 @@ export class MinerController {
     this.switching = false;
   }
 
+  /** A switch that could rebuild from neither node: no working wallet, only a reload helps. */
+  giveUp(reason: string): void {
+    this.abandonProver(reason);
+  }
+
   /**
    * The node changed under the handle: the chain view built from the old one is dropped and rebuilt
    * from the new one through the lost-race path, then read before mining resumes.
@@ -799,10 +851,10 @@ export class MinerController {
       rebound = await this.recover(strict);
     } catch (e) {
       this.log(`rebuild failed: ${claimFailureMessage(e)}`);
-      this.abandonProver(`the chain view could not be rebuilt: ${claimFailureMessage(e)}`);
-      // The prover is abandoned either way (only a reload recovers). A node switch additionally
-      // rethrows so its caller shows the boot error with the way out.
+      // A node switch rethrows and decides for itself: the former node is tried before the prover
+      // is given up. Anything else abandons the prover here (only a reload recovers).
       if (strict) throw e;
+      this.abandonProver(`the chain view could not be rebuilt: ${claimFailureMessage(e)}`);
       return;
     }
     this.d = rebound.deployment;

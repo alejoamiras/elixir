@@ -69,6 +69,7 @@ const VARIANT: Record<Notice['kind'], 'bad' | 'warn' | 'neutral'> = {
   failed: 'bad',
   'prover-dead': 'bad',
   offline: 'warn',
+  behind: 'warn',
   paused: 'warn',
 };
 

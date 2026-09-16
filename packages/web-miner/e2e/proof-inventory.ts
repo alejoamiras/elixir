@@ -36,6 +36,7 @@ export const INVENTORY: Readonly<Record<string, Readonly<Record<string, number>>
   'states.e2e.ts': {
     'the node going away pauses mining after a minute; its return resumes it': 0,
     'a lost race: the claim reverts, the chain view is rebuilt, the next claim mints, the balance survives': 3,
+    'a node behind the rollup on L1 pauses mining; its catching up resumes it': 0,
   },
   // One claim, two transfers.
   'withdraw.e2e.ts': {
@@ -49,6 +50,7 @@ export const INVENTORY: Readonly<Record<string, Readonly<Record<string, number>>
   },
   'switch.e2e.ts': {
     'a live switch A → B while mining, a claim after it, and the banner on a dead node': 1,
+    'a node that is not this deployment’s is refused under the field, and the node in use is kept': 0,
   },
   // The real-proving canary: a tampered claim refused at proving, then the same claim minting restored.
   'canary.e2e.ts': {

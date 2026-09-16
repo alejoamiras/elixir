@@ -1,60 +1,123 @@
-// The Node tile's check, as a pure state machine: what the buttons may do follows from the state.
-import type { NodeProbe } from '../../../site/src/browser/node.ts';
+// The node row's edit, as a pure state machine: the row, the field, the save under way. What the
+// buttons may do and what stays under the field follow from the state; an answer for a URL the
+// state no longer owns is dropped.
+import type { NodeHealth, NodeStanding } from '../../../site/src/browser/node-health.ts';
 
-export type CheckState =
-  | { kind: 'idle' }
-  | { kind: 'checking'; url: string }
-  | { kind: 'ok'; url: string; probe: NodeProbe }
-  | { kind: 'failed'; url: string; message: string }
-  | { kind: 'switching'; url: string }
-  | { kind: 'switched'; url: string }
-  | { kind: 'switch-failed'; url: string; message: string };
+export type EditState =
+  | { kind: 'row' }
+  /** The field; `error` is the last save's failure, kept under it until the next attempt. */
+  | { kind: 'editing'; url: string; error?: string }
+  | { kind: 'probing'; url: string }
+  | { kind: 'switching'; url: string; latencyMs: number };
 
-export type CheckEvent =
-  | { type: 'edit' }
-  | { type: 'check'; url: string }
-  | { type: 'ok'; url: string; probe: NodeProbe }
+export type EditEvent =
+  | { type: 'change'; url: string }
+  | { type: 'edit'; url: string }
+  | { type: 'cancel' }
+  | { type: 'probe'; url: string }
+  | { type: 'reachable'; url: string; latencyMs: number }
   | { type: 'failed'; url: string; message: string }
-  | { type: 'switch'; url: string }
-  | { type: 'switched'; url: string }
-  | { type: 'switch-failed'; url: string; message: string };
+  | { type: 'saved' };
 
-/** Only the state that owns the answer's URL takes it; anything else is stale and ignored. */
-const owns = (state: CheckState, kind: CheckState['kind'], url: string): boolean =>
-  state.kind === kind && 'url' in state && state.url === url;
+/** The states each event may leave; an answer must also name the URL the state owns. */
+const FROM: Record<Exclude<EditEvent['type'], 'change'>, readonly EditState['kind'][]> = {
+  edit: ['editing'],
+  cancel: ['editing'],
+  probe: ['editing'],
+  reachable: ['probing'],
+  failed: ['probing', 'switching'],
+  saved: ['switching'],
+};
 
-export function checkReducer(state: CheckState, e: CheckEvent): CheckState {
-  if (e.type === 'edit') return state.kind === 'switching' ? state : { kind: 'idle' };
-  if (e.type === 'check') return { kind: 'checking', url: e.url };
-  const from: Record<Exclude<CheckEvent['type'], 'edit' | 'check'>, CheckState['kind']> = {
-    ok: 'checking',
-    failed: 'checking',
-    switch: 'ok',
-    switched: 'switching',
-    'switch-failed': 'switching',
-  };
-  if (!owns(state, from[e.type], e.url)) return state;
+export function editReducer(state: EditState, e: EditEvent): EditState {
+  if (e.type === 'change') return { kind: 'editing', url: e.url };
+  if (!FROM[e.type].includes(state.kind)) return state;
+  if ('url' in e && 'url' in state && (e.type === 'reachable' || e.type === 'failed') && state.url !== e.url)
+    return state;
   switch (e.type) {
-    case 'ok':
-      return { kind: 'ok', url: e.url, probe: e.probe };
+    case 'edit':
+      return { kind: 'editing', url: e.url };
+    case 'cancel':
+    case 'saved':
+      return { kind: 'row' };
+    case 'probe':
+      return { kind: 'probing', url: e.url };
+    case 'reachable':
+      return { kind: 'switching', url: e.url, latencyMs: e.latencyMs };
     case 'failed':
-      return { kind: 'failed', url: e.url, message: e.message };
-    case 'switch':
-      return { kind: 'switching', url: e.url };
-    case 'switched':
-      return { kind: 'switched', url: e.url };
-    case 'switch-failed':
-      return { kind: 'switch-failed', url: e.url, message: e.message };
+      return { kind: 'editing', url: e.url, error: e.message };
   }
 }
 
-/** "Use this node" is offered only for the URL whose check passed and that is not the node in use. */
-export const canUse = (state: CheckState, typed: string, inUse: string): boolean =>
-  state.kind === 'ok' && state.url === typed.trim() && state.url !== inUse;
+export const editing = (s: EditState): boolean => s.kind !== 'row';
+export const saving = (s: EditState): boolean => s.kind === 'probing' || s.kind === 'switching';
 
-export const describeProbe = (p: NodeProbe): string[] => [
-  `✓ chain ${p.chainId} · rollup ${p.rollupVersion}`,
-  '✓ the miner and the token are there',
-  `block ${p.block.toLocaleString('en-US')} · ${p.blockAgeS} s old`,
-  `${Math.round(p.latencyMs)} ms`,
-];
+/** The deployment check's refusal in the row's words; anything else as the check said it. */
+export function probeFailure(message: string, kept: string): string {
+  const rollup = /node serves rollup ([^,\s]+)/.exec(message);
+  const chain = /node is on chain (\d+)/.exec(message);
+  const why = rollup
+    ? `Not this deployment's node (it serves rollup ${rollup[1]})`
+    : chain
+      ? `Not this deployment's node (it is on chain ${chain[1]})`
+      : message.replace(/\.$/, '');
+  return `${why}. Kept ${kept}.`;
+}
+
+export const rebuildFailure = (from: string, message: string, kept: string): string =>
+  `Couldn't rebuild your view from ${from}: ${message.replace(/\.$/, '')}. Kept ${kept}.`;
+
+const clock = (s: number): string => (s >= 90 ? `${Math.round(s / 60)} min` : `${s} s`);
+const time = (at: number): string => new Date(at).toISOString().slice(11, 16);
+
+export interface RowWords {
+  chip: { word: string; tone: 'ok' | 'warn' | 'dim' };
+  /** Line 3: the tip, the state's sentence. */
+  line: string;
+  retry: boolean;
+}
+
+/** The row's chip and third line for a standing (board NodeStates); `paused` is the miner's own word. */
+export function rowWords(
+  standing: NodeStanding,
+  h: NodeHealth,
+  now: number,
+  ageS: number | null,
+  paused: boolean,
+): RowWords {
+  const tip =
+    h.tip === null
+      ? 'no block read yet'
+      : `block ${h.tip.block.toLocaleString('en-US')} · ${clock(ageS ?? 0)} ago`;
+  const pause = paused ? ' · mining paused' : '';
+  switch (standing) {
+    case 'throttled':
+      return {
+        chip: { word: 'throttled', tone: 'warn' },
+        line: `${tip} · public nodes throttle busy pages; it recovers on its own · mining pauses if it lasts a minute`,
+        retry: false,
+      };
+    case 'silent': {
+      const since = h.transport.kind === 'silent' ? h.transport.since : now;
+      const view = h.lastReadAt === null ? 'no view yet' : `your view is from ${time(h.lastReadAt)}`;
+      return {
+        chip: { word: `no answer · ${clock(Math.max(0, Math.round((now - since) / 1000)))}`, tone: 'warn' },
+        line: `${view}${pause}`,
+        retry: true,
+      };
+    }
+    case 'behind':
+      return {
+        chip: { word: `behind · ${clock(ageS ?? 0)}`, tone: 'warn' },
+        line: `${tip} · the node answers, but its chain is old${pause}`,
+        retry: false,
+      };
+    case 'healthy':
+      return { chip: { word: 'healthy', tone: 'ok' }, line: tip, retry: false };
+    case 'unknown':
+      // L1 said nothing yet: the transport's word, never a verdict it could not give.
+      return h.deploymentOk
+        ? { chip: { word: 'healthy', tone: 'ok' }, line: tip, retry: false }
+        : { chip: { word: 'checking', tone: 'dim' }, line: tip, retry: false };
+  }
+}

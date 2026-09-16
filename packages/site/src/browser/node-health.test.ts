@@ -177,13 +177,19 @@ describe('the store', () => {
 
 describe('bannerState', () => {
   const now = 10_000_000;
+  const rest = { tip: null, l1: null, deploymentOk: null, behind: false } as const;
   test('throttled and silent carry their countdown; stale is a read older than the threshold; ok is nothing', () => {
     expect(
-      health.bannerState({ transport: { kind: 'ok', latencyMs: 1 }, lastReadAt: now - 1_000 }, now, 60_000),
+      health.bannerState(
+        { ...rest, transport: { kind: 'ok', latencyMs: 1 }, lastReadAt: now - 1_000 },
+        now,
+        60_000,
+      ),
     ).toBeNull();
     expect(
       health.bannerState(
         {
+          ...rest,
           transport: { kind: 'throttled', retryAt: now + 12_400, status: 429, backoffMs: 15_000 },
           lastReadAt: now - 40_000,
         },
@@ -194,6 +200,7 @@ describe('bannerState', () => {
     expect(
       health.bannerState(
         {
+          ...rest,
           transport: { kind: 'silent', since: now - 25_000, retryAt: now + 5_000, backoffMs: 20_000 },
           lastReadAt: null,
         },
@@ -202,14 +209,18 @@ describe('bannerState', () => {
       ),
     ).toEqual({ kind: 'silent', ageS: 25, retryInS: 5 });
     expect(
-      health.bannerState({ transport: { kind: 'ok', latencyMs: 1 }, lastReadAt: now - 75_000 }, now, 60_000),
+      health.bannerState(
+        { ...rest, transport: { kind: 'ok', latencyMs: 1 }, lastReadAt: now - 75_000 },
+        now,
+        60_000,
+      ),
     ).toEqual({
       kind: 'stale',
       ageS: 75,
       retryInS: null,
     });
     expect(
-      health.bannerState({ transport: { kind: 'ok', latencyMs: 1 }, lastReadAt: null }, now, 60_000),
+      health.bannerState({ ...rest, transport: { kind: 'ok', latencyMs: 1 }, lastReadAt: null }, now, 60_000),
     ).toBeNull();
   });
 });
@@ -322,5 +333,51 @@ describe('the gate', () => {
     const res = await fetch('https://node.example/broken');
     expect(res.status).toBe(503);
     expect(calls).toEqual([]);
+  });
+});
+
+describe('standing', () => {
+  const now = 1_000_000_000;
+  const tip = (checkpoint: number) => ({ block: checkpoint * 4, checkpoint, timestamp: now / 1000 - 12 });
+  test('unknown until the deployment is checked, a tip read and a fresh L1 sample seen; then healthy', () => {
+    expect(health.standing(health.nodeHealth(), now)).toBe('unknown');
+    health.markDeployment(true);
+    health.recordTip(tip(10), now);
+    expect(health.standing(health.nodeHealth(), now)).toBe('unknown');
+    expect(health.recordL1({ pendingCheckpoint: 11, head: 100 }, now)).toBe(true);
+    expect(health.standing(health.nodeHealth(), now)).toBe('healthy');
+    expect(health.tipAgeS(health.nodeHealth(), now)).toBe(12);
+  });
+  test('behind past the tolerance; a stale or missing L1 keeps the verdict; a caught-up tip clears it', () => {
+    health.markDeployment(true);
+    health.recordTip(tip(10), now);
+    health.recordL1({ pendingCheckpoint: 11, head: 100 }, now);
+    expect(health.standing(health.nodeHealth(), now)).toBe('healthy');
+    health.recordL1({ pendingCheckpoint: 12, head: 101 }, now);
+    expect(health.standing(health.nodeHealth(), now)).toBe('behind');
+    // Sixty-one seconds on, L1 is stale: the lag is known, not cleared.
+    expect(health.standing(health.nodeHealth(), now + 61_000)).toBe('behind');
+    health.recordTip(tip(11), now + 61_000);
+    expect(health.nodeHealth().behind).toBe(true);
+    // A fresh sample with the node caught up clears it.
+    health.recordL1({ pendingCheckpoint: 12, head: 102 }, now + 62_000);
+    expect(health.standing(health.nodeHealth(), now + 62_000)).toBe('healthy');
+  });
+  test('an L1 sample whose head did not move is a cached answer and does not count', () => {
+    health.markDeployment(true);
+    health.recordTip(tip(10), now);
+    health.recordL1({ pendingCheckpoint: 11, head: 100 }, now);
+    expect(health.recordL1({ pendingCheckpoint: 15, head: 100 }, now + 15_000)).toBe(false);
+    expect(health.standing(health.nodeHealth(), now + 15_000)).toBe('healthy');
+  });
+  test('the transport’s word wins while the node is not answering; a reset forgets everything', () => {
+    health.markDeployment(true);
+    health.recordTip(tip(10), now);
+    health.recordL1({ pendingCheckpoint: 20, head: 100 }, now);
+    expect(health.standing(health.nodeHealth(), now)).toBe('behind');
+    health.setTransportForTests({ kind: 'silent', since: now, retryAt: now + 20_000, backoffMs: 20_000 });
+    expect(health.standing(health.nodeHealth(), now)).toBe('silent');
+    health.resetNodeHealth();
+    expect(health.nodeHealth()).toMatchObject({ tip: null, l1: null, deploymentOk: null, behind: false });
   });
 });

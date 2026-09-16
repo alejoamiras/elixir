@@ -1,9 +1,13 @@
+// Settings: six cards of rows. Network (the node, the Ethereum RPC), Mining (the slider, Presto's
+// row, the pauses), Alerts, Account (the address, its method, Stay open, Sign out), Appearance,
+// About. The node is changed here signed out too, so the page stays free of the sign-in dialog.
 import { useAtomValue, useSetAtom } from 'jotai';
 import type * as React from 'react';
 import { useEffect, useState } from 'react';
 import { relyingParty } from '../../../site/src/browser/host.ts';
 import {
   Button,
+  ExternalLink,
   KvRow,
   Label,
   PowerSlider,
@@ -19,14 +23,16 @@ import { bridgeRecord } from '../bridge/env';
 import { NodeTile } from '../components/NodeTile';
 import type { Connection } from '../config';
 import type { MinerController } from '../controller';
+import { links } from '../explorer';
 import { EthRpcTile } from '../features/EthRpcTile';
-import { diagnostics } from '../lib/diagnostics';
+import { SignOutDialog } from '../features/SignOutDialog';
+import { shortAddress } from '../lib/format';
 import { useTileLog } from '../lib/tile-log';
-import { prestoAtom, prestoSticky } from '../presto';
+import { noticeFor, PRESTO_SITE, type PrestoState, prestoAtom } from '../presto';
 import { navigate } from '../routes';
 import type { Session } from '../session';
 import { type BooleanSetting, useSettings } from '../settings';
-import { bootAtom, logAtom, signInAtom } from '../state';
+import { bootAtom, signInAtom } from '../state';
 
 function Toggle({
   id,
@@ -60,121 +66,149 @@ const THEMES: { value: Theme; label: string }[] = [
   { value: 'system', label: 'System' },
 ];
 
-/** The build's identity and the diagnostics copy: the log's last lines, host-only, for a bug report. */
-function AboutTile({ log }: { log: string[] }) {
-  const [copied, setCopied] = useState<'ok' | 'failed' | null>(null);
+/** Presto's standing in a few words: nothing is asked before Start mining, so the row says so. */
+export const prestoWords = (p: PrestoState): string => {
+  if (!p.status) return 'checked when you start mining';
+  if (p.active === 'presto') return 'connected ✦';
+  const notice = noticeFor(p);
+  if (notice) return notice.text;
+  // Under HTTPS-only an installed Presto with encryption off answers nothing: absent is the honest word.
+  if (!p.status.available) return 'not found';
+  return 'found';
+};
+
+function PrestoRow() {
+  const presto = useAtomValue(prestoAtom);
   return (
-    <Tile>
-      <TileHeader>About</TileHeader>
-      <KvRow label="source" value={import.meta.env.VITE_SOURCE_COMMIT.slice(0, 12)} />
-      <KvRow label="build" value={import.meta.env.VITE_SITE_MODE} />
-      <KvRow label="bb.js" value={import.meta.env.VITE_BB_VERSION} />
-      <KvRow label="relying party" value={relyingParty(location.hostname)} />
-      <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-line pt-3">
-        <Button
-          size="sm"
-          onClick={() =>
-            navigator.clipboard
-              .writeText(diagnostics(log))
-              .then(() => setCopied('ok'))
-              .catch(() => setCopied('failed'))
-          }
-          data-testid="copy-diagnostics"
-        >
-          {copied === 'ok' ? 'Copied' : 'Copy diagnostics (shortened)'}
-        </Button>
-        <span className="text-ink-3 text-xs">
-          {copied === 'failed'
-            ? 'The clipboard refused; the log is also in the browser console.'
-            : "The last 200 lines, addresses shortened. It names this account's claims and the node's host."}
+    <div className="flex items-center justify-between gap-4 border-t border-line py-2.5">
+      <div className="flex flex-col gap-1">
+        <span className="text-ink">
+          Presto <span className="text-uv">✦</span>
+        </span>
+        <span className="text-xs text-ink-2" data-testid="presto-standing">
+          native prover, several times faster · {prestoWords(presto)}
         </span>
       </div>
-    </Tile>
+      <ExternalLink href={PRESTO_SITE} className="shrink-0 text-xs text-ink-2">
+        Get Presto
+      </ExternalLink>
+    </div>
   );
 }
 
-/** Threads for the browser prover; under Presto the setting is kept, dimmed, and Presto's own speed setting rules. */
-function PerformanceTile({
+/** The browser prover's threads; Presto decides its own, so the slider says what it affects. */
+function MiningTile({
   cores,
   threads,
-  native,
   onThreads,
   flags,
 }: {
   cores: number;
   threads: number;
-  native: boolean;
   onThreads: (t: number) => void;
   flags: React.ReactNode;
 }) {
   return (
     <Tile>
-      <TileHeader>Performance</TileHeader>
-      <KvRow
-        label="prover"
-        value={
-          native ? (
-            <span className="text-uv-2" data-testid="prover-native">
-              <span className="text-uv">✦</span> Presto · native
-            </span>
-          ) : (
-            `bb.js WASM · ${threads} threads`
-          )
-        }
-      />
-      <div className="mt-3 flex flex-col gap-2">
-        <PowerSlider cores={cores} threads={threads} disabled={native} onChange={onThreads} />
-        {native && (
-          <p className="text-xs text-ink-2">
-            Presto’s speed setting in its app decides the threads; this slider applies when proving in the
-            browser.
-          </p>
-        )}
+      <TileHeader aside={`${threads} threads`}>mining power</TileHeader>
+      <div className="flex flex-col gap-2 pb-2.5">
+        <PowerSlider cores={cores} threads={threads} onChange={onThreads} />
+        <p className="text-xs text-ink-2">
+          This slider affects browser proving only; one core stays with the page.
+        </p>
       </div>
+      <PrestoRow />
       {flags}
     </Tile>
   );
 }
 
-/** A passkey account's convenience switch and its warning; the way in when no account is open. */
+/** The open account: its address and method, Stay open for a passkey, Sign out; signed out, the way in. */
 function AccountTile({ session }: { session: Session }) {
   const boot = useAtomValue(bootAtom);
   const openSignIn = useSetAtom(signInAtom);
+  const [signOut, setSignOut] = useState(false);
+  if (boot.phase !== 'ready')
+    return (
+      <Tile>
+        <TileHeader>account</TileHeader>
+        <p className="text-xs text-ink-2">Open an account to see its options.</p>
+        {/* Settings stays free of the sign-in dialog (the node is changed here); this is the way in. */}
+        <Button
+          size="sm"
+          variant="uv"
+          className="mt-3"
+          onClick={() => {
+            openSignIn(true);
+            navigate('mine');
+          }}
+          data-testid="sign-in-settings"
+        >
+          Sign in
+        </Button>
+      </Tile>
+    );
+  const record = boot.record;
   return (
     <Tile>
-      <TileHeader>Account</TileHeader>
-      {boot.phase === 'ready' && boot.record.method === 'passkey' ? (
-        <>
-          <Toggle
-            id="stay-open"
-            label="Stay open on this device"
-            hint="off (default): one touch per open, no spend secret at rest · on: the account is sealed under a device key in this browser's storage (plaintext-equivalent against a stolen unencrypted disk)"
-            value={!boot.record.askEveryOpen}
-            onChange={(v) => void session.setStayOpen(v)}
-          />
-          <p className="mt-3 text-xs text-warn">
-            A passkey account has no backup: if the passkey is lost and was not synced, so is the balance.
-            Move funds off an account that holds more than a session's worth.
-          </p>
-        </>
-      ) : (
-        <>
-          <p className="text-xs text-ink-2">Open an account to see its options.</p>
-          {/* Settings stays free of the sign-in dialog (the node is changed here); this is the way in. */}
-          <Button
-            size="sm"
-            variant="uv"
-            className="mt-3"
-            onClick={() => {
-              openSignIn(true);
-              navigate('mine');
-            }}
-            data-testid="sign-in-settings"
-          >
-            Sign in
-          </Button>
-        </>
+      <TileHeader>account</TileHeader>
+      <div className="flex items-center justify-between gap-3 pb-2.5">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span data-testid="settings-account">
+            <ExternalLink
+              href={links.address(record.account.address)}
+              full={record.account.address}
+              className="font-mono text-sm text-ink"
+            >
+              {shortAddress(record.account.address)}
+            </ExternalLink>
+          </span>
+          <span className="text-xs text-ink-3">{record.method === 'passkey' ? 'passkey' : '12 words'}</span>
+        </div>
+        <Button size="sm" onClick={() => setSignOut(true)} data-testid="sign-out">
+          Sign out
+        </Button>
+      </div>
+      {record.method === 'passkey' && (
+        <Toggle
+          id="stay-open"
+          label="Stay open on this device"
+          hint="On: anyone who can use this browser could open and spend from this account without your passkey. Off: one touch per open."
+          value={!record.askEveryOpen}
+          onChange={(v) => void session.setStayOpen(v)}
+        />
       )}
+      <SignOutDialog
+        record={record}
+        open={signOut}
+        onOpenChange={setSignOut}
+        onSignOut={() => session.forget(record)}
+        onBackUp={() => {
+          setSignOut(false);
+          navigate('wallet', 'backup');
+        }}
+      />
+    </Tile>
+  );
+}
+
+const FAQ_HREF = `${(import.meta.env.BASE_URL ?? '/').replace(/\/mine\/?$/, '/')}faq`;
+
+function AboutTile() {
+  return (
+    <Tile>
+      <TileHeader>about</TileHeader>
+      <KvRow label="source" value={import.meta.env.VITE_SOURCE_COMMIT.slice(0, 12)} />
+      <KvRow label="build" value={import.meta.env.VITE_SITE_MODE} />
+      <KvRow label="bb.js" value={import.meta.env.VITE_BB_VERSION} />
+      <KvRow label="relying party" value={relyingParty(location.hostname)} />
+      <p className="mt-3 border-t border-line pt-3 text-xs text-ink-3" data-testid="about-line">
+        Yacana runs in your browser. Whoever serves this page controls it; the source is public — run your own
+        build if that matters.{' '}
+        <ExternalLink href={FAQ_HREF} className="font-sans whitespace-nowrap text-ink-2">
+          More on /faq
+        </ExternalLink>
+      </p>
     </Tile>
   );
 }
@@ -190,14 +224,12 @@ export function Settings({
 }) {
   const [s, set] = useSettings();
   const { setTheme } = useTheme();
-  const log = useAtomValue(logAtom);
   const onError = useTileLog();
   // The node in use follows a live switch; `connection` is what the page booted with.
   const [nodeUrl, setNodeUrl] = useState(session.nodeUrl ?? connection.nodeUrl);
   const [ethRpcUrl, setEthRpcUrl] = useState(session.ethRpcUrl);
   const cores = navigator.hardwareConcurrency || 2;
   const threads = s.threads ?? Math.max(1, cores - 1);
-  const native = prestoSticky(useAtomValue(prestoAtom));
   useEffect(() => setTheme(s.theme), [s.theme, setTheme]);
   // Notifications need the browser's permission, asked for on the toggle (a user gesture).
   const toggle = async (k: BooleanSetting, v: boolean) => {
@@ -219,27 +251,29 @@ export function Settings({
   const canBattery = 'getBattery' in navigator;
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <TileBoundary name="node" onError={onError}>
-        <NodeTile
-          session={session}
-          nodeUrl={nodeUrl}
-          onSwitched={() => setNodeUrl(session.nodeUrl ?? nodeUrl)}
-        />
+      <TileBoundary name="network" onError={onError} className="md:col-span-2">
+        <Tile className="md:col-span-2">
+          <TileHeader aside="chain reads and claims go through the node">network</TileHeader>
+          <div className="grid gap-3">
+            <NodeTile
+              session={session}
+              nodeUrl={nodeUrl}
+              onSwitched={() => setNodeUrl(session.nodeUrl ?? nodeUrl)}
+            />
+            {bridgeRecord() && (
+              <EthRpcTile
+                session={session}
+                ethRpcUrl={ethRpcUrl}
+                onSwitched={() => setEthRpcUrl(session.ethRpcUrl)}
+              />
+            )}
+          </div>
+        </Tile>
       </TileBoundary>
-      {bridgeRecord() && (
-        <TileBoundary name="eth-rpc" onError={onError}>
-          <EthRpcTile
-            session={session}
-            ethRpcUrl={ethRpcUrl}
-            onSwitched={() => setEthRpcUrl(session.ethRpcUrl)}
-          />
-        </TileBoundary>
-      )}
-      <TileBoundary name="performance" onError={onError}>
-        <PerformanceTile
+      <TileBoundary name="mining" onError={onError}>
+        <MiningTile
           cores={cores}
           threads={threads}
-          native={native}
           onThreads={(t) => {
             set({ threads: t });
             controller()?.reconfigure(t);
@@ -259,14 +293,14 @@ export function Settings({
                 'Keep proving in a background tab',
                 'off: mining pauses while the tab is hidden',
               )}
+              {flag('resumeOnOpen', 'resume', 'Resume mining when the page opens')}
             </>
           }
         />
       </TileBoundary>
-      <TileBoundary name="behaviour" onError={onError}>
+      <TileBoundary name="alerts" onError={onError}>
         <Tile>
-          <TileHeader>Behaviour</TileHeader>
-          {flag('resumeOnOpen', 'resume', 'Resume mining when the page opens')}
+          <TileHeader>alerts</TileHeader>
           {flag('notify', 'notify', 'Notify on a win', 'no amounts in the notification')}
           {flag('sound', 'sound', 'Sound on a win')}
           {flag('tabStatus', 'tab-status', 'Report in the tab title and icon')}
@@ -274,7 +308,7 @@ export function Settings({
             'pip',
             'pip',
             'Mini window',
-            canPip ? 'Document Picture-in-Picture' : 'not supported by this browser',
+            canPip ? 'picture-in-picture' : 'not supported by this browser',
             !canPip,
           )}
         </Tile>
@@ -284,7 +318,7 @@ export function Settings({
       </TileBoundary>
       <TileBoundary name="appearance" onError={onError}>
         <Tile>
-          <TileHeader>Appearance</TileHeader>
+          <TileHeader>appearance</TileHeader>
           <Segmented
             value={s.theme}
             onChange={(theme) => set({ theme })}
@@ -293,8 +327,8 @@ export function Settings({
           />
         </Tile>
       </TileBoundary>
-      <TileBoundary name="about" onError={onError}>
-        <AboutTile log={log} />
+      <TileBoundary name="about" onError={onError} className="md:col-span-2">
+        <AboutTile />
       </TileBoundary>
     </div>
   );
