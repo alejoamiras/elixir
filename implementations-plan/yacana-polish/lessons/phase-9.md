@@ -180,3 +180,15 @@ Two things the round taught about the test bench, for the next one:
   wallet disconnected a tick later. A synchronous assertion right after `render` hides it.
 - **`wagmi/connectors` pulls `@wagmi/connectors`, which imports `viem/tempo`** — absent from viem 2.38.
   The root `wagmi` export carries `mock` (and `createConfig`, `http`); `wagmi/actions` is clean.
+
+### Round 1's gate (commit `6743392`)
+
+| layer | result |
+|---|---|
+| lint, web-miner + ui typecheck | clean |
+| `bun test` | 490 pass, 41 skip |
+| `test:components` (ui 69, web-miner 111) | green |
+| `bridge` shard, proverless | 1/1 passed, 133 s |
+| `canary` shard, real proving | 4/4 passed, 5.0 min (withdraw 103 s, 3 proofs) |
+| replay | 4/4 passed, 42 s |
+| `bun run rig -- browser` | 3/3 passed: V5 2.9 min · flip 11 s · V6 1.2 min |
