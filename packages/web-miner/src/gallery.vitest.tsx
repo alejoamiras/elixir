@@ -7,10 +7,13 @@ import { join } from 'node:path';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { createStore, Provider } from 'jotai';
 import type { ReactNode } from 'react';
+import { anvil } from 'viem/chains';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { createConfig, http } from 'wagmi';
 import type { Crossing } from '../../bridge/src/journal.ts';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { TAKING_LONG_AFTER_MS } from './bridge/copy';
+import type { BridgeSession } from './bridge/session';
 import { ActivityList } from './features/ActivityList';
 import { MigrationCard } from './features/MigrationCard';
 import { OldApp } from './features/OldApp';
@@ -18,7 +21,7 @@ import { OldTabNotice } from './features/OldTabNotice';
 import type { MasterRecord } from './keys/store';
 import { BalanceTile } from './routes/Wallet';
 import type { Session } from './session';
-import { balanceAtom, bootAtom, bridgeAtom, journalAtom, nowAtom } from './state';
+import { balanceAtom, bootAtom, bridgeAtom, bridgeSessionAtom, journalAtom, nowAtom } from './state';
 
 const ONE = 10n ** BigInt(PARAMS.DECIMALS);
 const PORTAL = `0x${'ab'.repeat(20)}` as const;
@@ -260,7 +263,7 @@ describe('what was sent ahead', () => {
     );
     const { container } = mount(
       <>
-        <MigrationCard onSendAhead={() => {}} />
+        <MigrationCard onSendAhead={() => {}} onHow={() => {}} />
         {list}
       </>,
       (s) => {
@@ -310,44 +313,86 @@ describe('what was sent ahead', () => {
 });
 
 describe('the old app', () => {
-  const old = (setup: (store: ReturnType<typeof createStore>) => void) => {
+  const proof = (ageS: number) => ({ at: BigInt(SECONDS - ageS), checkpoint: 1n, block: 1n });
+  // Signed in, the bridge session is open: its wagmi config is what the rows and the dialogs mount under.
+  const config = createConfig({ chains: [anvil], transports: { [anvil.id]: http('http://127.0.0.1:9') } });
+  const old = (setup: (store: ReturnType<typeof createStore>) => void, s?: Session) => {
     vi.stubEnv('VITE_APP_ROLE', 'old');
-    return mount(<OldApp session={session} />, (s) => {
-      s.set(bootAtom, { phase: 'ready', account: '0xacc', threads: 1, record: ready });
-      setup(s);
+    return mount(<OldApp session={s} />, (store) => {
+      store.set(bootAtom, { phase: 'ready', account: '0xacc', threads: 1, record: ready });
+      store.set(bridgeSessionAtom, { config } as unknown as BridgeSession);
+      setup(store);
     });
   };
-
-  test('once something was sent: its stations, with the proof deadline', () => {
-    const { container } = old((s) => {
-      s.set(balanceAtom, 0n);
-      s.set(journalAtom, [
-        crossing('sent', { kind: 2, state: 'proven-pending', ...settled, amount: (48n * ONE).toString() }),
-      ]);
+  const withProof = (age: number) => (s: ReturnType<typeof createStore>) => {
+    s.set(bridgeAtom, {
+      verdict: { kind: 'before' },
+      standing,
+      readAt: NOW,
+      rpcFailing: false,
+      proof: proof(age),
     });
-    expect(screen.getByTestId('old-sent').textContent).toContain('48');
-    expect(screen.getByTestId('old-sent').textContent).toMatch(/by \d\d:\d\d/);
-    keep('old-app-sent', container.innerHTML);
+    s.set(balanceAtom, 35n * (ONE / 10n));
+    s.set(journalAtom, [
+      crossing('held', { kind: 2, state: 'held', ...settled, amount: (48n * ONE).toString() }),
+    ]);
+  };
+
+  test('still here: the hero with the live chip, the card with the way out, the rows without a forward', () => {
+    const { container } = old(withProof(12 * 60), session);
+    expect(screen.getByTestId('retired').dataset.state).toBe('live');
+    expect(screen.getByTestId('retired').textContent).toContain('Send what’s still here ahead.');
+    expect(screen.getByTestId('proof-chip').textContent).toBe('V5 proved an epoch 12 min ago');
+    expect(screen.getByTestId('old-card').dataset.state).toBe('still-here');
+    expect(screen.getByTestId('send-ahead').textContent).toBe('Send ahead to the next version');
+    expect(screen.getByTestId('to-ethereum').textContent).toBe('or bridge to Ethereum');
+    expect(screen.getAllByTestId('crossing')).toHaveLength(1);
+    expect(screen.queryByTestId('row-forward')).toBeNull();
+    expect(screen.getByTestId('recovery-save')).toBeTruthy();
+    keep('old-app', container.innerHTML);
   });
 
-  test('once the last day has passed: what is lost, and what was safe', async () => {
-    const { container } = old((s) => {
-      s.set(bridgeAtom, {
-        verdict: { kind: 'flipped', by: ['registry', 'retired'] },
-        standing: { ...standing, deadline: BigInt(SECONDS - HOUR), flipAt: BigInt(SECONDS - 4 * 86_400) },
-        readAt: NOW,
-        rpcFailing: false,
-      });
-      s.set(balanceAtom, 3n * ONE);
-      s.set(journalAtom, [
-        crossing('safe', { kind: 2, state: 'held', ...settled, amount: (48n * ONE).toString() }),
-      ]);
-    });
-    await waitFor(() => expect(screen.getByTestId('old-quiet').textContent).toContain('cannot leave'));
+  test('silent for hours: the chip amber, the body saying the version may have stopped', () => {
+    const { container } = old(withProof(3 * 3600), session);
+    expect(screen.getByTestId('retired').dataset.state).toBe('silent');
+    expect(screen.getByTestId('proof-chip').dataset.tone).toBe('warn');
     expect(screen.getByTestId('retired').textContent).toContain(
-      'V5’s last day has passed. Nothing can leave.',
+      'V5 hasn’t proved an epoch for 3.0 h and may have stopped.',
     );
+    expect(screen.getByTestId('old-card').dataset.state).toBe('still-here');
+    keep('old-app-silent', container.innerHTML);
+  });
+
+  test('stopped, from the record alone: nothing more leaves; the held row stays, with its redeem', () => {
+    vi.stubEnv('VITE_LIFECYCLE', JSON.stringify({ stoppedProvingAt: String(SECONDS - 86_400) }));
+    const { container } = old(withProof(60), session);
+    expect(screen.getByTestId('retired').dataset.state).toBe('quiet');
+    expect(screen.getByTestId('retired').textContent).toContain(
+      'V5 has stopped proving. Nothing more can leave.',
+    );
+    expect(screen.getByTestId('proof-chip').textContent).toBe('V5 stopped proving · Sep 10');
+    expect(screen.getByTestId('old-card').dataset.state).toBe('quiet');
+    expect(screen.getByTestId('old-card').textContent).toContain('cannot leave');
+    expect(screen.getByTestId('row-redeem')).toBeTruthy();
     keep('old-app-quiet', container.innerHTML);
+  });
+
+  test('the node gone: said before anything is read, no log in, the apex one link away', () => {
+    vi.stubEnv('VITE_APP_ROLE', 'old');
+    vi.stubEnv(
+      'VITE_LIFECYCLE',
+      JSON.stringify({ stoppedProvingAt: String(SECONDS - 86_400), nodeRetired: true }),
+    );
+    const { container } = mount(<OldApp />);
+    expect(screen.getByTestId('retired').dataset.state).toBe('gone');
+    expect(screen.getByTestId('retired').textContent).toContain(
+      'V5’s node has shut down. Nothing more can leave from here.',
+    );
+    expect(screen.getByTestId('proof-chip').textContent).toBe('V5’s node has shut down');
+    expect(screen.getByTestId('open-apex').getAttribute('href')).toBe('https://yacana.network');
+    expect(screen.queryByTestId('sign-in-mine')).toBeNull();
+    expect(screen.queryByTestId('activity')).toBeNull();
+    keep('old-app-gone', container.innerHTML);
   });
 });
 

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { hostKind, keysAllowed, previewNotice, relyingParty } from '../../site/src/browser/host.ts';
 import { queryOverridesAllowed } from './config';
 import { isDesktop } from './desktop';
-import { minerTabs } from './lib/tabs';
+import { minerTabs, oldTabs } from './lib/tabs';
 import { navigate, pathFor, routeFromPath, useRoute } from './routes';
 import { tabTitle } from './tab-status';
 
@@ -48,6 +48,14 @@ describe('the header', () => {
     tabs[0]?.onSelect?.();
     expect(go).toHaveBeenCalledWith('mine');
     expect(tabs[2]?.onSelect).toBeUndefined();
+  });
+
+  test('the old origin: Send ahead and the apex’s Stats ↗, no Wallet — the page is the wallet', () => {
+    const tabs = oldTabs('mine', vi.fn(), 'https://yacana.network/stats/');
+    expect(tabs.map((t) => t.label)).toEqual(['Send ahead', 'Stats']);
+    expect(tabs.map((t) => t.href)).toEqual(['/', 'https://yacana.network/stats/']);
+    expect(tabs.map((t) => t.external ?? false)).toEqual([false, true]);
+    expect(tabs[0]?.current).toBe(true);
   });
 });
 

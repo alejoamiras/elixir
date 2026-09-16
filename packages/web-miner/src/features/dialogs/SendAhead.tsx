@@ -2,17 +2,17 @@
 // lost. The recovery file is offered under Done: the journal is the only record of the crossing.
 import { useAtomValue } from 'jotai';
 import { type ComponentProps, useState } from 'react';
+import { deadlinePhrase } from '../../../../bridge/src/exit-deadline.ts';
 import type { Crossing } from '../../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../../miner-core/src/generated/params.ts';
 import { ownVersionName } from '../../../../site/src/browser/version-name.ts';
 import { Alert, AlertDescription, AmountField, Note, Stepper } from '../../../../ui/src/index.ts';
-import { deadlinePhrase } from '../../bridge/copy';
 import { nextVersionName } from '../../bridge/env';
 import { reviewAmount } from '../../bridge/forms';
+import { FAQ_HREF } from '../../lib/apex';
 import { amount as fmt } from '../../lib/format';
 import type { Session } from '../../session';
 import { bootAtom, bridgeAtom, journalAtom } from '../../state';
-import { FAQ_HREF } from '../MigrationCard';
 import { saveRecoveryFile } from '../recovery';
 import { amountRefusal } from '../withdraw-form';
 import {
@@ -263,15 +263,18 @@ function SendAheadRun({
   balance,
   open,
   onOpenChange,
+  initial = 'form',
 }: {
   session: Session;
   balance: bigint;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The step the dialog opens on: the form, or How it works from the card's quiet link (Back leads to the form). */
+  initial?: 'form' | 'how';
 }) {
   const view = useAtomValue(bridgeAtom);
   const next = nextVersionName(view.canonical);
-  const [step, setStep] = useState<Step>({ kind: 'form' });
+  const [step, setStep] = useState<Step>({ kind: initial });
   const [error, setError] = useState<string>();
   const live = useLive(open);
   const close = () => onOpenChange(false);

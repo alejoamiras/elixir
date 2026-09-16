@@ -1,230 +1,214 @@
-// The guided path, one card: announced → the moment's title, the trail of what a send
-// goes through, one large button; sent → the same card as a status while this version still holds
-// something; the flip detected → mining ended here, what is left still crosses while this version
-// proves. Every moment says what is lost and when. Nothing on a quiet version.
+// The upgrade card over the cockpit, one card for three moments: announced (the fact, the next
+// step, the one consequence of not acting), sent (what went ahead and where it stands, what was
+// mined since), flipped (mining has ended here; what is still here leaves while this version proves,
+// with the live chip of its proving). Nothing on a quiet version. Nothing says "safe": a send is
+// held, comes back, or cannot leave.
 import { useAtomValue } from 'jotai';
+import { dayOf } from '../../../bridge/src/exit-deadline.ts';
 import { type Crossing, inFlight } from '../../../bridge/src/journal.ts';
 import type { MigrationRecord } from '../../../bridge/src/record.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { ownVersionName } from '../../../site/src/browser/version-name.ts';
-import { Button, HeroCard, type HeroTone, Stepper, type TrailItem } from '../../../ui/src/index.ts';
-import { migrationRecord } from '../bridge/env';
-import { duration, amount as fmt } from '../lib/format';
+import { Button, HeroCard, StatusChip, type TrailItem } from '../../../ui/src/index.ts';
+import { proofChip } from '../bridge/copy';
+import { lifecycleRecord, migrationRecord, nextVersionName } from '../bridge/env';
+import { amount as fmt } from '../lib/format';
+import { navigate } from '../routes';
 import { type BridgeView, balanceAtom, bridgeAtom, journalAtom, nowAtom } from '../state';
-
-/** FAQ on the landing: served by the root SPA fallback of the same origin. */
-export const FAQ_HREF = `${(import.meta.env.BASE_URL ?? '/').replace(/\/mine\/?$/, '/')}faq`;
 
 export type MigrationMoment = 'quiet' | 'announced' | 'flipped';
 
 export const moment = (announced: MigrationRecord | null, flipped: boolean): MigrationMoment =>
   flipped ? 'flipped' : announced ? 'announced' : 'quiet';
 
-const day = (unix: string | bigint): string => new Date(Number(unix) * 1000).toISOString().slice(0, 10);
 const money = (raw: bigint) => `${fmt(raw, PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL}`;
-const PAST = new Set<Crossing['state']>(['proving', 'sent', 'proven-pending']);
+const hhmm = (unix: bigint) => new Date(Number(unix) * 1000).toISOString().slice(11, 16);
 
-/** What has been sent ahead so far, and what was mined since; the line the tests and the eye read. */
-function SentAhead({ ahead, balance }: { ahead: Crossing[]; balance: bigint | null }) {
-  if (ahead.length === 0) return null;
-  const crossing = ahead.filter(inFlight).length;
-  const sum = ahead.reduce((a, c) => a + BigInt(c.amount), 0n);
-  return (
-    <p className="text-xs text-ink-2" data-testid="sent-ahead-status">
-      {money(sum)} sent ahead
-      {crossing > 0 ? ` · ${crossing} still crossing` : ' · all landed or held for you'}
-      {balance && balance > 0n ? ` · ${money(balance)} mined since — send those too` : ''}
-    </p>
+/** How far a send-ahead got, as a station of the trail; a state the trail has no station for reads as held. */
+const STAGE: Partial<Record<Crossing['state'], number>> = {
+  proving: 1,
+  sent: 1,
+  'proven-pending': 1,
+  held: 2,
+  forwarded: 3,
+  claimable: 3,
+  'minted-l2': 5,
+};
+
+/** The stations of what was sent ahead, the least advanced send lighting the one it is at. */
+export const sentTrail = (ahead: Crossing[], next: string): TrailItem[] => {
+  const at = Math.min(...ahead.map((c) => STAGE[c.state] ?? 2));
+  return ['sent', 'reaching Ethereum', `held for ${next}`, `forwarded to ${next}`, `claim on ${next}`].map(
+    (label, i) => ({ label, state: i < at ? 'done' : i === at ? 'on' : 'todo' }),
   );
+};
+
+interface Props {
+  onSendAhead: () => void;
+  onHow: () => void;
+  className?: string;
 }
 
-function SendButton({
-  balance,
-  view,
-  onSendAhead,
-  now = false,
-}: {
+interface Facts extends Props {
+  version: string;
+  next: string;
+  ahead: Crossing[];
   balance: bigint | null;
   view: BridgeView;
-  onSendAhead: () => void;
-  now?: boolean;
-}) {
+}
+
+function SendButton({ balance, view, onSendAhead }: Pick<Facts, 'balance' | 'view' | 'onSendAhead'>) {
   return (
     <Button
       variant="uv"
-      size="lg"
       disabled={!balance || view.rpcFailing}
       onClick={onSendAhead}
       data-testid="send-ahead"
     >
-      Send {balance ? money(balance) : ''} ahead{now ? ' now' : ''}
+      Send{balance ? ` ${money(balance)}` : ''} ahead
     </Button>
   );
 }
 
-const Faq = () => (
-  <a href={FAQ_HREF} className="text-xs text-uv-2 hover:underline" target="_blank" rel="noopener noreferrer">
-    what happens, step by step →
-  </a>
+const How = ({ onHow }: Pick<Props, 'onHow'>) => (
+  <Button variant="link" className="text-ink-2" onClick={onHow} data-testid="send-ahead-how">
+    How it works
+  </Button>
 );
-
-/** The send's stations before anything was sent, and once something was: what is behind, what is on. */
-const announcedTrail = (sent: boolean, proven: boolean, version: string, next: string): TrailItem[] => [
-  sent ? { label: `left ${version}`, state: 'done' } : { label: `leaves ${version} · now`, state: 'on' },
-  { label: 'proven to Ethereum · safe', state: !sent ? 'todo' : proven ? 'done' : 'on' },
-  { label: `waits for V${next}`, state: sent && proven ? 'on' : 'todo' },
-  { label: `lands with a tap on V${next}`, state: 'todo' },
-];
-
-const announcedTitle = (sent: boolean, sum: bigint, balance: bigint | null, version: string): string => {
-  if (!sent) return `${version} ends soon. Send your balance ahead.`;
-  const since = balance && balance > 0n ? ` ${money(balance)} mined since.` : '';
-  return `${money(sum)} sent ahead.${since}`;
-};
 
 function Announced({
   version,
   next,
-  expected,
-  ahead,
+  expectedFlipAt,
   balance,
   view,
   onSendAhead,
-  loss,
+  onHow,
   className,
-}: {
-  version: string;
-  next: string;
-  expected: number;
-  ahead: Crossing[];
-  balance: bigint | null;
-  view: BridgeView;
-  onSendAhead: () => void;
-  loss: string;
-  className?: string;
-}) {
-  const sent = ahead.length > 0;
-  const proven = sent && ahead.every((c) => !PAST.has(c.state));
-  const sum = ahead.reduce((a, c) => a + BigInt(c.amount), 0n);
-  const when = expected > 0 ? `In about ${duration(expected)}` : 'Soon';
-  const offer = !sent || (balance !== null && balance > 0n);
+}: Facts & { expectedFlipAt: bigint }) {
+  const day = dayOf(expectedFlipAt);
   return (
     <HeroCard
       className={className}
-      eyebrow={`aztec v${next} · ${expected > 0 ? `expected in about ${duration(expected)}` : 'expected any time'}`}
-      title={announcedTitle(sent, sum, balance, version)}
-      trail={announcedTrail(sent, proven, version, next)}
-      tone={sent ? 'ok' : 'uv'}
-      side={
+      eyebrow={`aztec ${next.toLowerCase()} · expected around ${day.toLowerCase()}`}
+      title={`Aztec upgrades to ${next} around ${day}.`}
+      actions={
         <>
-          {offer && <SendButton balance={balance} view={view} onSendAhead={onSendAhead} now={sent} />}
-          <Faq />
-          <span className="text-xs text-ink-3">
-            Mining continues here until the upgrade. Wins after this need sending ahead too.
-          </span>
+          <SendButton balance={balance} view={view} onSendAhead={onSendAhead} />
+          <How onHow={onHow} />
         </>
       }
       data-testid="migration-card"
       data-moment="announced"
     >
-      {sent ? (
-        <>
-          Held on Ethereum once {version} proves each epoch, out of {version}’s reach; it lands on V{next}{' '}
-          with a tap on the arrival card, same passkey. {loss}
-        </>
-      ) : (
-        <>
-          {when}, Aztec starts V{next} and {version} stops. Sent ahead, your balance waits on Ethereum, out of{' '}
-          {version}’s reach, once {version} proves the epoch; it lands on V{next} with a tap on the arrival
-          card, same passkey. The amount is public on Ethereum; the account is not. {loss}
-        </>
-      )}
-      <SentAhead ahead={ahead} balance={balance} />
+      Mining continues here until then. Send your balance ahead when you’re ready: {version} proves it out,
+      it’s held on Ethereum for {next}, and you claim it on {next} with one tap. After the upgrade {version}{' '}
+      keeps proving for a while, then stops without notice; send ahead before it does.
     </HeroCard>
   );
 }
 
-function Flipped({
+function Sent({
   version,
   next,
+  expectedFlipAt,
   ahead,
   balance,
   view,
   onSendAhead,
-  loss,
   className,
-}: {
-  version: string;
-  next: string;
-  ahead: Crossing[];
-  balance: bigint | null;
-  view: BridgeView;
-  onSendAhead: () => void;
-  loss: string;
-  className?: string;
-}) {
-  const retired = view.verdict.kind === 'flipped' && view.verdict.by.includes('retired');
-  const flipDay = view.standing && view.standing.flipAt > 0n ? day(view.standing.flipAt) : undefined;
+}: Facts & { expectedFlipAt: bigint }) {
+  const sum = ahead.reduce((a, c) => a + BigInt(c.amount), 0n);
+  const mined = balance !== null && balance > 0n;
   return (
     <HeroCard
       className={className}
-      eyebrow={`aztec v${next} is canonical${flipDay ? ` · ${flipDay}` : ''}`}
-      title={
-        <span data-testid="flipped-alert">Mining has ended on {version}. Send what is left ahead now.</span>
+      eyebrow={`aztec ${next.toLowerCase()} · expected around ${dayOf(expectedFlipAt).toLowerCase()}`}
+      title={<span data-testid="sent-ahead-status">{money(sum)} sent ahead.</span>}
+      trail={sentTrail(ahead, next)}
+      actions={
+        <>
+          {mined && <SendButton balance={balance} view={view} onSendAhead={onSendAhead} />}
+          {mined && <span className="text-sm text-ink-2">{money(balance)} mined since</span>}
+          <Button variant="link" className="text-ink-2" onClick={() => navigate('wallet')}>
+            Wallet · details
+          </Button>
+        </>
       }
+      data-testid="migration-card"
+      data-moment="announced"
+    >
+      Held on Ethereum for {next} once {version} proves it; you claim it on {next} with one tap. Wins mined
+      since then stay here until you send them too.
+    </HeroCard>
+  );
+}
+
+/** What went ahead so far, under the flipped card: the sum, and how much is still on its way. */
+function SentLine({ ahead }: { ahead: Crossing[] }) {
+  if (ahead.length === 0) return null;
+  const crossing = ahead.filter(inFlight).length;
+  const sum = ahead.reduce((a, c) => a + BigInt(c.amount), 0n);
+  return (
+    <p className="mt-2 text-xs text-ink-3" data-testid="sent-ahead-status">
+      {money(sum)} sent ahead{crossing > 0 ? ` · ${crossing} still crossing` : ' · held or landed'}
+    </p>
+  );
+}
+
+function Flipped({ version, next, ahead, balance, view, onSendAhead, onHow, className }: Facts) {
+  const now = useAtomValue(nowAtom);
+  const chip = proofChip(view.proof, lifecycleRecord()?.stoppedProvingAt, Math.floor(now / 1000), version);
+  const flipAt = view.standing && view.standing.flipAt > 0n ? view.standing.flipAt : undefined;
+  return (
+    <HeroCard
+      className={className}
       tone="warn"
-      side={
+      eyebrow={`aztec ${next.toLowerCase()} is live${flipAt ? ` · ${dayOf(flipAt).toLowerCase()} ${hhmm(flipAt)}` : ''}`}
+      aside={
+        <StatusChip tone={chip.tone} data-testid="proof-chip">
+          {chip.word}
+        </StatusChip>
+      }
+      title={<span data-testid="flipped-alert">Mining has ended on {version}. Send what’s left ahead.</span>}
+      actions={
         <>
           <SendButton balance={balance} view={view} onSendAhead={onSendAhead} />
-          <Stepper
-            className="w-full text-left"
-            steps={[
-              { id: 'canonical', label: `V${next} canonical`, state: 'done', right: flipDay },
-              {
-                id: 'retired',
-                label: `${version} retired · claims refused`,
-                state: retired ? 'done' : 'active',
-                right: retired ? undefined : 'soon',
-              },
-              { id: 'opens', label: `Yacana opens on V${next}`, state: 'active', right: 'next' },
-              { id: 'app', label: `the V${next} app here`, state: 'pending' },
-            ]}
-          />
+          <How onHow={onHow} />
         </>
       }
       data-testid="migration-card"
       data-moment="flipped"
     >
-      {version}’s contract refuses mining claims{' '}
-      {retired ? 'since the retire message landed' : 'once the retire message lands'}.{' '}
-      <b>
-        {balance && balance > 0n
-          ? `${money(balance)} still on ${version}.`
-          : `Nothing is left on ${version}.`}
-      </b>{' '}
-      Sending it ahead now is a bet that {version} proves one more epoch; leaving it is a sure loss. Yacana’s
-      next app takes this address once V{next}’s contract is deployed; each send shows its own proof deadline.{' '}
-      {loss}
-      <SentAhead ahead={ahead} balance={balance} />
+      {version} keeps proving for a while after an upgrade, then stops without notice. A send it proves is
+      held on Ethereum for {next}; one it never proves comes back here; what’s still here when it stops can’t
+      leave.
+      <SentLine ahead={ahead} />
     </HeroCard>
   );
 }
 
-export function MigrationCard({ onSendAhead, className }: { onSendAhead: () => void; className?: string }) {
+export function MigrationCard(props: Props) {
   const view = useAtomValue(bridgeAtom);
   const journal = useAtomValue(journalAtom);
   const balance = useAtomValue(balanceAtom);
-  const now = useAtomValue(nowAtom);
   const announced = migrationRecord();
   const m = moment(announced, view.verdict.kind === 'flipped');
   if (m === 'quiet') return null;
-  const version = ownVersionName();
-  const next = announced ? announced.toIndex : (view.canonical?.index.toString() ?? '?');
-  const ahead = journal.filter((c) => c.kind === 2 && c.state !== 'dropped' && c.state !== 'never-proven');
-  const expected = announced ? Number(announced.expectedFlipAt) - Math.floor(now / 1000) : 0;
-  const loss = `Anything still on ${version} when it goes quiet is lost. ${version} goes quiet after the upgrade, without notice.`;
-  const props = { version, next, ahead, balance, view, onSendAhead, loss, className };
-  return m === 'flipped' ? <Flipped {...props} /> : <Announced {...props} expected={expected} />;
+  const facts: Facts = {
+    ...props,
+    version: ownVersionName(),
+    next: nextVersionName(view.canonical),
+    // What went ahead and is not back: a send undone by a missed proof is the balance again, not a send.
+    ahead: journal.filter((c) => c.kind === 2 && c.state !== 'dropped' && c.state !== 'never-proven'),
+    balance,
+    view,
+  };
+  if (m === 'flipped') return <Flipped {...facts} />;
+  const expectedFlipAt = BigInt((announced as MigrationRecord).expectedFlipAt);
+  return facts.ahead.length > 0 ? (
+    <Sent {...facts} expectedFlipAt={expectedFlipAt} />
+  ) : (
+    <Announced {...facts} expectedFlipAt={expectedFlipAt} />
+  );
 }
-
-export type { HeroTone };

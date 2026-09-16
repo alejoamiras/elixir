@@ -3,9 +3,10 @@
 // "safe". An exit ends with its holder's claim on Ethereum (anyone may make it); a send-ahead is
 // forwarded by Yacana, its holder or an authorized relayer, or redeemed. The only promised time is
 // the proof's, because it is the only one a contract enforces.
-import type { DeadlineReading } from '../../../bridge/src/exit-deadline.ts';
+import { type DeadlineReading, dayOf, deadlinePhrase } from '../../../bridge/src/exit-deadline.ts';
 import type { Crossing, RowState } from '../../../bridge/src/journal.ts';
 import { policyFor } from '../../../bridge/src/policy.ts';
+import type { ProofReading } from '../../../bridge/src/proofs.ts';
 import { revertRow } from '../../../bridge/src/revert.ts';
 import type { ChipTone, RowAction, RowLine, TrailItem } from '../../../ui/src/index.ts';
 import { duration } from '../lib/format';
@@ -18,14 +19,6 @@ export const untilOrAgo = (deadline: bigint, nowSeconds: number): string => {
 
 const hhmm = (unixSeconds: string | bigint): string =>
   new Date(Number(unixSeconds) * 1000).toISOString().slice(11, 16);
-
-/** "Sep 20", in UTC: a date the user is told to expect, never a time of day. */
-export const dayOf = (unixSeconds: bigint): string =>
-  new Date(Number(unixSeconds) * 1000).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC',
-  });
 
 /** "18:52 · Sep 11", in UTC: when a crossing started. */
 export const stamp = (ms: number): string =>
@@ -85,19 +78,27 @@ const POLICY = policyFor();
 const FLOOR_DAYS = Number(POLICY.exitFloor / 86_400n);
 const PAUSE_BUDGET_DAYS = Number(POLICY.pauseBudget / 86_400n);
 
+/** Silence this long after the last proof Ethereum accepted is said as such: a few epochs' proof windows. */
+export const SILENT_AFTER_S = 2 * 3600;
+
 /**
- * The version's last day, in the four readings the portal allows. Never a bare date while the
- * upgrade after the next one is unrecorded: that observation can still push the date out, and every
- * paused day pushes it further — so the phrase says what is guaranteed and what could extend it.
+ * The live chip of a version's proving, from what Ethereum last accepted: an age, a silence past
+ * `SILENT_AFTER_S`, "checking" while the scan is unfinished, and "stopped" only from the operator's
+ * recorded stop — never from a silent hour.
  */
-export const deadlinePhrase = (d: DeadlineReading | undefined, after: string): string => {
-  if (!d) return 'while the bridge is open';
-  if (d.kind === 'no-flip')
-    return `for at least ${FLOOR_DAYS} days after the upgrade; after that, until the upgrade after ${after} lands`;
-  if (d.kind === 'floor')
-    return `until at least ${dayOf(d.until)} (${FLOOR_DAYS} days after the upgrade); after that day, until the upgrade after ${after} lands`;
-  if (d.kind === 'any-day') return 'until the next Aztec upgrade, which could land any day';
-  return `until ${dayOf(d.at)} (the upgrade after ${after} has already landed; later only by the days the bridge was paused)`;
+export const proofChip = (
+  proof: ProofReading | undefined,
+  stoppedAt: string | undefined,
+  nowSeconds: number,
+  version: string,
+): { word: string; tone: ChipTone; silentS?: number } => {
+  if (stoppedAt !== undefined) return chip(`${version} stopped proving · ${dayOf(BigInt(stoppedAt))}`, 'bad');
+  if (proof === undefined || proof === 'unknown') return chip('checking', 'dim');
+  if (proof === 'none') return chip(`no proof from ${version} yet`, 'warn');
+  const age = Math.max(0, nowSeconds - Number(proof.at));
+  if (age > SILENT_AFTER_S)
+    return { ...chip(`no proof from ${version} for ${duration(age)}`, 'warn'), silentS: age };
+  return chip(`${version} proved an epoch ${duration(age)} ago`, 'ok');
 };
 
 /** Past the floor with no upgrade after the next one observed: the exits can close on any day now. */

@@ -1,6 +1,7 @@
 // The portal's exit deadline, read rather than announced: an unpause refunds the seconds it did
 // not use, so every refresh reads it again and no date is ever promised. Its inputs must come from
 // one L1 block — a transition recorded between two of them gives a deadline that never existed.
+import { policyFor } from './policy.ts';
 
 /** The portal's "never": what `deadline()` returns while a transition is unrecorded. */
 export const OPEN_ENDED = (1n << 256n) - 1n;
@@ -43,3 +44,28 @@ export function readDeadline(s: DeadlineFacts): DeadlineReading {
   const until = s.flipAt + s.floor + s.pausedSeconds;
   return s.l1Now > until ? { kind: 'any-day' } : { kind: 'floor', until };
 }
+
+const FLOOR_DAYS = Number(policyFor().exitFloor / 86_400n);
+
+/** "Sep 20", in UTC: a date the user is told to expect, never a time of day. */
+export const dayOf = (unixSeconds: bigint): string =>
+  new Date(Number(unixSeconds) * 1000).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+
+/**
+ * The version's last day, in the four readings the portal allows. Never a bare date while the
+ * upgrade after the next one is unrecorded: that observation can still push the date out, and every
+ * paused day pushes it further — so the phrase says what is guaranteed and what could extend it.
+ */
+export const deadlinePhrase = (d: DeadlineReading | undefined, after: string): string => {
+  if (!d) return 'while the bridge is open';
+  if (d.kind === 'no-flip')
+    return `for at least ${FLOOR_DAYS} days after the upgrade; after that, until the upgrade after ${after} lands`;
+  if (d.kind === 'floor')
+    return `until at least ${dayOf(d.until)} (${FLOOR_DAYS} days after the upgrade); after that day, until the upgrade after ${after} lands`;
+  if (d.kind === 'any-day') return 'until the next Aztec upgrade, which could land any day';
+  return `until ${dayOf(d.at)} (the upgrade after ${after} has already landed; later only by the days the bridge was paused)`;
+};

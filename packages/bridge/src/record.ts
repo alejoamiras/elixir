@@ -1,4 +1,4 @@
-// The two blocks a deployment record carries for the bridge, as every side reads them: the deploy
+// The blocks a deployment record carries for the bridge, as every side reads them: the deploy
 // script writes them, the site builds them into the apps, the operator and the stats page read them.
 export interface BridgeRecord {
   chainId: string;
@@ -22,4 +22,16 @@ export interface MigrationRecord {
   toIndex: string;
   announcedAt: string;
   expectedFlipAt: string;
+}
+
+/**
+ * What no chain records about a retired version, noted by the operator on the version's own record
+ * (`note-stop`, `retire-node`) and carried by the old origin's redeploy: never inherited by a
+ * continuation. The pages say "stopped" only from here, never from a silent hour.
+ */
+export interface LifecycleRecord {
+  /** Unix seconds: when the version's proving stopped for good. */
+  stoppedProvingAt?: string;
+  /** The version's node is gone: the old origin has nothing to read and says so before any node access. */
+  nodeRetired?: boolean;
 }

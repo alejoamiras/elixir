@@ -221,31 +221,31 @@ function WinsList({ wins }: { wins: Win[] }) {
 
 type Held = [Crossing | null, (c: Crossing | null) => void];
 
-/** The money dialogs on the bridge, each open on its own state. */
-function MoneyDialogs({
+/** The money dialogs on the bridge, each open on its own state; the old origin has no deposit. */
+export function MoneyDialogs({
   session,
   balance,
   exit: [exit, setExit],
-  deposit: [deposit, setDeposit],
+  deposit,
   redeem: [redeem, setRedeem],
   forward: [forward, setForward],
 }: {
   session: Session;
   balance: bigint | null;
   exit: [boolean, (o: boolean) => void];
-  deposit: [false | { resume?: Crossing }, (d: false | { resume?: Crossing }) => void];
+  deposit?: [false | { resume?: Crossing }, (d: false | { resume?: Crossing }) => void];
   redeem: Held;
   forward: Held;
 }) {
   return (
     <>
       <ToEthereumDialog session={session} balance={balance ?? 0n} open={exit} onOpenChange={setExit} />
-      {deposit && (
+      {deposit?.[0] && (
         <FromEthereumDialog
           session={session}
           open
-          onOpenChange={(o) => !o && setDeposit(false)}
-          resume={deposit.resume}
+          onOpenChange={(o) => !o && deposit[1](false)}
+          resume={deposit[0].resume}
         />
       )}
       <ClaimDialog

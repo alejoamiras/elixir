@@ -51,7 +51,8 @@ function Row({
   onDefault,
 }: {
   nodeUrl: string;
-  onChange: () => void;
+  /** Absent, the row reports and offers no change: the old origin's node is the version's, not a setting. */
+  onChange?: () => void;
   onDefault: () => void;
 }) {
   const health = useSyncExternalStore(subscribeNodeHealth, nodeHealth, nodeHealth);
@@ -99,10 +100,12 @@ function Row({
             Retry
           </Button>
         )}
-        <Button size="sm" onClick={onChange} disabled={pinned} data-testid="node-change">
-          Change
-        </Button>
-        {pinned && <span className="text-2xs text-ink-3">set by the page URL</span>}
+        {onChange && (
+          <Button size="sm" onClick={onChange} disabled={pinned} data-testid="node-change">
+            Change
+          </Button>
+        )}
+        {onChange && pinned && <span className="text-2xs text-ink-3">set by the page URL</span>}
       </div>
     </div>
   );
@@ -187,10 +190,12 @@ export function NodeTile({
   session,
   nodeUrl,
   onSwitched,
+  readOnly = false,
 }: {
   session: Session;
   nodeUrl: string;
   onSwitched: () => void;
+  readOnly?: boolean;
 }) {
   const [state, dispatch] = useReducer(editReducer, { kind: 'row' });
   const save = async (typed: string) => {
@@ -235,7 +240,7 @@ export function NodeTile({
       {state.kind === 'row' ? (
         <Row
           nodeUrl={nodeUrl}
-          onChange={() => dispatch({ type: 'change', url: '' })}
+          onChange={readOnly ? undefined : () => dispatch({ type: 'change', url: '' })}
           onDefault={() => {
             dispatch({ type: 'change', url: defaultNodeUrl() });
             void save(defaultNodeUrl());

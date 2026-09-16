@@ -11,6 +11,7 @@
 //                    | set-forwarder <address> on|off
 //                    | retire <version>            (L1, once; then L2 with YACANA_DEPLOYER_SECRET and the record's node)
 //                    | forward <source-record> [target-record] [--from-archive] [--batch <n>]
+//                    | note-stop <version> [<unix seconds>] | retire-node <version>   (record writes: no key, no chain)
 import { Fr } from '@aztec/aztec.js/fields';
 import { errorName } from '@yacana/bridge/src/revert.ts';
 import { getAddress } from 'viem';
@@ -18,6 +19,7 @@ import { PROFILE } from '../../miner-core/src/generated/params.ts';
 import { parseCliArgs } from '../src/bridge/cli.ts';
 import { forwardAll } from '../src/bridge/forward.ts';
 import { openL2 } from '../src/bridge/l2.ts';
+import { LIFECYCLE_COMMANDS, type LifecycleCommand, writeLifecycle } from '../src/bridge/lifecycle.ts';
 import { loadRecord, operatorFromEnv } from '../src/bridge/operator.ts';
 import { closeDeposits, pause, pauseAll, unpause } from '../src/bridge/pause.ts';
 import { noteRegistryIndex, registerVersion, setForwarder } from '../src/bridge/register.ts';
@@ -35,6 +37,13 @@ const arg = (i: number, name: string): string => {
   if (v === undefined) throw new Error(`${command} needs <${name}>`);
   return v;
 };
+// The lifecycle notes touch the record alone: written and done before any RPC is opened.
+if (command && LIFECYCLE_COMMANDS.includes(command)) {
+  const record = process.env.YACANA_RECORD ?? `deployments/${PROFILE}.json`;
+  const written = writeLifecycle(record, command as LifecycleCommand, arg(0, 'version'), args[1]);
+  console.log(`${command}: ${record} now carries lifecycle ${JSON.stringify(written)}`);
+  process.exit(0);
+}
 const op = await operatorFromEnv(PROFILE);
 
 switch (command) {

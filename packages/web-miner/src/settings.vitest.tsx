@@ -105,6 +105,24 @@ describe('Settings', () => {
     expect(screen.getByTestId('sign-out-dialog')).toBeTruthy();
   });
 
+  test('the old origin: the node reports but is not a setting, no mining or alerts, the account beside the apex', () => {
+    vi.stubEnv('VITE_APP_ROLE', 'old');
+    vi.stubEnv('VITE_ROLLUP_VERSION', '5');
+    vi.stubEnv('VITE_RP_ID', 'yacana.network');
+    const { container } = mount(true);
+    const headers = Array.from(container.querySelectorAll('[data-slot=tile-header]')).map(
+      (h) => h.firstElementChild?.textContent,
+    );
+    expect(headers).toEqual(['network', 'account', 'appearance', 'about']);
+    expect(screen.getByTestId('node-row')).toBeTruthy();
+    expect(screen.queryByTestId('node-change')).toBeNull();
+    expect(screen.getByText('passkey · the same account as yacana.network')).toBeTruthy();
+    expect(container.textContent).toContain('this origin');
+    expect(screen.getByTestId('about-line').textContent).toContain(
+      'The old app, kept so what is still on V5 can leave.',
+    );
+  });
+
   test('signed out: the way in, and the node row still there', () => {
     mount(false);
     expect(screen.getByTestId('sign-in-settings')).toBeTruthy();

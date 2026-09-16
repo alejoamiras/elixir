@@ -116,13 +116,20 @@ describe('the sentences', () => {
     expect(pauseLine({ ...live, pausedUntil: BigInt(NOW + 7200) }, policy, NOW)).toContain('not paused');
   });
 
-  test("a version's line: live, flipped, flipped but unrecorded, ahead of the flip, or not registered", () => {
-    const at5 = { version: 5n, index: 5n };
+  test("a version's line: live, flipped (the last day in its readings), unrecorded, ahead of the flip, or not registered", () => {
+    const at5 = { canonical: { version: 5n, index: 5n }, policy, chainTime: BigInt(NOW) };
     expect(versionLine(live, at5)).toBe('the live version · mining, deposits and withdrawals here');
     expect(versionLine({ ...live, depositsClosed: true }, at5)).toContain('deposits closed');
-    const at6 = { version: 6n, index: 6n };
-    expect(versionLine({ ...live, flipAt: 1_799_500_000n, deadline: 1_801_000_000n }, at6)).toBe(
+    const at6 = { ...at5, canonical: { version: 6n, index: 6n } };
+    // Both transitions recorded: a date. The version after next unseen: the floor while it lasts, then the cliff.
+    expect(versionLine({ ...live, flipAt: 1_799_500_000n, afterNextAt: 1_801_000_000n }, at6)).toBe(
       'upgraded from on 2027-01-09 · last day 2027-01-26',
+    );
+    expect(versionLine({ ...live, flipAt: BigInt(NOW - 60) }, at6)).toBe(
+      'upgraded from on 2027-01-15 · last day 2027-01-15 at the earliest',
+    );
+    expect(versionLine({ ...live, flipAt: 1_799_500_000n }, at6)).toBe(
+      'upgraded from on 2027-01-09 · could close any day',
     );
     expect(versionLine(live, at6)).toBe('upgraded from · the upgrade not yet recorded on the portal');
     expect(versionLine({ ...live, version: 7n, registryIndex: 7n }, at6)).toBe(
@@ -132,20 +139,23 @@ describe('the sentences', () => {
   });
 
   test('the phases: announced from the record, the upgrade and the retire from the portal, the last day from the deadline', () => {
-    const quiet = phasesOf(live, null, NOW).map((s) => `${s.id}:${s.state}`);
+    const at = { policy, chainTime: BigInt(NOW) };
+    const quiet = phasesOf(live, null, NOW, at).map((s) => `${s.id}:${s.state}`);
     expect(quiet).toEqual(['launched:done', 'announced:todo', 'flip:todo', 'retire:todo', 'closes:todo']);
     const announced = phasesOf(
       live,
       { toIndex: '1', announcedAt: '1799900000', expectedFlipAt: '1800500000' },
       NOW,
+      at,
     );
     expect(announced[1]).toMatchObject({ state: 'done', label: 'V1 announced' });
     expect(announced[1]?.detail).toBe('Jan 14 · send ahead before Jan 21');
     expect(announced[2]).toMatchObject({ state: 'on', label: 'V1 canonical' });
     const flipped = phasesOf(
-      { ...live, flipAt: 1_799_500_000n, retireSent: true, deadline: 1_801_000_000n },
+      { ...live, flipAt: 1_799_500_000n, retireSent: true, afterNextAt: 1_801_000_000n },
       null,
       NOW,
+      at,
     );
     expect(flipped.map((s) => `${s.id}:${s.state}`)).toEqual([
       'launched:done',
@@ -159,6 +169,12 @@ describe('the sentences', () => {
       label: 'V5 goes quiet',
       detail: 'retire message sent · mining ends when the miner consumes it · proving may stop any time',
     });
+    expect(flipped[4]?.detail).toBe('Jan 26 · plus paused days');
+    // Past the floor with the version after next unseen: the cliff, on; past a recorded date: done.
+    const cliff = phasesOf({ ...live, flipAt: 1_799_500_000n }, null, NOW, at);
+    expect(cliff[4]).toMatchObject({ state: 'on', detail: 'could close any day · V7 going live ends it' });
+    const past = phasesOf({ ...live, flipAt: 1_799_500_000n, afterNextAt: 1_799_600_000n }, null, NOW, at);
+    expect(past[4]).toMatchObject({ state: 'done', detail: 'Jan 10 · passed' });
   });
 });
 

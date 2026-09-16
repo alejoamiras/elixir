@@ -101,6 +101,21 @@ after the flip lands like any other once its epoch is proven (rig case H4). The 
     serves each version's lines at `/witnesses/<version>.jsonl`, and a holder's page on V6 completes a V5 send it
     already holds from there once V5's node is gone (a device that never held it needs the recovery file).
 
+## When V5 stops
+
+11. **Note the stop.** When V5's operators stop it for good (its last proof is on Ethereum; the miner's chip and
+    the old origin say "no proof from V5 for …" meanwhile, never "stopped"), `YACANA_RECORD=deployments/testnet-v5.json
+    bun run bridge -- note-stop <V5> [<unix seconds>]` writes `lifecycle.stoppedProvingAt` to V5's record: no key,
+    no chain, the time defaults to now, a second note is refused. Commit it. Then redeploy the old origin with the
+    note: in step 8's worktree (V5's record is `deployments/testnet.json` there) run the same `note-stop` against
+    that path, build and `wrangler deploy -c v5/wrangler.jsonc`. Its page turns from "send ahead" to "V5 has
+    stopped proving. Nothing more can leave"; what V5 proved in time stays claimable on V6 or redeemable on
+    Ethereum until V5's last day. The pages never infer a stop from a silent hour: only this note says "stopped".
+12. **Retire the node.** Commit the witness archive first (step 10: a holder's V6 page completes V5's settled sends
+    from `/witnesses/5.jsonl`, not from V5's node), then take V5's node down and `bun run bridge -- retire-node
+    <V5>` on both records as in step 11 (after the stop, once): `lifecycle.nodeRetired`. The old origin's redeploy
+    then shows the "node gone" page before any node access — no log in, no Change node, the apex one link away.
+
 ## Then
 
 - V5's deadline: the later of the version after next's observed activation and 180 days after the flip, plus
@@ -124,3 +139,4 @@ after the flip lands like any other once its epoch is proven (rig case H4). The 
 | pause | `pause`, `pause-all`, `unpause` | `bridge.bun.test.ts` (H9: held exits, the budget charged), `migration.bun.test.ts` (`pause-all` reaches every version) |
 | forward | `forward` | `migration.bun.test.ts` (H11: a stranger refused, a wrong target held, the forwarder and the holder accepted, all from the archive with the source node gone), `bridge.bun.test.ts` (H1, H6, H10), `never-settled.bun.test.ts` (an unproven epoch forwards nothing) |
 | the holder's side | — | `browser.bun.test.ts` (V5, the flip, V6 through the page), `origin.bun.test.ts` (one passkey across the apex and the old origin) |
+| the stop, the node's retirement | `note-stop`, `retire-node` | record writes only: `packages/deploy/src/bridge/lifecycle.test.ts`; the pages' states on them are component specs (`versioned-origin.vitest.tsx`, `gallery.vitest.tsx`) |

@@ -2,6 +2,7 @@
 // page draws (YACA's supply, every crossing's event with its time) arrive beside it, and the
 // figures of the tiles, the bar and the chart are derived here from both.
 
+import { type DeadlineReading, readDeadline } from '../../bridge/src/exit-deadline.ts';
 import type { PortalPolicy, PortalReader, VersionFlows } from '../../bridge/src/portal-reader.ts';
 import type { MigrationRecord } from '../../bridge/src/record.ts';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
@@ -86,6 +87,43 @@ const max0 = (v: bigint): bigint => (v < 0n ? 0n : v);
 const closed = (v: VersionFlows, nowSeconds: number): boolean =>
   v.deadline !== OPEN_ENDED && BigInt(nowSeconds) > v.deadline;
 
+/** The last day as the portal computes it, from the transitions and the pause accounting at the read's block. */
+export const deadlineOf = (
+  v: VersionFlows,
+  s: Pick<BridgeSnapshot, 'policy' | 'chainTime'>,
+): DeadlineReading =>
+  readDeadline({
+    flipAt: v.flipAt,
+    afterNextAt: v.afterNextAt,
+    pausedSeconds: v.pausedSeconds,
+    floor: s.policy.exitFloor,
+    l1Now: s.chainTime,
+  });
+
+/**
+ * The last day in the four readings: a rule before the upgrade, a floor while the version after
+ * next is unseen, a cliff once the floor is past, a date only once both transitions are recorded.
+ */
+export function lastDayWords(
+  d: DeadlineReading,
+  v: VersionFlows,
+  floorDays: number,
+  date: (unix: bigint) => string = day,
+): string {
+  const afterNext = `V${v.registryIndex + 2n} going live`;
+  if (d.kind === 'no-flip')
+    return `the later of ${afterNext} and ${floorDays} d after the upgrade · plus paused days`;
+  if (d.kind === 'floor') return `${date(d.until)} at the earliest · then ${afterNext}`;
+  if (d.kind === 'any-day') return `could close any day · ${afterNext} ends it`;
+  return d.closed ? `${date(d.at)} · passed` : `${date(d.at)} · plus paused days`;
+}
+
+const lastDayShort = (d: DeadlineReading): string => {
+  if (d.kind === 'set') return `last day ${day(d.at)}${d.closed ? ' · passed' : ''}`;
+  if (d.kind === 'floor') return `last day ${day(d.until)} at the earliest`;
+  return d.kind === 'any-day' ? 'could close any day' : 'no last day yet';
+};
+
 /**
  * The exit limit in one sentence: what may leave now and what the rest waits for. Headroom is room
  * under the limit, not leave to go: a pause holds it and the last day ends it, so the line says
@@ -125,16 +163,17 @@ export function pauseLine(v: VersionFlows, policy: PortalPolicy, nowSeconds: num
   return `paused${more > 0 ? ` for ${duration(more)} more` : ''} · ${spent}`;
 }
 
-export function versionLine(v: VersionFlows, canonical: { version: bigint; index: bigint }): string {
+export function versionLine(
+  v: VersionFlows,
+  s: Pick<BridgeSnapshot, 'canonical' | 'policy' | 'chainTime'>,
+): string {
+  const canonical = s.canonical;
   if (!v.registered) return 'not registered on the portal yet';
   if (v.version === canonical.version)
     return v.depositsClosed
       ? 'the live version · deposits closed before the upgrade'
       : 'the live version · mining, deposits and withdrawals here';
-  if (v.flipAt > 0n)
-    return v.deadline === OPEN_ENDED
-      ? `upgraded from on ${day(v.flipAt)} · no last day yet`
-      : `upgraded from on ${day(v.flipAt)} · last day ${day(v.deadline)}`;
+  if (v.flipAt > 0n) return `upgraded from on ${day(v.flipAt)} · ${lastDayShort(deadlineOf(v, s))}`;
   if (v.registryIndex < canonical.index) return 'upgraded from · the upgrade not yet recorded on the portal';
   return 'registered ahead of the upgrade · not live yet';
 }
@@ -184,23 +223,24 @@ const retirePhase = (v: VersionFlows, flipped: boolean): TimelineItem => ({
     : 'days later · nothing can leave',
 });
 
-const closesPhase = (v: VersionFlows, nowSeconds: number): TimelineItem => {
-  const dated = v.deadline !== OPEN_ENDED;
-  return {
-    id: 'closes',
-    label: 'last day',
-    state: closed(v, nowSeconds) ? 'done' : dated ? 'on' : 'todo',
-    detail: dated
-      ? `${shortDay(v.deadline)} · plus paused days`
-      : 'the later of the version after next and 180 d after the upgrade · plus paused days',
-  };
-};
+/** The last day's phase: a rule until the upgrade, then the reading, done once Ethereum is past the date. */
+const closesPhase = (v: VersionFlows, d: DeadlineReading, floorDays: number): TimelineItem => ({
+  id: 'closes',
+  label: 'last day',
+  state: d.kind === 'set' && d.closed ? 'done' : d.kind === 'no-flip' ? 'todo' : 'on',
+  detail: lastDayWords(d, v, floorDays, shortDay),
+});
 
 /**
  * A version's life as a timeline: the launch (from the portal's registration), the announcement
  * (from the build's record, when it carries one), the upgrade, the retire message, its last day.
  */
-export function phasesOf(v: VersionFlows, m: MigrationRecord | null, nowSeconds: number): TimelineItem[] {
+export function phasesOf(
+  v: VersionFlows,
+  m: MigrationRecord | null,
+  nowSeconds: number,
+  s: Pick<BridgeSnapshot, 'policy' | 'chainTime'>,
+): TimelineItem[] {
   const flipped = v.flipAt > 0n;
   const next = m ? `V${m.toIndex}` : 'the next version';
   return [
@@ -208,7 +248,7 @@ export function phasesOf(v: VersionFlows, m: MigrationRecord | null, nowSeconds:
     announcedPhase(m, flipped, next),
     flipPhase(v, m, flipped, next),
     retirePhase(v, flipped),
-    closesPhase(v, nowSeconds),
+    closesPhase(v, deadlineOf(v, s), Number(s.policy.exitFloor / 86_400n)),
   ];
 }
 

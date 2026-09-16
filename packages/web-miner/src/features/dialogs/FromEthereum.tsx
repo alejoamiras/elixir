@@ -4,6 +4,7 @@ import { useAtomValue } from 'jotai';
 import { type ComponentProps, useState } from 'react';
 import type { Hex } from 'viem';
 import { useAccount } from 'wagmi';
+import { dayOf } from '../../../../bridge/src/exit-deadline.ts';
 import type { Crossing } from '../../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../../miner-core/src/generated/params.ts';
 import { ownVersionName } from '../../../../site/src/browser/version-name.ts';
@@ -15,7 +16,6 @@ import {
   Note,
   Stepper,
 } from '../../../../ui/src/index.ts';
-import { dayOf } from '../../bridge/copy';
 import { migrationRecord, nextVersionName } from '../../bridge/env';
 import { reviewAmount } from '../../bridge/forms';
 import { moneyStanding } from '../../bridge/rows';

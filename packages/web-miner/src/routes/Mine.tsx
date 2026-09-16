@@ -20,13 +20,23 @@ import { balanceAtom, bootAtom, minerAtom } from '../state';
 function GuidedPath({ session }: { session: Session }) {
   const onError = useTileLog();
   const balance = useAtomValue(balanceAtom);
-  const [ahead, setAhead] = useState(false);
+  const [ahead, setAhead] = useState<false | 'form' | 'how'>(false);
   return (
     <BridgeProviders>
       <TileBoundary name="migration" onError={onError} className="md:col-span-2 xl:col-span-4">
-        <MigrationCard onSendAhead={() => setAhead(true)} className="md:col-span-2 xl:col-span-4" />
+        <MigrationCard
+          onSendAhead={() => setAhead('form')}
+          onHow={() => setAhead('how')}
+          className="md:col-span-2 xl:col-span-4"
+        />
       </TileBoundary>
-      <SendAheadDialog session={session} balance={balance ?? 0n} open={ahead} onOpenChange={setAhead} />
+      <SendAheadDialog
+        session={session}
+        balance={balance ?? 0n}
+        open={ahead !== false}
+        initial={ahead || 'form'}
+        onOpenChange={(o) => !o && setAhead(false)}
+      />
     </BridgeProviders>
   );
 }
