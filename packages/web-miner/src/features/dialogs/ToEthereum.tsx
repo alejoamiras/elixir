@@ -1,8 +1,8 @@
-// Bridge to Ethereum: one screen. The amount, the recipient (the connected wallet as a chip, or a
-// pasted address shown in full with its warning), the three summary rows, and a button that carries
-// the amount. Then the proof, then the send with its stations; the Wallet's row takes it from there.
+// Bridge to Ethereum. A pasted recipient is shown in full, with its warning, because a wrong
+// address here cannot be undone; the connected wallet is the default. The dialog ends at the send:
+// the Wallet's row carries the crossing from there.
 import { useAtomValue } from 'jotai';
-import { type ComponentProps, useState } from 'react';
+import { type ComponentProps, useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
 import type { Crossing } from '../../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../../miner-core/src/generated/params.ts';
@@ -27,9 +27,10 @@ import {
   seconds,
   TxDialog,
   useElapsed,
+  useLive,
   useOpening,
 } from './Frame';
-import { chain, WalletChip } from './Wallet';
+import { ConnectWallet, chain, WalletChip } from './Wallet';
 
 const SYM = PARAMS.TOKEN_SYMBOL;
 const money = (raw: bigint) => `${fmt(raw, PARAMS.DECIMALS)} ${SYM}`;
@@ -37,6 +38,7 @@ const money = (raw: bigint) => `${fmt(raw, PARAMS.DECIMALS)} ${SYM}`;
 type Step =
   | { kind: 'form' }
   | { kind: 'how' }
+  | { kind: 'connect' }
   | { kind: 'proving'; snap: EthSnapshot; since: number }
   | { kind: 'sent'; snap: EthSnapshot; crossing?: Crossing; provedMs: number };
 
@@ -48,6 +50,7 @@ function Recipient({
   refusal,
   onPaste,
   onWallet,
+  onConnect,
   disabled,
 }: {
   pasted: boolean;
@@ -56,17 +59,24 @@ function Recipient({
   refusal: string | null;
   onPaste: () => void;
   onWallet: () => void;
+  onConnect: () => void;
   disabled: boolean;
 }) {
   const account = useAccount();
   const connected = account.isConnected && account.address !== undefined;
+  // The pasted address is the connected wallet's own: nothing to warn about.
+  const own = connected && text.trim().toLowerCase() === account.address?.toLowerCase();
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-3 text-[13px]">
         <span className="text-ink-2">To</span>
-        {connected && (
+        {connected ? (
           <Quiet onClick={pasted ? onWallet : onPaste} disabled={disabled} data-testid="exit-to-change">
             {pasted ? 'Use my wallet instead' : 'Change'}
+          </Quiet>
+        ) : (
+          <Quiet onClick={onConnect} disabled={disabled} data-testid="exit-connect">
+            Connect wallet
           </Quiet>
         )}
       </div>
@@ -94,7 +104,7 @@ function Recipient({
           )}
           {text.trim() !== '' && refusal === null && (
             <>
-              {connected && (
+              {connected && !own && (
                 <span className="self-start rounded-sm border border-warn/50 px-1.5 py-0.5 font-mono text-[10px] text-warn">
                   pasted · not your connected wallet
                 </span>
@@ -114,10 +124,12 @@ function Form({
   balance,
   onSend,
   onHow,
+  onConnect,
 }: {
   balance: bigint;
   onSend: (snap: EthSnapshot) => void;
   onHow: () => void;
+  onConnect: () => void;
 }) {
   const account = useAccount();
   const [amount, setAmount] = useState('');
@@ -174,6 +186,7 @@ function Form({
         refusal={refusal}
         onPaste={() => setPasted(true)}
         onWallet={() => setPasted(false)}
+        onConnect={onConnect}
         disabled={false}
       />
       <Rows>
@@ -306,10 +319,18 @@ function ToEthereumRun({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const account = useAccount();
   const [step, setStep] = useState<Step>({ kind: 'form' });
   const [error, setError] = useState<string>();
+  const live = useLive(open);
   const close = () => onOpenChange(false);
+  const connected = account.isConnected && account.address !== undefined;
+  // The wallet picked from the form's own "Connect wallet" becomes the recipient as it connects.
+  useEffect(() => {
+    if (step.kind === 'connect' && connected) setStep({ kind: 'form' });
+  }, [step.kind, connected]);
   const send = async (snap: EthSnapshot) => {
+    if (!live()) return;
     const since = Date.now();
     setError(undefined);
     setStep({ kind: 'proving', snap, since });
@@ -321,18 +342,15 @@ function ToEthereumRun({
       setStep({ kind: 'form' });
     }
   };
-  const title =
-    step.kind === 'form' || step.kind === 'how'
-      ? 'Bridge to Ethereum.'
-      : step.kind === 'proving'
-        ? `Bridging ${step.snap.display} ${SYM}.`
-        : `${step.snap.display} ${SYM} on its way.`;
+  const title = titleOf(step);
+  const formStays = step.kind === 'form' || step.kind === 'how' || step.kind === 'connect';
   return (
     <TxDialog
       open={open}
       onOpenChange={(o) => !o && close()}
       eyebrow={step.kind === 'how' ? 'bridge · how it works' : 'bridge'}
-      title={step.kind === 'how' ? `What happens to what you bridge.` : title}
+      title={title}
+      body={step.kind === 'connect' ? 'The wallet the YACA goes to.' : undefined}
       locked={step.kind === 'proving'}
       data-testid="to-ethereum-dialog"
     >
@@ -341,15 +359,32 @@ function ToEthereumRun({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      {step.kind === 'form' && (
-        <Form balance={balance} onSend={(s) => void send(s)} onHow={() => setStep({ kind: 'how' })} />
+      {formStays && (
+        // The form stays mounted under the other screens: its draft comes back untouched.
+        <div className={step.kind === 'form' ? 'contents' : 'hidden'}>
+          <Form
+            balance={balance}
+            onSend={(s) => void send(s)}
+            onHow={() => setStep({ kind: 'how' })}
+            onConnect={() => setStep({ kind: 'connect' })}
+          />
+        </div>
       )}
       {step.kind === 'how' && <How onBack={() => setStep({ kind: 'form' })} />}
+      {step.kind === 'connect' && <ConnectWallet onCancel={() => setStep({ kind: 'form' })} />}
       {step.kind === 'proving' && <Proving since={step.since} />}
       {step.kind === 'sent' && <Sent step={step} onDone={close} />}
     </TxDialog>
   );
 }
+
+const titleOf = (step: Step): string => {
+  if (step.kind === 'how') return 'What happens to what you bridge.';
+  if (step.kind === 'connect') return 'Connect a wallet.';
+  if (step.kind === 'proving') return `Bridging ${step.snap.display} ${SYM}.`;
+  if (step.kind === 'sent') return `${step.snap.display} ${SYM} on its way.`;
+  return 'Bridge to Ethereum.';
+};
 
 /** Bridge to Ethereum, one run per opening. */
 export function ToEthereumDialog(props: ComponentProps<typeof ToEthereumRun>) {

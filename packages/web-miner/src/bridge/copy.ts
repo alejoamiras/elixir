@@ -69,10 +69,14 @@ export interface RowFacts {
   verdictUnknown?: boolean;
   /** This page is proving the claim right now: not a journal state, the tap's own progress. */
   claiming?: boolean;
+  /** Seconds since the row's own work began: the proof since the send, the claim since the tap. */
+  elapsed?: number;
+  /** An arrival that lands on another version than this build's, by name: it is claimed there, not here. */
+  elsewhere?: string;
   /** The amount in the unit of where it lands: what the sentence says it becomes ("3.5 tYACA"). */
   money: string;
-  /** The Ethereum party, shortened for a sentence ("0x90F7…b906"). */
-  who: string;
+  /** The Ethereum party, shortened for a sentence ("0x90F7…b906"); a redeem's, only once known. */
+  who?: string;
   /** The Ethereum network the claim needs a wallet on ("Sepolia"). */
   chain: string;
   /** The Ethereum wallet's own name, when one is connected ("Rabby"). */
@@ -90,7 +94,8 @@ const PAUSE_BUDGET_DAYS = Number(POLICY.pauseBudget / 86_400n);
  */
 export const deadlinePhrase = (d: DeadlineReading | undefined, after: string): string => {
   if (!d) return 'while the bridge is open';
-  if (d.kind === 'no-flip') return `for at least ${FLOOR_DAYS} days after the upgrade`;
+  if (d.kind === 'no-flip')
+    return `for at least ${FLOOR_DAYS} days after the upgrade; after that, until the upgrade after ${after} lands`;
   if (d.kind === 'floor')
     return `until at least ${dayOf(d.until)} (${FLOOR_DAYS} days after the upgrade); after that day, until the upgrade after ${after} lands`;
   if (d.kind === 'any-day') return 'until the next Aztec upgrade, which could land any day';
@@ -101,6 +106,11 @@ export const deadlinePhrase = (d: DeadlineReading | undefined, after: string): s
 const anyDay = (f: RowFacts): boolean => f.deadline?.kind === 'any-day';
 
 const chip = (word: string, tone: ChipTone) => ({ word, tone });
+/** The chip of work under way here, with its seconds ("proving · 8 s"), and the bar against the usual 20 s. */
+const working = (word: string, elapsed: number | undefined) => ({
+  chip: chip(elapsed === undefined ? word : `${word} · ${Math.floor(elapsed)} s`, 'on' as const),
+  progress: elapsed === undefined ? undefined : Math.min(1, elapsed / 20),
+});
 const st = (label: string, state: TrailItem['state']): TrailItem => ({ label, state });
 const act = (kind: RowAction, label: string, disabled?: string) => ({ kind, label, disabled });
 
@@ -146,7 +156,7 @@ const proving: Line = (c, f) =>
         ],
       }
     : {
-        chip: chip('proving', 'on'),
+        ...working('proving', f.elapsed),
         sentence: 'Proving privately, about 20 s.',
         trail: [st('proving', 'on'), st('reached Ethereum', 'todo'), st(`claim on ${f.target}`, 'todo')],
       };
@@ -167,7 +177,6 @@ const headroom: Line = (c, f) =>
         chip: chip('over the limit', 'bad'),
         sentence: `${f.version}'s exit limit froze at the upgrade, and this is beyond it. It cannot ${c.kind === 2 ? 'be forwarded or redeemed' : 'leave'}.`,
         trail: road(c, [st('over the limit', 'bad')]),
-        action: act('details', 'Details'),
       }
     : {
         chip: chip('waiting for the limit', 'warn'),
@@ -226,15 +235,24 @@ const held: Line = (c, f) => {
   };
 };
 
-/** Arrived and unclaimed. A claim made once and undone by a pruned epoch says so: its hash is still on the record. */
+/**
+ * Arrived and unclaimed. A claim made once and undone by a pruned epoch says so: its hash is still
+ * on the record. An arrival on another version is claimed from that version's page, not this one.
+ */
 const claimable: Line = (c, f) => {
   const trail =
     c.kind === 3
-      ? [st('sent from your wallet', 'done'), st('crossed to Aztec', 'done'), st('claim', 'on')]
+      ? [st(`sent from ${f.wallet}`, 'done'), st('crossed to Aztec', 'done'), st('claim', 'on')]
       : [st(`left ${f.version}`, 'done'), st('reached Ethereum', 'done'), st('claim', 'on')];
+  if (f.elsewhere)
+    return {
+      chip: chip(`claim on ${f.elsewhere}`, 'on'),
+      sentence: `Arrived on ${f.elsewhere}. Claim it there, from ${f.elsewhere}'s page.`,
+      trail,
+    };
   if (f.claiming)
     return {
-      chip: chip('claiming', 'on'),
+      ...working('claiming', f.elapsed),
       sentence: 'Claiming privately, about 20 s.',
       trail,
     };
@@ -250,6 +268,12 @@ const claimable: Line = (c, f) => {
   };
 };
 
+const deposited: Line = (_c, f) => ({
+  chip: chip('crossing to Aztec', 'on'),
+  sentence: `Sent from ${f.wallet}; crossing to Aztec, a few minutes.`,
+  trail: [st(`sent from ${f.wallet}`, 'done'), st('crossing to Aztec', 'on'), st('claim', 'todo')],
+});
+
 const LINES: Record<RowState, Line> = {
   proving,
   checking: () => ({
@@ -263,14 +287,14 @@ const LINES: Record<RowState, Line> = {
     trail: [st("didn't finish", 'bad')],
     action: againOf(c),
   }),
-  sent: (c) => ({
-    chip: chip('sent', 'on'),
-    sentence: 'Sent. Waiting for a block.',
-    trail:
-      c.kind === 3
-        ? [st('deposited', 'done'), st('crossing to Aztec', 'on'), st('claim', 'todo')]
-        : [st('sent', 'done'), blockStation(c), st('reached Ethereum', 'todo')],
-  }),
+  sent: (c, f) =>
+    c.kind === 3
+      ? deposited(c, f)
+      : {
+          chip: chip('sent', 'on'),
+          sentence: 'Sent. Waiting for a block.',
+          trail: [st('sent', 'done'), blockStation(c), st('reached Ethereum', 'todo')],
+        },
   dropped,
   'proven-pending': (c, f) => ({
     chip: chip('reaching Ethereum', 'on'),
@@ -288,7 +312,11 @@ const LINES: Record<RowState, Line> = {
   'never-proven': (c, f) => ({
     chip: chip('undone', 'warn'),
     sentence: `${f.version} didn't prove this in time. The balance is back here.`,
-    trail: [st('sent', 'done'), st('not proven', 'bad')],
+    trail: [
+      st('sent', 'done'),
+      blockStation(c),
+      st(c.proofDeadline ? `proof missed · ${hhmm(c.proofDeadline)}` : 'proof missed', 'warn'),
+    ],
     action: againOf(c),
   }),
   paused: (c, f) => ({
@@ -305,7 +333,10 @@ const LINES: Record<RowState, Line> = {
   ready,
   'minted-l1': (c, f) => ({
     chip: chip(c.kind === 2 ? 'redeemed' : 'claimed', 'dim'),
-    sentence: c.kind === 2 ? `Redeemed: ${f.money} at ${f.who} on Ethereum.` : `${f.money} at ${f.who}.`,
+    sentence:
+      c.kind === 2
+        ? `Redeemed: ${f.money}${f.who ? ` at ${f.who}` : ''} on Ethereum.`
+        : `${f.money} at ${f.who}.`,
     trail: road(c, [st(c.kind === 2 ? 'redeemed' : 'claimed on Ethereum', 'done')]),
   }),
   held,
@@ -325,11 +356,7 @@ const LINES: Record<RowState, Line> = {
       st('claim', 'todo'),
     ],
   }),
-  deposited: (_c, f) => ({
-    chip: chip('crossing to Aztec', 'on'),
-    sentence: `Sent from ${f.wallet}; crossing to Aztec, a few minutes.`,
-    trail: [st('sent from your wallet', 'done'), st('crossing to Aztec', 'on'), st('claim', 'todo')],
-  }),
+  deposited,
   claimable,
   'minted-l2': (c, f) => ({
     chip: chip('claimed', 'dim'),

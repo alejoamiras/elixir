@@ -76,6 +76,7 @@ import {
   claimsAtom,
   journalAtom,
   rowStatesAtom,
+  type VersionFacts,
 } from '../state';
 import { servedBuild, staleTab } from './env.ts';
 import {
@@ -702,6 +703,7 @@ export class BridgeSession {
         this.minerRetired(),
         this.exitFloor(),
       ]);
+      const versions = await this.otherVersions(block, floor, prev.versions);
       view = {
         verdict: flipVerdict({
           buildVersion: version,
@@ -712,6 +714,7 @@ export class BridgeSession {
         standing,
         canonical,
         deadline: readDeadline({ ...standing, floor, l1Now: block.timestamp }),
+        versions,
         readAt: now,
         rpcFailing: false,
         // Best effort, kept from the last refresh when unread: neither says whether the RPC answers.
@@ -729,6 +732,32 @@ export class BridgeSession {
     this.d.store.set(rowStatesAtom, await this.rowStates(now));
     await this.publishJournal();
     await this.settleMiningClaims();
+  }
+
+  /**
+   * The standing and deadline of every other version the journal holds a crossing of, in the
+   * same L1 block as this version's; a version whose read fails keeps its last reading.
+   */
+  private async otherVersions(
+    block: { number: bigint | null; timestamp: bigint },
+    floor: bigint,
+    prev: BridgeView['versions'],
+  ): Promise<BridgeView['versions']> {
+    const own = this.ctx.version.toString();
+    const versions = new Set((await this.journal.list()).map((c) => c.version));
+    versions.delete(own);
+    const out: Record<string, VersionFacts> = {};
+    for (const v of versions) {
+      const facts = await this.reader
+        .standing(BigInt(v), block.number ?? undefined)
+        .then((standing) => ({
+          standing,
+          deadline: readDeadline({ ...standing, floor, l1Now: block.timestamp }),
+        }))
+        .catch(() => prev?.[v]);
+      if (facts) out[v] = facts;
+    }
+    return out;
   }
 
   /**

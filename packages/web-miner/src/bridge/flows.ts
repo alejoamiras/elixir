@@ -408,7 +408,7 @@ export function redeem(
       sig,
     });
     return ctx.store.update(c.id, (x) =>
-      advance(x, { now: ctx.now?.() ?? Date.now(), redeemed: { txHash: done.txHash } }),
+      advance(x, { now: ctx.now?.() ?? Date.now(), redeemed: { txHash: done.txHash, recipient } }),
     );
   });
 }

@@ -1,7 +1,6 @@
-// Send to an account: one screen. Each refusal sits under its field the moment it is known (on
-// input for the amount, on leaving the field for the address), the unknown-recipient probe runs
-// when the address field is left, and the button carries the amount and the mode. The send checks
-// the exact values it submits again and uses nothing the probe saw.
+// Send to an account. The address is judged when its field is left, not per keystroke; the
+// unknown-recipient probe is advisory; the send re-validates the exact values it submits and uses
+// nothing the probe saw.
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { type ComponentProps, useRef, useState } from 'react';
 import { PARAMS } from '../../../../miner-core/src/generated/params.ts';
@@ -37,6 +36,8 @@ import {
   seconds,
   TxDialog,
   useElapsed,
+  useLive,
+  useOnce,
   useOpening,
 } from './Frame';
 
@@ -125,17 +126,16 @@ function Form({
   session,
   self,
   balance,
-  busy,
   onSend,
   onCancel,
 }: {
   session: Session;
   self: string;
   balance: bigint;
-  busy: boolean;
   onSend: (snap: Snapshot) => void;
   onCancel: () => void;
 }) {
+  const { busy, once } = useOnce();
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [toRefusal, setToRefusal] = useState<string | null>(null);
   const [unknown, setUnknown] = useState(false);
@@ -151,18 +151,19 @@ function Form({
     setToRefusal(r.refusal);
     setUnknown(r.unknown);
   };
-  const submit = async () => {
-    setError(undefined);
-    setTried(true);
-    const to = await recipientRefusal(draft.to, self);
-    setToRefusal(to);
-    if (to !== null || amountLine !== null) return;
-    try {
-      onSend(await review(draft, self, balance, PARAMS.DECIMALS));
-    } catch (e) {
-      setError(firstLine(e));
-    }
-  };
+  const submit = () =>
+    once(async () => {
+      setError(undefined);
+      setTried(true);
+      const to = await recipientRefusal(draft.to, self);
+      setToRefusal(to);
+      if (to !== null || amountLine !== null) return;
+      try {
+        onSend(await review(draft, self, balance, PARAMS.DECIMALS));
+      } catch (e) {
+        setError(firstLine(e));
+      }
+    });
   const how = draft.mode === 'private' ? 'privately' : 'publicly';
   const invalid = (touchedAmount && amountLine !== null) || toRefusal !== null;
   return (
@@ -220,11 +221,7 @@ function Form({
         </Row>
       </Rows>
       <Actions
-        quiet={
-          <Quiet onClick={onCancel} disabled={busy}>
-            Cancel
-          </Quiet>
-        }
+        quiet={<Quiet onClick={onCancel}>Cancel</Quiet>}
         below="proves in your browser, about 20 s · mining pauses meanwhile"
       >
         <Primary disabled={busy || invalid} onClick={() => void submit()} data-testid="withdraw-send">
@@ -326,8 +323,10 @@ function SendRun({
 }) {
   const [step, setStep] = useState<Step>({ kind: 'form' });
   const [error, setError] = useState<string>();
+  const live = useLive(open);
   const close = () => onOpenChange(false);
   const send = async (snap: Snapshot) => {
+    if (!live()) return;
     const since = Date.now();
     setError(undefined);
     setStep({ kind: 'proving', snap, since });
@@ -360,14 +359,7 @@ function SendRun({
         </Alert>
       )}
       {step.kind === 'form' && (
-        <Form
-          session={session}
-          self={self}
-          balance={balance}
-          busy={false}
-          onSend={(s) => void send(s)}
-          onCancel={close}
-        />
+        <Form session={session} self={self} balance={balance} onSend={(s) => void send(s)} onCancel={close} />
       )}
       {step.kind === 'proving' && <Proving snap={step.snap} since={step.since} />}
       {step.kind === 'sent' && <Sent step={step} balance={balance} onDone={close} />}

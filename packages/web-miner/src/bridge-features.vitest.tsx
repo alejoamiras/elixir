@@ -5,12 +5,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createStore, Provider } from 'jotai';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { WagmiProvider } from 'wagmi';
+import { anvil } from 'viem/chains';
+import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
+import { createConfig, http, mock, WagmiProvider } from 'wagmi';
+import { connect } from 'wagmi/actions';
 import type { Crossing } from '../../bridge/src/journal.ts';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { wagmiConfigFor } from './bridge/eth';
 import { ActivityList, type RowActions } from './features/ActivityList';
+import { ClaimDialog } from './features/dialogs/Claim';
+import { FromEthereumDialog } from './features/dialogs/FromEthereum';
 import { SendAheadDialog } from './features/dialogs/SendAhead';
 import { ToEthereumDialog } from './features/dialogs/ToEthereum';
 import { MigrationCard, moment } from './features/MigrationCard';
@@ -84,6 +88,38 @@ const withWagmi = (ui: ReactNode) => (
     <QueryClientProvider client={queries}>{ui}</QueryClientProvider>
   </WagmiProvider>
 );
+
+/**
+ * A wallet that is connected: wagmi's mock connector on anvil's chain id, one account, no RPC behind
+ * it. The provider reconnects on mount, and the mock stays connected through that only when told to.
+ */
+const PAYER = '0x90F79bf6EB2c4f870365E785982E1f101E93b906' as const;
+const connected = createConfig({
+  chains: [anvil],
+  connectors: [mock({ accounts: [PAYER], features: { reconnect: true } })],
+  transports: { [anvil.id]: http('http://127.0.0.1:9') },
+});
+const withConnected = (ui: ReactNode) => (
+  <WagmiProvider config={connected}>
+    <QueryClientProvider client={queries}>{ui}</QueryClientProvider>
+  </WagmiProvider>
+);
+/** The bridge's record naming that chain, so the mock wallet sits on the right network. */
+const onAnvil = () =>
+  vi.stubEnv(
+    'VITE_BRIDGE',
+    JSON.stringify({
+      chainId: '31337',
+      portal: PORTAL,
+      yaca: `0x${'ca'.repeat(20)}`,
+      registry: `0x${'ee'.repeat(20)}`,
+      operators: `0x${'01'.repeat(20)}`,
+      l1RpcUrl: 'http://127.0.0.1:9',
+    }),
+  );
+beforeAll(async () => {
+  await connect(connected, { connector: connected.connectors[0] as (typeof connected.connectors)[number] });
+});
 
 const mount = (ui: ReactNode, setup: (store: ReturnType<typeof createStore>) => void = () => {}) => {
   const store = createStore();
@@ -411,5 +447,91 @@ describe('the dialogs', () => {
     fireEvent.click(screen.getByTestId('ahead-send'));
     await waitFor(() => expect(screen.getByTestId('ahead-sent')).toBeDefined());
     expect(bridge.sendAhead).toHaveBeenCalledWith(15n * 10n ** BigInt(PARAMS.DECIMALS - 1));
+  });
+
+  test('from Ethereum: a paused bridge holds the form with the same reason as the Wallet button', () => {
+    onAnvil();
+    const { session } = stubSession();
+    mount(withConnected(<FromEthereumDialog session={session} open onOpenChange={() => {}} />), (store) =>
+      store.set(bridgeAtom, {
+        verdict: { kind: 'before' },
+        standing: { ...standing, paused: true, pausedUntil: 1_800_500_000n },
+        readAt: NOW,
+        rpcFailing: false,
+      }),
+    );
+    expect(screen.getByTestId('eth-account').textContent).toContain(shortAddress(PAYER));
+    expect(screen.getByTestId('deposit-off').textContent).toContain('The bridge is paused until');
+    fireEvent.change(screen.getByTestId('deposit-amount'), { target: { value: '1' } });
+    expect((screen.getByTestId('deposit-go') as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe('the claim dialog', () => {
+  const exit = () => crossing({ state: 'ready', witness: undefined, epoch: '3' });
+  const claimSession = (payerFunds: ReturnType<typeof vi.fn>, selfForward: ReturnType<typeof vi.fn>) =>
+    ({ bridge: { payerFunds, selfForward, redeem: vi.fn() } }) as unknown as Session;
+  const enough = (yes: boolean) => ({ balance: 1n, cost: yes ? 0n : 2n, enough: yes });
+
+  test('no ETH holds the button and is read again until a top-up; the wallet asked locks the dialog; done retitles it', async () => {
+    onAnvil();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const payerFunds = vi.fn().mockResolvedValueOnce(enough(false)).mockResolvedValue(enough(true));
+    let release: (() => void) | undefined;
+    const selfForward = vi.fn(() => new Promise<void>((r) => (release = r)));
+    mount(
+      withConnected(
+        <ClaimDialog
+          session={claimSession(payerFunds, selfForward)}
+          crossing={exit()}
+          action="forward"
+          onOpenChange={() => {}}
+        />,
+      ),
+    );
+    await waitFor(() => expect(screen.getByTestId('payer-no-eth')).toBeDefined());
+    expect(screen.getByTestId('payer-no-eth').textContent).toContain('has no anvil ETH for the gas');
+    expect((screen.getByTestId('forward-go') as HTMLButtonElement).disabled).toBe(true);
+    // Five seconds later the balance is read again: the top-up re-arms the button.
+    await act(() => vi.advanceTimersByTimeAsync(5_100));
+    await waitFor(() => expect(screen.queryByTestId('payer-no-eth')).toBeNull());
+    expect((screen.getByTestId('forward-go') as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(screen.getByTestId('forward-go'));
+    await waitFor(() => expect(screen.getByTestId('claim-progress')).toBeDefined());
+    expect(screen.getByTestId('claim-progress').textContent).toContain('Confirm in Mock Connector');
+    // Locked while the wallet is asked: no close, no disconnect.
+    expect(screen.queryByLabelText('Close')).toBeNull();
+    expect(screen.queryByTestId('eth-disconnect')).toBeNull();
+    expect(selfForward).toHaveBeenCalledTimes(1);
+    act(() => release?.());
+    await waitFor(() => expect(screen.getByTestId('forward-done')).toBeDefined());
+    expect(screen.getByTestId('forward-dialog').textContent).toContain('Claimed.');
+    vi.useRealTimers();
+  });
+
+  test('the wallet saying no is a red step with Try again, and nothing is claimed', async () => {
+    onAnvil();
+    const payerFunds = vi.fn().mockResolvedValue(enough(true));
+    const selfForward = vi.fn(() =>
+      Promise.reject(
+        Object.assign(new Error('User rejected the request.'), { name: 'UserRejectedRequestError' }),
+      ),
+    );
+    mount(
+      withConnected(
+        <ClaimDialog
+          session={claimSession(payerFunds, selfForward)}
+          crossing={exit()}
+          action="forward"
+          onOpenChange={() => {}}
+        />,
+      ),
+    );
+    await waitFor(() => expect((screen.getByTestId('forward-go') as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByTestId('forward-go'));
+    await waitFor(() => expect(screen.getByText('Try again')).toBeDefined());
+    expect(screen.getByTestId('claim-progress').textContent).toContain('Mock Connector rejected it');
+    expect(screen.getByTestId('claim-progress').textContent).toContain('Nothing was claimed');
+    expect(screen.queryByLabelText('Close')).not.toBeNull();
   });
 });

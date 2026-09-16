@@ -1,8 +1,7 @@
 // What the holder does with a crossing on Ethereum, from the connected wallet: claim a proven exit
 // for the recipient chosen at the send, forward a held send-ahead into the version it lands on, or
-// redeem one as YACA for the connected account. The rows name the payer and the fixed recipient;
-// the chain switch is a visible step; the wallet's ETH is read before it is asked; a portal refusal
-// is said in the row's own words.
+// redeem one as YACA for the connected account. The wallet's ETH is read before it is asked; a
+// portal refusal is said in the row's own words.
 import { useAtomValue } from 'jotai';
 import { useEffect, useRef, useState } from 'react';
 import type { Hex } from 'viem';
@@ -11,13 +10,14 @@ import type { Crossing } from '../../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../../miner-core/src/generated/params.ts';
 import { Alert, AlertDescription, ExternalLink, Note, Stepper } from '../../../../ui/src/index.ts';
 import { revertLine } from '../../bridge/copy';
-import { nextVersionName, versionNameOf } from '../../bridge/env';
+import { versionNameOf } from '../../bridge/env';
+import { targetOf } from '../../bridge/rows';
 import type { PayerAsk } from '../../bridge/session';
 import { l1Links } from '../../explorer';
 import { amount as fmt, shortAddress } from '../../lib/format';
 import type { Session } from '../../session';
 import { bridgeAtom } from '../../state';
-import { Actions, firstLine, Primary, Quiet, Row, Rows, TxDialog } from './Frame';
+import { Actions, firstLine, Primary, Quiet, Row, Rows, TxDialog, useOnce } from './Frame';
 import {
   ConnectWallet,
   chain,
@@ -150,36 +150,24 @@ function Progress({ kind, step, crossing }: { kind: Kind; step: Step; crossing: 
   );
 }
 
-/** The dialog's body once a wallet is connected: the rows, the notes, the one button. */
-function Body({
-  session,
-  crossing,
-  action,
-  onClose,
-}: {
-  session: Session;
-  crossing: Crossing;
-  action: HeldAction;
-  onClose: () => void;
-}) {
-  const account = useAccount();
-  const view = useAtomValue(bridgeAtom);
-  const wallet = useWalletName();
-  const net = useWalletChain();
-  const yaca = useYacaBalance(account.address);
-  const kind: Kind = action === 'forward' && crossing.kind === 1 ? 'claim' : action;
-  const target = crossing.target
-    ? versionNameOf(crossing.target, view.canonical)
-    : nextVersionName(view.canonical);
-  const [step, setStep] = useState<Step>({ kind: 'ready' });
-  const [error, setError] = useState<string>();
+/**
+ * The connected wallet's ETH against this claim's gas, read before the wallet is asked: on open, at
+ * every account change, on the click, and every few seconds while it cannot pay, so a top-up
+ * re-arms the button. An exit's claim carries no signature, so pricing it authorises nothing; a
+ * forward and a redeem are signed by the redeem key, and that signature is not made to fill in a
+ * number — their cost stays unknown.
+ */
+function usePayerFunds(
+  session: Session,
+  crossing: Crossing,
+  kind: Kind,
+  address: Hex | undefined,
+  wallet: string,
+) {
   const [funds, setFunds] = useState<string | null>(null);
   const latest = useRef(0);
-  const address = account.address;
   /** The refusal, null when the wallet can pay or there is nothing to price, `stale` when overtaken. */
   const readFunds = async (): Promise<string | null | 'stale'> => {
-    // An exit's claim carries no signature, so pricing it authorises nothing; a forward and a redeem
-    // are signed by the redeem key, and that signature is not made to fill in a number.
     if (kind !== 'claim' || !address || !session.bridge) return null;
     const ask: PayerAsk = { kind: 'claim', crossing };
     const mine = ++latest.current;
@@ -188,19 +176,62 @@ function Body({
     setFunds(refused);
     return refused;
   };
-  // On open and at every account change: the wallet's ETH against this claim's gas, before it is asked.
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-read on the crossing and the account alone
   useEffect(() => {
     latest.current++;
     setFunds(null);
     if (address) void readFunds().catch(() => {});
   }, [crossing.id, address]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-read on the refusal alone
+  useEffect(() => {
+    if (!funds) return;
+    const t = setInterval(() => void readFunds().catch(() => {}), 5_000);
+    return () => clearInterval(t);
+  }, [funds]);
+  return { funds, readFunds };
+}
+
+/** The dialog's body once a wallet is connected: the rows, the notes, the one button. */
+function Body({
+  session,
+  crossing,
+  action,
+  onStep,
+  onClose,
+}: {
+  session: Session;
+  crossing: Crossing;
+  action: HeldAction;
+  /** Which step the body is at: the dialog locks while the wallet is asked and retitles when done. */
+  onStep: (kind: Step['kind']) => void;
+  onClose: () => void;
+}) {
+  const account = useAccount();
+  const view = useAtomValue(bridgeAtom);
+  const wallet = useWalletName();
+  const net = useWalletChain();
+  const yaca = useYacaBalance(account.address);
+  const { busy, once } = useOnce();
+  const kind: Kind = action === 'forward' && crossing.kind === 1 ? 'claim' : action;
+  const flipped = view.canonical !== undefined && view.canonical.version !== BigInt(crossing.version);
+  const target = targetOf(crossing, view, flipped);
+  const [step, setStep] = useState<Step>({ kind: 'ready' });
+  const [error, setError] = useState<string>();
+  const address = account.address;
+  const { funds, readFunds } = usePayerFunds(session, crossing, kind, address, wallet);
+  const alive = useRef(true);
+  useEffect(
+    () => () => {
+      alive.current = false;
+    },
+    [],
+  );
+  useEffect(() => onStep(step.kind), [step.kind, onStep]);
   const failed = (e: unknown): void => {
     if (rejected(e)) {
       setStep({ kind: 'rejected' });
       return;
     }
-    const flipped = view.canonical !== undefined && view.canonical.version !== BigInt(crossing.version);
     const pausedUntil = view.standing?.paused ? view.standing.pausedUntil : undefined;
     setError(explain(e, crossing, flipped, pausedUntil, wallet));
     setStep({ kind: 'ready' });
@@ -217,21 +248,23 @@ function Body({
       failed(e);
     }
   };
-  const go = async () => {
-    if (!address) return;
-    setError(undefined);
-    if (net.wrong) {
-      await net.switchTo().catch((e) => setError(rejected(e) ? `${wallet} did not switch.` : firstLine(e)));
-      return;
-    }
-    // Read again on the click: the balance may have moved since the dialog opened.
-    if ((await readFunds().catch(() => null)) === null) await perform(address as Hex);
-  };
+  const go = () =>
+    once(async () => {
+      if (!address) return;
+      setError(undefined);
+      if (net.wrong) {
+        await net.switchTo().catch((e) => setError(rejected(e) ? `${wallet} did not switch.` : firstLine(e)));
+        return;
+      }
+      // Read again on the click: the balance may have moved since the dialog opened.
+      const refused = await readFunds().catch(() => null);
+      if (refused === null && alive.current) await perform(address as Hex);
+    });
   const v = VERBS[kind];
   const label = net.wrong ? `Switch ${wallet} to ${chain()}` : `${v.done.replace(/ed$/, '')} with ${wallet}`;
   return (
     <>
-      <WalletChip aside={<YacaAvailable yaca={yaca} />} />
+      <WalletChip aside={<YacaAvailable yaca={yaca} />} locked={step.kind === 'waiting'} />
       {error && (
         <Alert variant="bad" data-testid={`${action}-error`}>
           <AlertDescription>{error}</AlertDescription>
@@ -250,7 +283,7 @@ function Body({
       {step.kind === 'ready' && (
         <Actions quiet={<Quiet onClick={onClose}>Not now</Quiet>}>
           <Primary
-            disabled={net.switching || (!net.wrong && funds !== null)}
+            disabled={busy || net.switching || (!net.wrong && funds !== null)}
             onClick={() => void go()}
             data-testid={`${action}-go`}
           >
@@ -260,7 +293,7 @@ function Body({
       )}
       {step.kind === 'rejected' && (
         <Actions quiet={<Quiet onClick={onClose}>Not now</Quiet>}>
-          <Primary onClick={() => void go()} data-testid={`${action}-go`}>
+          <Primary disabled={busy} onClick={() => void go()} data-testid={`${action}-go`}>
             Try again
           </Primary>
         </Actions>
@@ -289,33 +322,43 @@ export function ClaimDialog({
 }) {
   const account = useAccount();
   const view = useAtomValue(bridgeAtom);
+  const [phase, setPhase] = useState<Step['kind']>('ready');
   const close = () => onOpenChange(false);
   if (!crossing) return null;
   const kind: Kind = action === 'forward' && crossing.kind === 1 ? 'claim' : action;
   const yaca = fmt(BigInt(crossing.amount), PARAMS.DECIMALS);
-  const target = crossing.target
-    ? versionNameOf(crossing.target, view.canonical)
-    : nextVersionName(view.canonical);
+  const flipped = view.canonical !== undefined && view.canonical.version !== BigInt(crossing.version);
+  const target = targetOf(crossing, view, flipped);
   const title =
-    kind === 'claim'
-      ? `Claim ${yaca} YACA on Ethereum.`
-      : kind === 'forward'
-        ? `Forward ${yaca} ${PARAMS.TOKEN_SYMBOL} to ${target}.`
-        : `Redeem ${yaca} YACA on Ethereum.`;
+    phase === 'done'
+      ? `${VERBS[kind].done}.`
+      : kind === 'claim'
+        ? `Claim ${yaca} YACA on Ethereum.`
+        : kind === 'forward'
+          ? `Forward ${yaca} ${PARAMS.TOKEN_SYMBOL} to ${target}.`
+          : `Redeem ${yaca} YACA on Ethereum.`;
   const connected = account.isConnected && account.address !== undefined;
+  // The wallet's answer is awaited whatever it does meanwhile: a disconnect mid-request keeps the body.
+  const body = connected || phase === 'waiting';
   return (
     <TxDialog
       open
       onOpenChange={(o) => !o && close()}
       eyebrow={VERBS[kind].eyebrow}
       title={title}
-      body={
-        connected ? undefined : 'Connect the wallet that pays the gas. It learns nothing about this account.'
-      }
+      body={body ? undefined : 'Connect the wallet that pays the gas. It learns nothing about this account.'}
+      locked={phase === 'waiting'}
       data-testid={`${action}-dialog`}
     >
-      {connected ? (
-        <Body key={crossing.id} session={session} crossing={crossing} action={action} onClose={close} />
+      {body ? (
+        <Body
+          key={crossing.id}
+          session={session}
+          crossing={crossing}
+          action={action}
+          onStep={setPhase}
+          onClose={close}
+        />
       ) : (
         <ConnectWallet onCancel={close} />
       )}

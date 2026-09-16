@@ -70,6 +70,8 @@ export interface Crossing {
   updatedAt: number;
   /** K1: the Ethereum recipient. K2: the redeem address. K3: the depositor. */
   ethAddress: Hex;
+  /** K2 redeemed: the Ethereum address the YACA was minted to, when this page made the redeem or read its event. */
+  recipient?: Hex;
   txHash?: string;
   /**
    * Unix seconds the sent transaction expires at (K1, K2: the sequencer's bound; K3: the deposit's
@@ -123,7 +125,7 @@ export interface Facts {
     canonicalIsNewer?: boolean;
   };
   forwarded?: { txHash: Hex; inboxIndex: string; target: string };
-  redeemed?: { txHash: Hex };
+  redeemed?: { txHash: Hex; recipient?: Hex };
   deposited?: { txHash: Hex; inboxIndex: string };
   messageReady?: boolean;
   claimed?: { txHash: string; block: number };
@@ -175,7 +177,11 @@ function onPortal(c: Crossing, f: Facts): Crossing {
 
 /** The Ethereum side's outcomes, then the destination's. */
 function afterEthereum(c: Crossing, f: Facts): Crossing {
-  if (f.redeemed) return at(c, 'minted-l1', f.now, { l1TxHash: f.redeemed.txHash });
+  if (f.redeemed)
+    return at(c, 'minted-l1', f.now, {
+      l1TxHash: f.redeemed.txHash,
+      ...(f.redeemed.recipient ? { recipient: f.redeemed.recipient } : {}),
+    });
   if (f.forwarded) {
     const patch = {
       l1TxHash: f.forwarded.txHash,

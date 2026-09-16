@@ -1,6 +1,5 @@
-// The Ethereum wallet inside a dialog: the connect screen (one installed wallet connects on the
-// click, several make a list), the connected wallet as a chip with the network beside it, the chain
-// the bridge needs as a visible step, and the YACA the wallet holds there.
+// The Ethereum wallet inside a dialog: connecting, the connected wallet as a chip, the chain the
+// bridge needs as a visible step, and the YACA the wallet holds there.
 import type { Hex } from 'viem';
 import { useAccount, useConnect, useConnectors, useDisconnect, useReadContract, useSwitchChain } from 'wagmi';
 import { yacaAbi } from '../../../../bridge/src/portal.ts';
@@ -63,8 +62,8 @@ export function useWalletChain(): {
 export const noEth = (funds: PayerFunds, wallet: string): string | null =>
   funds.enough === false ? `${wallet} has no ${chain()} ETH for the gas.` : null;
 
-/** The connected wallet as one chip: its name, the address and the network; × disconnects. */
-export function WalletChip({ aside }: { aside?: React.ReactNode }) {
+/** The connected wallet as one chip: its name, the address and the network; × disconnects, unless the wallet is being asked. */
+export function WalletChip({ aside, locked = false }: { aside?: React.ReactNode; locked?: boolean }) {
   const account = useAccount();
   const { disconnect } = useDisconnect();
   if (!account.address) return null;
@@ -77,16 +76,18 @@ export function WalletChip({ aside }: { aside?: React.ReactNode }) {
         <span className="text-ink-3">
           · {account.chainId === undefined ? '…' : chainName(String(account.chainId))}
         </span>
-        <button
-          type="button"
-          onClick={() => disconnect()}
-          aria-label="Disconnect this wallet"
-          title="Disconnect"
-          className="ml-0.5 grid size-6 place-items-center rounded-sm text-ink-3 hover:bg-panel-2 hover:text-ink"
-          data-testid="eth-disconnect"
-        >
-          ×
-        </button>
+        {!locked && (
+          <button
+            type="button"
+            onClick={() => disconnect()}
+            aria-label="Disconnect this wallet"
+            title="Disconnect"
+            className="ml-0.5 grid size-6 place-items-center rounded-sm text-ink-3 hover:bg-panel-2 hover:text-ink"
+            data-testid="eth-disconnect"
+          >
+            ×
+          </button>
+        )}
       </span>
       {aside}
     </div>

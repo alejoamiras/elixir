@@ -145,7 +145,7 @@ describe('the journal, every state', () => {
     );
     expect(screen.getAllByTestId('crossing')).toHaveLength(13);
     expect(words()).toEqual([
-      'proving',
+      'proving · 60 s',
       'sent',
       'reaching Ethereum',
       'reached Ethereum',

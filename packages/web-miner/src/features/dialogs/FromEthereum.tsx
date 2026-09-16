@@ -1,6 +1,5 @@
-// Bridge from Ethereum: connect the wallet that holds the YACA, then one screen — the wallet chip
-// with what it holds, the amount, the three rows, the button with the amount — then the wallet's
-// prompt as a step and the crossing's stations; the Wallet's row claims it here.
+// Bridge from Ethereum: the wallet that holds the YACA signs the deposit. The dialog ends when the
+// deposit is in; the Wallet's row claims the arrival here.
 import { useAtomValue } from 'jotai';
 import { type ComponentProps, useState } from 'react';
 import type { Hex } from 'viem';
@@ -19,13 +18,27 @@ import {
 import { dayOf } from '../../bridge/copy';
 import { migrationRecord, nextVersionName } from '../../bridge/env';
 import { reviewAmount } from '../../bridge/forms';
+import { moneyStanding } from '../../bridge/rows';
 import type { BridgeSession } from '../../bridge/session';
 import { l1Links } from '../../explorer';
 import { amount as fmt, shortAddress } from '../../lib/format';
 import type { Session } from '../../session';
 import { bridgeAtom, journalAtom } from '../../state';
 import { amountRefusal } from '../withdraw-form';
-import { Actions, Back, Foot, firstLine, Primary, Quiet, Row, Rows, TxDialog, useOpening } from './Frame';
+import {
+  Actions,
+  Back,
+  Foot,
+  firstLine,
+  Primary,
+  Quiet,
+  Row,
+  Rows,
+  TxDialog,
+  useLive,
+  useOnce,
+  useOpening,
+} from './Frame';
 import {
   ConnectWallet,
   chain,
@@ -66,7 +79,7 @@ function Standing() {
   return null;
 }
 
-function Notes({ error, funds }: { error?: string; funds: string | null }) {
+function Notes({ error, funds, reason }: { error?: string; funds: string | null; reason?: string }) {
   const account = useAccount();
   return (
     <>
@@ -74,6 +87,11 @@ function Notes({ error, funds }: { error?: string; funds: string | null }) {
         <Alert variant="bad" data-testid="deposit-error">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
+      )}
+      {reason && (
+        <Note title="Deposits wait." tone="warn" data-testid="deposit-off">
+          {reason}
+        </Note>
       )}
       {funds && account.address && (
         <Note title={funds} tone="warn" data-testid="payer-no-eth">
@@ -87,14 +105,17 @@ function Notes({ error, funds }: { error?: string; funds: string | null }) {
 function Form({
   session,
   resume,
+  live,
   onWaiting,
   onSent,
   onHow,
 }: {
   session: Session;
   resume?: Crossing;
-  /** The wallet is being asked: the dialog locks and says so. */
-  onWaiting: (waiting: boolean) => void;
+  /** Whether the dialog is still open, read once the payer's ETH is known: a close meanwhile stops the wallet being asked. */
+  live: () => boolean;
+  /** The wallet is being asked for this amount: the dialog locks and says so; null once it has answered. */
+  onWaiting: (display: string | null) => void;
   onSent: (display: string, crossing?: Crossing) => void;
   onHow: () => void;
 }) {
@@ -103,6 +124,7 @@ function Form({
   const wallet = useWalletName();
   const net = useWalletChain();
   const yaca = useYacaBalance(account.address);
+  const { busy: sending, once } = useOnce();
   const [text, setText] = useState(
     resume ? fmt(BigInt(resume.amount), PARAMS.DECIMALS, PARAMS.DECIMALS) : '',
   );
@@ -110,7 +132,10 @@ function Form({
   const [funds, setFunds] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [waiting, setWaiting] = useState(false);
-  const closed = Boolean(view.standing?.depositsClosed);
+  // The same standing the Wallet's button reads: a pause, a lost registration or a silent RPC
+  // holds the form too, whether it opened before the change or from a row's "Bridge again".
+  const standing = moneyStanding(view, ownVersionName(), nextVersionName(view.canonical));
+  const closed = standing.off.has('deposit');
   const ceiling = yaca ?? (1n << 128n) - 1n;
   const line = amountRefusal(text, ceiling, PARAMS.DECIMALS);
   const touched = text !== '';
@@ -124,9 +149,9 @@ function Form({
       setBusy(false);
     }
   };
-  const wait = (w: boolean) => {
-    setWaiting(w);
-    onWaiting(w);
+  const wait = (display: string | null) => {
+    setWaiting(display !== null);
+    onWaiting(display);
   };
   const deposit = async (address: Hex, bridge: BridgeSession) => {
     try {
@@ -134,27 +159,33 @@ function Form({
       // The ETH for the gas is read here first, so "no ETH" is the page's word, not the wallet's error.
       const refused = noEth(await bridge.payerFunds(address, { kind: 'deposit', amount }), wallet);
       if (refused) return setFunds(refused);
-      onSent(display, await bridge.deposit(amount, () => wait(true), resume));
+      if (!live()) return;
+      onSent(display, await bridge.deposit(amount, () => wait(display), resume));
     } catch (e) {
       setError(firstLine(e));
     } finally {
-      wait(false);
+      wait(null);
     }
   };
-  const go = () => {
-    setError(undefined);
-    setFunds(null);
-    if (net.wrong) return void switchNetwork();
-    if (line === null && account.address && session.bridge) void deposit(account.address, session.bridge);
-  };
+  const go = () =>
+    once(async () => {
+      setError(undefined);
+      setFunds(null);
+      if (net.wrong) return switchNetwork();
+      if (line === null && account.address && session.bridge) await deposit(account.address, session.bridge);
+    });
   if (waiting) return <Waiting />;
   const amountWord = line === null && text.trim() ? ` ${text.trim()} YACA` : '';
-  const canGo = !closed && !busy && (net.wrong || (line === null && !!account.address));
+  const canGo = !closed && !busy && !sending && (net.wrong || (line === null && !!account.address));
   return (
     <>
       <WalletChip aside={<YacaAvailable yaca={yaca} />} />
       <Standing />
-      <Notes error={error} funds={funds} />
+      <Notes
+        error={error}
+        funds={funds}
+        reason={view.standing?.depositsClosed ? undefined : standing.reason}
+      />
       <AmountField
         id="deposit-amount"
         value={text}
@@ -267,10 +298,10 @@ function Done({ crossing, onDone }: { crossing?: Crossing; onDone: () => void })
   );
 }
 
-const titleOf = (step: Step, waiting: boolean): string => {
-  if (waiting) return 'Bridging from Ethereum.';
+const titleOf = (step: Step, waiting: string | null): string => {
+  if (waiting !== null) return `Bridging ${waiting} YACA.`;
   if (step.kind === 'how') return 'What happens to what you bridge.';
-  if (step.kind === 'done') return `${step.display} YACA on its way.`;
+  if (step.kind === 'done') return `Bridging ${step.display} YACA.`;
   return 'Bridge from Ethereum.';
 };
 
@@ -288,7 +319,8 @@ function FromEthereumRun({
 }) {
   const account = useAccount();
   const [step, setStep] = useState<Step>({ kind: 'form' });
-  const [waiting, setWaiting] = useState(false);
+  const [waiting, setWaiting] = useState<string | null>(null);
+  const live = useLive(open);
   const close = () => onOpenChange(false);
   const connected = account.isConnected && account.address !== undefined;
   const screen = step.kind === 'form' ? (connected ? 'form' : 'connect') : step.kind;
@@ -299,18 +331,22 @@ function FromEthereumRun({
       eyebrow={step.kind === 'how' ? 'bridge · how it works' : 'bridge'}
       title={titleOf(step, waiting)}
       body={screen === 'connect' ? 'Connect the wallet that holds your YACA.' : undefined}
-      locked={waiting}
+      locked={waiting !== null}
       data-testid="deposit-dialog"
     >
       {screen === 'connect' && <ConnectWallet onCancel={close} />}
-      {screen === 'form' && (
-        <Form
-          session={session}
-          resume={resume}
-          onWaiting={setWaiting}
-          onSent={(display, crossing) => setStep({ kind: 'done', display, crossing })}
-          onHow={() => setStep({ kind: 'how' })}
-        />
+      {(screen === 'form' || screen === 'how') && (
+        // The form stays mounted under "How it works": its draft comes back untouched on Back.
+        <div className={screen === 'form' ? 'contents' : 'hidden'}>
+          <Form
+            session={session}
+            resume={resume}
+            live={live}
+            onWaiting={setWaiting}
+            onSent={(display, crossing) => setStep({ kind: 'done', display, crossing })}
+            onHow={() => setStep({ kind: 'how' })}
+          />
+        </div>
       )}
       {screen === 'how' && <How onBack={() => setStep({ kind: 'form' })} />}
       {screen === 'done' && step.kind === 'done' && <Done crossing={step.crossing} onDone={close} />}

@@ -2,7 +2,7 @@
 // once and only once — an exit, a send-ahead and a deposit are the same kind of thing here — and a
 // finished row folds after its week rather than disappearing, because a record of where money went
 // is the only account the holder has.
-import { useAtomValue } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import { useState } from 'react';
 import type { Crossing } from '../../../bridge/src/journal.ts';
 import { MAX_RECOVERY_BYTES } from '../../../bridge/src/recovery.ts';
@@ -19,19 +19,21 @@ import { type ActivityRowView, type ActivityView, activity } from '../bridge/row
 import { l1Links, links } from '../explorer';
 import { shortAddress } from '../lib/format';
 import type { Session } from '../session';
-import { bridgeAtom, journalAtom, nowAtom, rowStatesAtom } from '../state';
+import { bridgeAtom, claimingAtom, journalAtom, nowAtom, rowStatesAtom, walletNameAtom } from '../state';
 import { saveRecoveryFile } from './recovery';
 
 /** The journal read for this refresh; the header's badge and the list read the same one. */
-export function useActivity(claiming?: string): ActivityView {
+export function useActivity(): ActivityView {
   const journal = useAtomValue(journalAtom);
   const view = useAtomValue(bridgeAtom);
   const states = useAtomValue(rowStatesAtom);
   const now = useAtomValue(nowAtom);
+  const claiming = useAtomValue(claimingAtom);
+  const wallet = useAtomValue(walletNameAtom);
   return activity(journal, view, now, states, {
     ownVersion: import.meta.env.VITE_ROLLUP_VERSION,
     chainId: bridgeRecord()?.chainId,
-    wallet: 'your wallet',
+    wallet: wallet ?? 'your wallet',
     claiming,
   });
 }
@@ -49,7 +51,8 @@ export interface RowActions {
 }
 
 /** The links and dates behind Details: what a holder needs to chase a crossing without this page. */
-function Details({ c }: { c: Crossing }) {
+function Details({ r }: { r: ActivityRowView }) {
+  const c = r.c;
   return (
     <>
       {c.l1TxHash && (
@@ -63,6 +66,12 @@ function Details({ c }: { c: Crossing }) {
         </ExternalLink>
       )}
       {c.epoch !== undefined && <span>epoch {c.epoch}</span>}
+      {c.claimTxHash && (
+        <ExternalLink href={links.tx(c.claimTxHash)} full={c.claimTxHash}>
+          claim ↗
+        </ExternalLink>
+      )}
+      {r.deadline && <span>can leave {r.deadline}</span>}
       {c.error && <span className="text-warn">{c.error}</span>}
     </>
   );
@@ -86,7 +95,6 @@ function Row({
     else if (kind === 'redeem') on.redeem(r.c);
     else if (kind === 'again') on.again(r.c);
     else if (kind === 'settings') on.settings();
-    // 'details' opens the disclosure the row owns; nothing for the page to do.
   };
   return (
     <ActivityRow
@@ -97,7 +105,7 @@ function Row({
       line={r.line}
       collapsed={r.collapsed}
       onAction={act}
-      details={<Details c={r.c} />}
+      details={<Details r={r} />}
       error={error ?? r.c.error}
       data-testid="crossing"
       data-state={r.c.state}
@@ -192,10 +200,11 @@ export function ActivityList({
   continuation?: boolean;
 }) {
   const record = bridgeRecord();
-  const [claiming, setClaiming] = useState<string>();
+  const [claiming, setClaiming] = useAtom(claimingAtom);
   const [failed, setFailed] = useState<{ id: string; message: string }>();
   const claim = async (c: Crossing) => {
-    setClaiming(c.id);
+    if (claiming.has(c.id)) return;
+    setClaiming((m) => new Map(m).set(c.id, Date.now()));
     setFailed(undefined);
     try {
       await session.bridge?.claim(c);
@@ -203,10 +212,14 @@ export function ActivityList({
       const message = e instanceof Error ? (e.message.split('\n')[0] ?? '') : String(e);
       setFailed({ id: c.id, message });
     } finally {
-      setClaiming(undefined);
+      setClaiming((m) => {
+        const next = new Map(m);
+        next.delete(c.id);
+        return next;
+      });
     }
   };
-  const { rows, needsUser } = useActivity(claiming);
+  const { rows, needsUser } = useActivity();
   return (
     <Tile className="md:col-span-2" data-testid="activity">
       <TileHeader

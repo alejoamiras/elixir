@@ -93,6 +93,12 @@ export const nowAtom = atom(Date.now());
 /** The open account's crossings, newest first; empty until the bridge session lists them. */
 export const journalAtom = atom<Crossing[]>([]);
 
+/** A version's standing and its exit deadline, read in the same L1 block. */
+export interface VersionFacts {
+  standing: VersionStanding;
+  deadline: DeadlineReading;
+}
+
 /** What the bridge knows about this version, read through the Ethereum RPC; `unknown` until the first read. */
 export interface BridgeView {
   verdict: FlipVerdict;
@@ -101,6 +107,8 @@ export interface BridgeView {
   canonical?: { version: bigint; index: bigint };
   /** The exit deadline as read from the transitions and the pause accounting, on Ethereum's clock. */
   deadline?: DeadlineReading;
+  /** The same for every other version the journal holds a crossing of, by version: a V5 send read on V6 is judged under V5's clock. */
+  versions?: Readonly<Record<string, VersionFacts>>;
   /** Unix seconds the canonical version was registered on the portal, once it is another than this one and registered. */
   targetRegisteredAt?: bigint;
   /** When Ethereum last verified a proof of this version. */
@@ -113,5 +121,9 @@ export interface BridgeView {
 export const bridgeAtom = atom<BridgeView>({ verdict: { kind: 'unknown' }, readAt: null, rpcFailing: false });
 /** What each in-flight crossing reads as on this refresh, by id (`rowState`); derived, never stored. */
 export const rowStatesAtom = atom<Readonly<Record<string, RowState>>>({});
+/** The private claims this page is proving, by crossing id, with when each tap came: the row's chip and the tab's badge read the same set. */
+export const claimingAtom = atom<ReadonlyMap<string, number>>(new Map());
+/** The connected Ethereum wallet's name while one is, for the rows that name it. */
+export const walletNameAtom = atom<string | undefined>(undefined);
 /** The open account's bridge session; null while signed out or on a build without a portal. */
 export const bridgeSessionAtom = atom<BridgeSession | null>(null);

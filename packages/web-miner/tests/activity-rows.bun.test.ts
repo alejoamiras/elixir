@@ -63,10 +63,10 @@ describe('the activity reading', () => {
       'ready to claim',
       'sent',
     ]);
-    // Two rows offer a tap, and those are exactly the two the badge counts.
-    expect(
-      a.rows.filter((r) => r.line.action && r.line.chip.tone === 'ok').map((r) => r.line.action?.kind),
-    ).toEqual(['claim', 'claim-l1']);
+    // The badge counts the deposit's Claim and the exit's Claim on Ethereum; the held send-ahead
+    // offers its redeem as a quiet link beside Yacana's own forward, not as a need.
+    expect(a.rows.map((r) => r.line.action?.kind)).toEqual([undefined, 'claim', 'claim-l1', undefined]);
+    expect(a.rows[0]?.line.also?.kind).toBe('redeem');
     expect(a.needsUser).toBe(2);
     // The amount is printed in the unit of the side it starts on; the sentence names where it lands.
     expect(a.rows[1]?.unit).toBe('YACA');
@@ -87,7 +87,47 @@ describe('the activity reading', () => {
     expect(a.rows.map((r) => r.line.chip.word)).toEqual(["didn't finish", "can't read the upgrade"]);
     expect(a.rows[0]?.line.action?.label).toBe('Bridge again');
     expect(a.rows[1]?.line.action?.kind).toBe('settings');
-    expect(a.needsUser).toBe(0);
+    // Bridge again is the user's call; Settings is not the row's need.
+    expect(a.needsUser).toBe(1);
+    // An RPC gone silent after a good read keeps the last verdict on the view, but the rows that
+    // turn on it say they cannot read it.
+    const silent = activity([held], { ...view, rpcFailing: true }, NOW, {}, env);
+    expect(silent.rows[0]?.line.chip.word).toBe("can't read the upgrade");
+  });
+
+  test('an urgent claim counts however red its chip; an arrival on another version is claimed there, not here', () => {
+    const urgent = crossing('u', { state: 'ready', witness: undefined });
+    const a = activity([urgent], { ...view, deadline: { kind: 'any-day' } }, NOW, {}, env);
+    expect(a.rows[0]?.line.chip.word).toBe('could close any day');
+    expect(a.rows[0]?.line.action?.kind).toBe('claim-l1');
+    expect(a.needsUser).toBe(1);
+    // A deposit into the version before: the page names only this build and the canonical.
+    const old = crossing('d', { kind: 3, version: '4', state: 'claimable', inboxIndex: '1' });
+    const b = activity([old], { ...view, canonical: { version: 5n, index: 5n } }, NOW, {}, env);
+    expect(b.rows[0]?.line.chip.word).toBe('claim on another version');
+    expect(b.rows[0]?.line.action).toBeUndefined();
+    expect(b.needsUser).toBe(0);
+  });
+
+  test("a crossing from another version is read under that version's deadline and pause, not this build's", () => {
+    const heldOnV6 = crossing('k', { kind: 2, state: 'held', version: '5', witness: undefined });
+    const v6 = { ...view, canonical: { version: 6n, index: 6n }, deadline: { kind: 'no-flip' as const } };
+    const withV5 = {
+      ...v6,
+      versions: {
+        '5': {
+          standing: { ...standing, paused: true, pausedUntil: 1_800_100_000n },
+          deadline: { kind: 'any-day' as const },
+        },
+      },
+    };
+    const a = activity([heldOnV6], withV5, NOW, {}, { ...env, ownVersion: '6' });
+    expect(a.rows[0]?.line.chip.word).toBe('could close any day');
+    expect(a.rows[0]?.deadline).toBe('until the next Aztec upgrade, which could land any day');
+    // Without V5's own reading nothing is assumed: the row falls back to the open-ended phrase.
+    const b = activity([heldOnV6], v6, NOW, {}, { ...env, ownVersion: '6' });
+    expect(b.rows[0]?.line.chip.word).toBe('held for V6');
+    expect(b.rows[0]?.deadline).toBe('while the bridge is open');
   });
 
   test('a send-ahead from the last version is held for the canonical, by name, before it is forwarded', () => {
@@ -104,12 +144,22 @@ describe('the activity reading', () => {
       l1TxHash: `0x${'22'.repeat(32)}`,
     });
     const fresh = crossing('fresh', { kind: 3, state: 'claimable', inboxIndex: '1', createdAt: NOW - 500 });
-    const a = activity([old, fresh], view, NOW, {}, { ...env, claiming: 'fresh' });
+    const a = activity(
+      [old, fresh],
+      view,
+      NOW,
+      {},
+      {
+        ...env,
+        claiming: new Map([['fresh', NOW - 12_000]]),
+      },
+    );
     expect(a.rows.map((r) => [r.c.id, r.collapsed])).toEqual([
       ['fresh', false],
       ['old', true],
     ]);
-    expect(a.rows[0]?.line.chip.word).toBe('claiming');
+    expect(a.rows[0]?.line.chip.word).toBe('claiming · 12 s');
+    expect(a.rows[0]?.line.progress).toBeCloseTo(0.6);
     expect(a.rows[0]?.line.action).toBeUndefined();
     expect(a.needsUser).toBe(0);
     expect(a.rows[1]?.line.sentence).toBe('2 YACA at 0x709979…79C8.');

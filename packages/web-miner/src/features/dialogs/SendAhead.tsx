@@ -1,6 +1,5 @@
-// Send ahead: the whole balance by default, the four rows that say where it goes, the button with
-// the amount; then the proof and the five stations, with the recovery file offered under Done. How
-// it works is a screen of its own, one quiet link away.
+// Send ahead: the whole balance by default, because anything left on this version at the flip is
+// lost. The recovery file is offered under Done: the journal is the only record of the crossing.
 import { useAtomValue } from 'jotai';
 import { type ComponentProps, useState } from 'react';
 import type { Crossing } from '../../../../bridge/src/journal.ts';
@@ -30,6 +29,7 @@ import {
   seconds,
   TxDialog,
   useElapsed,
+  useLive,
   useOpening,
 } from './Frame';
 
@@ -273,8 +273,10 @@ function SendAheadRun({
   const next = nextVersionName(view.canonical);
   const [step, setStep] = useState<Step>({ kind: 'form' });
   const [error, setError] = useState<string>();
+  const live = useLive(open);
   const close = () => onOpenChange(false);
   const send = async (amount: bigint, display: string) => {
+    if (!live()) return;
     setError(undefined);
     setStep({ kind: 'proving', amount, display, since: Date.now() });
     try {
@@ -307,13 +309,16 @@ function SendAheadRun({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      {step.kind === 'form' && (
-        <Form
-          balance={balance}
-          next={next}
-          onSend={(a, d) => void send(a, d)}
-          onHow={() => setStep({ kind: 'how' })}
-        />
+      {(step.kind === 'form' || step.kind === 'how') && (
+        // The form stays mounted under "How it works": its draft comes back untouched on Back.
+        <div className={step.kind === 'form' ? 'contents' : 'hidden'}>
+          <Form
+            balance={balance}
+            next={next}
+            onSend={(a, d) => void send(a, d)}
+            onHow={() => setStep({ kind: 'how' })}
+          />
+        </div>
       )}
       {step.kind === 'how' && <How next={next} onBack={() => setStep({ kind: 'form' })} />}
       {step.kind === 'proving' && <Proving next={next} since={step.since} />}

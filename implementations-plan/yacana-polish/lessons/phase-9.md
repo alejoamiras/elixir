@@ -97,3 +97,86 @@ Pass criteria: cancellation boundaries and disabled reasons match the send's own
 Done after; an Ethereum send (deposit, claim, forward, redeem) locks while the wallet is asked, and before
 that its button is off for exactly the reasons the page owns (the wrong network with the switch offered, no
 ETH for the gas, an amount the form refuses) while the wallet's own refusal comes back as a step or a line.
+
+## Arc-5 codex fix loop (§10 steps 2–3)
+
+### Round 1 — `/codex high` (GPT-6 Astra, `high`, read-only), verdict **REVISE**, 15 findings
+
+Prompt: `scratchpad/codex-arc5-round1.md` over `git diff polish-facts...HEAD` (P8 `f28231e` + P9 `cdf3d94`),
+both verbatim rules. Its own verification: the row tests 7 passed, the bun run 236 passed with six
+sandbox-only failures, Vitest sandbox-blocked. Every reproduction it described was re-derived here before
+anything was applied; all fifteen held.
+
+Applied, in its numbering:
+
+1. **#1 high** — no submission guard: two clicks on Send ran the validation twice and sent twice; a click
+   whose validation outlived Cancel still sent. `useOnce()` in `Frame.tsx` takes a synchronous in-flight
+   ref before the first await (a state flag alone lets two clicks in one tick through), and `useLive(open)`
+   is read after every await that ends in money moving: a run whose dialog closed meanwhile does nothing.
+   Send, the deposit and the claim's `go` run under it. The claim additionally drops a funds read that
+   answers after unmount (`alive`). Cancel stays clickable while the address is checked — the dialog is not
+   locked then, and Escape already closed it — which is what makes the second test possible.
+2. **#2 high** — every crossing was read under this build's deadline and pause. `BridgeSession` now reads
+   each other version that has a crossing in the journal (`otherVersions`, pinned to the same block as the
+   own read, the previous value kept on a failed read) into `view.versions[v]: {standing, deadline}`;
+   `rows.ts` picks the facts by `c.version` (`factsOf`) and, with none, assumes nothing: the open-ended
+   phrase, no pause.
+3. **#3 medium** — Claim never locked: `Body` reports its step up (`onStep`), the run locks the dialog
+   while the wallet is asked and keeps the body when the wallet disconnects mid-request; the chip's × is
+   hidden while locked (`WalletChip locked`).
+4. **#4 medium** — no ETH was read once: `usePayerFunds` re-reads every 5 s while the refusal stands, and
+   `go` reads again on the click before the wallet is asked.
+5. **#5 medium** — the forward title said `nextVersionName()` after the flip: the dialog uses
+   `targetOf(crossing, view, flipped)`, the row's own reading (exported from `rows.ts`).
+6. **#6 medium** — the redeemed row named the redeem key: `Crossing.recipient` is the address the YACA was
+   minted to, recorded by the flow at the redeem and by the reconciliation from the `Redeemed` log
+   (`portal-reader.redeemed()` returns it; `Facts.redeemed.recipient`); the row says "at 0x…" only when it
+   is known. `ethAddress` stays the key that signs.
+7. **#7 medium** — How it works unmounted the draft: the form stays mounted under the explanatory screen
+   (`contents` / `hidden`) in Send ahead, To Ethereum and From Ethereum.
+8. **#8 medium** — Claim was offered for an arrival on another version: `elsewhereOf` names where it is
+   claimed (`claim on V6` / `claim on another version`), no action.
+9. **#9 medium** — the badge counted by chip colour: `waitsOnUser(line)` — an action that is present, not
+   disabled, not Settings, and not the quiet forward beside a redeem — so an urgent red claim counts; the
+   claims in flight live in `claimingAtom` (id → started at) shared by the Shell's badge and the list, a
+   second tap on a row already claiming does nothing.
+10. **#10 medium** — the dead `details` action is gone (`RowAction` no longer has it); Details shows the
+    claim's tx ("claim ↗") and the deadline sentence ("can leave …").
+11. **#11 medium** — `rpcFailing` after a good read now reads as "can't read the upgrade" for the rows
+    that turn on it (`verdictUnknown`), tested read-then-silence.
+12. **#12 medium** — the deposit form runs `moneyStanding` itself: a pause, a lost registration or a
+    silent RPC hold the form with the Wallet button's reason (`deposit-off`), not only closed deposits.
+13. **#13 low** — copy fidelity: the no-wallet Bridge to Ethereum offers **Connect wallet** (a `connect`
+    step, back to the form once connected); the pasted tag compares against the connected address; the
+    no-flip deadline carries its "after that, until the upgrade after V6 lands" clause; a K3 `sent` reads
+    as a deposit ("sent from Rabby"); the list names the wallet through `walletNameAtom` (the connector's
+    name, "your wallet" before one connects); a row in flight shows "proving · 60 s" and a bar against the
+    usual 20 s (`RowLine.progress`); the claim's done title is the verb ("Claimed.") and the deposit's
+    waiting title is "Bridging 1 YACA."; the frozen-headroom row no longer offers Details as its action.
+14. **#14 low** — tests: the row tests assert attention by expected state, not by colour; a Send spec for
+    the double click and the Cancel that outlives validation (the dialog under a host that owns `open`);
+    a Claim spec under wagmi's mock connector for the top-up re-read, the lock while the wallet is asked,
+    the done title, and the wallet's refusal; a From Ethereum spec for the paused form; the
+    "read-then-silence" row test.
+15. **#15 low** — the dialog headers narrated their screens; each keeps its invariants only. The false
+    Details comment went with the action.
+
+Departures, recorded rather than applied:
+
+- **The claim's done step links the Etherscan tx, not the L1 block number** the board prints: the flow
+  keeps no receipt block, and adding one to the journal for a number the link already leads to is not
+  worth a field.
+- **"claim on another version"**: the page names only this build and the canonical (`versionNameOf`); an
+  arrival on a third version is "another version", which is what the holder can act on from here.
+- **The Bridge to Ethereum connect step** says "The wallet the YACA goes to." — the canvas has no body line
+  for that state; one sentence, in the dialog's voice.
+- **The deposit's waiting title** is "Bridging 1 YACA." for both the wallet prompt and the crossing, the
+  board's wording for the crossing; the step below says which.
+
+Two things the round taught about the test bench, for the next one:
+
+- **wagmi's `WagmiProvider` reconnects on mount**, and the mock connector refuses to reconnect unless
+  `features.reconnect` is on — a test that connects in `beforeAll` and then awaits anything sees the
+  wallet disconnected a tick later. A synchronous assertion right after `render` hides it.
+- **`wagmi/connectors` pulls `@wagmi/connectors`, which imports `viem/tempo`** — absent from viem 2.38.
+  The root `wagmi` export carries `mock` (and `createConfig`, `http`); `wagmi/actions` is clean.

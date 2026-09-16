@@ -33,7 +33,7 @@ export interface BarSegment {
   color: string;
 }
 
-export type RowAction = 'claim' | 'claim-l1' | 'forward' | 'redeem' | 'again' | 'details' | 'settings';
+export type RowAction = 'claim' | 'claim-l1' | 'forward' | 'redeem' | 'again' | 'settings';
 
 /**
  * Everything the activity row says about one crossing, built by the app: the row renders it and
@@ -48,4 +48,6 @@ export interface RowLine {
   action?: { kind: RowAction; label: string; disabled?: string };
   also?: { kind: RowAction; label: string };
   note?: string;
+  /** Work under way on this page, 0–1 against its usual time: a bar under the sentence. */
+  progress?: number;
 }

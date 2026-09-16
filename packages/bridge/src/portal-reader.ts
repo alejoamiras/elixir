@@ -264,7 +264,7 @@ function leafReads(client: PublicClient, portal: Portal, registry: Registry, a: 
         toBlock: await tip(),
         first: true,
       });
-      return log ? { txHash: log.transactionHash } : undefined;
+      return log ? { txHash: log.transactionHash, recipient: log.args.recipient } : undefined;
     },
     arrivals: () => readArrivals(client, portal, a),
   };

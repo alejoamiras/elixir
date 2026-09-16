@@ -3,8 +3,15 @@ import { useState } from 'react';
 import type { RowAction, RowLine } from '../bridge-types.ts';
 import { cn } from '../lib/cn.ts';
 import { Button } from './button.tsx';
+import { Progress } from './progress.tsx';
 import { StatusChip } from './status-chip.tsx';
 import { Trail } from './trail.tsx';
+
+/** The bar of work under way on this page, when the line carries one and the row is open. */
+function RowProgress({ value, collapsed }: { value: number | undefined; collapsed: boolean }) {
+  if (value === undefined || collapsed) return null;
+  return <Progress value={value * 100} className="col-span-full" data-testid="row-progress" />;
+}
 
 export interface ActivityRowProps extends Omit<React.ComponentProps<'li'>, 'children' | 'onClick'> {
   amount: React.ReactNode;
@@ -22,11 +29,7 @@ export interface ActivityRowProps extends Omit<React.ComponentProps<'li'>, 'chil
   collapsed?: boolean;
 }
 
-/**
- * One crossing, the same shape whichever way it crosses: the amount and where it goes, its state
- * chip and the time, one sentence, the stations, and the single action it offers. The row renders
- * what `line` says and nothing else — every word and every refusal is decided before it gets here.
- */
+/** One crossing, the same shape whichever way it crosses; every word comes from `line`. */
 export function ActivityRow({
   amount,
   unit,
@@ -73,6 +76,7 @@ export function ActivityRow({
         </StatusChip>
         <span className="whitespace-nowrap font-mono text-2xs text-ink-3">{when}</span>
       </div>
+      <RowProgress value={line.progress} collapsed={collapsed} />
       {!collapsed && line.trail.length > 0 && (
         <Trail items={line.trail} variant="inline" className="col-span-full mt-0.5" />
       )}

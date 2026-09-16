@@ -1,8 +1,6 @@
-// The one frame every money flow shares: the 440 px dialog with an eyebrow, a title and a body
-// line, the summary rows under the amount, the footer line under the stepper, and the primary
-// action beside its quiet alternative. What a dialog says is its own; how it is laid out is here.
+// The one frame every money flow shares. What a dialog says is its own; how it is laid out is here.
 import type * as React from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Button,
   cn,
@@ -188,6 +186,38 @@ export function useOpening(open: boolean): number {
   const [state, setState] = useState({ open, run: 0 });
   if (state.open !== open) setState({ open, run: open ? state.run + 1 : state.run });
   return state.run;
+}
+
+/**
+ * Whether the dialog is still open, as read after an await: a click's work that outlives a close
+ * (a validation still running when Cancel came) must not send.
+ */
+export function useLive(open: boolean): () => boolean {
+  const ref = useRef(open);
+  ref.current = open;
+  return useCallback(() => ref.current, []);
+}
+
+/**
+ * One click's work at a time: a second click while the first is still validating or asking the
+ * wallet does nothing, and the button reads busy meanwhile. The guard is synchronous — set before
+ * the first await — so two clicks in one tick cannot both pass.
+ */
+export function useOnce(): { busy: boolean; once: (work: () => Promise<void>) => Promise<void> } {
+  const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
+  const once = useCallback(async (work: () => Promise<void>) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    try {
+      await work();
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  }, []);
+  return { busy, once };
 }
 
 /** Seconds since `since`, ticking while it is set: the running step's right column. */

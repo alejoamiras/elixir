@@ -2,8 +2,9 @@
 // waiting meanwhile; the unknown-recipient probe on leaving the address; what a public send says;
 // the receipt. The address parser itself runs Grumpkin through bb.js, which jsdom cannot host, so
 // the refusal function is stubbed here and proven in the bun test.
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createStore, Provider } from 'jotai';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { SendDialog } from './features/dialogs/Send';
@@ -32,17 +33,23 @@ vi.mock('./features/withdraw-form', async (importOriginal) => {
   };
 });
 
+/** The dialog under a host that owns `open`, as the Wallet does: Cancel and Done close it for real. */
 const mount = (session: Session) => {
   const store = createStore();
-  const at = (open: boolean) => (
-    <Provider store={store}>
-      <SendDialog session={session} self={SELF} balance={3n * ONE} open={open} onOpenChange={() => {}} />
-    </Provider>
-  );
-  const { rerender } = render(at(true));
+  let setOpen: (open: boolean) => void = () => {};
+  function Host() {
+    const [open, set] = useState(true);
+    setOpen = set;
+    return (
+      <Provider store={store}>
+        <SendDialog session={session} self={SELF} balance={3n * ONE} open={open} onOpenChange={set} />
+      </Provider>
+    );
+  }
+  render(<Host />);
   const reopen = () => {
-    rerender(at(false));
-    rerender(at(true));
+    act(() => setOpen(false));
+    act(() => setOpen(true));
   };
   return { reopen };
 };
@@ -126,5 +133,26 @@ describe('the send form', () => {
     expect(screen.queryByTestId('withdraw-sent')).toBeNull();
     expect((screen.getByTestId('withdraw-to') as HTMLTextAreaElement).value).toBe('');
     expect(screen.getByTestId('withdraw-send').textContent).toBe('Send privately');
+  });
+
+  test('the click validates once at a time, and a send whose validation outlives Cancel never goes out', async () => {
+    const { session, calls } = stub(true);
+    const { reopen } = mount(session);
+    fireEvent.change(screen.getByTestId('withdraw-amount'), { target: { value: '1' } });
+    fireEvent.change(screen.getByTestId('withdraw-to'), { target: { value: OTHER } });
+    // Two clicks while the address is still being checked: one send.
+    fireEvent.click(screen.getByTestId('withdraw-send'));
+    expect((screen.getByTestId('withdraw-send') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTestId('withdraw-send'));
+    await waitFor(() => expect(screen.getByTestId('withdraw-sent')).toBeDefined());
+    expect(calls.withdraw).toHaveBeenCalledTimes(1);
+    // A fresh run: the click, then Cancel before the check answers — nothing is sent.
+    reopen();
+    fireEvent.change(screen.getByTestId('withdraw-amount'), { target: { value: '1' } });
+    fireEvent.change(screen.getByTestId('withdraw-to'), { target: { value: OTHER } });
+    fireEvent.click(screen.getByTestId('withdraw-send'));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls.withdraw).toHaveBeenCalledTimes(1);
   });
 });

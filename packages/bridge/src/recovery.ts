@@ -108,6 +108,7 @@ function optionalFields(o: Record<string, unknown>, c: Crossing, num: (k: string
     'inboxIndex',
     'l1TxHash',
     'claimTxHash',
+    'recipient',
     'error',
   ] as const;
   for (const k of strings) if (typeof o[k] === 'string') (c as unknown as Record<string, unknown>)[k] = o[k];
