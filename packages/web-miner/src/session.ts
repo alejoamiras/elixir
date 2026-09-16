@@ -658,6 +658,7 @@ export class Session {
           miner: c.deployment.miner,
           token: c.deployment.token,
           fee: feePayer(c.feeSettings).for('bridge'),
+          beforeNextSend: c.deployment.beforeNextSend,
         }),
         master,
         connection: { ...this.connection, ethRpcUrl: this.ethRpc },

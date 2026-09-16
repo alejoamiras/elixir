@@ -57,6 +57,8 @@ const standing = {
   headroom: 500n * ONE,
   deadline: (1n << 256n) - 1n,
   flipAt: 0n,
+  afterNextAt: 0n,
+  pausedSeconds: 0n,
   retireSent: false,
   depositsClosed: false,
 };
@@ -292,7 +294,7 @@ describe('the old app', () => {
 
 describe('the dialog and the bar', () => {
   test('a send held for longer than usual asks, with the call to forward it from anywhere', () => {
-    mount(<TakingLongDialog onSettings={() => {}} onWallet={() => {}} />, (s) =>
+    mount(<TakingLongDialog onSettings={() => {}} onWallet={() => {}} />, (s) => {
       s.set(journalAtom, [
         crossing('slow', {
           kind: 2,
@@ -301,8 +303,12 @@ describe('the dialog and the bar', () => {
           witness: undefined,
           updatedAt: NOW - TAKING_LONG_AFTER_MS - 2 * HOUR * 1000,
         }),
-      ]),
-    );
+      ]);
+      s.set(bridgeAtom, {
+        ...s.get(bridgeAtom),
+        targetRegisteredAt: BigInt(Math.floor(NOW / 1000) - 8 * 3600),
+      });
+    });
     expect(screen.getByTestId('taking-long').textContent).toContain('Yacana forwards by hand');
     keep('taking-long', document.body.innerHTML);
   });

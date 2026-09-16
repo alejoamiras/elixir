@@ -18,6 +18,7 @@ import { type CrossingSecrets, deriveCrossingSecrets, exitLogTag } from '../../.
 import { signForward, signRedeem } from '../../../bridge/src/signatures.ts';
 import { forwardArgsFromArchive } from '../../../bridge/src/witness.ts';
 import type { FeeFor } from '../feePayer';
+import type { SendHook } from '../wallet.ts';
 import { depositOnEthereum, forwardOnEthereum, redeemOnEthereum, type WagmiConfig } from './eth.ts';
 import { type BridgeStore, scanNextIndex } from './store.ts';
 
@@ -27,6 +28,8 @@ export interface L2Handles {
   miner: Contract;
   token: Contract;
   fee: FeeFor;
+  /** The wallet's one-shot send hook (`wallet.ts`): the record is made durable before the send. */
+  beforeNextSend?: (hook: SendHook) => () => void;
 }
 
 export interface BridgeContext {
@@ -127,15 +130,31 @@ const fresh = (
 };
 
 /**
- * Sends, records the hash the moment the node has the transaction, then waits for its block. A
- * transaction sent may still be included after the page is gone: the record must find it by its hash.
+ * Sends, with the hash, the expiry and the anchor block committed to the journal before the
+ * transaction reaches the node (a commit that fails refuses the send: nothing reaches the network
+ * without its durable record), then waits for its block. A transaction sent may still be included
+ * after the page is gone: the record must find it by its hash.
  */
 async function sendRecorded(
   ctx: BridgeContext,
   c: Crossing,
   send: () => Promise<{ txHash: TxHash }>,
 ): Promise<Crossing> {
-  const { txHash } = await send();
+  const remove = ctx.l2().beforeNextSend?.(async (sent) => {
+    await ctx.store.update(c.id, (x) => ({
+      ...x,
+      txHash: sent.txHash,
+      expiresAt: String(sent.expiresAt),
+      anchorBlock: sent.anchorBlock,
+      updatedAt: ctx.now?.() ?? Date.now(),
+    }));
+  });
+  let txHash: TxHash;
+  try {
+    ({ txHash } = await send());
+  } finally {
+    remove?.();
+  }
   await ctx.store.update(c.id, (x) =>
     advance(
       { ...x, txHash: txHash.toString() },
@@ -255,10 +274,14 @@ export function deposit(
   resumes?: Crossing,
 ): Promise<Crossing> {
   return guarded(ctx, async () => {
+    // The calldata deadline on the record: Ethereum refuses the deposit past it, whatever the wallet did.
     const c = await ctx.store.create(
       ctx.version.toString(),
       () => nextIndexFromChain(ctx),
-      (index) => fresh(ctx, 3, index, amount, `0x${'00'.repeat(20)}`),
+      (index) => ({
+        ...fresh(ctx, 3, index, amount, `0x${'00'.repeat(20)}`),
+        expiresAt: deadline.toString(),
+      }),
     );
     const secrets = await secretsFor(ctx, c.index);
     let sent = false;
@@ -297,7 +320,7 @@ export function deposit(
 const HOUR = 3600n;
 
 /** The redeem key's Forward signature over the send-ahead's leaf and `target`, good for an hour of Ethereum's clock. */
-async function holderSignature(
+export async function holderSignature(
   ctx: BridgeContext,
   c: Crossing,
   args: ReturnType<typeof forwardArgsFromArchive>,

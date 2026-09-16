@@ -1,6 +1,8 @@
 import { atom } from 'jotai';
+import type { DeadlineReading } from '../../bridge/src/exit-deadline.ts';
 import type { FlipVerdict } from '../../bridge/src/flip.ts';
-import type { Crossing } from '../../bridge/src/journal.ts';
+import type { Crossing, RowState } from '../../bridge/src/journal.ts';
+import type { ProofReading } from '../../bridge/src/proofs.ts';
 import type { PreflightRow } from '../../ui/src/index.ts';
 import type { BridgeSession } from './bridge/session';
 import type { SlotView } from './keys/slot';
@@ -100,15 +102,25 @@ export interface BridgeView {
     headroom: bigint;
     deadline: bigint;
     flipAt: bigint;
+    afterNextAt: bigint;
+    pausedSeconds: bigint;
     retireSent: boolean;
     depositsClosed: boolean;
   };
   canonical?: { version: bigint; index: bigint };
+  /** The exit deadline as read from the transitions and the pause accounting, on Ethereum's clock. */
+  deadline?: DeadlineReading;
+  /** Unix seconds the canonical version was registered on the portal, once it is another than this one and registered. */
+  targetRegisteredAt?: bigint;
+  /** When Ethereum last verified a proof of this version. */
+  proof?: ProofReading;
   /** The last successful read of the RPC, or null. */
   readAt: number | null;
   /** The RPC is not answering: new Ethereum-bound exits are held back. */
   rpcFailing: boolean;
 }
 export const bridgeAtom = atom<BridgeView>({ verdict: { kind: 'unknown' }, readAt: null, rpcFailing: false });
+/** What each in-flight crossing reads as on this refresh, by id (`rowState`); derived, never stored. */
+export const rowStatesAtom = atom<Readonly<Record<string, RowState>>>({});
 /** The open account's bridge session; null while signed out or on a build without a portal. */
 export const bridgeSessionAtom = atom<BridgeSession | null>(null);

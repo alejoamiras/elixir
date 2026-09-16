@@ -158,8 +158,12 @@ export const cardLine = (
 /** A send-ahead held on Ethereum for longer than this asks whether something is wrong. */
 export const TAKING_LONG_AFTER_MS = 6 * 3600 * 1000;
 
-export const takingLong = (c: Crossing, now: number): boolean =>
-  c.kind === 2 && c.state === 'held' && now - c.updatedAt > TAKING_LONG_AFTER_MS;
+/** Counted from the later of being held and the target's registration on the portal; nothing is long while the target has no contract. */
+export const takingLong = (c: Crossing, now: number, targetRegisteredAt: number | undefined): boolean =>
+  c.kind === 2 &&
+  c.state === 'held' &&
+  targetRegisteredAt !== undefined &&
+  now - Math.max(c.updatedAt, targetRegisteredAt * 1000) > TAKING_LONG_AFTER_MS;
 
 // ---------------------------------------------------------------- the journal card's vocabulary
 

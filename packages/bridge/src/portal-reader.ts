@@ -20,6 +20,10 @@ export interface VersionStanding {
   miner: Hex;
   registryIndex: bigint;
   flipAt: bigint;
+  /** The version after next's observation on the portal; zero while unrecorded. */
+  afterNextAt: bigint;
+  /** Seconds of pause spent on this version, against the budget. */
+  pausedSeconds: bigint;
   paused: boolean;
   headroom: bigint;
   /** Unix seconds; the max uint256 while open-ended. */
@@ -39,8 +43,6 @@ export interface VersionFlows extends VersionStanding {
   cap: bigint;
   /** Unix seconds the pause runs to; zero or past when not paused. */
   pausedUntil: bigint;
-  /** Seconds of pause spent on this version, against the budget. */
-  pausedSeconds: bigint;
   launchAt: bigint;
 }
 
@@ -64,17 +66,22 @@ function versionReads(client: PublicClient, portal: Portal, a: PortalAddresses) 
     Promise.all([
       info(version),
       client.readContract({ ...portal, functionName: 'flipAt', args: [version] }),
+      client.readContract({ ...portal, functionName: 'afterNextAt', args: [version] }),
       client.readContract({ ...portal, functionName: 'isPaused', args: [version] }),
       client.readContract({ ...portal, functionName: 'headroom', args: [version] }),
       client.readContract({ ...portal, functionName: 'deadline', args: [version] }),
     ]);
-  const standingOf = ([v, flipAt, paused, headroom, deadline]: Awaited<ReturnType<typeof turnstile>>) => ({
+  const standingOf = ([v, flipAt, afterNextAt, paused, headroom, deadline]: Awaited<
+    ReturnType<typeof turnstile>
+  >) => ({
     registered: v.registered,
     miner: v.miner,
     registryIndex: BigInt(v.registryIndex),
     retireSent: v.retireSent,
     depositsClosed: v.depositsClosed,
     flipAt: BigInt(flipAt),
+    afterNextAt: BigInt(afterNextAt),
+    pausedSeconds: BigInt(v.pausedSeconds),
     paused,
     headroom,
     deadline,
@@ -97,7 +104,6 @@ function versionReads(client: PublicClient, portal: Portal, a: PortalAddresses) 
         inbound: v.inbound,
         cap,
         pausedUntil: BigInt(v.pausedUntil),
-        pausedSeconds: BigInt(v.pausedSeconds),
         launchAt: BigInt(v.launchAt),
       };
     },
@@ -141,9 +147,21 @@ function versionReads(client: PublicClient, portal: Portal, a: PortalAddresses) 
   };
 }
 
-/** The Registry's versions and their rollups; the portal's stamp of a transition. */
-function registryReads(client: PublicClient, portal: Portal, registry: Registry) {
+/** The Registry's versions and their rollups; the portal's stamp of a transition and of a registration. */
+function registryReads(client: PublicClient, portal: Portal, registry: Registry, a: PortalAddresses) {
   return {
+    /** Unix seconds of the block that registered `version` on the portal, or undefined while it is not. */
+    async registeredAt(version: bigint): Promise<bigint | undefined> {
+      const [log] = await scanLogs(client, {
+        ...portal,
+        eventName: 'VersionRegistered',
+        args: { version },
+        fromBlock: a.deployBlock,
+        toBlock: await client.getBlockNumber({ cacheTime: 0 }),
+        first: true,
+      });
+      return log ? (await client.getBlock({ blockNumber: log.blockNumber })).timestamp : undefined;
+    },
     /** The Registry's canonical version and its index. */
     async canonical(): Promise<{ version: bigint; index: bigint }> {
       const count = await client.readContract({ ...registry, functionName: 'numberOfVersions' });
@@ -161,6 +179,26 @@ function registryReads(client: PublicClient, portal: Portal, registry: Registry)
       client.readContract({ ...registry, functionName: 'getRollup', args: [version] }),
     /** Ethereum's clock: the latest block's timestamp, what the portal measures a pause or a deadline against. */
     blockTime: async (): Promise<bigint> => (await client.getBlock({ blockTag: 'latest' })).timestamp,
+    /**
+     * The L1 block the Registry made `version` canonical in: below it the version's Rollup emitted
+     * nothing. One filtered `getLogs` over the chain (both arguments are indexed); an RPC that
+     * refuses the range answers undefined, and the caller falls back to a later floor.
+     */
+    async canonicalAt(version: bigint): Promise<bigint | undefined> {
+      try {
+        const [log] = await client.getContractEvents({
+          ...registry,
+          eventName: 'CanonicalRollupUpdated',
+          args: { version },
+          fromBlock: 0n,
+          toBlock: 'latest',
+          strict: true,
+        });
+        return log?.blockNumber;
+      } catch {
+        return undefined;
+      }
+    },
     /** Whether the portal has stamped Registry index `index`. */
     async transitionSeen(index: bigint): Promise<boolean> {
       return (await client.readContract({ ...portal, functionName: 'transitions', args: [index] })) !== 0n;
@@ -230,7 +268,7 @@ export const portalReader = (client: PublicClient, a: PortalAddresses) => {
   const registry: Registry = { address: a.registry, abi: RegistryAbi };
   return {
     ...versionReads(client, portal, a),
-    ...registryReads(client, portal, registry),
+    ...registryReads(client, portal, registry, a),
     ...leafReads(client, portal, registry, a),
   };
 };

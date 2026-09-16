@@ -88,6 +88,21 @@ describe('the recovery file', () => {
     expect(hint('minted-l2')).toBe('witnessed');
     expect(hint('held')).toBe('held');
     expect(asHint({ ...crossing, state: 'minted-l2', claimSettled: true }).claimSettled).toBeUndefined();
+    // The send's expiry round-trips through the file but never authorises a retry on another device.
+    const lost = {
+      ...crossing,
+      state: 'proving' as const,
+      txHash: undefined,
+      expiresAt: '900',
+      anchorBlock: 4,
+    };
+    const [back] = parseRecoveryFile(JSON.stringify(recoveryFile(scope, [lost])), {
+      chainId: '31337',
+      portal: PORTAL,
+    }).crossings;
+    expect(back).toMatchObject({ expiresAt: '900', anchorBlock: 4 });
+    expect(asHint(back as Crossing)).not.toHaveProperty('expiresAt');
+    expect(asHint(back as Crossing)).not.toHaveProperty('anchorBlock');
     // An index sets how far a device scans: a file cannot send it past any account's reach.
     const far = JSON.stringify(
       recoveryFile(scope, [{ ...crossing, id: undefined, index: 2 ** 40 } as never]),

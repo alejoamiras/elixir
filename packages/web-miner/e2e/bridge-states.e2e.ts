@@ -2,7 +2,8 @@
 // run's control server for what Yacana does by hand), with the injected test wallet answering from
 // Node: a withdrawal to Ethereum claimed there as YACA; a deposit through the wallet picker whose
 // wallet starts on the wrong chain, refuses once, is left open once (a reload recovers the crossing
-// from the journal), changes account mid-flow, then lands and is claimed on the arrival card.
+// from the journal, and Ethereum's clock past its deadline retires it), changes account mid-flow,
+// then lands while the page is away and is claimed on the arrival card.
 import type { Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { control } from './control-client.ts';
@@ -20,6 +21,18 @@ test.afterEach(async ({ page }, info) => {
 });
 
 const short = (a: string) => `${a.slice(0, 8)}…${a.slice(-4)}`;
+
+/** The node's JSON-RPC, as the page speaks it. */
+async function rpc<T>(nodeUrl: string, method: string, params: unknown[]): Promise<T> {
+  const res = await fetch(nodeUrl, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+  });
+  const reply = (await res.json()) as { result?: T; error?: { message: string } };
+  if (reply.error) throw new Error(`${method}: ${reply.error.message}`);
+  return reply.result as T;
+}
 
 const openKey = async (page: Page, address: string) => {
   await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
@@ -100,9 +113,13 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   await expect(stuck).toHaveCount(1, { timeout: 60_000 });
   await expect(stuck).toContainText('Waiting for your Ethereum wallet');
   await shot(page, 'arrival-unanswered');
-  await stuck.getByTestId('arrival-resume').click();
-  await expect(page.getByTestId('deposit-amount')).toHaveValue(/^0\.5/);
+  // Its retirement is Ethereum's clock past the deposit's own deadline (an hour), never the device's:
+  // warped past it, the record gives itself up and leaves the card without a tap.
+  await rpc(r.nodeUrl, 'aztecDebug_warpL2TimeAtLeastBy', [3_700]);
+  await expect(stuck).toHaveCount(0, { timeout: 90_000 });
+  await page.getByTestId('deposit').click();
   await connectTestWallet(page);
+  await page.getByTestId('deposit-amount').fill('0.5');
 
   // An account change mid-flow: the sheet shows whoever the wallet says now.
   await l1.setAccount(OTHER_KEY);
@@ -110,13 +127,15 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   await l1.setAccount(bridge.holderKey as Hex);
   await expect(page.getByTestId('eth-account')).toContainText(short(l1.address));
 
-  // The deposit goes out under a crossing of its own — the refused one was given up at once, the one
-  // left open is given up as this one is sent — the deposit, then its Deposited event.
+  // The deposit goes out under a crossing of its own (the refused one was given up at once, the one
+  // left open retired above), and the page closes the moment the wallet has sent it: the record
+  // settles late, from Ethereum's receipt or event, with nobody watching.
   await page.getByTestId('deposit-go').click();
-  await expect(page.getByTestId('deposit-done')).toBeVisible({ timeout: 2 * 60_000 });
-  expect(l1.calls('eth_sendTransaction')).toBe(3);
-  await page.getByRole('button', { name: 'Done' }).click();
-  await expect(page.locator('[data-testid=arrival]')).toHaveCount(1);
+  await expect.poll(() => l1.calls('eth_sendTransaction'), { timeout: 60_000 }).toBe(3);
+  await page.reload();
+  await openKey(page, account);
+  await page.getByRole('link', { name: 'Wallet' }).click();
+  await expect(page.locator('[data-testid=arrival]')).toHaveCount(1, { timeout: 60_000 });
   await expect(page.locator('[data-testid=arrival]')).toHaveAttribute('data-state', 'deposited', {
     timeout: 60_000,
   });

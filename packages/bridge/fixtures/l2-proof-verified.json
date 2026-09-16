@@ -1,0 +1,12 @@
+{
+  "source": "Aztec testnet V5 Rollup 0xd73a91bdcf6891c7642f3e460036e1ef2cc23178 on Sepolia, read 2026-09-16 through the record's public RPC",
+  "blockNumber": 11716587,
+  "logIndex": 32,
+  "topics": [
+    "0x034dd13d657aeb14f8dec7291c4a8ddb3b20d40cf2412714e72f97f19c735609",
+    "0x0000000000000000000000000000000000000000000000000000000000012e32",
+    "0x0000000000000000000000008fe5b4c99c9d1b71c6405a63fd5194018fdc3217"
+  ],
+  "data": "0x",
+  "timestamp": 1789559616
+}

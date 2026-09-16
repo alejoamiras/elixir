@@ -12,7 +12,7 @@ import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { buildClaim } from '../../miner-core/src/claim.ts';
 import { readOpenEpoch, readRules } from '../../miner-core/src/epoch.ts';
 import type { EpochInfo } from './lib/reducer';
-import type { SentTx } from './wallet';
+import type { SendHook, SentTx } from './wallet';
 
 export type Node = ReturnType<typeof createAztecNodeClient>;
 
@@ -27,6 +27,8 @@ export interface Deployment {
   token: Contract;
   /** The last transaction the wallet behind `miner` handed to the node. */
   lastSent: () => SentTx | undefined;
+  /** A hook for the wallet's next send (`wallet.ts`); absent on a deployment with no observed wallet. */
+  beforeNextSend?: (hook: SendHook) => () => void;
 }
 
 export const loadArtifact = async (name: string): Promise<ContractArtifact> =>
@@ -39,6 +41,7 @@ export async function attachDeployment(
   addresses: { miner: string; token: string },
   minerArtifact: ContractArtifact,
   lastSent: () => SentTx | undefined = () => undefined,
+  beforeNextSend?: (hook: SendHook) => () => void,
 ): Promise<Deployment> {
   const tokenArtifact = await loadArtifact('token_contract-Token');
   const contracts = [] as Contract[];
@@ -53,7 +56,7 @@ export async function attachDeployment(
     contracts.push(Contract.at(at, art, wallet));
   }
   const [miner, token] = contracts as [Contract, Contract];
-  return { node, miner, token, lastSent };
+  return { node, miner, token, lastSent, ...(beforeNextSend ? { beforeNextSend } : {}) };
 }
 
 export const readEpoch = async (d: Deployment, from: AztecAddress): Promise<EpochInfo> => {

@@ -30,6 +30,7 @@ const reads = (over: Partial<FactReads> = {}) => {
     redeemed: async () => undefined,
     messageReady: async () => false,
     claimed: async () => undefined,
+    l1Tx: async () => undefined,
     nowSeconds: async () => 1_000n,
   };
   const r = Object.fromEntries(
@@ -71,6 +72,29 @@ describe('the facts a reading gathers', () => {
     expect(h.epoch).toBe('2');
     expect(late.calls).toEqual(['epochOfBlock', 'proofDeadline', 'epochProven']);
     expect(advance(crossing('proven-pending', { block: 3 }), h).epoch).toBe('2');
+  });
+
+  test("a deposit is settled by its receipt or given up by Ethereum's clock past its deadline, never by the device's", async () => {
+    const waiting = crossing('proving', { kind: 3, txHash: undefined, expiresAt: '1200' });
+    // Before the deadline with no hash: the wallet may still answer; nothing is read but the clock.
+    const { r, calls } = reads();
+    const f = await factsFor(r, waiting, 99_999_999);
+    expect(f).toEqual({ now: 99_999_999 });
+    expect(calls).toEqual([]);
+    // Past the deadline: nothing the wallet sent can land, whatever the device's clock says.
+    const expired = { ...waiting, expiresAt: '900' };
+    expect(advance(expired, await factsFor(r, expired, 5)).state).toBe('dropped');
+    // A hash in hand: the receipt decides — the message it made, or a revert that spent the gas.
+    const sent = { ...waiting, l1TxHash: '0xd1' as const };
+    const mined = reads({ l1Tx: async () => ({ status: 'mined', inboxIndex: '9' }) });
+    const g = await factsFor(mined.r, sent, 5);
+    expect(g.deposited).toEqual({ txHash: '0xd1', inboxIndex: '9' });
+    expect(advance(sent, g)).toMatchObject({ state: 'deposited', inboxIndex: '9' });
+    expect(mined.calls).toEqual(['l1Tx']);
+    const reverted = reads({ l1Tx: async () => ({ status: 'reverted' }) });
+    expect(advance(sent, await factsFor(reverted.r, sent, 5)).state).toBe('dropped');
+    // Unmined and before the deadline: still waiting.
+    expect(advance(sent, await factsFor(r, sent, 5))).toBe(sent);
   });
 
   test('a witnessed leaf asks the portal only until an event answers for it', async () => {

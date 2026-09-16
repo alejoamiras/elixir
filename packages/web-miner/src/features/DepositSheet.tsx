@@ -3,11 +3,12 @@
 // transaction from that wallet → "On its way."; the arrival card's Claim finishes it here. Also the
 // sheet a held send-ahead is forwarded or redeemed from: the same wallet pays the gas.
 import { useAtomValue } from 'jotai';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Hex } from 'viem';
 import { useAccount, useConnect, useConnectors, useDisconnect, useReadContract } from 'wagmi';
 import type { Crossing } from '../../../bridge/src/journal.ts';
 import { yacaAbi } from '../../../bridge/src/portal.ts';
+import { explainRevert } from '../../../bridge/src/revert.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { ownVersionName } from '../../../site/src/browser/version-name.ts';
 import {
@@ -25,8 +26,10 @@ import {
   Stepper,
 } from '../../../ui/src/index.ts';
 import { chainName } from '../bridge/copy';
-import { bridgeRecord, migrationRecord } from '../bridge/env';
+import { bridgeRecord, migrationRecord, versionNameOf } from '../bridge/env';
+import type { PayerFunds } from '../bridge/eth-balance';
 import { reviewAmount } from '../bridge/forms';
+import type { PayerAsk } from '../bridge/session';
 import { l1Links } from '../explorer';
 import { amount as fmt, shortAddress } from '../lib/format';
 import type { Session } from '../session';
@@ -128,6 +131,11 @@ type Step = { kind: 'form' } | { kind: 'deposit' } | { kind: 'done'; display: st
 
 const firstLine = (e: unknown) => (e instanceof Error ? (e.message.split('\n')[0] ?? '') : String(e));
 const version = (): string => ownVersionName();
+/** A known portal revert in the row's words; anything else by its first line. */
+const explain = (e: unknown, v: string) => explainRevert(e, v) ?? firstLine(e);
+/** The page's own "no ETH for the gas", before the wallet is asked; null when it can pay or nothing is known. */
+const noEth = (funds: PayerFunds, wallet: string | undefined): string | null =>
+  funds.enough === false ? `${wallet ?? 'Your wallet'} has no ${chain()} ETH for the gas.` : null;
 
 /** Before an announced flip a deposit lands on a version about to end: the sheet says so first. */
 function PreFlip() {
@@ -271,15 +279,23 @@ export function DepositSheet({
   const go = async () => {
     setError(undefined);
     try {
-      // The Ethereum balance is the wallet's to know; the portal refuses more than it holds.
+      // The YACA balance is the wallet's to know (the portal refuses more than it holds); the ETH for the gas is read here first.
       const { amount, display } = reviewAmount(text, (1n << 128n) - 1n, PARAMS.DECIMALS);
+      if (account.address && session.bridge) {
+        const funds = await session.bridge.payerFunds(account.address, { kind: 'deposit', amount });
+        const refused = noEth(funds, account.connector?.name);
+        if (refused) {
+          setError(refused);
+          return;
+        }
+      }
       setStep({ kind: 'deposit' });
       const crossing =
         (await session.bridge?.deposit(amount, (s) => setStep({ kind: s }), resume)) ?? undefined;
       setStep({ kind: 'done', display, crossing });
     } catch (e) {
       setStep({ kind: 'form' });
-      setError(firstLine(e));
+      setError(explain(e, version()));
     }
   };
   const busy = step.kind === 'deposit';
@@ -379,21 +395,49 @@ export function HeldSheet({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [done, setDone] = useState(false);
+  const [funds, setFunds] = useState<string | null>(null);
   const close = () => {
     setError(undefined);
     setDone(false);
     onOpenChange(false);
   };
+  const ask = (): PayerAsk | undefined => {
+    if (!crossing || !account.address) return undefined;
+    return action === 'redeem'
+      ? { kind: 'redeem', crossing, recipient: account.address }
+      : { kind: 'forward', crossing };
+  };
+  const readFunds = async (): Promise<string | null> => {
+    const a = ask();
+    if (!a || !account.address || !session.bridge) return null;
+    const refused = noEth(await session.bridge.payerFunds(account.address, a), account.connector?.name);
+    setFunds(refused);
+    return refused;
+  };
+  // On open and at every account change: the wallet's ETH against this claim's gas, before it is asked.
+  const address = account.address;
+  const id = crossing?.id;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-read on the crossing and the account alone
+  useEffect(() => {
+    setFunds(null);
+    if (id && address) void readFunds().catch(() => {});
+  }, [id, address]);
   const go = async () => {
     if (!crossing || !account.address) return;
     setBusy(true);
     setError(undefined);
     try {
+      // Read again on the click: the balance may have moved since the sheet opened.
+      const refused = await readFunds().catch(() => null);
+      if (refused) {
+        setError(refused);
+        return;
+      }
       if (action === 'redeem') await session.bridge?.redeem(crossing, account.address);
       else await session.bridge?.selfForward(crossing);
       setDone(true);
     } catch (e) {
-      setError(firstLine(e));
+      setError(explain(e, versionNameOf(crossing.version)));
     } finally {
       setBusy(false);
     }
@@ -410,6 +454,11 @@ export function HeldSheet({
           </Alert>
         )}
         <WalletPicker yaca={yaca} note={copy.note} />
+        {funds && !error && (
+          <Note title={funds} tone="warn" data-testid="payer-no-eth">
+            Send some {chain()} ETH to it first; the claim itself costs nothing else.
+          </Note>
+        )}
         {crossing && !done && (
           <div className="flex flex-col gap-4">
             <AmountBlock

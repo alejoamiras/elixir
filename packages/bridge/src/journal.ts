@@ -71,6 +71,13 @@ export interface Crossing {
   /** K1: the Ethereum recipient. K2: the redeem address. K3: the depositor. */
   ethAddress: Hex;
   txHash?: string;
+  /**
+   * Unix seconds the sent transaction expires at (K1, K2: the sequencer's bound; K3: the deposit's
+   * calldata deadline). Authoritative only when this page observed the send: a restore strips it.
+   */
+  expiresAt?: string;
+  /** K1, K2: the block the transaction was built against, the earliest it could land after. */
+  anchorBlock?: number;
   block?: number;
   epoch?: string;
   /** Unix seconds by which the epoch's proof must be on Ethereum, or the epoch is pruned. */
@@ -215,6 +222,22 @@ export function advance(c: Crossing, f: Facts): Crossing {
     if (next.error !== error) next = { ...next, error, updatedAt: f.now };
   }
   return next;
+}
+
+/** A row's state: the record's, or what a send without a hash reads as. Derived at every refresh, never stored. */
+export type RowState = CrossingState | 'checking' | 'unfinished';
+
+/**
+ * A send that has no hash is `checking` until the node in use can say it never happened: it passed
+ * the deployment check and serves the send's anchor block (`covered`; the archiver's history is
+ * contiguous, so it indexes every block the log could be in), its tip is past the expiry, and the
+ * tag has no log (the record would have moved otherwise). Anything short of that is `checking`, never
+ * a retry; a log found later moves either row on.
+ */
+export function rowState(c: Crossing, f: { sourceTipAt: bigint | null; covered: boolean }): RowState {
+  if (c.state !== 'proving' || c.kind === 3 || c.txHash) return c.state;
+  if (!c.expiresAt || c.anchorBlock === undefined || !f.covered || f.sourceTipAt === null) return 'checking';
+  return f.sourceTipAt > BigInt(c.expiresAt) ? 'unfinished' : 'checking';
 }
 
 /** The version a crossing lands on and is claimed from: a deposit's own, a send-ahead's target; an exit lands on Ethereum. */
