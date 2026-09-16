@@ -126,6 +126,8 @@ export interface BridgeSessionDeps {
 const REFRESH_MS = 15_000;
 /** Mints asked about per refresh, newest first; the batch rotates so every open one is reached. */
 const SETTLE_AT_MOST = 8;
+/** Other versions read per refresh: a journal is the user's, and a recovery file can name any number. */
+const VERSIONS_AT_MOST = 2;
 
 /** `n` items from `from` (wrapping), so consecutive calls walk the whole list. */
 export function rotate<T>(items: readonly T[], from: number, n: number): T[] {
@@ -189,6 +191,7 @@ export class BridgeSession {
   private readonly registeredAt = new Map<string, bigint>();
   private refreshes = 0;
   private settleFrom = 0;
+  private versionsFrom = 0;
   private closed = false;
   private suspended = false;
 
@@ -735,8 +738,9 @@ export class BridgeSession {
   }
 
   /**
-   * The standing and deadline of every other version the journal holds a crossing of, in the
-   * same L1 block as this version's; a version whose read fails keeps its last reading.
+   * The standing and deadline of the other versions the journal holds a crossing under way of, in
+   * the same L1 block as this version's, a few per refresh; a version not read this time, or whose
+   * read fails, keeps its last reading.
    */
   private async otherVersions(
     block: { number: bigint | null; timestamp: bigint },
@@ -744,9 +748,14 @@ export class BridgeSession {
     prev: BridgeView['versions'],
   ): Promise<BridgeView['versions']> {
     const own = this.ctx.version.toString();
-    // A settled crossing is judged by nothing: only the versions with one under way are read.
-    const versions = new Set((await this.journal.list()).filter(inFlight).map((c) => c.version));
-    versions.delete(own);
+    // A completed row needs no live deadline: only the versions with a crossing under way count.
+    const versions = [...new Set((await this.journal.list()).filter(inFlight).map((c) => c.version))].filter(
+      (v) => v !== own,
+    );
+    const out: Record<string, VersionFacts> = {};
+    for (const v of versions) if (prev?.[v]) out[v] = prev[v];
+    const batch = rotate(versions, this.versionsFrom, VERSIONS_AT_MOST);
+    this.versionsFrom += VERSIONS_AT_MOST;
     const read = async (v: string): Promise<[string, VersionFacts | undefined]> => [
       v,
       await this.reader
@@ -757,8 +766,7 @@ export class BridgeSession {
         }))
         .catch(() => prev?.[v]),
     ];
-    const out: Record<string, VersionFacts> = {};
-    for (const [v, facts] of await Promise.all([...versions].map(read))) if (facts) out[v] = facts;
+    for (const [v, facts] of await Promise.all(batch.map(read))) if (facts) out[v] = facts;
     return out;
   }
 

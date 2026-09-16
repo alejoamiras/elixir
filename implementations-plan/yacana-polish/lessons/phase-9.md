@@ -242,3 +242,24 @@ locked while it proves).
 | `canary` shard, real proving | 4/4 passed, 5.3 min (withdraw 110 s, 3 proofs) |
 | replay | 4/4 passed, 42 s |
 | `bun run rig -- browser` | 3/3 passed: V5 2.9 min · flip 12 s · V6 1.2 min |
+
+### Round 3 — resumed, verdict **REVISE**, 3 findings
+
+Prompt: `scratchpad/codex-arc5-round3.md` over `git show 9daaa79`. Its "held up" list covered every
+round-2 change it was asked to break (Strict Mode, the synchronous and the immediate deposit failure,
+the twin id, the `inFlight` filter, "your wallet").
+
+1. **#1 medium — the typecheck in the gate tables above was vacuous.** `packages/web-miner/tsconfig.json`
+   is a solution file (`files: []`, three references); `tsc -p tsconfig.json --noEmit` checks nothing and
+   exits 0. Round 2's removal of `RowFacts.wallet` left `explain()` in `Claim.tsx` passing `wallet` —
+   TS2353 under the package's own `typecheck` (`tsc -b`), which is what CI and the build run. Fixed;
+   the gate from here on is `bun run --cwd packages/web-miner typecheck`. `packages/ui` has a plain
+   tsconfig, so its `tsc -p` line was real. (Memory saved: `web-miner-typecheck-is-tsc-b`.)
+2. **#2 medium** — the "one or two versions" bound was an assumption, not a rule: a recovery file names
+   any number of versions, and one with a thousand witnessless `proving` records passed the parser and
+   would have started a thousand standing reads (six contract reads each) per refresh. `otherVersions`
+   now reads `VERSIONS_AT_MOST = 2` per refresh on the session's `rotate` (the mining claims' pattern),
+   every version's last reading carried until its turn. `tests/bridge-versions.bun.test.ts` on the
+   prototype: two per refresh in turn, a settled version and this build never read.
+3. **#3 low** — the comment said more than the code decides ("judged by nothing"); it now says what it
+   filters: a completed row needs no live deadline.

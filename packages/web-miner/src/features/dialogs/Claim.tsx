@@ -50,13 +50,7 @@ type Step =
   | { kind: 'done'; crossing?: Crossing };
 
 /** A held action's failure: the row's own words when the portal refused, else the error's first line. */
-const explain = (
-  e: unknown,
-  c: Crossing,
-  flipped: boolean,
-  pausedUntil: bigint | undefined,
-  wallet: string,
-) =>
+const explain = (e: unknown, c: Crossing, flipped: boolean, pausedUntil: bigint | undefined) =>
   revertLine(e, c, {
     version: versionNameOf(c.version),
     target: versionNameOf(c.target),
@@ -65,7 +59,6 @@ const explain = (
     money: `${fmt(BigInt(c.amount), PARAMS.DECIMALS)} YACA`,
     who: shortAddress(c.ethAddress),
     chain: chain(),
-    wallet,
   }) ?? firstLine(e);
 
 function Summary({ kind, c, target }: { kind: Kind; c: Crossing; target: string }) {
@@ -231,7 +224,7 @@ function Body({
       return;
     }
     const pausedUntil = view.standing?.paused ? view.standing.pausedUntil : undefined;
-    setError(explain(e, crossing, flipped, pausedUntil, wallet));
+    setError(explain(e, crossing, flipped, pausedUntil));
     setStep({ kind: 'ready' });
   };
   const perform = async (to: Hex) => {
