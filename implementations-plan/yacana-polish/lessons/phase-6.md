@@ -1,0 +1,83 @@
+# Phase 6 — Settings and the node
+
+Arc 3 (`polish-mine`). Built 2026-09-16, commit `3a715c9`.
+
+## What was built
+
+- **The health store knows the chain (§9.2.19, D33, D41).** `node-health.ts` keeps the node's tip (block,
+  checkpointed checkpoint, the block's own time: read by the public epoch poll and the controller's refresh beside
+  the epoch, `readTip`), the rollup's pending checkpoint from L1 (`recordL1`, counted only when the L1 head moved:
+  a cached answer is not news), the deployment check's outcome, and a sticky `behind`: a fresh L1 sample (under
+  60 s) that puts the node more than one checkpoint behind sets it, only a fresh sample that finds the node caught
+  up clears it. `standing()`: throttled / silent from the transport, `behind` from the flag, `healthy` only with
+  the deployment checked, a tip and a fresh sample, `unknown` otherwise (the row then shows the transport's word).
+- **The L1 sampler** (`web-miner/src/l1-sampler.ts`): every 15 s, `getChainId` + `getBlockNumber` +
+  `getPendingCheckpointNumber` on the rollup, its own viem client (retryCount 0) on the RPC in use, started by the
+  session whenever the build carries an Ethereum RPC, signed in or out; another chain's answer is dropped; the
+  guard admits the RPC whenever the build has one (not only with a portal).
+- **The behind pause.** `PauseReason` gains `behind`; the controller subscribes to the store and pauses on the
+  flag with the notice "node behind · The node answers, but its chain is 4 min old. Mining is paused; it resumes
+  when the node catches up." (`notice-behind`), releases when it clears; the pill reads `paused`.
+- **The node row (§5.7, board NodeStates).** Line 1 `Aztec node` + the chip (`healthy` · `throttled` ·
+  `no answer · 2 min` · `behind · 4 min` · `checking` before the deployment check); line 2 the host with
+  `· default` or `· custom` and "Use the default"; line 3 `block 83,117 · 12 s ago` with the state's sentence
+  (throttled: "public nodes throttle busy pages; it recovers on its own · mining pauses if it lasts a minute";
+  behind: "the node answers, but its chain is old · mining paused"; silent: "your view is from 14:02 · mining
+  paused" with **Retry**); **Change** at the right (disabled, "set by the page URL", under a query pin). Change →
+  the field with **Save** / **Cancel** and "Any https node on this deployment."; Save → the stepper ✓ Reachable
+  0.6 s · ✓ This deployment · ● Switching "Rebuilding your view of the chain from the new node. Mining pauses until
+  it's done." · about a minute; a refused probe stays under the field ("Not this deployment's node (it serves
+  rollup N). Kept v5…"), a failed rebuild too ("Couldn't rebuild your view from my-node…: it stopped answering.
+  Kept v5…"). The Ethereum RPC row is the same shape: `healthy` / `no answer` / `not asked yet`, line 3
+  `Sepolia · 0.4 s`.
+- **The switch's fallback.** `switchNodeLive` moves the handle back and rebuilds from the former node when the new
+  node's rebuild fails, then throws `SwitchFailed(kept: true)`: "Kept …" is said only once the old view is back.
+  If the former node fails too the prover is given up (`giveUp`) and `SwitchFailed(kept: false)` marks the session
+  dead with the boot error's way out. `rebuildChainView(strict)` no longer abandons the prover itself.
+- **Settings in six cards**: network (the two rows), mining power (the slider with "This slider affects browser
+  proving only; one core stays with the page.", Presto's row "native prover, several times faster · checked when
+  you start mining" / "not found" / "connected ✦" / the banner's reason, "Get Presto ↗", the three pauses), alerts,
+  account (the address, its method, Stay open with "On: anyone who can use this browser could open and spend from
+  this account without your passkey. Off: one touch per open.", **Sign out** through the hold dialog), appearance,
+  about (source, build, bb.js, relying party, "Yacana runs in your browser. Whoever serves this page controls it;
+  the source is public — run your own build if that matters." + "More on /faq"). Copy diagnostics is gone.
+- The defaults (`defaultNodeUrl`, `defaultEthRpcUrl`) read the build's env live.
+
+## Decisions taken while building
+
+- **`behind` is the rollup's word, not the tip's age** (plan §3: an idle local network builds no blocks). The chip's
+  suffix is the tip's age, what the user feels; the verdict is the checkpoint delta. Without an Ethereum RPC in the
+  build (the non-bridge e2e builds) the standing stays `unknown` and the chip says the transport's word.
+- **The controller follows the store's flag, not `standing()`**: a throttled node with a known lag would otherwise
+  resume mining when the throttle lifted before L1 said the lag was gone.
+- **`unknown` with the deployment checked shows `healthy`** (the plan's "the transport's word"); before the check
+  the chip says `checking`.
+- **The probe is one call** (`probeNode` asserts the deployment then reads the tip): the stepper marks Reachable and
+  This deployment together once it answers; a refusal names which it was from the check's message (chain, rollup).
+- **Retry on a silent node** brings the cooldown's deadline to now, so the gate's next request goes to the network
+  as the recovery; it does not bypass the gate.
+- **Presto's row before a probe says "checked when you start mining"; found but not yet proved says "found"** (the
+  brief names four states; the fifth is the seconds between the probe and the first native proof).
+- **The old origin's Settings** (board OldSettings) is P10's.
+- **Two e2e titles added** (the behind case in `states.e2e.ts` with an L1 stub the page's sampler reads; the refused
+  node in `switch.e2e.ts`), both proofless, in the inventory.
+- P5's specs used jest-dom's matchers without its types: `tsc -b` failed on them; replaced with plain assertions.
+
+## The gate
+
+- Fast layers: lint clean; `bun test` green (the inventory at 19 + 1 + 1 + 2); web-miner Vitest incl. the four
+  Settings and node-tile specs; `tsc -b packages/site packages/web-miner` clean.
+- Runs, each alone:
+  - `chain` proverless on `3a715c9`: 7/8 — the switch spec expected `· default` on the saved proxy A; the row
+    says `· custom` for any saved URL (proxy A is not the build's default). Fixed in `a98e9f9`; rerun 8/8
+    (the behind case 30.8 s; both switch tests; presto 3/3).
+  - replay on `3a715c9` and `a98e9f9`: red twice. First the sampler reached Sepolia from the replay build
+    (every e2e build carries site.env's RPC; the config requires a URL, so `VITE_ETH_RPC_URL: ''` cannot
+    switch it off); then the recording lacked `aztec_getCheckpointNumber`. The sampler now starts only when
+    the build carries a bridge record or the e2e query pins an RPC; the recording was re-recorded
+    (`1b061e0`).
+  - `chain` proverless on `1b061e0`: 8/8. replay on `1b061e0`: 4/4 (41.8 s).
+- The pass conditions: `healthy` needs a fresh tip (the standing's test: no tip → `unknown`, the chip says
+  `checking` before the deployment check); a failed switch never reports success (`switch.bun.test.ts`: the
+  rebuild that fails on the new node is retried from the former one and rejects with `kept: true`; failing
+  there too abandons the prover and rejects with `kept: false`; the refused-node e2e keeps proxy A).

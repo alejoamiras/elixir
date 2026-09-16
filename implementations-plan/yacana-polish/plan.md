@@ -488,7 +488,7 @@ billboard kept. Specs: `presto`, `miner` (power changes, the pop-out), `signed-o
 **Gate**: fast · `cockpit` proverless · `chain` proverless (presto) · replay (re-recorded) · pass: no probe at
 cockpit-ready, no rebuild on a slider change while native, ✦ only on a native proof · layers: + e2e live.
 
-### P6 — Settings and the node
+### P6 ✓ — Settings and the node (green 2026-09-16, `lessons/phase-6.md`)
 
 `node-health.ts` with the node's tip, the rollup's L1 tip and `standing()`, sampled by the public epoch poll
 and the session's refresh (not the tile); `behind` anchored on L1 and its pause (§9.2.19; an idle isolated
