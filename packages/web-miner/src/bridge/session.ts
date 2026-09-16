@@ -460,9 +460,21 @@ export class BridgeSession {
     return this.ctx.queue.drain();
   }
 
-  /** Refuses new operations with `reason` (null lifts it): a node switch drains, then holds, the bridge. */
-  hold(reason: string | null): void {
+  /**
+   * A node switch's freeze: new operations are refused with `reason`, the refreshes stop, and what is
+   * out (operations, a refresh) is waited for, so no reading or signing straddles two nodes.
+   */
+  async suspend(reason: string): Promise<void> {
     this.ctx.queue.refuse(reason);
+    this.stop();
+    await this.ctx.queue.drain();
+    await this.refreshing?.catch(() => {});
+  }
+
+  /** The switch is over: operations and the refreshes again. */
+  resume(): void {
+    this.ctx.queue.refuse(null);
+    this.timer ??= setInterval(() => void this.refresh(), REFRESH_MS);
   }
 
   private async publishJournal(): Promise<Crossing[]> {

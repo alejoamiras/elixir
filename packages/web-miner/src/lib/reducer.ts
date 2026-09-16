@@ -351,14 +351,14 @@ function claimed(state: MinerState, e: Extract<Event, { type: 'claimed' }>): Min
   };
 }
 
-/** The recovering banner: the verified cause for a stale claim, the brief's plain sentence otherwise. */
+/** The recovering banner: the cause for a stale claim, the brief's plain sentence otherwise. */
 const RECOVERING: Record<'stale' | 'other', string> = {
   stale:
     'A claim reverted: someone closed the epoch first. Re-syncing this account from the chain; mining resumes in about a minute.',
   other: 'Re-syncing this account from the chain; mining resumes in about a minute.',
 };
 
-/** A revert was stale by the controller's reading of the chain, else by the message; never assumed. */
+/** A revert is stale by the message, or by the controller's reading of the chain when the message says nothing. */
 const staleRevert = (e: Extract<Event, { type: 'failed' }>): boolean =>
   e.kind === 'reverted' && (e.stale ?? revertCause(e.error).stale);
 
@@ -469,7 +469,7 @@ export function reduce(state: MinerState, event: Event): [MinerState, Command[]]
             time: clock(event.at),
             text: 'chain view rebuilt · notes recovered',
           }),
-          notice: null,
+          notice: standingNotice(state.nodePause),
         },
         [],
       ];

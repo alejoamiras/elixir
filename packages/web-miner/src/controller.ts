@@ -180,8 +180,9 @@ export class MinerController {
   /** The store's last verdict acted on: the node behind the rollup pauses mining like silence does. */
   private behind = false;
   private unsubscribeHealth: (() => void) | undefined;
-  /** Bumped whenever the chain view is replaced: a read begun on the old one publishes nothing. */
+  /** Bumped when the chain view starts being replaced: a read begun on the old one publishes nothing. */
   private views = 0;
+  private retrying: Promise<boolean> | undefined;
   /** When the chain view was last rebuilt; a block that survives a rebuild gets the pause instead. */
   private rebuiltAt: number | null = null;
   /** A rebuilt view that has not been read yet: Start reads it before anything mines. */
@@ -654,6 +655,7 @@ export class MinerController {
     }
     this.log(`claiming in epoch ${p.epoch}: proving the claim in-page…`);
     let txHash: string | undefined;
+    const sentBefore = this.d.lastSent();
     try {
       const sent = await sendClaim(this.d, this.account, this.fee, { ...p, secret, recipient: this.account });
       txHash = sent.txHash;
@@ -665,8 +667,12 @@ export class MinerController {
       const { block, effect } = await sent.wait();
       await this.minted(p, sent.txHash, block, effect);
     } catch (e) {
+      // A send that failed after the wallet handed the transaction to the node: the hash it observed
+      // going out is the retained claim's, so a Retry reconciles rather than sends again.
+      const observed = this.d.lastSent();
+      const hash = txHash ?? (observed && observed !== sentBefore ? observed.txHash : undefined);
       // An unclassified failure keeps the ticket for Retry; the canary's tampered claim, as it was.
-      this.retained = restore ?? (classifyClaimFailure(e) === 'other' ? { ...p, txHash } : null);
+      this.retained = restore ?? (classifyClaimFailure(e) === 'other' ? { ...p, txHash: hash } : null);
       await this.claimFailed(e, p.epoch);
     }
   }
@@ -707,23 +713,38 @@ export class MinerController {
   /**
    * The retained claim again (the ledger's Retry; the canary's control): false unless that failure is
    * what the page is idle on. A claim that was sent is reconciled first: in a block after all, it is
-   * minted, not sent twice; still pending, or a node that cannot say, keeps it for a later Retry.
+   * minted, not sent twice; reverted there, it takes the revert's recovery; still pending, or a node
+   * that cannot say, keeps it for a later Retry. One at a time: a second Retry would adopt it twice.
    */
-  async retryPendingClaim(): Promise<boolean> {
+  retryPendingClaim(): Promise<boolean> {
+    this.retrying ??= this.retryOnce().finally(() => {
+      this.retrying = undefined;
+    });
+    return this.retrying;
+  }
+
+  private async retryOnce(): Promise<boolean> {
     const claim = this.retained;
-    const epoch = this.store.get(epochAtom)?.epoch;
-    if (this.retired || !retryEligible(claim, this.secrets, this.store.get(minerAtom).phase, epoch))
-      return false;
+    if (this.retired || claim === null || this.store.get(minerAtom).phase !== 'idle') return false;
     const { txHash, ...ticket } = claim;
     if (txHash) {
       const fate = await this.track(() => this.fate(txHash)).catch(() => 'unknown' as const);
+      // The page moved on while the node was asked (Start, a switch, another claim): the answer is stale.
+      if (this.retained !== claim || this.store.get(minerAtom).phase !== 'idle' || this.disposed)
+        return false;
       if (fate === 'unknown') {
         this.log(`claim ${short(txHash)}: the node cannot say yet whether it landed; kept for another Retry`);
         return false;
       }
+      if (fate === 'reverted') {
+        this.retained = null;
+        await this.claimFailed(new Error(`claim ${short(txHash)} reverted in a block`), ticket.epoch);
+        return true;
+      }
       if (fate !== 'dropped') {
         this.retained = null;
         this.log(`claim ${short(txHash)} was in block ${fate.block} after all`);
+        // `claiming` from here on: the switch's drain waits for the adoption like any claim.
         this.dispatch({ type: 'reconciled', at: Date.now() });
         await this.minted(ticket, txHash, fate.block, fate.effect).catch((e) =>
           this.claimFailed(e, ticket.epoch),
@@ -731,6 +752,8 @@ export class MinerController {
         return true;
       }
     }
+    // Sent again only with its secret current and its epoch still open: a closed epoch's ticket is worthless.
+    if (!retryEligible(claim, this.secrets, 'idle', this.store.get(epochAtom)?.epoch)) return false;
     this.retained = null;
     this.pending = ticket;
     this.log('the retained claim goes out again');
@@ -739,15 +762,18 @@ export class MinerController {
   }
 
   /**
-   * What became of a sent claim: in a block with its effects, `dropped` by the node (never mined),
-   * or `unknown` while it is still pending or the node does not answer.
+   * What became of a sent claim: in a block with its effects, `reverted` in one, `dropped` by the
+   * node (not in any block it holds), or `unknown` while it is pending or the node does not answer.
    */
-  private async fate(txHash: string): Promise<{ block: number; effect: TxEffect } | 'dropped' | 'unknown'> {
+  private async fate(
+    txHash: string,
+  ): Promise<{ block: number; effect: TxEffect } | 'dropped' | 'reverted' | 'unknown'> {
     try {
       const r = await this.d.node.getTxReceipt(TxHash.fromString(txHash), { includeTxEffect: true });
       if (r.status === 'dropped') return 'dropped';
-      if (r.executionResult !== 'success' || r.blockNumber === undefined || !r.txEffect) return 'unknown';
-      return { block: Number(r.blockNumber), effect: r.txEffect };
+      if (r.status === 'pending' || r.blockNumber === undefined) return 'unknown';
+      if (r.executionResult !== 'success') return 'reverted';
+      return r.txEffect ? { block: Number(r.blockNumber), effect: r.txEffect } : 'unknown';
     } catch {
       return 'unknown';
     }
@@ -865,6 +891,7 @@ export class MinerController {
     strict = false,
   ) {
     this.log(why);
+    this.views++;
     let rebound: Rebound;
     try {
       if (!this.recover) throw new Error('no recovery available');
@@ -879,7 +906,6 @@ export class MinerController {
     }
     this.d = rebound.deployment;
     this.fee = rebound.fee;
-    this.views++;
     if (!rebound.rebuilt) {
       this.log('the chain view could not be dropped; reopened as it was');
       return this.pauseUntilFinal();

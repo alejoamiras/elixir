@@ -45,6 +45,8 @@ export type NodeStanding = 'healthy' | 'behind' | 'throttled' | 'silent' | 'unkn
 
 /** An L1 sample older than this says nothing about now. */
 export const L1_FRESH_MS = 60_000;
+/** A tip older than this (the signed-out poll is every 30 s) is no observation of the node now. */
+export const TIP_FRESH_MS = 90_000;
 /** The node may lag the rollup by this many checkpoints without being behind. */
 export const BEHIND_CHECKPOINTS = 1;
 
@@ -205,10 +207,13 @@ export function startNodeHealth(): void {
 export const markRead = (at = Date.now()): void => set({ ...health, lastReadAt: at });
 
 const l1Fresh = (h: NodeHealth, now: number): boolean => h.l1 !== null && now - h.l1.at <= L1_FRESH_MS;
+/** The tip is read beside the poll and its failure is swallowed: an old observation says nothing about the node now. */
+const tipFresh = (h: NodeHealth, now: number): boolean =>
+  h.tip !== null && now - h.tip.observedAt <= TIP_FRESH_MS;
 
-/** Behind when a fresh L1 sample says the node lacks more than the tolerance; otherwise the last verdict stands. */
+/** Behind when fresh samples of both sides say the node lacks more than the tolerance; otherwise the last verdict stands. */
 const verdict = (h: NodeHealth, now: number): boolean =>
-  h.tip !== null && h.l1 !== null && l1Fresh(h, now)
+  h.tip !== null && h.l1 !== null && tipFresh(h, now) && l1Fresh(h, now)
     ? h.l1.pendingCheckpoint - h.tip.checkpoint > BEHIND_CHECKPOINTS
     : h.behind;
 
@@ -251,7 +256,7 @@ export function standing(h: NodeHealth, now: number): NodeStanding {
   if (h.transport.kind === 'throttled') return 'throttled';
   if (h.transport.kind === 'silent') return 'silent';
   if (h.behind) return 'behind';
-  if (h.deploymentOk && h.tip !== null && l1Fresh(h, now)) return 'healthy';
+  if (h.deploymentOk && tipFresh(h, now) && l1Fresh(h, now)) return 'healthy';
   return 'unknown';
 }
 

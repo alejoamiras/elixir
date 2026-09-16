@@ -252,6 +252,12 @@ describe('miner reducer', () => {
     expect(s.notice?.kind).toBe('offline');
     [s] = reduce(s, { type: 'online' });
     expect(s.notice).toBeNull();
+    // A recovery ends its own card; a pause still in force keeps its explanation.
+    [s] = reduce(s, { type: 'behind', ageS: 240 });
+    [s] = reduce(s, { type: 'failed', error: 'reverted', kind: 'reverted' });
+    expect(s.notice?.kind).toBe('reverted');
+    [s] = reduce(s, { type: 'recovered' });
+    expect(s.notice?.kind).toBe('behind');
   });
 
   test('other failures halt and keep the message', () => {

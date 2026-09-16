@@ -22,11 +22,12 @@ let prover: WorkProver | undefined;
 let wasmThreads = 1;
 
 async function build({ threads, presto }: ProverConfig): Promise<WorkProver> {
+  // Set before the waits below: a `threads` message that lands during them is the newer count.
+  wasmThreads = threads;
   // bb.js prefers its IndexedDB copy of the CRS over any download: only bytes that went through
   // the pinned path may be there, so the cache is dropped before the backend is created.
   await purgeCrsCache();
   const artifact = (await (await fetch('/artifacts/yacana_work.json')).json()) as WorkArtifact;
-  wasmThreads = threads;
   const api = () => Barretenberg.new({ threads: wasmThreads, backend: BackendType.WasmWorker });
   if (!presto) {
     setAcceleratorEndpoints(null, 0);

@@ -45,7 +45,7 @@ async function forward(req: Request, foreign: boolean): Promise<Response> {
     body,
   });
   const answer =
-    foreign && body?.includes('node_getNodeInfo') ? foreignInfo(await res.text()) : await res.arrayBuffer();
+    foreign && body?.includes('_getNodeInfo') ? foreignInfo(await res.text()) : await res.arrayBuffer();
   return new Response(answer, {
     status: res.status,
     headers: { ...CORS, 'content-type': res.headers.get('content-type') ?? 'application/json' },

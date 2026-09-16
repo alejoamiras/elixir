@@ -14,6 +14,8 @@ export interface L1Sampler {
   stop(): void;
   /** One reading now (the one in flight, if any); resolves when it settled. */
   tick(): Promise<void>;
+  /** The RPC changed: a reading out on the former one is dropped, a fresh one starts. */
+  switched(): Promise<void>;
 }
 
 export function startL1Sampler(o: {
@@ -30,6 +32,8 @@ export function startL1Sampler(o: {
   let client: ReturnType<typeof ethRpcClient> | undefined;
   let inflight: Promise<void> | undefined;
   let stopped = false;
+  /** Moves with every RPC switch (A → B → A included): the answer of an older generation is dropped. */
+  let generation = 0;
   const read = async () => {
     const next = o.rpcUrl();
     if (!next) return;
@@ -38,6 +42,7 @@ export function startL1Sampler(o: {
       client = make(next);
     }
     const c = client;
+    const g = generation;
     const [chainId, head, pending] = await Promise.all([
       c.getChainId(),
       c.getBlockNumber({ cacheTime: 0 }),
@@ -48,7 +53,7 @@ export function startL1Sampler(o: {
       }),
     ]);
     // Another chain's rollup says nothing about this node; an RPC since replaced says nothing either.
-    if (BigInt(chainId) !== o.chainId || stopped || o.rpcUrl() !== next) return;
+    if (BigInt(chainId) !== o.chainId || stopped || g !== generation) return;
     recordL1({ pendingCheckpoint: Number(pending), head: Number(head) });
   };
   const tick = (): Promise<void> => {
@@ -68,5 +73,10 @@ export function startL1Sampler(o: {
       clearInterval(timer);
     },
     tick,
+    switched: () => {
+      generation++;
+      inflight = undefined;
+      return tick();
+    },
   };
 }

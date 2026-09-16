@@ -69,8 +69,7 @@ describe('the L1 sampler', () => {
     failing.stop();
   });
 
-  test('an answer from an RPC no longer in use, or after stop, is dropped', async () => {
-    let url = 'https://a.example';
+  test('an answer from before an RPC switch (A → B → A included), or after stop, is dropped', async () => {
     let release: (() => void) | undefined;
     const slow = {
       getChainId: async () => 31337,
@@ -81,17 +80,22 @@ describe('the L1 sampler', () => {
         }),
     } as unknown as Client;
     const s = startL1Sampler({
-      rpcUrl: () => url,
+      rpcUrl: () => 'https://a.example',
       rollup: '0x1',
       chainId: 31337n,
       intervalMs: 3_600_000,
       make: () => slow,
     });
     const first = s.tick();
-    url = 'https://b.example';
-    release?.();
+    const firstRelease = release;
+    const again = s.switched(); // the URL reads the same; the switch is what moves the generation
+    firstRelease?.();
     await first;
     expect(nodeHealth().l1).toBeNull();
+    release?.();
+    await again;
+    expect(nodeHealth().l1?.head).toBe(100);
+    resetNodeHealth();
     const second = s.tick();
     s.stop();
     release?.();

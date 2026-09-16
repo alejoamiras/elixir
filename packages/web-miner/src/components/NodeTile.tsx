@@ -1,5 +1,5 @@
 // The Aztec node's row in Settings. The health store is the row's only source of words: the tile
-// never probes on its own, and a failed save leaves the node in use untouched.
+// never probes on its own; the setting is saved only once the switch took.
 import { useAtomValue } from 'jotai';
 import { useReducer, useSyncExternalStore } from 'react';
 import { defaultNodeUrl, isPinnedByQuery, saveConnection } from '../../../site/src/browser/connection.ts';

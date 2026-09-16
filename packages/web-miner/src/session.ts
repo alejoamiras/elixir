@@ -705,13 +705,15 @@ export class Session {
 
   /** Saves the RPC, points the guard at it, and reopens the bridge over it; the account stays open. */
   async switchEthRpc(url: string): Promise<void> {
+    // A bridge reopened now would not be the suspended one: it waits for the node switch.
+    if (this.switching) throw new Error('a node switch is underway; change the RPC when it is done');
     if (!saveConnection({ ethRpcUrl: url }))
       throw new Error('The browser refused to save the setting; free some site storage and try again.');
     this.ethRpc = url;
     setEthRpcEndpoint(url, ETH_RPC_DEADLINE_MS);
     resetEthRpcHealth();
     resetL1();
-    void this.l1?.tick();
+    void this.l1?.switched();
     if (!this.bridge) return;
     this.closeBridge();
     await this.openBridge();
@@ -772,10 +774,9 @@ export class Session {
         await pre.publicEpoch.stop();
         this.store.set(epochAtom, null);
       }
-      // The bridge's queued operations finish on the node they started on; none may start until the
-      // switch is over, or it would be signed against one node's view and sent to another.
-      this.bridge?.hold('a node switch is underway; try again when it is done');
-      await this.bridge?.drain().catch(() => {});
+      // The bridge's operations and readings finish on the node they started on; none may start until
+      // the switch is over, or it would be signed against one node's view and sent to another.
+      await this.bridge?.suspend('a node switch is underway; try again when it is done').catch(() => {});
       await switchNodeLive({ controller: this.controller, switchable: pre.switchable, url });
     })()
       .catch((e: unknown) => {
@@ -792,7 +793,7 @@ export class Session {
         throw e;
       })
       .finally(() => {
-        this.bridge?.hold(null);
+        this.bridge?.resume();
         if (publicOnly) pre.publicEpoch.start();
         this.switching = undefined;
         this.switchingUrl = undefined;

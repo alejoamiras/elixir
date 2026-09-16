@@ -380,6 +380,16 @@ describe('standing', () => {
     health.resetNodeHealth();
     expect(health.nodeHealth()).toMatchObject({ tip: null, l1: null, deploymentOk: null, behind: false });
   });
+  test('a tip observed long ago is no observation: unknown, and no verdict from it', () => {
+    health.markDeployment(true);
+    health.recordTip(tip(10), now);
+    health.recordL1({ pendingCheckpoint: 11, head: 100 }, now);
+    expect(health.standing(health.nodeHealth(), now)).toBe('healthy');
+    // The poll keeps answering but the tip read keeps failing: ninety-one seconds on, the tip is stale.
+    expect(health.recordL1({ pendingCheckpoint: 20, head: 101 }, now + 91_000)).toBe(true);
+    expect(health.nodeHealth().behind).toBe(false);
+    expect(health.standing(health.nodeHealth(), now + 91_000)).toBe('unknown');
+  });
   test('an RPC change forgets the head baseline but keeps the verdict until a fresh sample', () => {
     health.markDeployment(true);
     health.recordTip(tip(10), now);

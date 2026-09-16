@@ -115,11 +115,16 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
   // At the easy target the next claims come fast: the balance is checked against the claim count,
   // which only holds if the note minted before the reset came back with the rebuilt view.
   await expect(page.getByTestId('claims')).not.toHaveText(/^[01]$/, { timeout: 10 * 60_000 });
-  await expect.poll(() => balanceForClaims(page), { timeout: 60_000 }).toMatch(/^\d+ for \d+ claims$/);
-  const read = await balanceForClaims(page);
-  const parsed = /^(\d+) for (\d+) claims$/.exec(read);
-  if (!parsed) throw new Error(`unparsable balance read: ${read}`);
-  expect(Number(parsed[1])).toBe(4 * Number(parsed[2]));
+  // The balance follows the next refresh after the mint; the rebuilt view's older note must be in it.
+  await expect
+    .poll(
+      async () => {
+        const parsed = /^(\d+) for (\d+) claims$/.exec(await balanceForClaims(page));
+        return parsed ? Number(parsed[1]) === 4 * Number(parsed[2]) : false;
+      },
+      { timeout: 60_000 },
+    )
+    .toBe(true);
   // No handshake this time: the rebuilt view still knows the recipient; one note, the mint's.
   const later = await lastClaim(page);
   console.log(`[effects] a claim after the rebuild: ${JSON.stringify(later)}`);
