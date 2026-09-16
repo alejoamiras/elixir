@@ -30,6 +30,29 @@ export function parseAmount(text: string, decimals: number): bigint {
   return value;
 }
 
+/** The form's line under the amount the moment it is known: nothing while the amount is fine. */
+export function amountRefusal(text: string, balance: bigint, decimals: number): string | null {
+  if (text.trim() === '') return 'Enter an amount.';
+  try {
+    return parseAmount(text, decimals) > balance ? 'More than your balance.' : null;
+  } catch (e) {
+    return e instanceof Error ? `${e.message[0]?.toUpperCase()}${e.message.slice(1)}.` : String(e);
+  }
+}
+
+/** The form's line under the address, once the field is left: the four refusals in the user's words. */
+export async function recipientRefusal(text: string, self: string): Promise<string | null> {
+  const t = text.trim();
+  if (t === '') return null;
+  if (t === self) return "That's this account.";
+  try {
+    await parseRecipient(t, self);
+    return null;
+  } catch {
+    return 'Not an Aztec address: 66 characters, starting with 0x.';
+  }
+}
+
 export async function parseRecipient(text: string, self: string): Promise<AztecAddress> {
   let to: AztecAddress;
   try {

@@ -1,16 +1,20 @@
 // The guided path and the everyday bridge as the screens show them: the migration card's three
 // moments, the activity list's rows and offers, the arrival's one tap, the two sheets' reviews and
 // the taking-long dialog — each over a journal in the store and a session whose bridge is a stub.
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createStore, Provider } from 'jotai';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { WagmiProvider } from 'wagmi';
 import type { Crossing } from '../../bridge/src/journal.ts';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
+import { wagmiConfigFor } from './bridge/eth';
 import { ActivityList, type RowActions } from './features/ActivityList';
+import { SendAheadDialog } from './features/dialogs/SendAhead';
+import { ToEthereumDialog } from './features/dialogs/ToEthereum';
 import { MigrationCard, moment } from './features/MigrationCard';
-import { SendAheadSheet } from './features/SendAheadSheet';
-import { ToEthereumSheet } from './features/ToEthereumSheet';
+import { shortAddress } from './lib/format';
 import { BalanceTile } from './routes/Wallet';
 import type { Session } from './session';
 import { type BridgeView, balanceAtom, bridgeAtom, journalAtom, nowAtom } from './state';
@@ -71,6 +75,15 @@ const standing = {
   retireSent: false,
   depositsClosed: false,
 };
+
+/** The dialogs that ask the wallet render under wagmi; nothing is connected. */
+const wagmi = wagmiConfigFor({ chainId: 31337, rpcUrl: 'http://127.0.0.1:9' });
+const queries = new QueryClient();
+const withWagmi = (ui: ReactNode) => (
+  <WagmiProvider config={wagmi}>
+    <QueryClientProvider client={queries}>{ui}</QueryClientProvider>
+  </WagmiProvider>
+);
 
 const mount = (ui: ReactNode, setup: (store: ReturnType<typeof createStore>) => void = () => {}) => {
   const store = createStore();
@@ -362,36 +375,39 @@ describe('the balance tile after a typed login', () => {
   });
 });
 
-describe('the sheets', () => {
-  test('to Ethereum: a bad address is refused at review; the review says what is public; the send goes through the bridge', async () => {
+describe('the dialogs', () => {
+  test('to Ethereum: a bad address is refused under its field; a pasted one carries its warning; the send goes through the bridge', async () => {
     const { session, bridge } = stubSession();
-    mount(<ToEthereumSheet session={session} balance={5n * ONE} open onOpenChange={() => {}} />);
+    mount(withWagmi(<ToEthereumDialog session={session} balance={5n * ONE} open onOpenChange={() => {}} />));
     fireEvent.change(screen.getByTestId('exit-amount'), { target: { value: '2' } });
     fireEvent.change(screen.getByTestId('exit-to'), { target: { value: '0x1234' } });
-    fireEvent.click(screen.getByTestId('exit-review'));
-    expect(screen.getByTestId('to-ethereum-error').textContent).toContain('not an Ethereum address');
+    fireEvent.click(screen.getByTestId('exit-send'));
+    expect(screen.getByTestId('to-refusal').textContent).toBe(
+      'Not an Ethereum address: 42 characters, starting with 0x.',
+    );
     fireEvent.change(screen.getByTestId('exit-to'), { target: { value: RECIPIENT } });
-    fireEvent.click(screen.getByTestId('exit-review'));
-    expect(screen.getByTestId('exit-public').textContent).toContain('Public on Ethereum.');
+    expect(screen.getByTestId('exit-pasted').textContent).toContain("A bridge can't be recalled");
+    const dialog = screen.getByTestId('to-ethereum-dialog');
+    expect(dialog.textContent).toContain(`the amount and ${shortAddress(RECIPIENT)}; not this account`);
+    expect(screen.getByTestId('exit-send').textContent).toBe(`Bridge 2 ${PARAMS.TOKEN_SYMBOL}`);
     fireEvent.click(screen.getByTestId('exit-send'));
     await waitFor(() => expect(screen.getByTestId('exit-sent')).toBeDefined());
     expect(bridge.exitToL1).toHaveBeenCalledWith(2n * ONE, RECIPIENT);
   });
 
-  test('send ahead: the whole balance by default, more than it refused, the review names where it waits and lands', async () => {
+  test('send ahead: the whole balance by default, more than it refused under the field, the rows say where it waits and lands', async () => {
     const { session, bridge } = stubSession();
-    mount(<SendAheadSheet session={session} balance={3n * ONE} open onOpenChange={() => {}} />);
+    mount(<SendAheadDialog session={session} balance={3n * ONE} open onOpenChange={() => {}} />);
     const input = screen.getByTestId('ahead-amount') as HTMLInputElement;
     expect(Number(input.value)).toBe(3);
     fireEvent.change(input, { target: { value: '4' } });
-    fireEvent.click(screen.getByTestId('ahead-review'));
-    expect(screen.getByTestId('send-ahead-error').textContent).toContain('more than the balance');
+    expect(screen.getByTestId('amount-refusal').textContent).toBe('More than your balance.');
+    expect((screen.getByTestId('ahead-send') as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(input, { target: { value: '1.5' } });
-    fireEvent.click(screen.getByTestId('ahead-review'));
-    const sheet = screen.getByTestId('send-ahead-sheet');
-    expect(sheet.textContent).toContain('held for this account alone');
-    expect(sheet.textContent).toContain('a tap on the arrival card');
-    expect(sheet.textContent).not.toMatch(/arrives by itself|relayer/i);
+    const dialog = screen.getByTestId('send-ahead-dialog');
+    expect(dialog.textContent).toContain('held on Ethereum; Yacana forwards it into');
+    expect(dialog.textContent).toContain('you claim it, one tap');
+    expect(dialog.textContent).not.toMatch(/arrives by itself|relayer/i);
     fireEvent.click(screen.getByTestId('ahead-send'));
     await waitFor(() => expect(screen.getByTestId('ahead-sent')).toBeDefined());
     expect(bridge.sendAhead).toHaveBeenCalledWith(15n * 10n ** BigInt(PARAMS.DECIMALS - 1));

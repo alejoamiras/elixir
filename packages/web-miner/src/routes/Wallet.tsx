@@ -19,10 +19,11 @@ import { links } from '../explorer';
 import { ActivityList } from '../features/ActivityList';
 import { WordsBackup } from '../features/account/Words';
 import { BridgeProviders } from '../features/BridgeProviders';
-import { DepositSheet, HeldSheet } from '../features/DepositSheet';
-import { SendSheet } from '../features/SendSheet';
+import { ClaimDialog } from '../features/dialogs/Claim';
+import { FromEthereumDialog } from '../features/dialogs/FromEthereum';
+import { SendDialog } from '../features/dialogs/Send';
+import { ToEthereumDialog } from '../features/dialogs/ToEthereum';
 import { SignOutDialog } from '../features/SignOutDialog';
-import { ToEthereumSheet } from '../features/ToEthereumSheet';
 import type { MasterRecord } from '../keys/store';
 import { amount, shortAddress } from '../lib/format';
 import { useTileLog } from '../lib/tile-log';
@@ -221,7 +222,7 @@ function WinsList({ wins }: { wins: Win[] }) {
 type Held = [Crossing | null, (c: Crossing | null) => void];
 
 /** The money dialogs on the bridge, each open on its own state. */
-function MoneySheets({
+function MoneyDialogs({
   session,
   balance,
   exit: [exit, setExit],
@@ -238,22 +239,22 @@ function MoneySheets({
 }) {
   return (
     <>
-      <ToEthereumSheet session={session} balance={balance ?? 0n} open={exit} onOpenChange={setExit} />
+      <ToEthereumDialog session={session} balance={balance ?? 0n} open={exit} onOpenChange={setExit} />
       {deposit && (
-        <DepositSheet
+        <FromEthereumDialog
           session={session}
           open
           onOpenChange={(o) => !o && setDeposit(false)}
           resume={deposit.resume}
         />
       )}
-      <HeldSheet
+      <ClaimDialog
         session={session}
         crossing={redeem}
         action="redeem"
         onOpenChange={(o) => !o && setRedeem(null)}
       />
-      <HeldSheet
+      <ClaimDialog
         session={session}
         crossing={forward}
         action="forward"
@@ -341,7 +342,7 @@ export function Wallet({ session }: { session: Session }) {
             <WinsList wins={claims} />
           </TileBoundary>
         )}
-        <MoneySheets
+        <MoneyDialogs
           session={session}
           balance={balance}
           exit={[exit, setExit]}
@@ -350,7 +351,7 @@ export function Wallet({ session }: { session: Session }) {
           forward={[forward, setForward]}
         />
       </BridgeProviders>
-      <SendSheet
+      <SendDialog
         session={session}
         self={account}
         balance={balance ?? 0n}

@@ -525,7 +525,7 @@ action from one selector; the disabled reasons (§9.2.4); the empty states; `Bri
 **Gate**: fast · `bridge` shard proverless · replay · pass: each crossing appears once; count, action and reason
 agree · layers: + e2e live with the injected wallet.
 
-### P9 — The transaction dialog
+### P9 ✓ — The transaction dialog (green 2026-09-16, `lessons/phase-9.md`)
 
 The five dialogs on `Dialog size="tx"` (§5.5, §5.6, §5.4 Send, §5.9 Send ahead, the claim on Ethereum with
 `ensureChain` visible, the payer, the fixed recipient, the no-ETH state, the revert mapping; the wallet picker

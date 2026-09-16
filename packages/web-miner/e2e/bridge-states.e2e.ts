@@ -69,8 +69,9 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   await page.getByTestId('to-ethereum').click();
   await page.getByTestId('exit-amount').fill('1');
   await page.getByTestId('exit-to').fill(l1.address);
-  await page.getByTestId('exit-review').click();
-  await expect(page.getByTestId('exit-public')).toContainText('Public on Ethereum.');
+  // One screen: the pasted address carries its warning, the summary says what Ethereum sees.
+  await expect(page.getByTestId('exit-pasted')).toContainText("A bridge can't be recalled");
+  await expect(page.getByTestId('to-ethereum-dialog')).toContainText('Visible on Ethereum');
   await page.getByTestId('exit-send').click();
   await expect(page.getByTestId('exit-sent')).toBeVisible({ timeout: 10 * 60_000 });
   await page.getByRole('button', { name: 'Done' }).click();
@@ -94,9 +95,16 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   await expect(page.getByTestId('eth-account')).toContainText(short(l1.address));
   await expect(page.getByTestId('yaca-balance')).toHaveText('1', { timeout: 30_000 });
 
-  // Wrong chain: switched on the way; the deposit refused: the sheet returns to its form with the reason.
+  // Wrong chain: the switch is a step of its own, named on the button; the wallet confirms it once.
+  await expect(page.getByTestId('wrong-network')).toContainText('The bridge is on');
+  await expect(page.getByTestId('deposit-go')).toHaveText(/^Switch .* to /);
+  await page.getByTestId('deposit-go').click();
+  await expect(page.getByTestId('wrong-network')).toHaveCount(0, { timeout: 30_000 });
+  expect(l1.calls('wallet_switchEthereumChain')).toBe(1);
+  // The deposit refused: the dialog returns to its form with the wallet's reason.
   l1.rejectNext('transaction');
   await page.getByTestId('deposit-amount').fill('0.5');
+  await expect(page.getByTestId('deposit-go')).toHaveText('Bridge 0.5 YACA');
   await page.getByTestId('deposit-go').click();
   await expect(page.getByTestId('deposit-error')).toContainText('User rejected the request.', {
     timeout: 60_000,
@@ -105,10 +113,10 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   expect(l1.calls('wallet_switchEthereumChain')).toBe(1);
   expect(l1.calls('eth_sendTransaction')).toBe(1);
 
-  // A prompt left open: the sheet waits on the wallet; the page must be reloaded to get past it.
+  // A prompt left open: the dialog waits on the wallet as a step; the page must be reloaded to get past it.
   l1.holdNext('transaction');
   await page.getByTestId('deposit-go').click();
-  await expect(page.getByTestId('deposit-go')).toHaveText('Waiting for your wallet · deposit…');
+  await expect(page.getByTestId('deposit-waiting')).toContainText('Confirm in');
   await shot(page, 'from-ethereum-waiting');
   await expect.poll(() => l1.holdsArmed()).toBe(0);
   await page.reload();

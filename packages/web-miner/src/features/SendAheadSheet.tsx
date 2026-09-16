@@ -11,6 +11,7 @@ import {
   Alert,
   AlertDescription,
   AmountBlock,
+  AmountField,
   Button,
   Note,
   Sheet,
@@ -24,7 +25,6 @@ import { reviewAmount } from '../bridge/forms';
 import { amount as fmt } from '../lib/format';
 import type { Session } from '../session';
 import { bootAtom, journalAtom } from '../state';
-import { AmountInput } from './AmountInput';
 import { saveRecoveryFile } from './recovery';
 
 type Step =
@@ -274,16 +274,15 @@ export function SendAheadSheet({
         )}
         {step.kind === 'form' && (
           <>
-            <AmountInput
+            <AmountField
               id="ahead-amount"
               value={text}
               onChange={setText}
               unit={PARAMS.TOKEN_SYMBOL}
               max={whole}
-              aside={<span>all · {whole}</span>}
+              below="the whole balance by default"
               data-testid="ahead-amount"
             />
-            <p className="text-xs text-ink-3">the whole balance by default</p>
             <div>
               <Button variant="primary" onClick={toReview} data-testid="ahead-review">
                 Review

@@ -6,17 +6,17 @@ import { BalanceCard } from '../components/BalanceCard';
 import type { MinerController } from '../controller';
 import { BridgeProviders } from '../features/BridgeProviders';
 import { NoticeCard } from '../features/ClaimStatus';
+import { SendAheadDialog } from '../features/dialogs/SendAhead';
 import { LedgerTile } from '../features/LedgerTile';
 import { KpiTiles, LoopTile } from '../features/LoopTile';
 import { MigrationCard } from '../features/MigrationCard';
 import { OldApp } from '../features/OldApp';
 import { RailTile } from '../features/RailTile';
-import { SendAheadSheet } from '../features/SendAheadSheet';
 import { useTileLog } from '../lib/tile-log';
 import type { Session } from '../session';
 import { balanceAtom, bootAtom, minerAtom } from '../state';
 
-/** The guided path over the cockpit: the upgrade card with the send-ahead sheet; what arrives shows in the Wallet. */
+/** The guided path over the cockpit: the upgrade card with the send-ahead dialog; what arrives shows in the Wallet. */
 function GuidedPath({ session }: { session: Session }) {
   const onError = useTileLog();
   const balance = useAtomValue(balanceAtom);
@@ -26,7 +26,7 @@ function GuidedPath({ session }: { session: Session }) {
       <TileBoundary name="migration" onError={onError} className="md:col-span-2 xl:col-span-4">
         <MigrationCard onSendAhead={() => setAhead(true)} className="md:col-span-2 xl:col-span-4" />
       </TileBoundary>
-      <SendAheadSheet session={session} balance={balance ?? 0n} open={ahead} onOpenChange={setAhead} />
+      <SendAheadDialog session={session} balance={balance ?? 0n} open={ahead} onOpenChange={setAhead} />
     </BridgeProviders>
   );
 }

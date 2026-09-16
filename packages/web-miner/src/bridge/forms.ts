@@ -24,6 +24,19 @@ export function parseEthAddress(text: string): `0x${string}` {
   return getAddress(t);
 }
 
+/** The form's line under a pasted address, once the field is left; nothing while it is fine or empty. */
+export function ethRefusal(text: string): string | null {
+  if (text.trim() === '') return null;
+  try {
+    parseEthAddress(text);
+    return null;
+  } catch (e) {
+    const m = e instanceof Error ? e.message : String(e);
+    if (m === 'not an Ethereum address') return 'Not an Ethereum address: 42 characters, starting with 0x.';
+    return `${m[0]?.toUpperCase()}${m.slice(1)}.`;
+  }
+}
+
 /** Everything checked at review time; the exit uses this object and nothing from the form. */
 export function reviewExit(d: EthDraft, balance: bigint, decimals: number): EthSnapshot {
   const to = parseEthAddress(d.to);

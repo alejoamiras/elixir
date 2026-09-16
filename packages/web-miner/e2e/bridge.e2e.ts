@@ -103,10 +103,8 @@ test('on V5: a words account mines one claim, exits to Ethereum (forwarded and m
   await page.getByTestId('to-ethereum').click();
   await page.getByTestId('exit-amount').fill('1');
   await page.getByTestId('exit-to').fill(l1.address);
+  await expect(page.getByTestId('exit-pasted')).toBeVisible();
   await shot(page, 'to-ethereum');
-  await page.getByTestId('exit-review').click();
-  await expect(page.getByTestId('exit-public')).toBeVisible();
-  await shot(page, 'to-ethereum-review');
   await page.getByTestId('exit-send').click();
   await expect(page.getByTestId('exit-sent')).toBeVisible({ timeout: 10 * 60_000 });
   await shot(page, 'to-ethereum-sent');
@@ -121,7 +119,7 @@ test('on V5: a words account mines one claim, exits to Ethereum (forwarded and m
   await rows(page, 1).getByTestId('row-claim-l1').click();
   await connectTestWallet(page);
   await expect(page.getByTestId('forward-go')).toBeVisible();
-  await shot(page, 'claim-sheet');
+  await shot(page, 'claim-dialog');
   await page.getByTestId('forward-go').click();
   await expect(page.getByTestId('forward-done')).toBeVisible({ timeout: 2 * 60_000 });
   await page.getByRole('button', { name: 'Done' }).click();
@@ -130,7 +128,7 @@ test('on V5: a words account mines one claim, exits to Ethereum (forwarded and m
 
   // Deposit 0.5 back through the picker; the arrival card claims it.
   await page.getByTestId('deposit').click();
-  // The wallet that claimed is still connected: the sheet opens on its row, not on the picker.
+  // The wallet that claimed is still connected: the dialog opens on its form, not on the connect screen.
   await connectTestWallet(page);
   await shot(page, 'from-ethereum');
   await expect(page.getByTestId('yaca-balance')).toHaveText('1', { timeout: 30_000 });
@@ -155,17 +153,15 @@ test('on V5: a words account mines one claim, exits to Ethereum (forwarded and m
   await expect(page.getByTestId('wallet-balance')).toHaveText('3.5', { timeout: 2 * 60_000 });
   await shot(page, 'arrival-landed');
 
-  // Two send-aheads of 1 from the migration card's sheet (the card shows on an announced migration).
+  // Two send-aheads of 1 from the migration card's dialog (the card shows on an announced migration).
   await page.getByRole('link', { name: 'Mine' }).click();
   await expect(page.getByTestId('migration-card')).toHaveAttribute('data-moment', 'announced');
   await shot(page, 'mine-announced');
   for (let i = 0; i < 2; i++) {
     await page.getByTestId('send-ahead').click();
     await page.getByTestId('ahead-amount').fill('1');
-    if (i === 0) await shot(page, 'commit-sheet');
-    await page.getByTestId('ahead-review').click();
-    await expect(page.getByTestId('ahead-privacy')).toContainText('The amount is public on Ethereum.');
-    if (i === 0) await shot(page, 'commit-review');
+    await expect(page.getByTestId('ahead-privacy')).toContainText('the amount, not the account');
+    if (i === 0) await shot(page, 'send-ahead');
     await page.getByTestId('ahead-send').click();
     await expect(page.getByTestId('ahead-sent')).toBeVisible({ timeout: 10 * 60_000 });
     if (i === 0) await shot(page, 'committed-sheet');
@@ -251,7 +247,7 @@ test('on V6: the same words restore the account, the recovery file brings the he
   await rows(page, 2).first().getByTestId('row-forward').click();
   await connectTestWallet(page);
   await expect(page.getByTestId('forward-go')).toBeVisible();
-  await shot(page, 'forward-sheet');
+  await shot(page, 'forward-dialog');
   await page.getByTestId('forward-go').click();
   await expect(page.getByTestId('forward-done')).toBeVisible({ timeout: 2 * 60_000 });
   await shot(page, 'forward-done');
@@ -278,7 +274,7 @@ test('on V6: the same words restore the account, the recovery file brings the he
     .getByTestId('row-redeem')
     .click();
   await expect(page.getByTestId('yaca-balance')).toHaveText('0.5', { timeout: 30_000 });
-  await shot(page, 'redeem-sheet');
+  await shot(page, 'redeem-dialog');
   await page.getByTestId('redeem-go').click();
   await expect(page.getByTestId('redeem-done')).toBeVisible({ timeout: 2 * 60_000 });
   await expect(page.getByTestId('yaca-balance')).toHaveText('1.5', { timeout: 30_000 });
