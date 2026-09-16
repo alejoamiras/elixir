@@ -42,7 +42,7 @@ import {
   sendWithdraw,
   type Withdrawal,
 } from './chain';
-import { type Connection, saveConnection } from './config';
+import { type Connection, ethRpcPinnedByQuery, saveConnection } from './config';
 import type { MinerController } from './controller';
 import { feePayer } from './feePayer';
 import { currentAccountClassId } from './keys/classes';
@@ -202,8 +202,9 @@ export class Session {
     this.createPasskey = deps.createPasskey ?? createPasskey;
     this.assertPasskey = deps.assertPasskey ?? assertPasskey;
     this.ethRpc = connection.ethRpcUrl;
-    // The guard admits the RPC in use from the first request; a build without one never asks L1.
-    if (this.ethRpc) {
+    // The guard admits the RPC in use from the first request. L1 is the record's: a build without a
+    // portal never asks it, unless an e2e page pins an RPC of its own.
+    if (bridgeRecord() || ethRpcPinnedByQuery()) {
       setEthRpcEndpoint(this.ethRpc, ETH_RPC_DEADLINE_MS);
       startEthRpcHealth();
       const expected = expectedOf(connection);

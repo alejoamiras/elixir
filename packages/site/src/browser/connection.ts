@@ -107,3 +107,5 @@ export const saveConnection = (c: Saved): boolean => {
 
 /** The query string wins over storage, so an E2E page can never pick up a stale saved node. */
 export const isPinnedByQuery = (): boolean => Object.keys(fromQuery()).length > 0;
+/** An e2e page naming its own Ethereum RPC: the one case a build without a portal reads L1. */
+export const ethRpcPinnedByQuery = (): boolean => fromQuery().ethRpcUrl !== undefined;
