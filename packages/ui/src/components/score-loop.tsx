@@ -513,7 +513,9 @@ export function ScoreLoop(props: ScoreLoopProps) {
   const span = props.spanMs ?? (props.calm ? CALM_SPAN_MS : 60_000);
   const height = props.height ?? 200;
   // The calm plot's bottom line lives in the DOM: the footer at the axis's left, "now" at the right edge.
-  const row = props.calm && height > 80 && props.samples.length > 0;
+  // The row's height is reserved from the first paint: the tile must not grow when proofs arrive.
+  const row = props.calm && height > 80;
+  const filled = props.samples.length > 0;
   const { left } = layout(props);
   return (
     <div className={cn('flex flex-col', props.className)}>
@@ -530,11 +532,12 @@ export function ScoreLoop(props: ScoreLoopProps) {
       {row && (
         <div
           data-slot="score-loop-footer"
-          className="flex items-baseline justify-between gap-3 font-mono text-2xs text-ink-3"
+          data-filled={filled || undefined}
+          className="flex min-h-[1.3em] items-baseline justify-between gap-3 font-mono text-2xs text-ink-3"
           style={{ paddingLeft: left, paddingRight: 14 }}
         >
-          <span>{props.footer}</span>
-          <span>now</span>
+          <span>{filled ? props.footer : null}</span>
+          <span>{filled ? 'now' : null}</span>
         </div>
       )}
     </div>

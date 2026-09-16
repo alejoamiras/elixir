@@ -216,16 +216,20 @@ describe('Marks', () => {
 
 describe('ScoreLoop', () => {
   const samples: Sample[] = [{ t: 0, score: 3.9 }];
-  test('calm: the footer row with "now" once proofs exist, nothing under an empty plot', () => {
+  test('calm: the footer row is reserved empty under an empty plot and reads "now" once proofs exist', () => {
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
     mockMatchMedia(true);
     const footer = '3.6 s per proof · 12 proofs';
     const { rerender } = render(
       <ScoreLoop calm difficulty={1.6} samples={[]} footer={footer} placeholder={['a', 'b']} />,
     );
-    expect(document.querySelector('[data-slot=score-loop-footer]')).toBeNull();
+    const row = () => document.querySelector('[data-slot=score-loop-footer]') as HTMLElement;
+    // The row is in the flow from the start so the tile keeps its height when the first proof lands.
+    expect(row().textContent).toBe('');
+    expect(row().dataset.filled).toBeUndefined();
     rerender(<ScoreLoop calm difficulty={1.6} samples={samples} footer={footer} />);
-    expect(document.querySelector('[data-slot=score-loop-footer]')?.textContent).toBe(`${footer}now`);
+    expect(row().textContent).toBe(`${footer}now`);
+    expect(row().dataset.filled).toBe('true');
   });
   test('does not schedule frames under reduced motion, and does otherwise', () => {
     const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
