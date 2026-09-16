@@ -297,3 +297,44 @@ node-history checks precede negative receipts, the stale funds reading abandons 
 | `test:components` (ui 68, web-landing 14, web-miner 109, web-stats 84) | green |
 | `bun run e2e:agent -- bun test packages/bridge` | 42 pass, 1 skip (the real-anvil proof case ran) |
 | `bridge` shard, proverless | 1/1 (225.2 s) |
+
+### Round 4 — resumed, verdict **APPROVE**: the loop converged
+
+The owner lifted §10's three-round stop for this arc — "no hard-stops here, just evaluate yourself to not
+over-engineer" — so round 3's fixes went back for a fourth pass rather than being taken on trust. The prompt
+(`scratchpad/codex-arc4-round4.md`) said so explicitly and asked codex to say "nothing material left" if that
+was the honest answer.
+
+It did: **APPROVE**, "nothing material left in these fixes", high confidence. It re-derived the retreat cases
+itself — a same-height reorg during an unfinished walk, a finished scan retreating while its known event
+survives, a rising floor above the cursor, a retreat below a frontier that confirmation had advanced — and ran
+4 500 simulated calls with bounded reorgs against latest-event correctness and the budget bound. It also
+stated the model's limit, which is worth keeping: the guarantee holds to the configured reorg `overlap`, and a
+replacement deeper than that between the known event and the frontier is outside it.
+
+Two optional comment corrections, both taken because both were true and each cost a clause:
+
+- `budget`'s doc read like a ceiling. It is a target: the frontier pass is always granted one call, so a
+  refresh can make `budget + 1` log requests (two at `budget: 1`, five when a four-window walk completes).
+- `forward`'s corrected comment said "only a newer one may replace it" while the code compares `>=`. The same
+  block counts too, which is how a replacement event at the same height is picked up after a reorg.
+
+And one simplification of my own, found re-reading `confirm` against `clampTo`: `confirm`'s opening
+`if (k.block > head) return false;` is unreachable. `confirm` runs only under `s.complete && s.known` and only
+after `clampTo`, whose first clause returns `fresh()` exactly when the known event sits above the head; and
+`known` is never set without `complete` (`walkDown` sets the two together, `forward` and `confirm` only ever
+set `known` while `complete` already holds). Two places asserting the same invariant, one of them dead — the
+clamp in the next line keeps the range safe on its own. Deleted.
+
+### Round 4's gate
+
+| layer | result |
+|---|---|
+| `bun run lint` · root `typecheck` · web-miner `typecheck` | clean |
+| `bun test packages/bridge packages/web-miner` | 241 pass, 3 skip, 0 fail, 0 errors |
+| `test:components` (ui 68, web-landing 14, web-miner 109, web-stats 84) | green |
+| `bun run e2e:agent -- bun test packages/bridge` | 42 pass, 1 skip |
+| `bridge` shard, proverless | 1/1 (123.5 s in-test) |
+
+No round 5. Round 4's verdict was APPROVE with only comment polish, and what followed it is two comment
+clauses and one unreachable line — there is nothing there for a foreign reviewer to find. Arc 4 is converged.

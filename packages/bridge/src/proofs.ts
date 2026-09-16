@@ -38,7 +38,7 @@ export interface ProofFloor {
 export interface ProofScan {
   rollup: Hex;
   floor: () => Promise<ProofFloor>;
-  /** `eth_getLogs` calls per `latestProvenAt`. */
+  /** Target `eth_getLogs` calls per `latestProvenAt`; the frontier pass may take one more. */
   budget?: number;
   /** Blocks re-read around the known event and behind the frontier each call: a reorg can move either. */
   overlap?: bigint;
@@ -104,7 +104,6 @@ type Reads = ReturnType<typeof chainReads>;
  */
 async function confirm(s: ScanState, r: Reads, over: bigint, floor: bigint, head: bigint) {
   const k = s.known as ProvenAt;
-  if (k.block > head) return false;
   const hi = clamp(k.block + over, floor, head);
   const top = newest(await r.logs(clamp(k.block - over, floor, hi), hi));
   if (!top || top.blockNumber < k.block) return false;
@@ -120,7 +119,7 @@ async function forward(s: ScanState, r: Reads, from: bigint, head: bigint, spend
     const hi = lo + LOG_WINDOW - 1n < head ? lo + LOG_WINDOW - 1n : head;
     const top = newest(await r.logs(lo, hi));
     // The first window reaches back behind the frontier, where an event older than the known one
-    // can sit: only a newer one may replace it.
+    // can sit: only one from the same block or newer may replace it.
     if (top && (!s.known || top.blockNumber >= s.known.block)) s.known = await r.provenAt(top);
     if (hi > s.scannedTo) s.scannedTo = hi;
     lo = hi + 1n;
