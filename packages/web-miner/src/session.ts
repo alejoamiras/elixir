@@ -35,6 +35,7 @@ import {
 import { bridgeRecord, isOldRole } from './bridge/env';
 import { BridgeSession } from './bridge/session';
 import {
+  type Deployment,
   loadArtifact,
   readPublicBalance,
   recipientKnown,
@@ -143,6 +144,12 @@ async function owning<T>(master: Uint8Array, work: () => Promise<T>): Promise<T>
     throw e;
   }
 }
+
+/** The wallet's send hook, which the bridge cannot do without: see `L2Handles.beforeNextSend`. */
+const hookOf = (d: Deployment): NonNullable<Deployment['beforeNextSend']> => {
+  if (!d.beforeNextSend) throw new Error('this chain view cannot record a send before it is made');
+  return d.beforeNextSend;
+};
 
 export class Session {
   private pre: Preflighted | undefined;
@@ -658,7 +665,9 @@ export class Session {
           miner: c.deployment.miner,
           token: c.deployment.token,
           fee: feePayer(c.feeSettings).for('bridge'),
-          beforeNextSend: c.deployment.beforeNextSend,
+          // Every wallet this app opens is observed, so this holds; a deployment without the hook
+          // could not record a send before making it, and the bridge refuses rather than send blind.
+          beforeNextSend: hookOf(c.deployment),
         }),
         master,
         connection: { ...this.connection, ethRpcUrl: this.ethRpc },

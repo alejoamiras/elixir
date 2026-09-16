@@ -19,6 +19,11 @@ export interface ProvenAt {
 export type ProofReading = ProvenAt | 'unknown' | 'none';
 
 export interface ProofReader {
+  /**
+   * One call at a time: the scan's progress is state carried across awaits, so two in flight would
+   * each mark ranges read that neither finished. Its floor may rise between calls but never fall —
+   * a wider range would leave a completed scan claiming blocks it never saw.
+   */
   latestProvenAt(): Promise<ProofReading>;
 }
 
@@ -43,8 +48,9 @@ type Log = { blockNumber: bigint; logIndex: number; args: { checkpointNumber: bi
 
 /**
  * The scan between calls. `scannedTo` is the highest block read, so `(scannedTo, head]` is unread.
- * `complete` says the whole floor-to-`scannedTo` range has been read, which is what makes `known`
- * its newest event (or says it holds none); `cursor` is an unfinished downward walk's next bound.
+ * `complete` says the search up to `scannedTo` is over: the walk stops at the first event it meets,
+ * so blocks below that event stay unread on purpose — what is established is that nothing newer
+ * than `known` sits under the frontier. `cursor` is an unfinished walk's next upper bound.
  */
 interface ScanState {
   known?: ProvenAt;
@@ -113,7 +119,8 @@ async function forward(s: ScanState, r: Reads, from: bigint, head: bigint, spend
   for (let spent = 0; lo <= head && spent < spend; spent++) {
     const hi = lo + LOG_WINDOW - 1n < head ? lo + LOG_WINDOW - 1n : head;
     const top = newest(await r.logs(lo, hi));
-    // Windows are read upwards, so anything here is at least as new as what is already known.
+    // The first window reaches back behind the frontier, where an event older than the known one
+    // can sit: only a newer one may replace it.
     if (top && (!s.known || top.blockNumber >= s.known.block)) s.known = await r.provenAt(top);
     if (hi > s.scannedTo) s.scannedTo = hi;
     lo = hi + 1n;
@@ -129,7 +136,8 @@ async function walkDown(s: ScanState, r: Reads, floor: ProofFloor, head: bigint,
   s.cursor ??= head;
   let hi = s.cursor;
   let found: Log | undefined;
-  for (let spent = 0; spent < spend && hi >= floor.block && !found; spent++) {
+  let spent = 0;
+  for (; spent < spend && hi >= floor.block && !found; spent++) {
     const lo = windowOf(hi, floor.block);
     found = newest(await r.logs(lo, hi));
     // The first window of a walk is the highest block it will read; the rest are below it.
@@ -141,6 +149,7 @@ async function walkDown(s: ScanState, r: Reads, floor: ProofFloor, head: bigint,
     s.complete = true;
     s.cursor = undefined;
   } else s.cursor = hi;
+  return spent;
 }
 
 /** What the scan can say: an event only once the range it read reaches the head. */
@@ -150,9 +159,15 @@ const answer = (s: ScanState, floor: ProofFloor, head: bigint): ProofReading => 
   return floor.exact ? 'none' : 'unknown';
 };
 
-/** A head that retreated took blocks with it: progress above it is progress over nothing. */
+/**
+ * A head that retreated took blocks with it, so progress above it is progress over nothing — and an
+ * unfinished walk's progress is worth nothing at all: it read the chain that is gone, and finishing
+ * on it would name an event the latest without having read what now sits above it. A finished scan
+ * survives a retreat because the next call re-reads the known event and the frontier behind it.
+ */
 const clampTo = (s: ScanState, head: bigint): ScanState => {
   if (s.known && s.known.block > head) return fresh();
+  if (head < s.scannedTo && !s.complete) return fresh();
   if (s.scannedTo > head) s.scannedTo = head;
   if (s.cursor !== undefined && s.cursor > head) s.cursor = head;
   return s;
@@ -175,13 +190,12 @@ export function proofReader(client: ProofClient, scan: ProofScan): ProofReader {
         spend -= 1;
         if (!still) s = fresh();
       }
-      if (!s.complete) {
-        await walkDown(s, r, floor, head, spend);
-        return answer(s, floor, head);
-      }
-      // Always from behind the frontier: a reorg can put a newer event just below it, which neither
-      // the overlap around the known event nor a pass starting above the frontier would ever read.
-      await forward(s, r, clamp(s.scannedTo - over + 1n, floor.block, head), head, spend);
+      if (!s.complete) spend -= await walkDown(s, r, floor, head, spend);
+      // A walk that just found its event falls through to here rather than answering: the frontier
+      // is what proves nothing newer arrived while it was walking. One call is always left for it,
+      // even when that overruns the budget — starving it would leave the frontier behind for ever.
+      if (s.complete)
+        await forward(s, r, clamp(s.scannedTo - over + 1n, floor.block, head), head, Math.max(1, spend));
       return answer(s, floor, head);
     },
   };

@@ -85,7 +85,7 @@ describe("the rollup's latest proof on Ethereum", () => {
     expect(await proofReader(empty.client, { rollup: ROLLUP, floor: exact(1_000n) }).latestProvenAt()).toBe(
       'none',
     );
-    expect(empty.calls.at(-1)?.[0]).toBe(1_000n);
+    expect(empty.calls.some(([lo]) => lo === 1_000n)).toBe(true);
     // A floor that is only a guess cannot prove the absence: exhausting it is unknown.
     const guess = chain(25_000n, []);
     expect(await proofReader(guess.client, { rollup: ROLLUP, floor: guessed(1_000n) }).latestProvenAt()).toBe(
@@ -128,6 +128,28 @@ describe("the rollup's latest proof on Ethereum", () => {
     expect(await reader.latestProvenAt()).toBe('unknown');
     // The frontier advances a window per call rather than restarting at the known event.
     expect(await settles(reader)).toMatchObject({ checkpoint: 9n, block: 59_000n });
+  });
+
+  test('a walk resumed across calls does not publish on coverage the chain no longer has', async () => {
+    const c = chain(50_000n, [event(50n, 1n)]);
+    const reader = proofReader(c.client, { rollup: ROLLUP, floor: exact(0n), overlap: 5n });
+    // Four windows down from 50 000 and the budget is out: nothing found yet.
+    expect(await reader.latestProvenAt()).toBe('unknown');
+    // The chain retreats and a newer proof lands near the new head, inside blocks the walk read.
+    c.state.head = 49_999n;
+    c.events.push(event(49_998n, 9n));
+    // The old proof at block 50 is not the latest, and must not be reported as it — not even once.
+    expect(await reader.latestProvenAt()).toMatchObject({ checkpoint: 9n, block: 49_998n });
+  });
+
+  test('a budget of one still catches up: the confirmation never starves the frontier', async () => {
+    const c = chain(1_000n, [event(900n, 4n)]);
+    const reader = proofReader(c.client, { rollup: ROLLUP, floor: exact(0n), budget: 1, overlap: 5n });
+    expect(await reader.latestProvenAt()).toMatchObject({ checkpoint: 4n });
+    c.state.head = 2_000n;
+    c.events.push(event(1_500n, 9n));
+    // Re-reading the known event spends the only budgeted call; a frontier left with none never moves.
+    expect(await reader.latestProvenAt()).toMatchObject({ checkpoint: 9n, block: 1_500n });
   });
 
   test('a reorg that takes the known event but leaves an older one in the overlap is still a reorg', async () => {

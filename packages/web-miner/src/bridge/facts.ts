@@ -48,16 +48,12 @@ const ON_PORTAL = new Set<Crossing['state']>([
 const AT_DESTINATION = new Set<Crossing['state']>(['forwarded', 'deposited']);
 
 /**
- * A deposit's tale is Ethereum's: its receipt once the wallet handed over a hash (the message it
- * made, or the revert that spent the gas for nothing), else its calldata deadline against
- * Ethereum's clock — the portal refuses a deposit past it, so beyond it nothing the wallet sent
- * can land and the record gives itself up; the landing scan revives it should the event exist
- * after all. The device's clock is never consulted. Two orderings matter. The clock is read first:
- * read after a negative receipt it could be past a deadline the deposit made it under, and one
- * included in between would be given up on. And a receipt the RPC would not read is not an
- * absence, or a broken RPC would have the page burn the same coins twice; a dishonest one that
- * answers "no such receipt" is indistinguishable from an honest empty node, which is the
- * honest-endpoint assumption every reading here rests on.
+ * A deposit is settled by Ethereum's receipt, or given up past the deadline in its own calldata,
+ * which the portal enforces at inclusion. Three things the code cannot say: the clock is read
+ * before the receipt, because read after it could be past a deadline a deposit included in between
+ * made it under; an unreadable receipt is not an absence, or a broken RPC would have the page burn
+ * the same coins twice; and a dishonest "no such receipt" is indistinguishable from an honest empty
+ * node, the assumption every reading here rests on. The device's clock is never consulted.
  */
 async function depositFacts(reads: FactReads, c: Crossing, f: Facts): Promise<Facts> {
   const expired = c.expiresAt ? (await reads.nowSeconds()) > BigInt(c.expiresAt) : false;

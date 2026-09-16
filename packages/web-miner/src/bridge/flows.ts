@@ -28,8 +28,12 @@ export interface L2Handles {
   miner: Contract;
   token: Contract;
   fee: FeeFor;
-  /** The wallet's one-shot send hook (`wallet.ts`): the record is made durable before the send. */
-  beforeNextSend?: (hook: SendHook) => () => void;
+  /**
+   * The wallet's one-shot send hook (`wallet.ts`). Not optional: the record it commits carries the
+   * send's expiry, and without that a send whose hash the node does not hold can never be told
+   * from one it has not been given yet, so its row would wait for ever.
+   */
+  beforeNextSend: (hook: SendHook) => () => void;
 }
 
 export interface BridgeContext {
@@ -146,7 +150,7 @@ async function sendRecorded(
   c: Crossing,
   send: () => Promise<{ txHash: TxHash }>,
 ): Promise<Crossing> {
-  const remove = ctx.l2().beforeNextSend?.(async (sent) => {
+  const remove = ctx.l2().beforeNextSend(async (sent) => {
     await ctx.store.update(c.id, (x) => ({
       ...x,
       txHash: sent.txHash,
@@ -159,7 +163,7 @@ async function sendRecorded(
   try {
     ({ txHash } = await send());
   } finally {
-    remove?.();
+    remove();
   }
   await ctx.store.update(c.id, (x) =>
     advance(

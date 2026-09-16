@@ -204,9 +204,9 @@ one was a real defect; all nine are applied.
 The proof scan took six of them (#3, #4, #5, #6 plus round 1's #7 and #8), and patching them one by one was
 not going to hold, because they were all the same missing invariant: the reader would report an event it had
 found while blocks above it were still unread. `proofs.ts` is now written around an explicit `ScanState` —
-`scannedTo` (the highest block read, so `(scannedTo, head]` is unread), `complete` (the whole floor-to-frontier
-range has been read, which is the only thing that makes `known` its *newest* event), `cursor` (an unfinished
-downward walk's next bound) — with the module-level `confirm`, `forward`, `walkDown` and `answer` taking it.
+`scannedTo` (the highest block read, so `(scannedTo, head]` is unread), `complete` (the search up to
+`scannedTo` is over, so nothing newer than `known` sits under the frontier), `cursor` (an unfinished downward
+walk's next bound) — with the module-level `confirm`, `forward`, `walkDown` and `answer` taking it.
 `answer()` is the contract: an event only when `complete && scannedTo >= head`, `unknown` otherwise. What that
 fixed, in codex's numbering:
 
@@ -249,3 +249,51 @@ Codex's "looks fine" this round: the estimate-time signatures are gone, `claimSe
 cycle, hashless rows sample the tip before the reads and distinguish a failed query, the receipt-log identity
 checks and the exact-versus-guessed floor are sound, rendering a temporary row state for a revert mutates
 nothing, and the narrowed e2e claim is reasonable with no RPC proxy needed.
+
+### Round 3 — resumed, verdict **REVISE**, 3 findings
+
+Prompt: `scratchpad/codex-arc4-round3.md` over `git diff HEAD~1` (the round-2 commit `c34e6e6`), the same two
+rules, the same session. Its own verification: 20 passed, 2 skipped. One medium correctness defect, one low,
+one comment correction — convergence-shaped, and all three were real. All three are applied.
+
+- **#1 medium, reproduced by codex and then by me** — completing a walk that was *resumed* across a head
+  retreat could still publish the old proof. Head 50 000 with a proof at block 50: the first call spends its
+  budget and leaves the cursor at 10 000; the head retreats to 49 999 and a proof lands at 49 998; the next
+  call reads only `[0, 10 000]`, meets block 50, marks the scan complete and answers with it. `scannedTo >=
+  head` held numerically while the sentence it licenses was false, because the coverage above the cursor
+  belonged to a chain that no longer existed. Two rules fix it, both in the state rather than in another
+  special case: `clampTo` drops everything when the head retreats under an *unfinished* walk (a finished scan
+  survives, because the next call re-reads the known event and the frontier behind it), and `latestProvenAt`
+  no longer answers straight out of a walk — a walk that just found its event falls through to the frontier
+  pass, which is the only thing that proves nothing newer arrived while it was down in the chain. The
+  regression asserts the answer on the very next call; codex was right that eventual convergence was the
+  weaker assertion, and `settles()` would have passed over the defect.
+- **#2 low, reproduced** — `budget: 1` starved the catch-up for ever: `confirm` spent the only call, so the
+  frontier never moved and every call after the first said `unknown`. Codex's fix was to document and enforce
+  a minimum of two. Not taken: the frontier pass is now guaranteed one call (`Math.max(1, spend)`) even when
+  that overruns the budget, which removes the failure instead of forbidding the input, and costs a clause
+  rather than a validated option. Pinned by a regression.
+- **#3 comment correction** — two comments stated the invariant backwards and one paragraph was three times
+  the length of its content. `complete` does *not* mean the whole floor-to-frontier range was read: the walk
+  stops at the first event it meets and the blocks below it stay unread on purpose, so what is established is
+  that nothing newer than `known` sits under the frontier. `forward`'s comment claimed windows are read
+  upwards so anything found is at least as new as `known` — the opposite of why its `>=` comparison exists,
+  since the first window deliberately reaches *behind* the frontier where an older event can sit. And
+  `depositFacts`'s eleven-line paragraph is now six: clock before receipt, unreadable versus absent, the
+  honest-endpoint assumption.
+
+Codex's "looks fine" this round: `answer()` blocks events while `scannedTo < head`, forward catch-up makes
+bounded progress, rising floors and inclusive window boundaries reveal no further coverage gap, the clock and
+node-history checks precede negative receipts, the stale funds reading abandons the click, and the
+`factReads()` seam is the right size with no RPC proxy needed. It found no new defect in round 1's or round
+2's fixes.
+
+### Round 3's gate
+
+| layer | result |
+|---|---|
+| `bun run lint` · root `typecheck` · web-miner `typecheck` | clean |
+| `bun test packages/bridge packages/web-miner` | 241 pass, 3 skip, 0 fail, 0 errors |
+| `test:components` (ui 68, web-landing 14, web-miner 109, web-stats 84) | green |
+| `bun run e2e:agent -- bun test packages/bridge` | 42 pass, 1 skip (the real-anvil proof case ran) |
+| `bridge` shard, proverless | 1/1 (225.2 s) |
