@@ -9,12 +9,21 @@ import { dayOf, deadlinePhrase } from '../../../bridge/src/exit-deadline.ts';
 import type { Crossing } from '../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { ownVersionName } from '../../../site/src/browser/version-name.ts';
-import { Button, type ChipTone, Kpi, StatusChip, Tile, TileHeader } from '../../../ui/src/index.ts';
+import {
+  Button,
+  type ChipTone,
+  ExternalLink,
+  Kpi,
+  StatusChip,
+  Tile,
+  TileHeader,
+} from '../../../ui/src/index.ts';
 import { proofChip } from '../bridge/copy';
 import { lifecycleRecord, nextVersionName } from '../bridge/env';
 import { moneyStanding } from '../bridge/rows';
+import { links } from '../explorer';
 import { apexHost, apexOrigin } from '../lib/apex';
-import { duration, amount as fmt } from '../lib/format';
+import { duration, amount as fmt, shortAddress } from '../lib/format';
 import { navigate } from '../routes';
 import { MoneyDialogs } from '../routes/Wallet';
 import type { Session } from '../session';
@@ -102,13 +111,24 @@ function QuietBody({ v, next }: { v: string; next: string }) {
   );
 }
 
-const Balance = ({ balance }: { balance: bigint | null }) => (
-  <Kpi
-    label={<span className="sr-only">balance</span>}
-    value={<span data-testid="wallet-balance">{balance === null ? '…' : fmt(balance, PARAMS.DECIMALS)}</span>}
-    unit={PARAMS.TOKEN_SYMBOL}
-    size="lg"
-  />
+/** The balance, and for assistive tech and the specs the account it belongs to (the header's chip is short). */
+const Balance = ({ balance, account }: { balance: bigint | null; account: string }) => (
+  <>
+    <Kpi
+      label={<span className="sr-only">balance</span>}
+      value={
+        <span data-testid="wallet-balance">{balance === null ? '…' : fmt(balance, PARAMS.DECIMALS)}</span>
+      }
+      unit={PARAMS.TOKEN_SYMBOL}
+      size="lg"
+    />
+    <p className="sr-only">
+      account{' '}
+      <ExternalLink href={links.address(account)} full={account} tabIndex={-1} data-testid="account">
+        {shortAddress(account)}
+      </ExternalLink>
+    </p>
+  </>
 );
 
 function SignedOutCard() {
@@ -148,12 +168,12 @@ function GoneCard() {
   );
 }
 
-function QuietCard({ balance }: { balance: bigint | null }) {
+function QuietCard({ balance, account }: { balance: bigint | null; account: string }) {
   const v = ownVersionName();
   return (
     <Tile className="opacity-70" data-testid="old-card" data-state="quiet">
       <TileHeader aside="cannot leave">still on {v}</TileHeader>
-      <Balance balance={balance} />
+      <Balance balance={balance} account={account} />
       <p className="mt-2 text-xs text-ink-3">Left here when {v} stopped proving.</p>
     </Tile>
   );
@@ -161,11 +181,13 @@ function QuietCard({ balance }: { balance: bigint | null }) {
 
 function StillHereCard({
   balance,
+  account,
   next,
   onSendAhead,
   onToEthereum,
 }: {
   balance: bigint | null;
+  account: string;
   next: string;
   onSendAhead: () => void;
   onToEthereum: () => void;
@@ -176,7 +198,7 @@ function StillHereCard({
   return (
     <Tile className="border-uv" data-testid="old-card" data-state="still-here">
       <TileHeader aside={`private · can leave while ${v} proves`}>still on {v}</TileHeader>
-      <Balance balance={balance} />
+      <Balance balance={balance} account={account} />
       <div className="mt-3.5 flex flex-wrap items-center gap-3.5">
         <Button
           variant="uv"
@@ -229,10 +251,11 @@ function SignedIn({
   return (
     <>
       {state === 'quiet' ? (
-        <QuietCard balance={balance} />
+        <QuietCard balance={balance} account={account} />
       ) : (
         <StillHereCard
           balance={balance}
+          account={account}
           next={next}
           onSendAhead={() => setAhead(true)}
           onToEthereum={() => setExit(true)}
