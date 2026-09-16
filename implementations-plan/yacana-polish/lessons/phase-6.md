@@ -109,3 +109,27 @@ Diff under review: the arc's diff against `polish-account` (P4–P6). `/codex hi
 
 Fast layers after the fixes: lint clean, `tsc -b` clean, `bun test` 455 pass, Vitest 275 (ui 68, landing 14,
 miner 109, stats 84). The chain shard rerun on `fae1e4a` (switch + states changed): see round 2.
+
+The chain shard on `fae1e4a`: 6/8. The behind case passed under the real warp; the foreign-node test found
+no error under the field (the proxy intercepted `node_getNodeInfo`, the SDK asks `aztec_getNodeInfo`: codex
+round 2's #9); the lost-race case read the balance a refresh before the rebuilt note was in it (the spec now
+polls until the balance matches the claims).
+
+### Round 2 — REVISE, 12 findings; fixes in `867278b`
+
+| # | sev | claim | verified | done |
+|---|---|---|---|---|
+| 1 | high | Retry races: two calls adopt twice; adoption goes on after a Start | true | serialised; identity, phase and `disposed` rechecked after the node's answer; `reconciled` before `minted` so the drain waits |
+| 2 | med | the epoch gate hides a landed claim whose inclusion closed the epoch; a mined revert reads as unknown | true | the epoch is required only to resend; `fate()` says `reverted` and the revert's recovery runs |
+| 3 | med | decline #3 was wrong: the wallet observes the hash before `sendTx` | true | `lastSent()` before and after the send; a failed send keeps the observed hash |
+| 4 | med | decline #7 was wrong: the tip read is separate and its failure swallowed | true | `TIP_FRESH_MS` 90 s; `healthy` and the verdict need a fresh tip |
+| 5 | med | the bridge hold leaves the refresh timer and a refresh in flight | true | `suspend()`: refuse, stop, drain the queue and the refresh; `resume()`; `switchEthRpc` refused mid-switch |
+| 6 | med | `views` increments after `recover()`; the handle moved before | true | incremented before `recover()` |
+| 7 | med | `recovered` clears a standing node pause's notice | true | `standingNotice(nodePause)` |
+| 8 | med | the stale wording is categorical for an inference | comments: true; wording: declined | D27 and P4's lessons record the chain-read verdict as the owner's decision; a mined revert carries no reason on 5.2.0, so the neutral sentence would never name the stale case. Surfaced to the owner |
+| 9 | med | the proxy's foreign mode intercepts the wrong method | true | any `_getNodeInfo` |
+| 10 | med | URL equality misses A → B → A | true | a generation bumped by `switched()` |
+| 11 | med | a `threads` message during the build is overwritten | true | `wasmThreads` set before the build's awaits |
+| 12 | low | three comments assert false invariants | true | corrected |
+
+Fast layers after the fixes: lint clean, `tsc -b` clean, `bun test` 456 pass, web-miner Vitest 109.
