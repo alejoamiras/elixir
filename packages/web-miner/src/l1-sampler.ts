@@ -1,6 +1,8 @@
 // The rollup's pending checkpoint from L1, every fifteen seconds, signed in or out: the one reading
 // that says whether the node has every block it should. Its own viem client on the RPC in use; the
 // bridge's session, which needs an account, is not involved. Failures are logged and waited out.
+// The RPC is trusted as the user chose it: a chain id check keeps another chain's rollup out, nothing
+// authenticates the answers, and an answer from an RPC no longer in use is dropped.
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import type { Hex } from 'viem';
 import { ethRpcClient } from '../../site/src/browser/eth-rpc.ts';
@@ -27,6 +29,7 @@ export function startL1Sampler(o: {
   let url = '';
   let client: ReturnType<typeof ethRpcClient> | undefined;
   let inflight: Promise<void> | undefined;
+  let stopped = false;
   const read = async () => {
     const next = o.rpcUrl();
     if (!next) return;
@@ -44,8 +47,8 @@ export function startL1Sampler(o: {
         functionName: 'getPendingCheckpointNumber',
       }),
     ]);
-    // Another chain's rollup says nothing about this node.
-    if (BigInt(chainId) !== o.chainId) return;
+    // Another chain's rollup says nothing about this node; an RPC since replaced says nothing either.
+    if (BigInt(chainId) !== o.chainId || stopped || o.rpcUrl() !== next) return;
     recordL1({ pendingCheckpoint: Number(pending), head: Number(head) });
   };
   const tick = (): Promise<void> => {
@@ -60,7 +63,10 @@ export function startL1Sampler(o: {
   void tick();
   const timer = setInterval(() => void tick(), o.intervalMs ?? L1_SAMPLE_MS);
   return {
-    stop: () => clearInterval(timer),
+    stop: () => {
+      stopped = true;
+      clearInterval(timer);
+    },
     tick,
   };
 }

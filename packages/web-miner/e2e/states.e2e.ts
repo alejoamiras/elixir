@@ -156,15 +156,32 @@ async function l1Stub(page: Page, nodeUrl: string, pending: () => bigint): Promi
   return url;
 }
 
+/** The node's JSON-RPC, as the page speaks it. */
+async function rpc<T>(nodeUrl: string, method: string, params: unknown[]): Promise<T> {
+  const res = await fetch(nodeUrl, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+  });
+  const reply = (await res.json()) as { result?: T; error?: { message: string } };
+  if (reply.error) throw new Error(`${method}: ${reply.error.message}`);
+  return reply.result as T;
+}
+
+const checkpointed = async (nodeUrl: string): Promise<bigint> =>
+  BigInt(await rpc<number | string>(nodeUrl, 'node_getCheckpointNumber', ['checkpointed']));
+
 test('a node behind the rollup on L1 pauses mining; its catching up resumes it', async ({ page }) => {
   const r = run();
-  // The rollup says a checkpoint far ahead of anything the node has; then it agrees with the node.
+  // The rollup's pending checkpoint sits three past the node's; the node catches up under warped slots
+  // (the local network builds a block per slot it is warped over), L1's word never moves back.
   let pending = 0n;
   const ethRpc = await l1Stub(page, r.nodeUrl, () => pending);
   await bootPage(page, pageUrl(r, { miner: r.hardMiner, token: r.hardToken, ethRpc }));
   await page.getByTestId('start').click();
   await expect(page.getByTestId('phase')).toHaveText('mining');
-  pending = 1_000_000n;
+  const before = await checkpointed(r.nodeUrl);
+  pending = before + 3n;
   await expect(page.getByTestId('notice-behind')).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId('phase')).toHaveText('paused');
   // The Settings row names the lag and the pause.
@@ -174,7 +191,10 @@ test('a node behind the rollup on L1 pauses mining; its catching up resumes it',
     'the node answers, but its chain is old · mining paused',
   );
   await page.getByRole('link', { name: 'Mine' }).click();
-  pending = 0n;
+  // Six slots on the node: its checkpoints reach and pass the rollup's word.
+  for (let i = 0; i < 6 && (await checkpointed(r.nodeUrl)) < pending; i++)
+    await rpc(r.nodeUrl, 'aztecDebug_warpL2TimeAtLeastBy', [72]);
+  expect(await checkpointed(r.nodeUrl)).toBeGreaterThanOrEqual(pending - 1n);
   await expect(page.getByTestId('notice-behind')).toHaveCount(0, { timeout: 60_000 });
   await expect(page.getByTestId('phase')).toHaveText('mining');
   await page.getByTestId('stop').click();

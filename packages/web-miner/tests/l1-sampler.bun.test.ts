@@ -68,4 +68,34 @@ describe('the L1 sampler', () => {
     expect(nodeHealth().l1).toBeNull();
     failing.stop();
   });
+
+  test('an answer from an RPC no longer in use, or after stop, is dropped', async () => {
+    let url = 'https://a.example';
+    let release: (() => void) | undefined;
+    const slow = {
+      getChainId: async () => 31337,
+      getBlockNumber: async () => 100n,
+      readContract: () =>
+        new Promise<bigint>((r) => {
+          release = () => r(42n);
+        }),
+    } as unknown as Client;
+    const s = startL1Sampler({
+      rpcUrl: () => url,
+      rollup: '0x1',
+      chainId: 31337n,
+      intervalMs: 3_600_000,
+      make: () => slow,
+    });
+    const first = s.tick();
+    url = 'https://b.example';
+    release?.();
+    await first;
+    expect(nodeHealth().l1).toBeNull();
+    const second = s.tick();
+    s.stop();
+    release?.();
+    await second;
+    expect(nodeHealth().l1).toBeNull();
+  });
 });

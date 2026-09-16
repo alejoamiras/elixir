@@ -2,7 +2,7 @@ import { expect, type Page, test } from './fixtures.ts';
 import { BOOT_MS, openDialog, run } from './helpers.ts';
 
 const stats = async (proxy: string) => (await (await fetch(`${proxy}/__stats`)).json()) as { count: number };
-const setMode = (proxy: string, mode: 'ok' | 'down') =>
+const setMode = (proxy: string, mode: 'ok' | 'down' | 'foreign') =>
   fetch(`${proxy}/__mode`, { method: 'POST', body: JSON.stringify({ mode }) });
 
 /** Change → the field → Save: the stepper runs the probe and the switch, then the row shows the new node. */
@@ -82,7 +82,7 @@ test('a live switch A → B while mining, a claim after it, and the banner on a 
   await expect(page.getByTestId('node-chip')).toHaveText('healthy', { timeout: 60_000 });
 });
 
-test('a node that is not this deployment’s is refused under the field, and the node in use is kept', async ({
+test('another deployment’s node, or one that does not answer, is refused under the field; the node in use is kept', async ({
   page,
 }) => {
   const r = run();
@@ -94,7 +94,17 @@ test('a node that is not this deployment’s is refused under the field, and the
   await page.keyboard.press('Escape');
   await page.getByRole('link', { name: 'Settings' }).click();
   await expect(page.getByTestId('node-in-use')).toHaveText(new URL(r.proxyA).host, { timeout: BOOT_MS });
+  // Proxy B reports another rollup: reachable, but not this deployment's.
+  await setMode(r.proxyB, 'foreign');
   await page.getByTestId('node-change').click();
+  await page.getByTestId('node-url').fill(r.proxyB);
+  await page.getByTestId('node-save').click();
+  await expect(page.getByTestId('node-error')).toContainText(
+    /Not this deployment's node \(it serves rollup 0x[0-9a-f]+\)\. Kept /,
+    { timeout: 60_000 },
+  );
+  await expect(page.getByTestId('node-error')).toContainText(`Kept ${new URL(r.proxyA).host}.`);
+  await setMode(r.proxyB, 'ok');
   // The run's claimed, never-listened-on port: reachable is where it fails.
   await page.getByTestId('node-url').fill(`http://127.0.0.1:${r.closedPort}`);
   await page.getByTestId('node-save').click();

@@ -78,8 +78,15 @@ export interface BridgeSessionDeps {
 }
 
 const REFRESH_MS = 15_000;
-/** Mints asked about per refresh: the newest first, the rest on later ticks. */
+/** Mints asked about per refresh, newest first; the batch rotates so every open one is reached. */
 const SETTLE_AT_MOST = 8;
+
+/** `n` items from `from` (wrapping), so consecutive calls walk the whole list. */
+export function rotate<T>(items: readonly T[], from: number, n: number): T[] {
+  if (!items.length) return [];
+  const start = from % items.length;
+  return [...items.slice(start), ...items.slice(0, start)].slice(0, n);
+}
 /** One refresh reads the clock for every crossing it holds against a deadline; one block answers them all. */
 const L1_CLOCK_MS = 2_000;
 /** The portal's events are scanned again every so many refreshes: a forward by Yacana lands while the page is open. */
@@ -114,6 +121,7 @@ export class BridgeSession {
   private readonly archives = new Map<string, Promise<ArchivedExit[]>>();
   private readonly scope: ExitScope;
   private refreshes = 0;
+  private settleFrom = 0;
 
   private constructor(
     private readonly d: BridgeSessionDeps,
@@ -452,6 +460,11 @@ export class BridgeSession {
     return this.ctx.queue.drain();
   }
 
+  /** Refuses new operations with `reason` (null lifts it): a node switch drains, then holds, the bridge. */
+  hold(reason: string | null): void {
+    this.ctx.queue.refuse(reason);
+  }
+
   private async publishJournal(): Promise<Crossing[]> {
     const list = (await this.journal.list()).sort((a, b) => b.createdAt - a.createdAt);
     this.d.store.set(journalAtom, list);
@@ -514,7 +527,9 @@ export class BridgeSession {
     const open = this.d.store.get(claimsAtom).filter((c) => c.txHash && c.settled === 'pending');
     if (!open.length) return;
     const rollup = await this.rollupFor(this.ctx.version.toString());
-    for (const c of open.slice(-SETTLE_AT_MOST)) {
+    const batch = rotate([...open].reverse(), this.settleFrom, SETTLE_AT_MOST);
+    this.settleFrom += SETTLE_AT_MOST;
+    for (const c of batch) {
       let settled: ClaimRecord['settled'] | undefined;
       try {
         settled = await this.miningSettlement(c, rollup);
@@ -538,7 +553,14 @@ export class BridgeSession {
       ]);
       return leaf ? 'pending' : 'pruned';
     }
-    if (typeof checkpoint !== 'bigint') return 'pending';
+    if (typeof checkpoint === 'object') {
+      // Re-included at another height: the record follows, and is asked about there next time.
+      this.d.store.set(claimsAtom, (all) =>
+        all.map((x) => (x.txHash === c.txHash ? { ...x, block: checkpoint.moved } : x)),
+      );
+      return 'pending';
+    }
+    if (checkpoint === 'unknown') return 'pending';
     return (await checkpointProven(rollup, checkpoint)) ? 'settled' : 'pending';
   }
 

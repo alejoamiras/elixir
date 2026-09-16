@@ -1,9 +1,7 @@
-// Settings → Network → the Aztec node: one row in three tiers that keeps reporting after the edit
-// (the chip's word from the health store, the host and whether it is the default, the tip's block
-// and age), Change turning it into a field with Save and Cancel, Save running the probe and the
-// switch under an inline stepper, and a failure staying under the field with the old node kept.
+// The Aztec node's row in Settings. The health store is the row's only source of words: the tile
+// never probes on its own, and a failed save leaves the node in use untouched.
 import { useAtomValue } from 'jotai';
-import { useReducer, useState, useSyncExternalStore } from 'react';
+import { useReducer, useSyncExternalStore } from 'react';
 import { defaultNodeUrl, isPinnedByQuery, saveConnection } from '../../../site/src/browser/connection.ts';
 import { parseNodeUrl } from '../../../site/src/browser/node.ts';
 import {
@@ -161,9 +159,22 @@ function Field({
         </p>
       ) : (
         <p className="text-xs text-ink-3">
-          {opening
-            ? 'An account is opening: finish or cancel the sign-in first.'
-            : 'Any https node on this deployment.'}
+          {opening ? (
+            'An account is opening: finish or cancel the sign-in first.'
+          ) : (
+            <>
+              Any https node on this deployment.{' '}
+              <button
+                type="button"
+                className="text-ink-3 underline decoration-dotted underline-offset-2 hover:text-ink-2"
+                disabled={busy}
+                onClick={() => dispatch({ type: 'edit', url: defaultNodeUrl() })}
+                data-testid="node-fill-default"
+              >
+                Use the default
+              </button>
+            </>
+          )}
         </p>
       )}
       {busy && <Stepper steps={saveSteps(state)} data-testid="node-stepper" />}
@@ -182,9 +193,9 @@ export function NodeTile({
   onSwitched: () => void;
 }) {
   const [state, dispatch] = useReducer(editReducer, { kind: 'row' });
-  // The node in use when the save began: what "Kept …" names, whatever the tile shows meanwhile.
-  const [kept, setKept] = useState(nodeUrl);
   const save = async (typed: string) => {
+    // The node in use when the save began: what "Kept …" names, whatever the tile shows meanwhile.
+    const former = nodeUrl;
     let url: string;
     try {
       url = parseNodeUrl(typed, import.meta.env.VITE_SITE_MODE).href;
@@ -192,7 +203,6 @@ export function NodeTile({
       dispatch({ type: 'probe', url: typed });
       return dispatch({ type: 'failed', url: typed, message: probeFailure(message(e), host(nodeUrl)) });
     }
-    setKept(nodeUrl);
     dispatch({ type: 'edit', url });
     dispatch({ type: 'probe', url });
     try {
@@ -204,7 +214,9 @@ export function NodeTile({
     try {
       await session.switchNode(url);
     } catch (e) {
-      return dispatch({ type: 'failed', url, message: rebuildFailure(host(url), message(e), host(kept)) });
+      // `kept: false` is a switch that could rebuild from neither node: nothing was kept.
+      const kept = (e as { kept?: boolean }).kept === false ? null : host(former);
+      return dispatch({ type: 'failed', url, message: rebuildFailure(host(url), message(e), kept) });
     }
     // The live node moved: the tile follows it now. The setting is saved only after the switch, so a
     // failed switch never leaves storage pointing at a node the page never took.

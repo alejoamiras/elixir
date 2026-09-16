@@ -1,4 +1,5 @@
 import { useAtomValue } from 'jotai';
+import { difficulty } from '../../../miner-core/src/metrics.ts';
 import { ProofLedger, type ProofLine, Tile, TileHeader } from '../../../ui/src/index.ts';
 import type { MinerController } from '../controller';
 import { ledgerLinks } from '../explorer';
@@ -41,13 +42,13 @@ export function LedgerTile({
             id: 0,
             kind: 'epoch',
             time: new Date(Number(epoch.openedAt) * 1000).toISOString().slice(11, 19),
-            text: `epoch ${epoch.epoch} opened`,
+            text: `epoch ${epoch.epoch} opened · bar ${difficulty(epoch.target).toFixed(1)}`,
           },
         ]
       : [];
   return (
     <Tile className={className}>
-      <TileHeader aside="★ win · ✓ minted, final once its epoch is proven · ✗ failed · ── epoch">
+      <TileHeader aside="★ win · claiming · ✓ minted, final once its epoch is proven · ✗ failed · ── epoch">
         proofs, newest first
       </TileHeader>
       {lines.length ? (

@@ -54,7 +54,7 @@ describe('miner reducer', () => {
       [64, false],
       [64, false],
     ]);
-    expect(s2.ledger[0]).toMatchObject({ kind: 'epoch', text: 'epoch 4 opened (×0.25) · new secret' });
+    expect(s2.ledger[0]).toMatchObject({ kind: 'epoch', text: 'epoch 4 opened · bar 16.0 (×0.25)' });
     // The same epoch reported again is a no-op.
     expect(reduce(s2, { type: 'epoch', epoch: epoch(4n, 99n) })[1]).toEqual([]);
   });
@@ -166,6 +166,35 @@ describe('miner reducer', () => {
     expect(reduce(m, { type: 'retry' })).toEqual([m, []]);
   });
 
+  test('a retained claim found in a block is adopted without a submit; a newer failure or a Start drops older Retry links', () => {
+    let s = initial;
+    [s] = reduce(s, { type: 'start', epoch: epoch(0n) });
+    [s] = reduce(s, attempt(70, 100, true));
+    [s] = reduce(s, { type: 'winner', epoch: 0n, secretId: s.job?.secretId ?? -1 });
+    [s] = reduce(s, { type: 'failed', error: 'the node went away', kind: 'other' });
+    const first = s.ledger[0];
+    expect(first?.claim?.retry).toBe(true);
+    const adopted = reduce(s, { type: 'reconciled' });
+    s = adopted[0];
+    expect(s.phase).toBe('claiming');
+    expect(adopted[1]).toEqual([]);
+    [s] = reduce(s, { type: 'included', block: 9 });
+    expect(s.claim?.step).toBe('waiting');
+    // Another retained failure: only its own line offers Retry.
+    let t = initial;
+    [t] = reduce(t, { type: 'start', epoch: epoch(0n) });
+    [t] = reduce(t, attempt(70, 100, true));
+    [t] = reduce(t, { type: 'winner', epoch: 0n, secretId: t.job?.secretId ?? -1 });
+    [t] = reduce(t, { type: 'failed', error: 'first', kind: 'other' });
+    [t] = reduce(t, { type: 'start', epoch: epoch(0n) });
+    expect(t.ledger.some((l) => l.claim?.retry)).toBe(false);
+    [t] = reduce(t, attempt(70, 200, true));
+    [t] = reduce(t, { type: 'winner', epoch: 0n, secretId: t.job?.secretId ?? -1 });
+    [t] = reduce(t, { type: 'failed', error: 'second', kind: 'other' });
+    expect(t.ledger.filter((l) => l.claim?.retry)).toHaveLength(1);
+    expect(t.ledger.find((l) => l.claim?.retry)?.claim?.reason).toBe('second');
+  });
+
   test('an expired claim goes idle with no card (the line says it); the restart that follows is clean', () => {
     let [s] = reduce(initial, { type: 'start', epoch: epoch(3n) });
     [s] = reduce(s, { type: 'winner', epoch: 3n, secretId: 1 });
@@ -209,6 +238,20 @@ describe('miner reducer', () => {
     expect(reduce(off, { type: 'online' })[0].notice).toBeNull();
     const [dead] = reduce(initial, { type: 'prover-dead', error: 'gone' });
     expect(reduce(dead, { type: 'online' })[0].notice?.kind).toBe('prover-dead');
+  });
+
+  test('overlapping node pauses: the one still standing shows when the other clears', () => {
+    let s = initial;
+    [s] = reduce(s, { type: 'behind', ageS: 240 });
+    [s] = reduce(s, { type: 'offline', since: 0 });
+    expect(s.notice?.kind).toBe('offline');
+    [s] = reduce(s, { type: 'online' });
+    expect(s.notice?.kind).toBe('behind');
+    [s] = reduce(s, { type: 'offline', since: 0 });
+    [s] = reduce(s, { type: 'caught-up' });
+    expect(s.notice?.kind).toBe('offline');
+    [s] = reduce(s, { type: 'online' });
+    expect(s.notice).toBeNull();
   });
 
   test('other failures halt and keep the message', () => {

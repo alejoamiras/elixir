@@ -37,6 +37,9 @@ describe('the node row’s edit machine', () => {
     expect(rebuildFailure('my-node.example.net', 'it stopped answering.', 'v5.example')).toBe(
       "Couldn't rebuild your view from my-node.example.net: it stopped answering. Kept v5.example.",
     );
+    expect(rebuildFailure('my-node.example.net', 'it stopped answering', null)).toBe(
+      "Couldn't rebuild your view from my-node.example.net: it stopped answering. The former node did not answer either; reload the page.",
+    );
   });
 });
 

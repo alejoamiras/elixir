@@ -3,7 +3,7 @@ import { createStore, Provider } from 'jotai';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { ThemeProvider } from '../../ui/src/index.ts';
 import type { Connection } from './config';
-import { initialPresto, prestoAtom } from './presto';
+import { initialPresto } from './presto';
 import { prestoWords, Settings } from './routes/Settings';
 import type { Session } from './session';
 import { bootAtom } from './state';
@@ -123,9 +123,5 @@ describe('Settings', () => {
       'Approve it in the Presto app',
     );
     expect(prestoWords({ ...initialPresto, status } as never)).toBe('found');
-    // The atom's shape is the row's input; the store value is what the component reads.
-    const store = createStore();
-    store.set(prestoAtom, { ...initialPresto, status, active: 'presto' } as never);
-    expect(store.get(prestoAtom).active).toBe('presto');
   });
 });

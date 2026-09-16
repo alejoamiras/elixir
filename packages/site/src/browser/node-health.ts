@@ -229,6 +229,9 @@ export function recordL1(sample: Omit<L1Sample, 'at'>, now = Date.now()): boolea
   return true;
 }
 
+/** The RPC changed: its head is no baseline for the next one's; the verdict stands until a fresh sample says otherwise. */
+export const resetL1 = (): void => set({ ...health, l1: null });
+
 /** The row's Retry: the cooldown's deadline is now, so the next request goes to the network as the recovery. */
 export function retryNode(): void {
   const t = health.transport;

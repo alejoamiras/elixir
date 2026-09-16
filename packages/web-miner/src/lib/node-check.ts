@@ -64,8 +64,11 @@ export function probeFailure(message: string, kept: string): string {
   return `${why}. Kept ${kept}.`;
 }
 
-export const rebuildFailure = (from: string, message: string, kept: string): string =>
-  `Couldn't rebuild your view from ${from}: ${message.replace(/\.$/, '')}. Kept ${kept}.`;
+/** `kept` is the node still in use, or null when the former node could not be rebuilt from either. */
+export const rebuildFailure = (from: string, message: string, kept: string | null): string =>
+  `Couldn't rebuild your view from ${from}: ${message.replace(/\.$/, '')}. ${
+    kept ? `Kept ${kept}.` : 'The former node did not answer either; reload the page.'
+  }`;
 
 const clock = (s: number): string => (s >= 90 ? `${Math.round(s / 60)} min` : `${s} s`);
 const time = (at: number): string => new Date(at).toISOString().slice(11, 16);
@@ -77,7 +80,7 @@ export interface RowWords {
   retry: boolean;
 }
 
-/** The row's chip and third line for a standing (board NodeStates); `paused` is the miner's own word. */
+/** The row's chip and third line for a standing; `paused` is the miner's own word. */
 export function rowWords(
   standing: NodeStanding,
   h: NodeHealth,

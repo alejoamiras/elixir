@@ -2,6 +2,7 @@
 // rules are unit tested without a Worker or a chain: the controller feeds it events, it says what
 // to do next.
 import { type ClaimFailure, revertCause } from '../../../miner-core/src/claim-failure.ts';
+import { difficulty } from '../../../miner-core/src/metrics.ts';
 import type { ProofLine, Sample } from '../../../ui/src/index.ts';
 
 export interface EpochInfo {
@@ -113,6 +114,8 @@ export interface MinerState {
   stopping: boolean;
   minted: Minted | null;
   notice: Notice | null;
+  /** The node's own pauses in force: the notice shown is the one still standing when the other clears. */
+  nodePause: { offlineSince: number | null; behindAgeS: number | null };
   /** Set once the prover is abandoned (start failure or repeated crashes): only a reload helps. */
   proverDead: boolean;
 }
@@ -136,6 +139,7 @@ export const initial: MinerState = {
   stopping: false,
   minted: null,
   notice: null,
+  nodePause: { offlineSince: null, behindAgeS: null },
   proverDead: false,
 };
 
@@ -159,6 +163,8 @@ export type Event =
   | { type: 'recovered'; at?: number }
   /** A claim that failed at proving, submitted again from idle (the e2e canary's control). */
   | { type: 'retry'; at?: number }
+  /** A retained claim found in a block after all: the claim's steps resume at `included`, nothing is sent. */
+  | { type: 'reconciled'; at?: number }
   /** The honest pause after a recovery that did not unblock the key. */
   | { type: 'paused'; until: number; at?: number }
   | { type: 'offline'; since: number }
@@ -210,8 +216,16 @@ function outcomeLine(state: MinerState, lineId: number | null, note: ClaimNote, 
 function startJob(state: MinerState, epoch: EpochInfo): [MinerState, Command[]] {
   const secretId = state.secretId + 1;
   const job = { epoch: epoch.epoch, seed: epoch.seed, target: epoch.target, secretId };
-  return [{ ...state, phase: 'mining', job, secretId, notice: null }, [{ type: 'mine', ...job }]];
+  // Start rotates the secret and drops the retained claim: no line may offer to send it again.
+  const ledger = withoutRetry(state.ledger);
+  return [{ ...state, phase: 'mining', job, secretId, notice: null, ledger }, [{ type: 'mine', ...job }]];
 }
+
+/** The ledger with no Retry on offer: only the claim retained now may be sent again. */
+const withoutRetry = (ledger: LedgerLine[], except: number | null = null): LedgerLine[] =>
+  ledger.map((l) =>
+    l.claim?.retry && l.id !== except ? { ...l, claim: { ...l.claim, retry: undefined } } : l,
+  );
 
 function attempt(state: MinerState, e: Extract<Event, { type: 'attempt' }>): MinerState {
   const tickets = state.tickets + 1;
@@ -256,7 +270,7 @@ function epochSwitch(state: MinerState, e: Extract<Event, { type: 'epoch' }>): [
     ledger: line(state, {
       kind: 'epoch',
       time: clock(e.at),
-      text: `epoch ${e.epoch.epoch} opened${ratio} · new secret`,
+      text: `epoch ${e.epoch.epoch} opened · bar ${difficulty(e.epoch.target).toFixed(1)}${ratio}`,
     }),
   };
   if (state.phase !== 'mining') return [opened, []];
@@ -377,13 +391,15 @@ function failed(state: MinerState, e: Extract<Event, { type: 'failed' }>): [Mine
       [{ type: 'halt' }],
     ];
   }
-  const base = {
-    ...state,
-    claim: null,
-    stopping: false,
-    job: null,
-    ledger: outcomeLine(state, lineId, failureNote({ ...e, kind: e.kind }), e.at),
-  };
+  const note = failureNote({ ...e, kind: e.kind });
+  // A failure retained for Retry replaces any earlier one: the older lines lose the link.
+  const ledger = outcomeLine(
+    note.retry ? { ...state, ledger: withoutRetry(state.ledger) } : state,
+    lineId,
+    note,
+    e.at,
+  );
+  const base = { ...state, claim: null, stopping: false, job: null, ledger };
   if (e.kind === 'expired' || e.kind === 'refused') return [{ ...base, phase: 'idle' }, []];
   if (e.kind === 'reverted' || e.kind === 'delivery-blocked') {
     const stale = staleRevert(e);
@@ -427,6 +443,8 @@ export function reduce(state: MinerState, event: Event): [MinerState, Command[]]
       ];
     case 'retry':
       return state.phase === 'idle' ? claiming(state, event.at) : [state, []];
+    case 'reconciled':
+      return state.phase === 'idle' ? [claiming(state, event.at)[0], []] : [state, []];
     case 'epoch':
       return epochSwitch(state, event);
     case 'attempt':
@@ -481,30 +499,37 @@ export function reduce(state: MinerState, event: Event): [MinerState, Command[]]
 
 type NodeEvent = Extract<Event, { type: 'offline' | 'online' | 'behind' | 'caught-up' }>;
 
-/** The node's own notices: silence and a lag each raise one, and each clears only its own. */
+const offlineNotice = (since: number): Notice => ({
+  kind: 'offline',
+  title: 'node unreachable',
+  body: `No answer from the node since ${clock(since)}. Mining is paused; it resumes when the node answers.`,
+});
+
+const behindNotice = (ageS: number): Notice => ({
+  kind: 'behind',
+  title: 'node behind',
+  body: `The node answers, but its chain is ${ageWord(ageS)} old. Mining is paused; it resumes when the node catches up.`,
+});
+
+const nextPause = (p: MinerState['nodePause'], event: NodeEvent): MinerState['nodePause'] => ({
+  offlineSince: event.type === 'offline' ? event.since : event.type === 'online' ? null : p.offlineSince,
+  behindAgeS: event.type === 'behind' ? event.ageS : event.type === 'caught-up' ? null : p.behindAgeS,
+});
+
+/** The notice of the node pause still in force, silence first; null when none is. */
+const standingNotice = (p: MinerState['nodePause']): Notice | null =>
+  p.offlineSince !== null
+    ? offlineNotice(p.offlineSince)
+    : p.behindAgeS !== null
+      ? behindNotice(p.behindAgeS)
+      : null;
+
+/** The node's own notices: silence and a lag each raise one; one clearing shows the other if it still stands. */
 function nodeNotice(state: MinerState, event: NodeEvent): MinerState {
-  switch (event.type) {
-    case 'offline':
-      return {
-        ...state,
-        notice: {
-          kind: 'offline',
-          title: 'node unreachable',
-          body: `No answer from the node since ${clock(event.since)}. Mining is paused; it resumes when the node answers.`,
-        },
-      };
-    case 'behind':
-      return {
-        ...state,
-        notice: {
-          kind: 'behind',
-          title: 'node behind',
-          body: `The node answers, but its chain is ${ageWord(event.ageS)} old. Mining is paused; it resumes when the node catches up.`,
-        },
-      };
-    case 'online':
-      return state.notice?.kind === 'offline' ? { ...state, notice: null } : state;
-    case 'caught-up':
-      return state.notice?.kind === 'behind' ? { ...state, notice: null } : state;
-  }
+  const nodePause = nextPause(state.nodePause, event);
+  if (event.type === 'offline') return { ...state, nodePause, notice: offlineNotice(event.since) };
+  if (event.type === 'behind') return { ...state, nodePause, notice: behindNotice(event.ageS) };
+  // A clearing touches only the node's own notices.
+  const own = state.notice?.kind === 'offline' || state.notice?.kind === 'behind';
+  return own ? { ...state, nodePause, notice: standingNotice(nodePause) } : { ...state, nodePause };
 }

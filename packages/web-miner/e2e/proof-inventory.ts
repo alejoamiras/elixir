@@ -50,7 +50,7 @@ export const INVENTORY: Readonly<Record<string, Readonly<Record<string, number>>
   },
   'switch.e2e.ts': {
     'a live switch A → B while mining, a claim after it, and the banner on a dead node': 1,
-    'a node that is not this deployment’s is refused under the field, and the node in use is kept': 0,
+    'another deployment’s node, or one that does not answer, is refused under the field; the node in use is kept': 0,
   },
   // The real-proving canary: a tampered claim refused at proving, then the same claim minting restored.
   'canary.e2e.ts': {

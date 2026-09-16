@@ -11,6 +11,8 @@ export interface ProverBackend {
    * the nonce it used. Resolves true on a winner (already posted), false when stopped.
    */
   mine(job: MineJob, onAttempt: (nonce: bigint) => boolean): Promise<boolean>;
+  /** The thread count a WASM prover built later (a fallback) uses; nothing is rebuilt now. */
+  threads?(threads: number): void;
 }
 
 const errorMessage = (err: unknown): FromWorker => ({
@@ -109,8 +111,7 @@ export function createProverLoop(backend: ProverBackend, post: (m: FromWorker) =
     handle(m: ToWorker): void {
       switch (m.type) {
         case 'init':
-          void backend.init({ threads: m.threads, presto: m.presto }).catch(fail);
-          return;
+          return void backend.init({ threads: m.threads, presto: m.presto }).catch(fail);
         case 'mine':
           userStopped = false;
           if (!current) return void run(m.job).catch(fail);
@@ -120,17 +121,16 @@ export function createProverLoop(backend: ProverBackend, post: (m: FromWorker) =
           return;
         case 'stop':
           queued = undefined;
-          userStopped = true;
+          userStopped = stopRequested = true;
+          return;
+        case 'reconfigure':
+          if (!mining) return void rebuild({ threads: m.threads, presto: m.presto }).catch(fail);
+          reconfigureTo = { threads: m.threads, presto: m.presto };
           stopRequested = true;
           return;
-        case 'reconfigure': {
-          const config = { threads: m.threads, presto: m.presto };
-          if (mining) {
-            reconfigureTo = config;
-            stopRequested = true;
-          } else void rebuild(config).catch(fail);
+        case 'threads':
+          backend.threads?.(m.threads);
           return;
-        }
         case 'crash':
           // Test hook: an uncaught exception inside the Worker, which the page sees as `onerror`.
           throw new Error('synthetic prover crash');

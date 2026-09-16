@@ -28,5 +28,11 @@ describe('the operation queue', () => {
     expect(order).toEqual(['a:start', 'a:end', 'b', 'c']);
     await q.drain();
     expect(q.size).toBe(0);
+    // Held: nothing new starts, what was queued is unaffected; lifting it lets operations through.
+    q.refuse('a node switch is underway');
+    await expect(q.run(async () => 'D')).rejects.toThrow('a node switch is underway');
+    expect(q.size).toBe(0);
+    q.refuse(null);
+    expect(await q.run(async () => 'E')).toBe('E');
   });
 });

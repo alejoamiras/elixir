@@ -22,7 +22,7 @@ import { duration } from '../../site/src/browser/format.ts';
 import { keysAllowed, relyingParty } from '../../site/src/browser/host.ts';
 import { type NodeProbe, probeNode } from '../../site/src/browser/node.ts';
 import { setEthRpcEndpoint } from '../../site/src/browser/node-guard.ts';
-import { nodeHealth, waitTurn } from '../../site/src/browser/node-health.ts';
+import { nodeHealth, resetL1, waitTurn } from '../../site/src/browser/node-health.ts';
 import {
   expectedOf,
   type Preflighted,
@@ -710,6 +710,8 @@ export class Session {
     this.ethRpc = url;
     setEthRpcEndpoint(url, ETH_RPC_DEADLINE_MS);
     resetEthRpcHealth();
+    resetL1();
+    void this.l1?.tick();
     if (!this.bridge) return;
     this.closeBridge();
     await this.openBridge();
@@ -770,6 +772,10 @@ export class Session {
         await pre.publicEpoch.stop();
         this.store.set(epochAtom, null);
       }
+      // The bridge's queued operations finish on the node they started on; none may start until the
+      // switch is over, or it would be signed against one node's view and sent to another.
+      this.bridge?.hold('a node switch is underway; try again when it is done');
+      await this.bridge?.drain().catch(() => {});
       await switchNodeLive({ controller: this.controller, switchable: pre.switchable, url });
     })()
       .catch((e: unknown) => {
@@ -786,6 +792,7 @@ export class Session {
         throw e;
       })
       .finally(() => {
+        this.bridge?.hold(null);
         if (publicOnly) pre.publicEpoch.start();
         this.switching = undefined;
         this.switchingUrl = undefined;

@@ -24,7 +24,6 @@ import { openPip, pipSupported } from '../pip';
 import { prestoAtom } from '../presto';
 import { useSettings } from '../settings';
 import { bootAtom, epochAtom, mineIntentAtom, minerAtom, nowAtom, signInAtom } from '../state';
-import { NoticeCard } from './ClaimStatus';
 
 /** The user's Start goes through the session (it asks Presto beside the start); the controller alone stops. */
 type Controls = { controller: () => MinerController | undefined; onStart: () => void };
@@ -269,12 +268,11 @@ export function LoopTile({ controller, onStart, className }: Controls & { classN
         since={miner.sinceT ?? undefined}
         height={230}
         placeholder={[
-          'Your proofs draw here once you start',
+          'Your proofs draw here once you start.',
           `The bar is ${bar === null ? '—' : bar.toFixed(1)} · clear it to win`,
         ]}
         footer={<RateLine native={native} miner={miner} perProof={perProof} />}
       />
-      {miner.notice && <NoticeCard notice={miner.notice} />}
     </Tile>
   );
 }

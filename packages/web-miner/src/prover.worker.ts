@@ -18,13 +18,16 @@ const ACCELERATOR_DEADLINE_MS = 600_000;
 const post = (m: FromWorker) => self.postMessage(m);
 
 let prover: WorkProver | undefined;
+/** Read when a WASM prover is built: Presto's fallback builds one lazily, after the count may have changed. */
+let wasmThreads = 1;
 
 async function build({ threads, presto }: ProverConfig): Promise<WorkProver> {
   // bb.js prefers its IndexedDB copy of the CRS over any download: only bytes that went through
   // the pinned path may be there, so the cache is dropped before the backend is created.
   await purgeCrsCache();
   const artifact = (await (await fetch('/artifacts/yacana_work.json')).json()) as WorkArtifact;
-  const api = () => Barretenberg.new({ threads, backend: BackendType.WasmWorker });
+  wasmThreads = threads;
+  const api = () => Barretenberg.new({ threads: wasmThreads, backend: BackendType.WasmWorker });
   if (!presto) {
     setAcceleratorEndpoints(null, 0);
     return new BbJsWorkProver(artifact, await api());
@@ -51,6 +54,9 @@ const backend: ProverBackend = {
   async destroy() {
     await prover?.destroy();
     prover = undefined;
+  },
+  threads(threads) {
+    wasmThreads = threads;
   },
   mine(job: MineJob, keepGoing) {
     if (!prover) throw new Error('prover not initialised');

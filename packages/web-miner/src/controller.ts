@@ -180,6 +180,8 @@ export class MinerController {
   /** The store's last verdict acted on: the node behind the rollup pauses mining like silence does. */
   private behind = false;
   private unsubscribeHealth: (() => void) | undefined;
+  /** Bumped whenever the chain view is replaced: a read begun on the old one publishes nothing. */
+  private views = 0;
   /** When the chain view was last rebuilt; a block that survives a rebuild gets the pause instead. */
   private rebuiltAt: number | null = null;
   /** A rebuilt view that has not been read yet: Start reads it before anything mines. */
@@ -320,8 +322,11 @@ export class MinerController {
 
   /** The node's tip beside the refresh, for the Settings row; a node that cannot say is not a failed refresh. */
   private async sampleTip() {
+    const view = this.views;
     try {
-      recordTip(await readTip(this.d.node));
+      const tip = await readTip(this.d.node);
+      // A read that began on a view since replaced (a switch, a rebuild) says nothing about the node in use.
+      if (view === this.views && !this.disposed) recordTip(tip);
     } catch {
       /* the refresh is the health signal; the tip is what the row shows */
     }
@@ -381,6 +386,7 @@ export class MinerController {
     // natively is kept for the next browser build instead of rebuilding a prover for nothing.
     if (sameEndpoint && !opts?.force && presto !== null && prestoSticky(this.store.get(prestoAtom))) {
       this.threads = threads;
+      this.post({ type: 'threads', threads });
       this.log(`prover: ${threads} threads kept for the browser prover; Presto decides its own`);
       return;
     }
@@ -659,7 +665,7 @@ export class MinerController {
       const { block, effect } = await sent.wait();
       await this.minted(p, sent.txHash, block, effect);
     } catch (e) {
-      // An unclassified failure keeps the ticket for Retry (the canary's tampered one as it was).
+      // An unclassified failure keeps the ticket for Retry; the canary's tampered claim, as it was.
       this.retained = restore ?? (classifyClaimFailure(e) === 'other' ? { ...p, txHash } : null);
       await this.claimFailed(e, p.epoch);
     }
@@ -700,39 +706,50 @@ export class MinerController {
 
   /**
    * The retained claim again (the ledger's Retry; the canary's control): false unless that failure is
-   * what the page is idle on. A claim that was sent is reconciled first — in a block after all, it is
-   * minted, not sent twice.
+   * what the page is idle on. A claim that was sent is reconciled first: in a block after all, it is
+   * minted, not sent twice; still pending, or a node that cannot say, keeps it for a later Retry.
    */
   async retryPendingClaim(): Promise<boolean> {
     const claim = this.retained;
-    if (this.retired || !retryEligible(claim, this.secrets, this.store.get(minerAtom).phase)) return false;
-    this.retained = null;
+    const epoch = this.store.get(epochAtom)?.epoch;
+    if (this.retired || !retryEligible(claim, this.secrets, this.store.get(minerAtom).phase, epoch))
+      return false;
     const { txHash, ...ticket } = claim;
     if (txHash) {
-      const landed = await this.landed(txHash);
-      if (landed) {
-        this.log(`claim ${short(txHash)} was in block ${landed.block} after all`);
-        this.dispatch({ type: 'retry', at: Date.now() });
-        await this.minted(ticket, txHash, landed.block, landed.effect).catch((e) =>
+      const fate = await this.track(() => this.fate(txHash)).catch(() => 'unknown' as const);
+      if (fate === 'unknown') {
+        this.log(`claim ${short(txHash)}: the node cannot say yet whether it landed; kept for another Retry`);
+        return false;
+      }
+      if (fate !== 'dropped') {
+        this.retained = null;
+        this.log(`claim ${short(txHash)} was in block ${fate.block} after all`);
+        this.dispatch({ type: 'reconciled', at: Date.now() });
+        await this.minted(ticket, txHash, fate.block, fate.effect).catch((e) =>
           this.claimFailed(e, ticket.epoch),
         );
         return true;
       }
     }
+    this.retained = null;
     this.pending = ticket;
     this.log('the retained claim goes out again');
     this.dispatch({ type: 'retry', at: Date.now() });
     return true;
   }
 
-  /** Whether a sent claim made it into a block, with its effects; null when it did not or the node cannot say. */
-  private async landed(txHash: string): Promise<{ block: number; effect: TxEffect } | null> {
+  /**
+   * What became of a sent claim: in a block with its effects, `dropped` by the node (never mined),
+   * or `unknown` while it is still pending or the node does not answer.
+   */
+  private async fate(txHash: string): Promise<{ block: number; effect: TxEffect } | 'dropped' | 'unknown'> {
     try {
       const r = await this.d.node.getTxReceipt(TxHash.fromString(txHash), { includeTxEffect: true });
-      if (r.executionResult !== 'success' || r.blockNumber === undefined || !r.txEffect) return null;
+      if (r.status === 'dropped') return 'dropped';
+      if (r.executionResult !== 'success' || r.blockNumber === undefined || !r.txEffect) return 'unknown';
       return { block: Number(r.blockNumber), effect: r.txEffect };
     } catch {
-      return null;
+      return 'unknown';
     }
   }
 
@@ -756,18 +773,21 @@ export class MinerController {
   }
 
   /**
-   * `epoch` is the one the claim was made in: a revert whose message names no cause (a mined revert's
-   * receipt carries none on 5.2.0) is stale when the chain's open epoch has moved past it.
+   * `epoch` is the one the claim was made in. A revert whose message names no cause (a mined revert's
+   * receipt carries none on 5.2.0) is taken as stale when the chain's open epoch has moved past it: a
+   * reading, not proof, so a message that does name a reason is never overridden by it.
    */
   private async claimFailed(e: unknown, epoch?: bigint) {
     const kind = classifyClaimFailure(e);
     const message = claimFailureMessage(e);
     this.log(`claim failed (${kind}): ${message}`);
+    const cause = kind === 'reverted' ? revertCause(message) : null;
     const stale =
-      kind === 'reverted'
-        ? revertCause(message).stale || (epoch !== undefined && (await this.epochClosedSince(epoch)))
-        : undefined;
-    if (stale) this.log(`the claim was stale: epoch ${epoch} closed before it landed`);
+      cause === null
+        ? undefined
+        : cause.stale || (!cause.reason && epoch !== undefined && (await this.epochClosedSince(epoch)));
+    if (stale && !cause?.stale)
+      this.log(`the claim is taken as stale: epoch ${epoch} is closed now and the revert named no reason`);
     this.dispatch({ type: 'failed', error: message, kind, stale, at: Date.now() });
     // Nothing was spent by an expired claim or one refused at simulation: mining goes on, on whatever epoch is open now.
     if (kind === 'expired' || kind === 'refused') return this.resumeAfterClaim();
@@ -859,6 +879,7 @@ export class MinerController {
     }
     this.d = rebound.deployment;
     this.fee = rebound.fee;
+    this.views++;
     if (!rebound.rebuilt) {
       this.log('the chain view could not be dropped; reopened as it was');
       return this.pauseUntilFinal();
@@ -885,12 +906,9 @@ export class MinerController {
       await this.refresh();
     } catch (e) {
       this.log(`the rebuilt chain view could not be read: ${claimFailureMessage(e)}`);
-      // A node switch's first read is part of the switch: its failure abandons the prover and
-      // surfaces, so the caller shows the boot error rather than reporting a good switch.
-      if (strict) {
-        this.abandonProver(`the new node did not answer the first read: ${claimFailureMessage(e)}`);
-        throw e;
-      }
+      // A node switch's first read is part of the switch: its failure surfaces to the switch, which
+      // tries the former node before the prover is given up.
+      if (strict) throw e;
       return this.dispatch({
         type: 'failed',
         error: `the chain view was rebuilt but the node did not answer (${claimFailureMessage(e)}); press Start to read it again`,
@@ -927,13 +945,14 @@ export class MinerController {
 }
 
 /**
- * A retained tampered claim can go out again only while the page is idle on its refusal and its
- * secret is still the current one: Start rotates the secret and drops the claim; a winner that
- * arrived after Stop is not a refusal and is never retained.
+ * A retained claim can go out again only while the page is idle on its failure, its secret is still
+ * the current one (Start rotates the secret and drops the claim) and its epoch is still the open
+ * one (a closed epoch's ticket is worthless); a winner that arrived after Stop is never retained.
  */
 export const retryEligible = (
-  retained: { secretId: number } | null,
+  retained: { secretId: number; epoch: bigint } | null,
   secrets: ReadonlyMap<number, string>,
   phase: MinerState['phase'],
-): retained is { secretId: number } =>
-  retained !== null && phase === 'idle' && secrets.has(retained.secretId);
+  openEpoch: bigint | undefined,
+): retained is { secretId: number; epoch: bigint } =>
+  retained !== null && phase === 'idle' && secrets.has(retained.secretId) && retained.epoch === openEpoch;

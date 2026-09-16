@@ -380,4 +380,15 @@ describe('standing', () => {
     health.resetNodeHealth();
     expect(health.nodeHealth()).toMatchObject({ tip: null, l1: null, deploymentOk: null, behind: false });
   });
+  test('an RPC change forgets the head baseline but keeps the verdict until a fresh sample', () => {
+    health.markDeployment(true);
+    health.recordTip(tip(10), now);
+    // A lying RPC's enormous head would otherwise refuse every honest sample after it.
+    health.recordL1({ pendingCheckpoint: 20, head: 1_000_000 }, now);
+    expect(health.standing(health.nodeHealth(), now)).toBe('behind');
+    health.resetL1();
+    expect(health.nodeHealth().behind).toBe(true);
+    expect(health.recordL1({ pendingCheckpoint: 11, head: 100 }, now + 1_000)).toBe(true);
+    expect(health.standing(health.nodeHealth(), now + 1_000)).toBe('healthy');
+  });
 });

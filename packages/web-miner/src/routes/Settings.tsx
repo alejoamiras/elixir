@@ -1,6 +1,4 @@
-// Settings: six cards of rows. Network (the node, the Ethereum RPC), Mining (the slider, Presto's
-// row, the pauses), Alerts, Account (the address, its method, Stay open, Sign out), Appearance,
-// About. The node is changed here signed out too, so the page stays free of the sign-in dialog.
+// Settings. The node is changed here signed out too, so the page stays free of the sign-in dialog.
 import { useAtomValue, useSetAtom } from 'jotai';
 import type * as React from 'react';
 import { useEffect, useState } from 'react';
