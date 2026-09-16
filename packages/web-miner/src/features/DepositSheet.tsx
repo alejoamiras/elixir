@@ -145,8 +145,17 @@ const payerAsk = (crossing: Crossing | null, address: Hex | undefined, action: H
     : undefined;
 
 /** A held action's failure: the row's own words when the portal refused, else the error's first line. */
-const explain = (e: unknown, c: Crossing, flipped: boolean) =>
-  revertLine(e, c, Math.floor(Date.now() / 1000), versionNameOf(c.version), flipped) ?? firstLine(e);
+const explain = (e: unknown, c: Crossing, flipped: boolean, pausedUntil?: bigint) =>
+  revertLine(e, c, {
+    version: versionNameOf(c.version),
+    target: versionNameOf(c.target),
+    flipped,
+    pausedUntil,
+    money: `${fmt(BigInt(c.amount), PARAMS.DECIMALS)} YACA`,
+    who: shortAddress(c.ethAddress),
+    chain: chain(),
+    wallet: 'your wallet',
+  }) ?? firstLine(e);
 /** The page's own "no ETH for the gas", before the wallet is asked; null when it can pay or nothing is known. */
 const noEth = (funds: PayerFunds, wallet: string | undefined): string | null =>
   funds.enough === false ? `${wallet ?? 'Your wallet'} has no ${chain()} ETH for the gas.` : null;
@@ -406,7 +415,8 @@ export function HeldSheet({
 }) {
   const account = useAccount();
   const yaca = useYacaBalance(account.address);
-  const flipped = flippedAway(useAtomValue(bridgeAtom).canonical?.version, crossing?.version);
+  const view = useAtomValue(bridgeAtom);
+  const flipped = flippedAway(view.canonical?.version, crossing?.version);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [done, setDone] = useState(false);
@@ -454,7 +464,7 @@ export function HeldSheet({
       else await session.bridge?.selfForward(crossing);
       setDone(true);
     } catch (e) {
-      setError(explain(e, crossing, flipped));
+      setError(explain(e, crossing, flipped, view.standing?.paused ? view.standing.pausedUntil : undefined));
     } finally {
       setBusy(false);
     }

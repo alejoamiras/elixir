@@ -880,9 +880,12 @@ export class BridgeSession {
       if (!claimed) {
         // Absence means pruning only from a node that has reached the claim's block; a node behind it knows nothing yet.
         if (c.claimBlock === undefined || (await this.d.node.getBlockNumber()) < c.claimBlock) return;
+        // The hash of the undone claim stays: it is the row's only evidence that this was claimed
+        // once, which is a different sentence from an arrival nobody has touched. A new claim
+        // overwrites it.
         await this.journal.update(c.id, (stored) =>
           stored.state === 'minted-l2'
-            ? { ...stored, state: 'claimable', claimTxHash: undefined, claimBlock: undefined, updatedAt: now }
+            ? { ...stored, state: 'claimable', claimBlock: undefined, updatedAt: now }
             : stored,
         );
         return;

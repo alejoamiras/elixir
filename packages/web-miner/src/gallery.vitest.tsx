@@ -1,5 +1,5 @@
 // The state lists as drawn, rendered over a made-up journal: every word a crossing can lead with,
-// the arrivals in every state, the old app once something was sent and once the version is quiet,
+// what arrives in every state, the old app once something was sent and once the version is quiet,
 // the taking-long dialog and the old-tab bar. With `GALLERY_DIR` set, each render's markup is
 // written there to be screenshotted under the built stylesheet.
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -11,13 +11,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { Crossing } from '../../bridge/src/journal.ts';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { TAKING_LONG_AFTER_MS } from './bridge/copy';
-import { ArrivalCard } from './features/ArrivalCard';
-import { BridgeTile } from './features/BridgeTile';
+import { ActivityList } from './features/ActivityList';
 import { MigrationCard } from './features/MigrationCard';
 import { OldApp } from './features/OldApp';
 import { OldTabNotice } from './features/OldTabNotice';
-import { TakingLongDialog } from './features/TakingLongDialog';
 import type { MasterRecord } from './keys/store';
+import { BalanceTile } from './routes/Wallet';
 import type { Session } from './session';
 import { balanceAtom, bootAtom, bridgeAtom, journalAtom, nowAtom } from './state';
 
@@ -53,7 +52,10 @@ const settled = {
 
 const standing = {
   registered: true,
+  miner: `0x${'0a'.repeat(20)}` as const,
+  registryIndex: 0n,
   paused: false,
+  pausedUntil: 0n,
   headroom: 500n * ONE,
   deadline: (1n << 256n) - 1n,
   flipAt: 0n,
@@ -91,6 +93,8 @@ const mount = (ui: ReactNode, setup: (store: ReturnType<typeof createStore>) => 
 };
 
 const words = () => screen.getAllByTestId('crossing-word').map((w) => w.textContent);
+const on = { claimL1: () => {}, forward: () => {}, redeem: () => {}, again: () => {}, settings: () => {} };
+const list = <ActivityList session={session} account="0xacc" on={on} wins={null} />;
 
 afterEach(() => {
   cleanup();
@@ -121,56 +125,75 @@ beforeEach(() => {
 
 describe('the journal, every state', () => {
   test('an exit and a send-ahead in each state lead with their word, and nothing promises a relayer', () => {
-    const tile = <BridgeTile session={session} account="0xacc" onForward={() => {}} onRedeem={() => {}} />;
-    const { container } = mount(tile, (s) =>
+    const at = (m: number) => ({ createdAt: NOW - m * MINUTE, updatedAt: NOW - m * MINUTE });
+    const { container } = mount(list, (s) =>
       s.set(journalAtom, [
-        crossing('proving', { state: 'proving' }),
-        crossing('sent', { state: 'sent', txHash: TX }),
-        crossing('pending', { state: 'proven-pending', ...settled }),
-        crossing('witnessed', { state: 'witnessed', ...settled }),
-        crossing('ready', { state: 'ready', ...settled }),
-        crossing('minted', { state: 'minted-l1', ...settled, l1TxHash: TX }),
-        crossing('paused', { state: 'paused', ...settled }),
-        crossing('headroom', { state: 'headroom', ...settled }),
-        crossing('closed', { state: 'closed', ...settled }),
-        crossing('lost', { state: 'never-proven', ...settled, amount: (4n * ONE).toString() }),
-        crossing('held', { kind: 2, state: 'held', ...settled }),
-        crossing('unregistered', { kind: 2, state: 'not-registered', ...settled }),
-        crossing('redeemed', { kind: 2, state: 'minted-l1', ...settled, l1TxHash: TX }),
+        crossing('proving', { state: 'proving', ...at(1) }),
+        crossing('sent', { state: 'sent', txHash: TX, ...at(2) }),
+        crossing('pending', { state: 'proven-pending', ...settled, ...at(3) }),
+        crossing('witnessed', { state: 'witnessed', ...settled, ...at(4) }),
+        crossing('ready', { state: 'ready', ...settled, ...at(5) }),
+        crossing('minted', { state: 'minted-l1', ...settled, l1TxHash: TX, ...at(6) }),
+        crossing('paused', { state: 'paused', ...settled, ...at(7) }),
+        crossing('headroom', { state: 'headroom', ...settled, ...at(8) }),
+        crossing('closed', { state: 'closed', ...settled, ...at(9) }),
+        crossing('lost', { state: 'never-proven', ...settled, amount: (4n * ONE).toString(), ...at(10) }),
+        crossing('held', { kind: 2, state: 'held', ...settled, ...at(11) }),
+        crossing('unregistered', { kind: 2, state: 'not-registered', ...settled, ...at(12) }),
+        crossing('redeemed', { kind: 2, state: 'minted-l1', ...settled, l1TxHash: TX, ...at(13) }),
       ]),
     );
     expect(screen.getAllByTestId('crossing')).toHaveLength(13);
     expect(words()).toEqual([
       'proving',
       'sent',
-      'proving to Ethereum',
-      'proven',
+      'reaching Ethereum',
+      'reached Ethereum',
       'ready to claim',
       'claimed',
       'paused',
       'waiting for the limit',
-      'closed',
+      'last day passed',
       'undone',
-      'held on Ethereum',
+      'held for the next version',
       'waiting for Yacana',
       'redeemed',
     ]);
     expect(container.textContent).not.toMatch(/relayer/i);
+    // Every money-loss row says what happened to the money; no row says "safe".
+    expect(container.textContent).not.toMatch(/\bsafe\b/i);
     keep('journal-states', container.innerHTML);
   });
 
-  test('a silent RPC is said on the tile, not on the crossing', () => {
-    const tile = <BridgeTile session={session} account="0xacc" onForward={() => {}} onRedeem={() => {}} />;
-    const { container } = mount(tile, (s) => {
-      s.set(bridgeAtom, {
-        verdict: { kind: 'before' },
-        standing,
-        readAt: NOW - 6 * MINUTE,
-        rpcFailing: true,
-      });
-      s.set(journalAtom, [crossing('ready', { state: 'ready', ...settled })]);
-    });
-    expect(screen.getByTestId('bridge-tile').textContent).toContain('Ethereum RPC silent');
+  test('a silent RPC is said on the balance tile; a send-ahead that needs the upgrade read says so on its row', () => {
+    const { container } = mount(
+      <>
+        <BalanceTile
+          balance={8n * ONE}
+          claims={1}
+          onSend={() => {}}
+          onToEthereum={() => {}}
+          onDeposit={() => {}}
+          onSettings={() => {}}
+        />
+        {list}
+      </>,
+      (s) => {
+        s.set(bridgeAtom, {
+          verdict: { kind: 'unknown' },
+          standing,
+          readAt: NOW - 6 * MINUTE,
+          rpcFailing: true,
+        });
+        s.set(journalAtom, [
+          crossing('ready', { state: 'ready', ...settled }),
+          crossing('held', { kind: 2, state: 'held', ...settled, createdAt: NOW - 40 * MINUTE }),
+        ]);
+      },
+    );
+    expect(screen.getByTestId('money-reason').textContent).toContain("Ethereum RPC isn't answering");
+    expect(words()).toEqual(['ready to claim', "can't read the upgrade"]);
+    expect(screen.getByTestId('row-settings')).toBeTruthy();
     keep('journal-rpc-silent', container.innerHTML);
   });
 });
@@ -178,30 +201,55 @@ describe('the journal, every state', () => {
 describe('the arrivals, every state', () => {
   test('sends from an earlier version and deposits show as they come, claimable ones with the tap', () => {
     const from4 = { kind: 2 as const, version: '4', target: '5', ...settled, l1TxHash: TX };
-    const { container } = mount(<ArrivalCard session={session} onResume={() => {}} />, (s) =>
+    const at = (m: number) => ({ createdAt: NOW - m * MINUTE });
+    const { container } = mount(list, (s) =>
       s.set(journalAtom, [
-        crossing('forwarded', { ...from4, state: 'forwarded' }),
-        crossing('claimable', { ...from4, state: 'claimable', inboxIndex: '7' }),
-        crossing('landed', { ...from4, state: 'minted-l2', claimBlock: 1_204, updatedAt: NOW - 2 * MINUTE }),
-        crossing('unanswered', { kind: 3, state: 'proving', amount: (12n * ONE).toString() }),
-        crossing('deposited', { kind: 3, state: 'deposited', l1TxHash: TX, amount: (12n * ONE).toString() }),
+        crossing('forwarded', { ...from4, state: 'forwarded', ...at(1) }),
+        crossing('claimable', { ...from4, state: 'claimable', inboxIndex: '7', ...at(2) }),
+        crossing('landed', {
+          ...from4,
+          state: 'minted-l2',
+          claimBlock: 1_204,
+          updatedAt: NOW - 2 * MINUTE,
+          ...at(3),
+        }),
+        crossing('unanswered', { kind: 3, state: 'proving', amount: (12n * ONE).toString(), ...at(4) }),
+        crossing('deposited', {
+          kind: 3,
+          state: 'deposited',
+          l1TxHash: TX,
+          amount: (12n * ONE).toString(),
+          ...at(5),
+        }),
         crossing('arriving', {
           kind: 3,
           state: 'claimable',
           inboxIndex: '9',
           amount: (12n * ONE).toString(),
+          ...at(6),
         }),
       ]),
     );
-    expect(screen.getAllByTestId('arrival')).toHaveLength(6);
-    expect(screen.getAllByTestId('arrival-claim')).toHaveLength(2);
-    expect(screen.getAllByTestId('arrival-resume')).toHaveLength(1);
-    expect(screen.getByTestId('arrival-card').textContent).toContain('landed');
-    expect(screen.getByTestId('arrival-card').textContent).toContain('on its way');
+    expect(words()).toEqual([
+      'arriving',
+      'ready to claim',
+      'claimed',
+      'waiting for your wallet',
+      'crossing to Aztec',
+      'ready to claim',
+    ]);
+    expect(screen.getAllByTestId('row-claim')).toHaveLength(2);
+    // A deposit's amount is what left Ethereum; its sentence, what lands here.
+    expect(screen.getAllByTestId('crossing')[3]?.textContent).toContain('12 YACA');
+    expect(screen.getAllByTestId('crossing')[2]?.textContent).toContain(
+      `8 ${PARAMS.TOKEN_SYMBOL} in your balance`,
+    );
     keep('arrival-states', container.innerHTML);
   });
+});
 
-  test('what was sent ahead, from the card that sent it: proving, undone, held, arrived', () => {
+describe('what was sent ahead', () => {
+  test('from the card that sent it: proving, undone, held, arrived', () => {
     vi.stubEnv(
       'VITE_MIGRATION',
       JSON.stringify({
@@ -210,11 +258,10 @@ describe('the arrivals, every state', () => {
         expectedFlipAt: String(SECONDS + 2 * 86_400),
       }),
     );
-    const tile = <BridgeTile session={session} account="0xacc" onForward={() => {}} onRedeem={() => {}} />;
     const { container } = mount(
       <>
         <MigrationCard onSendAhead={() => {}} />
-        {tile}
+        {list}
       </>,
       (s) => {
         s.set(balanceAtom, 6n * ONE);
@@ -224,12 +271,20 @@ describe('the arrivals, every state', () => {
             state: 'proven-pending',
             ...settled,
             amount: (48n * ONE).toString(),
+            createdAt: NOW - MINUTE,
           }),
-          crossing('undone', { kind: 2, state: 'never-proven', ...settled, amount: (48n * ONE).toString() }),
+          crossing('undone', {
+            kind: 2,
+            state: 'never-proven',
+            ...settled,
+            amount: (48n * ONE).toString(),
+            createdAt: NOW - 2 * MINUTE,
+          }),
           crossing('slow', {
             kind: 2,
             state: 'held',
             ...settled,
+            createdAt: NOW - 3 * MINUTE,
             updatedAt: NOW - TAKING_LONG_AFTER_MS - MINUTE,
           }),
           crossing('arrived', {
@@ -237,6 +292,7 @@ describe('the arrivals, every state', () => {
             state: 'minted-l2',
             ...settled,
             target: '6',
+            createdAt: NOW - 4 * MINUTE,
             updatedAt: NOW - 2 * MINUTE,
           }),
         ]);
@@ -244,8 +300,11 @@ describe('the arrivals, every state', () => {
     );
     expect(screen.getByTestId('migration-card').dataset.moment).toBe('announced');
     expect(screen.getByTestId('sent-ahead-status').textContent).toContain('sent ahead');
-    expect(words()).toEqual(['proving to Ethereum', 'undone', 'held on Ethereum']);
-    expect(screen.getAllByTestId('redeem')).toHaveLength(1);
+    // Announced, the upgrade has a name and the held row waits for it by that name.
+    expect(words()).toEqual(['reaching Ethereum', 'undone', 'held for V1', 'claimed']);
+    expect(screen.getAllByTestId('row-redeem')).toHaveLength(1);
+    expect(screen.getAllByTestId('row-again')).toHaveLength(1);
+    expect(screen.getByTestId('row-again').textContent).toBe('Send ahead again');
     keep('sent-ahead-states', container.innerHTML);
   });
 });
@@ -292,27 +351,7 @@ describe('the old app', () => {
   });
 });
 
-describe('the dialog and the bar', () => {
-  test('a send held for longer than usual asks, with the call to forward it from anywhere', () => {
-    mount(<TakingLongDialog onSettings={() => {}} onWallet={() => {}} />, (s) => {
-      s.set(journalAtom, [
-        crossing('slow', {
-          kind: 2,
-          state: 'held',
-          ...settled,
-          witness: undefined,
-          updatedAt: NOW - TAKING_LONG_AFTER_MS - 2 * HOUR * 1000,
-        }),
-      ]);
-      s.set(bridgeAtom, {
-        ...s.get(bridgeAtom),
-        targetRegisteredAt: BigInt(Math.floor(NOW / 1000) - 8 * 3600),
-      });
-    });
-    expect(screen.getByTestId('taking-long').textContent).toContain('Yacana forwards by hand');
-    keep('taking-long', document.body.innerHTML);
-  });
-
+describe('the old-tab bar', () => {
   test('a tab behind a redeploy says so, with the old app one link away', async () => {
     vi.stubEnv('VITE_OLD_APP_ORIGIN', 'https://v5.yacana.network');
     vi.stubGlobal(

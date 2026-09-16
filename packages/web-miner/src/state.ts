@@ -2,6 +2,7 @@ import { atom } from 'jotai';
 import type { DeadlineReading } from '../../bridge/src/exit-deadline.ts';
 import type { FlipVerdict } from '../../bridge/src/flip.ts';
 import type { Crossing, RowState } from '../../bridge/src/journal.ts';
+import type { VersionStanding } from '../../bridge/src/portal-reader.ts';
 import type { ProofReading } from '../../bridge/src/proofs.ts';
 import type { PreflightRow } from '../../ui/src/index.ts';
 import type { BridgeSession } from './bridge/session';
@@ -96,17 +97,7 @@ export const journalAtom = atom<Crossing[]>([]);
 export interface BridgeView {
   verdict: FlipVerdict;
   /** This version on the portal, once read. */
-  standing?: {
-    registered: boolean;
-    paused: boolean;
-    headroom: bigint;
-    deadline: bigint;
-    flipAt: bigint;
-    afterNextAt: bigint;
-    pausedSeconds: bigint;
-    retireSent: boolean;
-    depositsClosed: boolean;
-  };
+  standing?: VersionStanding;
   canonical?: { version: bigint; index: bigint };
   /** The exit deadline as read from the transitions and the pause accounting, on Ethereum's clock. */
   deadline?: DeadlineReading;

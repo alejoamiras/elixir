@@ -1,6 +1,7 @@
 import type * as React from 'react';
 import { cn } from '../lib/cn.ts';
 import type { MarkState } from '../mark.ts';
+import { Badge } from './badge.tsx';
 import { Icon, type IconName } from './icons.tsx';
 import { Mark } from './mark.tsx';
 
@@ -12,6 +13,8 @@ export interface HeaderTab {
   /** Opens in a new tab and carries the ↗; mining lives in this one. */
   external?: boolean;
   testId?: string;
+  /** How many things behind this tab need the user; zero and undefined both draw nothing. */
+  count?: number;
   /** In-app navigation: the click is intercepted and the href kept for the address bar and middle clicks. */
   onSelect?: () => void;
 }
@@ -114,6 +117,11 @@ export function Header({
           >
             {t.icon && <Icon name={t.icon} />}
             {t.label}
+            {t.count !== undefined && t.count > 0 && (
+              <Badge variant="uv" className="px-1.5 py-px text-[10px]" data-testid="tab-count">
+                {t.count}
+              </Badge>
+            )}
             {t.external && (
               <>
                 {' '}

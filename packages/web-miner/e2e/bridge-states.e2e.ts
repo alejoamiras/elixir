@@ -75,7 +75,12 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   await expect(page.getByTestId('exit-sent')).toBeVisible({ timeout: 10 * 60_000 });
   await page.getByRole('button', { name: 'Done' }).click();
   const exit = page.locator('[data-testid=crossing][data-kind="1"]');
-  await expect(exit.getByTestId('crossing-word')).toHaveText('proving to Ethereum', { timeout: 60_000 });
+  // The isolated network proves on its own cadence: which station the row reads before settle()
+  // depends on how fast the epoch closed, so anything past 'sent' is the row following it.
+  await expect(exit.getByTestId('crossing-word')).toHaveText(
+    /^(reaching Ethereum|reached Ethereum|ready to claim)$/,
+    { timeout: 60_000 },
+  );
   await expect(page.getByTestId('wallet-balance')).toHaveText('3', { timeout: 60_000 });
   await ctl.settle();
   await expect(exit.getByTestId('crossing-word')).toHaveText('ready to claim', { timeout: 3 * 60_000 });
@@ -109,14 +114,17 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   await page.reload();
   await openKey(page, account);
   await page.getByRole('link', { name: 'Wallet' }).click();
-  const stuck = page.locator('[data-testid=arrival][data-state="proving"]');
-  await expect(stuck).toHaveCount(1, { timeout: 60_000 });
-  await expect(stuck).toContainText('Waiting for your Ethereum wallet');
+  const deposits = (state: string) =>
+    page.locator(`[data-testid=crossing][data-kind="3"][data-state="${state}"]`);
+  await expect(deposits('proving')).toHaveCount(1, { timeout: 60_000 });
+  await expect(deposits('proving')).toContainText('Confirm the deposit in');
   await shot(page, 'arrival-unanswered');
   // Its retirement is Ethereum's clock past the deposit's own deadline (an hour), never the device's:
-  // warped past it, the record gives itself up and leaves the card without a tap.
+  // warped past it, the record gives itself up and the row says so, with nothing to tap. The one
+  // the wallet refused is the other row that says so: a crossing is never dropped from the list.
   await rpc(r.nodeUrl, 'aztecDebug_warpL2TimeAtLeastBy', [3_700]);
-  await expect(stuck).toHaveCount(0, { timeout: 90_000 });
+  await expect(deposits('proving')).toHaveCount(0, { timeout: 90_000 });
+  await expect(deposits('dropped').getByTestId('crossing-word')).toHaveText(['not sent', 'not sent']);
   await page.getByTestId('deposit').click();
   await connectTestWallet(page);
   await page.getByTestId('deposit-amount').fill('0.5');
@@ -138,21 +146,16 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   await page.reload();
   await openKey(page, account);
   await page.getByRole('link', { name: 'Wallet' }).click();
-  await expect(page.locator('[data-testid=arrival]')).toHaveCount(1, { timeout: 60_000 });
-  await expect(page.locator('[data-testid=arrival]')).toHaveAttribute('data-state', 'deposited', {
-    timeout: 60_000,
-  });
+  await expect(deposits('deposited')).toHaveCount(1, { timeout: 60_000 });
   await shot(page, 'arrival-deposited');
 
-  // The Inbox serves the message a few checkpoints later; the arrival card's one tap claims it privately.
+  // The Inbox serves the message a few checkpoints later; the row's one tap claims it privately.
   await ctl.nudge();
-  await expect(page.getByTestId('arrival-claim')).toHaveText('Claim', { timeout: 3 * 60_000 });
-  await page.getByTestId('arrival-claim').click();
-  // Landed, the row stays on the card as minted, with nothing left to press.
-  await expect(page.locator('[data-testid=arrival][data-state=minted-l2]')).toHaveCount(1, {
-    timeout: 10 * 60_000,
-  });
-  await expect(page.getByTestId('arrival-card')).toContainText('landed');
-  await expect(page.getByTestId('arrival-claim')).toHaveCount(0);
+  await expect(page.getByTestId('row-claim')).toHaveText('Claim', { timeout: 3 * 60_000 });
+  await page.getByTestId('row-claim').click();
+  // Landed, the row stays in the list as claimed, with nothing left to press.
+  await expect(deposits('minted-l2')).toHaveCount(1, { timeout: 10 * 60_000 });
+  await expect(deposits('minted-l2')).toContainText('in your balance');
+  await expect(page.getByTestId('row-claim')).toHaveCount(0);
   await expect(page.getByTestId('wallet-balance')).toHaveText('3.5', { timeout: 2 * 60_000 });
 });

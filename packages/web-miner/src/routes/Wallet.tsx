@@ -2,6 +2,7 @@ import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import type { Crossing } from '../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
+import { ownVersionName } from '../../../site/src/browser/version-name.ts';
 import {
   Badge,
   Button,
@@ -12,12 +13,12 @@ import {
   TileBoundary,
   TileHeader,
 } from '../../../ui/src/index.ts';
-import { bridgeRecord } from '../bridge/env';
+import { bridgeRecord, isContinuation, nextVersionName } from '../bridge/env';
+import { moneyStanding } from '../bridge/rows';
 import { links } from '../explorer';
-import { ArrivalCard } from '../features/ArrivalCard';
+import { ActivityList } from '../features/ActivityList';
 import { WordsBackup } from '../features/account/Words';
 import { BridgeProviders } from '../features/BridgeProviders';
-import { BridgeTile } from '../features/BridgeTile';
 import { DepositSheet, HeldSheet } from '../features/DepositSheet';
 import { SendSheet } from '../features/SendSheet';
 import { SignOutDialog } from '../features/SignOutDialog';
@@ -25,7 +26,7 @@ import { ToEthereumSheet } from '../features/ToEthereumSheet';
 import type { MasterRecord } from '../keys/store';
 import { amount, shortAddress } from '../lib/format';
 import { useTileLog } from '../lib/tile-log';
-import { takeIntent } from '../routes';
+import { navigate, takeIntent } from '../routes';
 import type { Session } from '../session';
 import { balanceAtom, bootAtom, bridgeAtom, claimsAtom } from '../state';
 
@@ -37,6 +38,7 @@ export function BalanceTile({
   onSend,
   onToEthereum,
   onDeposit,
+  onSettings,
 }: {
   balance: bigint | null;
   claims: number;
@@ -45,10 +47,11 @@ export function BalanceTile({
   onSend: () => void;
   onToEthereum: () => void;
   onDeposit: () => void;
+  onSettings: () => void;
 }) {
   const view = useAtomValue(bridgeAtom);
   const bridge = bridgeRecord() !== null;
-  const standing = view.standing;
+  const money = moneyStanding(view, ownVersionName(), nextVersionName(view.canonical));
   return (
     <Tile>
       <TileHeader aside="private">balance</TileHeader>
@@ -75,7 +78,7 @@ export function BalanceTile({
         {bridge && (
           <Button
             onClick={onToEthereum}
-            disabled={!balance || view.rpcFailing || !standing?.registered}
+            disabled={!balance || money.off.has('to-ethereum')}
             data-testid="to-ethereum"
           >
             Bridge to Ethereum
@@ -84,7 +87,7 @@ export function BalanceTile({
         {bridge && (
           <Button
             variant="ghost"
-            disabled={!standing?.registered || standing.depositsClosed}
+            disabled={money.off.has('deposit')}
             onClick={onDeposit}
             data-testid="deposit"
           >
@@ -92,6 +95,19 @@ export function BalanceTile({
           </Button>
         )}
       </div>
+      {bridge && money.reason && (
+        <p className="mt-2 text-xs text-ink-3" data-testid="money-reason">
+          {money.reason}
+          {money.settings && (
+            <>
+              {' '}
+              <Button variant="link" className="text-xs" onClick={onSettings} data-testid="money-settings">
+                Settings
+              </Button>
+            </>
+          )}
+        </p>
+      )}
     </Tile>
   );
 }
@@ -149,18 +165,35 @@ function AccountTile({
   );
 }
 
-function ClaimsHistory({ claims }: { claims: { epoch: bigint; block: number; at: number }[] }) {
+type Win = { epoch: bigint; block: number; at: number };
+
+/** "wins · 12 ›" in the activity tile's footer; open, the wins from this device list below it. */
+function WinsRow({ wins, open, onToggle }: { wins: Win[]; open: boolean; onToggle: () => void }) {
   return (
-    <Tile className="md:col-span-2">
-      <TileHeader aside={claims.length ? `${claims.length} · newest first` : undefined}>
-        claims from this device
+    <Button
+      variant="link"
+      className="label-mono no-underline"
+      aria-expanded={open}
+      onClick={onToggle}
+      data-testid="wins-row"
+    >
+      wins · {wins.length} <span className="text-ink-4">{open ? '‹' : '›'}</span>
+    </Button>
+  );
+}
+
+function WinsList({ wins }: { wins: Win[] }) {
+  return (
+    <Tile className="md:col-span-2" data-testid="wins-list">
+      <TileHeader aside={wins.length ? `${wins.length} · newest first` : undefined}>
+        wins from this device
       </TileHeader>
-      {claims.length ? (
+      {wins.length ? (
         <ol
           className="m-0 max-h-[280px] list-none overflow-y-auto p-0 font-mono text-xs"
           data-testid="claims-history"
         >
-          {[...claims].reverse().map((c) => (
+          {[...wins].reverse().map((c) => (
             <li
               key={`${c.epoch}-${c.block}`}
               className="flex gap-4 border-t border-line py-1 first:border-t-0"
@@ -185,6 +218,51 @@ function ClaimsHistory({ claims }: { claims: { epoch: bigint; block: number; at:
   );
 }
 
+type Held = [Crossing | null, (c: Crossing | null) => void];
+
+/** The money dialogs on the bridge, each open on its own state. */
+function MoneySheets({
+  session,
+  balance,
+  exit: [exit, setExit],
+  deposit: [deposit, setDeposit],
+  redeem: [redeem, setRedeem],
+  forward: [forward, setForward],
+}: {
+  session: Session;
+  balance: bigint | null;
+  exit: [boolean, (o: boolean) => void];
+  deposit: [false | { resume?: Crossing }, (d: false | { resume?: Crossing }) => void];
+  redeem: Held;
+  forward: Held;
+}) {
+  return (
+    <>
+      <ToEthereumSheet session={session} balance={balance ?? 0n} open={exit} onOpenChange={setExit} />
+      {deposit && (
+        <DepositSheet
+          session={session}
+          open
+          onOpenChange={(o) => !o && setDeposit(false)}
+          resume={deposit.resume}
+        />
+      )}
+      <HeldSheet
+        session={session}
+        crossing={redeem}
+        action="redeem"
+        onOpenChange={(o) => !o && setRedeem(null)}
+      />
+      <HeldSheet
+        session={session}
+        crossing={forward}
+        action="forward"
+        onOpenChange={(o) => !o && setForward(null)}
+      />
+    </>
+  );
+}
+
 export function Wallet({ session }: { session: Session }) {
   const onError = useTileLog();
   const boot = useAtomValue(bootAtom);
@@ -197,6 +275,7 @@ export function Wallet({ session }: { session: Session }) {
   const [redeem, setRedeem] = useState<Crossing | null>(null);
   const [forward, setForward] = useState<Crossing | null>(null);
   const [signOut, setSignOut] = useState(false);
+  const [wins, setWins] = useState(false);
   // A backup opened from the sign-out dialog (here, or Welcome's before the account opened) returns
   // to the dialog once the words are confirmed.
   const [backup, setBackup] = useState<false | 'account' | 'sign-out'>(
@@ -229,6 +308,7 @@ export function Wallet({ session }: { session: Session }) {
           onSend={() => setSend(true)}
           onToEthereum={() => setExit(true)}
           onDeposit={() => setDeposit({})}
+          onSettings={() => navigate('settings')}
         />
       </TileBoundary>
       <TileBoundary name="account" onError={onError}>
@@ -238,40 +318,36 @@ export function Wallet({ session }: { session: Session }) {
           onBackUp={() => setBackup('account')}
         />
       </TileBoundary>
-      <TileBoundary name="claims" onError={onError} className="md:col-span-2">
-        <ClaimsHistory claims={claims} />
-      </TileBoundary>
       <BridgeProviders>
-        <TileBoundary name="bridge" onError={onError} className="md:col-span-2">
-          <BridgeTile session={session} account={account} onForward={setForward} onRedeem={setRedeem} />
-        </TileBoundary>
-        <TileBoundary name="arrivals" onError={onError} className="md:col-span-2">
-          <ArrivalCard
+        <TileBoundary name="activity" onError={onError} className="md:col-span-2">
+          <ActivityList
             session={session}
-            onResume={(c) => setDeposit({ resume: c })}
-            className="md:col-span-2"
+            account={account}
+            continuation={isContinuation()}
+            wins={<WinsRow wins={claims} open={wins} onToggle={() => setWins((o) => !o)} />}
+            on={{
+              claimL1: setForward,
+              forward: setForward,
+              redeem: setRedeem,
+              // A send-ahead is made again from Mine's upgrade card; the other two open here.
+              again: (c) =>
+                c.kind === 3 ? setDeposit({ resume: c }) : c.kind === 1 ? setExit(true) : navigate('mine'),
+              settings: () => navigate('settings'),
+            }}
           />
         </TileBoundary>
-        <ToEthereumSheet session={session} balance={balance ?? 0n} open={exit} onOpenChange={setExit} />
-        {deposit && (
-          <DepositSheet
-            session={session}
-            open
-            onOpenChange={(o) => !o && setDeposit(false)}
-            resume={deposit.resume}
-          />
+        {wins && (
+          <TileBoundary name="wins" onError={onError} className="md:col-span-2">
+            <WinsList wins={claims} />
+          </TileBoundary>
         )}
-        <HeldSheet
+        <MoneySheets
           session={session}
-          crossing={redeem}
-          action="redeem"
-          onOpenChange={(o) => !o && setRedeem(null)}
-        />
-        <HeldSheet
-          session={session}
-          crossing={forward}
-          action="forward"
-          onOpenChange={(o) => !o && setForward(null)}
+          balance={balance}
+          exit={[exit, setExit]}
+          deposit={[deposit, setDeposit]}
+          redeem={[redeem, setRedeem]}
+          forward={[forward, setForward]}
         />
       </BridgeProviders>
       <SendSheet

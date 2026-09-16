@@ -515,7 +515,7 @@ adapts here.
 **Gate**: fast · `bun test packages/bridge packages/web-miner` · `bun run e2e:agent -- bun test packages/bridge`
 (the live proof-event case) · `bridge` shard proverless · layers: unit, integration-live, e2e live.
 
-### P8 — The Wallet
+### P8 ✓ — The Wallet (green 2026-09-16, `lessons/phase-8.md`)
 
 `ActivityList` + `ActivityRow` on `rowLine` (the §5.4 table, every RowState × kind, deposits included, one row per
 crossing, finished rows collapsed after seven days, never discarded); the "ready to claim" count and the row's
