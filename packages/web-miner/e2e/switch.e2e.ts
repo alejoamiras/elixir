@@ -52,11 +52,12 @@ test('a live switch A → B while mining, a claim after it, and the banner on a 
   await expect(page.getByTestId('node-in-use')).toHaveText(new URL(r.proxyA).host);
   await expect(page.getByTestId('node-chip')).toHaveText('healthy', { timeout: 60_000 });
   await expect(page.getByTestId('node-line')).toContainText(/^block [\d,]+ · \d+ s ago/, { timeout: 60_000 });
-  await expect(page.getByTestId('node-row')).toContainText('· default');
+  // A is a saved node, not the build's: the row says so and offers the default.
+  await expect(page.getByTestId('node-row')).toContainText('· custom');
+  await expect(page.getByTestId('node-default')).toBeVisible();
   const before = (await stats(r.proxyA)).count;
   await changeNode(page, r.proxyB);
   await expect(page.getByTestId('node-row')).toContainText('· custom');
-  await expect(page.getByTestId('node-default')).toBeVisible();
   const saved = JSON.parse(await page.evaluate(() => localStorage.getItem('yacana.connection') ?? '{}'));
   expect(new URL(saved.nodeUrl).href).toBe(new URL(r.proxyB).href);
 
