@@ -35,7 +35,9 @@ for (const f of [REPORT_FILE, TIMINGS_FILE, BREAKDOWN_FILE]) rmSync(f, { force: 
 const prebuild = timed(['bun', 'scripts/prebuild.ts']);
 if (prebuild.code !== 0) process.exit(prebuild.code);
 const args = process.argv.slice(2).filter((a) => a !== '--');
-const playwright = timed(['bunx', 'playwright', 'test', ...files, ...args]);
+// Playwright's file arguments are unanchored regexes: `states.e2e.ts` alone would also run bridge-states.
+const patterns = files.map((f) => `/e2e/${f.replaceAll('.', '\\.')}$`);
+const playwright = timed(['bunx', 'playwright', 'test', ...patterns, ...args]);
 const startedAt = Number(process.env.YACANA_RUN_STARTED_AT);
 const nodeReadyMs = Number(process.env.YACANA_NODE_READY_MS);
 const b = reportRun({

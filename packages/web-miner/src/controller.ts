@@ -8,6 +8,7 @@ import {
   claimFailureMessage,
   classifyClaimFailure,
   finalitySeconds,
+  revertCause,
 } from '../../miner-core/src/claim-failure.ts';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { difficulty } from '../../miner-core/src/metrics.ts';
@@ -605,7 +606,7 @@ export class MinerController {
     } catch (e) {
       // An unclassified failure keeps the ticket for Retry (the canary's tampered one as it was).
       this.retained = restore ?? (classifyClaimFailure(e) === 'other' ? { ...p, txHash } : null);
-      await this.claimFailed(e);
+      await this.claimFailed(e, p.epoch);
     }
   }
 
@@ -657,7 +658,9 @@ export class MinerController {
       if (landed) {
         this.log(`claim ${short(txHash)} was in block ${landed.block} after all`);
         this.dispatch({ type: 'retry', at: Date.now() });
-        await this.minted(ticket, txHash, landed.block, landed.effect).catch((e) => this.claimFailed(e));
+        await this.minted(ticket, txHash, landed.block, landed.effect).catch((e) =>
+          this.claimFailed(e, ticket.epoch),
+        );
         return true;
       }
     }
@@ -697,11 +700,20 @@ export class MinerController {
     this.start();
   }
 
-  private async claimFailed(e: unknown) {
+  /**
+   * `epoch` is the one the claim was made in: a revert whose message names no cause (a mined revert's
+   * receipt carries none on 5.2.0) is stale when the chain's open epoch has moved past it.
+   */
+  private async claimFailed(e: unknown, epoch?: bigint) {
     const kind = classifyClaimFailure(e);
     const message = claimFailureMessage(e);
     this.log(`claim failed (${kind}): ${message}`);
-    this.dispatch({ type: 'failed', error: message, kind, at: Date.now() });
+    const stale =
+      kind === 'reverted'
+        ? revertCause(message).stale || (epoch !== undefined && (await this.epochClosedSince(epoch)))
+        : undefined;
+    if (stale) this.log(`the claim was stale: epoch ${epoch} closed before it landed`);
+    this.dispatch({ type: 'failed', error: message, kind, stale, at: Date.now() });
     // Nothing was spent by an expired claim or one refused at simulation: mining goes on, on whatever epoch is open now.
     if (kind === 'expired' || kind === 'refused') return this.resumeAfterClaim();
     if (kind !== 'reverted' && kind !== 'delivery-blocked') return;
@@ -709,6 +721,15 @@ export class MinerController {
     const rebuilt = this.rebuiltAt !== null && Date.now() - this.rebuiltAt < (await this.finalityMs());
     if (kind === 'delivery-blocked' && rebuilt) return this.pauseUntilFinal();
     await this.rebuildChainView();
+  }
+
+  /** Whether the open epoch has moved past `epoch`; false when the node cannot say. */
+  private async epochClosedSince(epoch: bigint): Promise<boolean> {
+    try {
+      return (await readEpoch(this.d, this.account)).epoch > epoch;
+    } catch {
+      return false;
+    }
   }
 
   /**

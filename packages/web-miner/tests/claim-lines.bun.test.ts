@@ -73,6 +73,12 @@ describe('the claim on its win line', () => {
       "didn't land: it reverted (Assertion failed: retired) · the sponsor paid, your proof is unspent · re-syncing, about a minute",
     ],
     [
+      'Transaction 0x1 reverted: app_logic_reverted. Reason: unknown',
+      'reverted',
+      'recovering',
+      "didn't land: it reverted · the sponsor paid, your proof is unspent · re-syncing, about a minute",
+    ],
+    [
       'Simulation error: Assertion failed: epoch is not open',
       'refused',
       'idle',
@@ -115,6 +121,15 @@ describe('the claim on its win line', () => {
     );
     expect(stale.notice?.body).toBe(
       'A claim reverted: someone closed the epoch first. Re-syncing this account from the chain; mining resumes in about a minute.',
+    );
+    // The controller's verdict from the chain outranks a message that names nothing.
+    const verdict = play(
+      [{ type: 'failed', error: 'reverted: Reason: unknown', kind: 'reverted', stale: true, at: 2_000 }],
+      play(won),
+    );
+    expect(verdict.notice?.body).toBe(stale.notice?.body);
+    expect(winNote(winLine(verdict)?.claim, 2_000)?.text).toBe(
+      "didn't land: the epoch closed first · the sponsor paid, your proof is unspent · re-syncing, about a minute",
     );
     const other = play(
       [{ type: 'failed', error: 'reverted: Reason: x', kind: 'reverted', at: 2_000 }],

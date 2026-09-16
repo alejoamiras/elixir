@@ -33,7 +33,11 @@ describe('classifyClaimFailure', () => {
       stale: false,
       reason: 'Assertion failed: retired',
     });
-    expect(revertCause('reverted')).toEqual({ stale: false, reason: 'reverted' });
+    // A 5.2.0 receipt carries no reason: the SDK's "unknown" is no reason at all.
+    expect(revertCause('Transaction 0x1 reverted: app_logic_reverted. Reason: unknown')).toEqual({
+      stale: false,
+    });
+    expect(revertCause('reverted')).toEqual({ stale: false });
   });
   test('non-Error values are classified from their string form', () => {
     expect(classifyClaimFailure('Invalid expiration timestamp')).toBe('expired');

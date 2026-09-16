@@ -24,7 +24,9 @@ export interface ClaimNote {
   /** Unix seconds; the sequencer drops the claim past this (the `sent` step's countdown). */
   expiresAt?: number;
   outcome?: ClaimOutcome;
-  /** `reverted`: the verified cause; `other`: the error's first line. */
+  /** `reverted`: the epoch closed first — the chain read past it, or the miner's own message said so. */
+  stale?: true;
+  /** `reverted`: the reason the message gave, if any; `other`: the error's first line. */
   reason?: string;
   /** `other`: the ticket is retained and Retry can send it again. */
   retry?: boolean;
@@ -147,7 +149,8 @@ export type Event =
   | { type: 'sent'; txHash: string; expiresAt?: number; at?: number }
   | { type: 'included'; block: number; at?: number }
   | ({ type: 'claimed'; reward: string } & Omit<Minted, 'at'> & Partial<Clock>)
-  | ({ type: 'failed'; error: string; kind?: ClaimFailure } & Partial<Clock>)
+  /** `stale`: the controller's verdict on a revert (the open epoch moved past the claimed one). */
+  | ({ type: 'failed'; error: string; kind?: ClaimFailure; stale?: boolean } & Partial<Clock>)
   | { type: 'recovered'; at?: number }
   /** A claim that failed at proving, submitted again from idle (the e2e canary's control). */
   | { type: 'retry'; at?: number }
@@ -331,11 +334,16 @@ const RECOVERING: Record<'stale' | 'other', string> = {
   other: 'Re-syncing this account from the chain; mining resumes in about a minute.',
 };
 
-/** What the win line says of a failed claim; a revert's cause is read from the message, never assumed. */
+/** A revert was stale by the controller's reading of the chain, else by the message; never assumed. */
+const staleRevert = (e: Extract<Event, { type: 'failed' }>): boolean =>
+  e.kind === 'reverted' && (e.stale ?? revertCause(e.error).stale);
+
+/** What the win line says of a failed claim. */
 function failureNote(e: Extract<Event, { type: 'failed' }> & { kind: ClaimFailure }): ClaimNote {
   if (e.kind === 'reverted') {
+    if (staleRevert(e)) return { outcome: 'reverted', stale: true };
     const cause = revertCause(e.error);
-    return { outcome: 'reverted', reason: cause.stale ? undefined : cause.reason };
+    return { outcome: 'reverted', ...(!cause.stale && cause.reason && { reason: cause.reason }) };
   }
   if (e.kind === 'other') return { outcome: 'other', reason: e.error, retry: true };
   return { outcome: e.kind };
@@ -368,7 +376,7 @@ function failed(state: MinerState, e: Extract<Event, { type: 'failed' }>): [Mine
   };
   if (e.kind === 'expired' || e.kind === 'refused') return [{ ...base, phase: 'idle' }, []];
   if (e.kind === 'reverted' || e.kind === 'delivery-blocked') {
-    const stale = e.kind === 'reverted' && revertCause(e.error).stale;
+    const stale = staleRevert(e);
     const notice: Notice = {
       kind: 'reverted',
       title: 'lost a race',

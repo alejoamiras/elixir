@@ -31,13 +31,15 @@ export function classifyClaimFailure(e: unknown): ClaimFailure {
 }
 
 /**
- * Why a claim reverted, verified from the message: `stale` for the miner's own "stale claim" (the
- * epoch closed first), else the reason after the SDK's "Reason:" (or the whole first line).
+ * Why a claim reverted, as far as the message says: `stale` for the miner's own "stale claim" (the
+ * epoch closed first), else the reason after the SDK's "Reason:". A mined revert's receipt carries no
+ * reason on Aztec 5.2.0 (the SDK then writes "Reason: unknown"): no reason at all, and the epoch's
+ * state decides whether the claim was stale.
  */
-export function revertCause(message: string): { stale: true } | { stale: false; reason: string } {
+export function revertCause(message: string): { stale: true } | { stale: false; reason?: string } {
   if (STALE.test(message)) return { stale: true };
   const reason = /Reason:\s*(.+)$/.exec(message.split('\n')[0] ?? '')?.[1]?.trim();
-  return { stale: false, reason: reason || claimFailureMessage(message) };
+  return reason && reason !== 'unknown' ? { stale: false, reason } : { stale: false };
 }
 
 /** Seconds until an L2 block is final on L1, from the rollup's constants: the pause after a failed reset. */

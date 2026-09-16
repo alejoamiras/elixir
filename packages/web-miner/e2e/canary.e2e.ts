@@ -47,5 +47,7 @@ test('a claim with a bound public input altered is refused at proving before it 
   await expect(page.getByTestId('balance')).toHaveText('4');
   expect(sends).toBe(1);
   await expect(page.getByTestId('start')).toBeVisible();
-  await expect(page.getByTestId('ledger')).toContainText(/minted in block [\d,]+ · 4 tYACA, privately/);
+  await expect(page.getByTestId('ledger')).toContainText(
+    /minted in block [\d,]+↗ \(opens in a new tab\) · 4 tYACA, privately/,
+  );
 });

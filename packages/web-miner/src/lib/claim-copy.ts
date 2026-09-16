@@ -22,9 +22,13 @@ const running = (c: ClaimNote, nowMs: number): string => {
 const ended = (c: ClaimNote): string => {
   switch (c.outcome) {
     case 'reverted':
-      return c.reason === undefined
-        ? "didn't land: the epoch closed first · the sponsor paid, your proof is unspent · re-syncing, about a minute"
-        : `didn't land: it reverted (${c.reason}) · the sponsor paid, your proof is unspent · re-syncing, about a minute`;
+      return `didn't land: ${
+        c.stale
+          ? 'the epoch closed first'
+          : c.reason === undefined
+            ? 'it reverted'
+            : `it reverted (${c.reason})`
+      } · the sponsor paid, your proof is unspent · re-syncing, about a minute`;
     case 'refused':
       return "didn't go out: the epoch closed before it was sent · nothing paid · mining continues";
     case 'expired':
