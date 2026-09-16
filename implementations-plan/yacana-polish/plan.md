@@ -466,7 +466,7 @@ the dialog's ids through `bootPage`: the rig's `origin` case runs here, at the a
 **Gate**: fast · `cockpit` proverless · `canary` real (opening) · replay · `bun run rig -- origin` (tmux) ·
 layers: + e2e live, rig.
 
-### P4 — The claim
+### P4 ✓ — The claim (green 2026-09-16, `lessons/phase-4.md`)
 
 The chip and the ledger line per step with one clock from the win (`ClaimProgress.wonAt`, `stepAt`); the six
 outcomes' lines and the two banners (§5.3, board ClaimOutcomes; `claim-failure.ts`'s copy table rewritten);
