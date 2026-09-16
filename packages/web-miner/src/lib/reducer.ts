@@ -100,6 +100,9 @@ export interface MinerState {
   samples: Sample[];
   /** performance.now() of the last winning proof, for the bar flash. */
   winAt: number | null;
+  /** When the user's Start began this run of mining (wall clock; the chart's clock); null once stopped. */
+  since: number | null;
+  sinceT: number | null;
   /** Newest first, at most LEDGER lines. */
   ledger: LedgerLine[];
   /** The id of the last win's line: the claim that follows annotates it. */
@@ -124,6 +127,8 @@ export const initial: MinerState = {
   best: null,
   samples: [],
   winAt: null,
+  since: null,
+  sinceT: null,
   ledger: [],
   winLineId: null,
   wins: 0,
@@ -141,10 +146,10 @@ export interface Clock {
 }
 
 export type Event =
-  | { type: 'start'; epoch: EpochInfo }
+  | ({ type: 'start'; epoch: EpochInfo } & Partial<Clock>)
   | { type: 'stop' }
   | ({ type: 'epoch'; epoch: EpochInfo; difficultyRatio?: number } & Partial<Clock>)
-  | ({ type: 'attempt'; proveMs: number; score: number; win: boolean; bar: number } & Clock)
+  | ({ type: 'attempt'; proveMs: number; score: number; win: boolean; bar: number; epoch?: number } & Clock)
   | { type: 'winner'; epoch: bigint; secretId: number; at?: number }
   | { type: 'sent'; txHash: string; expiresAt?: number; at?: number }
   | { type: 'included'; block: number; at?: number }
@@ -208,7 +213,7 @@ function attempt(state: MinerState, e: Extract<Event, { type: 'attempt' }>): Min
   const best = state.best === null || e.score > state.best ? e.score : state.best;
   const samples = [
     ...state.samples.filter((s) => e.t - s.t <= SAMPLE_SPAN_MS),
-    { t: e.t, score: e.score, bar: e.bar, win: e.win },
+    { t: e.t, score: e.score, bar: e.bar, win: e.win, ...(e.epoch !== undefined && { epoch: e.epoch }) },
   ];
   const l: ProofLine = e.win
     ? { kind: 'win', time: clock(e.at), n: tickets, score: e.score, proveMs: e.proveMs }
@@ -390,8 +395,12 @@ function failed(state: MinerState, e: Extract<Event, { type: 'failed' }>): [Mine
 
 export function reduce(state: MinerState, event: Event): [MinerState, Command[]] {
   switch (event.type) {
-    case 'start':
-      return state.phase === 'idle' && !state.proverDead ? startJob(state, event.epoch) : [state, []];
+    case 'start': {
+      if (state.phase !== 'idle' || state.proverDead) return [state, []];
+      // The resume after a claim comes through here too: the run's start is kept until a Stop.
+      const since = state.since === null ? { since: now(event.at), sinceT: event.t ?? null } : {};
+      return startJob({ ...state, ...since }, event.epoch);
+    }
     case 'prover-dead':
       return [
         {
@@ -407,7 +416,10 @@ export function reduce(state: MinerState, event: Event): [MinerState, Command[]]
     case 'stop':
       // The submission cannot be abandoned: the claim finishes, marked, and mining does not resume after it.
       if (state.phase === 'claiming') return [{ ...state, stopping: true }, []];
-      return [{ ...state, phase: 'idle', job: null }, state.phase === 'idle' ? [] : [{ type: 'halt' }]];
+      return [
+        { ...state, phase: 'idle', job: null, since: null, sinceT: null },
+        state.phase === 'idle' ? [] : [{ type: 'halt' }],
+      ];
     case 'retry':
       return state.phase === 'idle' ? claiming(state, event.at) : [state, []];
     case 'epoch':

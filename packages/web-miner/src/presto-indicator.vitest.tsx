@@ -18,7 +18,15 @@ beforeEach(() =>
 
 const mining = () => {
   const store = createStore();
-  store.set(minerAtom, { ...initial, phase: 'mining', recent: [840, 850], proofs: 12, samples: [] });
+  store.set(minerAtom, {
+    ...initial,
+    phase: 'mining',
+    recent: [840, 850],
+    proofs: 12,
+    samples: [{ t: 0, score: 1.2 }],
+    since: 1_699_999_970_000,
+    sinceT: 0,
+  });
   store.set(bootAtom, {
     phase: 'ready',
     account: '0x1',
@@ -35,7 +43,7 @@ const mining = () => {
   });
   store.set(epochAtom, { epoch: 71n, seed: 7n, target: 1n << 122n, openedAt: 0n, claims: 3 });
   store.set(rulesAtom, { N: 4, EXPECTED_EPOCH_SECONDS: 300n, T_MAX: 1200n, REWARD: 4n * 10n ** 18n });
-  store.set(nowAtom, Date.now());
+  store.set(nowAtom, 1_700_000_000_000);
   return store;
 };
 
@@ -75,27 +83,39 @@ describe('the native indicator', () => {
     expect(screen.getByTestId('phase').getAttribute('data-prover')).toBe('wasm');
   });
 
-  test("the rate line says native and the rail's slider dims with Presto's speed setting named; both revert", () => {
+  test("the footer's ✦ follows what proved; the epoch tile's Presto row replaces the slider on the sticky state alone", () => {
     const store = mining();
     store.set(prestoAtom, { ...initialPresto, selected: 'presto', active: 'presto' });
-    const { container, rerender } = render(
+    const { rerender } = render(
       <Provider store={store}>
         <Mine controller={() => undefined} />
       </Provider>,
     );
-    expect(screen.getByTestId('rate-line').textContent).toContain('native');
-    expect(screen.getByTestId('rate-line').textContent).not.toContain('threads');
-    expect((screen.getByRole('slider') as HTMLInputElement).disabled).toBe(true);
-    expect(screen.getByTestId('power-caption').textContent).toContain('speed setting');
+    const again = () =>
+      rerender(
+        <Provider store={store}>
+          <Mine controller={() => undefined} />
+        </Provider>,
+      );
+    expect(screen.getByTestId('rate-line').textContent).toBe('0.8 s per proof · ✦ presto · 12 proofs');
+    expect(screen.getByTestId('presto-row').textContent).toContain('proving on this machine');
+    expect(screen.getByRole('link', { name: /About Presto/ })).toHaveAttribute(
+      'href',
+      'https://presto.build',
+    );
+    expect(screen.queryByRole('slider')).toBeNull();
+    // One refused proof: the footer drops its ✦, the row stays (the Worker has not given up on native).
     store.set(prestoAtom, { ...initialPresto, selected: 'presto', active: 'wasm' });
-    rerender(
-      <Provider store={store}>
-        <Mine controller={() => undefined} />
-      </Provider>,
-    );
-    expect(screen.getByTestId('rate-line').textContent).toContain('11 threads');
+    again();
+    expect(screen.getByTestId('rate-line').textContent).toBe('0.8 s per proof · 12 proofs');
+    expect(screen.getByTestId('presto-row')).toBeInTheDocument();
+    // The Worker's sticky verdict: the slider and its line are back.
+    store.set(prestoAtom, { ...initialPresto, selected: 'presto', active: 'wasm', fallbackReason: 'denied' });
+    again();
+    expect(screen.queryByTestId('presto-row')).toBeNull();
     expect((screen.getByRole('slider') as HTMLInputElement).disabled).toBe(false);
     expect(screen.getByTestId('power-caption').textContent).toContain('one stays with the page');
-    expect(container.querySelector('[data-slot=power-slider]')?.getAttribute('data-disabled')).toBeNull();
+    // The header names the window from the start until it is three minutes old.
+    expect(screen.getByTestId('loop-window').textContent).toBe('live · since 22:12');
   });
 });

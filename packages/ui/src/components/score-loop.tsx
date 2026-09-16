@@ -5,6 +5,7 @@ import {
   axis,
   axisTo,
   axisTop,
+  type BarSegment,
   barSegments,
   clearOf,
   difficultyLabel,
@@ -21,13 +22,20 @@ import { DARK, ink } from '../tokens.ts';
 export interface ScoreLoopProps {
   /** The bar; null before the epoch is read, when no bar is drawn and the caption says so. */
   difficulty: number | null;
-  /** Centred over an empty window once the bar is known (a cockpit before sign-in). */
-  placeholder?: string;
+  /** Centred over an empty window once the bar is known; two lines when a pair is given. */
+  placeholder?: string | readonly [string, string];
   /** Every attempt of the window, oldest first, on the performance.now() clock. */
   samples: readonly Sample[];
   /** The last win's time, for the bar flash. */
   winAt?: number | null;
   spanMs?: number;
+  /**
+   * Calm: when mining started, on the samples' clock. The window grows from it (a minute at least)
+   * until it reaches `spanMs`, so the first proofs spread across the width instead of crowding "now".
+   */
+  since?: number;
+  /** Calm: the line under the plot's left edge ("3.6 s per proof · 12 proofs"), shown once proofs exist. */
+  footer?: React.ReactNode;
   height?: number;
   /** The landing hero draws larger type and margins. */
   hero?: boolean;
@@ -49,6 +57,7 @@ interface Palette {
   ink: string;
   ink3: string;
   line: string;
+  warn: string;
 }
 
 // The canvas cannot use Tailwind classes; it reads the same variables theme.css sets on :root.
@@ -61,6 +70,7 @@ const palette = (el: HTMLElement): Palette => {
     ink: v('--ink', DARK.ink),
     ink3: v('--ink-3', ink(0.5)),
     line: v('--line', ink(0.1)),
+    warn: v('--warn', DARK.warn),
   };
 };
 
@@ -75,21 +85,34 @@ interface Frame {
   fontPx: number;
   /** Score → 0…1 on the axis in force (fixed 1–1000, or the calm ceiling). */
   scale: (score: number) => number;
+  /** The window drawn, in ms: the fixed span, or the calm window grown from `since`. */
+  span: number;
   /** The win labels drawn this frame, so the next one steps clear of them. */
   labels: LabelBox[];
 }
 
+const CALM_SPAN_MS = 180_000;
+const CALM_SPAN_MIN_MS = 60_000;
+
+/** The window in force: fixed, or the calm one grown from `since` between a minute and the span. */
+export function spanFor(props: Pick<ScoreLoopProps, 'calm' | 'spanMs' | 'since'>, now: number): number {
+  const cap = props.spanMs ?? (props.calm ? CALM_SPAN_MS : 60_000);
+  if (!props.calm || props.since === undefined) return cap;
+  return Math.min(cap, Math.max(CALM_SPAN_MIN_MS, now - props.since));
+}
+
 const yOf = (f: Frame, fraction: number) => f.h - f.pad - fraction * (f.h - f.pad * 2);
 
-function strokeBar(f: Frame, right: number, props: ScoreLoopProps, difficulty: number, now: number) {
+/** One x mapping for everything drawn: the window's fraction (0 = span ago, 1 = now) to a pixel. */
+const xOf = (f: Frame, right: number, fraction: number) => f.left + fraction * (right - f.left);
+
+function strokeBar(f: Frame, right: number, segments: readonly BarSegment[]) {
   const { ctx } = f;
-  const span = props.spanMs ?? 60_000;
-  const xAt = (fraction: number) => f.left + fraction * (right - f.left);
   ctx.beginPath();
-  for (const seg of barSegments(props.samples, difficulty, now, span)) {
+  for (const seg of segments) {
     const y = yOf(f, f.scale(seg.bar));
-    ctx.lineTo(xAt(seg.x0), y);
-    ctx.lineTo(xAt(seg.x1), y);
+    ctx.lineTo(xOf(f, right, seg.x0), y);
+    ctx.lineTo(xOf(f, right, seg.x1), y);
   }
   ctx.stroke();
 }
@@ -118,7 +141,7 @@ function drawBar(f: Frame, right: number, props: ScoreLoopProps, now: number, gl
   const y = yOf(f, f.scale(difficulty));
   ctx.strokeStyle = glow > 0 ? f.p.uv2 : f.p.uv;
   ctx.lineWidth = 1.5 + glow * 1.5;
-  strokeBar(f, right, props, difficulty, now);
+  strokeBar(f, right, barSegments(props.samples, difficulty, now, f.span));
   ctx.lineWidth = 1;
   ctx.fillStyle = f.p.uv2;
   ctx.textAlign = 'left';
@@ -147,12 +170,11 @@ function drawDot(f: Frame, x: number, y: number, base: number, win: boolean, age
 }
 
 function drawDots(f: Frame, right: number, props: ScoreLoopProps, now: number, reduced: boolean) {
-  const span = props.spanMs ?? 60_000;
   const base = f.h - f.pad;
   for (const s of props.samples) {
-    const age = (now - s.t) / span;
+    const age = (now - s.t) / f.span;
     if (age > 1 || age < 0) continue;
-    const x = right - age * (right - f.left);
+    const x = xOf(f, right, 1 - age);
     const y = base - (base - yOf(f, f.scale(s.score))) * rise(now, s.t, reduced);
     drawDot(f, x, y, base, won(s, props.difficulty), age);
   }
@@ -170,9 +192,53 @@ function drawLabels(f: Frame, right: number, props: ScoreLoopProps) {
   }
   ctx.fillStyle = f.p.ink3;
   ctx.textAlign = 'left';
-  ctx.fillText(`−${Math.round((props.spanMs ?? 60_000) / 1000)} s`, f.left, f.h - 9);
+  ctx.fillText(`−${Math.round(f.span / 1000)} s`, f.left, f.h - 9);
   ctx.textAlign = 'right';
   ctx.fillText('now', right, f.h - 9);
+}
+
+/** Calm: the bars that changed inside the window, each labelled on the axis when it has room there. */
+function drawOldBars(f: Frame, segments: readonly BarSegment[], yBar: number, yBase: number) {
+  const { ctx } = f;
+  ctx.fillStyle = f.p.ink3;
+  ctx.textAlign = 'right';
+  const drawn = [yBar, yBase];
+  for (const seg of segments) {
+    const y = yOf(f, f.scale(seg.bar));
+    if (drawn.some((d) => labelsCollide(y, d, f.fontPx))) continue;
+    drawn.push(y);
+    ctx.fillText(difficultyLabel(seg.bar), f.left - 8, y);
+  }
+}
+
+/** Calm: a dashed tick on the top edge where the bar stepped, named after the epoch that opened there. */
+function drawSteps(f: Frame, right: number, segments: readonly BarSegment[]) {
+  const { ctx } = f;
+  for (let i = 1; i < segments.length; i++) {
+    const from = segments[i - 1] as BarSegment;
+    const to = segments[i] as BarSegment;
+    const x = xOf(f, right, to.x0);
+    ctx.strokeStyle = f.p.warn;
+    ctx.globalAlpha = 0.7;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, f.pad);
+    ctx.lineTo(x, f.h - f.pad);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    if (f.h <= 80) continue;
+    const epoch = to.epoch === undefined ? '' : `epoch ${to.epoch} · `;
+    const text = `${epoch}bar ${difficultyLabel(from.bar)} → ${difficultyLabel(to.bar)}`;
+    const width = ctx.measureText(text).width;
+    const flip = x + 6 + width > right;
+    const x0 = flip ? x - 6 - width : x + 6;
+    const box = { x0, x1: x0 + width, y: f.pad + f.fontPx / 2 };
+    f.labels.push(box);
+    ctx.fillStyle = f.p.warn;
+    ctx.textAlign = flip ? 'right' : 'left';
+    ctx.fillText(text, flip ? x - 6 : x + 6, box.y);
+  }
 }
 
 /** Calm: the baseline at score 1 and the bar, each labelled once on the axis; no grid. */
@@ -201,37 +267,53 @@ function drawCalmLines(f: Frame, right: number, props: ScoreLoopProps, now: numb
     ctx.fillStyle = f.p.ink3;
     ctx.fillText('1', f.left - 8, base);
   }
+  const segments = barSegments(props.samples, difficulty, now, f.span);
   ctx.strokeStyle = glow > 0 ? f.p.uv2 : f.p.uv;
   ctx.lineWidth = 2 + glow * 1.5;
-  strokeBar(f, right, { ...props, spanMs: props.spanMs ?? 180_000 }, difficulty, now);
+  strokeBar(f, right, segments);
   ctx.lineWidth = 1;
+  drawOldBars(f, segments, y, base);
   ctx.fillStyle = f.p.uv2;
+  ctx.textAlign = 'right';
   ctx.fillText(difficultyLabel(difficulty), f.left - 8, y);
   if (f.h > 80) ctx.fillText('the bar · clear it to win', right, y - f.fontPx);
+  drawSteps(f, right, segments);
 }
 
-function tick(f: Frame, x: number, y: number, color: string, width: number, alpha = 1) {
+function tick(f: Frame, x: number, y0: number, y1: number, color: string, width: number, alpha = 1) {
   const { ctx } = f;
   ctx.strokeStyle = color;
   ctx.globalAlpha = alpha;
   ctx.lineWidth = width;
   ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(x, f.h - f.pad);
-  ctx.lineTo(x, y);
+  ctx.moveTo(x, y0);
+  ctx.lineTo(x, y1);
   ctx.stroke();
   ctx.globalAlpha = 1;
   ctx.lineWidth = 1;
 }
 
-/** Calm: a win is the ringed dot, with its score beside it when there is room for type. */
-function drawCalmWin(f: Frame, right: number, x: number, y: number, score: number, yBar: number | null) {
+/**
+ * Calm: a win is the ringed dot with a short drop that ends above its own bar — never a stem from the
+ * baseline, which would cover a step drawn at the same x — and its score beside it when there is room.
+ */
+function drawCalmWin(
+  f: Frame,
+  right: number,
+  x: number,
+  y: number,
+  s: Sample,
+  yOwnBar: number,
+  yBar: number | null,
+) {
   const { ctx } = f;
   const tall = f.h > 80;
-  tick(f, x, y, f.p.uv2, 1.5);
+  const r = tall ? 5 : 3.5;
+  if (yOwnBar - 5 > y + r + 2) tick(f, x, y + r + 2, yOwnBar - 5, f.p.uv2, 1.5);
   ctx.fillStyle = f.p.uv2;
   ctx.beginPath();
-  ctx.arc(x, y, tall ? 5 : 3.5, 0, Math.PI * 2);
+  ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = f.p.uv2;
   ctx.beginPath();
@@ -242,7 +324,7 @@ function drawCalmWin(f: Frame, right: number, x: number, y: number, score: numbe
   // The bar's caption sits above the bar at the right edge: a win up there labels itself under the bar.
   const underCaption =
     yBar !== null && x > right - 220 && Math.abs(y - yBar) < 2.5 * f.fontPx && y + 2 * f.fontPx < f.h - f.pad;
-  const text = `★ ${score.toFixed(1)} · a win`;
+  const text = `★ ${s.score.toFixed(1)} · a win`;
   const width = ctx.measureText(text).width;
   const x0 = flip ? x - 14 - width : x + 14;
   const start = underCaption ? Math.max(y, yBar) + f.fontPx + 4 : y - 4;
@@ -257,31 +339,30 @@ function drawCalmWin(f: Frame, right: number, x: number, y: number, score: numbe
   ctx.fillText(text, flip ? x - 14 : x + 14, box.y);
 }
 
-/** Calm: ordinary proofs are dim ticks from the baseline; wins are drawn bright; the window's ends are labelled. */
+/** Calm: ordinary proofs are dim ticks from the baseline; wins are drawn bright; an empty plot says why. */
 function drawCalmDots(f: Frame, right: number, props: ScoreLoopProps, now: number, reduced: boolean) {
   const { ctx } = f;
-  const span = props.spanMs ?? 180_000;
   const base = f.h - f.pad;
   // The caption a win's label must clear belongs to the current bar, whatever bar the win was scored against.
   const yCaption = props.difficulty === null ? null : yOf(f, f.scale(props.difficulty));
   for (const s of props.samples) {
-    const age = (now - s.t) / span;
+    const age = (now - s.t) / f.span;
     if (age > 1 || age < 0) continue;
-    const x = right - age * (right - f.left);
+    const x = xOf(f, right, 1 - age);
     const y = base - (base - yOf(f, f.scale(s.score))) * rise(now, s.t, reduced);
-    if (won(s, props.difficulty)) drawCalmWin(f, right, x, y, s.score, yCaption);
-    else tick(f, x, y, f.p.ink3, 2, 0.55);
+    if (won(s, props.difficulty)) {
+      const own = s.bar ?? props.difficulty;
+      drawCalmWin(f, right, x, y, s, own === null ? base : yOf(f, f.scale(own)), yCaption);
+    } else tick(f, x, base, y, f.p.ink3, 2, 0.55);
   }
-  if (f.h <= 80) return;
-  ctx.fillStyle = f.p.ink3;
-  if (!props.samples.length && props.placeholder && props.difficulty !== null) {
-    ctx.textAlign = 'center';
-    ctx.fillText(props.placeholder, (f.left + right) / 2, (f.pad + base) / 2);
-  }
-  ctx.textAlign = 'left';
-  ctx.fillText(`−${Math.round(span / 60_000)} min`, f.left, f.h - f.fontPx / 2 - 2);
-  ctx.textAlign = 'right';
-  ctx.fillText('now', right, f.h - f.fontPx / 2 - 2);
+  if (f.h <= 80 || props.samples.length || !props.placeholder || props.difficulty === null) return;
+  const lines = typeof props.placeholder === 'string' ? [props.placeholder] : props.placeholder;
+  ctx.textAlign = 'center';
+  const middle = (f.pad + base) / 2;
+  lines.forEach((text, i) => {
+    ctx.fillStyle = i === 0 ? f.p.ink : f.p.ink3;
+    ctx.fillText(text, (f.left + right) / 2, middle + (i - (lines.length - 1) / 2) * (f.fontPx + 8));
+  });
 }
 
 function layout(props: ScoreLoopProps): { pad: number; fontPx: number; left: number } {
@@ -290,9 +371,8 @@ function layout(props: ScoreLoopProps): { pad: number; fontPx: number; left: num
 }
 
 /** The score axis in force: the fixed 1–1000 log, or the calm ceiling over what this window shows. */
-function scaleFor(props: ScoreLoopProps, now: number): (score: number) => number {
+function scaleFor(props: ScoreLoopProps, now: number, span: number): (score: number) => number {
   if (!props.calm) return axis;
-  const span = props.spanMs ?? 180_000;
   // The ceiling is computed from what this window shows, not from everything the store retains.
   const top = axisTop(
     props.difficulty ?? 1,
@@ -319,6 +399,7 @@ function frame(canvas: HTMLCanvasElement, props: ScoreLoopProps, now: number): F
   ctx.font = `${fontPx}px "JetBrains Mono Variable", monospace`;
   const widest = props.calm ? (props.difficulty === null ? '1' : difficultyLabel(props.difficulty)) : '1000';
   const left = marginFor(ctx.measureText(widest).width, floor);
+  const span = spanFor(props, now);
   return {
     ctx,
     w,
@@ -328,7 +409,8 @@ function frame(canvas: HTMLCanvasElement, props: ScoreLoopProps, now: number): F
     p: palette(canvas),
     hero: props.hero ?? false,
     fontPx,
-    scale: scaleFor(props, now),
+    scale: scaleFor(props, now, span),
+    span,
     labels: [],
   };
 }
@@ -353,7 +435,7 @@ function draw(canvas: HTMLCanvasElement, props: ScoreLoopProps, now: number, red
   const glow = flash(now, props.winAt ?? null);
   if (props.calm) {
     drawCalmLines(f, right, props, now, glow);
-    drawCalmDots(f, right, { ...props, spanMs: props.spanMs ?? 180_000 }, now, reduced);
+    drawCalmDots(f, right, props, now, reduced);
     return;
   }
   drawGrid(f, right);
@@ -428,17 +510,33 @@ export function ScoreLoop(props: ScoreLoopProps) {
     if (canvas && reduced && !hidden) draw(canvas, props, performance.now(), true);
   }, [props, reduced, hidden]);
 
-  const span = props.spanMs ?? (props.calm ? 180_000 : 60_000);
+  const span = props.spanMs ?? (props.calm ? CALM_SPAN_MS : 60_000);
+  const height = props.height ?? 200;
+  // The calm plot's bottom line lives in the DOM: the footer at the axis's left, "now" at the right edge.
+  const row = props.calm && height > 80 && props.samples.length > 0;
+  const { left } = layout(props);
   return (
-    <canvas
-      ref={ref}
-      data-slot="score-loop"
-      data-reduced={reduced || undefined}
-      data-calm={props.calm || undefined}
-      role="img"
-      aria-label={`score loop: ${props.samples.length} proofs in the last ${Math.round(span / 1000)} seconds, difficulty ${props.difficulty === null ? 'not read yet' : difficultyLabel(props.difficulty)}`}
-      className={cn('block w-full', props.className)}
-      style={{ height: props.height ?? 200 }}
-    />
+    <div className={cn('flex flex-col', props.className)}>
+      <canvas
+        ref={ref}
+        data-slot="score-loop"
+        data-reduced={reduced || undefined}
+        data-calm={props.calm || undefined}
+        role="img"
+        aria-label={`score loop: ${props.samples.length} proofs in the last ${Math.round(span / 1000)} seconds, difficulty ${props.difficulty === null ? 'not read yet' : difficultyLabel(props.difficulty)}`}
+        className="block w-full"
+        style={{ height }}
+      />
+      {row && (
+        <div
+          data-slot="score-loop-footer"
+          className="flex items-baseline justify-between gap-3 font-mono text-2xs text-ink-3"
+          style={{ paddingLeft: left, paddingRight: 14 }}
+        >
+          <span>{props.footer}</span>
+          <span>now</span>
+        </div>
+      )}
+    </div>
   );
 }

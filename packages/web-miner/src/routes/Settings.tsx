@@ -22,7 +22,7 @@ import type { MinerController } from '../controller';
 import { EthRpcTile } from '../features/EthRpcTile';
 import { diagnostics } from '../lib/diagnostics';
 import { useTileLog } from '../lib/tile-log';
-import { prestoAtom } from '../presto';
+import { prestoAtom, prestoSticky } from '../presto';
 import { navigate } from '../routes';
 import type { Session } from '../session';
 import { type BooleanSetting, useSettings } from '../settings';
@@ -197,7 +197,7 @@ export function Settings({
   const [ethRpcUrl, setEthRpcUrl] = useState(session.ethRpcUrl);
   const cores = navigator.hardwareConcurrency || 2;
   const threads = s.threads ?? Math.max(1, cores - 1);
-  const native = useAtomValue(prestoAtom).active === 'presto';
+  const native = prestoSticky(useAtomValue(prestoAtom));
   useEffect(() => setTheme(s.theme), [s.theme, setTheme]);
   // Notifications need the browser's permission, asked for on the toggle (a user gesture).
   const toggle = async (k: BooleanSetting, v: boolean) => {

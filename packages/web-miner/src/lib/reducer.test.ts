@@ -23,11 +23,13 @@ const attempt = (score: number, t = 0, win = false, bar = 64) =>
 
 describe('miner reducer', () => {
   test('start mines the open epoch with a fresh secret; stop halts', () => {
-    const [s1, c1] = reduce(initial, { type: 'start', epoch: epoch(3n) });
+    const [s1, c1] = reduce(initial, { type: 'start', epoch: epoch(3n), at: 1_700_000_000_000, t: 500 });
     expect(s1.phase).toBe('mining');
+    expect(s1).toMatchObject({ since: 1_700_000_000_000, sinceT: 500 });
     expect(c1).toEqual([{ type: 'mine', epoch: 3n, seed: 7n, target: 1n << 122n, secretId: 1 }]);
     const [s2, c2] = reduce(s1, { type: 'stop' });
     expect(s2.phase).toBe('idle');
+    expect(s2.since).toBeNull();
     expect(c2).toEqual([{ type: 'halt' }]);
     expect(reduce(s2, { type: 'stop' })[1]).toEqual([]);
   });

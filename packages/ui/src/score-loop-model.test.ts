@@ -59,6 +59,21 @@ describe('ScoreLoopModel', () => {
       { x0: 0, x1: 0.5, bar: 109.5 },
       { x0: 0.5, x1: 1, bar: 27.4 },
     ]);
+    // The epoch a segment opened with, from its first sample, names the tick where the bar stepped.
+    expect(
+      barSegments(
+        [
+          { t: 1_000, score: 1, bar: 109.5, epoch: 11 },
+          { t: 3_000, score: 1, bar: 27.4, epoch: 12 },
+        ],
+        27.4,
+        4_000,
+        4_000,
+      ),
+    ).toEqual([
+      { x0: 0, x1: 0.25, bar: 109.5, epoch: 11 },
+      { x0: 0.25, x1: 1, bar: 27.4, epoch: 12 },
+    ]);
     // Nothing in view, or samples without a bar: one flat line at the current bar.
     expect(barSegments([], 5, 0, 1_000)).toEqual([{ x0: 0, x1: 1, bar: 5 }]);
     expect(barSegments([{ t: 500, score: 2 }], 5, 1_000, 1_000)).toEqual([{ x0: 0, x1: 1, bar: 5 }]);

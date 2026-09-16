@@ -62,13 +62,20 @@ describe('the cockpit grid', () => {
       REWARD: 4_000_000_000_000_000_000n,
     });
     store.set(nowAtom, Date.now());
-    const { getByTestId } = render(
+    const { getByTestId, getByText } = render(
       <Provider store={store}>
         <Mine controller={() => undefined} />
       </Provider>,
     );
     expect(getByTestId('epoch').textContent).toBe('38');
     expect(getByTestId('epoch-claims').textContent).toContain('3 of 4');
+    // Signed out: the loop's header names the tile, the balance tile says what fills it, the KPIs what starts it.
+    expect(getByText('your proofs')).toBeInTheDocument();
+    expect(getByText('Your balance shows once you log in.')).toBeInTheDocument();
+    expect(getByText('starts with mining')).toBeInTheDocument();
+    expect(getByText('the bar is 64.0 · about 64 proofs per win')).toBeInTheDocument();
+    expect(getByText('anyone can close it')).toBeInTheDocument();
+    expect(getByText('next bar if it closed now')).toBeInTheDocument();
   });
 });
 

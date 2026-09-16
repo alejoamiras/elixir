@@ -19,7 +19,7 @@ import { type Deployment, type Fee, readBalance, readEpoch, sendClaim, sendRoll 
 import { chime } from './chime';
 import { amount } from './lib/format';
 import { type Command, type Event, type MinerState, reduce } from './lib/reducer';
-import { type PrestoEndpoint, type ProverKind, prestoAtom } from './presto';
+import { type PrestoEndpoint, type ProverKind, prestoAtom, prestoSticky } from './presto';
 import { settingsAtom } from './settings';
 import { balanceAtom, claimsAtom, epochAtom, logAtom, minerAtom } from './state';
 import type { FromWorker, MineJob, ToWorker } from './worker-protocol';
@@ -308,7 +308,7 @@ export class MinerController {
     }
     if (this.unread) return void this.readRebuilt();
     const epoch = this.store.get(epochAtom);
-    if (epoch) this.dispatch({ type: 'start', epoch });
+    if (epoch) this.dispatch({ type: 'start', epoch, at: Date.now(), t: performance.now() });
   }
 
   /** Idle now; during a claim the phase stays `claiming` (the submission cannot be abandoned) and mining does not resume after it. */
@@ -329,8 +329,15 @@ export class MinerController {
    * gave up on native, which only a rebuild brings back.
    */
   reconfigure(threads: number, presto: PrestoEndpoint | null = this.presto, opts?: { force?: boolean }) {
-    const same = threads === this.threads && JSON.stringify(presto) === JSON.stringify(this.presto);
-    if (same && !opts?.force) return;
+    const sameEndpoint = JSON.stringify(presto) === JSON.stringify(this.presto);
+    if (sameEndpoint && threads === this.threads && !opts?.force) return;
+    // Presto's own speed setting decides its threads: a thread change while the Worker proves
+    // natively is kept for the next browser build instead of rebuilding a prover for nothing.
+    if (sameEndpoint && !opts?.force && presto !== null && prestoSticky(this.store.get(prestoAtom))) {
+      this.threads = threads;
+      this.log(`prover: ${threads} threads kept for the browser prover; Presto decides its own`);
+      return;
+    }
     this.threads = threads;
     this.presto = presto;
     this.post({ type: 'reconfigure', threads, presto });
@@ -526,6 +533,7 @@ export class MinerController {
           score: m.score,
           win: m.win,
           bar: difficulty(m.target),
+          epoch: Number(m.epoch),
           at: Date.now(),
           t: performance.now(),
         });

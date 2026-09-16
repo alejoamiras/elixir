@@ -14,6 +14,7 @@ import { amount, shortAddress } from '../lib/format';
 import { navigate } from '../routes';
 import { balanceAtom, bootAtom, claimsAtom, signInAtom } from '../state';
 
+/** The amount, "private", Send and Wallet →; signed out, the way in. The account and its wins are the Wallet's to show. */
 export function BalanceCard({ className }: { className?: string }) {
   const boot = useAtomValue(bootAtom);
   const balance = useAtomValue(balanceAtom);
@@ -48,6 +49,7 @@ export function BalanceCard({ className }: { className?: string }) {
             unit={PARAMS.TOKEN_SYMBOL}
           />
         )}
+        {!ready && <p className="text-xs text-ink-2">Your balance shows once you log in.</p>}
         <div className={opening ? 'flex gap-2 opacity-50' : 'flex gap-2'}>
           {ready ? (
             <Button variant="primary" size="sm" onClick={() => navigate('wallet', 'send')} data-testid="send">
@@ -68,27 +70,21 @@ export function BalanceCard({ className }: { className?: string }) {
             Wallet →
           </Button>
         </div>
-        {!ready && (
-          <p className="text-xs text-ink-2">Your balance and your claims appear once an account is open.</p>
-        )}
         {ready && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-2">
-            <span className="chip inline-flex items-center gap-1.5 rounded-sm border border-line bg-panel px-2 py-1 font-mono text-2xs">
-              <span>account</span>
-              <ExternalLink
-                href={links.address(boot.account)}
-                full={boot.account}
-                className="text-ink"
-                data-testid="account"
-              >
-                {shortAddress(boot.account)}
-              </ExternalLink>
-            </span>
-            <span>
-              <span data-testid="claims">{claims.length}</span> {claims.length === 1 ? 'claim' : 'claims'}{' '}
-              this session
-            </span>
-          </div>
+          // For assistive tech and the specs: the account this balance belongs to and this device's wins.
+          <p className="sr-only">
+            account{' '}
+            <ExternalLink
+              href={links.address(boot.account)}
+              full={boot.account}
+              tabIndex={-1}
+              data-testid="account"
+            >
+              {shortAddress(boot.account)}
+            </ExternalLink>{' '}
+            · <span data-testid="claims">{claims.length}</span> {claims.length === 1 ? 'win' : 'wins'} from
+            this device
+          </p>
         )}
       </div>
     </Tile>

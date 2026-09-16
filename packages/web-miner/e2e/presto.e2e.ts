@@ -33,9 +33,10 @@ test('through Presto: the pill says ✦ presto after the first native proof, and
   // Native only once a native proof came back, never on construction.
   await expect(page.getByTestId('native')).toBeVisible({ timeout: 3 * 60_000 });
   await expect(page.getByTestId('phase')).toHaveAttribute('data-prover', 'presto');
-  await expect(page.getByTestId('rate-line')).toContainText('native');
-  await expect(page.getByRole('slider')).toBeDisabled();
-  await expect(page.getByTestId('power-caption')).toContainText('speed setting');
+  await expect(page.getByTestId('rate-line')).toContainText('✦ presto');
+  // The epoch tile's power row is Presto's while the Worker proves natively: no slider in the cockpit.
+  await expect(page.getByTestId('presto-row')).toContainText('proving on this machine');
+  await expect(page.getByRole('slider')).toHaveCount(0);
   await render(page, 'native');
   await page.getByTestId('stop').click();
   await expect(page.getByTestId('phase')).toHaveText(/^idle/, { timeout: 60_000 });
@@ -84,6 +85,11 @@ test('nothing answers: the billboard invites the install and the browser proves 
     pageUrl(r, { presto: String(r.closedPort), miner: r.hardMiner, token: r.hardToken }),
   );
   const billboard = page.getByTestId('presto-billboard');
+  // Nothing asks Presto before Start mining: no billboard, no row on the cockpit's ready.
+  await expect(page.getByTestId('cockpit')).toBeVisible();
+  await expect(billboard).toHaveCount(0);
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('phase')).toHaveText('mining');
   await expect(billboard).toBeVisible({ timeout: 60_000 });
   await expect(billboard.getByText('Fast proofs')).toBeVisible();
   // The element resolves its `href` through `new URL()`, which spells the origin with a trailing slash.
@@ -93,9 +99,8 @@ test('nothing answers: the billboard invites the install and the browser proves 
   );
   await expect(page.getByTestId('presto-notice')).toHaveCount(0);
   await render(page, 'billboard');
-  await page.getByTestId('start').click();
-  await expect(page.getByTestId('phase')).toHaveText('mining');
-  await expect(page.getByTestId('rate-line')).toContainText('threads', { timeout: 3 * 60_000 });
+  await expect(page.getByTestId('rate-line')).toBeVisible({ timeout: 3 * 60_000 });
+  await expect(page.getByTestId('rate-line')).not.toContainText('presto');
   await expect(page.getByTestId('native')).toHaveCount(0);
   await expect(page.getByRole('slider')).toBeEnabled();
   await page.getByTestId('stop').click();

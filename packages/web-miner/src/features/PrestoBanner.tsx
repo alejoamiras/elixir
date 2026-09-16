@@ -5,11 +5,7 @@ import type { PrestoStatus } from '@alejoamiras/presto-core';
 import { useAtomValue } from 'jotai';
 import { createElement, useEffect, useRef } from 'react';
 import { Alert, Button, useTheme } from '../../../ui/src/index.ts';
-import { noticeFor, prestoAtom } from '../presto';
-import { useSettings } from '../settings';
-import { bootAtom } from '../state';
-
-const PRESTO_SITE = 'https://presto.build';
+import { noticeFor, PRESTO_SITE, prestoAtom } from '../presto';
 
 type BannerElement = HTMLElement & { status: PrestoStatus };
 
@@ -39,10 +35,9 @@ function Billboard({ status }: { status: PrestoStatus }) {
   });
 }
 
+/** One sentence on why Presto stepped aside and Retry where it helps; no thread count (the epoch tile's power row has it). */
 export function PrestoBanner({ onRetry }: { onRetry: () => void }) {
   const presto = useAtomValue(prestoAtom);
-  const boot = useAtomValue(bootAtom);
-  const [settings] = useSettings();
   const notice = noticeFor(presto);
   // The banners' own mapping: under HTTPS-only an uninstalled Presto is "secure connection unconfirmed".
   if (!notice && presto.status && stateFromStatus(presto.status) === 'offline')
@@ -59,18 +54,11 @@ export function PrestoBanner({ onRetry }: { onRetry: () => void }) {
           <i aria-hidden className="size-1.5 shrink-0 rounded-full bg-current" />
           <span>{notice.text}</span>
         </span>
-        <span className="flex items-center gap-3.5 whitespace-nowrap">
-          {boot.phase === 'ready' && notice.tone === 'warn' && (
-            <span className="font-mono text-2xs tracking-[0.04em] opacity-75">
-              browser · {settings.threads ?? boot.threads} threads
-            </span>
-          )}
-          {notice.retry && (
-            <Button size="sm" onClick={onRetry} data-testid="presto-retry">
-              Retry
-            </Button>
-          )}
-        </span>
+        {notice.retry && (
+          <Button size="sm" onClick={onRetry} data-testid="presto-retry">
+            Retry
+          </Button>
+        )}
       </div>
     </Alert>
   );

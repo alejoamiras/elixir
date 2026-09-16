@@ -21,7 +21,7 @@ import { readSlot } from './keys/slot';
 import { assertNoLegacyWalletDb, currentAddress, type MasterRecord } from './keys/store';
 import { bytesDetail, initialSteps, type OpeningStep } from './opening-steps';
 import { crsReady } from './pinned-crs';
-import { type PrestoEndpoint, prestoAtom, prestoEligible, prestoEndpoint, probePresto } from './presto';
+import { type PrestoEndpoint, prestoAtom, prestoEligible, prestoEndpoint } from './presto';
 import { type PublicEpochPoll, publicEpochReader, startPublicEpoch } from './public-epoch';
 import { loadSettings } from './settings';
 import { bootAtom, crsAtom, logAtom, rulesAtom, signInAtom } from './state';
@@ -48,7 +48,7 @@ export interface Preflighted {
   publicEpoch: PublicEpochPoll;
   /** How long the node and deployment checks took, for the opening's step list. */
   nodeMs: number;
-  /** Where this build looks for Presto (null: switched off); its probe starts at the cockpit's ready, never awaited. */
+  /** Where this build looks for Presto (null: switched off); probed at Start mining, never awaited. */
   presto: PrestoEndpoint | null;
 }
 
@@ -163,9 +163,8 @@ export async function preflight(store: Store, connection: Connection): Promise<P
   // A device with an account wants the dialog on arrival (Welcome back); a new visitor gets the page first.
   store.set(signInAtom, slot.record !== null || slot.staged !== null);
   store.set(bootAtom, { phase: 'signedOut', slot });
-  // The cockpit is ready: ask Presto now (the billboard may show before any account), never wait for it.
+  // Presto is asked at Start mining, never here: the cockpit comes up without a probe.
   const presto = prestoEndpoint();
-  if (presto) void probePresto(store, presto).catch(() => undefined);
   return {
     node,
     switchable,
@@ -238,7 +237,7 @@ export async function switchNodeLive(o: {
 const aborted = (signal: AbortSignal): Promise<never> =>
   new Promise((_, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
 
-/** The endpoint the prover is built with: Presto's when its probe, out since the cockpit's ready, has found it worth asking; the sign-in never waits for it. */
+/** The endpoint the prover is built with: Presto's when a probe (Start mining's) has found it worth asking; the sign-in never waits for one. */
 const prestoFor = (store: Store, pre: Preflighted): PrestoEndpoint | null =>
   prestoEligible(store.get(prestoAtom).status) ? pre.presto : null;
 
