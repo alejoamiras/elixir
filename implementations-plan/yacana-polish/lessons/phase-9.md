@@ -275,3 +275,18 @@ the twin id, the `inFlight` filter, "your wallet").
 | `bun run rig -- browser` | 3/3 passed: V5 3.2 min · flip 12 s · V6 1.2 min |
 | replay | 4/4 passed, 42 s |
 | `canary` | not rerun: the commit touches `session.ts` and `Claim.tsx`, neither on the canary's path |
+
+### Round 4 — resumed, verdict **APPROVE**: the loop converged
+
+Prompt: `scratchpad/codex-arc5-round4.md` over `git show ab79c8e`, both rules, the whole arc once more. The
+reply was the one word, with its checks in the log: the app-project typecheck and the twelve targeted tests
+passed; a thousand foreign versions trigger two reads; a list that shrinks drops the settled versions' cached
+facts; a failed read keeps the other version's; an empty list reads nothing. No nits offered.
+
+Four rounds, thirty findings in, every one reproduced here before it was applied, none taken on trust; the
+three departures (the L1 block in the claim's done step, "another version" for a third version, "your
+wallet" in the deposit rows) recorded above. Arc 5 is closed at `bb5d0cf`; `polish-upgrade` stacks on it.
+
+For the next arcs, from this loop: the typecheck gate is the package script (`tsc -b`), never `tsc -p` on a
+solution tsconfig; a component spec under wagmi needs the mock connector's `reconnect` feature; the root
+`wagmi` export carries `mock`, `wagmi/connectors` does not load under viem 2.38.
