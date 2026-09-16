@@ -263,3 +263,15 @@ the twin id, the `inFlight` filter, "your wallet").
    prototype: two per refresh in turn, a settled version and this build never read.
 3. **#3 low** — the comment said more than the code decides ("judged by nothing"); it now says what it
    filters: a completed row needs no live deadline.
+
+### Round 3's gate (commit `ab79c8e`)
+
+| layer | result |
+|---|---|
+| lint, web-miner `tsc -b`, ui `tsc -p` | clean |
+| `bun test` | 492 pass |
+| `test:components` (bridge features 15/15; the rest unchanged since round 2) | green |
+| `bridge` shard, proverless | 1/1 passed, 133 s |
+| `bun run rig -- browser` | 3/3 passed: V5 3.2 min · flip 12 s · V6 1.2 min |
+| replay | 4/4 passed, 42 s |
+| `canary` | not rerun: the commit touches `session.ts` and `Claim.tsx`, neither on the canary's path |
