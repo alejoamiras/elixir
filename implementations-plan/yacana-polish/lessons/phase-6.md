@@ -81,3 +81,31 @@ Arc 3 (`polish-mine`). Built 2026-09-16, commit `3a715c9`.
   `checking` before the deployment check); a failed switch never reports success (`switch.bun.test.ts`: the
   rebuild that fails on the new node is retried from the former one and rejects with `kept: true`; failing
   there too abandons the prover and rejects with `kept: false`; the refused-node e2e keeps proxy A).
+
+## The arc-3 codex fix loop (§10)
+
+Diff under review: the arc's diff against `polish-account` (P4–P6). `/codex high`, both verbatim rules in the prompt.
+
+### Round 1 — REVISE (session `01a0a7f5…`), 16 findings; fixes in `fae1e4a`
+
+| # | sev | claim | verified | done |
+|---|---|---|---|---|
+| 1 | high | `readRebuiltOnce(strict)` abandons the prover before the former node is tried | true | strict rethrows; `switchNodeLive` decides |
+| 2 | high | a node switch drains the controller only; bridge operations can run across it | true | `hold()` + drain the bridge's queue before the swap; released in `finally` |
+| 3 | med | Retry treats pending/unknown as "resend"; the observed hash can be lost | first true; hash: declined | `fate()`: landed / dropped / unknown (kept); reconciliation inside `track()`. The hash exists only when `send` resolves |
+| 4 | med | a landed retained claim dispatches `retry` → a `submit` with no pending | true | `reconciled` event: the claiming state, no command |
+| 5 | med | eligibility ignores the epoch; old Retry links target the newest retained ticket | true | `retryEligible` needs the open epoch; older links stripped on a new retained failure and on Start |
+| 6 | med | the L1 head baseline survives an RPC change; late sampler answers land | true | `resetL1()` on `switchEthRpc`; the sampler drops answers from a replaced RPC or after stop |
+| 7 | med | `sampleTip` has no view guard; `standing()` ignores the tip's age | guard: true; age: declined | `views` counter. The transport's word covers a stale tip (the same poll reads both) |
+| 8 | med | behind → offline → online clears the notice while still paused | true | `nodePause` in the reducer; the standing pause's notice shows |
+| 9 | med | the stale verdict can override an explicit reason | true | the chain is consulted only when the message names no reason |
+| 10 | med | settlement never follows `{ moved }`; the newest eight starve the rest | true | the record's block follows; the batch rotates (`rotate`) |
+| 11 | med | a stored thread change never reaches the Worker's lazy WASM factory | true | a `threads` message; module-level `wasmThreads` |
+| 12 | med | "Kept" names a stale node (closure); `kept: false` reads as kept | true | `former` captured per save; a null `kept` says the former node failed too |
+| 13 | med | the switch e2e proves a closed port, the behind e2e rewinds L1; the vitest atom assertion tests nothing | true | proxy `foreign` mode; the node warps to catch up (`aztecDebug_warpL2TimeAtLeastBy`); assertion deleted |
+| 14 | low | the notice renders inside the loop tile | true | page level in `Mine.tsx` |
+| 15 | low | copy departures from the generator | partly | restored: the bar on the epoch line, the legend's `claiming`, the placeholder's period, "Use the default". Kept: `✗ failed` (the ledger draws it), the rail caption (the generator's power tile has none), `mining power`, curly apostrophes |
+| 16 | low | comments: a board reference, narrative headers, an obsolete "tampered" comment | true | fixed |
+
+Fast layers after the fixes: lint clean, `tsc -b` clean, `bun test` 455 pass, Vitest 275 (ui 68, landing 14,
+miner 109, stats 84). The chain shard rerun on `fae1e4a` (switch + states changed): see round 2.
