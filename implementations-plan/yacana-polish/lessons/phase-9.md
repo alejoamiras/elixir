@@ -230,3 +230,15 @@ locked while it proves).
 7. **#7 low** — the deposit form's own `busy` around the network switch duplicated `useOnce`'s: gone.
 8. **#8 low** — the spec header named deleted sheets and the deleted taking-long dialog; the
    `usePayerFunds` comment narrated its schedule before its one constraint. Both cut.
+
+### Round 2's gate (commit `9daaa79`)
+
+| layer | result |
+|---|---|
+| lint, web-miner + ui typecheck | clean |
+| `bun test` | 491 pass |
+| `test:components` (ui 69, web-miner 113) | green |
+| `bridge` shard, proverless | 1/1 passed, 134 s |
+| `canary` shard, real proving | 4/4 passed, 5.3 min (withdraw 110 s, 3 proofs) |
+| replay | 4/4 passed, 42 s |
+| `bun run rig -- browser` | 3/3 passed: V5 2.9 min · flip 12 s · V6 1.2 min |
