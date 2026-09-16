@@ -2,6 +2,7 @@
 // withdrawal ends with its holder's claim on Ethereum (anyone may make it); a send-ahead is forwarded
 // by Yacana, its holder or an authorized relayer, or redeemed. The only time promised is the proof's.
 import type { Crossing, CrossingState } from '../../../bridge/src/journal.ts';
+import { revertRow } from '../../../bridge/src/revert.ts';
 import type { TrailItem } from '../../../ui/src/bridge-types.ts';
 import { duration } from '../lib/format';
 
@@ -154,6 +155,21 @@ export const cardLine = (
     flipped,
     target,
   );
+
+/**
+ * A failed portal call in the words of the row it lands on, for a dialog that has the crossing in
+ * hand; undefined when the error is not one of the portal's holder-facing refusals.
+ */
+export const revertLine = (
+  e: unknown,
+  c: Crossing,
+  nowSeconds: number,
+  version: string,
+  flipped = false,
+): string | undefined => {
+  const state = revertRow(e);
+  return state ? cardLine({ ...c, state }, nowSeconds, version, flipped).sentence : undefined;
+};
 
 /** A send-ahead held on Ethereum for longer than this asks whether something is wrong. */
 export const TAKING_LONG_AFTER_MS = 6 * 3600 * 1000;

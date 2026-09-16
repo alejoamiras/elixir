@@ -47,6 +47,8 @@ export interface BridgeContext {
   /** The miner's pause around a proof; absent when no miner runs (the old app). */
   pause?: (reason: 'bridge') => void;
   release?: (reason: 'bridge') => void;
+  /** Resolves once the paused miner's claim in flight has finished; the pause alone lets it run on. */
+  settled?: () => Promise<void>;
   /** Ethereum's clock in seconds: what the portal holds a signature's expiry against. */
   l1Now: () => Promise<bigint>;
   /** Asked once the queue reaches the operation, just before anything is signed: throws to refuse it. */
@@ -75,6 +77,9 @@ async function guarded<T>(ctx: BridgeContext, op: () => Promise<T>): Promise<T> 
     await ctx.preflight?.();
     ctx.pause?.('bridge');
     try {
+      // The pause lets a claim already proving finish, and that claim would be the next send the
+      // wallet makes: an operation recording its own send must let it through first.
+      await ctx.settled?.();
       return await op();
     } finally {
       ctx.release?.('bridge');
@@ -130,10 +135,11 @@ const fresh = (
 };
 
 /**
- * Sends, with the hash, the expiry and the anchor block committed to the journal before the
- * transaction reaches the node (a commit that fails refuses the send: nothing reaches the network
- * without its durable record), then waits for its block. A transaction sent may still be included
- * after the page is gone: the record must find it by its hash.
+ * Sends with the hash, the expiry and the anchor block committed to the journal first: a send may
+ * be included after the page is gone, so nothing reaches the network without the record that finds
+ * it again (a commit that fails refuses the send). The hook is one-shot and installed around this
+ * one call, so nothing else may send while it is armed — the miner's claims are paused and drained
+ * by `guarded` before it goes in.
  */
 async function sendRecorded(
   ctx: BridgeContext,
@@ -320,7 +326,7 @@ export function deposit(
 const HOUR = 3600n;
 
 /** The redeem key's Forward signature over the send-ahead's leaf and `target`, good for an hour of Ethereum's clock. */
-export async function holderSignature(
+async function holderSignature(
   ctx: BridgeContext,
   c: Crossing,
   args: ReturnType<typeof forwardArgsFromArchive>,

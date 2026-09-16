@@ -1,7 +1,7 @@
 // bun: the live node switch against a fake worker, fake contracts and a fake handle. The rebuild
 // is injected (`recover`); what is checked is the order — pause, drain, the handle moved and the
 // guard's endpoint with it, the rebuild from the new node, mining resumed on the rebuilt view.
-import { beforeAll, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { createStore } from 'jotai';
 import type { SwitchableNode } from '../../site/src/browser/node.ts';
@@ -9,6 +9,20 @@ import type { Deployment, Fee } from '../src/chain.ts';
 import { MinerController, type Rebound } from '../src/controller.ts';
 import { balanceAtom, epochAtom, minerAtom } from '../src/state.ts';
 import type { FromWorker, ToWorker } from '../src/worker-protocol.ts';
+
+/**
+ * Controllers a test makes, disposed with it: an undisposed one keeps polling the node after its
+ * test is over, and its errors land on whichever file bun runs next.
+ */
+const live: MinerController[] = [];
+const controllerFor = (opts: ConstructorParameters<typeof MinerController>[0]): MinerController => {
+  const c = new MinerController(opts);
+  live.push(c);
+  return c;
+};
+afterEach(() => {
+  for (const c of live.splice(0)) c.dispose();
+});
 
 let boot: typeof import('../src/boot.ts');
 let guard: typeof import('../../site/src/browser/node-guard.ts');
@@ -97,7 +111,7 @@ describe('the live node switch', () => {
       use: (url) => events.push(`use ${url}`),
       current: () => 'https://a.example',
     };
-    const controller = new MinerController({
+    const controller = controllerFor({
       store,
       spawnWorker: () => worker as unknown as Worker,
       threads: 1,
@@ -146,7 +160,7 @@ describe('the live node switch', () => {
       use: () => {},
       current: () => 'https://a.example',
     };
-    const controller = new MinerController({
+    const controller = controllerFor({
       store,
       spawnWorker: () => worker as unknown as Worker,
       threads: 1,
@@ -173,7 +187,7 @@ describe('the live node switch', () => {
       use: () => {},
       current: () => 'https://a.example',
     };
-    const controller = new MinerController({
+    const controller = controllerFor({
       store,
       spawnWorker: () => worker as unknown as Worker,
       threads: 1,
@@ -204,7 +218,7 @@ describe('the live node switch', () => {
     };
     let attempts = 0;
     const make = (recover: () => Promise<Rebound>) =>
-      new MinerController({
+      controllerFor({
         store,
         spawnWorker: () => worker as unknown as Worker,
         threads: 1,
@@ -267,7 +281,7 @@ describe('the live node switch', () => {
       use: (u) => events.push(`use ${u}`),
       current: () => 'https://a.example',
     };
-    const controller = new MinerController({
+    const controller = controllerFor({
       store,
       spawnWorker: () => worker as unknown as Worker,
       threads: 1,
@@ -311,7 +325,7 @@ describe('the live node switch', () => {
       use: () => {},
       current: () => 'https://a.example',
     };
-    const controller = new MinerController({
+    const controller = controllerFor({
       store,
       spawnWorker: () => worker as unknown as Worker,
       threads: 1,

@@ -95,6 +95,13 @@ describe('the facts a reading gathers', () => {
     expect(advance(sent, await factsFor(reverted.r, sent, 5)).state).toBe('dropped');
     // Unmined and before the deadline: still waiting.
     expect(advance(sent, await factsFor(r, sent, 5))).toBe(sent);
+    // A receipt the RPC would not read is not an absence: past the deadline it still says nothing,
+    // or a broken or lying RPC would have the page burn the same coins again.
+    const dead = reads({ l1Tx: async () => 'unreadable' });
+    const late = { ...sent, expiresAt: '900' };
+    expect(advance(late, await factsFor(dead.r, late, 5))).toBe(late);
+    // The same deadline with a definite "no such receipt" does end it.
+    expect(advance(late, await factsFor(r, late, 5)).state).toBe('dropped');
   });
 
   test('a witnessed leaf asks the portal only until an event answers for it', async () => {

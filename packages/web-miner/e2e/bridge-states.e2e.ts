@@ -128,8 +128,11 @@ test('the bridge through the page: an exit forwarded and minted; a deposit throu
   await expect(page.getByTestId('eth-account')).toContainText(short(l1.address));
 
   // The deposit goes out under a crossing of its own (the refused one was given up at once, the one
-  // left open retired above), and the page closes the moment the wallet has sent it: the record
-  // settles late, from Ethereum's receipt or event, with nobody watching.
+  // left open retired above), and the page closes the moment the wallet has been asked: the record
+  // settles with nobody watching. Which reading settles it is the race's to decide — the receipt if
+  // the hash reached the journal before the reload, the portal's own event if it did not (the
+  // wallet is counted before it broadcasts, and the receipt comes over the page's own RPC, which
+  // this fixture cannot hold) — so what is proven here is that one of them does, unattended.
   await page.getByTestId('deposit-go').click();
   await expect.poll(() => l1.calls('eth_sendTransaction'), { timeout: 60_000 }).toBe(3);
   await page.reload();

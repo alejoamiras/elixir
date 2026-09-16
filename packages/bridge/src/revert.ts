@@ -3,6 +3,7 @@
 // root, a witness off its root) carries that contract's error, so both ABIs are consulted.
 import { OutboxAbi } from '@aztec/l1-artifacts/OutboxAbi';
 import { type BaseError, ContractFunctionRevertedError, decodeErrorResult, type Hex } from 'viem';
+import type { CrossingState } from './journal.ts';
 import { yacanaPortalAbi } from './portal.ts';
 
 const abis = [...yacanaPortalAbi, ...OutboxAbi];
@@ -37,35 +38,19 @@ export async function revertName(p: Promise<unknown>): Promise<string> {
 }
 
 /**
- * The portal's reverts a holder can meet, in the words of the row they would land on; `version`
- * names the crossing's own version ("V5"). Operator-only and encoding errors have no line: those
- * reach a holder only through a bug, and the raw name says more.
+ * The row state a holder-facing portal revert means: `_requireOpen`'s three refusals are the
+ * standing the next reading would find anyway, so the row's own sentence tells it — in the
+ * crossing's own kind, version and dates. Every other revert reaches a holder through a bug or a
+ * race the screen already guards, and its raw name says more than a sentence would.
  */
-const REVERT_LINES: Record<string, (version: string) => string> = {
-  WaitsForHeadroom: (v) =>
-    `More has left ${v} than its exit limit allows right now. It turns ready once it fits; others may use the room first.`,
-  VersionPaused: () => 'The bridge is paused: claims on Ethereum wait until it lifts.',
-  DeadlinePassed: (v) => `${v}’s last day passed before this was claimed. It cannot leave any more.`,
-  DeadlineExpired: () => 'The deposit’s own deadline passed before Ethereum included it. Deposit again.',
-  DepositsAreClosed: (v) => `Deposits into ${v} are closed for good.`,
-  NotRegistered: (v) => `Bridging opens once Yacana registers ${v} on Ethereum.`,
-  NotCanonical: (v) => `${v} is not the live version any more: deposit on the live version’s page.`,
-  NotForwardable: () => 'The live version is not registered on the portal yet: the forward waits for Yacana.',
-  FlipUnrecorded: () =>
-    'The upgrade is not recorded on the portal yet: note the transition first, then forward.',
-  SignatureExpired: () => 'The signature expired before the wallet sent it. Try again.',
-  NotAuthorised: () => 'Only this account’s own key or a listed forwarder may forward it.',
-  Outbox__AlreadyNullified: () => 'Already claimed on Ethereum: the portal consumed this leaf before.',
-  Outbox__NothingToConsumeAtEpoch: () => 'Its epoch’s proof is not on Ethereum yet: the claim waits for it.',
-  Outbox__InvalidRecipient: () => 'The portal is not the leaf’s recipient: this is not a Yacana exit.',
+export const REVERT_ROWS: Record<string, Extract<CrossingState, 'headroom' | 'paused' | 'closed'>> = {
+  WaitsForHeadroom: 'headroom',
+  VersionPaused: 'paused',
+  DeadlinePassed: 'closed',
 };
 
-/** The row's sentence for a revert name, or undefined for one the table does not know. */
-export const revertLine = (name: string, version: string): string | undefined =>
-  REVERT_LINES[name]?.(version);
-
-/** A thrown error explained in the row's words when it is a known revert; undefined otherwise. */
-export const explainRevert = (e: unknown, version: string): string | undefined => {
+/** The row state a thrown error's revert stands for; undefined for anything else. */
+export const revertRow = (e: unknown): CrossingState | undefined => {
   const name = revertNameOf(e);
-  return name ? revertLine(name, version) : undefined;
+  return name ? REVERT_ROWS[name] : undefined;
 };

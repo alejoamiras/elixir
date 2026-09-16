@@ -60,17 +60,24 @@ type Registry = { address: Hex; abi: typeof RegistryAbi };
 
 /** A version's record, standing and flows, and the portal's own policy and keys. */
 function versionReads(client: PublicClient, portal: Portal, a: PortalAddresses) {
-  const info = (version: bigint) =>
-    client.readContract({ ...portal, functionName: 'versionInfo', args: [version] });
-  const turnstile = (version: bigint) =>
-    Promise.all([
-      info(version),
-      client.readContract({ ...portal, functionName: 'flipAt', args: [version] }),
-      client.readContract({ ...portal, functionName: 'afterNextAt', args: [version] }),
-      client.readContract({ ...portal, functionName: 'isPaused', args: [version] }),
-      client.readContract({ ...portal, functionName: 'headroom', args: [version] }),
-      client.readContract({ ...portal, functionName: 'deadline', args: [version] }),
+  /**
+   * The deadline is arithmetic over four of these reads: a transition recorded or a pause lifted
+   * between them would give a combination that never existed on chain, so a caller that computes
+   * with them pins one block (`at`) and measures against that block's timestamp.
+   */
+  const turnstile = (version: bigint, at?: bigint) => {
+    const block = at === undefined ? {} : { blockNumber: at };
+    const read = (functionName: 'flipAt' | 'afterNextAt' | 'isPaused' | 'headroom' | 'deadline') =>
+      client.readContract({ ...portal, functionName, args: [version], ...block });
+    return Promise.all([
+      client.readContract({ ...portal, functionName: 'versionInfo', args: [version], ...block }),
+      read('flipAt') as Promise<bigint>,
+      read('afterNextAt') as Promise<bigint>,
+      read('isPaused') as Promise<boolean>,
+      read('headroom') as Promise<bigint>,
+      read('deadline') as Promise<bigint>,
     ]);
+  };
   const standingOf = ([v, flipAt, afterNextAt, paused, headroom, deadline]: Awaited<
     ReturnType<typeof turnstile>
   >) => ({
@@ -87,8 +94,9 @@ function versionReads(client: PublicClient, portal: Portal, a: PortalAddresses) 
     deadline,
   });
   return {
-    async standing(version: bigint): Promise<VersionStanding> {
-      return standingOf(await turnstile(version));
+    /** `at` pins every read to one L1 block; without it each is at `latest`. */
+    async standing(version: bigint, at?: bigint): Promise<VersionStanding> {
+      return standingOf(await turnstile(version, at));
     },
     /** The standing with what crossed: the stats page's card per version. */
     async flows(version: bigint): Promise<VersionFlows> {

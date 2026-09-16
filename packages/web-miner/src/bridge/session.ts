@@ -13,7 +13,14 @@ import { computeFeeJuiceMessageNullifier } from '@aztec/stdlib/messaging';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { TxHash } from '@aztec/stdlib/tx';
 import type { createStore } from 'jotai';
-import { createPublicClient, type Hex, http, type PublicClient, parseEventLogs } from 'viem';
+import {
+  createPublicClient,
+  type Hex,
+  http,
+  type PublicClient,
+  parseEventLogs,
+  TransactionReceiptNotFoundError,
+} from 'viem';
 import {
   checkpointProven,
   epochProven,
@@ -29,17 +36,23 @@ import {
   type Crossing,
   destinationOf,
   type Facts,
+  hashless,
   inFlight,
   type RowState,
   rowState,
 } from '../../../bridge/src/journal.ts';
 import { yacanaPortalAbi } from '../../../bridge/src/portal.ts';
-import { type ProofReader, type ProofReading, proofReader } from '../../../bridge/src/proofs.ts';
+import {
+  type ProofFloor,
+  type ProofReader,
+  type ProofReading,
+  proofReader,
+} from '../../../bridge/src/proofs.ts';
 import { OperationQueue } from '../../../bridge/src/queue.ts';
 import type { BridgeRecord } from '../../../bridge/src/record.ts';
 import { asHint, parseRecoveryFile, type RecoveryFile, recoveryFile } from '../../../bridge/src/recovery.ts';
 import { exitLogTag } from '../../../bridge/src/secrets.ts';
-import { leafIdOf, signRedeem } from '../../../bridge/src/signatures.ts';
+import { leafIdOf } from '../../../bridge/src/signatures.ts';
 import {
   type ArchivedExit,
   archiveEntry,
@@ -70,7 +83,6 @@ import {
   forwardCall,
   type PortalReader,
   portalReader,
-  redeemCall,
   type WagmiConfig,
   wagmiConfigFor,
 } from './eth.ts';
@@ -80,7 +92,6 @@ import {
   claimArrival,
   deposit,
   exitToL1,
-  holderSignature,
   type L2Handles,
   nextIndexFromChain,
   redeem,
@@ -102,8 +113,12 @@ export interface BridgeSessionDeps {
   master: Uint8Array;
   connection: Connection;
   record: BridgeRecord;
-  /** The miner's pause around a proof; absent on the old app, which mines nothing. */
-  controller?: { pause(reason: 'bridge'): void; release(reason: 'bridge'): void };
+  /** The miner's pause around a proof, and the wait for a claim the pause let finish; absent on the old app, which mines nothing. */
+  controller?: {
+    pause(reason: 'bridge'): void;
+    release(reason: 'bridge'): void;
+    claimSettled(): Promise<void>;
+  };
   now?: () => number;
 }
 
@@ -122,6 +137,12 @@ const L1_CLOCK_MS = 2_000;
 /** The portal's events are scanned again every so many refreshes: a forward by Yacana lands while the page is open. */
 const LANDING_EVERY = 4;
 
+/** A crossing after one reading, and whether that reading answered: a failure is not a fact. */
+interface Reread {
+  crossing: Crossing;
+  read: 'answered' | 'failed';
+}
+
 /** The archive the site serves for `version`, or null when it serves none (a 404, or no site). */
 async function fetchArchive(version: string): Promise<string | null> {
   const root = (import.meta.env.BASE_URL ?? '/').replace(/\/mine\/?$/, '/');
@@ -135,11 +156,13 @@ async function fetchArchive(version: string): Promise<string | null> {
 /** One scan derives at most this many indices per version, whatever a file or a counter claims. */
 const MAX_LANDING_INDICES = 2_000;
 
-/** What a holder is about to pay for, so the wallet's ETH can be read against it first. */
-export type PayerAsk =
-  | { kind: 'deposit'; amount: bigint }
-  | { kind: 'forward'; crossing: Crossing }
-  | { kind: 'redeem'; crossing: Crossing; recipient: Hex };
+/**
+ * What a holder is about to pay for, so the wallet's ETH can be read against it first. A
+ * send-ahead's forward and its redeem are left out on purpose: the portal takes those from anyone
+ * who carries the redeem key's signature, so making one to price a button would hand the RPC the
+ * authority to forward or redeem before the holder chose. Their cost stays unknown.
+ */
+export type PayerAsk = { kind: 'deposit'; amount: bigint } | { kind: 'claim'; crossing: Crossing };
 
 export class BridgeSession {
   readonly config: WagmiConfig;
@@ -159,8 +182,8 @@ export class BridgeSession {
   private readonly proofs: ProofReader;
   /** The portal's `EXIT_FLOOR`, immutable: read once. */
   private floor: Promise<bigint> | undefined;
-  /** The L1 block this version became canonical in, the proof scan's floor; the portal's deploy block when the RPC refuses the range. */
-  private canonicalFloor: Promise<bigint> | undefined;
+  /** The proof scan's floor, read once: the Registry's canonical block, or the portal's deploy block as a bound. */
+  private canonicalFloor: Promise<ProofFloor> | undefined;
   /** Registration times by version, once seen: a registration never moves. */
   private readonly registeredAt = new Map<string, bigint>();
   private refreshes = 0;
@@ -203,6 +226,7 @@ export class BridgeSession {
         ? {
             pause: (r: 'bridge') => d.controller?.pause(r),
             release: (r: 'bridge') => d.controller?.release(r),
+            settled: async () => await d.controller?.claimSettled(),
           }
         : {}),
       l1Now: () => this.l1Now(),
@@ -226,10 +250,19 @@ export class BridgeSession {
     });
   }
 
-  private proofFloor(): Promise<bigint> {
+  /**
+   * Where the scan may stop. The Registry's own record of this version becoming canonical is below
+   * every proof of it; the portal's deploy block is only a bound (the portal may have been deployed
+   * after a proof), so a scan that exhausts it says "unknown", never "no proof".
+   */
+  private proofFloor(): Promise<ProofFloor> {
     this.canonicalFloor ??= this.reader
       .canonicalAt(this.ctx.version)
-      .then((b) => b ?? BigInt(this.d.record.deployBlock ?? 0))
+      .then((block) =>
+        block === undefined
+          ? { block: BigInt(this.d.record.deployBlock ?? 0), exact: false }
+          : { block, exact: true },
+      )
       .catch((e: unknown) => {
         this.canonicalFloor = undefined;
         throw e;
@@ -248,9 +281,12 @@ export class BridgeSession {
     return this.floor;
   }
 
-  /** Unix seconds the canonical version was registered on the portal, once it is another than this one; undefined until it is. */
+  /**
+   * Unix seconds the canonical version was registered on the portal: what a held send-ahead's
+   * "longer than usual" counts from. Read for whichever version is canonical, this build's
+   * included — the next version's own page is where a send-ahead from the last one lands.
+   */
   private async targetRegisteredAt(canonical: bigint): Promise<bigint | undefined> {
-    if (canonical === this.ctx.version) return undefined;
     const key = canonical.toString();
     const known = this.registeredAt.get(key);
     if (known !== undefined) return known;
@@ -272,30 +308,17 @@ export class BridgeSession {
   private async payerCall(ask: PayerAsk) {
     const portal = this.ctx.portal;
     if (ask.kind === 'deposit') {
-      // Any secret hash estimates the same gas: the portal stores it, never checks it.
+      // The portal stores the secret hash without reading it, so any 32 non-zero bytes price the
+      // same: the cheapest word would understate the calldata gas, this one does not.
       const deadline = (await this.l1Now()) + 3600n;
       const secretHash = `0x${'11'.repeat(32)}` as Hex;
       return depositCall({ portal, amount: ask.amount, secretHash, version: this.ctx.version, deadline });
     }
     const c = ask.crossing;
-    if (!c.witness) throw new Error('no witness yet');
+    if (!c.witness || c.kind !== 1) throw new Error('nothing to claim on Ethereum');
+    // An exit's claim carries no signature: anyone may forward it, so pricing it authorises nothing.
     const args = forwardArgsFromArchive(c.witness);
-    const version = BigInt(c.version);
-    if (ask.kind === 'redeem') {
-      const secrets = await secretsFor(this.ctx, c.index, version);
-      const expiry = (await this.l1Now()) + 3600n;
-      const sig = await signRedeem(
-        secrets.redeemKey,
-        { chainId: this.ctx.chainId, portal, version, expiry },
-        args,
-        ask.recipient,
-      );
-      return redeemCall({ portal, version, args, recipient: ask.recipient, expiry, sig });
-    }
-    const target = (await this.reader.canonical()).version;
-    const signed =
-      c.kind === 2 ? await holderSignature(this.ctx, c, args, target) : { sig: '0x' as Hex, expiry: 0n };
-    return forwardCall({ portal, version, args: { ...args, ...signed } });
+    return forwardCall({ portal, version: BigInt(c.version), args });
   }
 
   /** The Rollup of a crossing's own version: this build's from its record, an earlier one's from the Registry. */
@@ -423,7 +446,10 @@ export class BridgeSession {
         if (!this.servesVersion(c)) return this.txFromArchive(c);
         if (!c.txHash) return this.txByTag(c);
         const r = await d.node.getTxReceipt(TxHash.fromString(c.txHash));
-        if (r.status === 'dropped') return { status: 'dropped' };
+        // A hash the node does not hold reads as dropped, and that includes one it has not been
+        // given yet: the record's hash is durable before the send, so the answer only binds once
+        // no block could still take it.
+        if (r.status === 'dropped') return (await this.pastExpiry(c)) ? { status: 'dropped' } : undefined;
         if (r.status === 'pending') return { status: 'pending' };
         const block = Number(r.blockNumber ?? 0);
         return { status: 'mined', block, epoch: (await this.epochOfBlock(block)).toString() };
@@ -504,14 +530,35 @@ export class BridgeSession {
     };
   }
 
-  /** A deposit's receipt on Ethereum: the message it made, or a revert; undefined while unmined or unknown to this RPC. */
+  /**
+   * A deposit's receipt on Ethereum: the Inbox message it made, a revert, "not yet" — or
+   * `unreadable`, which is none of those. The event must be this deposit's: the portal's own log,
+   * for this version and amount, under the secret hash this index derives. A receipt that names
+   * something else leaves the record where it is.
+   */
   private async depositReceipt(c: Crossing): Promise<Awaited<ReturnType<FactReads['l1Tx']>>> {
     if (!c.l1TxHash) return undefined;
-    const receipt = await this.client.getTransactionReceipt({ hash: c.l1TxHash }).catch(() => undefined);
-    if (!receipt) return undefined;
+    let receipt: Awaited<ReturnType<PublicClient['getTransactionReceipt']>>;
+    try {
+      receipt = await this.client.getTransactionReceipt({ hash: c.l1TxHash });
+    } catch (e) {
+      // Only "no such receipt" is an answer; anything else (no RPC, a refused request) is not.
+      return e instanceof TransactionReceiptNotFoundError ? undefined : 'unreadable';
+    }
     if (receipt.status !== 'success') return { status: 'reverted' };
-    const [log] = parseEventLogs({ abi: yacanaPortalAbi, eventName: 'Deposited', logs: receipt.logs });
-    return log ? { status: 'mined', inboxIndex: log.args.inboxIndex.toString() } : { status: 'reverted' };
+    const secrets = await secretsFor(this.ctx, c.index, BigInt(c.version));
+    const mine = parseEventLogs({
+      abi: yacanaPortalAbi,
+      eventName: 'Deposited',
+      logs: receipt.logs,
+    }).find(
+      (l) =>
+        l.address.toLowerCase() === this.ctx.portal.toLowerCase() &&
+        l.args.secretHash.toLowerCase() === secrets.secretHash.toString().toLowerCase() &&
+        l.args.version === BigInt(c.version) &&
+        l.args.amount === BigInt(c.amount),
+    );
+    return mine ? { status: 'mined', inboxIndex: mine.args.inboxIndex.toString() } : 'unreadable';
   }
 
   /** Whether the crossing's destination is this build's version: only its own node can see the claim. */
@@ -644,12 +691,15 @@ export class BridgeSession {
     const prev = this.d.store.get(bridgeAtom);
     let view: BridgeView;
     try {
-      const [standing, canonical, retired] = await Promise.all([
-        this.reader.standing(version),
+      // One L1 block for the deadline: a transition recorded or a pause lifted between these reads
+      // would make a standing that never was, and disagree with the portal's own `deadline()`.
+      const block = await this.client.getBlock({ blockTag: 'latest' });
+      const [standing, canonical, retired, floor] = await Promise.all([
+        this.reader.standing(version, block.number ?? undefined),
         this.reader.canonical(),
         this.minerRetired(),
+        this.exitFloor(),
       ]);
-      const [floor, l1Now] = await Promise.all([this.exitFloor(), this.l1Now()]);
       view = {
         verdict: flipVerdict({
           buildVersion: version,
@@ -659,13 +709,13 @@ export class BridgeSession {
         }),
         standing,
         canonical,
-        deadline: readDeadline({ ...standing, floor, l1Now }),
+        deadline: readDeadline({ ...standing, floor, l1Now: block.timestamp }),
         readAt: now,
         rpcFailing: false,
         // Best effort, kept from the last refresh when unread: neither says whether the RPC answers.
         targetRegisteredAt:
           (await this.targetRegisteredAt(canonical.version).catch(() => undefined)) ??
-          prev.targetRegisteredAt,
+          (prev.canonical?.version === canonical.version ? prev.targetRegisteredAt : undefined),
         proof: await this.proofs.latestProvenAt().catch((): ProofReading => prev.proof ?? 'unknown'),
       };
     } catch {
@@ -674,19 +724,20 @@ export class BridgeSession {
     this.d.store.set(bridgeAtom, view);
     if (view.rpcFailing) return;
     if (this.refreshes++ % LANDING_EVERY === 0) await this.landing().catch(() => {});
-    const rows: Record<string, RowState> = {};
-    let tipAt: bigint | null | undefined;
-    for (const c of await this.journal.list()) {
-      if (inFlight(c)) {
-        const next = await this.reread(c, now);
-        tipAt ??= await this.sourceTipAt();
-        rows[c.id] = rowState(next, { sourceTipAt: tipAt, covered: await this.covers(next) });
-      } else if (c.state === 'minted-l2' && !c.claimSettled && this.landsHere(c))
-        await this.recheckClaim(c, now);
-    }
-    this.d.store.set(rowStatesAtom, rows);
+    this.d.store.set(rowStatesAtom, await this.rowStates(now));
     await this.publishJournal();
     await this.settleMiningClaims();
+  }
+
+  /**
+   * Whether every block that could still carry the send is built: the sequencer refuses a
+   * transaction whose expiry is below the block it would build, so a tip past it settles the
+   * question. A record kept before the expiry was, or restored without it, has nothing to wait for.
+   */
+  private async pastExpiry(c: Crossing): Promise<boolean> {
+    if (!c.expiresAt) return true;
+    const at = await this.sourceTipAt();
+    return at !== null && at > BigInt(c.expiresAt);
   }
 
   /** The timestamp of the node's tip, or null when it has none to give. */
@@ -701,13 +752,15 @@ export class BridgeSession {
   }
 
   /**
-   * Whether the node in use can say a send never happened: it passed the deployment check and
-   * serves the send's anchor block, so its contiguous history holds every block the log could be
-   * in. Asked only for a send that still has no hash.
+   * Whether the node in use can say a send never happened: it serves this crossing's own version,
+   * passed the deployment check, and holds the send's anchor block — the archiver's history is
+   * contiguous, so from there it indexes every block the log could be in. A node missing that
+   * block (synced from a snapshot after the send, a pruned history) can only say "checking".
+   * Honest answers assumed: a node that lies about its blocks is trusted for everything else too.
    */
   private async covers(c: Crossing): Promise<boolean> {
-    if (c.state !== 'proving' || c.kind === 3 || c.txHash || c.anchorBlock === undefined) return false;
-    if (nodeHealth().deploymentOk !== true) return false;
+    if (!hashless(c) || c.anchorBlock === undefined) return false;
+    if (!this.servesVersion(c) || nodeHealth().deploymentOk !== true) return false;
     return (await this.d.node.getBlockData(c.anchorBlock as never).catch(() => undefined)) !== undefined;
   }
 
@@ -758,20 +811,48 @@ export class BridgeSession {
   }
 
   /**
-   * One reading applied to the record as stored now: an operation that landed while the facts
-   * were being read (a forward, a claim) is not rolled back by them.
+   * Every crossing still in flight reread, and what its row then says; a mint waiting on its
+   * epoch's proof is rechecked instead. The node's tip is sampled before the readings, so a "no
+   * log" answer is never older than the tip it is measured against — a tip read afterwards could
+   * be past an expiry the send still made it under.
    */
-  private async reread(c: Crossing, now: number): Promise<Crossing> {
+  private async rowStates(now: number): Promise<Record<string, RowState>> {
+    const journal = await this.journal.list();
+    const tipAt = journal.some(hashless) ? await this.sourceTipAt() : null;
+    const rows: Record<string, RowState> = {};
+    for (const c of journal) {
+      if (inFlight(c)) {
+        const { crossing, read } = await this.reread(c, now);
+        rows[c.id] = rowState(crossing, {
+          // A failed read is not an absence: the row waits instead of offering a second send.
+          sourceTipAt: read === 'answered' ? tipAt : null,
+          covered: await this.covers(crossing),
+        });
+      } else if (c.state === 'minted-l2' && !c.claimSettled && this.landsHere(c))
+        await this.recheckClaim(c, now);
+    }
+    return rows;
+  }
+
+  /**
+   * One reading applied to the record as stored now: an operation that landed while the facts
+   * were being read (a forward, a claim) is not rolled back by them. `read` says whether the
+   * reading answered at all — a `failed` one proves nothing about what is or is not on chain.
+   */
+  private async reread(c: Crossing, now: number): Promise<Reread> {
     let next: Crossing;
+    let read: Reread['read'] = 'answered';
     try {
       next = advance(c, await factsFor(this.reads, c, now));
     } catch (e) {
+      read = 'failed';
       next = { ...c, error: e instanceof Error ? e.message.split('\n')[0] : String(e), updatedAt: now };
     }
-    if (next === c) return c;
-    return this.journal.update(c.id, (stored) =>
+    if (next === c) return { crossing: c, read };
+    const crossing = await this.journal.update(c.id, (stored) =>
       stored.updatedAt === c.updatedAt && stored.state === c.state ? next : stored,
     );
+    return { crossing, read };
   }
 
   /**

@@ -227,6 +227,9 @@ export function advance(c: Crossing, f: Facts): Crossing {
 /** A row's state: the record's, or what a send without a hash reads as. Derived at every refresh, never stored. */
 export type RowState = CrossingState | 'checking' | 'unfinished';
 
+/** A send to Aztec still proving with no hash recorded: the only record a missing log says anything about. */
+export const hashless = (c: Crossing): boolean => c.state === 'proving' && c.kind !== 3 && !c.txHash;
+
 /**
  * A send that has no hash is `checking` until the node in use can say it never happened: it passed
  * the deployment check and serves the send's anchor block (`covered`; the archiver's history is
@@ -235,7 +238,7 @@ export type RowState = CrossingState | 'checking' | 'unfinished';
  * a retry; a log found later moves either row on.
  */
 export function rowState(c: Crossing, f: { sourceTipAt: bigint | null; covered: boolean }): RowState {
-  if (c.state !== 'proving' || c.kind === 3 || c.txHash) return c.state;
+  if (!hashless(c)) return c.state;
   if (!c.expiresAt || c.anchorBlock === undefined || !f.covered || f.sourceTipAt === null) return 'checking';
   return f.sourceTipAt > BigInt(c.expiresAt) ? 'unfinished' : 'checking';
 }

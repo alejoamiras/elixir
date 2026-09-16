@@ -1,9 +1,6 @@
-// The portal's exit deadline as a reading, never as an announced date: it is the later of the
-// version after next arriving and the flip plus the floor, both pushed back by every paused second,
-// and it is unset until both transitions are recorded (`YacanaPortal.deadline` returns the uint256
-// max meanwhile). The four readings come from those recorded transitions and the pause accounting
-// alone, in one L1 block; a shown date is read again at every refresh because an unpause refunds
-// the seconds it did not use.
+// The portal's exit deadline, read rather than announced: an unpause refunds the seconds it did
+// not use, so every refresh reads it again and no date is ever promised. Its inputs must come from
+// one L1 block — a transition recorded between two of them gives a deadline that never existed.
 
 /** The portal's "never": what `deadline()` returns while a transition is unrecorded. */
 export const OPEN_ENDED = (1n << 256n) - 1n;

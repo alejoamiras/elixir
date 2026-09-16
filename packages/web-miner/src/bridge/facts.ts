@@ -3,6 +3,18 @@
 import type { Crossing, Facts } from '../../../bridge/src/journal.ts';
 import type { ArchivedExit } from '../../../bridge/src/witness.ts';
 
+/**
+ * What Ethereum says about a deposit's transaction: the Inbox message it made, the revert that
+ * spent its gas, `undefined` for an RPC that answered and holds no such receipt, `'unreadable'`
+ * for one that did not answer or answered with something else's receipt. The last two are not the
+ * same fact: only a definite absence may end a deposit.
+ */
+export type L1Receipt =
+  | { status: 'reverted' }
+  | { status: 'mined'; inboxIndex: string }
+  | 'unreadable'
+  | undefined;
+
 export interface FactReads {
   /** Undefined when nothing here can answer: a version this build's node does not serve. */
   tx(c: Crossing): Promise<Facts['tx']>;
@@ -18,8 +30,8 @@ export interface FactReads {
   redeemed(c: Crossing): Promise<Facts['redeemed']>;
   messageReady(c: Crossing): Promise<boolean>;
   claimed(c: Crossing): Promise<Facts['claimed']>;
-  /** A deposit's Ethereum receipt by its hash: the message it made, or that it reverted; undefined while unmined or unknown to the RPC. */
-  l1Tx(c: Crossing): Promise<{ status: 'reverted' } | { status: 'mined'; inboxIndex: string } | undefined>;
+  /** A deposit's Ethereum receipt by its hash. */
+  l1Tx(c: Crossing): Promise<L1Receipt>;
   /** Ethereum's clock, which every deadline is measured against; the device's may differ. */
   nowSeconds(): Promise<bigint>;
 }
@@ -38,12 +50,16 @@ const AT_DESTINATION = new Set<Crossing['state']>(['forwarded', 'deposited']);
 /**
  * A deposit's tale is Ethereum's: its receipt once the wallet handed over a hash (the message it
  * made, or the revert that spent the gas for nothing), else its calldata deadline against
- * Ethereum's clock — past it nothing the wallet sent can land, so the record gives itself up; the
- * landing scan revives it should the event exist after all. The device's clock is never consulted.
+ * Ethereum's clock — the portal refuses a deposit past it, so beyond it nothing the wallet sent
+ * can land and the record gives itself up; the landing scan revives it should the event exist
+ * after all. The device's clock is never consulted, and a receipt the RPC would not read is not
+ * an absence: giving a deposit up on a lying or broken RPC would offer a second burn of the same
+ * coins, so an unreadable receipt leaves the record where it is however late.
  */
 async function depositFacts(reads: FactReads, c: Crossing, f: Facts): Promise<Facts> {
   if (c.l1TxHash) {
     const receipt = await reads.l1Tx(c);
+    if (receipt === 'unreadable') return f;
     if (receipt?.status === 'mined')
       return { ...f, deposited: { txHash: c.l1TxHash, inboxIndex: receipt.inboxIndex } };
     if (receipt?.status === 'reverted') return { ...f, tx: { status: 'dropped' } };

@@ -12,9 +12,11 @@
   block in one filtered `getLogs` over the chain, undefined when the RPC refuses the range).
 - `proofs.ts` (new): `proofReader(client, {rollup, floor, budget, overlap})` → `latestProvenAt()`: newest-first
   windows of `LOG_WINDOW` from the L1 head under a per-call budget (4), a cursor resumed across calls, an
-  overlap re-read (12 blocks) behind a known event; `'unknown'` while incomplete, `'none'` at the floor with no
-  event, else `{at, checkpoint, block}` with `at` the event block's timestamp. The session's floor is the
-  Registry's canonical block for this version, or the portal's deploy block when the RPC refuses the range.
+  overlap re-read (12 blocks) behind a known event, and a forward walk from there that keeps its progress
+  (`scannedTo`) across refreshes; `'unknown'` while incomplete, `'none'` only at a floor that is exact, else
+  `{at, checkpoint, block}` with `at` the event block's timestamp. `ProofScan.floor` answers `{block, exact}`:
+  the session gives the Registry's canonical block for this version (exact), or the portal's deploy block as a
+  bound alone (a proof may predate the portal), which can find an event but never prove an absence.
 - `journal.ts`: `Crossing.expiresAt` (unix s) and `anchorBlock`; `RowState`, `rowState(c, {sourceTipAt,
   covered})` (`unfinished` needs the expiry, the anchor block, coverage, and a tip past the expiry; anything
   short is `checking`; a hash or any other state reads as the state).
@@ -23,29 +25,39 @@
   no extra tick (the mining claim's path is unchanged). `OpenedWallet.beforeNextSend` rides on `Deployment`
   (`chain.ts`, `boot.ts`) to the bridge's `L2Handles`; `flows.ts`'s `sendRecorded` installs it around the
   send and commits the hash, expiry and anchor block to the journal first.
-- `facts.ts`: `DEPOSIT_GIVES_UP_MS` gone. A proving deposit with a hash asks its receipt (`FactReads.l1Tx`:
-  `getTransactionReceipt` + the `Deposited` log → `deposited`, a failed receipt → `dropped`); without one it is
-  measured against Ethereum's clock and its calldata deadline (`expiresAt`, persisted by `deposit()` at
-  creation) → `dropped` past it. The device's clock is out.
-- `revert.ts`: `revertNameOf(e)`, the name → sentence table (`revertLine`, `explainRevert`) for the portal's
-  holder-facing errors and the Outbox's three; `recovery.ts`: the file carries `expiresAt`/`anchorBlock`,
-  `asHint` strips both on every state.
+- `facts.ts`: `DEPOSIT_GIVES_UP_MS` gone. A proving deposit with a hash asks its receipt (`FactReads.l1Tx` →
+  `L1Receipt`: the `Deposited` log the portal emitted for this version, amount and derived secret hash →
+  `deposited`; a failed receipt → `dropped`; `undefined` for "the RPC has no such receipt"; `'unreadable'` for
+  a read that did not answer or answered with someone else's event). Without a receipt it is measured against
+  Ethereum's clock and its calldata deadline (`expiresAt`, persisted by `deposit()` at creation) → `dropped`
+  past it, but only on a definite absence: an unreadable receipt leaves the record where it is however late.
+  The device's clock is out.
+- `revert.ts`: `revertNameOf(e)` and `revertRow(e)` — the brief's three names (`WaitsForHeadroom`,
+  `VersionPaused`, `DeadlinePassed`) map to the row states `headroom` / `paused` / `closed`, and
+  `copy.ts`'s `revertLine` renders that row's own sentence through `cardLine`. `recovery.ts`: the file carries
+  `expiresAt`/`anchorBlock`, `asHint` strips both on every state.
 - `bridge/session.ts`: the view carries `deadline` (`readDeadline` at every refresh, the floor from `policy()`
   once), `targetRegisteredAt` (cached once seen), `proof` (best effort, kept from the last refresh when
-  unread); `rowStatesAtom` published per refresh (`sourceTipAt` from the node's tip block, `covered` =
-  deployment check passed and `getBlockData(anchorBlock)` answers); `payerFunds(account, ask)` builds the
-  real call (the signature included for a send-ahead's forward or redeem) and reads the payer's ETH against
-  its estimate through `eth-balance.ts` (new: `getBalance`, `estimateGas`, `estimateFeesPerGas`; unknown is
-  null, never zero; a verdict needs both numbers).
+  unread); `rowStatesAtom` published per refresh (the node's tip sampled before the readings; `covered` = the
+  node serves the crossing's own version, the deployment check passed and `getBlockData(anchorBlock)` answers;
+  a reading that failed publishes no tip, so the row stays `checking`); `payerFunds(account, ask)` prices the
+  two calls that carry no signature — a deposit and an exit's claim — through `eth-balance.ts` (new:
+  `getBalance`, `estimateGas`, `estimateFeesPerGas`; unknown is null, never zero; a verdict needs both
+  numbers). The standing behind the deadline is read at one pinned L1 block, and that block's timestamp is
+  `l1Now`.
 - `copy.ts`: `takingLong(c, now, targetRegisteredAt)` counts from the later of held-at and the target's
   registration, never before it; `TakingLongDialog` passes the view's value (the dialog itself goes at P8).
-- `DepositSheet.tsx`: both sheets read the payer's funds (the held-action sheet on open and on the click, the
-  deposit on the click) and refuse with "<wallet> has no <chain> ETH for the gas." before the wallet is
-  asked; a revert is explained through `explainRevert` before the raw first line.
+- `DepositSheet.tsx`: both sheets read the payer's funds (the exit-claim sheet on open and on the click, the
+  deposit on the click; a reading overtaken by a newer one is dropped) and refuse with "<wallet> has no
+  <chain> ETH for the gas." plus `ClaimNoEth`'s "Add some to 0x…, then claim. The YACA waits for you."
+  before the wallet is asked; a portal refusal is shown in the row's own words before the raw first line.
 - `bridge-states.e2e.ts`: the unanswered prompt → reload → "Waiting for your Ethereum wallet" → an L2 warp
   past the deposit's deadline retires it without a tap → deposit again → the page reloads the moment the
-  wallet has sent → the row settles to `deposited` on its own → claim as before. The title and the inventory
-  are unchanged.
+  wallet has been asked → the row settles to `deposited` on its own → claim as before. Which reading settles
+  it is the race's: the receipt when the hash reached the journal before the reload, the portal's event
+  otherwise (the fixture counts the wallet before it broadcasts, and the receipt comes over the page's own RPC,
+  which the fixture cannot hold) — the spec proves that one of them does, unattended, not which. The title and
+  the inventory are unchanged.
 - The stats' visual recording gains the `afterNextAt(version)` answer (zero, like `flipAt`'s) so the bridge
   page still replays; the stats' own use of `readDeadline` is P10's.
 
@@ -59,9 +71,15 @@
   newest-first scan, and it carries a cursor and an overlap `scanLogs` has no use for.
 - `rowState` is computed in the session and published as its own atom (`rowStatesAtom`) keyed by id: the
   plan says derived, never persisted; the row (P8) reads it beside the journal.
-- The payer's refusal sentence is the canvas's `ClaimNoEth` line ("Rabby has no Sepolia ETH for the gas.")
-  with the connector's name and the chain's; the deposit sheet's amount is typed, so it reads on the click
-  only, the held-action sheet on open and on the click (the brief's "re-read on the Claim click").
+- The payer's refusal is the canvas's `ClaimNoEth` note verbatim — the title with the connector's name and
+  the chain's, then "Add some to 0x…, then claim. The YACA waits for you." over the payer's own address (the
+  board's `0x90F7…b906` is the connected wallet there, and the wallet is what needs the ETH). The deposit
+  sheet's amount is typed, so it reads on the click only; the exit-claim sheet reads on open and on the click
+  (the brief's "re-read on the Claim click").
+- A send-ahead's forward and its redeem are not priced at all: the portal takes either from anyone carrying
+  the redeem key's signature, so making one to fill in an estimate would hand the RPC the authority to act
+  before the holder chose. Their cost stays unknown and the wallet's own estimate is the first word. §9.3.8's
+  "unknown ≠ zero" is what covers it.
 - The e2e retirement uses the node's `aztecDebug_warpL2TimeAtLeastBy` (3 700 s) rather than anvil's cheat
   codes directly: the rig's own warp, so the L2 clock follows and nothing pending is left unproven (everything
   was settled before the deposits).
@@ -90,3 +108,89 @@ Two findings on the way:
   11693; pgids 1447018, 1525114, 1526187, 1526226, 1526235, 1795166). Their `kill -TERM -<pgid>` was refused by
   the session's permission classifier; the rerun's fresh run id hashed to another window. **For the owner:**
   reap them by pgid.
+
+## Arc-4 codex fix loop (§10 steps 2–3)
+
+### Round 1 — `/codex high` (GPT-6 Astra, `high`, read-only), verdict **REVISE**, 14 findings
+
+Prompt: `scratchpad/codex-arc4-round1.md` over `git diff polish-mine...HEAD` (37 files, one commit `ae07e20`),
+both verbatim rules. Its own verification: 26 passed, 2 skipped. Three load-bearing claims verified against the
+SDK and the repo before anything was applied:
+
+| claim | verdict |
+|---|---|
+| Aztec 5.2.0 reports an unknown tx hash as **dropped** (`node_tx_receipt.js`: "if we don't know the tx, we consider it dropped") | true — a refresh between the journal commit and the node accepting the send would have made the record terminal |
+| `Controller.pause()` deliberately lets a claim in flight finish | true — `pause` only dispatches `stop` from `mining`; `drain()` was the only thing that waited for `claiming` |
+| `TimestampTxValidator` measures `expirationTimestamp` against the block being built | true — the L2 block timestamp is the expiry's clock, so `sourceTipAt` is the right one |
+
+Applied, in its numbering:
+
+1. **#1 high** — `payerCall` no longer signs anything. `PayerAsk` is `deposit | claim`; a send-ahead's forward
+   and its redeem are unpriced (above).
+2. **#2 high** — `MinerController.claimSettled()` extracted from `drain()`'s wait, and `guarded()` awaits it
+   through a new `BridgeContext.settled` after `pause('bridge')`: the bridge's one-shot hook can no longer
+   capture a mining claim's send.
+3. **#3 high** — a `dropped` receipt is only terminal once the node's tip is past the send's `expiresAt`
+   (`pastExpiry`); before that the reading returns undefined and the record waits.
+4. **#4 high** — the tip is sampled **before** the readings; `reread` reports `answered | failed` and a failed
+   reading publishes `sourceTipAt: null`; `covers()` also requires `servesVersion(c)`. `hashless(c)` moved to
+   `journal.ts` so `rowState` and the session share one predicate.
+5. **#5 high** — `L1Receipt` distinguishes "no such receipt" from `'unreadable'`; only a definite absence plus
+   a passed deadline gives a deposit up.
+6. **#6 medium** — the `Deposited` log must be the portal's own, for this version and amount, under the secret
+   hash the index derives; anything else is `'unreadable'`.
+7. **#7 medium** — reproduced and fixed: a known proof at block 900 with the head at 60 000 and a newer proof
+   at 59 000 stopped at 40 887 and returned the old proof forever. Both walks now keep their progress
+   (`scannedTo`, `searchedFrom`), and blocks that appeared above a walk in flight are read first.
+8. **#8 medium** — `ProofFloor {block, exact}`: the portal's deploy block is a bound, not a birth, so
+   exhausting it is `'unknown'`, never `'none'`. A floor above the head is `'unknown'` too.
+9. **#9 medium** — `portalReader.standing(version, at?)` pins every read to one block; the refresh reads that
+   block once and uses its timestamp as `l1Now`.
+10. **#10 medium** — the canonical target's registration is read even when it equals this build's version, and
+    a previous value is carried over only while the canonical version is the same one.
+11. **#11 medium** — the payer-funds effect keeps a request counter: a reading overtaken by a newer one
+    (another account, another row, another action) no longer writes.
+12. **#12 medium** — accepted in full: the sixteen invented sentences are gone. Only the brief's three names
+    map to row states, the row's own sentence is rendered through `cardLine`, and the sheet carries
+    `ClaimNoEth`'s supporting line. §5.4's exact wording arrives with `rowLine` at P8, in one place.
+13. **#13 medium** — accepted as a claim, not as machinery: the reload's comment and this file now say the
+    settlement may come from the receipt **or** the landing scan, because the page's own RPC (where the
+    receipt comes from) is not the injected wallet and this fixture cannot hold it. Adding an RPC proxy to
+    force the receipt-only path is more machinery than the finding is worth.
+14. **#14 low** — the file heads of `exit-deadline.ts`, `proofs.ts`, `eth-balance.ts` and the `sendRecorded`
+    doc compressed; the hook's exclusivity and coverage's honest-node assumption are now written down where
+    they hold.
+
+Not accepted:
+
+- **#4's "add session-level tests"** — `BridgeSession` needs IndexedDB, a jotai store and Vite's `import.meta.env`;
+  there is no harness for it and building one is the layer the no-over-engineering rule forbids. The path is
+  covered by `rowState`'s unit cases, `bridge-facts`'s readings and the `bridge` shard's live run.
+
+New tests: `payer-funds.bun.test.ts` (both numbers, either reading failing alone, no call to price),
+`bridge-facts` gains the unreadable-receipt case, `proofs.test.ts` was rewritten around `ProofFloor` with
+codex's two reproductions as cases, `revert.test.ts` follows `revertRow`.
+
+Two more of my own, found while fixing #7:
+
+- #7 asked to "clamp/reset cursors when the head retreats" and I had only clamped `cursor`. `scannedTo` and
+  `searchedFrom` are clamped too now (`clampTo`): left above a retreated head, the forward walk would read
+  nothing until the chain grew back past them.
+- With the clamp in place, `confirm()` asked for an **inverted** block range (`fromBlock` above `toBlock`) when
+  the head fell below the known event — a real RPC refuses that, so the reading would have thrown and the view
+  kept its stale proof. `confirm` now treats a head below the event as the reorg it is, and the test fake
+  throws on an inverted range so the suite cannot hide that class again.
+
+Found on the way, unrelated to the findings: `switch.bun.test.ts` left six `MinerController`s undisposed, so
+their 10 s poll fired into whatever file bun ran next (five "Unhandled error between tests" once the suite grew
+by a couple of seconds). They are now disposed in an `afterEach`.
+
+### Round 1's gate
+
+| layer | result |
+|---|---|
+| `bun run lint` · root `typecheck` · web-miner `typecheck` | clean |
+| `bun test packages/bridge packages/web-miner` | 233 pass, 3 skip, 0 fail, 0 errors |
+| `test:components` (ui 68, web-landing 14, web-miner 109, web-stats 84) | green |
+| `bun run e2e:agent -- bun test packages/bridge` | 38 pass, 1 skip |
+| `bridge` shard, proverless | 1/1 (138.9 s) |

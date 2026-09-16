@@ -1,7 +1,6 @@
-// What the connected Ethereum wallet can pay: its ETH and the gas a portal call would cost, read
-// before the wallet is asked, so "no ETH for the gas" is the page's own state and not the wallet's
-// error. Every reading may fail (an RPC down, a call that would revert): unknown is null, never
-// zero, and only two known numbers make a verdict.
+// What the connected Ethereum wallet can pay, read before it is asked, so "no ETH for the gas" is
+// the page's own sentence and not the wallet's error. Either number may be unreadable, and unknown
+// is null, never zero: a wallet that might have paid must not be refused.
 import type { Abi, ContractFunctionArgs, ContractFunctionName, Hex } from 'viem';
 import { encodeFunctionData } from 'viem';
 import { estimateFeesPerGas, estimateGas, getBalance, getPublicClient } from 'wagmi/actions';
