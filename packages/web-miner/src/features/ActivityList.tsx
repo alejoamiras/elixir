@@ -19,7 +19,7 @@ import { type ActivityRowView, type ActivityView, activity } from '../bridge/row
 import { l1Links, links } from '../explorer';
 import { shortAddress } from '../lib/format';
 import type { Session } from '../session';
-import { bridgeAtom, claimingAtom, journalAtom, nowAtom, rowStatesAtom, walletNameAtom } from '../state';
+import { bridgeAtom, claimingAtom, journalAtom, nowAtom, rowStatesAtom } from '../state';
 import { saveRecoveryFile } from './recovery';
 
 /** The journal read for this refresh; the header's badge and the list read the same one. */
@@ -29,11 +29,9 @@ export function useActivity(): ActivityView {
   const states = useAtomValue(rowStatesAtom);
   const now = useAtomValue(nowAtom);
   const claiming = useAtomValue(claimingAtom);
-  const wallet = useAtomValue(walletNameAtom);
   return activity(journal, view, now, states, {
     ownVersion: import.meta.env.VITE_ROLLUP_VERSION,
     chainId: bridgeRecord()?.chainId,
-    wallet: wallet ?? 'your wallet',
     claiming,
   });
 }

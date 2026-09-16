@@ -108,7 +108,6 @@ const waitsOnUser = (line: RowLine): boolean =>
 interface Env {
   ownVersion: string;
   chainId?: string;
-  wallet: string;
   /** The private claims under way here, by crossing id, with when each tap came. */
   claiming?: ReadonlyMap<string, number>;
 }
@@ -144,7 +143,8 @@ export function activity(
         target,
         flipped,
         deadline: own?.deadline,
-        takingLong: takingLong(c, now, registeredAt),
+        // Before the flip the canonical is the source itself: its registration is not the destination's.
+        takingLong: takingLong(c, now, flipped ? registeredAt : undefined),
         pausedUntil: own?.standing?.paused ? own.standing.pausedUntil : undefined,
         mayForward: mayForward(c, view, env.ownVersion),
         verdictUnknown: view.verdict.kind === 'unknown' || view.rpcFailing,
@@ -154,7 +154,6 @@ export function activity(
         money,
         who: partyOf(c),
         chain,
-        wallet: env.wallet,
       });
       return {
         c,

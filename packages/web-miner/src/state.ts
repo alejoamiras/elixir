@@ -123,7 +123,5 @@ export const bridgeAtom = atom<BridgeView>({ verdict: { kind: 'unknown' }, readA
 export const rowStatesAtom = atom<Readonly<Record<string, RowState>>>({});
 /** The private claims this page is proving, by crossing id, with when each tap came: the row's chip and the tab's badge read the same set. */
 export const claimingAtom = atom<ReadonlyMap<string, number>>(new Map());
-/** The connected Ethereum wallet's name while one is, for the rows that name it. */
-export const walletNameAtom = atom<string | undefined>(undefined);
 /** The open account's bridge session; null while signed out or on a build without a portal. */
 export const bridgeSessionAtom = atom<BridgeSession | null>(null);

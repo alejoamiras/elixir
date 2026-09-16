@@ -192,3 +192,41 @@ Two things the round taught about the test bench, for the next one:
 | `canary` shard, real proving | 4/4 passed, 5.0 min (withdraw 103 s, 3 proofs) |
 | replay | 4/4 passed, 42 s |
 | `bun run rig -- browser` | 3/3 passed: V5 2.9 min · flip 11 s · V6 1.2 min |
+
+### Round 2 — resumed, verdict **REVISE**, 8 findings
+
+Prompt: `scratchpad/codex-arc5-round2.md` over `git show 6743392` and the arc diff, both rules. Every
+finding reproduced here before it was applied; its "looks fine" list also corrected a premise of the
+prompt (there is no `live()` read after `session.withdraw` resolves, and none is needed: the dialog is
+locked while it proves).
+
+1. **#1 high** — `useLive` tracked `open`, not mounting, and the Wallet unmounts the deposit dialog on
+   close instead of rendering it closed: a close while the gas was priced still deposited. The hook now
+   reads unmounting as closed (an effect whose cleanup clears the ref; setup restores it, for Strict
+   Mode). The deposit also locked only when the flow's step callback landed, after the record and the
+   wallet's prompt: it locks before entering the flow (`wait(display)` first; the step callback is gone).
+2. **#2 medium** — the claim's `alive` ref was cleared by the effect's cleanup and never restored: under
+   Strict Mode's replay every claim silently did nothing. Setup sets it; the refusal test runs under
+   `StrictMode` and counts the one `selfForward`.
+3. **#3 medium** — `otherVersions` read every version in the journal, serially, before publishing the own
+   read. Now only the versions with a crossing still under way, read together (`Promise.all`); a failed
+   read keeps the previous value and cannot fail the refresh. **Partial:** the own reading is still
+   published with them, not before — one refresh at most one RPC timeout later, bounded by the number of
+   versions with something in flight (one or two), which is not worth a second publish path.
+4. **#4 medium** — `phase` lived in the one `ClaimDialog` while only `Body` was keyed: after a claim,
+   another crossing opened while disconnected was titled "Claimed.". `ClaimRun` keyed by the crossing's
+   id, the pattern the other dialogs use for openings; tested by a rerender onto a second crossing.
+5. **#5 medium** — "longer than usual" fired before the flip: `targetRegisteredAt` is the canonical's
+   registration, which before the flip is the source's own. The registration is handed to `takingLong`
+   only once the crossing's version has been flipped away from; tested both sides.
+6. **#6 medium** — the rows named the *current* connector ("sent from MetaMask" for a deposit Rabby sent).
+   Round 1's #13 asked for the wallet's name in place of "your wallet"; round 2 withdrew it, and the
+   argument holds: the journal does not record which wallet sent, and the present connection is not
+   evidence. `walletNameAtom`, `WalletName` and `RowFacts.wallet` are gone; every K3 row says "your
+   wallet" ("waiting for your wallet", "Sent from your wallet; crossing to Aztec"). **Departure from the
+   boards**, which print "Rabby" in those cells: recording the name on the crossing would be a journal
+   field for one cosmetic word. The dialogs, where the connection is the wallet being asked, keep naming
+   it.
+7. **#7 low** — the deposit form's own `busy` around the network switch duplicated `useOnce`'s: gone.
+8. **#8 low** — the spec header named deleted sheets and the deleted taking-long dialog; the
+   `usePayerFunds` comment narrated its schedule before its one constraint. Both cut.

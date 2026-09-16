@@ -1,10 +1,10 @@
 // The guided path and the everyday bridge as the screens show them: the migration card's three
-// moments, the activity list's rows and offers, the arrival's one tap, the two sheets' reviews and
-// the taking-long dialog — each over a journal in the store and a session whose bridge is a stub.
+// moments, the activity list's rows and offers, the arrival's one tap, and the dialogs under wagmi —
+// each over a journal in the store and a session whose bridge is a stub.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createStore, Provider } from 'jotai';
-import type { ReactNode } from 'react';
+import { type ReactNode, StrictMode } from 'react';
 import { anvil } from 'viem/chains';
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createConfig, http, mock, WagmiProvider } from 'wagmi';
@@ -465,14 +465,41 @@ describe('the dialogs', () => {
     fireEvent.change(screen.getByTestId('deposit-amount'), { target: { value: '1' } });
     expect((screen.getByTestId('deposit-go') as HTMLButtonElement).disabled).toBe(true);
   });
+
+  test('from Ethereum: a dialog taken down while the gas is priced never deposits; one that stays locks at once', async () => {
+    onAnvil();
+    let price: ((f: { balance: bigint; cost: bigint; enough: boolean }) => void) | undefined;
+    const payerFunds = vi.fn(() => new Promise((r) => (price = r)));
+    const deposit = vi.fn(() => new Promise<never>(() => {}));
+    const session = { bridge: { payerFunds, deposit } } as unknown as Session;
+    const dialog = () => withConnected(<FromEthereumDialog session={session} open onOpenChange={() => {}} />);
+    mount(dialog());
+    fireEvent.change(screen.getByTestId('deposit-amount'), { target: { value: '1' } });
+    fireEvent.click(screen.getByTestId('deposit-go'));
+    await waitFor(() => expect(payerFunds).toHaveBeenCalledTimes(1));
+    // The Wallet unmounts the dialog on close rather than rendering it closed.
+    cleanup();
+    await act(async () => price?.({ balance: 1n, cost: 0n, enough: true }));
+    expect(deposit).not.toHaveBeenCalled();
+    // Kept open, the same answer locks the dialog before the flow has said anything.
+    mount(dialog());
+    fireEvent.change(screen.getByTestId('deposit-amount'), { target: { value: '1' } });
+    fireEvent.click(screen.getByTestId('deposit-go'));
+    await waitFor(() => expect(payerFunds).toHaveBeenCalledTimes(2));
+    await act(async () => price?.({ balance: 1n, cost: 0n, enough: true }));
+    await waitFor(() => expect(deposit).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('deposit-waiting')).toBeDefined();
+    expect(screen.queryByLabelText('Close')).toBeNull();
+  });
 });
 
-describe('the claim dialog', () => {
-  const exit = () => crossing({ state: 'ready', witness: undefined, epoch: '3' });
-  const claimSession = (payerFunds: ReturnType<typeof vi.fn>, selfForward: ReturnType<typeof vi.fn>) =>
-    ({ bridge: { payerFunds, selfForward, redeem: vi.fn() } }) as unknown as Session;
-  const enough = (yes: boolean) => ({ balance: 1n, cost: yes ? 0n : 2n, enough: yes });
+/** A proven exit ready for its claim, and the session the claim dialog needs. */
+const exit = () => crossing({ state: 'ready', witness: undefined, epoch: '3' });
+const claimSession = (payerFunds: ReturnType<typeof vi.fn>, selfForward: ReturnType<typeof vi.fn>) =>
+  ({ bridge: { payerFunds, selfForward, redeem: vi.fn() } }) as unknown as Session;
+const enough = (yes: boolean) => ({ balance: 1n, cost: yes ? 0n : 2n, enough: yes });
 
+describe('the claim dialog', () => {
   test('no ETH holds the button and is read again until a top-up; the wallet asked locks the dialog; done retitles it', async () => {
     onAnvil();
     vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -509,7 +536,7 @@ describe('the claim dialog', () => {
     vi.useRealTimers();
   });
 
-  test('the wallet saying no is a red step with Try again, and nothing is claimed', async () => {
+  test('the wallet saying no is a red step with Try again, and nothing is claimed — under Strict Mode too', async () => {
     onAnvil();
     const payerFunds = vi.fn().mockResolvedValue(enough(true));
     const selfForward = vi.fn(() =>
@@ -518,20 +545,52 @@ describe('the claim dialog', () => {
       ),
     );
     mount(
-      withConnected(
-        <ClaimDialog
-          session={claimSession(payerFunds, selfForward)}
-          crossing={exit()}
-          action="forward"
-          onOpenChange={() => {}}
-        />,
-      ),
+      <StrictMode>
+        {withConnected(
+          <ClaimDialog
+            session={claimSession(payerFunds, selfForward)}
+            crossing={exit()}
+            action="forward"
+            onOpenChange={() => {}}
+          />,
+        )}
+      </StrictMode>,
     );
     await waitFor(() => expect((screen.getByTestId('forward-go') as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByTestId('forward-go'));
     await waitFor(() => expect(screen.getByText('Try again')).toBeDefined());
+    expect(selfForward).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('claim-progress').textContent).toContain('Mock Connector rejected it');
     expect(screen.getByTestId('claim-progress').textContent).toContain('Nothing was claimed');
     expect(screen.queryByLabelText('Close')).not.toBeNull();
+  });
+});
+
+describe('the claim dialog, crossing to crossing', () => {
+  test('what one claim reached never titles the next', async () => {
+    onAnvil();
+    const payerFunds = vi.fn().mockResolvedValue(enough(true));
+    const selfForward = vi.fn(() => Promise.resolve());
+    const dialog = (crossing: Crossing) =>
+      withConnected(
+        <ClaimDialog
+          session={claimSession(payerFunds, selfForward)}
+          crossing={crossing}
+          action="forward"
+          onOpenChange={() => {}}
+        />,
+      );
+    const store = createStore();
+    store.set(nowAtom, NOW);
+    store.set(bridgeAtom, { verdict: { kind: 'before' }, standing, readAt: NOW, rpcFailing: false });
+    const { rerender } = render(<Provider store={store}>{dialog(exit())}</Provider>);
+    await waitFor(() => expect((screen.getByTestId('forward-go') as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByTestId('forward-go'));
+    await waitFor(() => expect(screen.getByTestId('forward-dialog').textContent).toContain('Claimed.'));
+    rerender(
+      <Provider store={store}>{dialog(crossing({ id: 'another', index: 1, state: 'ready' }))}</Provider>,
+    );
+    expect(screen.getByTestId('forward-dialog').textContent).toContain('Claim 2 YACA on Ethereum.');
+    expect(screen.queryByTestId('forward-done')).toBeNull();
   });
 });

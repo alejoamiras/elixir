@@ -8,6 +8,7 @@ process.env.VITE_VERSION_INDEX = '0';
 import { describe, expect, test } from 'bun:test';
 import { type Crossing, FADE_AFTER_MS } from '../../bridge/src/journal.ts';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
+import { TAKING_LONG_AFTER_MS } from '../src/bridge/copy.ts';
 import { activity, moneyStanding } from '../src/bridge/rows.ts';
 import type { BridgeView } from '../src/state.ts';
 
@@ -45,7 +46,7 @@ const standing = {
   depositsClosed: false,
 };
 const view: BridgeView = { verdict: { kind: 'before' }, standing, readAt: NOW, rpcFailing: false };
-const env = { ownVersion: '5', chainId: '11155111', wallet: 'Rabby' };
+const env = { ownVersion: '5', chainId: '11155111' };
 
 describe('the activity reading', () => {
   test('one row per crossing, newest first, whichever way it goes; the count is the rows with a tap', () => {
@@ -135,6 +136,15 @@ describe('the activity reading', () => {
     const a = activity([held], { ...view, canonical: { version: 6n, index: 6n } }, NOW, {}, env);
     expect(a.rows[0]?.line.chip.word).toBe('held for V6');
     expect(a.rows[0]?.direction).toBe('→ V6');
+  });
+
+  test('a held send-ahead is longer than usual only once its destination exists: never before the flip', () => {
+    const old = crossing('k', { kind: 2, state: 'held', updatedAt: NOW - TAKING_LONG_AFTER_MS - 1 });
+    const registered = { ...view, targetRegisteredAt: BigInt(Math.floor(NOW / 1000)) - 7n * 3600n };
+    const before = activity([old], { ...registered, canonical: { version: 5n, index: 5n } }, NOW, {}, env);
+    expect(before.rows[0]?.line.chip.word).toBe('held for the next version');
+    const after = activity([old], { ...registered, canonical: { version: 6n, index: 6n } }, NOW, {}, env);
+    expect(after.rows[0]?.line.chip.word).toBe('longer than usual');
   });
 
   test('a finished row folds after its week and is never dropped; a claim in flight reads as claiming', () => {

@@ -130,7 +130,6 @@ function Form({
   );
   const [error, setError] = useState<string>();
   const [funds, setFunds] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [waiting, setWaiting] = useState(false);
   // The same standing the Wallet's button reads: a pause, a lost registration or a silent RPC
   // holds the form too, whether it opened before the change or from a row's "Bridge again".
@@ -139,16 +138,7 @@ function Form({
   const ceiling = yaca ?? (1n << 128n) - 1n;
   const line = amountRefusal(text, ceiling, PARAMS.DECIMALS);
   const touched = text !== '';
-  const switchNetwork = async () => {
-    setBusy(true);
-    try {
-      await net.switchTo();
-    } catch (e) {
-      setError(firstLine(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const switchNetwork = () => net.switchTo().catch((e) => setError(firstLine(e)));
   const wait = (display: string | null) => {
     setWaiting(display !== null);
     onWaiting(display);
@@ -160,7 +150,9 @@ function Form({
       const refused = noEth(await bridge.payerFunds(address, { kind: 'deposit', amount }), wallet);
       if (refused) return setFunds(refused);
       if (!live()) return;
-      onSent(display, await bridge.deposit(amount, () => wait(display), resume));
+      // Locked from here: the flow records the crossing and asks the wallet before any step lands.
+      wait(display);
+      onSent(display, await bridge.deposit(amount, undefined, resume));
     } catch (e) {
       setError(firstLine(e));
     } finally {
@@ -176,7 +168,7 @@ function Form({
     });
   if (waiting) return <Waiting />;
   const amountWord = line === null && text.trim() ? ` ${text.trim()} YACA` : '';
-  const canGo = !closed && !busy && !sending && (net.wrong || (line === null && !!account.address));
+  const canGo = !closed && !sending && (net.wrong || (line === null && !!account.address));
   return (
     <>
       <WalletChip aside={<YacaAvailable yaca={yaca} />} />

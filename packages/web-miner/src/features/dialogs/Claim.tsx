@@ -151,11 +151,9 @@ function Progress({ kind, step, crossing }: { kind: Kind; step: Step; crossing: 
 }
 
 /**
- * The connected wallet's ETH against this claim's gas, read before the wallet is asked: on open, at
- * every account change, on the click, and every few seconds while it cannot pay, so a top-up
- * re-arms the button. An exit's claim carries no signature, so pricing it authorises nothing; a
- * forward and a redeem are signed by the redeem key, and that signature is not made to fill in a
- * number — their cost stays unknown.
+ * The connected wallet's ETH against this claim's gas, read before the wallet is asked and again
+ * while it cannot pay. Only an exit's claim is priced: a forward or a redeem would need the redeem
+ * key's signature just to estimate, and that signature is not made to fill in a number.
  */
 function usePayerFunds(
   session: Session,
@@ -220,12 +218,12 @@ function Body({
   const address = account.address;
   const { funds, readFunds } = usePayerFunds(session, crossing, kind, address, wallet);
   const alive = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    alive.current = true;
+    return () => {
       alive.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
   useEffect(() => onStep(step.kind), [step.kind, onStep]);
   const failed = (e: unknown): void => {
     if (rejected(e)) {
@@ -309,22 +307,18 @@ function Body({
   );
 }
 
-export function ClaimDialog({
-  session,
-  crossing,
-  action,
-  onOpenChange,
-}: {
+interface ClaimProps {
   session: Session;
-  crossing: Crossing | null;
+  crossing: Crossing;
   action: HeldAction;
   onOpenChange: (open: boolean) => void;
-}) {
+}
+
+function ClaimRun({ session, crossing, action, onOpenChange }: ClaimProps) {
   const account = useAccount();
   const view = useAtomValue(bridgeAtom);
   const [phase, setPhase] = useState<Step['kind']>('ready');
   const close = () => onOpenChange(false);
-  if (!crossing) return null;
   const kind: Kind = action === 'forward' && crossing.kind === 1 ? 'claim' : action;
   const yaca = fmt(BigInt(crossing.amount), PARAMS.DECIMALS);
   const flipped = view.canonical !== undefined && view.canonical.version !== BigInt(crossing.version);
@@ -351,17 +345,18 @@ export function ClaimDialog({
       data-testid={`${action}-dialog`}
     >
       {body ? (
-        <Body
-          key={crossing.id}
-          session={session}
-          crossing={crossing}
-          action={action}
-          onStep={setPhase}
-          onClose={close}
-        />
+        <Body session={session} crossing={crossing} action={action} onStep={setPhase} onClose={close} />
       ) : (
         <ConnectWallet onCancel={close} />
       )}
     </TxDialog>
   );
+}
+
+/** One run per crossing: what one claim reached never titles the next. */
+export function ClaimDialog({
+  crossing,
+  ...props
+}: Omit<ClaimProps, 'crossing'> & { crossing: Crossing | null }) {
+  return crossing ? <ClaimRun key={crossing.id} crossing={crossing} {...props} /> : null;
 }

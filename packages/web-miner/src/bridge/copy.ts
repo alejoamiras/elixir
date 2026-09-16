@@ -79,8 +79,6 @@ export interface RowFacts {
   who?: string;
   /** The Ethereum network the claim needs a wallet on ("Sepolia"). */
   chain: string;
-  /** The Ethereum wallet's own name, when one is connected ("Rabby"). */
-  wallet: string;
 }
 
 const POLICY = policyFor();
@@ -146,8 +144,8 @@ type Line = (c: Crossing, f: RowFacts) => RowLine;
 const proving: Line = (c, f) =>
   c.kind === 3
     ? {
-        chip: chip(`waiting for ${f.wallet}`, 'on'),
-        sentence: `Confirm the deposit in ${f.wallet}. Nothing leaves your wallet until you do.`,
+        chip: chip('waiting for your wallet', 'on'),
+        sentence: 'Confirm the deposit in your wallet. Nothing leaves it until you do.',
         trail: [
           st('your wallet', 'on'),
           st('deposited', 'todo'),
@@ -161,11 +159,11 @@ const proving: Line = (c, f) =>
         trail: [st('proving', 'on'), st('reached Ethereum', 'todo'), st(`claim on ${f.target}`, 'todo')],
       };
 
-const dropped: Line = (c, f) => ({
+const dropped: Line = (c) => ({
   chip: chip(c.kind === 3 ? 'not sent' : 'not included', 'warn'),
   sentence:
     c.kind === 3
-      ? `${f.wallet} never sent it, or Ethereum didn't include it in time. No YACA left your wallet; if it was sent, the gas is spent.`
+      ? "Your wallet never sent it, or Ethereum didn't include it in time. No YACA left it; if it was sent, the gas is spent."
       : 'The node never included it. Nothing left your balance.',
   trail: c.kind === 3 ? [st('not sent', 'bad')] : [st('sent', 'done'), st('not included', 'bad')],
   action: againOf(c),
@@ -242,7 +240,7 @@ const held: Line = (c, f) => {
 const claimable: Line = (c, f) => {
   const trail =
     c.kind === 3
-      ? [st(`sent from ${f.wallet}`, 'done'), st('crossed to Aztec', 'done'), st('claim', 'on')]
+      ? [st('sent from your wallet', 'done'), st('crossed to Aztec', 'done'), st('claim', 'on')]
       : [st(`left ${f.version}`, 'done'), st('reached Ethereum', 'done'), st('claim', 'on')];
   if (f.elsewhere)
     return {
@@ -268,10 +266,10 @@ const claimable: Line = (c, f) => {
   };
 };
 
-const deposited: Line = (_c, f) => ({
+const deposited: Line = () => ({
   chip: chip('crossing to Aztec', 'on'),
-  sentence: `Sent from ${f.wallet}; crossing to Aztec, a few minutes.`,
-  trail: [st(`sent from ${f.wallet}`, 'done'), st('crossing to Aztec', 'on'), st('claim', 'todo')],
+  sentence: 'Sent from your wallet; crossing to Aztec, a few minutes.',
+  trail: [st('sent from your wallet', 'done'), st('crossing to Aztec', 'on'), st('claim', 'todo')],
 });
 
 const LINES: Record<RowState, Line> = {

@@ -744,19 +744,21 @@ export class BridgeSession {
     prev: BridgeView['versions'],
   ): Promise<BridgeView['versions']> {
     const own = this.ctx.version.toString();
-    const versions = new Set((await this.journal.list()).map((c) => c.version));
+    // A settled crossing is judged by nothing: only the versions with one under way are read.
+    const versions = new Set((await this.journal.list()).filter(inFlight).map((c) => c.version));
     versions.delete(own);
-    const out: Record<string, VersionFacts> = {};
-    for (const v of versions) {
-      const facts = await this.reader
+    const read = async (v: string): Promise<[string, VersionFacts | undefined]> => [
+      v,
+      await this.reader
         .standing(BigInt(v), block.number ?? undefined)
         .then((standing) => ({
           standing,
           deadline: readDeadline({ ...standing, floor, l1Now: block.timestamp }),
         }))
-        .catch(() => prev?.[v]);
-      if (facts) out[v] = facts;
-    }
+        .catch(() => prev?.[v]),
+    ];
+    const out: Record<string, VersionFacts> = {};
+    for (const [v, facts] of await Promise.all([...versions].map(read))) if (facts) out[v] = facts;
     return out;
   }
 

@@ -190,11 +190,18 @@ export function useOpening(open: boolean): number {
 
 /**
  * Whether the dialog is still open, as read after an await: a click's work that outlives a close
- * (a validation still running when Cancel came) must not send.
+ * (a validation still running when Cancel came) must not send. An owner that unmounts the dialog
+ * instead of closing it never renders `open` false, so unmounting reads as closed too.
  */
 export function useLive(open: boolean): () => boolean {
   const ref = useRef(open);
   ref.current = open;
+  useEffect(() => {
+    ref.current = open;
+    return () => {
+      ref.current = false;
+    };
+  }, [open]);
   return useCallback(() => ref.current, []);
 }
 
