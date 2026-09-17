@@ -61,6 +61,9 @@ describe('the recovery file', () => {
     expect(parse(file({ witness: { ...crossing.witness, kind: 9 } }))).toThrow(/witness: kind 9/);
     expect(parse(file({ amount: '-1' }))).toThrow(/amount is missing or malformed/);
     expect(parse(file({ createdAt: Number.MAX_SAFE_INTEGER }))).toThrow(/createdAt is not a time/);
+    expect(parse(file({ proofDeadline: 'not-a-date' }))).toThrow(/proofDeadline is not a whole number/);
+    expect(parse(file({ proofDeadline: '9000000000000' }))).toThrow(/proofDeadline is not a time/);
+    expect(parse(file({ inboxIndex: '1e3' }))).toThrow(/inboxIndex is not a whole number/);
     expect(parse('{"v":2}')).toThrow(/version 2 is not 1/);
     expect(parse('nope')).toThrow(/not JSON/);
     // The card's fields and the witness the signature covers must be one crossing.

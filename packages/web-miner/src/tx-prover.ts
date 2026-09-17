@@ -12,7 +12,7 @@ export type TxPhase = (phase: PrestoPhase, data?: PrestoPhaseData) => void;
 export class TxProver extends PrestoProver {
   /** The UI's listener for the proof under way; the meter's own tracking never depends on it. */
   onPhase: TxPhase | null = null;
-  /** Told when a proof starts and when it ends, a thrown one included: the UI's attribution lives between the two. */
+  /** Told when a proof starts and when it ends, a thrown one included. */
   onProof: ((state: 'start' | 'end') => void) | null = null;
   #forced = false;
   #local = false;

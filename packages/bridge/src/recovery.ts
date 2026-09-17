@@ -89,7 +89,7 @@ export function parseCrossing(raw: unknown, where: string): Crossing {
     ethAddress: str('ethAddress', HEX20).toLowerCase() as Hex,
   };
   c.id = crossingId(c);
-  optionalFields(o, c, num);
+  optionalFields(o, c, num, where);
   // A twin (another message under one index) keeps the id its message gave it: the crossing's id, then a suffix.
   if (typeof o.id === 'string' && o.id.startsWith(`${c.id}:`)) c.id = o.id;
   else if (o.id !== undefined && o.id !== c.id) fail(where, `id ${String(o.id)} is not ${c.id}`);
@@ -101,21 +101,33 @@ export function parseCrossing(raw: unknown, where: string): Crossing {
   return c;
 }
 
-/** The fields a crossing carries once it moved: taken as typed, never required. */
-function optionalFields(o: Record<string, unknown>, c: Crossing, num: (k: string) => number): void {
-  const strings = [
-    'txHash',
-    'expiresAt',
-    'epoch',
-    'proofDeadline',
-    'target',
-    'inboxIndex',
-    'l1TxHash',
-    'claimTxHash',
-    'recipient',
-    'error',
-  ] as const;
-  for (const k of strings) if (typeof o[k] === 'string') (c as unknown as Record<string, unknown>)[k] = o[k];
+/** The last second a JavaScript Date represents. */
+const MAX_TIME_S = 8_640_000_000_000;
+const TIMES: ReadonlySet<string> = new Set(['expiresAt', 'proofDeadline']);
+/** A decimal string as the file spells it; the two unix-second fields also within a Date's reach. */
+const decimal = (v: unknown, k: string, where: string): string => {
+  if (typeof v !== 'string' || !DECIMAL.test(v)) fail(where, `${k} is not a whole number`);
+  if (TIMES.has(k) && Number(v) > MAX_TIME_S) fail(where, `${k} is not a time`);
+  return v as string;
+};
+
+/**
+ * The fields a crossing carries once it moved: never required, but the page parses the numeric ones
+ * (`BigInt`, a Date) wherever the row shows them, so a present one must be what it claims.
+ */
+function optionalFields(
+  o: Record<string, unknown>,
+  c: Crossing,
+  num: (k: string) => number,
+  where: string,
+): void {
+  const set = (k: string, v: unknown) => {
+    (c as unknown as Record<string, unknown>)[k] = v;
+  };
+  for (const k of ['txHash', 'l1TxHash', 'claimTxHash', 'recipient', 'error'] as const)
+    if (typeof o[k] === 'string') set(k, o[k]);
+  for (const k of ['expiresAt', 'epoch', 'proofDeadline', 'target', 'inboxIndex'] as const)
+    if (o[k] !== undefined) set(k, decimal(o[k], k, where));
   for (const k of ['block', 'claimBlock', 'anchorBlock'] as const)
     if (typeof o[k] === 'number') c[k] = num(k);
   if (o.claimSettled === true) c.claimSettled = true;

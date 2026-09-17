@@ -11,7 +11,7 @@ const BORDER: Record<HeroTone, string> = {
   bad: 'border-bad',
 };
 
-/** One moment's card; `aside` sits across from the eyebrow, `actions` under the body and trail, `side` in a right column. */
+/** One moment's card; `aside` sits across from the eyebrow, `actions` under the body and trail. */
 export function HeroCard({
   eyebrow,
   aside,

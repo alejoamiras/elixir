@@ -186,3 +186,37 @@ preflight's, a node switch does not move it; `invalid-proof` rightly bars the wa
 `setForceLocal` (read once at the proof's entry), and the bracket on every SDK path (`downloading`, a `/prove`
 denial → fallback → WASM, a throw with no phase). Fixes committed as `2b3904d`; the real chain shard 9/9 on
 them.
+
+## The final cross-arc codex pass (§10 step 4, a fresh session on `git diff main...HEAD`)
+
+Session `01a0b074-0f5f-7973-929e-1562343f8afe` (285 files, +23174/−6079, 77 commits); the prompt asked for
+the seams between arcs, duplication across them, drift from the plan and the brief, the whole surface's
+threat model, vestigial code, and both verbatim rules. Before it ran: `ClaimStatus.tsx`'s stepper and marks
+(no consumer since P9) removed, the file renamed `NoticeCard.tsx` for what it holds (`fb70ce7`).
+
+**Round 1** (2026-09-17): REVISE, eight findings (six medium, two low), all verified and folded (`ba9579b`).
+1. (medium) A recovery file's `createdAt` up to `MAX_SAFE_INTEGER` passed validation and threw
+   `RangeError` in the row's `stamp()` — outside every tile boundary, and persisted. `parseCrossing`
+   bounds both times by the last millisecond a Date holds; the test case.
+2. (medium) The upgrade card counted every K2 crossing, an earlier upgrade's arrivals included, as this
+   version's "sent ahead"; and `c.state` alone, so a send never sent (`unfinished`) stayed counted. Now
+   this version's sends, through `rowStatesAtom`.
+3. (medium) The header chip, the Wallet tile and Settings showed `record.account.address` (the address
+   the record was made with) while the balance is the current class's (`boot.account`) — on main too, but
+   the stack rewrote all three surfaces. All three show what the build opened.
+4. (medium) The page's shortcuts (`,` `w` Space) fired from inside a dialog: a locked transaction dialog
+   navigated away from mid-proof. `interactive()` includes `[role="dialog"]`; the hotkeys spec covers it.
+5. (medium) The activity rows hardcoded "about 20 s" (four places) and a 20 s bar while the wallet
+   proves through Presto in 5. `RowFacts.prover` from `useTxProver()` → `PROVING[prover].about` and the
+   bar's length; `activity-rows` covers the Presto case. The chip word does not gain ✦ (the pill and the
+   ledger's claim line carry the attribution; the row's is a promise).
+6. (medium) The brief's rule 4 ("risk only where the user can act, said once"): `App.tsx`'s three-line
+   host-trust paragraph under every route and the preflight tile's repeat were still there beside
+   Settings › About and the FAQ. Both removed.
+7. (low) `HeroCard.side` (only its own test used it), `journal.visible()` (rows fold, never drop) and
+   `copy.ts` `untilOrAgo` removed with their assertions.
+8. (low) Introductions naming deleted surfaces (`features/recovery.ts`, `routes.ts`, the gallery) and
+   `rows.ts`'s three-line header compressed to its invariant.
+   Codex's "looks fine": formatting is a re-export, not a copy; the version-name adapters have distinct
+   inputs; miner and stats share `readDeadline`; `Sheet` keeps the stats calculator; the witness and
+   signature bindings; the Presto endpoint policy; the old origin's WASM as a recorded departure.
