@@ -149,6 +149,11 @@ in "Then" is clean. Codex marked the entrypoint test's omission, the concurrent-
 wait as not material; it noted a pre-existing path where `canonicalAt()` swallows an RPC error and
 `proofFloor()` caches an inexact floor, which could hold "checking" past the 60 s — unobserved on the rig.
 
+**Round 3** (2026-09-17, resumed, `high`): APPROVE, nothing material — the loop converges at round 3. The
+rig's `browser` (3/3: V5 3.2 min · flip 11.9 s · V6 1.2 min) and `origin` (1/1, 21.7 s) cases green on
+`7542096` with the round-1 chip assertions; lint, the five typechecks, `bun test` 496, vitest miner 118 /
+stats 84 / ui 69 green.
+
 ## Gate (2026-09-16)
 
 | layer | result |
