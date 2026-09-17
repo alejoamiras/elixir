@@ -202,6 +202,15 @@ describe('the activity reading', () => {
       },
     );
     expect(r.rows[0]?.line.sentence).toBe('Claiming privately, about 20 s.');
+    // A claim that failed is ready again: its next proof is promised, the last answer is not read.
+    const back = activity(
+      [fresh],
+      view,
+      NOW,
+      {},
+      { ...env, prover: 'presto', provers: new Map([['fresh', 'wasm']]) },
+    );
+    expect(back.rows[0]?.line.sentence).toContain('about 5 s');
   });
 });
 

@@ -69,11 +69,14 @@ import { nodeHealth } from '../../../site/src/browser/node-health.ts';
 import { readBalanceSnapshot, saveBalanceSnapshot } from '../bridge/snapshot.ts';
 import type { Connection } from '../config';
 import { fingerprintOf } from '../keys/classes';
+import type { ProverKind } from '../presto';
 import {
   type BridgeView,
   bridgeAtom,
   type ClaimRecord,
+  claimingAtom,
   claimsAtom,
+  crossingProversAtom,
   journalAtom,
   provingCrossingAtom,
   rowStatesAtom,
@@ -96,6 +99,7 @@ import {
   exitToL1,
   type L2Handles,
   nextIndexFromChain,
+  type ProverSaid,
   redeem,
   secretsFor,
   selfForward,
@@ -173,6 +177,7 @@ export class BridgeSession {
   readonly reader: PortalReader;
   private readonly client: PublicClient;
   private readonly ctx: Parameters<typeof sendAhead>[0];
+  private said: ProverSaid | undefined;
   private readonly journal: BridgeStore;
   private readonly reads: FactReads;
   private timer: ReturnType<typeof setInterval> | undefined;
@@ -236,7 +241,10 @@ export class BridgeSession {
         : {}),
       l1Now: () => this.l1Now(),
       preflight: () => this.preflight(),
-      proving: (id) => d.store.set(provingCrossingAtom, id),
+      proving: (id, said) => {
+        d.store.set(provingCrossingAtom, id);
+        this.said = id === null ? undefined : said;
+      },
       ...(d.now ? { now: d.now } : {}),
     };
     this.rollups.set(
@@ -652,6 +660,18 @@ export class BridgeSession {
   stop(): void {
     this.closed = true;
     this.unschedule();
+    this.d.store.set(crossingProversAtom, new Map());
+  }
+
+  /**
+   * The wallet's proof under way said who proves it: the answer is the named crossing's, for its
+   * row (kept while it still proves or claims) and for the screen of the operation that sent it.
+   */
+  proverSaid(prover: ProverKind): void {
+    const id = this.d.store.get(provingCrossingAtom);
+    if (id === null) return;
+    this.d.store.set(crossingProversAtom, (m) => new Map(m).set(id, prover));
+    this.said?.(prover);
   }
 
   /** Resolves once every operation queued so far has settled: what a sign-out waits for before the page goes. */
@@ -681,7 +701,19 @@ export class BridgeSession {
   private async publishJournal(): Promise<Crossing[]> {
     const list = (await this.journal.list()).sort((a, b) => b.createdAt - a.createdAt);
     this.d.store.set(journalAtom, list);
+    this.forgetProvers(list);
     return list;
+  }
+
+  /** An answer outlives its proof only while its crossing is named, still proving, or still claiming. */
+  private forgetProvers(list: readonly Crossing[]): void {
+    const { store } = this.d;
+    const held = store.get(crossingProversAtom);
+    const proving = new Set(list.filter((c) => c.state === 'proving').map((c) => c.id));
+    const keep = (id: string) =>
+      id === store.get(provingCrossingAtom) || proving.has(id) || store.get(claimingAtom).has(id);
+    const kept = new Map([...held].filter(([id]) => keep(id)));
+    if (kept.size !== held.size) store.set(crossingProversAtom, kept);
   }
 
   /** The portal's standing and the flip verdict, then every in-flight crossing's next reading. */
@@ -1021,16 +1053,16 @@ export class BridgeSession {
   }
 
   /** Both burns are refused unless the portal routes this version's exits to this build's miner: a leaf from another sender never crosses. */
-  async sendAhead(amount: bigint): Promise<Crossing> {
+  async sendAhead(amount: bigint, said?: ProverSaid): Promise<Crossing> {
     return this.after(async () => {
       await this.registeredHere(this.ctx.version, 'exits');
-      return sendAhead(this.ctx, amount);
+      return sendAhead(this.ctx, amount, said);
     });
   }
-  async exitToL1(amount: bigint, recipient: Hex): Promise<Crossing> {
+  async exitToL1(amount: bigint, recipient: Hex, said?: ProverSaid): Promise<Crossing> {
     return this.after(async () => {
       await this.registeredHere(this.ctx.version, 'exits');
-      return exitToL1(this.ctx, amount, recipient);
+      return exitToL1(this.ctx, amount, recipient, said);
     });
   }
   /** Refused when the portal routes this version's deposits to a miner other than this build's. */

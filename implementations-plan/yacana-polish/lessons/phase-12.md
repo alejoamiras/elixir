@@ -246,3 +246,34 @@ synchronises before paint without a loop).
    fallback → next form → native; `activity-rows` the held row under a page promising Presto.
    Lesson: "keep the last real answer" sounded like the ✦ rule but the ✦ rule is about what proved,
    never about what will — a promise is the permission, an answer belongs to its own screen.
+
+**Round 4**: REVISE, three findings on round 3's row holder, all verified and folded (`2e28af4`).
+1. (medium) "The earliest tap owns the proof in flight" was false: a refused claim stays in
+   `claimingAtom` until `after()`'s journal publish, after the queue has released the next claim, and
+   took that claim's answer. The flows now *name* the crossing (`BridgeContext.proving`: the two burns
+   at their recorded send, the claim just before its send; cleared in `guarded`'s `finally`) into
+   `provingCrossingAtom`; a row takes an answer only while it is the named one.
+2. (medium) Rows waiting their turn read `useTxProver()` — the proof in flight — so a queued claim said
+   "about 20 s" under another's fallback. Rows and every form now read `usePromisedTxProver()` (the
+   permission alone); the ledger's win-claim line reads the proof in flight only when no crossing is named.
+3. (medium) Exit and send-ahead rows had no holder (never in `claimingAtom`): the row went back to
+   "about 5 s" during submission while its dialog held "In your browser". The holder keeps an entry
+   while the row is named, claiming, or in the `proving` state.
+   Also: a progress screen arms on the first null it sees, so a proof already running at mount (another
+   transaction's) is never taken. Lesson: three rounds on one atom — a global "who proves now" is only
+   an answer once something says *whose* it is; inferring the owner from UI state was the recurring bug.
+
+**Round 5**: REVISE, two findings on round 4's readers, both verified and folded.
+1. (medium) "Armed on the first null" covered one ordering only: claim A tapped, then bridge B
+   submitted while A prepares — B's screen mounts on a null atom, arms, and takes A's fallback while B
+   waits in the queue. The global-null heuristic is gone: a dialog passes `said` with its operation
+   (`withdraw`, `sendAhead`, `exitToL1` → `sendRecorded` → `BridgeContext.proving(id, said)`) and hears
+   that operation's proof alone (`useOwnProvingWords`).
+2. (medium) The rows' answers lived in a `useRef` of the Wallet route: leaving and returning mid-claim
+   remounted an empty map and the row promised Presto again. `crossingProversAtom` is the bridge
+   session's now (`proverSaid`, written by the miner session's one phase listener; pruned at each
+   journal publish to the named, proving or claiming crossings; emptied at `stop()`); `rows.ts` reads an
+   entry only while its row proves or claims, so a failed claim's next tap is promised afresh.
+   Known residue, told to codex: a withdraw and a crossing at the wallet at once (the withdraw is
+   outside the bridge queue) share the name window; serialising them would hold a Send behind a
+   claim's 600 s message wait — the worse trade for one word on one screen.

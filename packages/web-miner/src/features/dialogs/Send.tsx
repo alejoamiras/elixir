@@ -40,7 +40,7 @@ import {
   useOnce,
   useOpening,
 } from './Frame';
-import { useHeldProvingWords, useProvingWords } from './use-tx-prover';
+import { type ProvingWords, useOwnProvingWords, useProvingWords } from './use-tx-prover';
 
 const SYM = PARAMS.TOKEN_SYMBOL;
 const money = (raw: bigint) => `${fmt(raw, PARAMS.DECIMALS)} ${SYM}`;
@@ -230,9 +230,8 @@ function Form({
   );
 }
 
-function Proving({ snap, since }: { snap: Snapshot; since: number }) {
+function Proving({ snap, since, words }: { snap: Snapshot; since: number; words: ProvingWords }) {
   const elapsed = useElapsed(since);
-  const words = useHeldProvingWords();
   return (
     <>
       <Stepper
@@ -323,14 +322,16 @@ function SendRun({
   const [step, setStep] = useState<Step>({ kind: 'form' });
   const [error, setError] = useState<string>();
   const live = useLive(open);
+  const proving = useOwnProvingWords();
   const close = () => onOpenChange(false);
   const send = async (snap: Snapshot) => {
     if (!live()) return;
+    proving.reset();
     const since = Date.now();
     setError(undefined);
     setStep({ kind: 'proving', snap, since });
     try {
-      const sent = await session.withdraw(snap);
+      const sent = await session.withdraw(snap, proving.said);
       setStep({ kind: 'sent', snap, ...sent, provedMs: Date.now() - since });
     } catch (e) {
       setError(firstLine(e));
@@ -360,7 +361,7 @@ function SendRun({
       {step.kind === 'form' && (
         <Form session={session} self={self} balance={balance} onSend={(s) => void send(s)} onCancel={close} />
       )}
-      {step.kind === 'proving' && <Proving snap={step.snap} since={step.since} />}
+      {step.kind === 'proving' && <Proving snap={step.snap} since={step.since} words={proving.words} />}
       {step.kind === 'sent' && <Sent step={step} balance={balance} onDone={close} />}
     </TxDialog>
   );

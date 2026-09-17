@@ -138,6 +138,7 @@ describe('the send form', () => {
     await waitFor(() => expect(screen.getByTestId('withdraw-sent')).toBeDefined());
     expect(calls.withdraw).toHaveBeenCalledWith(
       expect.objectContaining({ amount: ONE, mode: 'public', display: '1' }),
+      expect.any(Function),
     );
     expect(screen.getByTestId('withdraw-sent').textContent).toContain('block 83,140');
     expect(screen.getByTestId('withdraw-sent').textContent).toContain(

@@ -12,6 +12,7 @@ import type { EpochInfo, MinerState } from './lib/reducer';
 import { initial } from './lib/reducer';
 import type { OpeningStep, StepId } from './opening-steps';
 import type { CrsProgress } from './pinned-crs';
+import type { ProverKind } from './presto';
 
 /**
  * Why an account did not open, for the note under the button: the prompt ended without a passkey
@@ -129,5 +130,7 @@ export const claimingAtom = atom<ReadonlyMap<string, number>>(new Map());
  * claim's while null.
  */
 export const provingCrossingAtom = atom<string | null>(null);
+/** Who proved each crossing still proving or claiming, by id; the session's, so a list mounted later reads it too. */
+export const crossingProversAtom = atom<ReadonlyMap<string, ProverKind>>(new Map());
 /** The open account's bridge session; null while signed out or on a build without a portal. */
 export const bridgeSessionAtom = atom<BridgeSession | null>(null);

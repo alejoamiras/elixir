@@ -3,7 +3,7 @@
 // finished row folds after its week rather than disappearing, because a record of where money went
 // is the only account the holder has.
 import { useAtom, useAtomValue } from 'jotai';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import type { Crossing } from '../../../bridge/src/journal.ts';
 import { MAX_RECOVERY_BYTES } from '../../../bridge/src/recovery.ts';
 import {
@@ -18,25 +18,10 @@ import { bridgeRecord } from '../bridge/env';
 import { type ActivityRowView, type ActivityView, activity } from '../bridge/rows';
 import { l1Links, links } from '../explorer';
 import { shortAddress } from '../lib/format';
-import { type ProverKind, txProvingAtom } from '../presto';
 import type { Session } from '../session';
-import { bridgeAtom, claimingAtom, journalAtom, nowAtom, provingCrossingAtom, rowStatesAtom } from '../state';
+import { bridgeAtom, claimingAtom, crossingProversAtom, journalAtom, nowAtom, rowStatesAtom } from '../state';
 import { usePromisedTxProver } from './dialogs/use-tx-prover';
 import { saveRecoveryFile } from './recovery';
-
-/**
- * Who proved each crossing's transaction, by id. The session names the crossing its operation
- * proves for, so the answer goes to that row alone — tap order says nothing (a refused claim
- * outlives its turn in the queue) — and stays with it while `live`: still proving or claiming.
- */
-export function useRowProvers(live: (id: string) => boolean): ReadonlyMap<string, ProverKind> {
-  const on = useAtomValue(txProvingAtom);
-  const active = useAtomValue(provingCrossingAtom);
-  const held = useRef(new Map<string, ProverKind>());
-  for (const id of held.current.keys()) if (id !== active && !live(id)) held.current.delete(id);
-  if (on !== null && active !== null) held.current.set(active, on);
-  return held.current;
-}
 
 /** The journal read for this refresh; the header's badge and the list read the same one. */
 export function useActivity(): ActivityView {
@@ -46,8 +31,7 @@ export function useActivity(): ActivityView {
   const now = useAtomValue(nowAtom);
   const claiming = useAtomValue(claimingAtom);
   const prover = usePromisedTxProver();
-  const proving = new Set(journal.filter((c) => (states[c.id] ?? c.state) === 'proving').map((c) => c.id));
-  const provers = useRowProvers((id) => claiming.has(id) || proving.has(id));
+  const provers = useAtomValue(crossingProversAtom);
   return activity(journal, view, now, states, {
     ownVersion: import.meta.env.VITE_ROLLUP_VERSION,
     chainId: bridgeRecord()?.chainId,

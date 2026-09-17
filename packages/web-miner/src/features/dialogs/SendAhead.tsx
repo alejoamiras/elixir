@@ -33,7 +33,7 @@ import {
   useLive,
   useOpening,
 } from './Frame';
-import { useHeldProvingWords, useProvingWords } from './use-tx-prover';
+import { type ProvingWords, useOwnProvingWords, useProvingWords } from './use-tx-prover';
 
 const SYM = PARAMS.TOKEN_SYMBOL;
 const money = (raw: bigint) => `${fmt(raw, PARAMS.DECIMALS)} ${SYM}`;
@@ -172,9 +172,8 @@ function How({ next, onBack }: { next: string; onBack: () => void }) {
   );
 }
 
-function Proving({ next, since }: { next: string; since: number }) {
+function Proving({ next, since, words }: { next: string; since: number; words: ProvingWords }) {
   const elapsed = useElapsed(since);
-  const words = useHeldProvingWords();
   return (
     <>
       <Stepper
@@ -295,13 +294,15 @@ function SendAheadRun({
   const [step, setStep] = useState<Step>({ kind: initial });
   const [error, setError] = useState<string>();
   const live = useLive(open);
+  const proving = useOwnProvingWords();
   const close = () => onOpenChange(false);
   const send = async (amount: bigint, display: string) => {
     if (!live()) return;
+    proving.reset();
     setError(undefined);
     setStep({ kind: 'proving', amount, display, since: Date.now() });
     try {
-      const crossing = (await session.bridge?.sendAhead(amount)) ?? undefined;
+      const crossing = (await session.bridge?.sendAhead(amount, proving.said)) ?? undefined;
       setStep({ kind: 'sent', display, crossing });
     } catch (e) {
       setError(firstLine(e));
@@ -335,7 +336,7 @@ function SendAheadRun({
         </div>
       )}
       {step.kind === 'how' && <How next={next} onBack={() => setStep({ kind: 'form' })} />}
-      {step.kind === 'proving' && <Proving next={next} since={step.since} />}
+      {step.kind === 'proving' && <Proving next={next} since={step.since} words={proving.words} />}
       {step.kind === 'sent' && <Sent session={session} next={next} crossing={step.crossing} onDone={close} />}
     </TxDialog>
   );

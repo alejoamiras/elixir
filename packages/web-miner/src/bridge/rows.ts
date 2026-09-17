@@ -106,6 +106,10 @@ const waitsOnUser = (line: RowLine): boolean =>
   line.action.kind !== 'settings' &&
   !(line.chip.tone === 'on' && (line.action.kind === 'forward' || line.action.kind === 'redeem'));
 
+/** A crossing's own answer while its row still proves or claims; the page's promise otherwise. */
+const proverOf = (c: Crossing, state: RowState, env: Env): ProverKind | undefined =>
+  (env.claiming?.has(c.id) || state === 'proving' ? env.provers?.get(c.id) : undefined) ?? env.prover;
+
 interface Env {
   ownVersion: string;
   chainId?: string;
@@ -113,7 +117,7 @@ interface Env {
   claiming?: ReadonlyMap<string, number>;
   /** Who proves this page's next transaction; the browser when unknown. */
   prover?: ProverKind;
-  /** Who proved a crossing's transaction, by id: that row's answer over the page's promise. */
+  /** Who proved a crossing's transaction, by id: over the page's promise while that row proves or claims. */
   provers?: ReadonlyMap<string, ProverKind>;
 }
 
@@ -159,7 +163,7 @@ export function activity(
         verdictUnknown: view.verdict.kind === 'unknown' || view.rpcFailing,
         claiming: since !== undefined,
         elapsed: elapsedOf(c, state, now, since),
-        prover: env.provers?.get(c.id) ?? env.prover,
+        prover: proverOf(c, state, env),
         elsewhere: elsewhereOf(c, view, env.ownVersion),
         money,
         who: partyOf(c),

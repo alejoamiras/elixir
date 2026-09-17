@@ -489,7 +489,7 @@ describe('the dialogs', () => {
     expect(screen.getByTestId('exit-send').textContent).toBe(`Bridge 2 ${PARAMS.TOKEN_SYMBOL}`);
     fireEvent.click(screen.getByTestId('exit-send'));
     await waitFor(() => expect(screen.getByTestId('exit-sent')).toBeDefined());
-    expect(bridge.exitToL1).toHaveBeenCalledWith(2n * ONE, RECIPIENT);
+    expect(bridge.exitToL1).toHaveBeenCalledWith(2n * ONE, RECIPIENT, expect.any(Function));
   });
 
   test('send ahead: the whole balance by default, more than it refused under the field, the rows say where it waits and lands', async () => {
@@ -507,7 +507,10 @@ describe('the dialogs', () => {
     expect(dialog.textContent).not.toMatch(/arrives by itself|relayer/i);
     fireEvent.click(screen.getByTestId('ahead-send'));
     await waitFor(() => expect(screen.getByTestId('ahead-sent')).toBeDefined());
-    expect(bridge.sendAhead).toHaveBeenCalledWith(15n * 10n ** BigInt(PARAMS.DECIMALS - 1));
+    expect(bridge.sendAhead).toHaveBeenCalledWith(
+      15n * 10n ** BigInt(PARAMS.DECIMALS - 1),
+      expect.any(Function),
+    );
   });
 
   test('from Ethereum: a paused bridge holds the form with the same reason as the Wallet button', () => {

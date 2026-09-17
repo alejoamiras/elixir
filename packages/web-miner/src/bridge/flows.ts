@@ -18,6 +18,7 @@ import { type CrossingSecrets, deriveCrossingSecrets, exitLogTag } from '../../.
 import { signForward, signRedeem } from '../../../bridge/src/signatures.ts';
 import { forwardArgsFromArchive } from '../../../bridge/src/witness.ts';
 import type { FeeFor } from '../feePayer';
+import type { ProverKind } from '../presto';
 import type { SendHook } from '../wallet.ts';
 import { depositOnEthereum, forwardOnEthereum, redeemOnEthereum, type WagmiConfig } from './eth.ts';
 import { type BridgeStore, scanNextIndex } from './store.ts';
@@ -35,6 +36,9 @@ export interface L2Handles {
    */
   beforeNextSend: (hook: SendHook) => () => void;
 }
+
+/** Told who proves an operation's transaction, as its proof says. */
+export type ProverSaid = (prover: ProverKind) => void;
 
 export interface BridgeContext {
   node: AztecNode;
@@ -59,8 +63,11 @@ export interface BridgeContext {
   preflight?: () => Promise<void>;
   /** The device's clock, for the journal's timestamps; a test's stand-in. */
   now?: () => number;
-  /** The crossing the wallet's next proof is for, null once its operation ends: whose the proof's answer is. */
-  proving?: (id: string | null) => void;
+  /**
+   * The crossing the wallet's next proof is for, null once its operation ends: whose the proof's
+   * answer is. `said` hears that proof's prover, for the operation's own progress screen.
+   */
+  proving?: (id: string | null, said?: ProverSaid) => void;
 }
 
 const WAIT = { timeout: 600 };
@@ -152,6 +159,7 @@ async function sendRecorded(
   ctx: BridgeContext,
   c: Crossing,
   send: () => Promise<{ txHash: TxHash }>,
+  said?: ProverSaid,
 ): Promise<Crossing> {
   const remove = ctx.l2().beforeNextSend(async (sent) => {
     await ctx.store.update(c.id, (x) => ({
@@ -163,7 +171,7 @@ async function sendRecorded(
     }));
   });
   let txHash: TxHash;
-  ctx.proving?.(c.id);
+  ctx.proving?.(c.id, said);
   try {
     ({ txHash } = await send());
   } finally {
@@ -192,7 +200,7 @@ async function sendRecorded(
 }
 
 /** K2: burn `amount` here, commit to the master's secret for this index; lands on the next version. */
-export function sendAhead(ctx: BridgeContext, amount: bigint): Promise<Crossing> {
+export function sendAhead(ctx: BridgeContext, amount: bigint, said?: ProverSaid): Promise<Crossing> {
   return guarded(ctx, async () => {
     const c = await ctx.store.create(
       ctx.version.toString(),
@@ -203,16 +211,25 @@ export function sendAhead(ctx: BridgeContext, amount: bigint): Promise<Crossing>
     await ctx.store.update(c.id, (x) => ({ ...x, ethAddress: secrets.redeemAddress.toString() as Hex }));
     const { nonce, witness } = await burnAuthwit(ctx, amount);
     const { miner, fee } = ctx.l2();
-    return sendRecorded(ctx, c, () =>
-      miner.methods
-        .send_ahead(amount, secrets.secretHash, secrets.redeemAddress, nonce)
-        .send({ from: ctx.from, fee: fee as never, authWitnesses: [witness], wait: NO_WAIT }),
+    return sendRecorded(
+      ctx,
+      c,
+      () =>
+        miner.methods
+          .send_ahead(amount, secrets.secretHash, secrets.redeemAddress, nonce)
+          .send({ from: ctx.from, fee: fee as never, authWitnesses: [witness], wait: NO_WAIT }),
+      said,
     );
   });
 }
 
 /** K1: burn `amount` here for `recipient` on Ethereum. */
-export function exitToL1(ctx: BridgeContext, amount: bigint, recipient: Hex): Promise<Crossing> {
+export function exitToL1(
+  ctx: BridgeContext,
+  amount: bigint,
+  recipient: Hex,
+  said?: ProverSaid,
+): Promise<Crossing> {
   return guarded(ctx, async () => {
     const c = await ctx.store.create(
       ctx.version.toString(),
@@ -222,10 +239,14 @@ export function exitToL1(ctx: BridgeContext, amount: bigint, recipient: Hex): Pr
     const secrets = await secretsFor(ctx, c.index);
     const { nonce, witness } = await burnAuthwit(ctx, amount);
     const { miner, fee } = ctx.l2();
-    return sendRecorded(ctx, c, () =>
-      miner.methods
-        .exit_to_l1(amount, EthAddress.fromString(recipient), secrets.tag, nonce)
-        .send({ from: ctx.from, fee: fee as never, authWitnesses: [witness], wait: NO_WAIT }),
+    return sendRecorded(
+      ctx,
+      c,
+      () =>
+        miner.methods
+          .exit_to_l1(amount, EthAddress.fromString(recipient), secrets.tag, nonce)
+          .send({ from: ctx.from, fee: fee as never, authWitnesses: [witness], wait: NO_WAIT }),
+      said,
     );
   });
 }

@@ -1,5 +1,5 @@
 import { useAtomValue } from 'jotai';
-import { useRef } from 'react';
+import { useState } from 'react';
 import { PROVING, type ProverKind, prestoAtom, prestoProvesTx, txProvingAtom } from '../../presto';
 import { provingCrossingAtom } from '../../state';
 
@@ -16,20 +16,17 @@ export function useTxProver(): ProverKind {
   return crossing === null ? (on ?? promised) : promised;
 }
 
-/**
- * For a transaction's own progress screen, mounted for it alone: the answer its proof gave, kept
- * through submission and inclusion after the proof ended; the promise until the proof says. A proof
- * already in flight at mount is another transaction's and is never taken.
- */
-export function useHeldTxProver(): ProverKind {
-  const on = useAtomValue(txProvingAtom);
-  const promised = usePromisedTxProver();
-  const armed = useRef(false);
-  const held = useRef<ProverKind | null>(null);
-  if (on === null) armed.current = true;
-  else if (armed.current) held.current = on;
-  return held.current ?? promised;
-}
+export type ProvingWords = (typeof PROVING)[ProverKind];
 
 export const useProvingWords = () => PROVING[usePromisedTxProver()];
-export const useHeldProvingWords = () => PROVING[useHeldTxProver()];
+
+/**
+ * A dialog's own transaction: `said` goes to the session with the operation and hears that
+ * operation's proof alone, so the progress screen keeps its answer through submission, whatever
+ * else proves meanwhile; the promise until then, and again after `reset`.
+ */
+export function useOwnProvingWords() {
+  const [own, said] = useState<ProverKind | null>(null);
+  const promised = usePromisedTxProver();
+  return { words: PROVING[own ?? promised], said, reset: () => said(null) };
+}

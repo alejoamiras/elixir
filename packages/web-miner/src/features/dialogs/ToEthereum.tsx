@@ -30,7 +30,7 @@ import {
   useLive,
   useOpening,
 } from './Frame';
-import { useHeldProvingWords, useProvingWords } from './use-tx-prover';
+import { type ProvingWords, useOwnProvingWords, useProvingWords } from './use-tx-prover';
 import { ConnectWallet, chain, WalletChip } from './Wallet';
 
 const SYM = PARAMS.TOKEN_SYMBOL;
@@ -242,9 +242,8 @@ function How({ onBack }: { onBack: () => void }) {
   );
 }
 
-function Proving({ since }: { since: number }) {
+function Proving({ since, words }: { since: number; words: ProvingWords }) {
   const elapsed = useElapsed(since);
-  const words = useHeldProvingWords();
   return (
     <>
       <Stepper
@@ -326,6 +325,7 @@ function ToEthereumRun({
   const [step, setStep] = useState<Step>({ kind: 'form' });
   const [error, setError] = useState<string>();
   const live = useLive(open);
+  const proving = useOwnProvingWords();
   const close = () => onOpenChange(false);
   const connected = account.isConnected && account.address !== undefined;
   // The wallet picked from the form's own "Connect wallet" becomes the recipient as it connects.
@@ -334,11 +334,12 @@ function ToEthereumRun({
   }, [step.kind, connected]);
   const send = async (snap: EthSnapshot) => {
     if (!live()) return;
+    proving.reset();
     const since = Date.now();
     setError(undefined);
     setStep({ kind: 'proving', snap, since });
     try {
-      const crossing = (await session.bridge?.exitToL1(snap.amount, snap.to)) ?? undefined;
+      const crossing = (await session.bridge?.exitToL1(snap.amount, snap.to, proving.said)) ?? undefined;
       setStep({ kind: 'sent', snap, crossing, provedMs: Date.now() - since });
     } catch (e) {
       setError(firstLine(e));
@@ -375,7 +376,7 @@ function ToEthereumRun({
       )}
       {step.kind === 'how' && <How onBack={() => setStep({ kind: 'form' })} />}
       {step.kind === 'connect' && <ConnectWallet onCancel={() => setStep({ kind: 'form' })} />}
-      {step.kind === 'proving' && <Proving since={step.since} />}
+      {step.kind === 'proving' && <Proving since={step.since} words={proving.words} />}
       {step.kind === 'sent' && <Sent step={step} onDone={close} />}
     </TxDialog>
   );

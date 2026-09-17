@@ -77,6 +77,7 @@ import { type L1Sampler, startL1Sampler } from './l1-sampler';
 import { initialSteps, keyStepLabel, type OpeningStep, type StepId } from './opening-steps';
 import { CrsPinError } from './pinned-crs';
 import {
+  type ProverKind,
   prestoAtom,
   prestoEligible,
   prestoProvesTx,
@@ -94,6 +95,7 @@ import {
   epochAtom,
   logAtom,
   mineIntentAtom,
+  provingCrossingAtom,
 } from './state';
 import type { TxProver } from './tx-prover';
 import { ChainViewHeldError } from './wallet';
@@ -187,6 +189,7 @@ export class Session {
   private unsubBalance: (() => void) | undefined;
   private unsubFlip: (() => void) | undefined;
   private unsubTxProver: (() => void) | undefined;
+  private withdrawSaid: ((prover: ProverKind) => void) | undefined;
 
   /**
    * The open attempt: its generation and the AbortController Cancel aborts. `ceremony`: the OS prompt
@@ -718,7 +721,14 @@ export class Session {
     const mirror = () => prover.setForceLocal(!prestoProvesTx(this.store.get(prestoAtom)));
     mirror();
     this.unsubTxProver = this.store.sub(prestoAtom, mirror);
-    prover.onPhase = (phase) => this.store.set(txProvingAtom, (on) => txProvingAfter(on, phase));
+    prover.onPhase = (phase) => {
+      const on = txProvingAfter(this.store.get(txProvingAtom), phase);
+      this.store.set(txProvingAtom, on);
+      if (on === null) return;
+      // A crossing's operation names itself; a proof under no name is the withdraw's, or a win's claim.
+      if (this.store.get(provingCrossingAtom) === null) this.withdrawSaid?.(on);
+      else this.bridge?.proverSaid(on);
+    };
     prover.onProof = () => this.store.set(txProvingAtom, null);
   }
 
@@ -898,10 +908,11 @@ export class Session {
    * A balance read failing after the transfer is in a block cannot fail the call, or the same
    * transfer would be sent again.
    */
-  async withdraw(w: Withdrawal): Promise<Sent> {
+  async withdraw(w: Withdrawal, said?: (prover: ProverKind) => void): Promise<Sent> {
     const c = this.controller;
     if (!c) throw new Error('no open account');
     c.pause('withdraw');
+    this.withdrawSaid = said;
     try {
       return await c.track(async () => {
         const sent = await sendWithdraw(c.deployment, c.address, c.feeSettings, w);
@@ -909,6 +920,7 @@ export class Session {
         return sent;
       });
     } finally {
+      this.withdrawSaid = undefined;
       c.release('withdraw');
     }
   }
