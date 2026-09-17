@@ -107,7 +107,7 @@ test('the versioned origin: the old role under the same headers, restore only, a
   // The old origin's miner: retired (no Start), no dialog on arrival, and the dialog restores, never creates.
   await page.goto(`${r.oldBaseURL}/mine/${query(r)}`);
   await expect(page.getByTestId('cockpit')).toBeVisible({ timeout: 2 * 60_000 });
-  await expect(page.getByTestId('retired')).toContainText('Mining has ended on this version');
+  await expect(page.getByTestId('retired')).toContainText('Send what’s still here ahead.');
   await expect(page.getByTestId('start')).toHaveCount(0);
   await expect(page.getByTestId('key-screen')).toBeHidden();
   await page.getByTestId('sign-in-mine').click();

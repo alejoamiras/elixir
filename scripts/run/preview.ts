@@ -12,13 +12,18 @@ export function buildApp(pkg: string, outDir: string, log: number, env: NodeJS.P
   });
 }
 
-/** `vite preview` in its own process group, so a teardown can kill exactly it. */
+/**
+ * `vite preview` in its own process group, so a teardown can kill exactly it. `host` is what it
+ * binds: `localhost` takes whichever loopback family the machine resolves first; a test domain
+ * the browser maps to 127.0.0.1 needs that address bound.
+ */
 export function startPreview(
   pkg: string,
   outDir: string,
   log: number,
   port: number,
   env: NodeJS.ProcessEnv,
+  host = 'localhost',
 ): ChildProcess {
   const args = [
     'vite',
@@ -29,7 +34,7 @@ export function startPreview(
     String(port),
     '--strictPort',
     '--host',
-    'localhost',
+    host,
   ];
   const child = spawn('bunx', args, { cwd: pkg, stdio: ['ignore', log, log], detached: true, env });
   child.unref();
