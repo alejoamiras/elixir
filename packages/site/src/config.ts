@@ -2,7 +2,7 @@
 // the versioned origin) plus the deployment record (addresses, class ids, chain, the rollup, the
 // portal, an announced migration). Production builds take nothing from the process environment; e2e
 // and dev builds may override every value through VITE_* variables.
-import type { BridgeRecord, MigrationRecord } from '../../bridge/src/record.ts';
+import type { BridgeRecord, LifecycleRecord, MigrationRecord } from '../../bridge/src/record.ts';
 
 export type SiteMode = 'production' | 'e2e' | 'dev';
 export const SITE_MODES: readonly SiteMode[] = ['production', 'e2e', 'dev'];
@@ -64,6 +64,8 @@ export interface SiteConfig {
   role: AppRole;
   /** The record's announced migration, or null: the apps show the guided path only with one. */
   migration: MigrationRecord | null;
+  /** The record's lifecycle notes (the stop, the node's retirement), or null: only an old build carries them. */
+  lifecycle: LifecycleRecord | null;
   /** The record's portal block, or null before the L1 deploy: the bridge features need it. */
   bridge: BridgeRecord | null;
   /** The first epoch this miner has: 0, or the source's last + 1 for a continuation. Every epoch read floors here. */
@@ -97,6 +99,7 @@ export interface DeploymentRecord {
   tokenClassId: string;
   bridge?: BridgeRecord;
   migration?: MigrationRecord;
+  lifecycle?: LifecycleRecord;
   /** A continuation's start: the epoch after its source's last, with the source's seed and target. */
   continuation?: { firstEpoch: string; sourceSeed: string; sourceTarget: string; source: string };
   /** The rest of `deployments/<profile>.json` (salts, deployer, params, launch times) travels as is. */
@@ -210,6 +213,7 @@ export function loadSiteConfig(opts: {
     oldAppOrigin,
     role,
     migration: null,
+    lifecycle: null,
     bridge: null,
     firstEpoch: 0,
     record: deployment,
@@ -220,6 +224,7 @@ export function loadSiteConfig(opts: {
   // throwaway deployment's page at the live portal, whose Registry then reads as a flip.
   const own = mode === 'e2e' ? undefined : config.record;
   config.migration = blockOf<MigrationRecord>(env, 'VITE_MIGRATION', own?.migration);
+  config.lifecycle = blockOf<LifecycleRecord>(env, 'VITE_LIFECYCLE', own?.lifecycle);
   config.bridge = blockOf<BridgeRecord>(env, 'VITE_BRIDGE', own?.bridge);
   config.firstEpoch = firstEpochOf(pick, config.record);
   assertExampleClaim(config);
@@ -290,6 +295,16 @@ function assertProductionEthereum(c: SiteConfig): void {
   if (old.hostname === c.rpId) throw new Error(`old app origin ${c.oldAppOrigin} is the apex itself`);
   if (c.migration && !/^\d+$/.test(c.migration.toIndex))
     throw new Error(`migration.toIndex ${JSON.stringify(c.migration.toIndex)} is not a Registry index`);
+  assertLifecycle(c.lifecycle);
+}
+
+/** A stop is a unix time and the retirement a boolean: the old origin decides its page on them. */
+function assertLifecycle(l: LifecycleRecord | null): void {
+  if (!l) return;
+  if (l.stoppedProvingAt !== undefined && !/^\d{1,10}$/.test(l.stoppedProvingAt))
+    throw new Error(`lifecycle.stoppedProvingAt ${JSON.stringify(l.stoppedProvingAt)} is not a unix time`);
+  if (l.nodeRetired !== undefined && typeof l.nodeRetired !== 'boolean')
+    throw new Error(`lifecycle.nodeRetired ${JSON.stringify(l.nodeRetired)} is not a boolean`);
 }
 
 /** Vite `define` entries: every VITE_* the apps read, as JSON literals. */
@@ -319,6 +334,7 @@ export const viteDefine = (c: SiteConfig): Record<string, string> =>
       VITE_OLD_APP_ORIGIN: c.oldAppOrigin,
       VITE_APP_ROLE: c.role,
       VITE_MIGRATION: c.migration ? JSON.stringify(c.migration) : '',
+      VITE_LIFECYCLE: c.lifecycle ? JSON.stringify(c.lifecycle) : '',
       VITE_BRIDGE: c.bridge ? JSON.stringify(c.bridge) : '',
       VITE_VERSION_INDEX: c.bridge?.registryIndex ?? '',
       VITE_FIRST_EPOCH: String(c.firstEpoch),

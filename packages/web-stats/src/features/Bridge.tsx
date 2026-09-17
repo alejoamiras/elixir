@@ -25,10 +25,12 @@ import {
   coinsSeries,
   crossingLine,
   day,
+  deadlineOf,
   exitLimitLine,
   figuresOf,
   headroomLine,
   kpisOf,
+  lastDayWords,
   type MinerFlows,
   pauseLine,
   pauseRule,
@@ -42,8 +44,6 @@ import { CoinsChart } from './CoinsChart';
 
 const FIRST = firstEpoch();
 export const RULES_HREF = `${FAQ_HREF}#rules`;
-
-const OPEN_ENDED = (1n << 256n) - 1n;
 
 const chainName = (chainId: string): string =>
   chainId === '1'
@@ -135,13 +135,13 @@ export function BridgeKpis({
 export function BridgePhases({
   version,
   migration,
-  nowSeconds,
+  snapshot,
   className,
 }: {
   version: VersionFlows | undefined;
   migration: MigrationRecord | null;
-  /** Ethereum's clock as observed at the read, never the device's: the closing day is a categorical call. */
-  nowSeconds: number;
+  /** The read the version came from: its clock is Ethereum's, never the device's — the closing day is a categorical call. */
+  snapshot: Pick<BridgeSnapshot, 'policy' | 'chainTime'> | null;
   className?: string;
 }) {
   return (
@@ -155,8 +155,11 @@ export function BridgePhases({
       >
         {version ? `V${version.registryIndex} · the phases` : 'the phases'}
       </TileHeader>
-      {version ? (
-        <Timeline items={phasesOf(version, migration, nowSeconds)} className="mt-1.5" />
+      {version && snapshot ? (
+        <Timeline
+          items={phasesOf(version, migration, Number(snapshot.chainTime), snapshot)}
+          className="mt-1.5"
+        />
       ) : (
         <p className="text-xs text-ink-3">reading the portal…</p>
       )}
@@ -204,12 +207,6 @@ export function BridgeCoins({
   );
 }
 
-/** The version's last day, as a date or as the rule that sets it. */
-const lastDayOf = (v: VersionFlows, exitFloor: bigint): string =>
-  v.deadline === OPEN_ENDED
-    ? `the later of V${v.registryIndex + 2n} going live and ${Number(exitFloor / 86_400n)} d after the upgrade · plus paused days`
-    : `${day(v.deadline)} · plus paused days`;
-
 function VersionCard({
   v,
   snapshot,
@@ -240,7 +237,7 @@ function VersionCard({
         </Badge>
       </div>
       <p className="mt-1.5 text-sm" data-testid="version-line">
-        {versionLine(v, snapshot.canonical)}
+        {versionLine(v, snapshot)}
       </p>
       {snapshot.extras && <StackedBar segments={segments} className="mt-3.5" />}
       <div className="mt-3">
@@ -251,7 +248,7 @@ function VersionCard({
               last day
             </Term>
           }
-          value={lastDayOf(v, snapshot.policy.exitFloor)}
+          value={lastDayWords(deadlineOf(v, snapshot), v, Number(snapshot.policy.exitFloor / 86_400n))}
           className="[&>:first-child]:shrink-0 [&>:last-child]:text-right"
         />
       </div>

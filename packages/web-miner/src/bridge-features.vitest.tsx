@@ -145,55 +145,115 @@ beforeEach(() => {
   }));
 });
 
+/** The upgrade card's fixtures: an announced V1 two days out, the card, three send-aheads (one undone). */
+const announce = () =>
+  vi.stubEnv(
+    'VITE_MIGRATION',
+    JSON.stringify({
+      toIndex: '1',
+      announcedAt: '1800000000',
+      expectedFlipAt: String(NOW / 1000 + 2 * 86_400),
+    }),
+  );
+const card = (onSendAhead = () => {}, onHow = () => {}) => (
+  <MigrationCard onSendAhead={onSendAhead} onHow={onHow} />
+);
+const stations = () =>
+  Array.from(document.querySelectorAll('[data-slot=trail] [data-state]')).map(
+    (e) => (e as HTMLElement).dataset.state,
+  );
+const sends = [
+  crossing({ id: 'a', kind: 2, state: 'held', amount: (4n * ONE).toString() }),
+  crossing({ id: 'b', kind: 2, state: 'sent', amount: (2n * ONE).toString() }),
+  crossing({ id: 'c', kind: 2, state: 'dropped', amount: (9n * ONE).toString() }),
+];
+
 describe('the migration card', () => {
-  test('quiet: nothing; announced: the send button carries the balance and the loss line stands', () => {
+  test('quiet: nothing; announced: the fact and the day, the button with the balance, How it works', () => {
     expect(moment(null, false)).toBe('quiet');
-    const { container } = render(
-      <Provider store={createStore()}>
-        <MigrationCard onSendAhead={() => {}} />
-      </Provider>,
-    );
+    const { container } = render(<Provider store={createStore()}>{card()}</Provider>);
     expect(container.innerHTML).toBe('');
     cleanup();
-    vi.stubEnv(
-      'VITE_MIGRATION',
-      JSON.stringify({
-        toIndex: '1',
-        announcedAt: '1800000000',
-        expectedFlipAt: String(NOW / 1000 + 2 * 86_400),
-      }),
-    );
+    announce();
     const onSendAhead = vi.fn();
-    mount(<MigrationCard onSendAhead={onSendAhead} />, (s) => s.set(balanceAtom, 3n * ONE));
-    const card = screen.getByTestId('migration-card');
-    expect(card.dataset.moment).toBe('announced');
-    expect(card.textContent).toContain('In about 2.0 d');
-    expect(card.textContent).toContain('Anything still on V5 when it goes quiet is lost.');
+    const onHow = vi.fn();
+    mount(card(onSendAhead, onHow), (s) => s.set(balanceAtom, 3n * ONE));
+    const el = screen.getByTestId('migration-card');
+    expect(el.dataset.moment).toBe('announced');
+    expect(el.textContent).toContain('Aztec upgrades to V1 around Jan 17.');
+    expect(el.textContent).toContain('then stops without notice; send ahead before it does.');
+    expect(el.textContent).not.toMatch(/safe|lost/);
     fireEvent.click(screen.getByTestId('send-ahead'));
     expect(onSendAhead).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('send-ahead').textContent).toBe(`Send 3 ${PARAMS.TOKEN_SYMBOL} ahead`);
+    expect(screen.getByTestId('send-ahead').textContent).toBe('Send ahead');
+    fireEvent.click(screen.getByTestId('send-ahead-how'));
+    expect(onHow).toHaveBeenCalledTimes(1);
   });
 
-  test('flipped: mining has ended here; what was sent ahead is summed, with what was mined since', () => {
-    mount(<MigrationCard onSendAhead={() => {}} />, (s) => {
+  test('sent: the sum as the title, the stations at the least advanced send, what was mined since', () => {
+    announce();
+    mount(card(), (s) => {
+      s.set(balanceAtom, ONE);
+      s.set(journalAtom, sends);
+    });
+    const el = screen.getByTestId('migration-card');
+    expect(el.dataset.moment).toBe('announced');
+    expect(screen.getByTestId('sent-ahead-status').textContent).toBe(`6 ${PARAMS.TOKEN_SYMBOL} sent ahead.`);
+    expect(stations()).toEqual(['done', 'on', 'todo', 'todo', 'todo']);
+    expect(el.textContent).toContain(`1 ${PARAMS.TOKEN_SYMBOL} mined since`);
+    expect(screen.getByTestId('send-ahead').textContent).toBe(`Send 1 ${PARAMS.TOKEN_SYMBOL} ahead`);
+    cleanup();
+    // A redeemed send went to Ethereum, not ahead; a claimable one is at the last station.
+    mount(card(), (s) => {
+      s.set(journalAtom, [
+        crossing({ id: 'd', kind: 2, state: 'claimable', amount: ONE.toString() }),
+        crossing({ id: 'e', kind: 2, state: 'minted-l1', amount: (5n * ONE).toString() }),
+      ]);
+    });
+    expect(screen.getByTestId('sent-ahead-status').textContent).toBe(`1 ${PARAMS.TOKEN_SYMBOL} sent ahead.`);
+    expect(stations()).toEqual(['done', 'done', 'done', 'done', 'on']);
+  });
+
+  test('flipped: mining has ended here; the chip says what Ethereum last accepted, and stopped only from the record', () => {
+    const flipped = (proof: BridgeView['proof']) => (s: ReturnType<typeof createStore>) => {
       s.set(bridgeAtom, {
         verdict: { kind: 'flipped', by: ['registry'] },
         standing,
         readAt: NOW,
         rpcFailing: false,
+        proof,
       });
       s.set(balanceAtom, ONE);
-      s.set(journalAtom, [
-        crossing({ id: 'a', kind: 2, state: 'held', amount: (4n * ONE).toString() }),
-        crossing({ id: 'b', kind: 2, state: 'minted-l2', amount: (2n * ONE).toString() }),
-        crossing({ id: 'c', kind: 2, state: 'dropped', amount: (9n * ONE).toString() }),
-      ]);
-    });
+      s.set(journalAtom, sends);
+    };
+    const chip = () => screen.getByTestId('proof-chip');
+    mount(card(), flipped('unknown'));
     expect(screen.getByTestId('migration-card').dataset.moment).toBe('flipped');
-    expect(screen.getByTestId('flipped-alert').textContent).toContain('Mining has ended on V5.');
-    expect(screen.getByTestId('sent-ahead-status').textContent).toBe(
-      `6 ${PARAMS.TOKEN_SYMBOL} sent ahead · 1 still crossing · 1 ${PARAMS.TOKEN_SYMBOL} mined since — send those too`,
+    expect(screen.getByTestId('flipped-alert').textContent).toBe(
+      'Mining has ended on V5. Send what’s left ahead.',
     );
+    expect(chip().textContent).toBe('checking');
+    expect(screen.getByTestId('sent-ahead-status').textContent).toBe(
+      // A held send is still crossing: it lands only once forwarded and claimed.
+      `6 ${PARAMS.TOKEN_SYMBOL} sent ahead · 2 still crossing`,
+    );
+    cleanup();
+    mount(card(), flipped({ at: BigInt(NOW / 1000 - 12 * 60), checkpoint: 9n, block: 1n }));
+    expect(chip().textContent).toBe('V5 proved an epoch 12 min ago');
+    expect(chip().dataset.tone).toBe('ok');
+    cleanup();
+    mount(card(), flipped({ at: BigInt(NOW / 1000 - 3 * 3600), checkpoint: 9n, block: 1n }));
+    expect(chip().textContent).toBe('no proof from V5 for 3 h');
+    expect(chip().dataset.tone).toBe('warn');
+    cleanup();
+    mount(card(), flipped('none'));
+    expect(chip().textContent).toBe('no proof from V5 yet');
+    cleanup();
+    // The record's stop outranks a fresh proof: "stopped" never comes from an age, and an age never from a stop.
+    vi.stubEnv('VITE_LIFECYCLE', JSON.stringify({ stoppedProvingAt: String(NOW / 1000 - 86_400) }));
+    mount(card(), flipped({ at: BigInt(NOW / 1000 - 60), checkpoint: 9n, block: 1n }));
+    expect(chip().textContent).toBe('V5 stopped proving · Jan 14');
+    expect(chip().dataset.tone).toBe('bad');
   });
 });
 

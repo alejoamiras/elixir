@@ -46,7 +46,12 @@ const version = (v: bigint, patch: Partial<VersionFlows> = {}): VersionFlows => 
 
 const snapshot: BridgeSnapshot = {
   versions: [
-    version(5n, { flipAt: 1_799_500_000n, deadline: 1_801_000_000n, retireSent: true }),
+    version(5n, {
+      flipAt: 1_799_500_000n,
+      afterNextAt: 1_801_000_000n,
+      deadline: 1_801_000_000n,
+      retireSent: true,
+    }),
     version(6n),
   ],
   canonical: { version: 6n, index: 1n },

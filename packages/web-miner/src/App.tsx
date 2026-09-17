@@ -20,7 +20,7 @@ import {
   statusLabel,
   Toaster,
 } from '../../ui/src/index.ts';
-import { isOldRole } from './bridge/env';
+import { isOldRole, lifecycleRecord } from './bridge/env';
 import { DesktopOnly } from './components/DesktopOnly';
 import type { Connection } from './config';
 import { isDesktop } from './desktop';
@@ -31,7 +31,7 @@ import { PrestoBanner } from './features/PrestoBanner';
 import { SignInDialog } from './features/SignInDialog';
 import { useHotkeys, usePauses, useResumeOnOpen } from './features/use-page-behaviour';
 import { pillStatus } from './lib/status';
-import { minerTabs } from './lib/tabs';
+import { minerTabs, oldTabs } from './lib/tabs';
 import { prestoAtom } from './presto';
 import { navigate, pathFor, type Route, useRoute } from './routes';
 import { Mine } from './routes/Mine';
@@ -71,31 +71,36 @@ export function Shell({ children }: { children: ReactNode }) {
   const presto = useAtomValue(prestoAtom);
   const status = boot.phase === 'opening' ? 'opening' : pillStatus(miner, now);
   const waiting = useActivity().needsUser;
-  // The account chip leads to the money; on the old origin the wallet is the page itself, so to Settings.
-  const accountRoute: Route = isOldRole() ? 'settings' : 'wallet';
+  // The old origin: the retired tag, Send ahead and the apex's Stats, no mining status; the account
+  // chip leads to Settings, the wallet being the page itself. With the node gone there is no Settings.
+  const old = isOldRole();
+  const gone = old && lifecycleRecord()?.nodeRetired === true;
+  const accountRoute: Route = old ? 'settings' : 'wallet';
   return (
     <div className="mx-auto flex max-w-[1120px] flex-col">
       <Header
-        version={ownVersionName()}
+        version={old ? `${ownVersionName()} · retired` : ownVersionName()}
         homeHref={pathFor('mine')}
         onHome={() => navigate('mine')}
         mark={miner.phase === 'idle' ? 'idle' : 'mining'}
         navLabel="miner"
-        tabs={minerTabs(route, navigate, undefined, waiting)}
+        tabs={old ? oldTabs(route, navigate) : minerTabs(route, navigate, undefined, waiting)}
         right={
           <>
             <Badge variant="net">testnet</Badge>
-            <StatusPill status={status} data-testid="phase" data-prover={presto.active ?? undefined}>
-              {statusLabel(status)}
-              {presto.active === 'presto' && (
-                <>
-                  <span className="text-ink-4">·</span>
-                  <span className="text-uv-2" data-testid="native">
-                    <span className="font-semibold text-uv">✦</span> presto
-                  </span>
-                </>
-              )}
-            </StatusPill>
+            {!old && (
+              <StatusPill status={status} data-testid="phase" data-prover={presto.active ?? undefined}>
+                {statusLabel(status)}
+                {presto.active === 'presto' && (
+                  <>
+                    <span className="text-ink-4">·</span>
+                    <span className="text-uv-2" data-testid="native">
+                      <span className="font-semibold text-uv">✦</span> presto
+                    </span>
+                  </>
+                )}
+              </StatusPill>
+            )}
             {boot.phase === 'ready' && (
               <AccountChip
                 address={shortAddress(boot.record.account.address)}
@@ -104,7 +109,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 data-testid="account-chip"
               />
             )}
-            <Gear href={pathFor('settings')} onSelect={() => navigate('settings')} />
+            {!gone && <Gear href={pathFor('settings')} onSelect={() => navigate('settings')} />}
           </>
         }
       />
@@ -114,7 +119,10 @@ export function Shell({ children }: { children: ReactNode }) {
             <AlertDescription>{notice}</AlertDescription>
           </Alert>
         )}
-        <NodeBanner state={banner} settingsHref={route === 'settings' ? undefined : pathFor('settings')} />
+        <NodeBanner
+          state={banner}
+          settingsHref={route === 'settings' || old ? undefined : pathFor('settings')}
+        />
         {children}
       </div>
     </div>
@@ -131,8 +139,9 @@ export function App({ connection, session }: { connection: Connection; session: 
   const onStart = useCallback(() => session.startMining(), [session]);
   const onRetry = useCallback(() => void session.retryPresto(), [session]);
   // The wallet is the account's page: signed out (a sign-out reloads here), the cockpit is the page.
+  // On the old origin the page is the wallet: a V5 bookmark of `/wallet` lands on it.
   useEffect(() => {
-    if (boot.phase === 'signedOut' && route === 'wallet') navigate('mine');
+    if ((boot.phase === 'signedOut' || isOldRole()) && route === 'wallet') navigate('mine');
   }, [boot.phase, route]);
   // Settings stays reachable signed out (the node is changed there); everywhere else the sign-in
   // sits over the cockpit, and the page's keys are its while it shows.
@@ -151,11 +160,13 @@ export function App({ connection, session }: { connection: Connection; session: 
         <Alert variant="bad" data-testid="boot-error">
           <AlertTitle>Cannot start</AlertTitle>
           <AlertDescription>{boot.message}</AlertDescription>
-          <NodeWayOut
-            className="mt-2"
-            onDefault={connection.nodeUrl === defaultNodeUrl() ? undefined : restoreDefaultNode}
-            settingsHref={route === 'settings' ? undefined : pathFor('settings')}
-          />
+          {!isOldRole() && (
+            <NodeWayOut
+              className="mt-2"
+              onDefault={connection.nodeUrl === defaultNodeUrl() ? undefined : restoreDefaultNode}
+              settingsHref={route === 'settings' ? undefined : pathFor('settings')}
+            />
+          )}
         </Alert>
       )}
       {boot.phase === 'preflight' && <PreflightTile rows={boot.rows} />}
@@ -171,6 +182,18 @@ export function App({ connection, session }: { connection: Connection; session: 
         if the node lies — claims are verified on-chain.
       </p>
       <Toaster />
+    </Shell>
+  );
+}
+
+/**
+ * The old origin once its node is gone: the page that says so, under the same header, with no
+ * session behind it — nothing here reads the node, so nothing waits on it or offers another.
+ */
+export function GoneApp() {
+  return (
+    <Shell>
+      <Mine controller={() => undefined} />
     </Shell>
   );
 }

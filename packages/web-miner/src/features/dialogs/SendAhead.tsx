@@ -1,18 +1,19 @@
-// Send ahead: the whole balance by default, because anything left on this version at the flip is
-// lost. The recovery file is offered under Done: the journal is the only record of the crossing.
+// Send ahead: the whole balance by default, because anything still on this version when it stops
+// proving cannot leave. The recovery file is offered under Done: the journal is the only record of
+// the crossing.
 import { useAtomValue } from 'jotai';
 import { type ComponentProps, useState } from 'react';
+import { deadlinePhrase } from '../../../../bridge/src/exit-deadline.ts';
 import type { Crossing } from '../../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../../miner-core/src/generated/params.ts';
 import { ownVersionName } from '../../../../site/src/browser/version-name.ts';
 import { Alert, AlertDescription, AmountField, Note, Stepper } from '../../../../ui/src/index.ts';
-import { deadlinePhrase } from '../../bridge/copy';
-import { nextVersionName } from '../../bridge/env';
+import { isOldRole, nextVersionName } from '../../bridge/env';
 import { reviewAmount } from '../../bridge/forms';
+import { FAQ_HREF } from '../../lib/apex';
 import { amount as fmt } from '../../lib/format';
 import type { Session } from '../../session';
 import { bootAtom, bridgeAtom, journalAtom } from '../../state';
-import { FAQ_HREF } from '../MigrationCard';
 import { saveRecoveryFile } from '../recovery';
 import { amountRefusal } from '../withdraw-form';
 import {
@@ -38,7 +39,7 @@ const money = (raw: bigint) => `${fmt(raw, PARAMS.DECIMALS)} ${SYM}`;
 
 type Step =
   | { kind: 'form' }
-  | { kind: 'how' }
+  | { kind: 'how'; display?: string }
   | { kind: 'proving'; amount: bigint; display: string; since: number }
   | { kind: 'sent'; display: string; crossing?: Crossing };
 
@@ -51,7 +52,7 @@ function Form({
   balance: bigint;
   next: string;
   onSend: (amount: bigint, display: string) => void;
-  onHow: () => void;
+  onHow: (display?: string) => void;
 }) {
   const whole = fmt(balance, PARAMS.DECIMALS, PARAMS.DECIMALS);
   const [text, setText] = useState(whole);
@@ -95,7 +96,9 @@ function Form({
           the amount, not the account
         </Row>
       </Rows>
-      <Actions quiet={<Quiet onClick={onHow}>How it works</Quiet>}>
+      <Actions
+        quiet={<Quiet onClick={() => onHow(line === null ? text.trim() : undefined)}>How it works</Quiet>}
+      >
         <Primary disabled={line !== null} onClick={submit} data-testid="ahead-send">
           Send{line === null ? ` ${text.trim()} ${SYM}` : ''} ahead
         </Primary>
@@ -241,7 +244,10 @@ function Sent({
           { id: 'claim', label: `You claim it on ${next}`, state: 'pending', right: 'one tap' },
         ]}
       />
-      <Foot>You can close this. Wallet follows it here, and on {next} once you log in there.</Foot>
+      <Foot>
+        You can close this. {isOldRole() ? 'Activity' : 'Wallet'} follows it here, and on {next} once you log
+        in there.
+      </Foot>
       <Actions
         quiet={
           <Quiet onClick={() => void save()} data-testid="ahead-save">
@@ -258,20 +264,32 @@ function Sent({
   );
 }
 
+const titleOf = (step: Step, next: string): string => {
+  if (step.kind === 'form') return `Send ahead to ${next}.`;
+  if (step.kind === 'how')
+    return `What happens to ${step.display ? `${step.display} ${SYM}` : 'what you send ahead'}.`;
+  return step.kind === 'proving'
+    ? `Sending ${step.display} ${SYM} ahead.`
+    : `${step.display} ${SYM} sent ahead.`;
+};
+
 function SendAheadRun({
   session,
   balance,
   open,
   onOpenChange,
+  initial = 'form',
 }: {
   session: Session;
   balance: bigint;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The step the dialog opens on: the form, or How it works from the card's quiet link (Back leads to the form). */
+  initial?: 'form' | 'how';
 }) {
   const view = useAtomValue(bridgeAtom);
   const next = nextVersionName(view.canonical);
-  const [step, setStep] = useState<Step>({ kind: 'form' });
+  const [step, setStep] = useState<Step>({ kind: initial });
   const [error, setError] = useState<string>();
   const live = useLive(open);
   const close = () => onOpenChange(false);
@@ -287,14 +305,7 @@ function SendAheadRun({
       setStep({ kind: 'form' });
     }
   };
-  const title =
-    step.kind === 'form'
-      ? `Send ahead to ${next}.`
-      : step.kind === 'how'
-        ? 'What happens to what you send ahead.'
-        : step.kind === 'proving'
-          ? `Sending ${step.display} ${SYM} ahead.`
-          : `${step.display} ${SYM} sent ahead.`;
+  const title = titleOf(step, next);
   return (
     <TxDialog
       open={open}
@@ -316,7 +327,7 @@ function SendAheadRun({
             balance={balance}
             next={next}
             onSend={(a, d) => void send(a, d)}
-            onHow={() => setStep({ kind: 'how' })}
+            onHow={(display) => setStep({ kind: 'how', display })}
           />
         </div>
       )}

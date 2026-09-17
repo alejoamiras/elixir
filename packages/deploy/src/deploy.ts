@@ -20,14 +20,14 @@ import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { TokenContract } from '@aztec-foundation/aztec-standards/artifacts/src/artifacts/Token.js';
-import type { BridgeRecord, MigrationRecord } from '@yacana/bridge/src/record.ts';
+import type { BridgeRecord, LifecycleRecord, MigrationRecord } from '@yacana/bridge/src/record.ts';
 import { PARAMS, PROFILE } from '../../miner-core/src/generated/params.ts';
 import { carriedBridge } from './bridge-block.ts';
 
 const repo = resolve(import.meta.dir, '../../..');
 
 /** What the L1 deploy script records: the Ethereum side of one profile's bridge. */
-export type { BridgeRecord, MigrationRecord } from '@yacana/bridge/src/record.ts';
+export type { BridgeRecord, LifecycleRecord, MigrationRecord } from '@yacana/bridge/src/record.ts';
 
 export interface Deployment {
   profile: string;
@@ -64,6 +64,8 @@ export interface Deployment {
   bridge?: BridgeRecord;
   /** Present from the announcement of the next version to this version's retirement. */
   migration?: MigrationRecord;
+  /** Noted after the flip by `note-stop` / `retire-node`; the old origin's build reads it. */
+  lifecycle?: LifecycleRecord;
 }
 
 export interface DeployOverrides {

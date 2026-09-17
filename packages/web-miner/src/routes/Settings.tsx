@@ -3,6 +3,7 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import type * as React from 'react';
 import { useEffect, useState } from 'react';
 import { relyingParty } from '../../../site/src/browser/host.ts';
+import { ownVersionName } from '../../../site/src/browser/version-name.ts';
 import {
   Button,
   ExternalLink,
@@ -17,13 +18,14 @@ import {
   TileHeader,
   useTheme,
 } from '../../../ui/src/index.ts';
-import { bridgeRecord } from '../bridge/env';
+import { bridgeRecord, isOldRole } from '../bridge/env';
 import { NodeTile } from '../components/NodeTile';
 import type { Connection } from '../config';
 import type { MinerController } from '../controller';
 import { links } from '../explorer';
 import { EthRpcTile } from '../features/EthRpcTile';
 import { SignOutDialog } from '../features/SignOutDialog';
+import { apexHost, FAQ_HREF } from '../lib/apex';
 import { shortAddress } from '../lib/format';
 import { useTileLog } from '../lib/tile-log';
 import { noticeFor, PRESTO_SITE, type PrestoState, prestoAtom } from '../presto';
@@ -161,7 +163,10 @@ function AccountTile({ session }: { session: Session }) {
               {shortAddress(record.account.address)}
             </ExternalLink>
           </span>
-          <span className="text-xs text-ink-3">{record.method === 'passkey' ? 'passkey' : '12 words'}</span>
+          <span className="text-xs text-ink-3">
+            {record.method === 'passkey' ? 'passkey' : '12 words'}
+            {isOldRole() ? ` · the same account as ${apexHost()}` : ''}
+          </span>
         </div>
         <Button size="sm" onClick={() => setSignOut(true)} data-testid="sign-out">
           Sign out
@@ -190,19 +195,20 @@ function AccountTile({ session }: { session: Session }) {
   );
 }
 
-const FAQ_HREF = `${(import.meta.env.BASE_URL ?? '/').replace(/\/mine\/?$/, '/')}faq`;
-
 function AboutTile() {
+  const old = isOldRole();
   return (
     <Tile>
       <TileHeader>about</TileHeader>
+      {old && <KvRow label="this origin" value={`${location.host} · retired`} />}
       <KvRow label="source" value={import.meta.env.VITE_SOURCE_COMMIT.slice(0, 12)} />
       <KvRow label="build" value={import.meta.env.VITE_SITE_MODE} />
       <KvRow label="bb.js" value={import.meta.env.VITE_BB_VERSION} />
       <KvRow label="relying party" value={relyingParty(location.hostname)} />
       <p className="mt-3 border-t border-line pt-3 text-xs text-ink-3" data-testid="about-line">
-        Yacana runs in your browser. Whoever serves this page controls it; the source is public — run your own
-        build if that matters.{' '}
+        {old
+          ? `The old app, kept so what is still on ${ownVersionName()} can leave. Yacana runs in your browser; whoever serves this page controls it.`
+          : 'Yacana runs in your browser. Whoever serves this page controls it; the source is public — run your own build if that matters.'}{' '}
         <ExternalLink href={FAQ_HREF} className="font-sans whitespace-nowrap text-ink-2">
           More on /faq
         </ExternalLink>
@@ -247,16 +253,21 @@ export function Settings({
   );
   const canPip = 'documentPictureInPicture' in window;
   const canBattery = 'getBattery' in navigator;
+  // The old origin keeps what makes the page work: the node it reads (not a setting there), the RPC, the account.
+  const old = isOldRole();
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className={old ? 'mx-auto flex w-full max-w-[760px] flex-col gap-4' : 'grid gap-4 md:grid-cols-2'}>
       <TileBoundary name="network" onError={onError} className="md:col-span-2">
         <Tile className="md:col-span-2">
-          <TileHeader aside="chain reads and claims go through the node">network</TileHeader>
+          <TileHeader aside={old ? undefined : 'chain reads and claims go through the node'}>
+            network
+          </TileHeader>
           <div className="grid gap-3">
             <NodeTile
               session={session}
               nodeUrl={nodeUrl}
               onSwitched={() => setNodeUrl(session.nodeUrl ?? nodeUrl)}
+              readOnly={old}
             />
             {bridgeRecord() && (
               <EthRpcTile
@@ -268,49 +279,53 @@ export function Settings({
           </div>
         </Tile>
       </TileBoundary>
-      <TileBoundary name="mining" onError={onError}>
-        <MiningTile
-          cores={cores}
-          threads={threads}
-          onThreads={(t) => {
-            set({ threads: t });
-            controller()?.reconfigure(t);
-          }}
-          flags={
-            <>
-              {flag(
-                'pauseOnBattery',
-                'pause-battery',
-                'Pause on battery',
-                canBattery ? undefined : 'not reported by this browser',
-                !canBattery,
-              )}
-              {flag(
-                'backgroundProving',
-                'background',
-                'Keep proving in a background tab',
-                'off: mining pauses while the tab is hidden',
-              )}
-              {flag('resumeOnOpen', 'resume', 'Resume mining when the page opens')}
-            </>
-          }
-        />
-      </TileBoundary>
-      <TileBoundary name="alerts" onError={onError}>
-        <Tile>
-          <TileHeader>alerts</TileHeader>
-          {flag('notify', 'notify', 'Notify on a win', 'no amounts in the notification')}
-          {flag('sound', 'sound', 'Sound on a win')}
-          {flag('tabStatus', 'tab-status', 'Report in the tab title and icon')}
-          {flag(
-            'pip',
-            'pip',
-            'Mini window',
-            canPip ? 'picture-in-picture' : 'not supported by this browser',
-            !canPip,
-          )}
-        </Tile>
-      </TileBoundary>
+      {!old && (
+        <TileBoundary name="mining" onError={onError}>
+          <MiningTile
+            cores={cores}
+            threads={threads}
+            onThreads={(t) => {
+              set({ threads: t });
+              controller()?.reconfigure(t);
+            }}
+            flags={
+              <>
+                {flag(
+                  'pauseOnBattery',
+                  'pause-battery',
+                  'Pause on battery',
+                  canBattery ? undefined : 'not reported by this browser',
+                  !canBattery,
+                )}
+                {flag(
+                  'backgroundProving',
+                  'background',
+                  'Keep proving in a background tab',
+                  'off: mining pauses while the tab is hidden',
+                )}
+                {flag('resumeOnOpen', 'resume', 'Resume mining when the page opens')}
+              </>
+            }
+          />
+        </TileBoundary>
+      )}
+      {!old && (
+        <TileBoundary name="alerts" onError={onError}>
+          <Tile>
+            <TileHeader>alerts</TileHeader>
+            {flag('notify', 'notify', 'Notify on a win', 'no amounts in the notification')}
+            {flag('sound', 'sound', 'Sound on a win')}
+            {flag('tabStatus', 'tab-status', 'Report in the tab title and icon')}
+            {flag(
+              'pip',
+              'pip',
+              'Mini window',
+              canPip ? 'picture-in-picture' : 'not supported by this browser',
+              !canPip,
+            )}
+          </Tile>
+        </TileBoundary>
+      )}
       <TileBoundary name="account" onError={onError}>
         <AccountTile session={session} />
       </TileBoundary>

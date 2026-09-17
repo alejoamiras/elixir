@@ -27,24 +27,25 @@ beforeEach(() => {
 });
 
 describe('the old role', () => {
-  test('is a build flag; the retired head names the version and what still moves', () => {
+  test('is a build flag; the retired head says where mining went and what still moves; signed out, the way in', () => {
     vi.stubEnv('VITE_APP_ROLE', 'apex');
     expect(isOldRole()).toBe(false);
     vi.stubEnv('VITE_APP_ROLE', 'old');
     expect(isOldRole()).toBe(true);
-    vi.stubEnv('VITE_RP_ID', 'yacana.network');
     render(
       <Provider store={createStore()}>
         <OldApp />
       </Provider>,
     );
     const head = screen.getByTestId('retired');
-    expect(head.textContent).toContain('Send what is still here ahead.');
-    expect(head.textContent).toContain('Mining has ended on this version.');
-    expect(head.textContent).toContain('send ahead to the next version, or to Ethereum');
-    expect(head.textContent).toContain('it goes quiet after the upgrade, without notice.');
-    // Signed out: the way in, and no cockpit.
-    expect(screen.getByTestId('sign-in-mine').textContent).toContain('Open with passkey');
+    expect(head.dataset.state).toBe('live');
+    expect(head.textContent).toContain('Send what’s still here ahead.');
+    expect(head.textContent).toContain('Mining moved to the next version at yacana.network.');
+    expect(head.textContent).toContain('send it ahead to the next version now, or bridge it to Ethereum.');
+    // Signed out: no chip (nothing reads Ethereum without an account), the way in, and no cockpit.
+    expect(screen.queryByTestId('proof-chip')).toBeNull();
+    expect(screen.getByTestId('sign-in-mine').textContent).toBe('Log in');
+    expect(screen.getByTestId('old-card').textContent).toContain('Accounts are restored here, not created.');
     expect(screen.queryByTestId('start')).toBeNull();
   });
 

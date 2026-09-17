@@ -1,6 +1,7 @@
 import { useAtomValue } from 'jotai';
 import { loadConnection } from '../../../../site/src/browser/connection.ts';
 import { Button, Note, Progress, Stepper } from '../../../../ui/src/index.ts';
+import { isOldRole } from '../../bridge/env';
 import {
   barShown,
   bytesDetail,
@@ -112,9 +113,9 @@ const failedCopy = (error: AccountError, steps: OpeningStep[]): FailedCopy => {
   if (error.kind === 'node')
     return {
       title: "The Aztec node isn't answering.",
-      body: `${nodeHost()} stopped answering, or is rate-limiting this page. Retry, or use another node.`,
+      body: `${nodeHost()} stopped answering, or is rate-limiting this page. Retry${isOldRole() ? '' : ', or use another node'}.`,
       tone: 'bad',
-      changeNode: true,
+      changeNode: !isOldRole(),
     };
   return { title: "That didn't work.", body: error.message, tone: 'bad' };
 };

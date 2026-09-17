@@ -536,7 +536,7 @@ Specs: `withdraw`, `bridge-states` (wrong network, refused, left open, account c
 **Gate**: fast · `canary` real (withdraw) · `bridge` shard · replay · pass: cancellation boundaries and disabled
 reasons match the send's ownership · layers: + e2e live.
 
-### P10 — The upgrade and the old origin
+### P10 ✓ — The upgrade and the old origin (green 2026-09-16, `lessons/phase-10.md`)
 
 The upgrade card's three states with the chip from `proofs.ts` and `stoppedProvingAt` (§5.9); Send ahead's
 dialog and How it works; the old origin as one Send-ahead page (7A, §9.2.9, §9.2.16): its header, its states
