@@ -26,7 +26,7 @@
 - `ui/src/components/hero-card.tsx`: `aside` across from the eyebrow (the live chip) and `actions` under the
   body and the trail (the one button and its quiet companion); `side` stays.
 - `web-miner/src/features/MigrationCard.tsx` rewritten to the brief's three moments: announced (`aztec v6 ·
-  expected around sep 18`, "Aztec upgrades to V6 around Sep 18.", the body, **Send 3.5 tYACA ahead**, quiet
+  expected around sep 18`, "Aztec upgrades to V6 around Sep 18.", the body, **Send ahead**, quiet
   "How it works"), sent (the sum as the title, `sentTrail` lit at the least advanced send, "1.2 tYACA mined
   since" with its button, "Wallet · details"), flipped (`aztec v6 is live · sep 18 14:02`, the chip, "Mining
   has ended on V5. Send what's left ahead.", the body, the button, How it works). The testids stay
@@ -96,6 +96,49 @@
   so rather than adding a copy step.
 - **Open yacana.network is an anchor** styled as the button (`asChild`): a page with no session has nothing
   to run, so it is a link.
+- **The quiet hero's deadline is the reading's sentence**: the board says "redeemable until at least Mar 17";
+  the page says `deadlinePhrase(view.deadline, next)` (the four readings), so a floor, a cliff and a set day
+  each get their own words rather than one that is wrong for two of them.
+- **The old origin's about tile keeps the apex's rows** (source, build, bb.js, relying party) under `this
+  origin`: the board draws source and bb.js alone; one tile serves both roles and the extra rows cost two
+  lines. The network tile drops its aside on the old role, as the board draws it.
+- **"Activity follows it here" on the old origin's send-ahead Done step**: the board's "Wallet follows it
+  here" names a tab the old origin has not (its page is the wallet); the apex keeps the board's word.
+- **The How step's title from the card's link is generic**: the board's "What happens to 3.5 tYACA." is the
+  form's typed amount, which the card's quiet link has none of; from the form the title carries the amount.
+- **A future stop is refused by the CLI, not the build**: `note-stop` refuses a time past now (a typo would
+  turn the old origin quiet early) and one past ten digits; the site build checks only the shape, so a build
+  stays clock-free.
+
+## Arc-6 codex fix loop
+
+**Round 1** (2026-09-17, `run-codex.sh … high read-only`, session `01a0ac4a-f775-76e0-a706-cd1ff8bfecb3`):
+REVISE, 11 findings, all verified against the code; 10 applied, one applied in part.
+
+- Applied: the quiet old origin's rows still offered "Send ahead again" / "Bridge again" on a dropped or
+  never-proven crossing (`rowLine` now disables `again` with "V5 stopped proving: nothing more can leave."
+  when the crossing's version noted its stop; gallery test); the sent trail lit `claimable` at "forwarded"
+  and a redeemed (`minted-l1`) or closed send as "held" (`claimable` → the claim station; both leave the
+  card's `ahead`); `note-stop` accepted a future time and an unrepresentable one (refused; the site build
+  bounds the digits); `NodeTile readOnly` still showed "Use the default" on a custom node (hidden without
+  `onChange`; settings test on a custom node); the runbook's step 11 pointed at a worktree step 8 had
+  removed, and step 12 named `/witnesses/5.jsonl` where the archive is keyed by rollup version (step 8
+  keeps the worktree until the origin comes down; the path says rollup version); the old card's disabled
+  buttons had no reason line (`money-reason` with Settings, as the Wallet's); the chip's test lacked the
+  `'none'` word and the e2e accepted "checking" forever (the origin and the flipped stage now wait for the
+  scan to end: `not.toHaveText('checking')`); `writeLifecycle` wrote in place (a `.tmp` and a rename); the
+  cliff's phase was violet `on` (`bad` now: the Timeline's red); copy — the announced button carried the
+  amount the board has not, the chip said "3.0 h" for the board's "3 h" (the trailing `.0` dropped; the
+  hero body says "3 hours"), "Wallet follows it here" on the old origin (above), the How title (above),
+  the network aside; comments — the card's, the old page's and the send-ahead dialog's introductions
+  narrated the render and the dialog's said balances are lost "at the flip" (they leave until the version
+  stops proving); `SentLine` and `HeroCard` now say the one thing the code does not.
+- Applied in part: the "reads nothing" tests. The duplicate gone-page test in `versioned-origin.vitest`
+  is gone and the gallery's is titled by what it proves; an entrypoint test of `main.tsx`'s gone branch is
+  not added — it would mock the session, the preflight, the CRS fetch and `#root` to assert four things
+  do not happen, for a branch that is one `if` over a record flag. Logged, not built.
+- Not applied: serializing record writes across operators in the runbook — one operator runs one command
+  at a time; the atomic rename covers the cut write, which was the real risk.
 
 ## Gate (2026-09-16)
 

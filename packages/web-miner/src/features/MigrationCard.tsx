@@ -1,8 +1,4 @@
-// The upgrade card over the cockpit, one card for three moments: announced (the fact, the next
-// step, the one consequence of not acting), sent (what went ahead and where it stands, what was
-// mined since), flipped (mining has ended here; what is still here leaves while this version proves,
-// with the live chip of its proving). Nothing on a quiet version. Nothing says "safe": a send is
-// held, comes back, or cannot leave.
+// The upgrade card over the cockpit. Nothing on it says "safe": a send is held, comes back, or cannot leave.
 import { useAtomValue } from 'jotai';
 import { dayOf } from '../../../bridge/src/exit-deadline.ts';
 import { type Crossing, inFlight } from '../../../bridge/src/journal.ts';
@@ -18,6 +14,13 @@ import { type BridgeView, balanceAtom, bridgeAtom, journalAtom, nowAtom } from '
 
 export type MigrationMoment = 'quiet' | 'announced' | 'flipped';
 
+const LEFT_THE_ROAD: ReadonlySet<Crossing['state']> = new Set([
+  'dropped',
+  'never-proven',
+  'minted-l1',
+  'closed',
+]);
+
 export const moment = (announced: MigrationRecord | null, flipped: boolean): MigrationMoment =>
   flipped ? 'flipped' : announced ? 'announced' : 'quiet';
 
@@ -31,7 +34,7 @@ const STAGE: Partial<Record<Crossing['state'], number>> = {
   'proven-pending': 1,
   held: 2,
   forwarded: 3,
-  claimable: 3,
+  claimable: 4,
   'minted-l2': 5,
 };
 
@@ -57,7 +60,12 @@ interface Facts extends Props {
   view: BridgeView;
 }
 
-function SendButton({ balance, view, onSendAhead }: Pick<Facts, 'balance' | 'view' | 'onSendAhead'>) {
+function SendButton({
+  balance,
+  view,
+  onSendAhead,
+  plain = false,
+}: Pick<Facts, 'balance' | 'view' | 'onSendAhead'> & { plain?: boolean }) {
   return (
     <Button
       variant="uv"
@@ -65,7 +73,7 @@ function SendButton({ balance, view, onSendAhead }: Pick<Facts, 'balance' | 'vie
       onClick={onSendAhead}
       data-testid="send-ahead"
     >
-      Send{balance ? ` ${money(balance)}` : ''} ahead
+      Send{balance && !plain ? ` ${money(balance)}` : ''} ahead
     </Button>
   );
 }
@@ -94,7 +102,7 @@ function Announced({
       title={`Aztec upgrades to ${next} around ${day}.`}
       actions={
         <>
-          <SendButton balance={balance} view={view} onSendAhead={onSendAhead} />
+          <SendButton balance={balance} view={view} onSendAhead={onSendAhead} plain />
           <How onHow={onHow} />
         </>
       }
@@ -144,7 +152,7 @@ function Sent({
   );
 }
 
-/** What went ahead so far, under the flipped card: the sum, and how much is still on its way. */
+/** A held send is still crossing: it lands only once forwarded and claimed. */
 function SentLine({ ahead }: { ahead: Crossing[] }) {
   if (ahead.length === 0) return null;
   const crossing = ahead.filter(inFlight).length;
@@ -199,8 +207,9 @@ export function MigrationCard(props: Props) {
     ...props,
     version: ownVersionName(),
     next: nextVersionName(view.canonical),
-    // What went ahead and is not back: a send undone by a missed proof is the balance again, not a send.
-    ahead: journal.filter((c) => c.kind === 2 && c.state !== 'dropped' && c.state !== 'never-proven'),
+    // What went ahead and is still ahead: a send undone by a missed proof is the balance again, a redeemed
+    // one went to Ethereum, and one the last day closed on is not on its way anywhere.
+    ahead: journal.filter((c) => c.kind === 2 && !LEFT_THE_ROAD.has(c.state)),
     balance,
     view,
   };

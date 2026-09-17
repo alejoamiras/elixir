@@ -55,7 +55,8 @@ test('the versioned origin: the same passkey restores the apex’s account there
   // Signed in: the card with the way out, the live chip reading Ethereum, the rows with no forward.
   await expect(page.getByTestId('old-card')).toHaveAttribute('data-state', 'still-here');
   await expect(page.getByTestId('send-ahead')).toContainText('Send ahead to');
-  await expect(page.getByTestId('proof-chip')).toBeVisible();
+  // The chip is the scan of Ethereum's accepted proofs finished, whatever it found: never "checking" for good.
+  await expect(page.getByTestId('proof-chip')).not.toHaveText('checking', { timeout: 60_000 });
   await expect(page.getByTestId('activity')).toBeVisible();
   await shot(page, 'old-app');
 });

@@ -259,7 +259,9 @@ export function Settings({
     <div className={old ? 'mx-auto flex w-full max-w-[760px] flex-col gap-4' : 'grid gap-4 md:grid-cols-2'}>
       <TileBoundary name="network" onError={onError} className="md:col-span-2">
         <Tile className="md:col-span-2">
-          <TileHeader aside="chain reads and claims go through the node">network</TileHeader>
+          <TileHeader aside={old ? undefined : 'chain reads and claims go through the node'}>
+            network
+          </TileHeader>
           <div className="grid gap-3">
             <NodeTile
               session={session}

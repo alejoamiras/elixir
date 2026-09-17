@@ -1,8 +1,5 @@
-// The versioned origin's one page (the `old` role): mining moved to the next version; what is still
-// here can leave while this version proves — ahead to the next version, or to Ethereum. The hero
-// says the version's state (proving, silent, stopped, its node gone), the card what is still here
-// and the one way out, the activity list what already left. Nothing is mined or created here; with
-// the node gone nothing is read at all, and the page says so before any node access.
+// The versioned origin's one page (the `old` role). Nothing is mined or created here; with the node
+// gone nothing is read at all, and the page says so before any node access.
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useState } from 'react';
 import { dayOf, deadlinePhrase } from '../../../bridge/src/exit-deadline.ts';
@@ -23,7 +20,7 @@ import { lifecycleRecord, nextVersionName } from '../bridge/env';
 import { moneyStanding } from '../bridge/rows';
 import { links } from '../explorer';
 import { apexHost, apexOrigin } from '../lib/apex';
-import { duration, amount as fmt, shortAddress } from '../lib/format';
+import { amount as fmt, shortAddress } from '../lib/format';
 import { navigate } from '../routes';
 import { MoneyDialogs } from '../routes/Wallet';
 import type { Session } from '../session';
@@ -84,9 +81,9 @@ function Hero({
         )}
         {state === 'silent' && (
           <>
-            Mining moved to {next} at {host}. {v} hasn’t proved an epoch for {duration(chip?.silentS ?? 0)}{' '}
-            and may have stopped. A send it never proves comes back here; one it proves is held on Ethereum
-            for {next}.
+            Mining moved to {next} at {host}. {v} hasn’t proved an epoch for{' '}
+            {Math.round((chip?.silentS ?? 0) / 360) / 10} hours and may have stopped. A send it never proves
+            comes back here; one it proves is held on Ethereum for {next}.
           </>
         )}
         {state === 'quiet' && <QuietBody v={v} next={next} />}
@@ -219,6 +216,24 @@ function StillHereCard({
           or bridge to Ethereum
         </Button>
       </div>
+      {standing.off.has('to-ethereum') && standing.reason && (
+        <p className="mt-2 text-xs text-ink-3" data-testid="money-reason">
+          {standing.reason}
+          {standing.settings && (
+            <>
+              {' '}
+              <Button
+                variant="link"
+                className="text-xs"
+                onClick={() => navigate('settings')}
+                data-testid="money-settings"
+              >
+                Settings
+              </Button>
+            </>
+          )}
+        </p>
+      )}
       <p className="mt-3 text-xs text-ink-3">
         Then claim it on {next} with one tap, at {apexHost()}. Same passkey.
       </p>

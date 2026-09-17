@@ -72,6 +72,8 @@ export interface RowFacts {
   who?: string;
   /** The Ethereum network the claim needs a wallet on ("Sepolia"). */
   chain: string;
+  /** The version noted its stop: a new send from it would never be proven, so nothing is sent again. */
+  stopped?: boolean;
 }
 
 const POLICY = policyFor();
@@ -97,7 +99,10 @@ export const proofChip = (
   if (proof === 'none') return chip(`no proof from ${version} yet`, 'warn');
   const age = Math.max(0, nowSeconds - Number(proof.at));
   if (age > SILENT_AFTER_S)
-    return { ...chip(`no proof from ${version} for ${duration(age)}`, 'warn'), silentS: age };
+    return {
+      ...chip(`no proof from ${version} for ${duration(age).replace(/\.0 /, ' ')}`, 'warn'),
+      silentS: age,
+    };
   return chip(`${version} proved an epoch ${duration(age)} ago`, 'ok');
 };
 
@@ -135,8 +140,13 @@ const aheadEnd = (f: RowFacts): TrailItem[] => [
   st(`claim on ${f.target}`, 'todo'),
 ];
 
-/** "Bridge again" on an exit or a deposit; a send-ahead is sent ahead again. */
-const againOf = (c: Crossing) => act('again', c.kind === 2 ? 'Send ahead again' : 'Bridge again');
+/** "Bridge again" on an exit or a deposit; a send-ahead is sent ahead again. Off once the version stopped. */
+const againOf = (c: Crossing, f: RowFacts) =>
+  act(
+    'again',
+    c.kind === 2 ? 'Send ahead again' : 'Bridge again',
+    f.stopped ? `${f.version} stopped proving: nothing more can leave.` : undefined,
+  );
 
 const REDEEM = act('redeem', 'Redeem on Ethereum');
 
@@ -160,14 +170,14 @@ const proving: Line = (c, f) =>
         trail: [st('proving', 'on'), st('reached Ethereum', 'todo'), st(`claim on ${f.target}`, 'todo')],
       };
 
-const dropped: Line = (c) => ({
+const dropped: Line = (c, f) => ({
   chip: chip(c.kind === 3 ? 'not sent' : 'not included', 'warn'),
   sentence:
     c.kind === 3
       ? "Your wallet never sent it, or Ethereum didn't include it in time. No YACA left it; if it was sent, the gas is spent."
       : 'The node never included it. Nothing left your balance.',
   trail: c.kind === 3 ? [st('not sent', 'bad')] : [st('sent', 'done'), st('not included', 'bad')],
-  action: againOf(c),
+  action: againOf(c, f),
 });
 
 const headroom: Line = (c, f) =>
@@ -280,11 +290,11 @@ const LINES: Record<RowState, Line> = {
     sentence: 'The page closed while this was sent. Checking the chain for it.',
     trail: [st('sent', 'on'), st('reading the chain', 'on')],
   }),
-  unfinished: (c) => ({
+  unfinished: (c, f) => ({
     chip: chip("didn't finish", 'warn'),
     sentence: "This didn't finish. Nothing left your balance.",
     trail: [st("didn't finish", 'bad')],
-    action: againOf(c),
+    action: againOf(c, f),
   }),
   sent: (c, f) =>
     c.kind === 3
@@ -316,7 +326,7 @@ const LINES: Record<RowState, Line> = {
       blockStation(c),
       st(c.proofDeadline ? `proof missed · ${hhmm(c.proofDeadline)}` : 'proof missed', 'warn'),
     ],
-    action: againOf(c),
+    action: againOf(c, f),
   }),
   paused: (c, f) => ({
     chip: chip(f.pausedUntil ? `paused · until ${dayOf(f.pausedUntil)}` : 'paused', 'warn'),

@@ -223,11 +223,18 @@ const retirePhase = (v: VersionFlows, flipped: boolean): TimelineItem => ({
     : 'days later · nothing can leave',
 });
 
-/** The last day's phase: a rule until the upgrade, then the reading, done once Ethereum is past the date. */
+/** The last day's phase: a rule until the upgrade, then the reading (the cliff red), done once Ethereum is past the date. */
 const closesPhase = (v: VersionFlows, d: DeadlineReading, floorDays: number): TimelineItem => ({
   id: 'closes',
   label: 'last day',
-  state: d.kind === 'set' && d.closed ? 'done' : d.kind === 'no-flip' ? 'todo' : 'on',
+  state:
+    d.kind === 'set' && d.closed
+      ? 'done'
+      : d.kind === 'no-flip'
+        ? 'todo'
+        : d.kind === 'any-day'
+          ? 'bad'
+          : 'on',
   detail: lastDayWords(d, v, floorDays, shortDay),
 });
 

@@ -301,7 +301,7 @@ function assertProductionEthereum(c: SiteConfig): void {
 /** A stop is a unix time and the retirement a boolean: the old origin decides its page on them. */
 function assertLifecycle(l: LifecycleRecord | null): void {
   if (!l) return;
-  if (l.stoppedProvingAt !== undefined && !/^\d+$/.test(l.stoppedProvingAt))
+  if (l.stoppedProvingAt !== undefined && !/^\d{1,10}$/.test(l.stoppedProvingAt))
     throw new Error(`lifecycle.stoppedProvingAt ${JSON.stringify(l.stoppedProvingAt)} is not a unix time`);
   if (l.nodeRetired !== undefined && typeof l.nodeRetired !== 'boolean')
     throw new Error(`lifecycle.nodeRetired ${JSON.stringify(l.nodeRetired)} is not a boolean`);

@@ -109,6 +109,8 @@ describe('Settings', () => {
     vi.stubEnv('VITE_APP_ROLE', 'old');
     vi.stubEnv('VITE_ROLLUP_VERSION', '5');
     vi.stubEnv('VITE_RP_ID', 'yacana.network');
+    // A node pinned by the page URL reads as custom: read-only offers no way back to the default either.
+    vi.stubEnv('VITE_AZTEC_NODE_URL', 'https://default.example/rpc');
     const { container } = mount(true);
     const headers = Array.from(container.querySelectorAll('[data-slot=tile-header]')).map(
       (h) => h.firstElementChild?.textContent,
@@ -116,6 +118,8 @@ describe('Settings', () => {
     expect(headers).toEqual(['network', 'account', 'appearance', 'about']);
     expect(screen.getByTestId('node-row')).toBeTruthy();
     expect(screen.queryByTestId('node-change')).toBeNull();
+    expect(screen.getByTestId('node-row').textContent).toContain('custom');
+    expect(screen.queryByTestId('node-default')).toBeNull();
     expect(screen.getByText('passkey · the same account as yacana.network')).toBeTruthy();
     expect(container.textContent).toContain('this origin');
     expect(screen.getByTestId('about-line').textContent).toContain(

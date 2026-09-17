@@ -51,7 +51,7 @@ function Row({
   onDefault,
 }: {
   nodeUrl: string;
-  /** Absent, the row reports and offers no change: the old origin's node is the version's, not a setting. */
+  /** Absent, the row reports and offers no way to another node: the old origin's node is the version's, not a setting. */
   onChange?: () => void;
   onDefault: () => void;
 }) {
@@ -84,9 +84,11 @@ function Row({
           ) : (
             <>
               <span className="text-ink-3">· custom</span>
-              <Button variant="link" className="text-xs" onClick={onDefault} data-testid="node-default">
-                Use the default
-              </Button>
+              {onChange && (
+                <Button variant="link" className="text-xs" onClick={onDefault} data-testid="node-default">
+                  Use the default
+                </Button>
+              )}
             </>
           )}
         </div>

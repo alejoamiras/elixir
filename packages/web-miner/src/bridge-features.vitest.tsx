@@ -158,6 +158,10 @@ const announce = () =>
 const card = (onSendAhead = () => {}, onHow = () => {}) => (
   <MigrationCard onSendAhead={onSendAhead} onHow={onHow} />
 );
+const stations = () =>
+  Array.from(document.querySelectorAll('[data-slot=trail] [data-state]')).map(
+    (e) => (e as HTMLElement).dataset.state,
+  );
 const sends = [
   crossing({ id: 'a', kind: 2, state: 'held', amount: (4n * ONE).toString() }),
   crossing({ id: 'b', kind: 2, state: 'sent', amount: (2n * ONE).toString() }),
@@ -181,7 +185,7 @@ describe('the migration card', () => {
     expect(el.textContent).not.toMatch(/safe|lost/);
     fireEvent.click(screen.getByTestId('send-ahead'));
     expect(onSendAhead).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('send-ahead').textContent).toBe(`Send 3 ${PARAMS.TOKEN_SYMBOL} ahead`);
+    expect(screen.getByTestId('send-ahead').textContent).toBe('Send ahead');
     fireEvent.click(screen.getByTestId('send-ahead-how'));
     expect(onHow).toHaveBeenCalledTimes(1);
   });
@@ -195,16 +199,19 @@ describe('the migration card', () => {
     const el = screen.getByTestId('migration-card');
     expect(el.dataset.moment).toBe('announced');
     expect(screen.getByTestId('sent-ahead-status').textContent).toBe(`6 ${PARAMS.TOKEN_SYMBOL} sent ahead.`);
-    const stations = Array.from(el.querySelectorAll('[data-slot=trail] [data-state]'));
-    expect(stations.map((e) => (e as HTMLElement).dataset.state)).toEqual([
-      'done',
-      'on',
-      'todo',
-      'todo',
-      'todo',
-    ]);
+    expect(stations()).toEqual(['done', 'on', 'todo', 'todo', 'todo']);
     expect(el.textContent).toContain(`1 ${PARAMS.TOKEN_SYMBOL} mined since`);
     expect(screen.getByTestId('send-ahead').textContent).toBe(`Send 1 ${PARAMS.TOKEN_SYMBOL} ahead`);
+    cleanup();
+    // A redeemed send went to Ethereum, not ahead; a claimable one is at the last station.
+    mount(card(), (s) => {
+      s.set(journalAtom, [
+        crossing({ id: 'd', kind: 2, state: 'claimable', amount: ONE.toString() }),
+        crossing({ id: 'e', kind: 2, state: 'minted-l1', amount: (5n * ONE).toString() }),
+      ]);
+    });
+    expect(screen.getByTestId('sent-ahead-status').textContent).toBe(`1 ${PARAMS.TOKEN_SYMBOL} sent ahead.`);
+    expect(stations()).toEqual(['done', 'done', 'done', 'done', 'on']);
   });
 
   test('flipped: mining has ended here; the chip says what Ethereum last accepted, and stopped only from the record', () => {
@@ -236,8 +243,11 @@ describe('the migration card', () => {
     expect(chip().dataset.tone).toBe('ok');
     cleanup();
     mount(card(), flipped({ at: BigInt(NOW / 1000 - 3 * 3600), checkpoint: 9n, block: 1n }));
-    expect(chip().textContent).toBe('no proof from V5 for 3.0 h');
+    expect(chip().textContent).toBe('no proof from V5 for 3 h');
     expect(chip().dataset.tone).toBe('warn');
+    cleanup();
+    mount(card(), flipped('none'));
+    expect(chip().textContent).toBe('no proof from V5 yet');
     cleanup();
     // The record's stop outranks a fresh proof: "stopped" never comes from an age, and an age never from a stop.
     vi.stubEnv('VITE_LIFECYCLE', JSON.stringify({ stoppedProvingAt: String(NOW / 1000 - 86_400) }));

@@ -357,15 +357,25 @@ describe('the old app', () => {
     expect(screen.getByTestId('retired').dataset.state).toBe('silent');
     expect(screen.getByTestId('proof-chip').dataset.tone).toBe('warn');
     expect(screen.getByTestId('retired').textContent).toContain(
-      'V5 hasn’t proved an epoch for 3.0 h and may have stopped.',
+      'V5 hasn’t proved an epoch for 3 hours and may have stopped.',
     );
     expect(screen.getByTestId('old-card').dataset.state).toBe('still-here');
     keep('old-app-silent', container.innerHTML);
   });
 
-  test('stopped, from the record alone: nothing more leaves; the held row stays, with its redeem', () => {
+  test('stopped, from the record alone: nothing more leaves, no retry; the held row stays, with its redeem', () => {
     vi.stubEnv('VITE_LIFECYCLE', JSON.stringify({ stoppedProvingAt: String(SECONDS - 86_400) }));
-    const { container } = old(withProof(60), session);
+    const { container } = old((s) => {
+      withProof(60)(s);
+      s.set(journalAtom, [
+        ...s.get(journalAtom),
+        crossing('undone', { kind: 2, state: 'never-proven', ...settled }),
+      ]);
+    }, session);
+    expect((screen.getByTestId('row-again') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('row-disabled').textContent).toBe(
+      'V5 stopped proving: nothing more can leave.',
+    );
     expect(screen.getByTestId('retired').dataset.state).toBe('quiet');
     expect(screen.getByTestId('retired').textContent).toContain(
       'V5 has stopped proving. Nothing more can leave.',
@@ -377,7 +387,7 @@ describe('the old app', () => {
     keep('old-app-quiet', container.innerHTML);
   });
 
-  test('the node gone: said before anything is read, no log in, the apex one link away', () => {
+  test('the node gone: the fact as the chip, no log in, no list, the apex one link away', () => {
     vi.stubEnv('VITE_APP_ROLE', 'old');
     vi.stubEnv(
       'VITE_LIFECYCLE',

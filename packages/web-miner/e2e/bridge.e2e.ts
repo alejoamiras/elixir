@@ -200,8 +200,8 @@ test('on V5 after the flip: the migration card says mining has ended and what is
   // The rig's rollup version is whatever the network minted: the copy names it, the spec does not assume it.
   await expect(page.getByTestId('flipped-alert')).toContainText(/Mining has ended on V\d+\./);
   await expect(card).toContainText(/what’s still here when it stops can’t leave\./);
-  // The live chip reads Ethereum's last accepted proof, or says it is still checking.
-  await expect(page.getByTestId('proof-chip')).toBeVisible();
+  // The live chip is the scan of Ethereum's accepted proofs finished, whatever it found.
+  await expect(page.getByTestId('proof-chip')).not.toHaveText('checking', { timeout: 60_000 });
   await expect(page.getByTestId('send-ahead')).toBeEnabled();
   await shot(page, 'mine-flipped');
   // A fresh browser knows nothing of what was sent: the recovery file brings the journal, and the card its sum.

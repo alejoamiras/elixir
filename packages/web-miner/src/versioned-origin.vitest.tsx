@@ -49,22 +49,6 @@ describe('the old role', () => {
     expect(screen.queryByTestId('start')).toBeNull();
   });
 
-  test('with the node retired the page reads nothing: no log in, no chip but the fact, the apex one link away', () => {
-    vi.stubEnv('VITE_APP_ROLE', 'old');
-    vi.stubEnv('VITE_LIFECYCLE', JSON.stringify({ stoppedProvingAt: '1800000000', nodeRetired: true }));
-    render(
-      <Provider store={createStore()}>
-        <OldApp />
-      </Provider>,
-    );
-    expect(screen.getByTestId('retired').textContent).toContain(
-      'V5’s node has shut down. Nothing more can leave from here.',
-    );
-    expect(screen.getByTestId('proof-chip').textContent).toBe('V5’s node has shut down');
-    expect(screen.getByTestId('open-apex').getAttribute('href')).toBe('https://yacana.network');
-    expect(screen.queryByTestId('sign-in-mine')).toBeNull();
-  });
-
   test('the versioned host restores and never creates: the dialog opens on Log in, with the note and no Start', () => {
     // jsdom's hostname is localhost; naming it the versioned origin makes this page that origin.
     vi.stubEnv('VITE_OLD_APP_ORIGIN', 'http://localhost');

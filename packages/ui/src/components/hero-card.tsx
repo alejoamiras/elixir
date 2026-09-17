@@ -11,11 +11,7 @@ const BORDER: Record<HeroTone, string> = {
   bad: 'border-bad',
 };
 
-/**
- * One moment's card: what is so, what it means, its trail, and the one thing to do — under the
- * body (`actions`) or in a column on the right (`side`). `aside` sits across from the eyebrow: a
- * live chip.
- */
+/** One moment's card; `aside` sits across from the eyebrow, `actions` under the body and trail, `side` in a right column. */
 export function HeroCard({
   eyebrow,
   aside,

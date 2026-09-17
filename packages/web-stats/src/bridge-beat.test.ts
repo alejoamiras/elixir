@@ -172,7 +172,7 @@ describe('the sentences', () => {
     expect(flipped[4]?.detail).toBe('Jan 26 · plus paused days');
     // Past the floor with the version after next unseen: the cliff, on; past a recorded date: done.
     const cliff = phasesOf({ ...live, flipAt: 1_799_500_000n }, null, NOW, at);
-    expect(cliff[4]).toMatchObject({ state: 'on', detail: 'could close any day · V7 going live ends it' });
+    expect(cliff[4]).toMatchObject({ state: 'bad', detail: 'could close any day · V7 going live ends it' });
     const past = phasesOf({ ...live, flipAt: 1_799_500_000n, afterNextAt: 1_799_600_000n }, null, NOW, at);
     expect(past[4]).toMatchObject({ state: 'done', detail: 'Jan 10 · passed' });
   });

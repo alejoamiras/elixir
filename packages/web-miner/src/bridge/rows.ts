@@ -14,7 +14,7 @@ import type { RowLine } from '../../../ui/src/index.ts';
 import { amount as fmt, shortAddress } from '../lib/format';
 import type { BridgeView, VersionFacts } from '../state';
 import { chainName, rowLine, stamp, takingLong, whoOf } from './copy';
-import { isOldRole, nextVersionName, versionNameOf } from './env';
+import { isOldRole, lifecycleRecord, nextVersionName, versionNameOf } from './env';
 
 /** YACA on Ethereum; the private token here keeps the profile's symbol. */
 const L1_SYMBOL = 'YACA';
@@ -155,6 +155,7 @@ export function activity(
         money,
         who: partyOf(c),
         chain,
+        stopped: c.version === env.ownVersion && lifecycleRecord()?.stoppedProvingAt !== undefined,
       });
       return {
         c,
