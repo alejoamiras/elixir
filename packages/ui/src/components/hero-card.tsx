@@ -19,7 +19,6 @@ export function HeroCard({
   children,
   trail,
   actions,
-  side,
   tone = 'uv',
   className,
   ...props
@@ -29,18 +28,13 @@ export function HeroCard({
   title: React.ReactNode;
   trail?: readonly TrailItem[];
   actions?: React.ReactNode;
-  side?: React.ReactNode;
   tone?: HeroTone;
 }) {
   return (
     <section
       data-slot="hero-card"
       data-tone={tone}
-      className={cn(
-        'grid items-start gap-x-7 gap-y-[18px] rounded-[10px] border bg-raised px-6 py-[22px] md:grid-cols-[minmax(0,1fr)_auto]',
-        BORDER[tone],
-        className,
-      )}
+      className={cn('rounded-[10px] border bg-raised px-6 py-[22px]', BORDER[tone], className)}
       {...props}
     >
       <div className="min-w-0">
@@ -61,14 +55,6 @@ export function HeroCard({
           </div>
         )}
       </div>
-      {side !== undefined && (
-        <div
-          data-slot="hero-side"
-          className="flex min-w-0 flex-col items-start gap-2.5 md:min-w-[240px] md:max-w-[380px] md:items-end md:text-right"
-        >
-          {side}
-        </div>
-      )}
     </section>
   );
 }

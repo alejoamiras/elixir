@@ -15,7 +15,7 @@ export const pathFor = (route: Route): string => `${base}/${route === 'mine' ? '
 
 const NAVIGATE = 'yacana:navigate';
 
-/** What the wallet opens on arrival: its Send sheet, or the words backup on the way to Sign out. */
+/** What the wallet opens on arrival: the Send dialog, or the words backup on the way to Sign out. */
 export type Intent = 'send' | 'backup';
 
 /** `intent` rides in history state, read once by the wallet. */

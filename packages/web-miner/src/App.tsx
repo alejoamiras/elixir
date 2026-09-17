@@ -103,7 +103,7 @@ export function Shell({ children }: { children: ReactNode }) {
             )}
             {boot.phase === 'ready' && (
               <AccountChip
-                address={shortAddress(boot.record.account.address)}
+                address={shortAddress(boot.account)}
                 href={pathFor(accountRoute)}
                 onSelect={() => navigate(accountRoute)}
                 data-testid="account-chip"
@@ -176,11 +176,6 @@ export function App({ connection, session }: { connection: Connection; session: 
       {open && route === 'wallet' && <Wallet session={session} />}
       {route === 'settings' && <Settings connection={connection} controller={controller} session={session} />}
       {route !== 'settings' && <SignInDialog session={session} />}
-      <p className="text-xs text-ink-2">
-        Whoever serves this page controls it: a compromised host could redirect claims or spend this wallet.
-        Run your own build if that matters. Chain reads come from the node in Settings and can only waste work
-        if the node lies — claims are verified on-chain.
-      </p>
       <Toaster />
     </Shell>
   );

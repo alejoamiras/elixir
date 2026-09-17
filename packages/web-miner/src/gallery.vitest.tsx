@@ -1,7 +1,7 @@
 // The state lists as drawn, rendered over a made-up journal: every word a crossing can lead with,
-// what arrives in every state, the old app once something was sent and once the version is quiet,
-// the taking-long dialog and the old-tab bar. With `GALLERY_DIR` set, each render's markup is
-// written there to be screenshotted under the built stylesheet.
+// what arrives in every state, what was sent ahead, the old app in its four states, the old-tab
+// bar. With `GALLERY_DIR` set, each render's markup is written there to be screenshotted under the
+// built stylesheet.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';

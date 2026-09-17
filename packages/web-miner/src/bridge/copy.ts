@@ -10,12 +10,7 @@ import type { ProofReading } from '../../../bridge/src/proofs.ts';
 import { revertRow } from '../../../bridge/src/revert.ts';
 import type { ChipTone, RowAction, RowLine, TrailItem } from '../../../ui/src/index.ts';
 import { duration } from '../lib/format';
-
-/** Seconds until `deadline` (unix s), as "in 12 min" or "3 h ago". */
-export const untilOrAgo = (deadline: bigint, nowSeconds: number): string => {
-  const delta = Number(deadline) - nowSeconds;
-  return delta >= 0 ? `in ${duration(delta)}` : `${duration(-delta)} ago`;
-};
+import { PROVING, type ProverKind } from '../presto';
 
 const hhmm = (unixSeconds: string | bigint): string =>
   new Date(Number(unixSeconds) * 1000).toISOString().slice(11, 16);
@@ -64,6 +59,8 @@ export interface RowFacts {
   claiming?: boolean;
   /** Seconds since the row's own work began: the proof since the send, the claim since the tap. */
   elapsed?: number;
+  /** Who proves this page's transactions (the one proving now, else the next one's): the "about N s". */
+  prover?: ProverKind;
   /** An arrival that lands on another version than this build's, by name: it is claimed there, not here. */
   elsewhere?: string;
   /** The amount in the unit of where it lands: what the sentence says it becomes ("3.5 tYACA"). */
@@ -110,10 +107,13 @@ export const proofChip = (
 const anyDay = (f: RowFacts): boolean => f.deadline?.kind === 'any-day';
 
 const chip = (word: string, tone: ChipTone) => ({ word, tone });
-/** The chip of work under way here, with its seconds ("proving · 8 s"), and the bar against the usual 20 s. */
-const working = (word: string, elapsed: number | undefined) => ({
-  chip: chip(elapsed === undefined ? word : `${word} · ${Math.floor(elapsed)} s`, 'on' as const),
-  progress: elapsed === undefined ? undefined : Math.min(1, elapsed / 20),
+/** "about 5 s" through Presto, "about 20 s" in the browser: the sentence's promise and the bar's length. */
+const about = (f: RowFacts): string => PROVING[f.prover ?? 'wasm'].about;
+const USUAL_S: Record<ProverKind, number> = { presto: 5, wasm: 20 };
+/** The chip of work under way here, with its seconds ("proving · 8 s"), and the bar against the usual time. */
+const working = (word: string, f: RowFacts) => ({
+  chip: chip(f.elapsed === undefined ? word : `${word} · ${Math.floor(f.elapsed)} s`, 'on' as const),
+  progress: f.elapsed === undefined ? undefined : Math.min(1, f.elapsed / USUAL_S[f.prover ?? 'wasm']),
 });
 const st = (label: string, state: TrailItem['state']): TrailItem => ({ label, state });
 const act = (kind: RowAction, label: string, disabled?: string) => ({ kind, label, disabled });
@@ -165,8 +165,8 @@ const proving: Line = (c, f) =>
         ],
       }
     : {
-        ...working('proving', f.elapsed),
-        sentence: 'Proving privately, about 20 s.',
+        ...working('proving', f),
+        sentence: `Proving privately, ${about(f)}.`,
         trail: [st('proving', 'on'), st('reached Ethereum', 'todo'), st(`claim on ${f.target}`, 'todo')],
       };
 
@@ -261,8 +261,8 @@ const claimable: Line = (c, f) => {
     };
   if (f.claiming)
     return {
-      ...working('claiming', f.elapsed),
-      sentence: 'Claiming privately, about 20 s.',
+      ...working('claiming', f),
+      sentence: `Claiming privately, ${about(f)}.`,
       trail,
     };
   return {
@@ -270,8 +270,8 @@ const claimable: Line = (c, f) => {
     sentence: c.claimTxHash
       ? "The claim's epoch wasn't proven in time, so the claim was undone. Claim it again: one tap."
       : c.kind === 3
-        ? 'Arrived. Claim it into your private balance: one tap, about 20 s, no fee.'
-        : `Arrived from ${f.version}. Claim it into your balance: one tap, about 20 s, no fee.`,
+        ? `Arrived. Claim it into your private balance: one tap, ${about(f)}, no fee.`
+        : `Arrived from ${f.version}. Claim it into your balance: one tap, ${about(f)}, no fee.`,
     trail,
     action: act('claim', 'Claim'),
   };

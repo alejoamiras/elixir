@@ -115,10 +115,13 @@ export function BalanceTile({
 
 function AccountTile({
   record,
+  address,
   onSignOut,
   onBackUp,
 }: {
   record: MasterRecord;
+  /** The address this build opened (the record keeps the one it was made with, see `currentAddress`). */
+  address: string;
   onSignOut: () => void;
   onBackUp: () => void;
 }) {
@@ -129,12 +132,12 @@ function AccountTile({
       <div className="flex items-center justify-between gap-3 rounded-[8px] border border-line-2 px-3.5 py-3">
         <div className="min-w-0">
           <ExternalLink
-            href={links.address(record.account.address)}
-            full={record.account.address}
+            href={links.address(address)}
+            full={address}
             className="font-mono text-sm text-ink"
             data-testid="wallet-account"
           >
-            {shortAddress(record.account.address)}
+            {shortAddress(address)}
           </ExternalLink>
           <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-ink-3">
             <span>{method}</span>
@@ -315,6 +318,7 @@ export function Wallet({ session }: { session: Session }) {
       <TileBoundary name="account" onError={onError}>
         <AccountTile
           record={boot.record}
+          address={account}
           onSignOut={() => setSignOut(true)}
           onBackUp={() => setBackup('account')}
         />

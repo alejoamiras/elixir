@@ -14,11 +14,17 @@ type Battery = {
   removeEventListener(t: 'chargingchange', l: () => void): void;
 };
 
-/** A focused control keeps its own keys: Space on a button is that button's click, not the page's Start. */
+/**
+ * A focused control keeps its own keys: Space on a button is that button's click, not the page's
+ * Start. An open dialog keeps every key: a transaction dialog navigated away from mid-proof is torn
+ * down under its transaction.
+ */
 const interactive = (t: EventTarget | null) =>
   t instanceof HTMLElement &&
   (t.isContentEditable ||
-    t.closest('input, textarea, select, button, a, [role="button"], [contenteditable]') !== null);
+    t.closest(
+      'input, textarea, select, button, a, [role="button"], [contenteditable], [role="dialog"], [role="alertdialog"]',
+    ) !== null);
 
 /** Space is the Start button's own action (`onStart`: it also re-asks Presto), Stop when mining. */
 export function useHotkeys(

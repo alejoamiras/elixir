@@ -1,5 +1,4 @@
-// The journal as a file the holder keeps: the same download from the bridge tile and the sheet
-// that just sent something ahead.
+// The journal as a file the holder keeps: the Wallet's download, and the send-ahead's once it sent.
 import type { Session } from '../session';
 
 /** Downloads the recovery file; the note says how many crossings it holds. */

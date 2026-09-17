@@ -50,6 +50,8 @@ const STATES: ReadonlySet<string> = new Set<CrossingState>([
 ]);
 const HEX20 = /^0x[0-9a-f]{40}$/i;
 const DECIMAL = /^(0|[1-9][0-9]*)$/;
+/** The last millisecond a JavaScript Date represents. */
+const MAX_TIME_MS = 8_640_000_000_000_000;
 /** A file's index sets how far a device scans for arrivals; no account reaches this many crossings. */
 export const MAX_INDEX = 1_000_000;
 
@@ -67,6 +69,8 @@ export function parseCrossing(raw: unknown, where: string): Crossing {
     typeof o[k] === 'number' && Number.isSafeInteger(o[k]) && o[k] >= 0
       ? o[k]
       : fail(where, `${k} is not a whole number`);
+  // A whole number past what a Date can hold is not a time (the page formats every row's).
+  const time = (k: string): number => (num(k) <= MAX_TIME_MS ? num(k) : fail(where, `${k} is not a time`));
   const kind = num('kind');
   if (kind !== 1 && kind !== 2 && kind !== 3) fail(where, `kind ${kind}`);
   const state = str('state');
@@ -80,8 +84,8 @@ export function parseCrossing(raw: unknown, where: string): Crossing {
     index: num('index') <= MAX_INDEX ? num('index') : fail(where, `index past ${MAX_INDEX}`),
     amount: str('amount', DECIMAL),
     state: state as CrossingState,
-    createdAt: num('createdAt'),
-    updatedAt: num('updatedAt'),
+    createdAt: time('createdAt'),
+    updatedAt: time('updatedAt'),
     ethAddress: str('ethAddress', HEX20).toLowerCase() as Hex,
   };
   c.id = crossingId(c);
