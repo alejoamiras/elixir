@@ -33,6 +33,7 @@ import {
   useLive,
   useOpening,
 } from './Frame';
+import { useProvingWords } from './use-tx-prover';
 
 const SYM = PARAMS.TOKEN_SYMBOL;
 const money = (raw: bigint) => `${fmt(raw, PARAMS.DECIMALS)} ${SYM}`;
@@ -109,6 +110,7 @@ function Form({
 
 /** The five stations with their times, and the day the next version never opens. */
 function How({ next, onBack }: { next: string; onBack: () => void }) {
+  const words = useProvingWords();
   const v = ownVersionName();
   const view = useAtomValue(bridgeAtom);
   return (
@@ -121,8 +123,8 @@ function How({ next, onBack }: { next: string; onBack: () => void }) {
             id: 'leave',
             label: `Leaves ${v}, privately`,
             state: 'pending',
-            right: 'about 20 s',
-            detail: 'Your browser proves it; mining pauses meanwhile.',
+            right: words.about,
+            detail: words.how,
           },
           {
             id: 'reach',
@@ -172,6 +174,7 @@ function How({ next, onBack }: { next: string; onBack: () => void }) {
 
 function Proving({ next, since }: { next: string; since: number }) {
   const elapsed = useElapsed(since);
+  const words = useProvingWords();
   return (
     <>
       <Stepper
@@ -182,14 +185,14 @@ function Proving({ next, since }: { next: string; since: number }) {
             label: 'Proving privately',
             state: 'active',
             right: elapsed === undefined ? undefined : seconds(elapsed),
-            detail: 'In your browser; Presto proves only mining work.',
+            detail: words.detail,
           },
           { id: 'send', label: 'Sent', state: 'pending' },
           { id: 'reach', label: 'Reaching Ethereum', state: 'pending', right: 'usually within the hour' },
           { id: 'held', label: `Held on Ethereum for ${next}`, state: 'pending' },
         ]}
       />
-      <Foot>Keep this tab open while it proves, about 20 s.</Foot>
+      <Foot>{words.foot}</Foot>
     </>
   );
 }

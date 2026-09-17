@@ -30,6 +30,7 @@ import {
   useLive,
   useOpening,
 } from './Frame';
+import { useProvingWords } from './use-tx-prover';
 import { ConnectWallet, chain, WalletChip } from './Wallet';
 
 const SYM = PARAMS.TOKEN_SYMBOL;
@@ -205,6 +206,7 @@ function Form({
 
 /** The four stages, from the quiet link. */
 function How({ onBack }: { onBack: () => void }) {
+  const words = useProvingWords();
   const v = ownVersionName();
   return (
     <>
@@ -216,8 +218,8 @@ function How({ onBack }: { onBack: () => void }) {
             id: 'prove',
             label: 'Proving privately',
             state: 'pending',
-            right: 'about 20 s',
-            detail: 'In your browser; mining pauses meanwhile.',
+            right: words.about,
+            detail: words.detail,
           },
           { id: 'send', label: 'Sent', state: 'pending', right: 'a block' },
           {
@@ -242,6 +244,7 @@ function How({ onBack }: { onBack: () => void }) {
 
 function Proving({ since }: { since: number }) {
   const elapsed = useElapsed(since);
+  const words = useProvingWords();
   return (
     <>
       <Stepper
@@ -252,14 +255,14 @@ function Proving({ since }: { since: number }) {
             label: 'Proving privately',
             state: 'active',
             right: elapsed === undefined ? undefined : seconds(elapsed),
-            detail: 'In your browser; Presto proves only mining work.',
+            detail: words.detail,
           },
           { id: 'send', label: 'Sent', state: 'pending' },
           { id: 'reach', label: 'Reaching Ethereum', state: 'pending', right: 'usually within the hour' },
           { id: 'claim', label: 'Claim on Ethereum', state: 'pending' },
         ]}
       />
-      <Foot>Keep this tab open while it proves, about 20 s.</Foot>
+      <Foot>{words.foot}</Foot>
     </>
   );
 }

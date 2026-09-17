@@ -16,6 +16,7 @@ import type { AccountFields } from '../../miner-core/src/keys/derive.ts';
 import { PROVERLESS_MARKER } from '../../site/src/config.ts';
 import type { Fee, Node } from './chain';
 import { type FeePayer, feePayer } from './feePayer';
+import type { TxProver } from './tx-prover';
 import { MemoryKvStore } from './wallet/memory-store';
 
 /** An e2e build may ask the PXE to skip proving; `PROVERLESS_MARKER` must stay inside this flag's branch. */
@@ -92,7 +93,7 @@ const observeSends = (node: Node, observer: ReturnType<typeof sendObserver>): No
   });
 
 /** Nothing half-open survives a failure: a retry must find the namespace unheld. */
-export async function openWallet(node: Node, chainId: bigint): Promise<OpenedWallet> {
+export async function openWallet(node: Node, chainId: bigint, prover?: TxProver): Promise<OpenedWallet> {
   const pxeDb = await pxeNamespace(node, chainId);
   const pxeStore = await AztecIndexedDBStore.open(createLogger('web-miner'), pxeDb, false);
   let sent: SentTx | undefined;
@@ -104,7 +105,7 @@ export async function openWallet(node: Node, chainId: bigint): Promise<OpenedWal
   try {
     if (PROVERLESS) console.warn(`${PROVERLESS_MARKER}: this build sends transactions unproved`);
     wallet = await EmbeddedWallet.create(observed, {
-      pxe: { proverEnabled: !PROVERLESS, store: pxeStore },
+      pxe: { proverEnabled: !PROVERLESS, store: pxeStore, proverOrOptions: prover },
       walletDb: { store: new MemoryKvStore() },
     });
     const fpc = await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
@@ -170,10 +171,11 @@ export async function resetAccountView(
   node: Node,
   chainId: bigint,
   fields: AccountFields,
+  prover?: TxProver,
 ): Promise<OpenedWallet> {
   await previous.wallet.stop();
   await deleteDatabase(previous.pxeDb);
-  const opened = await openWallet(node, chainId);
+  const opened = await openWallet(node, chainId, prover);
   try {
     await registerAccount(opened, fields);
   } catch (e) {

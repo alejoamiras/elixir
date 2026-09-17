@@ -31,6 +31,7 @@ import { type PrestoEndpoint, prestoAtom, prestoEligible, prestoEndpoint } from 
 import { type PublicEpochPoll, publicEpochReader, startPublicEpoch } from './public-epoch';
 import { loadSettings } from './settings';
 import { bootAtom, crsAtom, logAtom, rulesAtom, signInAtom } from './state';
+import { TxProver } from './tx-prover';
 import {
   ChainViewHeldError,
   type OpenedWallet,
@@ -301,6 +302,8 @@ export interface Started {
   controller: MinerController;
   wallet: () => EmbeddedWallet;
   threads: number;
+  /** The wallet's prover when this build looks for Presto: its transaction proofs go there, or to WASM when it steps aside. */
+  txProver?: TxProver;
 }
 
 /**
@@ -350,9 +353,10 @@ export async function startSession(
   set('notes', { state: 'active', since: Date.now() });
   let opened: OpenedWallet | undefined;
   let controller: MinerController | undefined;
+  const txProver = pre.presto ? new TxProver(pre.presto) : undefined;
   try {
     opts.signal.throwIfAborted();
-    opened = await openWallet(pre.node, pre.chainId);
+    opened = await openWallet(pre.node, pre.chainId, txProver);
     opts.signal.throwIfAborted();
     const fields = await deriveAccountFields(master, record.account.index);
     // A view built from another node (or one whose origin is unknown) is thrown away, never read
@@ -360,7 +364,7 @@ export async function startSession(
     // poison it. The marker is written after the rebuild, so an interrupted one rebuilds again.
     const fingerprint = await endpointFingerprint(pre.switchable.current());
     if (viewBuiltOn(opened.pxeDb) !== fingerprint)
-      opened = await resetAccountView(opened, pre.node, pre.chainId, fields);
+      opened = await resetAccountView(opened, pre.node, pre.chainId, fields, txProver);
     const account = await registerAccount(opened, fields);
     if (account.toString() !== currentAddress(record, await currentAccountClassId()))
       throw new Error('the wallet derived a different address than the vault');
@@ -378,12 +382,12 @@ export async function startSession(
     const recover = async (strict = false): Promise<Rebound> => {
       let rebuilt = true;
       try {
-        opened = await resetAccountView(opened as OpenedWallet, pre.node, pre.chainId, fields);
+        opened = await resetAccountView(opened as OpenedWallet, pre.node, pre.chainId, fields, txProver);
         markViewBuiltOn((opened as OpenedWallet).pxeDb, await endpointFingerprint(pre.switchable.current()));
       } catch (e) {
         if (e instanceof ChainViewHeldError || strict) throw e;
         rebuilt = false;
-        opened = await openWallet(pre.node, pre.chainId);
+        opened = await openWallet(pre.node, pre.chainId, txProver);
         await registerAccount(opened, fields);
       }
       const o = opened as OpenedWallet;
@@ -416,7 +420,7 @@ export async function startSession(
     set('ready', { state: 'done' });
     controller.log(openedLine(steps));
     // Over the mutable handle: a rebuild (a lost race, a node switch) replaces `opened`.
-    return { controller, wallet: () => (opened as OpenedWallet).wallet, threads };
+    return { controller, wallet: () => (opened as OpenedWallet).wallet, threads, txProver };
   } catch (e) {
     // Nothing of an aborted or failed start survives: a retry must not find a second PXE on the
     // namespace, and the public poll takes the epoch back (it stopped only on a first read that stuck).

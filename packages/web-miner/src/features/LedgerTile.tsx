@@ -5,16 +5,19 @@ import type { MinerController } from '../controller';
 import { ledgerLinks } from '../explorer';
 import { settlementSuffix, winNote } from '../lib/claim-copy';
 import type { LedgerLine } from '../lib/reducer';
+import type { ProverKind } from '../presto';
 import { type ClaimRecord, claimsAtom, epochAtom, minerAtom, nowAtom } from '../state';
+import { useTxProver } from './dialogs/use-tx-prover';
 
 /** The lines as the ledger draws them: the win's note as of `now`, the minted line's settlement by its transaction. */
 export const shownLines = (
   lines: readonly LedgerLine[],
   claims: readonly ClaimRecord[],
   nowMs: number,
+  prover: ProverKind = 'wasm',
 ): (ProofLine & { id: number })[] =>
   lines.map((l) => {
-    if (l.kind === 'win') return { ...l, note: winNote(l.claim, nowMs) };
+    if (l.kind === 'win') return { ...l, note: winNote(l.claim, nowMs, prover) };
     if (l.kind === 'minted' && l.links) {
       const suffix = settlementSuffix(claims.find((c) => c.txHash === l.links?.tx)?.settled);
       return suffix ? { ...l, suffix } : l;
@@ -33,6 +36,7 @@ export function LedgerTile({
   const epoch = useAtomValue(epochAtom);
   const claims = useAtomValue(claimsAtom);
   const now = useAtomValue(nowAtom);
+  const txProver = useTxProver();
   // Before any proof the ledger still has one true line: when the open epoch opened.
   const lines: LedgerLine[] = miner.ledger.length
     ? miner.ledger
@@ -53,7 +57,7 @@ export function LedgerTile({
       </TileHeader>
       {lines.length ? (
         <ProofLedger
-          lines={shownLines(lines, claims, now)}
+          lines={shownLines(lines, claims, now, txProver)}
           linkFor={ledgerLinks}
           onAction={() => void controller()?.retryPendingClaim()}
           className="max-h-80 overflow-y-auto"

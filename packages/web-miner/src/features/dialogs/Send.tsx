@@ -40,6 +40,7 @@ import {
   useOnce,
   useOpening,
 } from './Frame';
+import { useProvingWords } from './use-tx-prover';
 
 const SYM = PARAMS.TOKEN_SYMBOL;
 const money = (raw: bigint) => `${fmt(raw, PARAMS.DECIMALS)} ${SYM}`;
@@ -220,10 +221,7 @@ function Form({
           {draft.mode === 'private' ? 'nothing; a private transfer' : 'the amount and the address, to anyone'}
         </Row>
       </Rows>
-      <Actions
-        quiet={<Quiet onClick={onCancel}>Cancel</Quiet>}
-        below="proves in your browser, about 20 s · mining pauses meanwhile"
-      >
+      <Actions quiet={<Quiet onClick={onCancel}>Cancel</Quiet>} below={useProvingWords().line}>
         <Primary disabled={busy || invalid} onClick={() => void submit()} data-testid="withdraw-send">
           Send{draft.amount.trim() && amountLine === null ? ` ${draft.amount.trim()} ${SYM}` : ''} {how}
         </Primary>
@@ -234,6 +232,7 @@ function Form({
 
 function Proving({ snap, since }: { snap: Snapshot; since: number }) {
   const elapsed = useElapsed(since);
+  const words = useProvingWords();
   return (
     <>
       <Stepper
@@ -244,7 +243,7 @@ function Proving({ snap, since }: { snap: Snapshot; since: number }) {
             label: 'Proving privately',
             state: 'active',
             right: elapsed === undefined ? undefined : seconds(elapsed),
-            detail: 'In your browser; mining pauses meanwhile.',
+            detail: words.detail,
           },
           {
             id: 'send',
@@ -253,7 +252,7 @@ function Proving({ snap, since }: { snap: Snapshot; since: number }) {
           },
         ]}
       />
-      <Foot>Keep this tab open while it proves, about 20 s.</Foot>
+      <Foot>{words.foot}</Foot>
     </>
   );
 }

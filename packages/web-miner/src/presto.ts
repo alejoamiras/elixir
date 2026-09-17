@@ -41,7 +41,7 @@ export const prestoConfig = (e: PrestoEndpoint): PrestoConfig => ({
   httpsOnly: e.httpsOnly,
 });
 
-const ROUTES = ['/health', '/prove/ultra-honk'];
+const ROUTES = ['/health', '/prove', '/prove/ultra-honk'];
 
 /**
  * The URLs the SDK fetches, exactly: health and prove over HTTPS, and over HTTP only when plaintext
@@ -110,6 +110,52 @@ export const prestoSticky = (s: PrestoState): boolean => s.selected === 'presto'
 /** Native is worth asking for when Presto answers and serves UltraHonk; a pending bb download is not a bar. */
 export const prestoEligible = (status: PrestoStatus | null): boolean =>
   status?.available === true && (status.schemes ?? []).includes('ultra_honk');
+
+/** The wallet's transaction proof will go to Presto: the Worker keeps it, and it serves the kernel's scheme. */
+export const prestoProvesTx = (s: PrestoState): boolean =>
+  prestoSticky(s) && s.status?.available === true && (s.status.schemes ?? []).includes('chonk');
+
+/**
+ * Who is proving the wallet's transaction, from the prover's phases: unknown until the steps are
+ * transmitted (Presto) or proving begins without a transmit (the page); a fallback is the page's.
+ */
+export const txProvingAfter = (prev: ProverKind | null, phase: PrestoPhase): ProverKind | null => {
+  switch (phase) {
+    case 'detect':
+      return null;
+    case 'transmit':
+      return 'presto';
+    case 'proving':
+      return prev ?? 'wasm';
+    case 'fallback':
+      return 'wasm';
+    default:
+      return prev;
+  }
+};
+
+/** The prover of the transaction under way; null between proofs. */
+export const txProvingAtom = atom<ProverKind | null>(null);
+
+/** What a proving step says, by who proves it; the times are this machine's: Presto's own bb, or bb.js in the page. */
+export const PROVING = {
+  presto: {
+    about: 'about 5 s',
+    line: 'proves through Presto ✦, about 5 s · mining pauses meanwhile',
+    detail: 'Through Presto ✦ on this machine; mining pauses meanwhile.',
+    foot: 'Keep this tab open while it proves, about 5 s.',
+    claim: 'claiming: proving through Presto ✦',
+    how: 'With Presto, your transaction’s private inputs go to Presto on this machine, never elsewhere; mining pauses meanwhile.',
+  },
+  wasm: {
+    about: 'about 20 s',
+    line: 'proves in your browser, about 20 s · mining pauses meanwhile',
+    detail: 'In your browser; mining pauses meanwhile.',
+    foot: 'Keep this tab open while it proves, about 20 s.',
+    claim: 'claiming: proving in your browser, about 20 s',
+    how: 'Your browser proves it; mining pauses meanwhile.',
+  },
+} as const satisfies Record<ProverKind, Record<string, string>>;
 
 /** A probe waits at most this long at the guard; the SDK's own timeouts are shorter. */
 const PROBE_DEADLINE_MS = 60_000;

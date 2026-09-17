@@ -76,7 +76,7 @@ import {
 import { type L1Sampler, startL1Sampler } from './l1-sampler';
 import { initialSteps, keyStepLabel, type OpeningStep, type StepId } from './opening-steps';
 import { CrsPinError } from './pinned-crs';
-import { prestoAtom, prestoEligible, probePresto } from './presto';
+import { prestoAtom, prestoEligible, probePresto, txProvingAfter, txProvingAtom } from './presto';
 import { loadSettings, saveSettings } from './settings';
 import {
   type AccountError,
@@ -88,6 +88,7 @@ import {
   logAtom,
   mineIntentAtom,
 } from './state';
+import type { TxProver } from './tx-prover';
 import { ChainViewHeldError } from './wallet';
 
 type Store = ReturnType<typeof createStore>;
@@ -178,6 +179,7 @@ export class Session {
   readonly l1: L1Sampler | undefined;
   private unsubBalance: (() => void) | undefined;
   private unsubFlip: (() => void) | undefined;
+  private unsubTxProver: (() => void) | undefined;
 
   /**
    * The open attempt: its generation and the AbortController Cancel aborts. `ceremony`: the OS prompt
@@ -385,6 +387,7 @@ export class Session {
       this.words = c.words;
       master = undefined; // the session owns it now
       this.started = started;
+      this.bindTxProver(started.txProver);
       await this.openBridge();
       this.store.set(bootAtom, {
         phase: 'ready',
@@ -691,6 +694,25 @@ export class Session {
     } catch (e) {
       c.log(`bridge did not open: ${e instanceof Error ? e.message : String(e)}`);
     }
+  }
+
+  /**
+   * The wallet's prover follows the Worker's verdict on Presto: once the Worker gave up on native
+   * (sticky), the transaction proofs stop asking too — a denied or dead Presto is not sent a witness
+   * per proof — and a rebuild that brings native back brings them back. Its phases name who proves.
+   */
+  private bindTxProver(prover: TxProver | undefined): void {
+    this.unsubTxProver?.();
+    this.unsubTxProver = undefined;
+    this.store.set(txProvingAtom, null);
+    if (!prover) return;
+    const mirror = () => prover.setForceLocal(this.store.get(prestoAtom).fallbackReason !== undefined);
+    mirror();
+    this.unsubTxProver = this.store.sub(prestoAtom, mirror);
+    prover.onPhase = (phase) => {
+      this.store.set(txProvingAtom, (on) => txProvingAfter(on, phase));
+      if (phase === 'receive' || phase === 'proved') this.store.set(txProvingAtom, null);
+    };
   }
 
   private closeBridge(): void {

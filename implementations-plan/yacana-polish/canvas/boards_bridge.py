@@ -38,7 +38,7 @@ def to_eth_form(pasted: bool = False):
 
 def to_eth_proving():
     inner = (head("bridge", "Bridging 3.5 tYACA.")
-             + steps([("Proving privately", "on", "12 s", "In your browser; Presto proves only mining work.", 62),
+             + steps([("Proving privately", "on", "12 s", "In your browser; mining pauses meanwhile. (Through Presto ✦ on this machine, when Presto proves.)", 62),
                       ("Sent", "todo", "", ""),
                       ("Reaching Ethereum", "todo", "usually within the hour", ""),
                       ("Claim on Ethereum", "todo", "", "")])

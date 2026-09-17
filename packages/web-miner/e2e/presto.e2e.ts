@@ -43,15 +43,19 @@ test('through Presto: the pill says ✦ presto after the first native proof, and
   await auth.remove();
 });
 
-test('a win Presto proved is verified in the browser before it shows, then claimed; the proof went over the wire', async ({
+test('a win Presto proved is verified in the browser before it shows, then claimed through Presto too; both proofs went over the wire', async ({
   page,
 }) => {
   const r = run();
   test.skip(!r.prestoUrl, 'presto-server is not installed on this machine');
   const proveUrl = `${r.prestoUrl}/prove/ultra-honk`;
   const proves: number[] = [];
+  // The claim's own proof (the private kernel, `chonk`) goes from the page to `/prove`.
+  const txProves: number[] = [];
   page.on('response', (res) => {
-    if (res.request().method() === 'POST' && res.url() === proveUrl) proves.push(res.status());
+    if (res.request().method() !== 'POST') return;
+    if (res.url() === proveUrl) proves.push(res.status());
+    if (res.url() === `${r.prestoUrl}/prove`) txProves.push(res.status());
   });
   // The server's log is the run's, and an earlier spec has already proved through it: only what it
   // gains from here on is this test's evidence.
@@ -62,15 +66,44 @@ test('a win Presto proved is verified in the browser before it shows, then claim
   await page.getByTestId('start').click();
   await expect(page.getByTestId('native')).toBeVisible({ timeout: 3 * 60_000 });
   // The easy target wins every other proof: the win was verified in WASM before it showed, then claimed.
-  await expect(page.getByTestId('claim-slot')).toHaveAttribute('data-state', 'minted', {
-    timeout: 10 * 60_000,
+  // The claim line names Presto once the steps are transmitted; the transaction's proof came back 200.
+  await expect(page.getByTestId('ledger')).toContainText('claiming: proving through Presto ✦', {
+    timeout: 5 * 60_000,
   });
+  await expect(page.getByTestId('ledger')).toContainText(/minted in block/, { timeout: 10 * 60_000 });
+  expect(txProves).toEqual([200]);
   const prover = await page.evaluate(() => window.yacana?.controller()?.lastClaim?.prover);
   expect(prover).toBe('presto');
   // The HTTP evidence, independent of the Worker's own messages: a 200 on the route as Playwright saw
   // it from the Worker, or, where it sees no Worker traffic, a proof the server finished during it.
   const sinceStart = logRead().slice(logBefore);
   expect(proves.includes(200) || /UltraHonk prove finished.*ok\S*=\S*true/.test(sinceStart)).toBe(true);
+  await page.getByTestId('stop').click();
+  await expect(page.getByTestId('phase')).toHaveText(/^idle/, { timeout: 60_000 });
+});
+
+test('Presto gone mid-proof: the claim’s transmit fails, the browser finishes it, nothing is sent twice', async ({
+  page,
+}) => {
+  const r = run();
+  test.skip(!r.prestoUrl, 'presto-server is not installed on this machine');
+  // The mining proofs still go to Presto; the claim's transmit is cut at the socket, as a Presto that
+  // died mid-proof would cut it. The SDK must not re-send the private inputs.
+  let attempts = 0;
+  await page.route(`${r.prestoUrl}/prove`, (route) => {
+    attempts += 1;
+    return route.abort('connectionreset');
+  });
+  await bootPage(page, pageUrl(r, { presto: 'on' }));
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('native')).toBeVisible({ timeout: 3 * 60_000 });
+  await expect(page.getByTestId('ledger')).toContainText('claiming: proving in your browser, about 20 s', {
+    timeout: 5 * 60_000,
+  });
+  await expect(page.getByTestId('ledger')).toContainText(/minted in block/, { timeout: 10 * 60_000 });
+  expect(attempts).toBe(1);
+  // The header's suffix is the Worker's, which never lost Presto.
+  await expect(page.getByTestId('native')).toBeVisible();
   await page.getByTestId('stop').click();
   await expect(page.getByTestId('phase')).toHaveText(/^idle/, { timeout: 60_000 });
 });

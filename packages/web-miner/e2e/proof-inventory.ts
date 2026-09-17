@@ -8,6 +8,10 @@ export interface ProofEvent {
   /** The prover's own duration for the proof; NaN when the event carried none. */
   durationMs: number;
   at: number;
+  /** Who made it: the page's prover names Presto; the PXE's WASM event names nobody. */
+  prover?: string;
+  /** Presto's phases, as ms since the proof began. */
+  phases?: Record<string, number>;
 }
 export interface SendRecord {
   startedAt: number;
@@ -56,10 +60,12 @@ export const INVENTORY: Readonly<Record<string, Readonly<Record<string, number>>
   'canary.e2e.ts': {
     'a claim with a bound public input altered is refused at proving before it is sent; restored, the same claim mints': 1,
   },
-  // The claim is the page's, whichever prover found the ticket.
+  // The claim is the page's, whichever prover found the ticket; its own proof goes to Presto too, or to
+  // WASM when Presto is cut mid-proof.
   'presto.e2e.ts': {
     'through Presto: the pill says ✦ presto after the first native proof, and power is Presto’s': 0,
-    'a win Presto proved is verified in the browser before it shows, then claimed; the proof went over the wire': 1,
+    'a win Presto proved is verified in the browser before it shows, then claimed through Presto too; both proofs went over the wire': 1,
+    'Presto gone mid-proof: the claim’s transmit fails, the browser finishes it, nothing is sent twice': 1,
     'nothing answers: the billboard invites the install and the browser proves without the suffix': 0,
   },
   // The W claim for a balance, the exit's burn, the deposit's claim; the wallet cells prove nothing.

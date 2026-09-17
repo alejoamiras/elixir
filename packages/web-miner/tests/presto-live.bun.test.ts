@@ -4,6 +4,7 @@
 import { describe, expect, test } from 'bun:test';
 import { cpus } from 'node:os';
 import { resolve } from 'node:path';
+import { PRESTO_SCHEME_CHONK, PrestoClient } from '@alejoamiras/presto-core';
 import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BbJsWorkProver, type WorkArtifact, type WorkInputs } from '../../miner-core/src/work.ts';
@@ -75,4 +76,23 @@ describe.skipIf(!url)('PrestoWorkProver against a headless Presto', () => {
       await wasm.destroy();
     }
   }, 600_000);
+
+  test('serves the kernel’s scheme too; a body that is not execution steps comes back as a fallback, never a proof', async () => {
+    const u = new URL(url as string);
+    const client = new PrestoClient({
+      presto: { host: u.hostname, port: Number(u.port), httpsPort: Number(u.port), httpsOnly: false },
+      aztecVersion: '5.2.0',
+    });
+    const status = await client.checkStatus({ forceRefresh: true });
+    expect(status.available && status.schemes).toContain('chonk');
+    // The wallet's round trip proper is the e2e's (a real private execution); here the SDK's degrade on
+    // the server's refusal (bb cannot read the body: a 500), which the page's prover turns into WASM.
+    const outcome = await client.prove({
+      path: '/prove',
+      contentType: 'application/octet-stream',
+      scheme: PRESTO_SCHEME_CHONK,
+      body: () => new Uint8Array([1, 2, 3]),
+    });
+    expect(outcome.kind).toBe('fallback');
+  });
 });
