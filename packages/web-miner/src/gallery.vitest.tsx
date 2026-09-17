@@ -369,7 +369,8 @@ describe('the old app', () => {
       withProof(60)(s);
       s.set(journalAtom, [
         ...s.get(journalAtom),
-        crossing('undone', { kind: 2, state: 'never-proven', ...settled }),
+        // A recovery file can bring an older version's crossing: its retry would still send from V5.
+        crossing('undone', { kind: 2, state: 'never-proven', version: '4', ...settled }),
       ]);
     }, session);
     expect((screen.getByTestId('row-again') as HTMLButtonElement).disabled).toBe(true);

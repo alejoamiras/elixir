@@ -110,13 +110,15 @@ after the flip lands like any other once its epoch is proven (rig case H4). The 
     bun run bridge -- note-stop <V5> [<unix seconds>]` writes `lifecycle.stoppedProvingAt` to V5's record: no key,
     no chain, the time defaults to now, a second note is refused. Commit it. Then redeploy the old origin with the
     note: in step 8's worktree (V5's record is `deployments/testnet.json` there) run the same `note-stop` against
-    that path, build and `wrangler deploy -c v5/wrangler.jsonc`. Its page turns from "send ahead" to "V5 has
-    stopped proving. Nothing more can leave"; what V5 proved in time stays claimable on V6 or redeemable on
-    Ethereum until V5's last day. The pages never infer a stop from a silent hour: only this note says "stopped".
+    that path, commit there too, build and `wrangler deploy -c v5/wrangler.jsonc`. Its page turns from "send
+    ahead" to "V5 has stopped proving. Nothing more can leave"; what V5 proved in time stays claimable on V6 or
+    redeemable on Ethereum until V5's last day. The pages never infer a stop from a silent hour: only this note
+    says "stopped".
 12. **Retire the node.** Commit the witness archive first (step 10: a holder's V6 page completes V5's settled sends
     from `/witnesses/<V5's rollup version>.jsonl`, not from V5's node), then take V5's node down and `bun run bridge -- retire-node
-    <V5>` on both records as in step 11 (after the stop, once): `lifecycle.nodeRetired`. The old origin's redeploy
-    then shows the "node gone" page before any node access — no log in, no Change node, the apex one link away.
+    <V5>` on both records as in step 11 (after the stop, once), committed in both checkouts: `lifecycle.nodeRetired`.
+    The old origin's redeploy then shows the "node gone" page before any node access — no log in, no Change node,
+    the apex one link away.
 
 ## Then
 

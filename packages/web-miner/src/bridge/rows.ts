@@ -128,6 +128,10 @@ export function activity(
 ): ActivityView {
   const chain = chainName(env.chainId);
   const registeredAt = view.targetRegisteredAt === undefined ? undefined : Number(view.targetRegisteredAt);
+  const stopped =
+    lifecycleRecord()?.stoppedProvingAt === undefined
+      ? undefined
+      : versionNameOf(env.ownVersion, view.canonical);
   const rows = [...journal]
     .sort((a, b) => b.createdAt - a.createdAt)
     .map((c): ActivityRowView => {
@@ -155,7 +159,7 @@ export function activity(
         money,
         who: partyOf(c),
         chain,
-        stopped: c.version === env.ownVersion && lifecycleRecord()?.stoppedProvingAt !== undefined,
+        stopped,
       });
       return {
         c,

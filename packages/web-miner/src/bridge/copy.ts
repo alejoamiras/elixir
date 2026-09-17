@@ -72,8 +72,8 @@ export interface RowFacts {
   who?: string;
   /** The Ethereum network the claim needs a wallet on ("Sepolia"). */
   chain: string;
-  /** The version noted its stop: a new send from it would never be proven, so nothing is sent again. */
-  stopped?: boolean;
+  /** This build's version noted its stop, by name: a retry sends from it, whatever version the row is of, and would never be proven. */
+  stopped?: string;
 }
 
 const POLICY = policyFor();
@@ -145,7 +145,7 @@ const againOf = (c: Crossing, f: RowFacts) =>
   act(
     'again',
     c.kind === 2 ? 'Send ahead again' : 'Bridge again',
-    f.stopped ? `${f.version} stopped proving: nothing more can leave.` : undefined,
+    f.stopped ? `${f.stopped} stopped proving: nothing more can leave.` : undefined,
   );
 
 const REDEEM = act('redeem', 'Redeem on Ethereum');

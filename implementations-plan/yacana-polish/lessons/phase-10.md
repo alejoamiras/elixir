@@ -140,6 +140,15 @@ REVISE, 11 findings, all verified against the code; 10 applied, one applied in p
 - Not applied: serializing record writes across operators in the runbook — one operator runs one command
   at a time; the atomic rename covers the cut write, which was the real risk.
 
+**Round 2** (2026-09-17, resumed, `high`): REVISE, 2 findings, both applied. The retry block was keyed on
+the crossing's version being the build's own; a recovery file can bring an older version's crossing, whose
+retry still sends from this build — `RowFacts.stopped` is now the build's own version by name when its
+record notes the stop, whatever the row's version (gallery test on a V4 never-proven row under V5's stop).
+The runbook's step 11 and 12 commit the lifecycle notes in the old worktree too, so the worktree removed
+in "Then" is clean. Codex marked the entrypoint test's omission, the concurrent-writer case and the e2e's
+wait as not material; it noted a pre-existing path where `canonicalAt()` swallows an RPC error and
+`proofFloor()` caches an inexact floor, which could hold "checking" past the 60 s — unobserved on the rig.
+
 ## Gate (2026-09-16)
 
 | layer | result |
