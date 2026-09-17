@@ -188,6 +188,20 @@ describe('the activity reading', () => {
     );
     expect(q.rows[0]?.line.sentence).toBe('Claiming privately, about 5 s.');
     expect(q.rows[0]?.line.progress).toBeCloseTo(0.6);
+    // The row whose proof answered keeps its answer over the page's promise.
+    const r = activity(
+      [fresh],
+      view,
+      NOW,
+      {},
+      {
+        ...env,
+        prover: 'presto',
+        claiming: new Map([['fresh', NOW - 3_000]]),
+        provers: new Map([['fresh', 'wasm']]),
+      },
+    );
+    expect(r.rows[0]?.line.sentence).toBe('Claiming privately, about 20 s.');
   });
 });
 

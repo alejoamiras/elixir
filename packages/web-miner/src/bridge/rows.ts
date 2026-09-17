@@ -111,8 +111,10 @@ interface Env {
   chainId?: string;
   /** The private claims under way here, by crossing id, with when each tap came. */
   claiming?: ReadonlyMap<string, number>;
-  /** Who proves this page's transactions; the browser when unknown. */
+  /** Who proves this page's next transaction; the browser when unknown. */
   prover?: ProverKind;
+  /** Who proved a claim under way, by crossing id: that row's answer over the page's promise. */
+  provers?: ReadonlyMap<string, ProverKind>;
 }
 
 /**
@@ -157,7 +159,7 @@ export function activity(
         verdictUnknown: view.verdict.kind === 'unknown' || view.rpcFailing,
         claiming: since !== undefined,
         elapsed: elapsedOf(c, state, now, since),
-        prover: env.prover,
+        prover: env.provers?.get(c.id) ?? env.prover,
         elsewhere: elsewhereOf(c, view, env.ownVersion),
         money,
         who: partyOf(c),

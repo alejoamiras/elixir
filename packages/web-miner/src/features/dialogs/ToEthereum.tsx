@@ -30,7 +30,7 @@ import {
   useLive,
   useOpening,
 } from './Frame';
-import { useProvingWords } from './use-tx-prover';
+import { useHeldProvingWords, useProvingWords } from './use-tx-prover';
 import { ConnectWallet, chain, WalletChip } from './Wallet';
 
 const SYM = PARAMS.TOKEN_SYMBOL;
@@ -244,7 +244,7 @@ function How({ onBack }: { onBack: () => void }) {
 
 function Proving({ since }: { since: number }) {
   const elapsed = useElapsed(since);
-  const words = useProvingWords();
+  const words = useHeldProvingWords();
   return (
     <>
       <Stepper

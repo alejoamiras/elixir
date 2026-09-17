@@ -707,27 +707,19 @@ export class Session {
    * The wallet's prover goes to Presto only while the page's own probe says it serves the kernel's
    * scheme and the Worker has not given up on it (sticky): what the pre-proof line promises is what
    * the SDK is allowed, and a denied or dead Presto is not sent a witness per proof. Its phases name
-   * who proves, and the answer outlives the proof — the dialog's step and the row's chip stay up
-   * through submission and inclusion — until the next proof starts or the permission changes.
+   * who proves; a proof's end, thrown or not, clears the attribution (the screens of the transaction
+   * it belongs to keep it themselves).
    */
   private bindTxProver(prover: TxProver | undefined): void {
     this.unsubTxProver?.();
     this.unsubTxProver = undefined;
     this.store.set(txProvingAtom, null);
     if (!prover) return;
-    let allowed: boolean | undefined;
-    const mirror = () => {
-      const now = prestoProvesTx(this.store.get(prestoAtom));
-      if (now !== allowed) this.store.set(txProvingAtom, null);
-      allowed = now;
-      prover.setForceLocal(!now);
-    };
+    const mirror = () => prover.setForceLocal(!prestoProvesTx(this.store.get(prestoAtom)));
     mirror();
     this.unsubTxProver = this.store.sub(prestoAtom, mirror);
     prover.onPhase = (phase) => this.store.set(txProvingAtom, (on) => txProvingAfter(on, phase));
-    prover.onProof = (state) => {
-      if (state === 'start') this.store.set(txProvingAtom, null);
-    };
+    prover.onProof = () => this.store.set(txProvingAtom, null);
   }
 
   private closeBridge(): void {

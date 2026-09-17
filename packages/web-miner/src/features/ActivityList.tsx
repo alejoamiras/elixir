@@ -3,7 +3,7 @@
 // finished row folds after its week rather than disappearing, because a record of where money went
 // is the only account the holder has.
 import { useAtom, useAtomValue } from 'jotai';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Crossing } from '../../../bridge/src/journal.ts';
 import { MAX_RECOVERY_BYTES } from '../../../bridge/src/recovery.ts';
 import {
@@ -18,10 +18,27 @@ import { bridgeRecord } from '../bridge/env';
 import { type ActivityRowView, type ActivityView, activity } from '../bridge/rows';
 import { l1Links, links } from '../explorer';
 import { shortAddress } from '../lib/format';
+import { type ProverKind, txProvingAtom } from '../presto';
 import type { Session } from '../session';
 import { bridgeAtom, claimingAtom, journalAtom, nowAtom, rowStatesAtom } from '../state';
 import { useTxProver } from './dialogs/use-tx-prover';
 import { saveRecoveryFile } from './recovery';
+
+/**
+ * Who proved each claim under way: the proof in flight is the earliest tap's (claims run one at a
+ * time), and its answer stays with that row after the proof, until the row stops claiming; a claim
+ * still waiting promises the allowed prover, never another claim's answer.
+ */
+function useClaimProvers(claiming: ReadonlyMap<string, number>): ReadonlyMap<string, ProverKind> {
+  const on = useAtomValue(txProvingAtom);
+  const held = useRef(new Map<string, ProverKind>());
+  for (const id of held.current.keys()) if (!claiming.has(id)) held.current.delete(id);
+  if (on !== null) {
+    const first = [...claiming.entries()].sort((a, b) => a[1] - b[1])[0]?.[0];
+    if (first !== undefined) held.current.set(first, on);
+  }
+  return held.current;
+}
 
 /** The journal read for this refresh; the header's badge and the list read the same one. */
 export function useActivity(): ActivityView {
@@ -31,11 +48,13 @@ export function useActivity(): ActivityView {
   const now = useAtomValue(nowAtom);
   const claiming = useAtomValue(claimingAtom);
   const prover = useTxProver();
+  const provers = useClaimProvers(claiming);
   return activity(journal, view, now, states, {
     ownVersion: import.meta.env.VITE_ROLLUP_VERSION,
     chainId: bridgeRecord()?.chainId,
     claiming,
     prover,
+    provers,
   });
 }
 

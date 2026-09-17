@@ -33,7 +33,7 @@ import {
   useLive,
   useOpening,
 } from './Frame';
-import { useProvingWords } from './use-tx-prover';
+import { useHeldProvingWords, useProvingWords } from './use-tx-prover';
 
 const SYM = PARAMS.TOKEN_SYMBOL;
 const money = (raw: bigint) => `${fmt(raw, PARAMS.DECIMALS)} ${SYM}`;
@@ -174,7 +174,7 @@ function How({ next, onBack }: { next: string; onBack: () => void }) {
 
 function Proving({ next, since }: { next: string; since: number }) {
   const elapsed = useElapsed(since);
-  const words = useProvingWords();
+  const words = useHeldProvingWords();
   return (
     <>
       <Stepper
