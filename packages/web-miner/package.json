@@ -14,6 +14,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@alejoamiras/presto": "5.2.0-revision.2",
     "@alejoamiras/presto-banners": "1.0.0",
     "@alejoamiras/presto-core": "1.0.1",
     "@alejoamiras/presto-noir": "1.0.1",

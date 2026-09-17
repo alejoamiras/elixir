@@ -118,6 +118,11 @@ describe('the Space shortcut beside the hold', () => {
           <button type="button" data-testid="plain">
             Send
           </button>
+          <div role="dialog" data-testid="dialog">
+            <p tabIndex={-1} data-testid="dialog-text">
+              proving
+            </p>
+          </div>
         </>
       );
     }
@@ -137,5 +142,10 @@ describe('the Space shortcut beside the hold', () => {
     fireEvent.keyDown(document.body, { key: ' ' });
     fireEvent.keyDown(document.body, { key: ' ', repeat: true });
     expect(start).toHaveBeenCalledTimes(1);
+    // Inside an open dialog no key is the page's: a locked transaction dialog is not navigated away from.
+    fireEvent.keyDown(screen.getByTestId('dialog-text'), { key: ' ' });
+    fireEvent.keyDown(screen.getByTestId('dialog-text'), { key: ',' });
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(location.pathname).not.toContain('settings');
   });
 });

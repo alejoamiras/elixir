@@ -32,7 +32,7 @@ def send_ahead_sent():
 
 def how_it_works():
     inner = (head("send ahead · how it works", "What happens to 3.5 tYACA.")
-             + steps([("Leaves V5, privately", "todo", "about 20 s", "Your browser proves it; mining pauses meanwhile."),
+             + steps([("Leaves V5, privately", "todo", "about 20 s", "Your browser proves it; mining pauses meanwhile. With Presto, your transaction's private inputs go to Presto on this machine, never elsewhere."),
                       ("Reaches Ethereum with its epoch", "todo", "usually within the hour", "V5 must prove the epoch within its deadline, about 40 min after the send. If it doesn't, the balance comes back here."),
                       ("Held on Ethereum for V6", "todo", "until V6 opens", "Out of V5's reach, held for this account alone. The amount is visible there; the account is not."),
                       ("Forwarded into V6", "todo", "by Yacana, or by you", "Yacana runs a relayer (an address its multisig lists) that forwards held sends once V6 opens. You can forward yours from V6 with an Ethereum wallet paying gas. Forwarding ends the option below."),

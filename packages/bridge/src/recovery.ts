@@ -50,6 +50,8 @@ const STATES: ReadonlySet<string> = new Set<CrossingState>([
 ]);
 const HEX20 = /^0x[0-9a-f]{40}$/i;
 const DECIMAL = /^(0|[1-9][0-9]*)$/;
+/** The last millisecond a JavaScript Date represents. */
+const MAX_TIME_MS = 8_640_000_000_000_000;
 /** A file's index sets how far a device scans for arrivals; no account reaches this many crossings. */
 export const MAX_INDEX = 1_000_000;
 
@@ -67,6 +69,8 @@ export function parseCrossing(raw: unknown, where: string): Crossing {
     typeof o[k] === 'number' && Number.isSafeInteger(o[k]) && o[k] >= 0
       ? o[k]
       : fail(where, `${k} is not a whole number`);
+  // A whole number past what a Date can hold is not a time (the page formats every row's).
+  const time = (k: string): number => (num(k) <= MAX_TIME_MS ? num(k) : fail(where, `${k} is not a time`));
   const kind = num('kind');
   if (kind !== 1 && kind !== 2 && kind !== 3) fail(where, `kind ${kind}`);
   const state = str('state');
@@ -80,12 +84,12 @@ export function parseCrossing(raw: unknown, where: string): Crossing {
     index: num('index') <= MAX_INDEX ? num('index') : fail(where, `index past ${MAX_INDEX}`),
     amount: str('amount', DECIMAL),
     state: state as CrossingState,
-    createdAt: num('createdAt'),
-    updatedAt: num('updatedAt'),
+    createdAt: time('createdAt'),
+    updatedAt: time('updatedAt'),
     ethAddress: str('ethAddress', HEX20).toLowerCase() as Hex,
   };
   c.id = crossingId(c);
-  optionalFields(o, c, num);
+  optionalFields(o, c, num, where);
   // A twin (another message under one index) keeps the id its message gave it: the crossing's id, then a suffix.
   if (typeof o.id === 'string' && o.id.startsWith(`${c.id}:`)) c.id = o.id;
   else if (o.id !== undefined && o.id !== c.id) fail(where, `id ${String(o.id)} is not ${c.id}`);
@@ -97,21 +101,33 @@ export function parseCrossing(raw: unknown, where: string): Crossing {
   return c;
 }
 
-/** The fields a crossing carries once it moved: taken as typed, never required. */
-function optionalFields(o: Record<string, unknown>, c: Crossing, num: (k: string) => number): void {
-  const strings = [
-    'txHash',
-    'expiresAt',
-    'epoch',
-    'proofDeadline',
-    'target',
-    'inboxIndex',
-    'l1TxHash',
-    'claimTxHash',
-    'recipient',
-    'error',
-  ] as const;
-  for (const k of strings) if (typeof o[k] === 'string') (c as unknown as Record<string, unknown>)[k] = o[k];
+/** The last second a JavaScript Date represents. */
+const MAX_TIME_S = 8_640_000_000_000;
+const TIMES: ReadonlySet<string> = new Set(['expiresAt', 'proofDeadline']);
+/** A decimal string as the file spells it; the two unix-second fields also within a Date's reach. */
+const decimal = (v: unknown, k: string, where: string): string => {
+  if (typeof v !== 'string' || !DECIMAL.test(v)) fail(where, `${k} is not a whole number`);
+  if (TIMES.has(k) && Number(v) > MAX_TIME_S) fail(where, `${k} is not a time`);
+  return v as string;
+};
+
+/**
+ * The fields a crossing carries once it moved: never required, but the page parses the numeric ones
+ * (`BigInt`, a Date) wherever the row shows them, so a present one must be what it claims.
+ */
+function optionalFields(
+  o: Record<string, unknown>,
+  c: Crossing,
+  num: (k: string) => number,
+  where: string,
+): void {
+  const set = (k: string, v: unknown) => {
+    (c as unknown as Record<string, unknown>)[k] = v;
+  };
+  for (const k of ['txHash', 'l1TxHash', 'claimTxHash', 'recipient', 'error'] as const)
+    if (typeof o[k] === 'string') set(k, o[k]);
+  for (const k of ['expiresAt', 'epoch', 'proofDeadline', 'target', 'inboxIndex'] as const)
+    if (o[k] !== undefined) set(k, decimal(o[k], k, where));
   for (const k of ['block', 'claimBlock', 'anchorBlock'] as const)
     if (typeof o[k] === 'number') c[k] = num(k);
   if (o.claimSettled === true) c.claimSettled = true;

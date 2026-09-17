@@ -129,6 +129,8 @@ describe('the breakdown', () => {
       status,
       ms: 0,
       proofs: 0,
+      prestoProofs: 0,
+      prestoMs: 0,
       provingMs: 0,
       submissionMs: 0,
     });

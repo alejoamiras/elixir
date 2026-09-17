@@ -8,7 +8,6 @@ export function PreflightTile({ rows }: { rows: PreflightRow[] }) {
       <Preflight rows={rows} />
       <p className="mt-4 text-xs text-ink-2">
         The proving keys (20 MB) download in the background and are checked against their pinned hashes.
-        Whoever serves this page controls it: run your own build if that matters.
       </p>
     </Tile>
   );

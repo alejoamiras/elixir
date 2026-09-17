@@ -19,7 +19,8 @@ import { type ActivityRowView, type ActivityView, activity } from '../bridge/row
 import { l1Links, links } from '../explorer';
 import { shortAddress } from '../lib/format';
 import type { Session } from '../session';
-import { bridgeAtom, claimingAtom, journalAtom, nowAtom, rowStatesAtom } from '../state';
+import { bridgeAtom, claimingAtom, crossingProversAtom, journalAtom, nowAtom, rowStatesAtom } from '../state';
+import { usePromisedTxProver } from './dialogs/use-tx-prover';
 import { saveRecoveryFile } from './recovery';
 
 /** The journal read for this refresh; the header's badge and the list read the same one. */
@@ -29,10 +30,14 @@ export function useActivity(): ActivityView {
   const states = useAtomValue(rowStatesAtom);
   const now = useAtomValue(nowAtom);
   const claiming = useAtomValue(claimingAtom);
+  const prover = usePromisedTxProver();
+  const provers = useAtomValue(crossingProversAtom);
   return activity(journal, view, now, states, {
     ownVersion: import.meta.env.VITE_ROLLUP_VERSION,
     chainId: bridgeRecord()?.chainId,
     claiming,
+    prover,
+    provers,
   });
 }
 

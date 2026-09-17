@@ -136,9 +136,10 @@ describe.skipIf(!enabled)('the versioned origin (origin)', () => {
         log,
       });
       if (built !== 0) throw new Error(`vite build into ${outDir} failed (see the run's log)`);
-      const child = startPreview(minerPkg, outDir, log, port, env);
+      // Bound to 127.0.0.1, where the browser's resolver rules send both test domains.
+      const child = startPreview(minerPkg, outDir, log, port, env, '127.0.0.1');
       servers.push(child);
-      if (!(await upOverTls(`https://localhost:${port}/`, child)))
+      if (!(await upOverTls(`https://127.0.0.1:${port}/`, child)))
         throw new Error(`vite preview (${role}) did not start on port ${port}`);
     }
     const run: E2eRun = {

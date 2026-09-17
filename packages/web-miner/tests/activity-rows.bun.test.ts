@@ -169,10 +169,48 @@ describe('the activity reading', () => {
       ['old', true],
     ]);
     expect(a.rows[0]?.line.chip.word).toBe('claiming · 12 s');
+    expect(a.rows[0]?.line.sentence).toBe('Claiming privately, about 20 s.');
     expect(a.rows[0]?.line.progress).toBeCloseTo(0.6);
     expect(a.rows[0]?.line.action).toBeUndefined();
     expect(a.needsUser).toBe(0);
     expect(a.rows[1]?.line.sentence).toBe('2 YACA at 0x709979…79C8.');
+    // Through Presto the promise and the bar are Presto's; a claim still to tap promises the same.
+    const p = activity([fresh], view, NOW, {}, { ...env, prover: 'presto' });
+    expect(p.rows[0]?.line.sentence).toBe(
+      'Arrived. Claim it into your private balance: one tap, about 5 s, no fee.',
+    );
+    const q = activity(
+      [fresh],
+      view,
+      NOW,
+      {},
+      { ...env, prover: 'presto', claiming: new Map([['fresh', NOW - 3_000]]) },
+    );
+    expect(q.rows[0]?.line.sentence).toBe('Claiming privately, about 5 s.');
+    expect(q.rows[0]?.line.progress).toBeCloseTo(0.6);
+    // The row whose proof answered keeps its answer over the page's promise.
+    const r = activity(
+      [fresh],
+      view,
+      NOW,
+      {},
+      {
+        ...env,
+        prover: 'presto',
+        claiming: new Map([['fresh', NOW - 3_000]]),
+        provers: new Map([['fresh', 'wasm']]),
+      },
+    );
+    expect(r.rows[0]?.line.sentence).toBe('Claiming privately, about 20 s.');
+    // A claim that failed is ready again: its next proof is promised, the last answer is not read.
+    const back = activity(
+      [fresh],
+      view,
+      NOW,
+      {},
+      { ...env, prover: 'presto', provers: new Map([['fresh', 'wasm']]) },
+    );
+    expect(back.rows[0]?.line.sentence).toContain('about 5 s');
   });
 });
 

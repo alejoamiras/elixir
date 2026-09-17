@@ -44,12 +44,15 @@ describe('the endpoint per mode', () => {
   test('the guard admits health and prove over HTTPS, and over HTTP only when plaintext is allowed', () => {
     expect(acceleratorUrls(PRESTO_DEFAULT)).toEqual([
       'https://127.0.0.1:59834/health',
+      'https://127.0.0.1:59834/prove',
       'https://127.0.0.1:59834/prove/ultra-honk',
     ]);
     expect(acceleratorUrls({ host: '127.0.0.1', port: 5, httpsPort: 5, httpsOnly: false })).toEqual([
       'https://127.0.0.1:5/health',
+      'https://127.0.0.1:5/prove',
       'https://127.0.0.1:5/prove/ultra-honk',
       'http://127.0.0.1:5/health',
+      'http://127.0.0.1:5/prove',
       'http://127.0.0.1:5/prove/ultra-honk',
     ]);
   });

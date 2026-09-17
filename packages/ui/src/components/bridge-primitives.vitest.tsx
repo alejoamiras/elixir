@@ -41,7 +41,7 @@ describe('the bridge primitives', () => {
     expect(screen.getByTestId('inline').getAttribute('data-variant')).toBe('inline');
   });
 
-  test('a hero card: eyebrow with its chip, title, body, trail, the actions under and the side column, with its tone', () => {
+  test('a hero card: eyebrow with its chip, title, body, trail, the actions under, with its tone', () => {
     render(
       <HeroCard
         eyebrow="aztec v6 · expected around sep 18"
@@ -49,7 +49,6 @@ describe('the bridge primitives', () => {
         title="V5 ends around Sep 18. Send your balance ahead."
         trail={[{ label: 'leaves V5 · now', state: 'on' }]}
         actions={<button type="button">Send 48 tYACA ahead</button>}
-        side={<button type="button">How it works</button>}
         tone="warn"
         data-testid="card"
       >
@@ -60,7 +59,6 @@ describe('the bridge primitives', () => {
     expect(card.getAttribute('data-tone')).toBe('warn');
     expect(screen.getByRole('heading', { level: 2 }).textContent).toMatch(/Send your balance ahead/);
     expect(card.querySelector('[data-slot="hero-actions"]')?.textContent).toBe('Send 48 tYACA ahead');
-    expect(card.querySelector('[data-slot="hero-side"]')?.textContent).toBe('How it works');
     expect(screen.getByTestId('chip').textContent).toContain('12 min ago');
     expect(card.querySelector('[data-slot="trail"]')).toBeTruthy();
   });

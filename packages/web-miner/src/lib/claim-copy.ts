@@ -2,13 +2,14 @@
 
 import { clockMinutes } from '../../../site/src/browser/format.ts';
 import type { ClaimStep, WinNote } from '../../../ui/src/index.ts';
+import { PROVING, type ProverKind } from '../presto';
 import type { ClaimNote, ClaimProgress } from './reducer';
 
 /** The chip's word for a step: the reducer's `waiting` is the user's "in a block". */
 export const chipStep = (step: ClaimProgress['step']): ClaimStep =>
   step === 'waiting' ? 'in a block' : step;
 
-const running = (c: ClaimNote, nowMs: number): string => {
+const running = (c: ClaimNote, nowMs: number, prover: ProverKind): string => {
   if (c.step === 'sent') {
     const left = c.expiresAt === undefined ? null : c.expiresAt - nowMs / 1000;
     return left === null || left <= 0
@@ -16,7 +17,7 @@ const running = (c: ClaimNote, nowMs: number): string => {
       : `claiming: sent to the node · drops in ${clockMinutes(left)} if no block takes it`;
   }
   if (c.step === 'waiting') return 'claiming: in a block · syncing the note';
-  return 'claiming: proving in your browser, about 20 s';
+  return PROVING[prover].claim;
 };
 
 const ended = (c: ClaimNote): string => {
@@ -44,10 +45,14 @@ const ended = (c: ClaimNote): string => {
   }
 };
 
-/** The note for the ledger; none once the claim minted (the ✓ line under it says so). */
-export function winNote(c: ClaimNote | undefined, nowMs: number): WinNote | undefined {
+/** The note for the ledger; none once the claim minted (the ✓ line under it says so). `prover` is who proves the claim under way. */
+export function winNote(
+  c: ClaimNote | undefined,
+  nowMs: number,
+  prover: ProverKind = 'wasm',
+): WinNote | undefined {
   if (!c || c.outcome === 'minted') return undefined;
-  if (c.outcome === undefined) return c.step ? { text: running(c, nowMs), tone: 'uv' } : undefined;
+  if (c.outcome === undefined) return c.step ? { text: running(c, nowMs, prover), tone: 'uv' } : undefined;
   if (c.outcome === 'discarded') return { text: ended(c), tone: 'dim' };
   return { text: ended(c), tone: 'warn', ...(c.retry && { action: 'Retry' }) };
 }

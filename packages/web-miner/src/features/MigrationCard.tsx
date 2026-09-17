@@ -1,7 +1,7 @@
 // The upgrade card over the cockpit. Nothing on it says "safe": a send is held, comes back, or cannot leave.
 import { useAtomValue } from 'jotai';
 import { dayOf } from '../../../bridge/src/exit-deadline.ts';
-import { type Crossing, inFlight } from '../../../bridge/src/journal.ts';
+import { type Crossing, inFlight, type RowState } from '../../../bridge/src/journal.ts';
 import type { MigrationRecord } from '../../../bridge/src/record.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { ownVersionName } from '../../../site/src/browser/version-name.ts';
@@ -10,13 +10,14 @@ import { proofChip } from '../bridge/copy';
 import { lifecycleRecord, migrationRecord, nextVersionName } from '../bridge/env';
 import { amount as fmt } from '../lib/format';
 import { navigate } from '../routes';
-import { type BridgeView, balanceAtom, bridgeAtom, journalAtom, nowAtom } from '../state';
+import { type BridgeView, balanceAtom, bridgeAtom, journalAtom, nowAtom, rowStatesAtom } from '../state';
 
 export type MigrationMoment = 'quiet' | 'announced' | 'flipped';
 
-const LEFT_THE_ROAD: ReadonlySet<Crossing['state']> = new Set([
+const LEFT_THE_ROAD: ReadonlySet<RowState> = new Set([
   'dropped',
   'never-proven',
+  'unfinished',
   'minted-l1',
   'closed',
 ]);
@@ -199,6 +200,7 @@ function Flipped({ version, next, ahead, balance, view, onSendAhead, onHow, clas
 export function MigrationCard(props: Props) {
   const view = useAtomValue(bridgeAtom);
   const journal = useAtomValue(journalAtom);
+  const states = useAtomValue(rowStatesAtom);
   const balance = useAtomValue(balanceAtom);
   const announced = migrationRecord();
   const m = moment(announced, view.verdict.kind === 'flipped');
@@ -207,9 +209,15 @@ export function MigrationCard(props: Props) {
     ...props,
     version: ownVersionName(),
     next: nextVersionName(view.canonical),
-    // What went ahead and is still ahead: a send undone by a missed proof is the balance again, a redeemed
-    // one went to Ethereum, and one the last day closed on is not on its way anywhere.
-    ahead: journal.filter((c) => c.kind === 2 && !LEFT_THE_ROAD.has(c.state)),
+    // What went ahead from this version and is still ahead: an earlier upgrade's send-aheads arrived
+    // here, they are not leaving; a send undone by a missed proof (or never sent) is the balance
+    // again, a redeemed one went to Ethereum, and one the last day closed on is not on its way.
+    ahead: journal.filter(
+      (c) =>
+        c.kind === 2 &&
+        c.version === import.meta.env.VITE_ROLLUP_VERSION &&
+        !LEFT_THE_ROAD.has(states[c.id] ?? c.state),
+    ),
     balance,
     view,
   };

@@ -2,7 +2,7 @@
 // `aztec_sendTx` — and the meter attached to the result and held to the inventory on a pass.
 // E2E_DELAY_SENDTX_MS holds every submission that long first: proving must not move with it.
 import { test as base, type ConsoleMessage, type Page, type Request } from '@playwright/test';
-import { type ProofMeter, proofShortfall } from './proof-inventory.ts';
+import { type ProofEvent, type ProofMeter, proofShortfall } from './proof-inventory.ts';
 
 const PROOF_EVENT = 'client-ivc-proof-generation';
 
@@ -10,7 +10,22 @@ const PROOF_EVENT = 'client-ivc-proof-generation';
  * The page's pino logs `console.info(bindings, data, message)`: the event's fields are in the data
  * object, so every object argument is read until one names the event.
  */
-async function proofDuration(msg: ConsoleMessage): Promise<number | null> {
+const eventOf = (value: object): Omit<ProofEvent, 'at'> | null => {
+  const { eventName, duration, prover, phases } = value as {
+    eventName?: unknown;
+    duration?: unknown;
+    prover?: unknown;
+    phases?: unknown;
+  };
+  if (eventName !== PROOF_EVENT) return null;
+  return {
+    durationMs: typeof duration === 'number' ? duration : Number.NaN,
+    prover: typeof prover === 'string' ? prover : undefined,
+    phases: typeof phases === 'object' && phases !== null ? (phases as Record<string, number>) : undefined,
+  };
+};
+
+async function proofEvent(msg: ConsoleMessage): Promise<Omit<ProofEvent, 'at'> | null> {
   if (msg.type() !== 'info') return null;
   for (const arg of msg.args()) {
     let value: unknown;
@@ -20,9 +35,8 @@ async function proofDuration(msg: ConsoleMessage): Promise<number | null> {
       return null; // the page went away under the handle
     }
     if (typeof value !== 'object' || value === null) continue;
-    const { eventName, duration } = value as { eventName?: unknown; duration?: unknown };
-    if (eventName !== PROOF_EVENT) continue;
-    return typeof duration === 'number' ? duration : Number.NaN;
+    const event = eventOf(value);
+    if (event) return event;
   }
   return null;
 }
@@ -33,8 +47,8 @@ function meterPage(page: Page, meter: ProofMeter): { settled: () => Promise<unkn
   const pending: Promise<void>[] = [];
   page.on('console', (msg) => {
     pending.push(
-      proofDuration(msg).then((durationMs) => {
-        if (durationMs !== null) meter.proofs.push({ durationMs, at: Date.now() });
+      proofEvent(msg).then((event) => {
+        if (event !== null) meter.proofs.push({ ...event, at: Date.now() });
       }),
     );
   });

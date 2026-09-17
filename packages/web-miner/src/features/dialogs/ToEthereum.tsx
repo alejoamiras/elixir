@@ -30,6 +30,7 @@ import {
   useLive,
   useOpening,
 } from './Frame';
+import { type ProvingWords, useOwnProvingWords, useProvingWords } from './use-tx-prover';
 import { ConnectWallet, chain, WalletChip } from './Wallet';
 
 const SYM = PARAMS.TOKEN_SYMBOL;
@@ -205,6 +206,7 @@ function Form({
 
 /** The four stages, from the quiet link. */
 function How({ onBack }: { onBack: () => void }) {
+  const words = useProvingWords();
   const v = ownVersionName();
   return (
     <>
@@ -216,8 +218,8 @@ function How({ onBack }: { onBack: () => void }) {
             id: 'prove',
             label: 'Proving privately',
             state: 'pending',
-            right: 'about 20 s',
-            detail: 'In your browser; mining pauses meanwhile.',
+            right: words.about,
+            detail: words.detail,
           },
           { id: 'send', label: 'Sent', state: 'pending', right: 'a block' },
           {
@@ -240,7 +242,7 @@ function How({ onBack }: { onBack: () => void }) {
   );
 }
 
-function Proving({ since }: { since: number }) {
+function Proving({ since, words }: { since: number; words: ProvingWords }) {
   const elapsed = useElapsed(since);
   return (
     <>
@@ -252,14 +254,14 @@ function Proving({ since }: { since: number }) {
             label: 'Proving privately',
             state: 'active',
             right: elapsed === undefined ? undefined : seconds(elapsed),
-            detail: 'In your browser; Presto proves only mining work.',
+            detail: words.detail,
           },
           { id: 'send', label: 'Sent', state: 'pending' },
           { id: 'reach', label: 'Reaching Ethereum', state: 'pending', right: 'usually within the hour' },
           { id: 'claim', label: 'Claim on Ethereum', state: 'pending' },
         ]}
       />
-      <Foot>Keep this tab open while it proves, about 20 s.</Foot>
+      <Foot>{words.foot}</Foot>
     </>
   );
 }
@@ -323,6 +325,7 @@ function ToEthereumRun({
   const [step, setStep] = useState<Step>({ kind: 'form' });
   const [error, setError] = useState<string>();
   const live = useLive(open);
+  const proving = useOwnProvingWords();
   const close = () => onOpenChange(false);
   const connected = account.isConnected && account.address !== undefined;
   // The wallet picked from the form's own "Connect wallet" becomes the recipient as it connects.
@@ -331,11 +334,12 @@ function ToEthereumRun({
   }, [step.kind, connected]);
   const send = async (snap: EthSnapshot) => {
     if (!live()) return;
+    proving.reset();
     const since = Date.now();
     setError(undefined);
     setStep({ kind: 'proving', snap, since });
     try {
-      const crossing = (await session.bridge?.exitToL1(snap.amount, snap.to)) ?? undefined;
+      const crossing = (await session.bridge?.exitToL1(snap.amount, snap.to, proving.said)) ?? undefined;
       setStep({ kind: 'sent', snap, crossing, provedMs: Date.now() - since });
     } catch (e) {
       setError(firstLine(e));
@@ -372,7 +376,7 @@ function ToEthereumRun({
       )}
       {step.kind === 'how' && <How onBack={() => setStep({ kind: 'form' })} />}
       {step.kind === 'connect' && <ConnectWallet onCancel={() => setStep({ kind: 'form' })} />}
-      {step.kind === 'proving' && <Proving since={step.since} />}
+      {step.kind === 'proving' && <Proving since={step.since} words={proving.words} />}
       {step.kind === 'sent' && <Sent step={step} onDone={close} />}
     </TxDialog>
   );

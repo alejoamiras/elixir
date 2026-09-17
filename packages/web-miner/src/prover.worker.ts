@@ -6,14 +6,11 @@ import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { BbJsWorkProver, type WorkArtifact, type WorkProver } from '../../miner-core/src/work.ts';
 import { setAcceleratorEndpoints } from '../../site/src/browser/node-guard.ts';
 import { purgeCrsCache } from './pinned-crs';
-import { acceleratorUrls, downloadPhases } from './presto';
+import { ACCELERATOR_DEADLINE_MS, acceleratorUrls, downloadPhases } from './presto';
 import { PrestoWorkProver } from './presto-prover';
 import { createProverLoop, type ProverBackend } from './prover-loop';
 import { mineFrom } from './worker-mine';
 import type { FromWorker, MineJob, ProverConfig, ToWorker } from './worker-protocol';
-
-/** A native proof may wait behind Presto's queue and, once, behind its bb download. */
-const ACCELERATOR_DEADLINE_MS = 600_000;
 
 const post = (m: FromWorker) => self.postMessage(m);
 

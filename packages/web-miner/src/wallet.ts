@@ -16,6 +16,8 @@ import type { AccountFields } from '../../miner-core/src/keys/derive.ts';
 import { PROVERLESS_MARKER } from '../../site/src/config.ts';
 import type { Fee, Node } from './chain';
 import { type FeePayer, feePayer } from './feePayer';
+import { type ProverKind, txProvingAfter } from './presto';
+import type { TxProver } from './tx-prover';
 import { MemoryKvStore } from './wallet/memory-store';
 
 /** An e2e build may ask the PXE to skip proving; `PROVERLESS_MARKER` must stay inside this flag's branch. */
@@ -31,6 +33,14 @@ export interface SentTx {
 
 /** Runs before one send reaches the node; a rejection refuses that send. */
 export type SendHook = (sent: SentTx) => Promise<void>;
+/** Told who proves a transaction, as its proof says (again if it falls back). */
+export type ProverSaid = (prover: ProverKind) => void;
+export interface TurnOwn {
+  hook?: SendHook;
+  said?: ProverSaid;
+}
+/** The wallet for one transaction's simulation, proof and submission: see `sendObserver`. */
+export type Turn = <T>(op: () => Promise<T>, own?: TurnOwn) => Promise<T>;
 
 export interface OpenedWallet {
   wallet: EmbeddedWallet;
@@ -41,8 +51,7 @@ export interface OpenedWallet {
   pxeDb: string;
   /** The last transaction the wallet handed to the node. */
   lastSent: () => SentTx | undefined;
-  /** Installs `hook` for the next send alone; the return removes it if that send never comes. */
-  beforeNextSend: (hook: SendHook) => () => void;
+  turn: Turn;
 }
 
 /** Stores are per rollup, not per L1 chain: two rollups on Sepolia must never share PXE state. */
@@ -58,26 +67,44 @@ export const sentOf = (tx: Tx): SentTx => ({
 });
 
 /**
- * Every send observed synchronously, and a one-shot hook a flow may install for its own send: the
- * hook runs (and may refuse) before the transaction reaches the node, so a record can be made
- * durable first. A send with no hook installed goes straight through, as a mining claim's does.
+ * Every send observed synchronously, and the wallet taken one transaction at a time. A `turn` runs
+ * `op` after the turns before it and passes on once `op`'s send has reached the node (or `op` ended
+ * without one): simulation, proof and submission are one holder's, the wait for a block is nobody's.
+ * So the holder's `hook` — run before its transaction reaches the node, where a record can be made
+ * durable first and a rejection refuses the send — and its `said` can only meet its own transaction.
+ * A send outside any turn goes straight through.
  */
 export function sendObserver(onSend: (sent: SentTx) => void) {
-  let hook: SendHook | undefined;
+  let tail: Promise<void> = Promise.resolve();
+  let holder: (TurnOwn & { pass: () => void }) | undefined;
   return {
     sendTx(target: Pick<Node, 'sendTx'>, tx: Tx): ReturnType<Node['sendTx']> {
       const sent = sentOf(tx);
       onSend(sent);
-      const h = hook;
-      hook = undefined;
-      return h ? h(sent).then(() => target.sendTx(tx)) : target.sendTx(tx);
+      const h = holder;
+      holder = undefined;
+      const out = h?.hook ? h.hook(sent).then(() => target.sendTx(tx)) : target.sendTx(tx);
+      return out.finally(() => h?.pass());
     },
-    beforeNextSend(h: SendHook): () => void {
-      hook = h;
-      return () => {
-        if (hook === h) hook = undefined;
-      };
+    turn<T>(op: () => Promise<T>, own: TurnOwn = {}): Promise<T> {
+      const before = tail;
+      let pass = () => {};
+      tail = new Promise<void>((r) => {
+        pass = r;
+      });
+      const mine = { ...own, pass };
+      return before
+        .then(() => {
+          holder = mine;
+          return op();
+        })
+        .finally(() => {
+          if (holder === mine) holder = undefined;
+          pass();
+        });
     },
+    /** The turn holder's listener for who proves its transaction. */
+    said: (): ProverSaid | undefined => holder?.said,
   };
 }
 
@@ -92,7 +119,7 @@ const observeSends = (node: Node, observer: ReturnType<typeof sendObserver>): No
   });
 
 /** Nothing half-open survives a failure: a retry must find the namespace unheld. */
-export async function openWallet(node: Node, chainId: bigint): Promise<OpenedWallet> {
+export async function openWallet(node: Node, chainId: bigint, prover?: TxProver): Promise<OpenedWallet> {
   const pxeDb = await pxeNamespace(node, chainId);
   const pxeStore = await AztecIndexedDBStore.open(createLogger('web-miner'), pxeDb, false);
   let sent: SentTx | undefined;
@@ -100,11 +127,22 @@ export async function openWallet(node: Node, chainId: bigint): Promise<OpenedWal
     sent = s;
   });
   const observed = observeSends(node, observer);
+  if (prover) {
+    let on: ProverKind | null = null;
+    prover.onProof = () => {
+      on = null;
+    };
+    prover.onPhase = (phase) => {
+      const next = txProvingAfter(on, phase);
+      if (next !== null && next !== on) observer.said()?.(next);
+      on = next;
+    };
+  }
   let wallet: EmbeddedWallet | undefined;
   try {
     if (PROVERLESS) console.warn(`${PROVERLESS_MARKER}: this build sends transactions unproved`);
     wallet = await EmbeddedWallet.create(observed, {
-      pxe: { proverEnabled: !PROVERLESS, store: pxeStore },
+      pxe: { proverEnabled: !PROVERLESS, store: pxeStore, proverOrOptions: prover },
       walletDb: { store: new MemoryKvStore() },
     });
     const fpc = await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
@@ -121,7 +159,7 @@ export async function openWallet(node: Node, chainId: bigint): Promise<OpenedWal
       feeFor: feePayer(fee).for,
       pxeDb,
       lastSent: () => sent,
-      beforeNextSend: observer.beforeNextSend,
+      turn: observer.turn,
     };
   } catch (e) {
     if (wallet) await wallet.stop().catch(() => {});
@@ -170,10 +208,11 @@ export async function resetAccountView(
   node: Node,
   chainId: bigint,
   fields: AccountFields,
+  prover?: TxProver,
 ): Promise<OpenedWallet> {
   await previous.wallet.stop();
   await deleteDatabase(previous.pxeDb);
-  const opened = await openWallet(node, chainId);
+  const opened = await openWallet(node, chainId, prover);
   try {
     await registerAccount(opened, fields);
   } catch (e) {
