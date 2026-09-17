@@ -10,7 +10,7 @@ const migration = (): MigrationRecord | null =>
 
 /** "Aztec's next version arrives around <day>": the one sentence, from the record's migration block. */
 export const announcementLine = (m: MigrationRecord, version: string): string =>
-  `Aztec's next version arrives around ${new Date(Number(m.expectedFlipAt) * 1000).toISOString().slice(0, 10)}. Mining on ${version} ends at the upgrade; send what you hold ahead before then, and claim it on the next version with the same passkey. Anything left on ${version} when it goes quiet is lost.`;
+  `Aztec's next version arrives around ${new Date(Number(m.expectedFlipAt) * 1000).toISOString().slice(0, 10)}. Mining on ${version} ends when the upgrade lands; send what you hold ahead before then, and claim it on the next version with the same passkey. Anything left on ${version} when it goes quiet is lost.`;
 
 export function Announcement() {
   const m = migration();
