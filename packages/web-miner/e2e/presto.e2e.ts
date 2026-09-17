@@ -63,15 +63,18 @@ test('a win Presto proved is verified in the browser before it shows, then claim
   const logRead = () => (logFile ? readFileSync(logFile, 'utf8') : '');
   const logBefore = logRead().length;
   await bootPage(page, pageUrl(r, { presto: 'on' }));
+  const proverless = await page.evaluate(() => window.yacana?.proverless === true);
   await page.getByTestId('start').click();
   await expect(page.getByTestId('native')).toBeVisible({ timeout: 3 * 60_000 });
   // The easy target wins every other proof: the win was verified in WASM before it showed, then claimed.
   // The claim line names Presto once the steps are transmitted; the transaction's proof came back 200.
-  await expect(page.getByTestId('ledger')).toContainText('claiming: proving through Presto ✦', {
-    timeout: 5 * 60_000,
-  });
+  // A proverless build proves no transaction: nothing goes to `/prove`, the line skips to the node.
+  if (!proverless)
+    await expect(page.getByTestId('ledger')).toContainText('claiming: proving through Presto ✦', {
+      timeout: 5 * 60_000,
+    });
   await expect(page.getByTestId('ledger')).toContainText(/minted in block/, { timeout: 10 * 60_000 });
-  expect(txProves).toEqual([200]);
+  expect(txProves).toEqual(proverless ? [] : [200]);
   const prover = await page.evaluate(() => window.yacana?.controller()?.lastClaim?.prover);
   expect(prover).toBe('presto');
   // The HTTP evidence, independent of the Worker's own messages: a 200 on the route as Playwright saw
@@ -95,13 +98,16 @@ test('Presto gone mid-proof: the claim’s transmit fails, the browser finishes 
     return route.abort('connectionreset');
   });
   await bootPage(page, pageUrl(r, { presto: 'on' }));
+  const proverless = await page.evaluate(() => window.yacana?.proverless === true);
   await page.getByTestId('start').click();
   await expect(page.getByTestId('native')).toBeVisible({ timeout: 3 * 60_000 });
-  await expect(page.getByTestId('ledger')).toContainText('claiming: proving in your browser, about 20 s', {
-    timeout: 5 * 60_000,
-  });
+  // A proverless build never transmits: the claim mints with nothing to cut.
+  if (!proverless)
+    await expect(page.getByTestId('ledger')).toContainText('claiming: proving in your browser, about 20 s', {
+      timeout: 5 * 60_000,
+    });
   await expect(page.getByTestId('ledger')).toContainText(/minted in block/, { timeout: 10 * 60_000 });
-  expect(attempts).toBe(1);
+  expect(attempts).toBe(proverless ? 0 : 1);
   // The header's suffix is the Worker's, which never lost Presto.
   await expect(page.getByTestId('native')).toBeVisible();
   await page.getByTestId('stop').click();

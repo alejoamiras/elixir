@@ -158,6 +158,9 @@ jobs:
       - run: bun run codegen && git diff --exit-code
       - run: bun run contracts:compile
       - run: bun run portal:build
+      # The browser and origin cases drive the miner's page (see the shards' note on Google's apt source).
+      - run: grep -rl dl.google.com /etc/apt/sources.list.d /etc/apt/sources.list 2>/dev/null | xargs -r sudo rm -f
+      - run: bunx playwright install --with-deps chromium
       # Every case boots its own isolated network and a pinned node; the flip alone is the PR gate in harness.yml.
       - run: bun run rig
       - name: Keep the networks' logs
