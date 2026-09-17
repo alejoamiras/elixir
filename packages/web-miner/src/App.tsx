@@ -24,12 +24,11 @@ import { isOldRole } from './bridge/env';
 import { DesktopOnly } from './components/DesktopOnly';
 import type { Connection } from './config';
 import { isDesktop } from './desktop';
-import { BridgeProviders } from './features/BridgeProviders';
+import { useActivity } from './features/ActivityList';
 import { OldTabNotice } from './features/OldTabNotice';
 import { PreflightTile } from './features/PreflightTile';
 import { PrestoBanner } from './features/PrestoBanner';
 import { SignInDialog } from './features/SignInDialog';
-import { TakingLongDialog } from './features/TakingLongDialog';
 import { useHotkeys, usePauses, useResumeOnOpen } from './features/use-page-behaviour';
 import { pillStatus } from './lib/status';
 import { minerTabs } from './lib/tabs';
@@ -71,6 +70,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const banner = bannerState(health, now, STALE_AFTER_MS);
   const presto = useAtomValue(prestoAtom);
   const status = boot.phase === 'opening' ? 'opening' : pillStatus(miner, now);
+  const waiting = useActivity().needsUser;
   // The account chip leads to the money; on the old origin the wallet is the page itself, so to Settings.
   const accountRoute: Route = isOldRole() ? 'settings' : 'wallet';
   return (
@@ -81,7 +81,7 @@ export function Shell({ children }: { children: ReactNode }) {
         onHome={() => navigate('mine')}
         mark={miner.phase === 'idle' ? 'idle' : 'mining'}
         navLabel="miner"
-        tabs={minerTabs(route, navigate)}
+        tabs={minerTabs(route, navigate, undefined, waiting)}
         right={
           <>
             <Badge variant="net">testnet</Badge>
@@ -165,11 +165,6 @@ export function App({ connection, session }: { connection: Connection; session: 
       {open && route === 'wallet' && <Wallet session={session} />}
       {route === 'settings' && <Settings connection={connection} controller={controller} session={session} />}
       {route !== 'settings' && <SignInDialog session={session} />}
-      {open && (
-        <BridgeProviders>
-          <TakingLongDialog onSettings={() => navigate('settings')} onWallet={() => navigate('wallet')} />
-        </BridgeProviders>
-      )}
       <p className="text-xs text-ink-2">
         Whoever serves this page controls it: a compromised host could redirect claims or spend this wallet.
         Run your own build if that matters. Chain reads come from the node in Settings and can only waste work

@@ -74,7 +74,8 @@ const rigRun = () => {
   return { r, bridge: r.bridge, ctl: control(r.bridge.controlUrl) };
 };
 
-const rows = (page: Page, kind: 1 | 2) => page.locator(`[data-testid=crossing][data-kind="${kind}"]`);
+const rows = (page: Page, kind: 1 | 2 | 3) => page.locator(`[data-testid=crossing][data-kind="${kind}"]`);
+const HELD = /^held for V\d+$/;
 
 test('on V5: a words account mines one claim, exits to Ethereum (forwarded and minted), deposits through the picker and claims, and sends ahead twice', async ({
   page,
@@ -102,10 +103,8 @@ test('on V5: a words account mines one claim, exits to Ethereum (forwarded and m
   await page.getByTestId('to-ethereum').click();
   await page.getByTestId('exit-amount').fill('1');
   await page.getByTestId('exit-to').fill(l1.address);
+  await expect(page.getByTestId('exit-pasted')).toBeVisible();
   await shot(page, 'to-ethereum');
-  await page.getByTestId('exit-review').click();
-  await expect(page.getByTestId('exit-public')).toBeVisible();
-  await shot(page, 'to-ethereum-review');
   await page.getByTestId('exit-send').click();
   await expect(page.getByTestId('exit-sent')).toBeVisible({ timeout: 10 * 60_000 });
   await shot(page, 'to-ethereum-sent');
@@ -117,10 +116,10 @@ test('on V5: a words account mines one claim, exits to Ethereum (forwarded and m
     timeout: 3 * 60_000,
   });
   await shot(page, 'journal-ready');
-  await rows(page, 1).getByTestId('claim-ethereum').click();
+  await rows(page, 1).getByTestId('row-claim-l1').click();
   await connectTestWallet(page);
   await expect(page.getByTestId('forward-go')).toBeVisible();
-  await shot(page, 'claim-sheet');
+  await shot(page, 'claim-dialog');
   await page.getByTestId('forward-go').click();
   await expect(page.getByTestId('forward-done')).toBeVisible({ timeout: 2 * 60_000 });
   await page.getByRole('button', { name: 'Done' }).click();
@@ -129,7 +128,7 @@ test('on V5: a words account mines one claim, exits to Ethereum (forwarded and m
 
   // Deposit 0.5 back through the picker; the arrival card claims it.
   await page.getByTestId('deposit').click();
-  // The wallet that claimed is still connected: the sheet opens on its row, not on the picker.
+  // The wallet that claimed is still connected: the dialog opens on its form, not on the connect screen.
   await connectTestWallet(page);
   await shot(page, 'from-ethereum');
   await expect(page.getByTestId('yaca-balance')).toHaveText('1', { timeout: 30_000 });
@@ -140,31 +139,29 @@ test('on V5: a words account mines one claim, exits to Ethereum (forwarded and m
   await expect(page.getByTestId('deposit-done')).toBeVisible({ timeout: 2 * 60_000 });
   await shot(page, 'from-ethereum-sent');
   await page.getByRole('button', { name: 'Done' }).click();
-  await expect(page.locator('[data-testid=arrival]')).toHaveCount(1);
+  await expect(rows(page, 3)).toHaveCount(1);
   await shot(page, 'arrival-on-its-way');
   await ctl.nudge();
-  await expect(page.getByTestId('arrival-claim')).toHaveText('Claim', { timeout: 3 * 60_000 });
+  await expect(page.getByTestId('row-claim')).toHaveText('Claim', { timeout: 3 * 60_000 });
   await shot(page, 'arrival-claimable');
-  await page.getByTestId('arrival-claim').click();
-  // Landed, the row stays on the card as minted, with nothing left to press.
-  await expect(page.locator('[data-testid=arrival][data-state=minted-l2]')).toHaveCount(1, {
+  await page.getByTestId('row-claim').click();
+  // Landed, the row stays in the list as claimed, with nothing left to press.
+  await expect(rows(page, 3).and(page.locator('[data-state=minted-l2]'))).toHaveCount(1, {
     timeout: 10 * 60_000,
   });
-  await expect(page.getByTestId('arrival-claim')).toHaveCount(0);
+  await expect(page.getByTestId('row-claim')).toHaveCount(0);
   await expect(page.getByTestId('wallet-balance')).toHaveText('3.5', { timeout: 2 * 60_000 });
   await shot(page, 'arrival-landed');
 
-  // Two send-aheads of 1 from the migration card's sheet (the card shows on an announced migration).
+  // Two send-aheads of 1 from the migration card's dialog (the card shows on an announced migration).
   await page.getByRole('link', { name: 'Mine' }).click();
   await expect(page.getByTestId('migration-card')).toHaveAttribute('data-moment', 'announced');
   await shot(page, 'mine-announced');
   for (let i = 0; i < 2; i++) {
     await page.getByTestId('send-ahead').click();
     await page.getByTestId('ahead-amount').fill('1');
-    if (i === 0) await shot(page, 'commit-sheet');
-    await page.getByTestId('ahead-review').click();
-    await expect(page.getByTestId('ahead-privacy')).toContainText('The amount is public on Ethereum.');
-    if (i === 0) await shot(page, 'commit-review');
+    await expect(page.getByTestId('ahead-privacy')).toContainText('the amount, not the account');
+    if (i === 0) await shot(page, 'send-ahead');
     await page.getByTestId('ahead-send').click();
     await expect(page.getByTestId('ahead-sent')).toBeVisible({ timeout: 10 * 60_000 });
     if (i === 0) await shot(page, 'committed-sheet');
@@ -175,13 +172,9 @@ test('on V5: a words account mines one claim, exits to Ethereum (forwarded and m
   // Settled, both are held on Ethereum: their witnesses are in the journal, and in the recovery file.
   await ctl.settle();
   await page.getByRole('link', { name: 'Wallet' }).click();
-  await expect(rows(page, 2).getByTestId('crossing-word')).toHaveText(
-    ['held on Ethereum', 'held on Ethereum'],
-    {
-      timeout: 3 * 60_000,
-    },
-  );
-  await expect(rows(page, 2).first()).toContainText('you can too, or redeem it on Ethereum');
+  await expect(rows(page, 2).getByTestId('crossing-word')).toHaveText([HELD, HELD], { timeout: 3 * 60_000 });
+  await expect(rows(page, 2).first()).toContainText('you can too, from V');
+  await expect(rows(page, 2).first()).toContainText('Or redeem it on Ethereum');
   await shot(page, 'wallet-held');
   mkdirSync(handoffDir, { recursive: true });
   const [download] = await Promise.all([
@@ -213,8 +206,8 @@ test('on V5 after the flip: the migration card says mining has ended and what is
   await expect(page.getByTestId('sent-ahead-status')).toHaveCount(0);
   await page.getByRole('link', { name: 'Wallet' }).click();
   // The landing scan already found the deposit in the Inbox, and the nullifier tree says it was claimed:
-  // no arrival card offers it again, and the file restores only the three the chain cannot name.
-  await expect(page.getByTestId('arrival-claim')).toHaveCount(0);
+  // no row offers it again, and the file restores only the three the chain cannot name.
+  await expect(page.getByTestId('row-claim')).toHaveCount(0);
   await page.getByTestId('recovery-input').setInputFiles(recovery);
   await expect(page.getByTestId('recovery-note')).toContainText('3 crossings restored');
   await shot(page, 'wallet-flipped');
@@ -238,7 +231,7 @@ test('on V6: the same words restore the account, the recovery file brings the he
   await page.goto(pageUrl(r));
   expect(await restoreWords(page, words)).toBe(account);
   await page.getByRole('link', { name: 'Wallet' }).click();
-  await expect(page.getByTestId('bridge-tile')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId('activity')).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId('migration-card')).toHaveCount(0);
 
   // A new device knows nothing: the recovery file brings both send-aheads, still held on Ethereum.
@@ -246,50 +239,51 @@ test('on V6: the same words restore the account, the recovery file brings the he
   // Every crossing of the account: the exit, the deposit and both send-aheads, the latter still held.
   await expect(page.getByTestId('recovery-note')).toContainText('4 crossings restored');
   await expect(rows(page, 2)).toHaveCount(2);
-  await expect(rows(page, 2).getByTestId('crossing-word')).toHaveText(
-    ['held on Ethereum', 'held on Ethereum'],
-    {
-      timeout: 2 * 60_000,
-    },
-  );
+  await expect(rows(page, 2).getByTestId('crossing-word')).toHaveText([HELD, HELD], { timeout: 2 * 60_000 });
 
   await shot(page, 'v6-wallet-held');
 
   // The first, forwarded into V6 by the holder: the redeem key signs, the wallet pays; then claimed here.
-  await rows(page, 2).first().getByTestId('forward-myself').click();
+  await rows(page, 2).first().getByTestId('row-forward').click();
   await connectTestWallet(page);
   await expect(page.getByTestId('forward-go')).toBeVisible();
-  await shot(page, 'forward-sheet');
+  await shot(page, 'forward-dialog');
   await page.getByTestId('forward-go').click();
   await expect(page.getByTestId('forward-done')).toBeVisible({ timeout: 2 * 60_000 });
   await shot(page, 'forward-done');
   await page.getByRole('button', { name: 'Done' }).click();
-  await expect(page.locator('[data-testid=arrival][data-state="forwarded"]')).toHaveCount(1, {
+  await expect(rows(page, 2).and(page.locator('[data-state="forwarded"]'))).toHaveCount(1, {
     timeout: 60_000,
   });
   await shot(page, 'v6-arriving');
   await ctl.nudge();
-  await expect(page.getByTestId('arrival-claim')).toHaveText('Claim', { timeout: 3 * 60_000 });
+  await expect(page.getByTestId('row-claim')).toHaveText('Claim', { timeout: 3 * 60_000 });
   await shot(page, 'v6-claimable');
-  await page.getByTestId('arrival-claim').click();
-  await expect(page.locator('[data-testid=arrival][data-state=minted-l2]')).toHaveCount(1, {
+  await page.getByTestId('row-claim').click();
+  await expect(rows(page, 2).and(page.locator('[data-state=minted-l2]'))).toHaveCount(1, {
     timeout: 10 * 60_000,
   });
-  await expect(page.getByTestId('arrival-claim')).toHaveCount(0);
+  await expect(page.getByTestId('row-claim')).toHaveCount(0);
   await expect(page.getByTestId('wallet-balance')).toHaveText('1', { timeout: 2 * 60_000 });
   await shot(page, 'v6-arrived');
 
   // The second, redeemed to Ethereum for the connected account instead.
-  await rows(page, 2).filter({ hasText: 'held on Ethereum' }).getByTestId('redeem').click();
+  // Filtered on the chip alone: the anchored HELD would have to match the whole row's text otherwise.
+  await rows(page, 2)
+    .filter({ has: page.getByTestId('crossing-word').filter({ hasText: HELD }) })
+    .getByTestId('row-redeem')
+    .click();
   await expect(page.getByTestId('yaca-balance')).toHaveText('0.5', { timeout: 30_000 });
-  await shot(page, 'redeem-sheet');
+  await shot(page, 'redeem-dialog');
   await page.getByTestId('redeem-go').click();
   await expect(page.getByTestId('redeem-done')).toBeVisible({ timeout: 2 * 60_000 });
   await expect(page.getByTestId('yaca-balance')).toHaveText('1.5', { timeout: 30_000 });
   await shot(page, 'redeem-done');
   await page.getByRole('button', { name: 'Done' }).click();
-  // The claimed one left the tile (it is minted here); the redeemed one stays a week.
-  await expect(rows(page, 2).getByTestId('crossing-word')).toHaveText(['redeemed'], { timeout: 60_000 });
+  // Both stay in the list, newest first: the one forwarded and claimed here, then the one redeemed.
+  await expect(rows(page, 2).getByTestId('crossing-word')).toHaveText(['claimed', 'redeemed'], {
+    timeout: 60_000,
+  });
   await shot(page, 'v6-wallet-redeemed');
   expect(l1.calls('eth_sendTransaction')).toBe(2);
 });

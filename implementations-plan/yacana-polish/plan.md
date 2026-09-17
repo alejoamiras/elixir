@@ -515,7 +515,7 @@ adapts here.
 **Gate**: fast · `bun test packages/bridge packages/web-miner` · `bun run e2e:agent -- bun test packages/bridge`
 (the live proof-event case) · `bridge` shard proverless · layers: unit, integration-live, e2e live.
 
-### P8 — The Wallet
+### P8 ✓ — The Wallet (green 2026-09-16, `lessons/phase-8.md`)
 
 `ActivityList` + `ActivityRow` on `rowLine` (the §5.4 table, every RowState × kind, deposits included, one row per
 crossing, finished rows collapsed after seven days, never discarded); the "ready to claim" count and the row's
@@ -525,7 +525,7 @@ action from one selector; the disabled reasons (§9.2.4); the empty states; `Bri
 **Gate**: fast · `bridge` shard proverless · replay · pass: each crossing appears once; count, action and reason
 agree · layers: + e2e live with the injected wallet.
 
-### P9 — The transaction dialog
+### P9 ✓ — The transaction dialog (green 2026-09-16, `lessons/phase-9.md`)
 
 The five dialogs on `Dialog size="tx"` (§5.5, §5.6, §5.4 Send, §5.9 Send ahead, the claim on Ethereum with
 `ensureChain` visible, the payer, the fixed recipient, the no-ETH state, the revert mapping; the wallet picker

@@ -76,6 +76,7 @@ import {
   claimsAtom,
   journalAtom,
   rowStatesAtom,
+  type VersionFacts,
 } from '../state';
 import { servedBuild, staleTab } from './env.ts';
 import {
@@ -125,6 +126,8 @@ export interface BridgeSessionDeps {
 const REFRESH_MS = 15_000;
 /** Mints asked about per refresh, newest first; the batch rotates so every open one is reached. */
 const SETTLE_AT_MOST = 8;
+/** Other versions read per refresh: a journal is the user's, and a recovery file can name any number. */
+const VERSIONS_AT_MOST = 2;
 
 /** `n` items from `from` (wrapping), so consecutive calls walk the whole list. */
 export function rotate<T>(items: readonly T[], from: number, n: number): T[] {
@@ -188,6 +191,7 @@ export class BridgeSession {
   private readonly registeredAt = new Map<string, bigint>();
   private refreshes = 0;
   private settleFrom = 0;
+  private versionsFrom = 0;
   private closed = false;
   private suspended = false;
 
@@ -702,6 +706,7 @@ export class BridgeSession {
         this.minerRetired(),
         this.exitFloor(),
       ]);
+      const versions = await this.otherVersions(block, floor, prev.versions);
       view = {
         verdict: flipVerdict({
           buildVersion: version,
@@ -712,6 +717,7 @@ export class BridgeSession {
         standing,
         canonical,
         deadline: readDeadline({ ...standing, floor, l1Now: block.timestamp }),
+        versions,
         readAt: now,
         rpcFailing: false,
         // Best effort, kept from the last refresh when unread: neither says whether the RPC answers.
@@ -729,6 +735,39 @@ export class BridgeSession {
     this.d.store.set(rowStatesAtom, await this.rowStates(now));
     await this.publishJournal();
     await this.settleMiningClaims();
+  }
+
+  /**
+   * The standing and deadline of the other versions the journal holds a crossing under way of, in
+   * the same L1 block as this version's, a few per refresh; a version not read this time, or whose
+   * read fails, keeps its last reading.
+   */
+  private async otherVersions(
+    block: { number: bigint | null; timestamp: bigint },
+    floor: bigint,
+    prev: BridgeView['versions'],
+  ): Promise<BridgeView['versions']> {
+    const own = this.ctx.version.toString();
+    // A completed row needs no live deadline: only the versions with a crossing under way count.
+    const versions = [...new Set((await this.journal.list()).filter(inFlight).map((c) => c.version))].filter(
+      (v) => v !== own,
+    );
+    const out: Record<string, VersionFacts> = {};
+    for (const v of versions) if (prev?.[v]) out[v] = prev[v];
+    const batch = rotate(versions, this.versionsFrom, VERSIONS_AT_MOST);
+    this.versionsFrom += VERSIONS_AT_MOST;
+    const read = async (v: string): Promise<[string, VersionFacts | undefined]> => [
+      v,
+      await this.reader
+        .standing(BigInt(v), block.number ?? undefined)
+        .then((standing) => ({
+          standing,
+          deadline: readDeadline({ ...standing, floor, l1Now: block.timestamp }),
+        }))
+        .catch(() => prev?.[v]),
+    ];
+    for (const [v, facts] of await Promise.all(batch.map(read))) if (facts) out[v] = facts;
+    return out;
   }
 
   /**
@@ -880,9 +919,12 @@ export class BridgeSession {
       if (!claimed) {
         // Absence means pruning only from a node that has reached the claim's block; a node behind it knows nothing yet.
         if (c.claimBlock === undefined || (await this.d.node.getBlockNumber()) < c.claimBlock) return;
+        // The hash of the undone claim stays: it is the row's only evidence that this was claimed
+        // once, which is a different sentence from an arrival nobody has touched. A new claim
+        // overwrites it.
         await this.journal.update(c.id, (stored) =>
           stored.state === 'minted-l2'
-            ? { ...stored, state: 'claimable', claimTxHash: undefined, claimBlock: undefined, updatedAt: now }
+            ? { ...stored, state: 'claimable', claimBlock: undefined, updatedAt: now }
             : stored,
         );
         return;

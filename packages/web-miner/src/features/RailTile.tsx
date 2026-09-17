@@ -7,7 +7,6 @@ import { duration } from '../lib/format';
 import { PRESTO_SITE, prestoAtom, prestoSticky } from '../presto';
 import { useSettings } from '../settings';
 import { bootAtom, claimsAtom, epochAtom, minerAtom, nowAtom, rulesAtom } from '../state';
-import { ClaimSlot } from './ClaimSlot';
 
 const cores = () => navigator.hardwareConcurrency || 2;
 
@@ -20,7 +19,6 @@ export function RailTile({
 }) {
   return (
     <div className={cn('flex flex-col gap-[14px]', className)} data-testid="rail">
-      <ClaimSlot />
       <EpochTile controller={controller} />
     </div>
   );

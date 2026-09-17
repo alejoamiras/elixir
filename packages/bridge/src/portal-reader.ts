@@ -25,6 +25,8 @@ export interface VersionStanding {
   /** Seconds of pause spent on this version, against the budget. */
   pausedSeconds: bigint;
   paused: boolean;
+  /** Unix seconds the pause runs to; zero or past when not paused. */
+  pausedUntil: bigint;
   headroom: bigint;
   /** Unix seconds; the max uint256 while open-ended. */
   deadline: bigint;
@@ -41,8 +43,6 @@ export interface VersionFlows extends VersionStanding {
   inbound: bigint;
   /** What may ever have left by now: the schedule's cumulative bound, frozen at the flip. */
   cap: bigint;
-  /** Unix seconds the pause runs to; zero or past when not paused. */
-  pausedUntil: bigint;
   launchAt: bigint;
 }
 
@@ -90,6 +90,7 @@ function versionReads(client: PublicClient, portal: Portal, a: PortalAddresses) 
     afterNextAt: BigInt(afterNextAt),
     pausedSeconds: BigInt(v.pausedSeconds),
     paused,
+    pausedUntil: BigInt(v.pausedUntil),
     headroom,
     deadline,
   });
@@ -111,7 +112,6 @@ function versionReads(client: PublicClient, portal: Portal, a: PortalAddresses) 
         exited: v.exited,
         inbound: v.inbound,
         cap,
-        pausedUntil: BigInt(v.pausedUntil),
         launchAt: BigInt(v.launchAt),
       };
     },
@@ -264,7 +264,7 @@ function leafReads(client: PublicClient, portal: Portal, registry: Registry, a: 
         toBlock: await tip(),
         first: true,
       });
-      return log ? { txHash: log.transactionHash } : undefined;
+      return log ? { txHash: log.transactionHash, recipient: log.args.recipient } : undefined;
     },
     arrivals: () => readArrivals(client, portal, a),
   };

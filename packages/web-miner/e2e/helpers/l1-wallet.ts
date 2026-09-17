@@ -270,8 +270,14 @@ export async function connectTestWallet(page: Page): Promise<void> {
   const row = page.getByTestId('eth-account');
   // wagmi may still be reconnecting a wallet the page connected before: the picker or the row, then.
   await expect(row.or(page.getByTestId('wallet-picker'))).toBeVisible({ timeout: 30_000 });
-  if (!(await row.isVisible()))
-    await page.getByTestId('wallet-option').filter({ hasText: WALLET_NAME }).click();
+  if (!(await row.isVisible())) {
+    // One installed wallet is one "Connect wallet" button; several are listed by name.
+    const options = page.getByTestId('wallet-option');
+    await ((await options.count()) === 1
+      ? options.first()
+      : options.filter({ hasText: WALLET_NAME })
+    ).click();
+  }
   // The connected row is the account's chip (its short address), not the wallet's name.
   await expect(row).toContainText(/0x[0-9a-fA-F]{4,}…[0-9a-fA-F]{4}/);
 }

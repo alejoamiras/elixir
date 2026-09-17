@@ -1,9 +1,7 @@
 import { cleanup, render } from '@testing-library/react';
 import { createStore, Provider } from 'jotai';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { ClaimSlot, slotState } from './features/ClaimSlot';
-import { initial, type MinerState } from './lib/reducer';
-import { pillStatus } from './lib/status';
+import { initial } from './lib/reducer';
 import { Mine } from './routes/Mine';
 import { bootAtom, epochAtom, minerAtom, nowAtom, rulesAtom } from './state';
 
@@ -31,11 +29,10 @@ describe('the cockpit grid', () => {
     // The loop tile holds no claim stepper: the claim lives in the rail's slot.
     expect(tiles[0]?.querySelector('[data-testid=claim-stepper]')).toBeNull();
     expect(tiles[0]?.querySelector('[data-slot=score-loop]')?.getAttribute('data-calm')).toBe('true');
-    // The rail is a column: the claim slot first, the epoch tile under it.
+    // The rail is the epoch tile alone: the claim lives on the loop's chip and the ledger.
     expect(tiles[1]?.className).toContain('xl:row-span-2');
     expect(tiles[1]?.getAttribute('data-testid')).toBe('rail');
-    expect(tiles[1]?.firstElementChild?.getAttribute('data-testid')).toBe('claim-slot');
-    expect(tiles[1]?.firstElementChild?.textContent).toContain('no claim in flight');
+    expect(tiles[1]?.querySelector('[data-testid=claim-slot]')).toBeNull();
     expect(tiles[2]?.getAttribute('data-testid')).toBe('kpi-tiles');
     expect(tiles[2]?.querySelectorAll('[data-slot=tile]')).toHaveLength(3);
     // The last cell is a stack below xl and dissolves into the grid at xl (`contents`).
@@ -76,63 +73,6 @@ describe('the cockpit grid', () => {
     expect(getByText('the bar is 64.0 · about 64 proofs per win')).toBeTruthy();
     expect(getByText('anyone can close it')).toBeTruthy();
     expect(getByText('next bar if it closed now')).toBeTruthy();
-  });
-});
-
-const MINTED = {
-  block: 73_162,
-  txHash: `0x${'0c'.repeat(32)}`,
-  nullifier: '0xn',
-  noteHash: '0xh',
-  noteHashes: 1,
-  claims: [1, 2] as [number, number],
-  at: 100_000,
-};
-
-const withMiner = (patch: Partial<MinerState>, now: number) => {
-  const store = createStore();
-  store.set(minerAtom, { ...initial, ...patch });
-  store.set(nowAtom, now);
-  return render(
-    <Provider store={store}>
-      <ClaimSlot />
-    </Provider>,
-  );
-};
-
-// The slot's four states by precedence, and the ten-second freshness the pill shares (no fake timers: `now` is passed).
-describe('the claim slot', () => {
-  test('idle is a dashed placeholder; a claim in flight shows the stepper; a fresh mint its ✓ with the block linked', () => {
-    expect(withMiner({}, 0).getByTestId('claim-slot').textContent).toContain('no claim in flight');
-    cleanup();
-    const claim = {
-      step: 'sent' as const,
-      wonAt: 37_600,
-      since: 50_000,
-      done: [12_400],
-      lineId: 1,
-      txHash: '0xab',
-    };
-    const inFlight = withMiner({ phase: 'claiming', claim }, 60_000);
-    expect(inFlight.getByTestId('claim-slot').getAttribute('data-state')).toBe('claim');
-    expect(inFlight.queryByTestId('claim-stepper')).not.toBeNull();
-    cleanup();
-    const fresh = withMiner({ minted: MINTED }, 105_000);
-    expect(fresh.getByTestId('claim-slot').getAttribute('data-state')).toBe('minted');
-    expect(fresh.getByTestId('minted').textContent).toContain('block 73,162');
-    expect(fresh.getByRole('link', { name: /block 73,162/ }).getAttribute('href')).toContain('/blocks/73162');
-  });
-
-  test('the ✓ fades after ten seconds, its marks sit under Details, and the pill follows the same clock', () => {
-    const stale = withMiner({ minted: MINTED }, 110_001);
-    expect(stale.getByTestId('claim-slot').textContent).toContain('no claim in flight');
-    cleanup();
-    const fresh = withMiner({ minted: MINTED }, 105_000);
-    expect(fresh.getByTestId('minted-details').textContent).toContain('Details');
-    expect(slotState({ ...initial, minted: MINTED }, 105_000)).toBe('minted');
-    expect(slotState({ ...initial, minted: MINTED }, 110_000)).toBe('idle');
-    expect(pillStatus({ ...initial, minted: MINTED }, 105_000)).toBe('minted');
-    expect(pillStatus({ ...initial, minted: MINTED }, 110_000)).toBe('idle');
   });
 });
 
@@ -211,7 +151,6 @@ describe('the start and stop buttons', () => {
     );
     expect(getByTestId('notice-reverted').textContent).toContain('Re-syncing this account');
     expect(queryByTestId('fresh-key')).toBeNull();
-    expect(getByTestId('claim-slot').textContent).toContain('no claim in flight');
     cleanup();
     store.set(minerAtom, {
       ...initial,
