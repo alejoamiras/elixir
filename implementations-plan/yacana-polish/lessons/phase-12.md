@@ -179,3 +179,10 @@ the facts, the security asks and both verbatim rules.
    Codex's "looks fine": the transport (production `https://127.0.0.1:59834`, no query override, no
    downgrade without the flag, the CSP), the trust boundary, bad replies (the node verifies; a refused
    proof costs no nullifier or fee), the rebind, the e2e's route pattern, the inventory floors, P12's fixes.
+
+**Round 2** (resumed, `high`): APPROVE, nothing material — the loop converges at round 2. Codex checked the
+forced-until-probed rule (the probe's failures write an unavailable status, no stale success; the endpoint is
+preflight's, a node switch does not move it; `invalid-proof` rightly bars the wallet too), the mid-proof
+`setForceLocal` (read once at the proof's entry), and the bracket on every SDK path (`downloading`, a `/prove`
+denial → fallback → WASM, a throw with no phase). Fixes committed as `2b3904d`; the real chain shard 9/9 on
+them.
