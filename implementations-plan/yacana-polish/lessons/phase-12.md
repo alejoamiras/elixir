@@ -319,3 +319,21 @@ thread — who proves a transaction, said truthfully — and ended at an invaria
 | `E2E_PROVERLESS=1 E2E_SHARD=cockpit` | green, 350 s |
 | `bun run rig -- browser` (exits, send-aheads, forward, claim, redeem through the page) | 3 pass, 493 s |
 | `bun run rig -- origin` | 1 pass, 90 s |
+
+## Delivery (§10 step 5, 2026-09-17)
+
+`gh stack submit --auto`: PRs #46 → #52, stack #53, each body ending with the attribution line.
+
+**First CI pass: #46 green, #47–#52 red on the same job** (`bun test packages/web-miner`: seven Presto
+suites' cases, their loopback fakes never reached). Cause, from arc 2: `pinned-crs.bun.test.ts` swapped
+the CRS interceptor's pass-through fetch — which is the realm's fetch for every other URL — and never
+put it back. One process runs every suite, so whatever ran after it fetched through the CRS fake. CI's
+file order (readdir) runs it before the Presto suites; this machine's runs it after, which is why every
+local gate was green. Reproduced here with two one-line files importing the suites in CI's order
+(2 fail without the restore, 0 with it). Fix on `polish-account`: `setCrsFetchForTests` returns its
+undo, the suite registers it in `afterAll`; cascaded with `gh stack rebase --upstack --no-trunk`.
+Every commit of arcs 2–7 was rewritten by that cascade: **the short hashes quoted in the lessons of
+phases 2–12 name the commits before it** (same subjects, same order; the top's tree differs from the
+old top by those two files only).
+Lesson: a green local `bun test` says nothing about another file order. A suite that replaces a
+process-wide seam restores it in the same file, always.
