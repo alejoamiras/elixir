@@ -3,7 +3,7 @@
 // redeem one as YACA for the connected account. The wallet's ETH is read before it is asked; a
 // portal refusal is said in the row's own words.
 import { useAtomValue } from 'jotai';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Hex } from 'viem';
 import { useAccount } from 'wagmi';
 import type { Crossing } from '../../../../bridge/src/journal.ts';
@@ -217,7 +217,8 @@ function Body({
       alive.current = false;
     };
   }, []);
-  useEffect(() => onStep(step.kind), [step.kind, onStep]);
+  // Before the paint: the frame locks in the same frame the waiting step shows, never one after.
+  useLayoutEffect(() => onStep(step.kind), [step.kind, onStep]);
   const failed = (e: unknown): void => {
     if (rejected(e)) {
       setStep({ kind: 'rejected' });

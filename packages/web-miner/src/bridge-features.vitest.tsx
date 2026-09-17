@@ -133,6 +133,7 @@ const mount = (ui: ReactNode, setup: (store: ReturnType<typeof createStore>) => 
 afterEach(() => {
   cleanup();
   vi.unstubAllEnvs();
+  vi.useRealTimers();
 });
 beforeEach(() => {
   vi.stubEnv('VITE_ROLLUP_VERSION', '5');
@@ -503,7 +504,10 @@ describe('the claim dialog', () => {
   test('no ETH holds the button and is read again until a top-up; the wallet asked locks the dialog; done retitles it', async () => {
     onAnvil();
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    const payerFunds = vi.fn().mockResolvedValueOnce(enough(false)).mockResolvedValue(enough(true));
+    // The wallet stays empty until the test tops it up: the clock runs, and a slow run must not let a
+    // re-read flip the state before the first one is seen.
+    let topped = false;
+    const payerFunds = vi.fn(async () => enough(topped));
     let release: (() => void) | undefined;
     const selfForward = vi.fn(() => new Promise<void>((r) => (release = r)));
     mount(
@@ -520,6 +524,7 @@ describe('the claim dialog', () => {
     expect(screen.getByTestId('payer-no-eth').textContent).toContain('has no anvil ETH for the gas');
     expect((screen.getByTestId('forward-go') as HTMLButtonElement).disabled).toBe(true);
     // Five seconds later the balance is read again: the top-up re-arms the button.
+    topped = true;
     await act(() => vi.advanceTimersByTimeAsync(5_100));
     await waitFor(() => expect(screen.queryByTestId('payer-no-eth')).toBeNull());
     expect((screen.getByTestId('forward-go') as HTMLButtonElement).disabled).toBe(false);
@@ -533,7 +538,6 @@ describe('the claim dialog', () => {
     act(() => release?.());
     await waitFor(() => expect(screen.getByTestId('forward-done')).toBeDefined());
     expect(screen.getByTestId('forward-dialog').textContent).toContain('Claimed.');
-    vi.useRealTimers();
   });
 
   test('the wallet saying no is a red step with Try again, and nothing is claimed — under Strict Mode too', async () => {
