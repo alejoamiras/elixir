@@ -8,6 +8,8 @@ export interface Sample {
   score: number;
   bar?: number;
   win?: boolean;
+  /** The epoch the proof was scored in, for the tick where the bar stepped. */
+  epoch?: number;
 }
 
 const barOf = (s: Sample, difficulty: number | null): number | null => s.bar ?? difficulty;
@@ -24,6 +26,8 @@ export interface BarSegment {
   x0: number;
   x1: number;
   bar: number;
+  /** The epoch of the first sample scored against this bar, when the sample carried one. */
+  epoch?: number;
 }
 
 /**
@@ -39,16 +43,16 @@ export function barSegments(
 ): BarSegment[] {
   const out: BarSegment[] = [];
   let x0 = 0;
-  const step = (x1: number, bar: number) => {
+  const step = (x1: number, bar: number, epoch?: number) => {
     const last = out[out.length - 1];
     if (last && last.bar === bar) last.x1 = x1;
-    else out.push({ x0, x1, bar });
+    else out.push({ x0, x1, bar, ...(epoch !== undefined && { epoch }) });
     x0 = x1;
   };
   for (const s of samples) {
     const age = (now - s.t) / spanMs;
     if (age > 1 || age < 0) continue;
-    step(1 - age, s.bar ?? difficulty);
+    step(1 - age, s.bar ?? difficulty, s.epoch);
   }
   step(1, difficulty);
   return out;

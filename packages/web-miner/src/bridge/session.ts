@@ -3,6 +3,7 @@
 // it, and the operations the sheets call. One instance per open account, started with it and
 // stopped with it; nothing sends or claims on its own — every crossing begins with a tap.
 import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { siloNullifier } from '@aztec/stdlib/hash';
@@ -42,7 +43,7 @@ import {
 import { readBalanceSnapshot, saveBalanceSnapshot } from '../bridge/snapshot.ts';
 import type { Connection } from '../config';
 import { fingerprintOf } from '../keys/classes';
-import { type BridgeView, bridgeAtom, journalAtom } from '../state';
+import { type BridgeView, bridgeAtom, type ClaimRecord, claimsAtom, journalAtom } from '../state';
 import { servedBuild, staleTab } from './env.ts';
 import { type PortalReader, portalReader, type WagmiConfig, wagmiConfigFor } from './eth.ts';
 import { type FactReads, factsFor } from './facts.ts';
@@ -77,6 +78,15 @@ export interface BridgeSessionDeps {
 }
 
 const REFRESH_MS = 15_000;
+/** Mints asked about per refresh, newest first; the batch rotates so every open one is reached. */
+const SETTLE_AT_MOST = 8;
+
+/** `n` items from `from` (wrapping), so consecutive calls walk the whole list. */
+export function rotate<T>(items: readonly T[], from: number, n: number): T[] {
+  if (!items.length) return [];
+  const start = from % items.length;
+  return [...items.slice(start), ...items.slice(0, start)].slice(0, n);
+}
 /** One refresh reads the clock for every crossing it holds against a deadline; one block answers them all. */
 const L1_CLOCK_MS = 2_000;
 /** The portal's events are scanned again every so many refreshes: a forward by Yacana lands while the page is open. */
@@ -111,6 +121,9 @@ export class BridgeSession {
   private readonly archives = new Map<string, Promise<ArchivedExit[]>>();
   private readonly scope: ExitScope;
   private refreshes = 0;
+  private settleFrom = 0;
+  private closed = false;
+  private suspended = false;
 
   private constructor(
     private readonly d: BridgeSessionDeps,
@@ -435,18 +448,49 @@ export class BridgeSession {
     try {
       await this.refresh();
     } finally {
-      this.timer = setInterval(() => void this.refresh(), REFRESH_MS);
+      this.schedule();
     }
   }
 
-  stop(): void {
+  /** The refresh timer, unless the session is closed or suspended meanwhile (a start is asynchronous). */
+  private schedule(): void {
+    if (this.closed || this.suspended) return;
+    this.timer ??= setInterval(() => void this.refresh(), REFRESH_MS);
+  }
+
+  private unschedule(): void {
     if (this.timer) clearInterval(this.timer);
     this.timer = undefined;
+  }
+
+  /** Closed for good: no refresh runs after this, and no resume brings it back. */
+  stop(): void {
+    this.closed = true;
+    this.unschedule();
   }
 
   /** Resolves once every operation queued so far has settled: what a sign-out waits for before the page goes. */
   drain(): Promise<void> {
     return this.ctx.queue.drain();
+  }
+
+  /**
+   * A node switch's freeze: new operations are refused with `reason`, the refreshes stop, and what is
+   * out (operations, a refresh) is waited for, so no reading or signing straddles two nodes.
+   */
+  async suspend(reason: string): Promise<void> {
+    this.ctx.queue.refuse(reason);
+    this.suspended = true;
+    this.unschedule();
+    await this.ctx.queue.drain();
+    await this.refreshing?.catch(() => {});
+  }
+
+  /** The switch is over: operations and the refreshes again (unless closed meanwhile). */
+  resume(): void {
+    this.ctx.queue.refuse(null);
+    this.suspended = false;
+    this.schedule();
   }
 
   private async publishJournal(): Promise<Crossing[]> {
@@ -499,6 +543,53 @@ export class BridgeSession {
         await this.recheckClaim(c, now);
     }
     await this.publishJournal();
+    await this.settleMiningClaims();
+  }
+
+  /**
+   * The mining ledger's ✓ is final once the rollup's proof covers the claim's block; a nullifier
+   * gone from a node past that block means the block was pruned with its epoch. The same two
+   * readings as a crossing's claim, on the device's record of mints.
+   */
+  private async settleMiningClaims(): Promise<void> {
+    const open = this.d.store.get(claimsAtom).filter((c) => c.txHash && c.settled === 'pending');
+    if (!open.length) return;
+    const rollup = await this.rollupFor(this.ctx.version.toString());
+    const batch = rotate([...open].reverse(), this.settleFrom, SETTLE_AT_MOST);
+    this.settleFrom += SETTLE_AT_MOST;
+    for (const c of batch) {
+      let settled: ClaimRecord['settled'] | undefined;
+      try {
+        settled = await this.miningSettlement(c, rollup);
+      } catch {
+        continue; // asked again next refresh
+      }
+      if (settled && settled !== 'pending')
+        this.d.store.set(claimsAtom, (all) =>
+          all.map((x) => (x.txHash === c.txHash ? { ...x, settled } : x)),
+        );
+    }
+  }
+
+  private async miningSettlement(c: ClaimRecord, rollup: RollupReads): Promise<ClaimRecord['settled']> {
+    const checkpoint = await this.checkpointOfBlock(c.block, c.txHash);
+    if (checkpoint === 'gone') {
+      // Pruned only from a node that has reached the claim's block; the nullifier's absence confirms it.
+      if ((await this.d.node.getBlockNumber()) < c.block || !c.nullifier) return 'pending';
+      const [leaf] = await this.d.node.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [
+        Fr.fromString(c.nullifier),
+      ]);
+      return leaf ? 'pending' : 'pruned';
+    }
+    if (typeof checkpoint === 'object') {
+      // Re-included at another height: the record follows, and is asked about there next time.
+      this.d.store.set(claimsAtom, (all) =>
+        all.map((x) => (x.txHash === c.txHash ? { ...x, block: checkpoint.moved } : x)),
+      );
+      return 'pending';
+    }
+    if (checkpoint === 'unknown') return 'pending';
+    return (await checkpointProven(rollup, checkpoint)) ? 'settled' : 'pending';
   }
 
   /**

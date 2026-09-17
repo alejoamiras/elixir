@@ -22,8 +22,16 @@ import { duration } from '../../site/src/browser/format.ts';
 import { keysAllowed, relyingParty } from '../../site/src/browser/host.ts';
 import { type NodeProbe, probeNode } from '../../site/src/browser/node.ts';
 import { setEthRpcEndpoint } from '../../site/src/browser/node-guard.ts';
-import { nodeHealth, waitTurn } from '../../site/src/browser/node-health.ts';
-import { expectedOf, type Preflighted, preflight, type Started, startSession, switchNodeLive } from './boot';
+import { nodeHealth, resetL1, waitTurn } from '../../site/src/browser/node-health.ts';
+import {
+  expectedOf,
+  type Preflighted,
+  preflight,
+  type Started,
+  SwitchFailed,
+  startSession,
+  switchNodeLive,
+} from './boot';
 import { bridgeRecord, isOldRole } from './bridge/env';
 import { BridgeSession } from './bridge/session';
 import {
@@ -34,7 +42,7 @@ import {
   sendWithdraw,
   type Withdrawal,
 } from './chain';
-import { type Connection, saveConnection } from './config';
+import { type Connection, ethRpcPinnedByQuery, saveConnection } from './config';
 import type { MinerController } from './controller';
 import { feePayer } from './feePayer';
 import { currentAccountClassId } from './keys/classes';
@@ -64,6 +72,7 @@ import {
   seal,
   setStayOpen,
 } from './keys/store';
+import { type L1Sampler, startL1Sampler } from './l1-sampler';
 import { initialSteps, keyStepLabel, type OpeningStep, type StepId } from './opening-steps';
 import { CrsPinError } from './pinned-crs';
 import { prestoAtom, prestoEligible, probePresto } from './presto';
@@ -75,6 +84,7 @@ import {
   bridgeAtom,
   bridgeSessionAtom,
   epochAtom,
+  logAtom,
   mineIntentAtom,
 } from './state';
 import { ChainViewHeldError } from './wallet';
@@ -152,9 +162,13 @@ export class Session {
   private slot: SlotView | undefined;
   /** What the attempt adopted: the wallet getter the bridge reads through after a rebuild. */
   private started: Started | undefined;
+  /** An RPC change's bridge reopening in flight. */
+  private reopening: Promise<void> | undefined;
   /** The open account's bridge, when the build carries a portal; opened before `ready` is published. */
   bridge: BridgeSession | undefined;
   private ethRpc: string;
+  /** The rollup's L1 view for the node's standing; lives as long as the page. */
+  readonly l1: L1Sampler | undefined;
   private unsubBalance: (() => void) | undefined;
   private unsubFlip: (() => void) | undefined;
 
@@ -190,10 +204,19 @@ export class Session {
     this.createPasskey = deps.createPasskey ?? createPasskey;
     this.assertPasskey = deps.assertPasskey ?? assertPasskey;
     this.ethRpc = connection.ethRpcUrl;
-    // The guard admits the RPC in use from the first request; a build without a portal never asks it.
-    if (bridgeRecord()) {
+    // The guard admits the RPC in use from the first request. L1 is the record's: a build without a
+    // portal never asks it, unless an e2e page pins an RPC of its own.
+    if (bridgeRecord() || ethRpcPinnedByQuery()) {
       setEthRpcEndpoint(this.ethRpc, ETH_RPC_DEADLINE_MS);
       startEthRpcHealth();
+      const expected = expectedOf(connection);
+      this.l1 = startL1Sampler({
+        rpcUrl: () => this.ethRpc,
+        rollup: expected.rollupAddress,
+        chainId: expected.chainId,
+        log: (line) =>
+          store.set(logAtom, (l) => [...l.slice(-199), `${new Date().toISOString().slice(11, 19)} ${line}`]),
+      });
     }
     this.ready = this.runPreflight();
   }
@@ -684,14 +707,22 @@ export class Session {
 
   /** Saves the RPC, points the guard at it, and reopens the bridge over it; the account stays open. */
   async switchEthRpc(url: string): Promise<void> {
+    // A bridge reopened now would not be the suspended one: it waits for the node switch.
+    if (this.switching) throw new Error('a node switch is underway; change the RPC when it is done');
     if (!saveConnection({ ethRpcUrl: url }))
       throw new Error('The browser refused to save the setting; free some site storage and try again.');
     this.ethRpc = url;
     setEthRpcEndpoint(url, ETH_RPC_DEADLINE_MS);
     resetEthRpcHealth();
+    resetL1();
+    void this.l1?.switched();
     if (!this.bridge) return;
     this.closeBridge();
-    await this.openBridge();
+    // Tracked: a node switch begun meanwhile waits for the reopened bridge, so it is the one it suspends.
+    this.reopening = this.openBridge().finally(() => {
+      this.reopening = undefined;
+    });
+    await this.reopening;
   }
 
   /** The node in use; the switch target's identity was checked by the caller (the Node tile's probe). */
@@ -749,11 +780,17 @@ export class Session {
         await pre.publicEpoch.stop();
         this.store.set(epochAtom, null);
       }
+      // The bridge's operations and readings finish on the node they started on; none may start until
+      // the switch is over, or it would be signed against one node's view and sent to another.
+      await this.reopening;
+      await this.bridge?.suspend('a node switch is underway; try again when it is done').catch(() => {});
       await switchNodeLive({ controller: this.controller, switchable: pre.switchable, url });
     })()
       .catch((e: unknown) => {
-        // A rebuild that failed left no working wallet: the boot error carries the way out, and the
-        // next node choice reboots rather than live-switching a dead account.
+        // The former node's view came back: the row says "Kept …" and nothing else changes.
+        if (e instanceof SwitchFailed && e.kept) throw e;
+        // A rebuild that failed on both nodes left no working wallet: the boot error carries the
+        // way out, and the next node choice reboots rather than live-switching a dead account.
         this.dead = true;
         const message = e instanceof Error ? e.message : String(e);
         this.store.set(bootAtom, {
@@ -763,6 +800,7 @@ export class Session {
         throw e;
       })
       .finally(() => {
+        this.bridge?.resume();
         if (publicOnly) pre.publicEpoch.start();
         this.switching = undefined;
         this.switchingUrl = undefined;

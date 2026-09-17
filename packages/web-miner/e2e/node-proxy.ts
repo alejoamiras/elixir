@@ -1,8 +1,9 @@
 // Two forwarding proxies in front of the isolated node, so a spec can switch the miner between two
 // distinct endpoints and watch each one's traffic: `GET /__stats` counts the JSON-RPC requests an
-// endpoint forwarded, `POST /__mode {"mode":"ok"|"down"|"throttled"}` makes it answer 503 (a node
-// that stopped serving) or 429 with a Retry-After (a public node rate-limiting the page) instead,
-// and the browser talks to them across origins under CORS.
+// endpoint forwarded, `POST /__mode {"mode":"ok"|"down"|"throttled"|"foreign"}` makes it answer 503
+// (a node that stopped serving), 429 with a Retry-After (a public node rate-limiting the page), or
+// forward everything but report another rollup address (a node of some other deployment), and the
+// browser talks to them across origins under CORS.
 //
 //   bun e2e/node-proxy.ts <upstream-url> <port-a> <port-b>
 const [upstream, ...ports] = process.argv.slice(2);
@@ -15,9 +16,16 @@ const CORS = {
   'access-control-expose-headers': 'retry-after',
 };
 
-type Mode = 'ok' | 'down' | 'throttled';
+type Mode = 'ok' | 'down' | 'throttled' | 'foreign';
 
-const refusal = (mode: Exclude<Mode, 'ok'>) =>
+/** The upstream's node info with its rollup address altered in the last digit: another deployment's node. */
+const foreignInfo = (body: string): string =>
+  body.replace(/("rollupAddress":"0x[0-9a-fA-F]{39})([0-9a-fA-F])"/, (_, head: string, last: string) => {
+    const flipped = ((Number.parseInt(last, 16) + 1) % 16).toString(16);
+    return `${head}${flipped}"`;
+  });
+
+const refusal = (mode: Exclude<Mode, 'ok' | 'foreign'>) =>
   mode === 'down'
     ? new Response('{"error":{"message":"node down"}}', {
         status: 503,
@@ -27,6 +35,22 @@ const refusal = (mode: Exclude<Mode, 'ok'>) =>
         status: 429,
         headers: { ...CORS, 'content-type': 'application/json', 'retry-after': '60' },
       });
+
+/** The request to the upstream and its answer back, the node info altered when `foreign`. */
+async function forward(req: Request, foreign: boolean): Promise<Response> {
+  const body = req.method === 'POST' ? await req.text() : undefined;
+  const res = await fetch(upstream, {
+    method: req.method,
+    headers: { 'content-type': req.headers.get('content-type') ?? 'application/json' },
+    body,
+  });
+  const answer =
+    foreign && body?.includes('_getNodeInfo') ? foreignInfo(await res.text()) : await res.arrayBuffer();
+  return new Response(answer, {
+    status: res.status,
+    headers: { ...CORS, 'content-type': res.headers.get('content-type') ?? 'application/json' },
+  });
+}
 
 function serve(port: number) {
   const state = { count: 0, mode: 'ok' as Mode };
@@ -42,16 +66,8 @@ function serve(port: number) {
         return Response.json(state, { headers: CORS });
       }
       state.count++;
-      if (state.mode !== 'ok') return refusal(state.mode);
-      const res = await fetch(upstream, {
-        method: req.method,
-        headers: { 'content-type': req.headers.get('content-type') ?? 'application/json' },
-        body: req.method === 'POST' ? await req.text() : undefined,
-      });
-      return new Response(await res.arrayBuffer(), {
-        status: res.status,
-        headers: { ...CORS, 'content-type': res.headers.get('content-type') ?? 'application/json' },
-      });
+      if (state.mode !== 'ok' && state.mode !== 'foreign') return refusal(state.mode);
+      return forward(req, state.mode === 'foreign');
     },
   });
   console.log(`node-proxy: http://127.0.0.1:${port} → ${upstream}`);

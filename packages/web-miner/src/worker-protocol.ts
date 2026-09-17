@@ -25,6 +25,8 @@ export type ToWorker =
   | { type: 'stop' }
   /** Finish the proof in flight, rebuild the prover with this config, resume the job at its next nonce. */
   | ({ type: 'reconfigure' } & ProverConfig)
+  /** The browser prover's thread count for its next build, without rebuilding what proves now. */
+  | { type: 'threads'; threads: number }
   | { type: 'crash' };
 
 export type FromWorker =

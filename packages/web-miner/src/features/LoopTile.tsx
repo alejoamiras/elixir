@@ -5,6 +5,7 @@ import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import { difficulty, nextWinSeconds, proofsPerMinute } from '../../../miner-core/src/metrics.ts';
 import {
   Button,
+  ClaimChip,
   cn,
   Kpi,
   Mark,
@@ -15,20 +16,20 @@ import {
   useTweenedNumber,
 } from '../../../ui/src/index.ts';
 import type { MinerController } from '../controller';
+import { chipStep } from '../lib/claim-copy';
 import { amount, compact, durationParts } from '../lib/format';
 import type { MinerState } from '../lib/reducer';
 import { pillStatus } from '../lib/status';
-
-const cores = () => navigator.hardwareConcurrency || 2;
-
 import { openPip, pipSupported } from '../pip';
 import { prestoAtom } from '../presto';
 import { useSettings } from '../settings';
 import { bootAtom, epochAtom, mineIntentAtom, minerAtom, nowAtom, signInAtom } from '../state';
-import { NoticeCard } from './ClaimStatus';
 
-/** The user's Start goes through the session (it re-asks Presto); the controller alone stops. */
+/** The user's Start goes through the session (it asks Presto beside the start); the controller alone stops. */
 type Controls = { controller: () => MinerController | undefined; onStart: () => void };
+
+/** The window the header names: since the start until it is three minutes old, then the last three minutes. */
+const WINDOW_MS = 180_000;
 
 /** The mini window: the state and Stop, the last minute of the loop as a strip, then rate · epoch · wins. */
 function PipView({ controller, onStart, win }: Controls & { win: Window }) {
@@ -143,6 +144,8 @@ function StartControl({
         onClick={() => {
           setIntent(true);
           openSignIn(true);
+          // Start mining is the one moment Presto is asked: with no account yet, only the probe runs.
+          onStart();
         }}
       >
         Start mining
@@ -153,6 +156,7 @@ function StartControl({
       <Button
         size="sm"
         data-testid="stop"
+        disabled={miner.stopping}
         title={
           miner.phase === 'claiming' ? 'The claim finishes; mining does not resume after it.' : undefined
         }
@@ -174,38 +178,53 @@ function StartControl({
   );
 }
 
-/** The header's left: the pill when paused; "live" while mining or before any account; else the status. */
-function HeaderText({ status, ready }: { status: ReturnType<typeof pillStatus>; ready: boolean }) {
+/** The header's left: the pill when paused; "live · since 16:05" then "live · last 3 min" while mining; else "your proofs". */
+function HeaderText({
+  status,
+  miner,
+  now,
+}: {
+  status: ReturnType<typeof pillStatus>;
+  miner: MinerState;
+  now: number;
+}) {
   if (status === 'paused') return <StatusPill status="paused" />;
-  return <>{status === 'mining' || !ready ? 'live · last 3 min' : status}</>;
+  if (miner.phase === 'mining' || miner.phase === 'claiming') {
+    const since = miner.since;
+    const window =
+      since === null || now - since >= WINDOW_MS
+        ? 'last 3 min'
+        : `since ${new Date(since).toISOString().slice(11, 16)}`;
+    return <span data-testid="loop-window">live · {window}</span>;
+  }
+  return <>your proofs</>;
 }
 
-/** The rate line: dashes before any account, the session's numbers once proofs exist; "native" instead of threads under Presto. */
-function RateLine({
-  ready,
-  threads,
-  native,
-  miner,
-  perProof,
-}: {
-  ready: boolean;
-  threads: number;
-  native: boolean;
-  miner: MinerState;
-  perProof: number;
-}) {
-  if (!ready) return <span>— per proof · {threads} threads · 0 proofs</span>;
-  if (!miner.recent.length || miner.phase === 'idle') return null;
+/** The claim's step and one clock from the win, beside the status; the wait once Stop was pressed. */
+function HeaderClaim({ miner, now }: { miner: MinerState; now: number }) {
+  if (!miner.claim) return null;
+  return (
+    <ClaimChip
+      step={chipStep(miner.claim.step)}
+      seconds={(now - miner.claim.wonAt) / 1000}
+      stopping={miner.stopping}
+      data-testid="claim-chip"
+    />
+  );
+}
+
+/** The chart's footer: the session's pace and count, with ✦ presto between them while Presto is what proves. */
+function RateLine({ native, miner, perProof }: { native: boolean; miner: MinerState; perProof: number }) {
+  if (!miner.recent.length) return null;
   return (
     <span data-testid="rate-line">
-      {perProof.toFixed(2)} s per proof ·{' '}
-      {native ? <span className="text-uv-2">native</span> : `${threads} threads`} · {compact(miner.proofs)}{' '}
-      proofs · {miner.wins} {miner.wins === 1 ? 'win' : 'wins'}
+      {perProof.toFixed(1)} s per proof · {native && <span className="text-uv-2">✦ presto · </span>}
+      {compact(miner.proofs)} proofs
     </span>
   );
 }
 
-/** The header row is a fixed-height status line: the claim's progress lives in the rail, not here. */
+/** The header row is a fixed-height status line with the claim's chip; the stepper lives in the rail. */
 export function LoopTile({ controller, onStart, className }: Controls & { className?: string }) {
   const boot = useAtomValue(bootAtom);
   const miner = useAtomValue(minerAtom);
@@ -217,21 +236,14 @@ export function LoopTile({ controller, onStart, className }: Controls & { classN
   const perProof = useTweenedNumber(last === undefined ? 0 : last / 1000);
   const ready = boot.phase === 'ready';
   const opening = boot.phase === 'opening';
-  const threads = boot.phase === 'ready' ? boot.threads : (settings.threads ?? Math.max(1, cores() - 1));
   const bar = epoch ? difficulty(epoch.target) : null;
   const status = pillStatus(miner, now);
-  const nonClaimNotice =
-    miner.notice &&
-    (miner.notice.kind === 'prover-dead' || miner.notice.kind === 'offline' || miner.notice.kind === 'paused')
-      ? miner.notice
-      : null;
   return (
     <Tile className={cn('flex flex-col gap-4', className)}>
       <TileHeader
         className="mb-0 h-[30px] items-center"
         aside={
           <span className="flex items-center gap-3">
-            <RateLine ready={ready} threads={threads} native={native} miner={miner} perProof={perProof} />
             {settings.pip && pipSupported() && <PopOut controller={controller} onStart={onStart} />}
             <StartControl
               ready={ready}
@@ -243,17 +255,24 @@ export function LoopTile({ controller, onStart, className }: Controls & { classN
           </span>
         }
       >
-        <HeaderText status={status} ready={ready} />
+        <span className="flex items-center gap-3">
+          <HeaderText status={status} miner={miner} now={now} />
+          <HeaderClaim miner={miner} now={now} />
+        </span>
       </TileHeader>
       <ScoreLoop
         calm
         difficulty={bar}
         samples={miner.samples}
         winAt={miner.winAt}
+        since={miner.sinceT ?? undefined}
         height={230}
-        placeholder={ready ? undefined : 'sign in to start proving'}
+        placeholder={[
+          'Your proofs draw here once you start.',
+          `The bar is ${bar === null ? '—' : bar.toFixed(1)} · clear it to win`,
+        ]}
+        footer={<RateLine native={native} miner={miner} perProof={perProof} />}
       />
-      {nonClaimNotice && <NoticeCard notice={nonClaimNotice} recovering={miner.phase === 'recovering'} />}
     </Tile>
   );
 }
@@ -270,17 +289,20 @@ function kpiSubs(
   hasEpoch: boolean,
   bar: number,
   miner: MinerState,
-): { next: string; best: string } {
+): { rate: string; next: string; best: string } {
   if (ready)
     return {
+      rate: `${compact(miner.proofs)} proofs this session`,
       next: 'could be now, could be 3× longer',
       best: `${miner.wins} ${miner.wins === 1 ? 'win' : 'wins'} · ${amount(PARAMS.REWARD * BigInt(miner.wins), PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL} this session`,
     };
+  const perWin = Math.max(1, Math.round(bar));
   return {
+    rate: 'starts with mining',
     next: hasEpoch
-      ? `the bar is ${bar.toFixed(1)} · about ${Math.max(1, Math.round(bar))} proofs per win`
+      ? `the bar is ${bar.toFixed(1)} · about ${perWin} ${perWin === 1 ? 'proof' : 'proofs'} per win`
       : 'the bar is not read yet',
-    best: 'sign in to start',
+    best: '',
   };
 }
 
@@ -306,7 +328,7 @@ export function KpiTiles({ className }: { className?: string }) {
                 <span data-testid="tickets">{compact(miner.proofs)}</span> proofs this session
               </>
             ) : (
-              'no proofs yet'
+              subs.rate
             )
           }
         />
@@ -326,7 +348,7 @@ export function KpiTiles({ className }: { className?: string }) {
           label="best this epoch"
           value={ready && miner.best !== null ? miner.best.toFixed(1) : '—'}
           unit={ready && epoch ? `of ${bar.toFixed(1)}` : undefined}
-          sub={subs.best}
+          sub={subs.best || undefined}
         />
       </Tile>
     </div>

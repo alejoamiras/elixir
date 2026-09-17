@@ -4,9 +4,16 @@
 export class OperationQueue {
   private tail: Promise<unknown> = Promise.resolve();
   private pending = 0;
+  private refusal: string | null = null;
+
+  /** While set, `run` rejects at once with this reason (a node switch: nothing may straddle two nodes). */
+  refuse(reason: string | null): void {
+    this.refusal = reason;
+  }
 
   /** Runs `op` after every operation queued before it; its result and failure are the caller's alone. */
   run<T>(op: () => Promise<T>): Promise<T> {
+    if (this.refusal !== null) return Promise.reject(new Error(this.refusal));
     this.pending++;
     const run = this.tail.then(op, op).finally(() => {
       this.pending--;

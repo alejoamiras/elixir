@@ -1,57 +1,86 @@
 import { describe, expect, test } from 'vitest';
-import type { NodeProbe } from '../../../site/src/browser/node.ts';
-import { type CheckState, canUse, checkReducer, describeProbe } from './node-check.ts';
+import type { NodeHealth } from '../../../site/src/browser/node-health.ts';
+import { type EditState, editReducer, probeFailure, rebuildFailure, rowWords } from './node-check.ts';
 
-const probe: NodeProbe = {
-  chainId: 31337n,
-  rollupVersion: 5n,
-  rollupAddress: '0xab',
-  block: 73164,
-  blockAgeS: 3,
-  latencyMs: 96.4,
-};
 const A = 'https://a.example/rpc';
 const B = 'https://b.example/rpc';
 
-describe('the Node tile check machine', () => {
-  test('a check owns its answer; another URL’s answer is stale', () => {
-    let s: CheckState = checkReducer({ kind: 'idle' }, { type: 'check', url: A });
-    expect(s).toEqual({ kind: 'checking', url: A });
-    expect(checkReducer(s, { type: 'ok', url: B, probe })).toBe(s);
-    s = checkReducer(s, { type: 'ok', url: A, probe });
-    expect(s).toEqual({ kind: 'ok', url: A, probe });
-    expect(checkReducer(s, { type: 'failed', url: A, message: 'late' })).toBe(s);
-  });
-
-  test('editing resets everything but a switch in progress', () => {
-    const ok = checkReducer({ kind: 'checking', url: A }, { type: 'ok', url: A, probe });
-    expect(checkReducer(ok, { type: 'edit' })).toEqual({ kind: 'idle' });
-    const switching = checkReducer(ok, { type: 'switch', url: A });
-    expect(switching).toEqual({ kind: 'switching', url: A });
-    expect(checkReducer(switching, { type: 'edit' })).toBe(switching);
-    expect(checkReducer(switching, { type: 'switched', url: A })).toEqual({ kind: 'switched', url: A });
-    expect(checkReducer(switching, { type: 'switch-failed', url: A, message: 'quota' })).toEqual({
-      kind: 'switch-failed',
-      url: A,
-      message: 'quota',
+describe('the node row’s edit machine', () => {
+  test('Change opens the field, Cancel closes it; a save owns its answers, another URL’s are dropped', () => {
+    let s: EditState = editReducer({ kind: 'row' }, { type: 'change', url: A });
+    expect(s).toEqual({ kind: 'editing', url: A });
+    expect(editReducer(s, { type: 'cancel' })).toEqual({ kind: 'row' });
+    s = editReducer(s, { type: 'edit', url: B });
+    s = editReducer(s, { type: 'probe', url: B });
+    expect(s).toEqual({ kind: 'probing', url: B });
+    expect(editReducer(s, { type: 'reachable', url: A, latencyMs: 1 })).toBe(s);
+    expect(editReducer(s, { type: 'cancel' })).toBe(s); // a save under way is not cancelled
+    s = editReducer(s, { type: 'reachable', url: B, latencyMs: 600 });
+    expect(s).toEqual({ kind: 'switching', url: B, latencyMs: 600 });
+    expect(editReducer(s, { type: 'saved' })).toEqual({ kind: 'row' });
+    // A failure keeps the field, with the message under it.
+    expect(editReducer(s, { type: 'failed', url: B, message: 'Kept a.' })).toEqual({
+      kind: 'editing',
+      url: B,
+      error: 'Kept a.',
     });
   });
 
-  test('Use is offered only for the checked URL as typed, and never for the node in use', () => {
-    const ok: CheckState = { kind: 'ok', url: A, probe };
-    expect(canUse(ok, ` ${A} `, B)).toBe(true);
-    expect(canUse(ok, B, B)).toBe(false);
-    expect(canUse(ok, A, A)).toBe(false);
-    expect(canUse({ kind: 'checking', url: A }, A, B)).toBe(false);
-    expect(canUse({ kind: 'failed', url: A, message: 'x' }, A, B)).toBe(false);
+  test('the deployment check’s refusals in the row’s words; a rebuild failure names both nodes', () => {
+    expect(probeFailure('node serves rollup 0x17, this build expects 0x05', 'v5.example')).toBe(
+      "Not this deployment's node (it serves rollup 0x17). Kept v5.example.",
+    );
+    expect(probeFailure('node is on chain 1, this build expects 31337', 'v5.example')).toBe(
+      "Not this deployment's node (it is on chain 1). Kept v5.example.",
+    );
+    expect(probeFailure('not a URL', 'v5.example')).toBe('not a URL. Kept v5.example.');
+    expect(rebuildFailure('my-node.example.net', 'it stopped answering.', 'v5.example')).toBe(
+      "Couldn't rebuild your view from my-node.example.net: it stopped answering. Kept v5.example.",
+    );
+    expect(rebuildFailure('my-node.example.net', 'it stopped answering', null)).toBe(
+      "Couldn't rebuild your view from my-node.example.net: it stopped answering. The former node did not answer either; reload the page.",
+    );
   });
+});
 
-  test('the probe reads as the tile shows it', () => {
-    expect(describeProbe(probe)).toEqual([
-      '✓ chain 31337 · rollup 5',
-      '✓ the miner and the token are there',
-      'block 73,164 · 3 s old',
-      '96 ms',
-    ]);
+describe('the row’s words', () => {
+  const now = 1_700_000_000_000;
+  const h = (over: Partial<NodeHealth>): NodeHealth => ({
+    transport: { kind: 'ok', latencyMs: 12 },
+    lastReadAt: now - 30_000,
+    tip: { block: 83117, checkpoint: 10, timestamp: now / 1000 - 12, observedAt: now },
+    l1: null,
+    deploymentOk: true,
+    behind: false,
+    ...over,
+  });
+  test('healthy and unknown carry the block and its age; behind and silent say what is paused', () => {
+    expect(rowWords('healthy', h({}), now, 12, false)).toEqual({
+      chip: { word: 'healthy', tone: 'ok' },
+      line: 'block 83,117 · 12 s ago',
+      retry: false,
+    });
+    expect(rowWords('unknown', h({}), now, 12, false).chip).toEqual({ word: 'healthy', tone: 'ok' });
+    expect(rowWords('unknown', h({ deploymentOk: null }), now, 12, false).chip).toEqual({
+      word: 'checking',
+      tone: 'dim',
+    });
+    expect(rowWords('behind', h({ behind: true }), now, 240, true)).toEqual({
+      chip: { word: 'behind · 4 min', tone: 'warn' },
+      line: 'block 83,117 · 4 min ago · the node answers, but its chain is old · mining paused',
+      retry: false,
+    });
+    const silent = h({
+      transport: { kind: 'silent', since: now - 120_000, retryAt: now + 10_000, backoffMs: 20_000 },
+      lastReadAt: Date.UTC(2026, 0, 1, 14, 2),
+    });
+    expect(rowWords('silent', silent, now, 120, true)).toEqual({
+      chip: { word: 'no answer · 2 min', tone: 'warn' },
+      line: 'your view is from 14:02 · mining paused',
+      retry: true,
+    });
+    expect(rowWords('throttled', h({}), now, 40, false).line).toBe(
+      'block 83,117 · 40 s ago · public nodes throttle busy pages; it recovers on its own · mining pauses if it lasts a minute',
+    );
   });
 });

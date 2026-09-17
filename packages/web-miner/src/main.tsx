@@ -9,7 +9,7 @@ import { App } from './App';
 import { loadConnection } from './config';
 import type { MinerController } from './controller';
 import { Session } from './session';
-import { bootAtom, claimsAtom, crsAtom, logAtom, nowAtom } from './state';
+import { bootAtom, type ClaimRecord, claimsAtom, crsAtom, logAtom, nowAtom } from './state';
 import { PROVERLESS } from './wallet';
 
 const store = createStore();
@@ -24,11 +24,9 @@ const claimsKeyFor = (account?: string) => `yacana.claims.${deploymentKey}${acco
 let claimsKey = claimsKeyFor();
 const loadClaims = (key: string) => {
   try {
-    const stored = JSON.parse(localStorage.getItem(key) ?? '[]') as {
+    const stored = JSON.parse(localStorage.getItem(key) ?? '[]') as (Omit<ClaimRecord, 'epoch'> & {
       epoch: string;
-      block: number;
-      at: number;
-    }[];
+    })[];
     store.set(
       claimsAtom,
       stored.map((c) => ({ ...c, epoch: BigInt(c.epoch) })),
@@ -75,7 +73,7 @@ declare global {
       /** The next claim goes out with a bound public input altered: real proving must refuse it. */
       tamperNextClaim: () => void;
       /** The refused claim again with its input restored; false when there is none. */
-      retryPendingClaim: () => boolean;
+      retryPendingClaim: () => Promise<boolean>;
     };
   }
 }
@@ -88,7 +86,7 @@ window.yacana = {
   log: () => store.get(logAtom),
   proverless: PROVERLESS,
   tamperNextClaim: () => session.controller?.tamperNextClaim(),
-  retryPendingClaim: () => session.controller?.retryPendingClaim() ?? false,
+  retryPendingClaim: () => session.controller?.retryPendingClaim() ?? Promise.resolve(false),
 };
 
 const root = document.getElementById('root');

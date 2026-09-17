@@ -466,7 +466,7 @@ the dialog's ids through `bootPage`: the rig's `origin` case runs here, at the a
 **Gate**: fast · `cockpit` proverless · `canary` real (opening) · replay · `bun run rig -- origin` (tmux) ·
 layers: + e2e live, rig.
 
-### P4 — The claim
+### P4 ✓ — The claim (green 2026-09-16, `lessons/phase-4.md`)
 
 The chip and the ledger line per step with one clock from the win (`ClaimProgress.wonAt`, `stepAt`); the six
 outcomes' lines and the two banners (§5.3, board ClaimOutcomes; `claim-failure.ts`'s copy table rewritten);
@@ -477,7 +477,7 @@ and the re-offer; §9.3.3); the verified revert cause (§3.5); `MintedMarks` kep
 **Gate**: fast · `cockpit` proverless · `chain` proverless · `canary` real · pass: the canary refuses before
 sending and the restored claim mints · layers: + e2e live.
 
-### P5 — Mining's presentation and Presto
+### P5 ✓ — Mining's presentation and Presto (green 2026-09-16, `lessons/phase-5.md`)
 
 The chart (§9.1.3: no `−3 min`, one x mapping, the drop above the bar, the window "since 16:05" → "last 3 min"),
 the footer line, the epoch tile's words ("wins", "anyone can close it", "next bar if it closed now"), the balance
@@ -488,7 +488,7 @@ billboard kept. Specs: `presto`, `miner` (power changes, the pop-out), `signed-o
 **Gate**: fast · `cockpit` proverless · `chain` proverless (presto) · replay (re-recorded) · pass: no probe at
 cockpit-ready, no rebuild on a slider change while native, ✦ only on a native proof · layers: + e2e live.
 
-### P6 — Settings and the node
+### P6 ✓ — Settings and the node (green 2026-09-16, `lessons/phase-6.md`)
 
 `node-health.ts` with the node's tip, the rollup's L1 tip and `standing()`, sampled by the public epoch poll
 and the session's refresh (not the tile); `behind` anchored on L1 and its pause (§9.2.19; an idle isolated

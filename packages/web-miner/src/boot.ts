@@ -8,9 +8,15 @@ import type { createStore } from 'jotai';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { deriveAccountFields } from '../../miner-core/src/keys/derive.ts';
 import { type ExpectedDeployment, expectedFromStrings } from '../../miner-core/src/reader.ts';
-import { probeNode, type SwitchableNode, switchableNode } from '../../site/src/browser/node.ts';
+import { probeNode, readTip, type SwitchableNode, switchableNode } from '../../site/src/browser/node.ts';
 import { endpointFingerprint, setNodeEndpoint } from '../../site/src/browser/node-guard.ts';
-import { markRead, resetNodeHealth, startNodeHealth } from '../../site/src/browser/node-health.ts';
+import {
+  markDeployment,
+  markRead,
+  recordTip,
+  resetNodeHealth,
+  startNodeHealth,
+} from '../../site/src/browser/node-health.ts';
 import { clampThreads, type PreflightRow } from '../../ui/src/index.ts';
 import { attachDeployment, loadArtifact, type Node, readEpochRules } from './chain';
 import type { Connection } from './config';
@@ -21,7 +27,7 @@ import { readSlot } from './keys/slot';
 import { assertNoLegacyWalletDb, currentAddress, type MasterRecord } from './keys/store';
 import { bytesDetail, initialSteps, type OpeningStep } from './opening-steps';
 import { crsReady } from './pinned-crs';
-import { type PrestoEndpoint, prestoAtom, prestoEligible, prestoEndpoint, probePresto } from './presto';
+import { type PrestoEndpoint, prestoAtom, prestoEligible, prestoEndpoint } from './presto';
 import { type PublicEpochPoll, publicEpochReader, startPublicEpoch } from './public-epoch';
 import { loadSettings } from './settings';
 import { bootAtom, crsAtom, logAtom, rulesAtom, signInAtom } from './state';
@@ -48,7 +54,7 @@ export interface Preflighted {
   publicEpoch: PublicEpochPoll;
   /** How long the node and deployment checks took, for the opening's step list. */
   nodeMs: number;
-  /** Where this build looks for Presto (null: switched off); its probe starts at the cockpit's ready, never awaited. */
+  /** Where this build looks for Presto (null: switched off); probed at Start mining, never awaited. */
   presto: PrestoEndpoint | null;
 }
 
@@ -151,6 +157,9 @@ export async function preflight(store: Store, connection: Connection): Promise<P
       () => node,
     );
     markRead();
+    markDeployment(true);
+    // The tip beside the check: the Settings row has a block and an age from the first paint.
+    await readTip(node).then(recordTip, () => {});
     return {
       evidence: `miner ${short(connection.miner)} · class ${short(import.meta.env.VITE_YACANA_MINER_CLASS)} · block ${probe.block.toLocaleString('en-US')}, ${probe.blockAgeS} s old`,
       value: artifact,
@@ -163,9 +172,8 @@ export async function preflight(store: Store, connection: Connection): Promise<P
   // A device with an account wants the dialog on arrival (Welcome back); a new visitor gets the page first.
   store.set(signInAtom, slot.record !== null || slot.staged !== null);
   store.set(bootAtom, { phase: 'signedOut', slot });
-  // The cockpit is ready: ask Presto now (the billboard may show before any account), never wait for it.
+  // Presto is asked at Start mining, never here: the cockpit comes up without a probe.
   const presto = prestoEndpoint();
-  if (presto) void probePresto(store, presto).catch(() => undefined);
   return {
     node,
     switchable,
@@ -207,11 +215,26 @@ function startPublicChain(
   return poll;
 }
 
+/** A switch whose rebuild failed: `kept` says whether the former node's view came back. */
+export class SwitchFailed extends Error {
+  constructor(
+    message: string,
+    readonly kept: boolean,
+  ) {
+    super(message);
+    this.name = 'SwitchFailed';
+  }
+}
+
+const reason = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
 /**
  * Points every holder at another node without a reload: mining pauses, whatever is in flight
  * finishes, the handle moves, an open account's chain view is rebuilt from the new node (the
  * lost-race path, since the PXE's view is per rollup and a node behind or lying can prune or poison
- * it), mining resumes. The caller checked the candidate against this deployment first.
+ * it), mining resumes. The caller checked the candidate against this deployment first. A rebuild
+ * that fails moves the handle back and rebuilds from the former node before anything is said:
+ * "Kept" is only true once that view is back; if it is not, the prover is given up (a reload).
  */
 export async function switchNodeLive(o: {
   controller: MinerController | undefined;
@@ -220,14 +243,31 @@ export async function switchNodeLive(o: {
   deadlineMs?: number;
 }): Promise<void> {
   const c = o.controller;
+  const deadlineMs = o.deadlineMs ?? NODE_REQUEST_MS;
+  const former = o.switchable.current();
+  const move = (url: string) => {
+    // The guard first: a URL it refuses (a collision with the accelerator set) throws before anything moved.
+    setNodeEndpoint(url, deadlineMs);
+    o.switchable.use(url);
+    resetNodeHealth();
+    markDeployment(true);
+  };
   c?.pause('switch');
   try {
     await c?.drain();
-    // The guard first: a URL it refuses (a collision with the accelerator set) throws before anything moved.
-    setNodeEndpoint(o.url, o.deadlineMs ?? NODE_REQUEST_MS);
-    o.switchable.use(o.url);
-    resetNodeHealth();
-    await c?.rebuildForNewNode();
+    move(o.url);
+    try {
+      await c?.rebuildForNewNode();
+    } catch (e) {
+      move(former);
+      try {
+        await c?.rebuildForNewNode();
+      } catch (again) {
+        c?.giveUp(`the chain view could not be rebuilt: ${reason(again)}`);
+        throw new SwitchFailed(reason(e), false);
+      }
+      throw new SwitchFailed(reason(e), true);
+    }
   } finally {
     c?.endSwitch();
     c?.release('switch');
@@ -238,7 +278,7 @@ export async function switchNodeLive(o: {
 const aborted = (signal: AbortSignal): Promise<never> =>
   new Promise((_, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
 
-/** The endpoint the prover is built with: Presto's when its probe, out since the cockpit's ready, has found it worth asking; the sign-in never waits for it. */
+/** The endpoint the prover is built with: Presto's when a probe (Start mining's) has found it worth asking; the sign-in never waits for one. */
 const prestoFor = (store: Store, pre: Preflighted): PrestoEndpoint | null =>
   prestoEligible(store.get(prestoAtom).status) ? pre.presto : null;
 

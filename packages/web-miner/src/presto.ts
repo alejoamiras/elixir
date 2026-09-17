@@ -97,6 +97,16 @@ export interface PrestoState {
 export const initialPresto: PrestoState = { status: null, probedAt: null, selected: null, active: null };
 export const prestoAtom = atom<PrestoState>(initialPresto);
 
+/** Presto's site: the billboard's link and the epoch tile's "About Presto". */
+export const PRESTO_SITE = 'https://presto.build';
+
+/**
+ * Native is the prover in force: the Worker built Presto's and has not given up on it. The epoch
+ * tile's row ↔ slider swap and the thread rule follow this; `active` flips on one refused proof and
+ * only the pill's ✦ follows it.
+ */
+export const prestoSticky = (s: PrestoState): boolean => s.selected === 'presto' && !s.fallbackReason;
+
 /** Native is worth asking for when Presto answers and serves UltraHonk; a pending bb download is not a bar. */
 export const prestoEligible = (status: PrestoStatus | null): boolean =>
   status?.available === true && (status.schemes ?? []).includes('ultra_honk');
@@ -156,22 +166,22 @@ export interface PrestoNotice {
 const UPDATE =
   'Presto needs an update for this app. Open Presto from your menu bar and let it update, then retry.';
 const ENCRYPTED =
-  'Presto is installed, but its encrypted connection isn’t on. Presto → Settings → Encrypted Connection, then retry.';
-const GONE = 'Presto stopped answering. Proving in the browser; retry when it is back.';
+  'Presto’s encrypted connection is off. Presto › Settings › Encrypted Connection, then retry.';
+const GONE = 'Presto stopped answering. Proving in the browser; retry when it’s back.';
 
 /** The Worker's sticky reasons, in the visitor's terms; the site is named so the approval step is unmistakable. */
 const causeText = (cause: FallbackCause, site: string): string => {
   switch (cause) {
     case 'denied':
-      return `Presto has not approved ${site} yet. Approve it in the Presto app, then retry — proving in the browser meanwhile.`;
+      return `Presto hasn’t approved ${site} yet. Approve it in the Presto app, then retry. Proving in the browser meanwhile.`;
     case 'cooldown':
-      return `Presto is still in a cooldown after a denial. Approve ${site} in the app, then retry.`;
+      return `Presto is in a cooldown after a denial. Approve ${site} in the app; Retry works once the cooldown ends, about a minute.`;
     case 'transient':
-      return 'Presto is busy (three proofs in a row refused). Proving in the browser; Retry tries native again.';
+      return 'Presto is busy: three proofs in a row refused. Proving in the browser; Retry tries it again.';
     case 'invalid-proof':
-      return 'Presto returned a winning proof that did not verify. Proving in the browser; check the Presto install.';
+      return 'Presto returned a winning proof that didn’t verify. Proving in the browser; check the Presto install, then retry.';
     case 'malformed-response':
-      return 'Presto answered with something this page could not use. Proving in the browser.';
+      return 'Presto answered with something this page couldn’t use. Proving in the browser; Retry tries it again.';
     case 'version-mismatch':
     case 'scheme-unsupported':
     case 'route-missing':
@@ -188,13 +198,13 @@ const statusText = (status: PrestoStatus): string | null => {
   if (status.available) return prestoEligible(status) ? null : UPDATE;
   switch (status.reason) {
     case 'permission-blocked':
-      return 'Your browser blocked local access. Allow local network access for this site, then retry.';
+      return 'Your browser blocked local access, so this page can’t reach Presto. Allow local network access for this site, then retry. Mining in the browser meanwhile.';
     case 'secure-connection-unavailable':
       return status.diagnosis === 'unconfirmed' ? null : ENCRYPTED;
     case 'version-mismatch':
       return UPDATE;
     case 'error':
-      return 'Presto answered, but not with a health report this page understands. Proving in the browser.';
+      return 'Presto answered, but not with a health report this page understands. Proving in the browser; Retry asks again.';
     default:
       return null;
   }
@@ -209,7 +219,7 @@ export function noticeFor(
   if (s.phase === 'downloading')
     return {
       tone: 'info',
-      text: `Presto is fetching bb for Aztec ${PRESTO_AZTEC_VERSION} — the first native proof takes longer.`,
+      text: `Presto is fetching its prover for Aztec ${PRESTO_AZTEC_VERSION}. The first native proof waits for it; the rate stalls until then.`,
       retry: false,
     };
   if (!s.status) return null;
