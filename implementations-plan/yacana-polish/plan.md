@@ -502,7 +502,7 @@ and `settings` tests, `node-health.test.ts` (site).
 **Gate**: fast · `chain` proverless · replay · pass: `healthy` needs a fresh tip; a failed switch never reports
 success · layers: + e2e live.
 
-### P7 — The bridge's facts
+### P7 ✓ — The bridge's facts (green 2026-09-16, `lessons/phase-7.md`)
 
 `portal-reader.ts` `afterNextAt`; `readDeadline` (+ tests: each reading, equality, an unpause refund, the max
 sentinel); `Crossing.expiresAt` from the send observer, `rowState` (+ tests: reload before the hash, an incomplete

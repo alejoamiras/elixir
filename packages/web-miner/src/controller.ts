@@ -866,13 +866,7 @@ export class MinerController {
     this.switching = true;
     await this.refreshing.catch(() => {});
     await this.inflightRead.catch(() => {});
-    // A claim in flight may fail into a lost-race rebuild; wait that out too, or its rebuild would
-    // race the switch's. Both phases settle to idle (recovered / paused / prover-dead).
-    const busy = () => {
-      const phase = this.store.get(minerAtom).phase;
-      return phase === 'claiming' || phase === 'recovering';
-    };
-    while (busy()) await new Promise((r) => setTimeout(r, 100));
+    await this.claimSettled();
     await this.reading?.catch(() => {});
     await this.ops;
     await this.inflightRead.catch(() => {}); // a read the rebuild or an operation started meanwhile
@@ -882,6 +876,20 @@ export class MinerController {
       throw new Error(
         'the prover was abandoned while the switch waited; only a reload recovers this account',
       );
+  }
+
+  /**
+   * Resolves once no claim is being sent. `pause` deliberately lets a claim in flight finish, so
+   * anything that needs the wallet's next send to be its own — the bridge's operations, the node
+   * switch — waits here after pausing. A claim can fail into a lost-race rebuild, which is part of
+   * it; both phases settle to idle (recovered / paused / prover-dead).
+   */
+  async claimSettled(): Promise<void> {
+    const busy = () => {
+      const phase = this.store.get(minerAtom).phase;
+      return phase === 'claiming' || phase === 'recovering';
+    };
+    while (busy()) await new Promise((r) => setTimeout(r, 100));
   }
 
   /** The switch is over (rebuilt or failed): the poll may read again. */

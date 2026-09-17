@@ -3,7 +3,7 @@
 // transaction from that wallet → "On its way."; the arrival card's Claim finishes it here. Also the
 // sheet a held send-ahead is forwarded or redeemed from: the same wallet pays the gas.
 import { useAtomValue } from 'jotai';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Hex } from 'viem';
 import { useAccount, useConnect, useConnectors, useDisconnect, useReadContract } from 'wagmi';
 import type { Crossing } from '../../../bridge/src/journal.ts';
@@ -24,9 +24,11 @@ import {
   SheetTitle,
   Stepper,
 } from '../../../ui/src/index.ts';
-import { chainName } from '../bridge/copy';
-import { bridgeRecord, migrationRecord } from '../bridge/env';
+import { chainName, revertLine } from '../bridge/copy';
+import { bridgeRecord, migrationRecord, versionNameOf } from '../bridge/env';
+import type { PayerFunds } from '../bridge/eth-balance';
 import { reviewAmount } from '../bridge/forms';
+import type { PayerAsk } from '../bridge/session';
 import { l1Links } from '../explorer';
 import { amount as fmt, shortAddress } from '../lib/format';
 import type { Session } from '../session';
@@ -128,6 +130,26 @@ type Step = { kind: 'form' } | { kind: 'deposit' } | { kind: 'done'; display: st
 
 const firstLine = (e: unknown) => (e instanceof Error ? (e.message.split('\n')[0] ?? '') : String(e));
 const version = (): string => ownVersionName();
+/** Whether the crossing's own version has been upgraded away from, which freezes its exit limit. */
+const flippedAway = (canonical: bigint | undefined, version: string | undefined): boolean =>
+  canonical !== undefined && version !== undefined && canonical !== BigInt(version);
+
+/**
+ * What the wallet is about to pay for, when that can be priced at all: an exit's claim carries no
+ * signature, so pricing it authorises nothing. A send-ahead's forward and its redeem are signed by
+ * the redeem key, and that signature is not made to fill in a number.
+ */
+const payerAsk = (crossing: Crossing | null, address: Hex | undefined, action: HeldAction) =>
+  crossing && address && crossing.kind === 1 && action === 'forward'
+    ? ({ kind: 'claim', crossing } satisfies PayerAsk)
+    : undefined;
+
+/** A held action's failure: the row's own words when the portal refused, else the error's first line. */
+const explain = (e: unknown, c: Crossing, flipped: boolean) =>
+  revertLine(e, c, Math.floor(Date.now() / 1000), versionNameOf(c.version), flipped) ?? firstLine(e);
+/** The page's own "no ETH for the gas", before the wallet is asked; null when it can pay or nothing is known. */
+const noEth = (funds: PayerFunds, wallet: string | undefined): string | null =>
+  funds.enough === false ? `${wallet ?? 'Your wallet'} has no ${chain()} ETH for the gas.` : null;
 
 /** Before an announced flip a deposit lands on a version about to end: the sheet says so first. */
 function PreFlip() {
@@ -271,8 +293,16 @@ export function DepositSheet({
   const go = async () => {
     setError(undefined);
     try {
-      // The Ethereum balance is the wallet's to know; the portal refuses more than it holds.
+      // The YACA balance is the wallet's to know (the portal refuses more than it holds); the ETH for the gas is read here first.
       const { amount, display } = reviewAmount(text, (1n << 128n) - 1n, PARAMS.DECIMALS);
+      if (account.address && session.bridge) {
+        const funds = await session.bridge.payerFunds(account.address, { kind: 'deposit', amount });
+        const refused = noEth(funds, account.connector?.name);
+        if (refused) {
+          setError(refused);
+          return;
+        }
+      }
       setStep({ kind: 'deposit' });
       const crossing =
         (await session.bridge?.deposit(amount, (s) => setStep({ kind: s }), resume)) ?? undefined;
@@ -376,24 +406,55 @@ export function HeldSheet({
 }) {
   const account = useAccount();
   const yaca = useYacaBalance(account.address);
+  const flipped = flippedAway(useAtomValue(bridgeAtom).canonical?.version, crossing?.version);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [done, setDone] = useState(false);
+  const [funds, setFunds] = useState<string | null>(null);
   const close = () => {
     setError(undefined);
     setDone(false);
     onOpenChange(false);
   };
+  const latest = useRef(0);
+  /** The refusal, null when the wallet can pay or there is nothing to price, `stale` when overtaken. */
+  const readFunds = async (): Promise<string | null | 'stale'> => {
+    const a = payerAsk(crossing, account.address, action);
+    if (!a || !account.address || !session.bridge) return null;
+    const mine = ++latest.current;
+    const refused = noEth(await session.bridge.payerFunds(account.address, a), account.connector?.name);
+    // Overtaken by a newer reading (another account, another row): it was read for a wallet that is
+    // not the one which would pay now, so neither the note nor the click may act on it.
+    if (mine !== latest.current) return 'stale';
+    setFunds(refused);
+    return refused;
+  };
+  // On open and at every account change: the wallet's ETH against this claim's gas, before it is asked.
+  const address = account.address;
+  const id = crossing?.id;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-read on the crossing, the account and the action alone
+  useEffect(() => {
+    latest.current++;
+    setFunds(null);
+    if (id && address) void readFunds().catch(() => {});
+  }, [id, address, action]);
   const go = async () => {
     if (!crossing || !account.address) return;
     setBusy(true);
     setError(undefined);
     try {
+      // Read again on the click: the balance may have moved since the sheet opened.
+      const refused = await readFunds().catch(() => null);
+      if (refused === 'stale') return;
+      if (refused) {
+        setError(refused);
+        return;
+      }
       if (action === 'redeem') await session.bridge?.redeem(crossing, account.address);
       else await session.bridge?.selfForward(crossing);
       setDone(true);
     } catch (e) {
-      setError(firstLine(e));
+      setError(explain(e, crossing, flipped));
     } finally {
       setBusy(false);
     }
@@ -410,6 +471,11 @@ export function HeldSheet({
           </Alert>
         )}
         <WalletPicker yaca={yaca} note={copy.note} />
+        {funds && !error && address && (
+          <Note title={funds} tone="warn" data-testid="payer-no-eth">
+            Add some to {shortAddress(address)}, then claim. The YACA waits for you.
+          </Note>
+        )}
         {crossing && !done && (
           <div className="flex flex-col gap-4">
             <AmountBlock

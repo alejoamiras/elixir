@@ -18,6 +18,7 @@ import { type CrossingSecrets, deriveCrossingSecrets, exitLogTag } from '../../.
 import { signForward, signRedeem } from '../../../bridge/src/signatures.ts';
 import { forwardArgsFromArchive } from '../../../bridge/src/witness.ts';
 import type { FeeFor } from '../feePayer';
+import type { SendHook } from '../wallet.ts';
 import { depositOnEthereum, forwardOnEthereum, redeemOnEthereum, type WagmiConfig } from './eth.ts';
 import { type BridgeStore, scanNextIndex } from './store.ts';
 
@@ -27,6 +28,12 @@ export interface L2Handles {
   miner: Contract;
   token: Contract;
   fee: FeeFor;
+  /**
+   * The wallet's one-shot send hook (`wallet.ts`). Not optional: the record it commits carries the
+   * send's expiry, and without that a send whose hash the node does not hold can never be told
+   * from one it has not been given yet, so its row would wait for ever.
+   */
+  beforeNextSend: (hook: SendHook) => () => void;
 }
 
 export interface BridgeContext {
@@ -44,6 +51,8 @@ export interface BridgeContext {
   /** The miner's pause around a proof; absent when no miner runs (the old app). */
   pause?: (reason: 'bridge') => void;
   release?: (reason: 'bridge') => void;
+  /** Resolves once the paused miner's claim in flight has finished; the pause alone lets it run on. */
+  settled?: () => Promise<void>;
   /** Ethereum's clock in seconds: what the portal holds a signature's expiry against. */
   l1Now: () => Promise<bigint>;
   /** Asked once the queue reaches the operation, just before anything is signed: throws to refuse it. */
@@ -72,6 +81,9 @@ async function guarded<T>(ctx: BridgeContext, op: () => Promise<T>): Promise<T> 
     await ctx.preflight?.();
     ctx.pause?.('bridge');
     try {
+      // The pause lets a claim already proving finish, and that claim would be the next send the
+      // wallet makes: an operation recording its own send must let it through first.
+      await ctx.settled?.();
       return await op();
     } finally {
       ctx.release?.('bridge');
@@ -127,15 +139,32 @@ const fresh = (
 };
 
 /**
- * Sends, records the hash the moment the node has the transaction, then waits for its block. A
- * transaction sent may still be included after the page is gone: the record must find it by its hash.
+ * Sends with the hash, the expiry and the anchor block committed to the journal first: a send may
+ * be included after the page is gone, so nothing reaches the network without the record that finds
+ * it again (a commit that fails refuses the send). The hook is one-shot and installed around this
+ * one call, so nothing else may send while it is armed — the miner's claims are paused and drained
+ * by `guarded` before it goes in.
  */
 async function sendRecorded(
   ctx: BridgeContext,
   c: Crossing,
   send: () => Promise<{ txHash: TxHash }>,
 ): Promise<Crossing> {
-  const { txHash } = await send();
+  const remove = ctx.l2().beforeNextSend(async (sent) => {
+    await ctx.store.update(c.id, (x) => ({
+      ...x,
+      txHash: sent.txHash,
+      expiresAt: String(sent.expiresAt),
+      anchorBlock: sent.anchorBlock,
+      updatedAt: ctx.now?.() ?? Date.now(),
+    }));
+  });
+  let txHash: TxHash;
+  try {
+    ({ txHash } = await send());
+  } finally {
+    remove();
+  }
   await ctx.store.update(c.id, (x) =>
     advance(
       { ...x, txHash: txHash.toString() },
@@ -255,10 +284,14 @@ export function deposit(
   resumes?: Crossing,
 ): Promise<Crossing> {
   return guarded(ctx, async () => {
+    // The calldata deadline on the record: Ethereum refuses the deposit past it, whatever the wallet did.
     const c = await ctx.store.create(
       ctx.version.toString(),
       () => nextIndexFromChain(ctx),
-      (index) => fresh(ctx, 3, index, amount, `0x${'00'.repeat(20)}`),
+      (index) => ({
+        ...fresh(ctx, 3, index, amount, `0x${'00'.repeat(20)}`),
+        expiresAt: deadline.toString(),
+      }),
     );
     const secrets = await secretsFor(ctx, c.index);
     let sent = false;

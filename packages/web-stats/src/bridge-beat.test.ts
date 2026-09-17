@@ -31,6 +31,7 @@ const live: VersionFlows = {
   miner: `0x${'11'.repeat(32)}`,
   registryIndex: 5n,
   flipAt: 0n,
+  afterNextAt: 0n,
   paused: false,
   headroom: 128n * ONE,
   deadline: NEVER,
