@@ -85,13 +85,20 @@ describe.skipIf(!url)('PrestoWorkProver against a headless Presto', () => {
     });
     const status = await client.checkStatus({ forceRefresh: true });
     expect(status.available && status.schemes).toContain('chonk');
-    // The wallet's round trip proper is the e2e's (a real private execution); here the SDK's degrade on
-    // the server's refusal (bb cannot read the body: a 500), which the page's prover turns into WASM.
+    // The wallet's round trip proper is the e2e's (a real private execution); here the server's own
+    // answer to a body bb cannot read (a 500, never a proof), and the SDK's degrade on it.
+    const body = new Uint8Array([1, 2, 3]);
+    const raw = await fetch(`${url}/prove`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/octet-stream', 'x-aztec-version': '5.2.0' },
+      body,
+    });
+    expect(raw.status).toBe(500);
     const outcome = await client.prove({
       path: '/prove',
       contentType: 'application/octet-stream',
       scheme: PRESTO_SCHEME_CHONK,
-      body: () => new Uint8Array([1, 2, 3]),
+      body: () => body,
     });
     expect(outcome.kind).toBe('fallback');
   });

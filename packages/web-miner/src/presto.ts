@@ -111,9 +111,15 @@ export const prestoSticky = (s: PrestoState): boolean => s.selected === 'presto'
 export const prestoEligible = (status: PrestoStatus | null): boolean =>
   status?.available === true && (status.schemes ?? []).includes('ultra_honk');
 
-/** The wallet's transaction proof will go to Presto: the Worker keeps it, and it serves the kernel's scheme. */
+/**
+ * The wallet's transaction proof goes to Presto: the page's probe saw it serve the kernel's scheme
+ * and the Worker has not given up on it. The Worker's own build does not matter (it wants
+ * UltraHonk); an unprobed Presto is not asked.
+ */
 export const prestoProvesTx = (s: PrestoState): boolean =>
-  prestoSticky(s) && s.status?.available === true && (s.status.schemes ?? []).includes('chonk');
+  s.fallbackReason === undefined &&
+  s.status?.available === true &&
+  (s.status.schemes ?? []).includes('chonk');
 
 /**
  * Who is proving the wallet's transaction, from the prover's phases: unknown until the steps are
@@ -157,8 +163,11 @@ export const PROVING = {
   },
 } as const satisfies Record<ProverKind, Record<string, string>>;
 
-/** A probe waits at most this long at the guard; the SDK's own timeouts are shorter. */
-const PROBE_DEADLINE_MS = 60_000;
+/**
+ * The guard's deadline on Presto's routes, in the Worker and the page alike: a proof may wait behind
+ * Presto's queue and, once, behind its bb download; the SDK bounds the health check itself.
+ */
+export const ACCELERATOR_DEADLINE_MS = 600_000;
 
 const clients = new Map<string, PrestoClient>();
 const clientFor = (e: PrestoEndpoint): PrestoClient => {
@@ -180,7 +189,7 @@ export async function probePresto(
   endpoint: PrestoEndpoint,
   force = false,
 ): Promise<PrestoStatus> {
-  setAcceleratorEndpoints(acceleratorUrls(endpoint), PROBE_DEADLINE_MS);
+  setAcceleratorEndpoints(acceleratorUrls(endpoint), ACCELERATOR_DEADLINE_MS);
   const status = await clientFor(endpoint).checkStatus({ forceRefresh: force });
   store.set(prestoAtom, (s) => ({ ...s, status, probedAt: Date.now() }));
   return status;

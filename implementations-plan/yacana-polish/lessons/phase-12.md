@@ -146,3 +146,36 @@ scratchpad); not committed — the deck is a design artifact, the specs are the 
   reproduced; the trace was cleared by the shards after it. For the owner: if it recurs, keep
   `test-results/` before the next run and read the effect's fifth nullifier against the registry's handshake
   and the account's own.
+
+## The arc-7 codex fix loop (§10 steps 2–3, `/codex high`, GPT-6 Astra)
+
+Session `01a0b03d-989f-70b2-b90b-8d5f72416243` on `git diff polish-upgrade...HEAD`; prompt with the arc map,
+the facts, the security asks and both verbatim rules.
+
+**Round 1** (2026-09-17): REVISE, six findings, none high; all six checked against the code and folded.
+1. (medium) `txProvingAtom` cleared on `proved`/`receive` only: a `/prove` answer the SDK does not recognise
+   throws after `transmit` with neither, leaving "presto" on the atom, and the next forced-local proof
+   (`proving` with no `detect`) then keeps Presto's label; `proved` also arrives at the response headers,
+   before the body. Fix: `TxProver.onProof('start' | 'end')` around `createChonkProof` (in a `finally`),
+   the session clears the atom on both; `tx-prover.bun.test.ts` (a thrown proof ends, the next starts
+   clean).
+2. (medium) The `TxProver` registered no endpoints with the guard: only the probe (Start mining, Retry)
+   does, so a restored account sending before mining had the SDK's `/health` blocked → WASM. Folded into 4:
+   the wallet is forced local until the page's probe has seen Presto serve chonk, so the SDK never asks
+   before the endpoints are registered (and the old origin, which never probes, proves in WASM as before).
+3. (medium) The probe's 60 s guard deadline applied to `/prove` too: a queued or first-download proof past
+   a minute was aborted while Presto kept computing. Fix: one `ACCELERATOR_DEADLINE_MS` (10 min) exported
+   from `presto.ts` for the page and the Worker (the Worker had its own copy).
+4. (medium) The pre-proof line read the Worker's build (`selected === 'presto'`): with Presto serving chonk
+   but not UltraHonk the line said "in your browser" while the wallet posted to Presto; before any probe
+   the SDK decided alone. Fix: `prestoProvesTx` = no sticky fallback ∧ the probe saw `available` ∧ chonk,
+   and `bindTxProver` mirrors exactly that into `setForceLocal` — the line promises what the SDK is
+   allowed. This is the plan's own design (the choice from the page's state) rather than codex's
+   conditional wording; the cost is Presto only after a probe, which Start mining runs.
+5. (low) The live test's garbage-body case passed on any fallback; it now also POSTs the body raw and
+   asserts the server's 500.
+6. (low) Comments: `tx-prover.ts`'s five-line header to two; "fallback selects WASM" (not "WASM proved");
+   `useProvingWords`'s restating comment gone; the walk test's `denied` note says it is `/prove`'s answer.
+   Codex's "looks fine": the transport (production `https://127.0.0.1:59834`, no query override, no
+   downgrade without the flag, the CSP), the trust boundary, bad replies (the node verifies; a refused
+   proof costs no nullifier or fee), the rebind, the e2e's route pattern, the inventory floors, P12's fixes.

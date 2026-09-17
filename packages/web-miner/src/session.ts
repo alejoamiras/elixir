@@ -76,7 +76,14 @@ import {
 import { type L1Sampler, startL1Sampler } from './l1-sampler';
 import { initialSteps, keyStepLabel, type OpeningStep, type StepId } from './opening-steps';
 import { CrsPinError } from './pinned-crs';
-import { prestoAtom, prestoEligible, probePresto, txProvingAfter, txProvingAtom } from './presto';
+import {
+  prestoAtom,
+  prestoEligible,
+  prestoProvesTx,
+  probePresto,
+  txProvingAfter,
+  txProvingAtom,
+} from './presto';
 import { loadSettings, saveSettings } from './settings';
 import {
   type AccountError,
@@ -697,22 +704,21 @@ export class Session {
   }
 
   /**
-   * The wallet's prover follows the Worker's verdict on Presto: once the Worker gave up on native
-   * (sticky), the transaction proofs stop asking too — a denied or dead Presto is not sent a witness
-   * per proof — and a rebuild that brings native back brings them back. Its phases name who proves.
+   * The wallet's prover goes to Presto only while the page's own probe says it serves the kernel's
+   * scheme and the Worker has not given up on it (sticky): what the pre-proof line promises is what
+   * the SDK is allowed, and a denied or dead Presto is not sent a witness per proof. Its phases name
+   * who proves; a proof's end, thrown or not, clears the attribution.
    */
   private bindTxProver(prover: TxProver | undefined): void {
     this.unsubTxProver?.();
     this.unsubTxProver = undefined;
     this.store.set(txProvingAtom, null);
     if (!prover) return;
-    const mirror = () => prover.setForceLocal(this.store.get(prestoAtom).fallbackReason !== undefined);
+    const mirror = () => prover.setForceLocal(!prestoProvesTx(this.store.get(prestoAtom)));
     mirror();
     this.unsubTxProver = this.store.sub(prestoAtom, mirror);
-    prover.onPhase = (phase) => {
-      this.store.set(txProvingAtom, (on) => txProvingAfter(on, phase));
-      if (phase === 'receive' || phase === 'proved') this.store.set(txProvingAtom, null);
-    };
+    prover.onPhase = (phase) => this.store.set(txProvingAtom, (on) => txProvingAfter(on, phase));
+    prover.onProof = () => this.store.set(txProvingAtom, null);
   }
 
   private closeBridge(): void {

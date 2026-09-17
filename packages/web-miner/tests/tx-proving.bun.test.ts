@@ -31,7 +31,7 @@ describe('the transaction’s prover', () => {
     ]);
     // Forced local: the SDK proves in the page and says so without a transmit.
     expect(walk(['proving', 'proved'])).toEqual(['wasm', 'wasm']);
-    // Presto refused at the health check: the fallback precedes the local proving.
+    // Presto refused the proof (`denied` is `/prove`'s answer): the fallback precedes the local proving.
     expect(walk(['detect', 'denied', 'fallback', 'proving', 'proved', 'receive'])).toEqual([
       null,
       null,
@@ -52,7 +52,7 @@ describe('the transaction’s prover', () => {
     ]);
   });
 
-  test('the next proof goes to Presto only while the Worker keeps it and it serves the kernel’s scheme', () => {
+  test('the next proof goes to Presto only while the probe saw it serve the kernel’s scheme and the Worker keeps it', () => {
     const serving = (schemes: string[]): PrestoState['status'] => ({
       available: true,
       needsDownload: false,
@@ -67,7 +67,8 @@ describe('the transaction’s prover', () => {
     expect(prestoProvesTx(sticky)).toBe(true);
     expect(prestoProvesTx({ ...sticky, status: serving(['ultra_honk']) })).toBe(false);
     expect(prestoProvesTx({ ...sticky, fallbackReason: 'denied' })).toBe(false);
-    expect(prestoProvesTx({ ...sticky, selected: 'wasm' })).toBe(false);
+    // The Worker's own build is not the wallet's: Presto serving chonk alone still proves the kernel.
+    expect(prestoProvesTx({ ...sticky, selected: 'wasm', status: serving(['chonk']) })).toBe(true);
     expect(prestoProvesTx({ ...sticky, status: null })).toBe(false);
   });
 

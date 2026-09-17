@@ -1,8 +1,5 @@
-// The wallet's transaction prover on Presto: the private kernel's proof (a claim, a burn, a
-// transfer) goes to the native prover on this machine through the SDK, and to WASM in the page
-// when Presto steps aside. The SDK's own WASM path logs the PXE's proof event; a proof Presto made
-// gets the same event here, with who made it and where its time went, so the e2e meter and the
-// breakdown count both.
+// The wallet's transaction prover on Presto. The SDK meters WASM proofs with the PXE's event; this
+// adapter logs the same event for a proof Presto made, with the phases' timings.
 import { type PrestoPhase, type PrestoPhaseData, PrestoProver } from '@alejoamiras/presto';
 import { createLogger } from '@aztec/foundation/log';
 import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
@@ -15,6 +12,8 @@ export type TxPhase = (phase: PrestoPhase, data?: PrestoPhaseData) => void;
 export class TxProver extends PrestoProver {
   /** The UI's listener for the proof under way; the meter's own tracking never depends on it. */
   onPhase: TxPhase | null = null;
+  /** Told when a proof starts and when it ends, a thrown one included: the UI's attribution lives between the two. */
+  onProof: ((state: 'start' | 'end') => void) | null = null;
   #forced = false;
   #local = false;
   #marks: Record<string, number> = {};
@@ -29,8 +28,8 @@ export class TxProver extends PrestoProver {
         this.onPhase?.(phase, data);
       },
     });
-    // A fallback says WASM proved, and the SDK logged that proof itself; `proved` alone is either
-    // side's (the client says it of a remote proof too).
+    // A fallback selects WASM, whose proof the SDK logs itself; `proved` is either side's (the
+    // client says it of a remote proof too).
     note = (phase) => {
       this.#marks[phase] = Math.round(performance.now() - this.#t0);
       if (phase === 'fallback') this.#local = true;
@@ -46,14 +45,19 @@ export class TxProver extends PrestoProver {
     this.#local = this.#forced;
     this.#marks = {};
     this.#t0 = performance.now();
-    const proof = await super.createChonkProof(steps);
-    if (!this.#local)
-      log.info('Generated ClientIVC proof through Presto', {
-        eventName: 'client-ivc-proof-generation',
-        duration: performance.now() - this.#t0,
-        prover: 'presto' satisfies ProverKind,
-        phases: this.#marks,
-      });
-    return proof;
+    this.onProof?.('start');
+    try {
+      const proof = await super.createChonkProof(steps);
+      if (!this.#local)
+        log.info('Generated ClientIVC proof through Presto', {
+          eventName: 'client-ivc-proof-generation',
+          duration: performance.now() - this.#t0,
+          prover: 'presto' satisfies ProverKind,
+          phases: this.#marks,
+        });
+      return proof;
+    } finally {
+      this.onProof?.('end');
+    }
   }
 }
