@@ -277,3 +277,45 @@ synchronises before paint without a loop).
    Known residue, told to codex: a withdraw and a crossing at the wallet at once (the withdraw is
    outside the bridge queue) share the name window; serialising them would hold a Send behind a
    claim's 600 s message wait — the worse trade for one word on one screen.
+
+**Round 6**: REVISE, two findings, both verified and folded (`319fa10`). Codex rejected the residue I
+had chosen to leave, and was right: it was not one wrong word.
+1. (medium) `beforeNextSend` was "the next send's", not "this transaction's": a withdraw submitted
+   while an exit proved took the exit's hook and wrote its own hash, expiry and anchor block into the
+   exit's journal entry — recovery metadata, not copy (browser Back unmounts a locked dialog without
+   stopping its operation, so modality never enforced exclusivity). `sendObserver.turn(op, { hook,
+   said })`: the wallet goes out one transaction at a time, from simulation to submission; the turn
+   passes when the send has reached the node (or `op` ends without one), so nobody waits on a block or
+   on a claim's message. The hook and the prover's word are the turn's. All six sends take one (win
+   claim, roll, withdraw, both burns, the arrival claim). With ownership carried by the turn,
+   `provingCrossingAtom`, the session routing and `TxProver`'s listeners in `session.ts` went; the win
+   claim's `said` writes `txProvingAtom` (kept until the claim settles).
+2. (medium) A claim retried before the next journal publish read the failed attempt's answer (still in
+   `claimingAtom` when the prune ran). `BridgeSession.claim` drops the crossing's entry first.
+   Lesson: four rounds of attribution fixes were patches on a missing invariant. "One transaction at
+   the wallet at a time" was assumed by the hook, by the phases and by the copy, and enforced nowhere.
+   Verified by the real-proving `canary` and `chain` shards, `bridge`, `cockpit`, and the rig's
+   `browser` and `origin` cases (below).
+
+**Round 7**: **APPROVE**, no material findings (confidence high) — the cross-arc pass converged.
+Codex checked: all six send paths take a turn, no nested acquisition, no bypass; readiness and
+`ctx.settled()` are awaited before the wallet is asked for, so the turn cannot deadlock; a hook that
+throws, a submission that fails and an operation that never sends all release; submission releases
+the next turn while inclusion is pending, and an earlier operation's late end cannot clear a newer
+holder; the removed ownership machinery has no references left.
+
+The pass ran seven rounds against the owner's lifted stop (the plan's hard stop at 3 was lifted by
+the owner for this run: "iterate until a round yields nothing material"). Rounds 2–6 were one
+thread — who proves a transaction, said truthfully — and ended at an invariant rather than a patch.
+
+| after round 6 (`319fa10`) | result |
+|---|---|
+| `bun run lint`, the miner's `tsc -b` | clean |
+| `bun test` (repo) | 503 pass, 42 skip, 0 fail (on `3cfa160`); miner 217 pass on `319fa10` |
+| `test:components` | ui 69 · landing 14 · miner 121 · stats 84 |
+| `E2E_SHARD=canary` (real proving) | green, 432 s — win claims and both withdraws through turns |
+| `E2E_SHARD=chain` (real proving, Presto on) | green, 571 s — the three Presto cases included |
+| `E2E_PROVERLESS=1 E2E_SHARD=bridge` | green, 243 s |
+| `E2E_PROVERLESS=1 E2E_SHARD=cockpit` | green, 350 s |
+| `bun run rig -- browser` (exits, send-aheads, forward, claim, redeem through the page) | 3 pass, 493 s |
+| `bun run rig -- origin` | 1 pass, 90 s |
