@@ -39,12 +39,13 @@ const readWords = async (page: Page): Promise<string[]> =>
 async function keyScreen(page: Page): Promise<void> {
   await expect(page.getByTestId('cockpit')).toBeVisible({ timeout: BOOT_MS });
   const screen = page.getByTestId('key-screen');
-  if (!(await screen.isVisible())) await page.getByTestId('sign-in-mine').click();
+  if (!(await screen.isVisible())) await page.getByTestId('sign-in-balance').click();
   await expect(screen).toBeVisible({ timeout: 10_000 });
 }
 
 async function createWordsAccount(page: Page): Promise<{ words: string[]; account: string }> {
   await keyScreen(page);
+  await page.getByTestId('start-create').click();
   await page.getByTestId('use-words').click();
   const words = await readWords(page);
   await page.getByTestId('written').check();
@@ -58,6 +59,7 @@ async function createWordsAccount(page: Page): Promise<{ words: string[]; accoun
 
 async function restoreWords(page: Page, words: string[]): Promise<string> {
   await keyScreen(page);
+  await page.getByTestId('start-login').click();
   await page.getByTestId('restore-words').click();
   await page.getByTestId('words-input').fill(words.join(' '));
   await page.getByTestId('words-open').click();

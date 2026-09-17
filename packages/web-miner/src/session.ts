@@ -18,6 +18,7 @@ import {
   resetEthRpcHealth,
   startEthRpcHealth,
 } from '../../site/src/browser/eth-rpc.ts';
+import { duration } from '../../site/src/browser/format.ts';
 import { keysAllowed, relyingParty } from '../../site/src/browser/host.ts';
 import { type NodeProbe, probeNode } from '../../site/src/browser/node.ts';
 import { setEthRpcEndpoint } from '../../site/src/browser/node-guard.ts';
@@ -37,15 +38,25 @@ import { type Connection, saveConnection } from './config';
 import type { MinerController } from './controller';
 import { feePayer } from './feePayer';
 import { currentAccountClassId } from './keys/classes';
-import { assertPasskey, createPasskey } from './keys/passkey';
+import { assertPasskey, createPasskey, NoPrfError, NoWebAuthnError } from './keys/passkey';
+import {
+  cancel,
+  commit,
+  type Intent,
+  type Reservation,
+  readSlot,
+  release,
+  reserve,
+  SlotError,
+  type SlotView,
+  stage,
+} from './keys/slot';
 import {
   addressOf,
   base64url,
   currentAddress,
   findRecordFor,
-  forgetMaster,
   fromBase64url,
-  listRecords,
   type MasterRecord,
   openAccount,
   openPhrase,
@@ -53,10 +64,20 @@ import {
   seal,
   setStayOpen,
 } from './keys/store';
-import { initialSteps } from './opening-steps';
+import { initialSteps, keyStepLabel, type OpeningStep, type StepId } from './opening-steps';
+import { CrsPinError } from './pinned-crs';
 import { prestoAtom, prestoEligible, probePresto } from './presto';
 import { loadSettings, saveSettings } from './settings';
-import { balanceAtom, bootAtom, bridgeAtom, bridgeSessionAtom, epochAtom } from './state';
+import {
+  type AccountError,
+  balanceAtom,
+  bootAtom,
+  bridgeAtom,
+  bridgeSessionAtom,
+  epochAtom,
+  mineIntentAtom,
+} from './state';
+import { ChainViewHeldError } from './wallet';
 
 type Store = ReturnType<typeof createStore>;
 
@@ -64,6 +85,44 @@ type Store = ReturnType<typeof createStore>;
 const ETH_RPC_DEADLINE_MS = 30_000;
 
 const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name === 'AbortError';
+
+/** What the ceremony hands the opening; `reservation` is committed once the account is verified open. */
+interface Ceremony {
+  record: MasterRecord;
+  master: Uint8Array;
+  words?: string;
+  reservation?: Reservation;
+  /** The phrase was typed in (a login), not shown from a fresh record. */
+  typed?: true;
+}
+
+/** The JSON-RPC client's transport failures: a network error, or a status the node (or the guard's cooldown answer) returned. */
+const NODE_REQUEST = /^Error (?:fetching from host|\d{3} from server) /;
+
+/** The note the dialog draws for a failed opening, by what failed. `node` needs a node request that failed while the transport is down. */
+export const classifyAccountError = (e: unknown): AccountError => {
+  const message = e instanceof Error ? e.message : String(e);
+  if (e instanceof NoPrfError) return { kind: 'no-prf', message };
+  if (e instanceof NoWebAuthnError) return { kind: 'no-webauthn', message };
+  if (e instanceof ChainViewHeldError) return { kind: 'held-tab', message };
+  if (e instanceof SlotError) return { kind: 'slot', message };
+  if (e instanceof DOMException && e.name === 'NotAllowedError') return { kind: 'dismissed', message };
+  if (e instanceof CrsPinError) return { kind: 'pin', message };
+  if (NODE_REQUEST.test(message) && nodeHealth().transport.kind !== 'ok') return { kind: 'node', message };
+  return { kind: 'other', message };
+};
+
+/** The failed step's right column, a few words: the note under the checklist says the rest. */
+const reasonOf = (e: AccountError, step: StepId): string => {
+  if (step === 'crs') return 'download failed';
+  if (e.kind === 'held-tab') return 'held by another tab';
+  if (e.kind !== 'node') return 'failed';
+  const t = nodeHealth().transport;
+  return t.kind === 'silent' ? `no answer for ${duration((Date.now() - t.since) / 1000)}` : 'no answer';
+};
+
+const credentialsOf = (records: MasterRecord[]): Uint8Array[] =>
+  records.flatMap((r) => (r.credentialId ? [fromBase64url(r.credentialId)] : []));
 
 /** Runs the work a freshly derived master feeds; if that work throws, the master is zeroed first. */
 async function owning<T>(master: Uint8Array, work: () => Promise<T>): Promise<T> {
@@ -89,6 +148,8 @@ export class Session {
   /** A words key's phrase, for the backup screen; sealed at rest, never in the store as text. */
   private words: string | undefined;
   record: MasterRecord | undefined;
+  /** The slot as last read or published: its revision is what every reservation and release is checked against. */
+  private slot: SlotView | undefined;
   /** What the attempt adopted: the wallet getter the bridge reads through after a rebuild. */
   private started: Started | undefined;
   /** The open account's bridge, when the build carries a portal; opened before `ready` is published. */
@@ -97,8 +158,13 @@ export class Session {
   private unsubBalance: (() => void) | undefined;
   private unsubFlip: (() => void) | undefined;
 
-  /** The open attempt: its generation and the AbortController Cancel aborts once the ceremony is over. */
-  private attempt: { id: number; abort: AbortController; ceremony: boolean; done: Promise<void> } | undefined;
+  /**
+   * The open attempt: its generation and the AbortController Cancel aborts. `ceremony`: the OS prompt
+   * is up, Cancel is inert; `adopted`: adoption has begun (the commit, then the bridge), Cancel is over.
+   */
+  private attempt:
+    | { id: number; abort: AbortController; ceremony: boolean; adopted: boolean; done: Promise<void> }
+    | undefined;
   private attemptSeq = 0;
 
   readonly ready: Promise<void>;
@@ -136,6 +202,8 @@ export class Session {
   private async runPreflight(): Promise<void> {
     try {
       this.pre = await this.preflightImpl(this.store, this.connection);
+      const boot = this.store.get(bootAtom);
+      if (boot.phase === 'signedOut') this.slot = boot.slot;
     } catch (e) {
       this.store.set(bootAtom, { phase: 'error', message: e instanceof Error ? e.message : String(e) });
       if (nodeHealth().transport.kind === 'ok') return;
@@ -157,15 +225,32 @@ export class Session {
       );
   }
 
+  private async slotView(): Promise<SlotView> {
+    this.slot = await readSlot();
+    return this.slot;
+  }
+
   /** Back to the signed-out cockpit with the error; `id` names the attempt speaking, if any. */
-  private async fail(e: unknown, id?: number): Promise<void> {
-    const records = await listRecords();
+  private async fail(e: unknown, id?: number, opening?: OpeningStep[], typed?: true): Promise<void> {
+    const slot = await this.slotView();
     if (id !== undefined && this.attempt?.id !== id) return; // a replacement began meanwhile
-    this.store.set(bootAtom, {
-      phase: 'signedOut',
-      records,
-      error: e instanceof Error ? e.message : String(e),
-    });
+    const error = classifyAccountError(e);
+    const active = opening?.find((s) => s.state === 'active');
+    if (!active) {
+      this.store.set(bootAtom, { phase: 'signedOut', slot, error });
+    } else {
+      // The step that failed stays on the checklist with its reason; Retry keeps what arrived.
+      const steps = opening?.map((s) =>
+        s === active ? { ...s, state: 'failed' as const, reason: reasonOf(error, active.id) } : s,
+      );
+      this.store.set(bootAtom, {
+        phase: 'signedOut',
+        slot,
+        error: { ...error, step: active.id },
+        opening: steps,
+        ...(typed && { typedWords: true }),
+      });
+    }
     // No account came up: the public epoch feeds the cockpit again.
     this.pre?.publicEpoch.start();
   }
@@ -179,10 +264,7 @@ export class Session {
    * to `signedOut` with no error and the public poll takes the epoch back; a superseded attempt
    * publishes nothing, even from a publish already in flight.
    */
-  private runAttempt(
-    keyLabel: string,
-    ceremony: () => Promise<{ record: MasterRecord; master: Uint8Array; words?: string }>,
-  ): Promise<void> {
+  private runAttempt(keyLabel: string, ceremony: () => Promise<Ceremony>): Promise<void> {
     if (!this.pre) return this.fail(new Error('preflight has not finished'));
     const prev = this.attempt;
     const id = ++this.attemptSeq;
@@ -191,7 +273,7 @@ export class Session {
     const key = steps.find((step) => step.id === 'key');
     if (key) key.state = 'active'; // the ceremony is the active step; `done` means Cancel works
     this.store.set(bootAtom, { phase: 'opening', steps });
-    const attempt = { id, abort, ceremony: true, done: Promise.resolve() };
+    const attempt = { id, abort, ceremony: true, adopted: false, done: Promise.resolve() };
     this.attempt = attempt;
     const run = this.attemptBody(id, abort, keyLabel, ceremony, prev).finally(() => {
       if (this.attempt?.id === id) this.attempt = undefined;
@@ -204,15 +286,24 @@ export class Session {
     id: number,
     abort: AbortController,
     keyLabel: string,
-    ceremony: () => Promise<{ record: MasterRecord; master: Uint8Array; words?: string }>,
+    ceremony: () => Promise<Ceremony>,
     prev: Session['attempt'],
   ): Promise<void> {
     const mine = () => this.attempt?.id === id;
     let master: Uint8Array | undefined;
     let started: Started | undefined;
+    let reservation: Reservation | undefined;
+    let published: OpeningStep[] | undefined;
+    let typed: true | undefined;
     // Whatever the steps returned that the session did not adopt: disposed, and its wallet stopped —
     // awaited, so `done` (and a successor, and the signed-out publish) come after the namespace is free.
+    // A reservation not committed hands its lease back (its staged record stays for the next load).
     const discard = async () => {
+      if (reservation) {
+        const r = reservation;
+        reservation = undefined;
+        await cancel(r).catch(() => {});
+      }
       if (!started || started.controller === this.controller) return;
       const s = started;
       started = undefined;
@@ -237,6 +328,8 @@ export class Session {
       const t0 = performance.now();
       const c = await ceremony();
       master = c.master;
+      reservation = c.reservation;
+      typed = c.typed;
       const keyMs = performance.now() - t0;
       if (!mine()) return;
       (this.attempt as { ceremony: boolean }).ceremony = false; // the prompt is done: Cancel works
@@ -245,11 +338,16 @@ export class Session {
         signal: abort.signal,
         keyLabel,
         keyMs,
-        nodeMs: (this.pre as Preflighted).nodeMs,
-        publish: (steps) => mine() && this.store.set(bootAtom, { phase: 'opening', steps }),
+        publish: (steps) => {
+          if (!mine()) return;
+          published = steps;
+          this.store.set(bootAtom, { phase: 'opening', steps });
+        },
       });
       if (!mine()) return;
       abort.signal.throwIfAborted(); // a cancel that landed as the last step settled
+      if (this.attempt?.id === id) this.attempt.adopted = true;
+      reservation = await this.adopt(reservation, c.record);
       this.controller = started.controller;
       this.wallet = started.wallet;
       this.master = master;
@@ -263,79 +361,128 @@ export class Session {
         account: currentAddress(c.record, await currentAccountClassId()),
         threads: started.threads,
         record: c.record,
+        ...(c.typed && { typedWords: true }),
       });
+      this.spendIntent();
     } catch (e) {
       await discard();
       if (!mine()) return; // a stale attempt publishes nothing
       // A cancel wins over whatever the abort made the steps throw (a download that failed later).
       if (isAbort(e) || abort.signal.aborted) await this.toSignedOut(id);
-      else await this.fail(e, id);
+      else await this.fail(e, id, published, typed);
     } finally {
       master?.fill(0);
       await discard();
     }
   }
 
-  /** Aborts the open in flight, once its ceremony is over, and waits for its cleanup to finish. */
+  /**
+   * The account is verified open: the slot takes it. A refusal (the slot changed under a stale
+   * lease) ends the attempt like any other failure; the open wallet is discarded with it.
+   */
+  private async adopt(r: Reservation | undefined, record: MasterRecord): Promise<undefined> {
+    if (!r) return;
+    await commit(r);
+    this.slot = { record, staged: null, revision: r.revision };
+  }
+
+  /**
+   * Aborts the open in flight, once its ceremony is over and until the slot adopts the account, and
+   * waits for its cleanup to finish. Past adoption the account is open and Sign out is the way back.
+   */
   async cancelOpening(): Promise<void> {
     const a = this.attempt;
-    if (!a || a.ceremony) return;
+    if (!a || a.ceremony || a.adopted) return;
+    this.store.set(mineIntentAtom, false);
     a.abort.abort();
     await a.done.catch(() => {});
   }
 
+  /** Start mining opened the dialog: the account is ready, so mining starts, and the intent is spent. */
+  private spendIntent(): void {
+    if (!this.store.get(mineIntentAtom)) return;
+    this.store.set(mineIntentAtom, false);
+    this.startMining();
+  }
+
+  /** Cancel on a failed checklist: the note stays with Welcome, the checklist does not come back. */
+  hideOpeningFailure(): void {
+    const boot = this.store.get(bootAtom);
+    if (boot.phase !== 'signedOut' || !boot.opening) return;
+    const { opening: _, ...rest } = boot;
+    this.store.set(bootAtom, rest);
+  }
+
   /** Back to the signed-out cockpit with no error (a cancel); the public poll feeds the chain again. */
   private async toSignedOut(id: number): Promise<void> {
-    const records = await listRecords();
+    const slot = await this.slotView();
     if (this.attempt?.id !== id) return; // a replacement began meanwhile: its opening stands
-    this.store.set(bootAtom, { phase: 'signedOut', records });
+    this.store.set(bootAtom, { phase: 'signedOut', slot });
     this.pre?.publicEpoch.start();
   }
 
-  /** The record is written before the wallet opens: a boot failure must not lose a fresh passkey. */
+  /** The slot reserved before the prompt; a ceremony that throws hands the lease back. */
+  private async reserved(intent: Intent, work: (r: Reservation) => Promise<Ceremony>): Promise<Ceremony> {
+    const r = await reserve((this.slot ?? (await this.slotView())).revision, intent);
+    try {
+      return { ...(await work(r)), reservation: r };
+    } catch (e) {
+      await cancel(r).catch(() => {});
+      throw e;
+    }
+  }
+
+  /** The record is staged before the wallet opens: a boot failure must not lose a fresh passkey. */
   async createWithPasskey(): Promise<void> {
-    return this.runAttempt('passkey', async () => {
+    return this.runAttempt(keyStepLabel('passkey'), () => {
       this.guardHost('create');
-      const known = (await listRecords()).flatMap((r) =>
-        r.credentialId ? [fromBase64url(r.credentialId)] : [],
-      );
-      const { credentialId, prf } = await this.createPasskey({
-        rpId: this.rpId,
-        userName: 'Yacana account',
-        exclude: known,
-      });
-      const master = await masterFromPrf(prf);
-      return owning(master, async () => {
-        const record: MasterRecord = {
-          v: 1,
-          id: crypto.randomUUID(),
-          method: 'passkey',
-          createdAt: Date.now(),
-          credentialId: base64url(credentialId),
-          askEveryOpen: !loadSettings().stayOpen,
-          backedUp: false,
-          account: { address: await addressOf(master, 0), index: 0 },
-        };
-        if (!record.askEveryOpen) record.sealed = await seal(master, record);
-        await putRecord(record);
-        return { record, master };
+      return this.reserved('create', async (r) => {
+        const { credentialId, prf } = await this.createPasskey({
+          rpId: this.rpId,
+          userName: 'Yacana account',
+          exclude: credentialsOf(r.known),
+        });
+        const master = await masterFromPrf(prf);
+        return owning(master, async () => {
+          const record: MasterRecord = {
+            v: 1,
+            id: crypto.randomUUID(),
+            method: 'passkey',
+            createdAt: Date.now(),
+            credentialId: base64url(credentialId),
+            askEveryOpen: !loadSettings().stayOpen,
+            backedUp: false,
+            account: { address: await addressOf(master, 0), index: 0 },
+          };
+          if (!record.askEveryOpen) record.sealed = await seal(master, record);
+          await stage(r, record);
+          return { record, master };
+        });
       });
     });
   }
 
-  /** One touch on a known record (default mode), or none when the secret is sealed on this device. */
-  async open(record: MasterRecord): Promise<void> {
-    const keyLabel = record.method === 'passkey' ? 'passkey' : 'twelve words';
-    return this.runAttempt(keyLabel, async () => {
-      const opened = record.sealed
-        ? await openAccount(record)
-        : await this.masterFromCeremony(record).then((m) => owning(m, () => openAccount(record, m)));
-      return owning(opened.master, async () => ({
-        record: opened.record,
-        master: opened.master,
-        words: record.method === 'words' ? await openPhrase(record) : undefined,
-      }));
-    });
+  /**
+   * The slot's record (Welcome back): one touch, restricted to its credential, or none when the
+   * secret is sealed on this device. `record` names the kind for the dialog; the slot is re-read.
+   * `typed`: the record came from words typed in this session (a retry of that login keeps its hint).
+   */
+  async open(record: MasterRecord, typed?: true): Promise<void> {
+    const keyLabel = keyStepLabel(record.method === 'passkey' ? 'passkey' : 'words');
+    return this.runAttempt(keyLabel, () =>
+      this.reserved('open', async (r) => {
+        const target = r.record as MasterRecord;
+        const opened = target.sealed
+          ? await openAccount(target)
+          : await this.masterFromCeremony(target).then((m) => owning(m, () => openAccount(target, m)));
+        return owning(opened.master, async () => ({
+          record: opened.record,
+          master: opened.master,
+          words: target.method === 'words' ? await openPhrase(target) : undefined,
+          ...(typed && { typed }),
+        }));
+      }),
+    );
   }
 
   private async masterFromCeremony(record: MasterRecord): Promise<Uint8Array> {
@@ -348,26 +495,31 @@ export class Session {
     return masterFromPrf(prf);
   }
 
-  /** "I already have a key": a discoverable request; a known address opens, a new one gets a record. */
+  /**
+   * Log in on an empty slot: a discoverable request. A master this device knows (a record signed
+   * out, or one from before the slot) takes its record back; a new one gets a record.
+   */
   async restoreWithPasskey(): Promise<void> {
-    return this.runAttempt('passkey', async () => {
+    return this.runAttempt(keyStepLabel('passkey'), () => {
       this.guardHost('restore');
-      const { credentialId, prf } = await this.assertPasskey({ rpId: this.rpId });
-      const master = await masterFromPrf(prf);
-      return owning(master, async () => {
-        const existing = await findRecordFor(await listRecords(), master);
-        const record: MasterRecord = existing ?? {
-          v: 1,
-          id: crypto.randomUUID(),
-          method: 'passkey',
-          createdAt: Date.now(),
-          credentialId: base64url(credentialId),
-          askEveryOpen: true,
-          backedUp: false,
-          account: { address: await addressOf(master, 0), index: 0 },
-        };
-        if (!existing) await putRecord(record);
-        return openAccount(record, master);
+      return this.reserved('login', async (r) => {
+        const { credentialId, prf } = await this.assertPasskey({ rpId: this.rpId });
+        const master = await masterFromPrf(prf);
+        return owning(master, async () => {
+          const existing = await findRecordFor(r.known, master);
+          const record: MasterRecord = existing ?? {
+            v: 1,
+            id: crypto.randomUUID(),
+            method: 'passkey',
+            createdAt: Date.now(),
+            credentialId: base64url(credentialId),
+            askEveryOpen: true,
+            backedUp: false,
+            account: { address: await addressOf(master, 0), index: 0 },
+          };
+          await stage(r, record);
+          return openAccount(record, master);
+        });
       });
     });
   }
@@ -380,17 +532,19 @@ export class Session {
 
   /** Words keys seal their entropy: nothing re-derives it, and a skipped backup can be shown later. */
   async createWithWords(phrase: string, backedUp: boolean): Promise<void> {
-    return this.runAttempt('twelve words', () => this.wordsRecord(phrase, backedUp));
+    return this.runAttempt(keyStepLabel('words'), () => {
+      this.guardHost('create');
+      return this.reserved('create', (r) => this.wordsRecord(r, phrase, backedUp));
+    });
   }
 
-  /** A fresh sealed words record and its master (derived here unless the caller already has it). */
+  /** A fresh sealed words record, staged, and its master (derived here unless the caller already has it). */
   private async wordsRecord(
+    r: Reservation,
     phrase: string,
     backedUp: boolean,
     derived?: Uint8Array,
-  ): Promise<{ record: MasterRecord; master: Uint8Array; words: string }> {
-    // A restore that lands here (the phrase is new to this device) is a restore still.
-    this.guardHost(derived ? 'restore' : 'create');
+  ): Promise<Ceremony> {
     const master = derived ?? (await masterFromMnemonic(phrase));
     return owning(master, async () => {
       const record: MasterRecord = {
@@ -403,25 +557,25 @@ export class Session {
         account: { address: await addressOf(master, 0), index: 0 },
       };
       record.sealed = await seal(entropyOf(phrase), record);
-      await putRecord(record);
+      await stage(r, record);
       return { record, master, words: normaliseWords(phrase) };
     });
   }
 
-  /** Restore: the phrase opens its record if this device has one, or gets a new (sealed) record. */
+  /** Log in with the words: the phrase takes its record back if this device has one, or gets a new (sealed) one. */
   async restoreWithWords(phrase: string): Promise<void> {
-    return this.runAttempt('twelve words', async () => {
+    return this.runAttempt(keyStepLabel('words'), () => {
       this.guardHost('restore');
-      const master = await masterFromMnemonic(phrase);
-      return owning(master, async () => {
-        const existing = await findRecordFor(await listRecords(), master);
-        if (existing)
-          return {
-            record: existing,
-            master: (await openAccount(existing, master)).master,
-            words: normaliseWords(phrase),
-          };
-        return this.wordsRecord(normaliseWords(phrase), true, master);
+      return this.reserved('login', async (r) => {
+        const master = await masterFromMnemonic(phrase);
+        return owning(master, async () => {
+          const existing = await findRecordFor(r.known, master);
+          if (!existing)
+            return { ...(await this.wordsRecord(r, normaliseWords(phrase), true, master)), typed: true };
+          await stage(r, existing);
+          const opened = await openAccount(existing, master);
+          return { record: opened.record, master: opened.master, words: normaliseWords(phrase), typed: true };
+        });
       });
     });
   }
@@ -439,10 +593,22 @@ export class Session {
     if (boot.phase === 'ready') this.store.set(bootAtom, { ...boot, record: this.record });
   }
 
-  /** Removes a record; the sign-out dialog gates the call. An open account's session ends. */
+  /**
+   * Sign out; the dialog gates the call. The open account's claim being sent and its queued bridge
+   * operations finish first (the page reloads, and would abandon them), then the slot lets the
+   * record go and the session ends. Signed out (Welcome's "Use a different account"), only the slot moves.
+   */
   async forget(record: MasterRecord): Promise<void> {
-    await forgetMaster(record.id);
-    if (this.record?.id !== record.id) return;
+    const open = this.record?.id === record.id;
+    if (open) {
+      await this.controller?.drain().catch(() => {});
+      await this.bridge?.drain().catch(() => {});
+    }
+    await release(record.id, (await this.slotView()).revision);
+    if (!open) {
+      this.store.set(bootAtom, { phase: 'signedOut', slot: await this.slotView() });
+      return;
+    }
     this.closeBridge();
     location.reload();
   }

@@ -130,6 +130,20 @@ export function Header({
   );
 }
 
+/** The account's dot: one gradient for every account, drawn from the tokens. */
+export function Avatar({ className }: { className?: string }) {
+  return (
+    <i
+      aria-hidden
+      className={cn('size-4 shrink-0 rounded-full', className)}
+      style={{
+        background:
+          'conic-gradient(from 20deg, var(--uv), color-mix(in srgb, var(--uv) 45%, var(--ground)), var(--uv-2), var(--uv))',
+      }}
+    />
+  );
+}
+
 export function AccountChip({
   address,
   href,
@@ -148,14 +162,7 @@ export function AccountChip({
       onClick={select(onSelect)}
       {...props}
     >
-      <i
-        aria-hidden
-        className="size-4 shrink-0 rounded-full"
-        style={{
-          background:
-            'conic-gradient(from 20deg, var(--uv), color-mix(in srgb, var(--uv) 45%, var(--ground)), var(--uv-2), var(--uv))',
-        }}
-      />
+      <Avatar />
       {address}
     </a>
   );

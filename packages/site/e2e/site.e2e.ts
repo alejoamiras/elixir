@@ -63,10 +63,13 @@ test('one origin, three apps: every path serves its app under the same headers; 
   expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
 
   await page.goto(`${r.baseURL}/mine/wallet${query(r)}`);
-  // The miner boots to its key screen (no key on this profile yet) under the /mine/wallet path.
-  await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: 2 * 60_000 });
+  // The miner boots under the /mine/wallet path (the SPA fallback), then goes to the cockpit: no
+  // account on this profile, so the wallet has nothing to show; the balance tile's Log in opens the dialog.
+  await expect(page.getByTestId('cockpit')).toBeVisible({ timeout: 2 * 60_000 });
   await expect(page.getByTestId('phase')).toBeVisible();
-  expect(new URL(page.url()).pathname).toBe('/mine/wallet');
+  expect(new URL(page.url()).pathname).toBe('/mine/');
+  await page.getByTestId('sign-in-balance').click();
+  await expect(page.getByTestId('key-screen')).toBeVisible();
   expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
 
   await page.goto(`${r.baseURL}/stats${query(r)}&epoch=0`);
@@ -101,14 +104,15 @@ test('the versioned origin: the old role under the same headers, restore only, a
   for (const path of ['/', '/mine/wallet', '/stats'])
     expect(await headersOf(r.oldBaseURL, path), path).toEqual(await headersOf(r.baseURL, path));
 
-  // The old origin's miner: retired (no Start), and its key screen restores, never creates.
+  // The old origin's miner: retired (no Start), no dialog on arrival, and the dialog restores, never creates.
   await page.goto(`${r.oldBaseURL}/mine/${query(r)}`);
   await expect(page.getByTestId('cockpit')).toBeVisible({ timeout: 2 * 60_000 });
   await expect(page.getByTestId('retired')).toContainText('Mining has ended on this version');
   await expect(page.getByTestId('start')).toHaveCount(0);
-  const screen = page.getByTestId('key-screen');
-  if (!(await screen.isVisible())) await page.getByTestId('sign-in-mine').click();
-  await expect(page.getByTestId('create-passkey')).toBeDisabled();
+  await expect(page.getByTestId('key-screen')).toBeHidden();
+  await page.getByTestId('sign-in-mine').click();
+  await expect(page.getByTestId('key-screen')).toBeVisible();
+  await expect(page.getByTestId('create-passkey')).toHaveCount(0);
   await expect(page.getByTestId('restore-passkey')).toBeEnabled();
 
   // A tab left open across a redeploy: build.json now names another miner; the next check says reload.

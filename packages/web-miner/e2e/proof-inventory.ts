@@ -45,7 +45,7 @@ export const INVENTORY: Readonly<Record<string, Readonly<Record<string, number>>
     'a words account: create, quiz, mine, sign out, restore, same address': 0,
   },
   'opening.e2e.ts': {
-    'a cancel mid-opening returns to signed out; the account opens on the next try': 0,
+    'page first; a cancel mid-opening forgets the intent, a Start mining that opens the account spends it': 0,
   },
   'switch.e2e.ts': {
     'a live switch A → B while mining, a claim after it, and the banner on a dead node': 1,
@@ -87,7 +87,7 @@ export const SPEC_FILES: readonly string[] = Object.keys(INVENTORY);
 
 /** The replay lane's tests (`e2e/replay/*.replay.ts`); sharded + `MOVED_TO_REPLAY` is the original nineteen plus the canary. */
 export const REPLAYED: Readonly<Record<string, readonly string[]>> = {
-  'dialog-geometry.replay.ts': ['the sign-in screens and their error state fit the dialog at 720 px tall'],
+  'dialog-geometry.replay.ts': ['the account screens and their notes fit the dialog at 720 px tall'],
   'signed-out.replay.ts': [
     'a malformed RPC payload is rejected, not acted on',
     'an old Presto answers: the update row, and Retry re-asks',
@@ -95,7 +95,7 @@ export const REPLAYED: Readonly<Record<string, readonly string[]>> = {
   ],
 };
 export const MOVED_TO_REPLAY: readonly string[] = [
-  'the sign-in screens and their error state fit the dialog at 720 px tall',
+  'the account screens and their notes fit the dialog at 720 px tall',
   'a malformed RPC payload is rejected, not acted on',
   'an old Presto answers: the update row, and Retry re-asks',
 ];

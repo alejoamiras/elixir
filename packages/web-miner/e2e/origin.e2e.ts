@@ -31,13 +31,14 @@ test('the versioned origin: the same passkey restores the apex’s account there
   await expect(page.getByTestId('retired')).toBeVisible();
   await expect(page.getByTestId('retired')).toContainText('Mining has ended on this version');
   await expect(page.getByTestId('start')).toHaveCount(0);
+  // No account on this origin, so no dialog on arrival; the tile's button opens it on Log in.
   const screen = page.getByTestId('key-screen');
-  if (await screen.isVisible()) await page.getByTestId('not-now').click();
   await expect(screen).toBeHidden();
   await shot(page, 'old-app-signed-out');
   await page.getByTestId('sign-in-mine').click();
   await expect(screen).toBeVisible();
-  await expect(page.getByTestId('create-passkey')).toBeDisabled();
+  await expect(page.getByTestId('start-create')).toHaveCount(0);
+  await expect(page.getByTestId('create-passkey')).toHaveCount(0);
   await expect(page.getByTestId('host-note')).toContainText('restored here, not created');
   await shot(page, 'old-app-sign-in');
   await page.getByTestId('restore-passkey').click();

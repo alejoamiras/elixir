@@ -221,6 +221,31 @@ describe('the balance tile and an empty bridge tile', () => {
   });
 });
 
+describe('the balance tile after a typed login', () => {
+  test('an empty balance carries the mistyped-word hint; a funded one does not; a stored open never does', () => {
+    const tile = (balance: bigint, typedWords?: boolean) => (
+      <BalanceTile
+        balance={balance}
+        claims={0}
+        typedWords={typedWords}
+        onSend={() => {}}
+        onToEthereum={() => {}}
+        onDeposit={() => {}}
+      />
+    );
+    mount(tile(0n, true));
+    expect(screen.getByTestId('empty-hint').textContent).toContain(
+      'A mistyped word opens a different, empty account',
+    );
+    cleanup();
+    mount(tile(ONE, true));
+    expect(screen.queryByTestId('empty-hint')).toBeNull();
+    cleanup();
+    mount(tile(0n));
+    expect(screen.queryByTestId('empty-hint')).toBeNull();
+  });
+});
+
 describe('the arrival card', () => {
   test('a claimable arrival claims on one tap; one still crossing only says so; a deposit the wallet never answered is offered again', async () => {
     const { session, bridge } = stubSession();

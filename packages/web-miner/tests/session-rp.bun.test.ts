@@ -1,9 +1,17 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createStore } from 'jotai';
-import type { MasterRecord } from '../src/keys/store.ts';
+import { DB_NAME, type MasterRecord, putRecord } from '../src/keys/store.ts';
 import { Session } from '../src/session.ts';
 import { bootAtom } from '../src/state.ts';
+
+// The fake IndexedDB is one per process: the slot another file left behind would refuse a create here.
+const reset = () =>
+  new Promise<void>((resolve) => {
+    const r = indexedDB.deleteDatabase(DB_NAME);
+    r.onsuccess = () => resolve();
+    r.onerror = () => resolve();
+  });
 
 // The ceremonies are faked to capture their options and stop the attempt there.
 const RP = 'yacana.network';
@@ -17,9 +25,10 @@ const env = {
 };
 const savedLocation = globalThis.location;
 
-beforeEach(() => {
+beforeEach(async () => {
   process.env.VITE_RP_ID = RP;
   process.env.VITE_PREVIEW_HOST_SUFFIX = SUFFIX;
+  await reset();
 });
 afterEach(() => {
   // Assigning undefined to process.env stores the string "undefined": absent variables are deleted instead.
@@ -41,7 +50,7 @@ function harness() {
       throw new Error('never reached');
     }) as never,
     preflightImpl: async () => {
-      store.set(bootAtom, { phase: 'signedOut', records: [] });
+      store.set(bootAtom, { phase: 'signedOut', slot: { record: null, staged: null, revision: 0 } });
       return {
         publicEpoch: { start() {}, stop() {}, tick: async () => {} },
         switchable: { use() {}, current: () => 'https://a.example/rpc' },
@@ -73,7 +82,7 @@ const knownPasskey: MasterRecord = {
 
 const failure = (store: ReturnType<typeof createStore>) => {
   const boot = store.get(bootAtom);
-  return boot.phase === 'signedOut' ? boot.error : `phase ${boot.phase}`;
+  return boot.phase === 'signedOut' ? boot.error?.message : `phase ${boot.phase}`;
 };
 
 describe('the relying party the session hands to WebAuthn', () => {
@@ -83,8 +92,10 @@ describe('the relying party the session hands to WebAuthn', () => {
     await session.ready;
     await session.createWithPasskey();
     expect(failure(store)).toBe(STOP.message);
-    await session.open(knownPasskey);
     await session.restoreWithPasskey();
+    // A record on the device takes the slot: Welcome's open reaches the ceremony for it.
+    await putRecord(knownPasskey);
+    await session.open(knownPasskey);
     expect(seen.create).toEqual([PREVIEW]);
     expect(seen.assert).toEqual([PREVIEW, PREVIEW]);
   });
