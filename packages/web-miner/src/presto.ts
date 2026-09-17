@@ -140,7 +140,7 @@ export const txProvingAfter = (prev: ProverKind | null, phase: PrestoPhase): Pro
   }
 };
 
-/** The prover of the transaction under way; null between proofs. */
+/** Who proves the miner's own claim under way, from its proof's word until it settles; null otherwise. */
 export const txProvingAtom = atom<ProverKind | null>(null);
 
 /** What a proving step says, by who proves it; the times are this machine's: Presto's own bb, or bb.js in the page. */

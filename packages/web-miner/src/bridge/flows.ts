@@ -19,7 +19,7 @@ import { signForward, signRedeem } from '../../../bridge/src/signatures.ts';
 import { forwardArgsFromArchive } from '../../../bridge/src/witness.ts';
 import type { FeeFor } from '../feePayer';
 import type { ProverKind } from '../presto';
-import type { SendHook } from '../wallet.ts';
+import type { ProverSaid, SendHook, Turn } from '../wallet.ts';
 import { depositOnEthereum, forwardOnEthereum, redeemOnEthereum, type WagmiConfig } from './eth.ts';
 import { type BridgeStore, scanNextIndex } from './store.ts';
 
@@ -30,15 +30,12 @@ export interface L2Handles {
   token: Contract;
   fee: FeeFor;
   /**
-   * The wallet's one-shot send hook (`wallet.ts`). Not optional: the record it commits carries the
-   * send's expiry, and without that a send whose hash the node does not hold can never be told
-   * from one it has not been given yet, so its row would wait for ever.
+   * The wallet's turns (`wallet.ts`), whose hook records a send before it is made. Not optional: the
+   * record carries the send's expiry, and without that a send whose hash the node does not hold can
+   * never be told from one it has not been given yet, so its row would wait for ever.
    */
-  beforeNextSend: (hook: SendHook) => () => void;
+  turn: Turn;
 }
-
-/** Told who proves an operation's transaction, as its proof says. */
-export type ProverSaid = (prover: ProverKind) => void;
 
 export interface BridgeContext {
   node: AztecNode;
@@ -63,11 +60,8 @@ export interface BridgeContext {
   preflight?: () => Promise<void>;
   /** The device's clock, for the journal's timestamps; a test's stand-in. */
   now?: () => number;
-  /**
-   * The crossing the wallet's next proof is for, null once its operation ends: whose the proof's
-   * answer is. `said` hears that proof's prover, for the operation's own progress screen.
-   */
-  proving?: (id: string | null, said?: ProverSaid) => void;
+  /** A crossing's own transaction said who proves it: its row's answer. */
+  proved?: (id: string, prover: ProverKind) => void;
 }
 
 const WAIT = { timeout: 600 };
@@ -95,7 +89,6 @@ async function guarded<T>(ctx: BridgeContext, op: () => Promise<T>): Promise<T> 
       await ctx.settled?.();
       return await op();
     } finally {
-      ctx.proving?.(null);
       ctx.release?.('bridge');
     }
   });
@@ -151,9 +144,8 @@ const fresh = (
 /**
  * Sends with the hash, the expiry and the anchor block committed to the journal first: a send may
  * be included after the page is gone, so nothing reaches the network without the record that finds
- * it again (a commit that fails refuses the send). The hook is one-shot and installed around this
- * one call, so nothing else may send while it is armed — the miner's claims are paused and drained
- * by `guarded` before it goes in.
+ * it again (a commit that fails refuses the send). The hook is the turn's own, so it records this
+ * send and no other's; `said` hears who proves it, as the crossing's row does.
  */
 async function sendRecorded(
   ctx: BridgeContext,
@@ -161,7 +153,7 @@ async function sendRecorded(
   send: () => Promise<{ txHash: TxHash }>,
   said?: ProverSaid,
 ): Promise<Crossing> {
-  const remove = ctx.l2().beforeNextSend(async (sent) => {
+  const hook: SendHook = async (sent) => {
     await ctx.store.update(c.id, (x) => ({
       ...x,
       txHash: sent.txHash,
@@ -169,14 +161,14 @@ async function sendRecorded(
       anchorBlock: sent.anchorBlock,
       updatedAt: ctx.now?.() ?? Date.now(),
     }));
+  };
+  const { txHash } = await ctx.l2().turn(send, {
+    hook,
+    said: (prover) => {
+      ctx.proved?.(c.id, prover);
+      said?.(prover);
+    },
   });
-  let txHash: TxHash;
-  ctx.proving?.(c.id, said);
-  try {
-    ({ txHash } = await send());
-  } finally {
-    remove();
-  }
   await ctx.store.update(c.id, (x) =>
     advance(
       { ...x, txHash: txHash.toString() },
@@ -269,10 +261,17 @@ export function claimArrival(ctx: BridgeContext, c: Crossing, timeoutSeconds = 6
       BigInt(c.inboxIndex),
     );
     await waitForL1ToL2MessageReady(ctx.node, leaf, { timeoutSeconds });
-    ctx.proving?.(c.id);
-    const { receipt } = await miner.methods
-      .claim_from_l1(BigInt(c.amount), secrets.secret, ctx.from, BigInt(c.inboxIndex))
-      .send({ from: ctx.from, fee: fee as never, wait: WAIT });
+    const claim = miner.methods.claim_from_l1(
+      BigInt(c.amount),
+      secrets.secret,
+      ctx.from,
+      BigInt(c.inboxIndex),
+    );
+    const { receipt } = await ctx
+      .l2()
+      .turn(() => claim.send({ from: ctx.from, fee: fee as never, wait: WAIT }), {
+        said: (prover) => ctx.proved?.(c.id, prover),
+      });
     return ctx.store.update(c.id, (x) =>
       advance(x, {
         now: ctx.now?.() ?? Date.now(),

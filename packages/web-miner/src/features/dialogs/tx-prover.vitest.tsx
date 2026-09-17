@@ -1,11 +1,10 @@
 // Who a transaction's screens say proves it: a form promises the allowed prover, whatever another
 // transaction's proof answers meanwhile; a progress screen hears its own operation alone; the
-// ledger's claim line reads a proof in flight only when no crossing owns it.
+// ledger's claim line reads the miner's own claim.
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { createStore, Provider } from 'jotai';
 import { afterEach, describe, expect, test } from 'vitest';
 import { initialPresto, type ProverKind, prestoAtom, txProvingAtom } from '../../presto';
-import { provingCrossingAtom } from '../../state';
 import { useOwnProvingWords, usePromisedTxProver, useTxProver } from './use-tx-prover';
 
 afterEach(cleanup);
@@ -53,17 +52,15 @@ describe('the transaction’s prover on its screens', () => {
     expect(text('progress')).toBe(promised);
   });
 
-  test('the ledger’s claim line reads a proof in flight only when no crossing is named for it', () => {
+  test('the ledger’s claim line reads its own claim’s answer, the promise until it has one', () => {
     const store = serving();
-    store.set(provingCrossingAtom, 'B');
-    store.set(txProvingAtom, 'wasm');
     render(
       <Provider store={store}>
         <Ledger />
       </Provider>,
     );
     expect(text('ledger')).toBe('presto');
-    act(() => store.set(provingCrossingAtom, null));
+    act(() => store.set(txProvingAtom, 'wasm'));
     expect(text('ledger')).toBe('wasm');
   });
 });

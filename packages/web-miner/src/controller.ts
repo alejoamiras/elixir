@@ -26,7 +26,7 @@ import { type Deployment, type Fee, readBalance, readEpoch, sendClaim, sendRoll 
 import { chime } from './chime';
 import { amount } from './lib/format';
 import { type Command, type Event, type MinerState, reduce } from './lib/reducer';
-import { type PrestoEndpoint, type ProverKind, prestoAtom, prestoSticky } from './presto';
+import { type PrestoEndpoint, type ProverKind, prestoAtom, prestoSticky, txProvingAtom } from './presto';
 import { settingsAtom } from './settings';
 import { balanceAtom, claimsAtom, epochAtom, logAtom, minerAtom } from './state';
 import type { FromWorker, MineJob, ToWorker } from './worker-protocol';
@@ -656,8 +656,12 @@ export class MinerController {
     this.log(`claiming in epoch ${p.epoch}: proving the claim in-page…`);
     let txHash: string | undefined;
     const sentBefore = this.d.lastSent();
+    this.store.set(txProvingAtom, null);
     try {
-      const sent = await sendClaim(this.d, this.account, this.fee, { ...p, secret, recipient: this.account });
+      const args = { ...p, secret, recipient: this.account };
+      const sent = await sendClaim(this.d, this.account, this.fee, args, (prover) =>
+        this.store.set(txProvingAtom, prover),
+      );
       txHash = sent.txHash;
       const ttl = sent.expiresAt
         ? `expires ${new Date(sent.expiresAt * 1000).toISOString().slice(11, 19)}`
@@ -674,6 +678,8 @@ export class MinerController {
       // An unclassified failure keeps the ticket for Retry; the canary's tampered claim, as it was.
       this.retained = restore ?? (classifyClaimFailure(e) === 'other' ? { ...p, txHash: hash } : null);
       await this.claimFailed(e, p.epoch);
+    } finally {
+      this.store.set(txProvingAtom, null);
     }
   }
 

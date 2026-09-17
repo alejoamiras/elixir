@@ -82,7 +82,6 @@ import {
   prestoEligible,
   prestoProvesTx,
   probePresto,
-  txProvingAfter,
   txProvingAtom,
 } from './presto';
 import { loadSettings, saveSettings } from './settings';
@@ -95,7 +94,6 @@ import {
   epochAtom,
   logAtom,
   mineIntentAtom,
-  provingCrossingAtom,
 } from './state';
 import type { TxProver } from './tx-prover';
 import { ChainViewHeldError } from './wallet';
@@ -155,10 +153,10 @@ async function owning<T>(master: Uint8Array, work: () => Promise<T>): Promise<T>
   }
 }
 
-/** The wallet's send hook, which the bridge cannot do without: see `L2Handles.beforeNextSend`. */
-const hookOf = (d: Deployment): NonNullable<Deployment['beforeNextSend']> => {
-  if (!d.beforeNextSend) throw new Error('this chain view cannot record a send before it is made');
-  return d.beforeNextSend;
+/** The wallet's turns, which the bridge cannot do without: see `L2Handles.turn`. */
+const turnOf = (d: Deployment): NonNullable<Deployment['turn']> => {
+  if (!d.turn) throw new Error('this chain view cannot record a send before it is made');
+  return d.turn;
 };
 
 export class Session {
@@ -189,7 +187,6 @@ export class Session {
   private unsubBalance: (() => void) | undefined;
   private unsubFlip: (() => void) | undefined;
   private unsubTxProver: (() => void) | undefined;
-  private withdrawSaid: ((prover: ProverKind) => void) | undefined;
 
   /**
    * The open attempt: its generation and the AbortController Cancel aborts. `ceremony`: the OS prompt
@@ -680,7 +677,7 @@ export class Session {
           fee: feePayer(c.feeSettings).for('bridge'),
           // Every wallet this app opens is observed, so this holds; a deployment without the hook
           // could not record a send before making it, and the bridge refuses rather than send blind.
-          beforeNextSend: hookOf(c.deployment),
+          turn: turnOf(c.deployment),
         }),
         master,
         connection: { ...this.connection, ethRpcUrl: this.ethRpc },
@@ -709,9 +706,8 @@ export class Session {
   /**
    * The wallet's prover goes to Presto only while the page's own probe says it serves the kernel's
    * scheme and the Worker has not given up on it (sticky): what the pre-proof line promises is what
-   * the SDK is allowed, and a denied or dead Presto is not sent a witness per proof. Its phases name
-   * who proves; a proof's end, thrown or not, clears the attribution (the screens of the transaction
-   * it belongs to keep it themselves).
+   * the SDK is allowed, and a denied or dead Presto is not sent a witness per proof. Who actually
+   * proves is told to the transaction's own turn (`wallet.ts`).
    */
   private bindTxProver(prover: TxProver | undefined): void {
     this.unsubTxProver?.();
@@ -721,15 +717,6 @@ export class Session {
     const mirror = () => prover.setForceLocal(!prestoProvesTx(this.store.get(prestoAtom)));
     mirror();
     this.unsubTxProver = this.store.sub(prestoAtom, mirror);
-    prover.onPhase = (phase) => {
-      const on = txProvingAfter(this.store.get(txProvingAtom), phase);
-      this.store.set(txProvingAtom, on);
-      if (on === null) return;
-      // A crossing's operation names itself; a proof under no name is the withdraw's, or a win's claim.
-      if (this.store.get(provingCrossingAtom) === null) this.withdrawSaid?.(on);
-      else this.bridge?.proverSaid(on);
-    };
-    prover.onProof = () => this.store.set(txProvingAtom, null);
   }
 
   private closeBridge(): void {
@@ -912,15 +899,13 @@ export class Session {
     const c = this.controller;
     if (!c) throw new Error('no open account');
     c.pause('withdraw');
-    this.withdrawSaid = said;
     try {
       return await c.track(async () => {
-        const sent = await sendWithdraw(c.deployment, c.address, c.feeSettings, w);
+        const sent = await sendWithdraw(c.deployment, c.address, c.feeSettings, w, said);
         await c.refresh().catch((e: unknown) => c.log(`balance after withdraw: ${String(e)}`));
         return sent;
       });
     } finally {
-      this.withdrawSaid = undefined;
       c.release('withdraw');
     }
   }

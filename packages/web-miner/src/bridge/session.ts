@@ -69,7 +69,6 @@ import { nodeHealth } from '../../../site/src/browser/node-health.ts';
 import { readBalanceSnapshot, saveBalanceSnapshot } from '../bridge/snapshot.ts';
 import type { Connection } from '../config';
 import { fingerprintOf } from '../keys/classes';
-import type { ProverKind } from '../presto';
 import {
   type BridgeView,
   bridgeAtom,
@@ -78,10 +77,10 @@ import {
   claimsAtom,
   crossingProversAtom,
   journalAtom,
-  provingCrossingAtom,
   rowStatesAtom,
   type VersionFacts,
 } from '../state';
+import type { ProverSaid } from '../wallet.ts';
 import { servedBuild, staleTab } from './env.ts';
 import {
   depositCall,
@@ -99,7 +98,6 @@ import {
   exitToL1,
   type L2Handles,
   nextIndexFromChain,
-  type ProverSaid,
   redeem,
   secretsFor,
   selfForward,
@@ -177,7 +175,6 @@ export class BridgeSession {
   readonly reader: PortalReader;
   private readonly client: PublicClient;
   private readonly ctx: Parameters<typeof sendAhead>[0];
-  private said: ProverSaid | undefined;
   private readonly journal: BridgeStore;
   private readonly reads: FactReads;
   private timer: ReturnType<typeof setInterval> | undefined;
@@ -241,10 +238,7 @@ export class BridgeSession {
         : {}),
       l1Now: () => this.l1Now(),
       preflight: () => this.preflight(),
-      proving: (id, said) => {
-        d.store.set(provingCrossingAtom, id);
-        this.said = id === null ? undefined : said;
-      },
+      proved: (id, prover) => d.store.set(crossingProversAtom, (m) => new Map(m).set(id, prover)),
       ...(d.now ? { now: d.now } : {}),
     };
     this.rollups.set(
@@ -663,17 +657,6 @@ export class BridgeSession {
     this.d.store.set(crossingProversAtom, new Map());
   }
 
-  /**
-   * The wallet's proof under way said who proves it: the answer is the named crossing's, for its
-   * row (kept while it still proves or claims) and for the screen of the operation that sent it.
-   */
-  proverSaid(prover: ProverKind): void {
-    const id = this.d.store.get(provingCrossingAtom);
-    if (id === null) return;
-    this.d.store.set(crossingProversAtom, (m) => new Map(m).set(id, prover));
-    this.said?.(prover);
-  }
-
   /** Resolves once every operation queued so far has settled: what a sign-out waits for before the page goes. */
   drain(): Promise<void> {
     return this.ctx.queue.drain();
@@ -705,13 +688,12 @@ export class BridgeSession {
     return list;
   }
 
-  /** An answer outlives its proof only while its crossing is named, still proving, or still claiming. */
+  /** An answer outlives its proof only while its crossing still proves or claims. */
   private forgetProvers(list: readonly Crossing[]): void {
     const { store } = this.d;
     const held = store.get(crossingProversAtom);
     const proving = new Set(list.filter((c) => c.state === 'proving').map((c) => c.id));
-    const keep = (id: string) =>
-      id === store.get(provingCrossingAtom) || proving.has(id) || store.get(claimingAtom).has(id);
+    const keep = (id: string) => proving.has(id) || store.get(claimingAtom).has(id);
     const kept = new Map([...held].filter(([id]) => keep(id)));
     if (kept.size !== held.size) store.set(crossingProversAtom, kept);
   }
@@ -1074,6 +1056,8 @@ export class BridgeSession {
     });
   }
   async claim(c: Crossing): Promise<Crossing> {
+    // A new attempt starts from the promise: the last attempt's answer may not have been pruned yet.
+    this.d.store.set(crossingProversAtom, (m) => new Map([...m].filter(([id]) => id !== c.id)));
     return this.after(() => claimArrival(this.ctx, c));
   }
   /**

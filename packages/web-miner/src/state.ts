@@ -124,12 +124,6 @@ export const bridgeAtom = atom<BridgeView>({ verdict: { kind: 'unknown' }, readA
 export const rowStatesAtom = atom<Readonly<Record<string, RowState>>>({});
 /** The private claims this page is proving, by crossing id, with when each tap came: the row's chip and the tab's badge read the same set. */
 export const claimingAtom = atom<ReadonlyMap<string, number>>(new Map());
-/**
- * The crossing whose transaction the wallet is proving and sending, named by the bridge session for
- * the length of that operation: `txProvingAtom`'s answer is this row's while set, the miner's own
- * claim's while null.
- */
-export const provingCrossingAtom = atom<string | null>(null);
 /** Who proved each crossing still proving or claiming, by id; the session's, so a list mounted later reads it too. */
 export const crossingProversAtom = atom<ReadonlyMap<string, ProverKind>>(new Map());
 /** The open account's bridge session; null while signed out or on a build without a portal. */

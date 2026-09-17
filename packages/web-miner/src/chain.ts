@@ -12,7 +12,7 @@ import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { buildClaim } from '../../miner-core/src/claim.ts';
 import { readOpenEpoch, readRules } from '../../miner-core/src/epoch.ts';
 import type { EpochInfo } from './lib/reducer';
-import type { SendHook, SentTx } from './wallet';
+import type { ProverSaid, SentTx, Turn } from './wallet';
 
 export type Node = ReturnType<typeof createAztecNodeClient>;
 
@@ -27,9 +27,12 @@ export interface Deployment {
   token: Contract;
   /** The last transaction the wallet behind `miner` handed to the node. */
   lastSent: () => SentTx | undefined;
-  /** A hook for the wallet's next send (`wallet.ts`); absent on a deployment with no observed wallet. */
-  beforeNextSend?: (hook: SendHook) => () => void;
+  /** The wallet's turns (`wallet.ts`); absent on a deployment with no observed wallet. */
+  turn?: Turn;
 }
+
+/** A send takes the wallet's turn where there is one to take. */
+const turnOf = (d: Deployment): Turn => d.turn ?? ((op) => op());
 
 export const loadArtifact = async (name: string): Promise<ContractArtifact> =>
   loadContractArtifact(await (await fetch(`/artifacts/${name}.json`)).json());
@@ -41,7 +44,7 @@ export async function attachDeployment(
   addresses: { miner: string; token: string },
   minerArtifact: ContractArtifact,
   lastSent: () => SentTx | undefined = () => undefined,
-  beforeNextSend?: (hook: SendHook) => () => void,
+  turn?: Turn,
 ): Promise<Deployment> {
   const tokenArtifact = await loadArtifact('token_contract-Token');
   const contracts = [] as Contract[];
@@ -56,7 +59,7 @@ export async function attachDeployment(
     contracts.push(Contract.at(at, art, wallet));
   }
   const [miner, token] = contracts as [Contract, Contract];
-  return { node, miner, token, lastSent, ...(beforeNextSend ? { beforeNextSend } : {}) };
+  return { node, miner, token, lastSent, ...(turn ? { turn } : {}) };
 }
 
 export const readEpoch = async (d: Deployment, from: AztecAddress): Promise<EpochInfo> => {
@@ -97,6 +100,7 @@ export async function sendClaim(
   from: AztecAddress,
   fee: Fee,
   c: ClaimArgs,
+  said?: ProverSaid,
 ): Promise<ClaimSent> {
   const interaction = buildClaim(d.miner, {
     epoch: c.epoch,
@@ -106,7 +110,9 @@ export async function sendClaim(
     proofFields: c.proofFields.map((f) => Fr.fromString(f)),
     recipient: c.recipient,
   });
-  const { txHash } = await interaction.send({ from, fee: fee as never, wait: NO_WAIT });
+  const { txHash } = await turnOf(d)(() => interaction.send({ from, fee: fee as never, wait: NO_WAIT }), {
+    said,
+  });
   const sent = d.lastSent();
   return {
     txHash: txHash.toString(),
@@ -124,7 +130,7 @@ export async function sendClaim(
   };
 }
 export const sendRoll = async (d: Deployment, from: AztecAddress, fee: Fee): Promise<void> => {
-  await d.miner.methods.roll().send({ from, fee: fee as never, wait: { timeout: 900 } });
+  await turnOf(d)(() => d.miner.methods.roll().send({ from, fee: fee as never, wait: { timeout: 900 } }));
 };
 
 export const readBalance = async (d: Deployment, from: AztecAddress): Promise<bigint> =>
@@ -155,12 +161,15 @@ export async function sendWithdraw(
   from: AztecAddress,
   fee: Fee,
   w: Withdrawal,
+  said?: ProverSaid,
 ): Promise<Sent> {
   const call =
     w.mode === 'private'
       ? d.token.methods.transfer_private_to_private(from, w.to, w.amount, 0)
       : d.token.methods.transfer_private_to_public(from, w.to, w.amount, 0);
-  const sent = await call.send({ from, fee: fee as never, wait: { timeout: 900 } });
+  const sent = await turnOf(d)(() => call.send({ from, fee: fee as never, wait: { timeout: 900 } }), {
+    said,
+  });
   const receipt = (sent as { receipt?: { blockNumber?: number; txHash?: { toString(): string } } }).receipt;
   return { block: Number(receipt?.blockNumber ?? 0), txHash: receipt?.txHash?.toString() ?? '' };
 }

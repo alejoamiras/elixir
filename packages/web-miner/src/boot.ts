@@ -371,7 +371,7 @@ export async function startSession(
     markViewBuiltOn(opened.pxeDb, fingerprint);
     opts.signal.throwIfAborted();
     const attach = (o: OpenedWallet) =>
-      attachDeployment(o.wallet, pre.node, connection, pre.minerArtifact, o.lastSent, o.beforeNextSend);
+      attachDeployment(o.wallet, pre.node, connection, pre.minerArtifact, o.lastSent, o.turn);
     const deployment = await attach(opened);
     store.set(rulesAtom, await readEpochRules(deployment, account));
     // A drop that fails leaves the old wallet stopped: reopen the namespace as it is, so the page
