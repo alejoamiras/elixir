@@ -344,3 +344,13 @@ the two PRs between still carried it (and a loaded runner makes it near-certain)
 (the layout effect in `Claim.tsx`, the flag-driven funds mock) committed on `polish-wallet` and
 cascaded; the top's tree did not change. Lesson: a stack is reviewed and checked per PR — a fix found
 late belongs on the arc that introduced the fault, not on the tip.
+
+**Third CI pass: all seven green**, #51 after one rerun: the stats screenshot gate read 22 pixels
+off on `bridge-390.png` (ratio 0.01), on #51 alone, with nothing changed since its two earlier green
+runs there; the rerun passed untouched. A flake in the gate, for the owner: if it recurs, the bridge
+page at 390 has something that is not settled when the shot is taken.
+`e2e.yml` dispatched on the stack's top after the wallet-turn change (run 35269997362): every job
+green — the four miner shards, the whole suite, stats, landing, the rig's migration cases.
+
+`gh pr checks --watch` green on #46, #47, #48, #49, #50, #51, #52. The PRs are drafts (`--auto`'s
+default); merging and the two production deploys are the owner's.
