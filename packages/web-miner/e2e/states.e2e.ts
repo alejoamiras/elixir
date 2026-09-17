@@ -69,7 +69,9 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
   expect(first?.nullifiers).toContain(first?.ticketNullifier);
   expect(first?.nullifiers).toHaveLength(4);
   expect(first?.noteHashes).toHaveLength(2);
-  await expect(page.getByTestId('minted')).toContainText(/minted, privately · block \d+/);
+  await expect(page.getByTestId('ledger')).toContainText(
+    /minted in block [\d,]+↗ \(opens in a new tab\) · 4 tYACA, privately/,
+  );
 
   // The next claim's send is held at the wire until another miner has closed its epoch, so the
   // transaction is real and reverts in public ("stale claim") when it finally lands. The hold must
@@ -102,7 +104,7 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
     },
   );
   await page.getByTestId('start').click();
-  await expect(page.getByTestId('claim-stepper')).toBeVisible({ timeout: 10 * 60_000 });
+  await expect(page.getByTestId('claim-chip')).toBeVisible({ timeout: 10 * 60_000 });
   await expect(page.getByTestId('notice-reverted')).toBeVisible({ timeout: 15 * 60_000 });
   // The verified cause on the win line: the miner's own "stale claim", never assumed.
   await expect(page.getByTestId('ledger')).toContainText(
@@ -110,7 +112,7 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
   );
   await expect(page.getByTestId('notice-reverted')).toContainText('someone closed the epoch first');
   await closing;
-  await expect(page.getByTestId('phase')).toHaveText('mining', { timeout: 5 * 60_000 });
+  await expect(page.getByTestId('phase')).toHaveText(/^mining/, { timeout: 5 * 60_000 });
   await expect(page.getByText('chain view rebuilt')).toBeVisible();
   // At the easy target the next claims come fast: the balance is checked against the claim count,
   // which only holds if the note minted before the reset came back with the rebuilt view.
