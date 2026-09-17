@@ -337,3 +337,10 @@ phases 2–12 name the commits before it** (same subjects, same order; the top's
 old top by those two files only).
 Lesson: a green local `bun test` says nothing about another file order. A suite that replaces a
 process-wide seam restores it in the same file, always.
+
+**Second CI pass: #46–#49 and #52 green, #50 and #51 red** on the claim dialog's no-ETH spec — the
+flake fixed during the cross-arc pass, but fixed on the stack's top while the spec is born in arc 5, so
+the two PRs between still carried it (and a loaded runner makes it near-certain). The same two hunks
+(the layout effect in `Claim.tsx`, the flag-driven funds mock) committed on `polish-wallet` and
+cascaded; the top's tree did not change. Lesson: a stack is reviewed and checked per PR — a fix found
+late belongs on the arc that introduced the fault, not on the tip.
