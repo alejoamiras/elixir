@@ -588,7 +588,7 @@ server; `wallet.vitest` the prover-choice table.
 shows the transaction proof on Presto, the fallback case green; or the spike's blocker written and the phase closed
 as "not built" with the owner told · layers: + e2e live with Presto.
 
-### P12 — The sweep (the stack's last arc runs everything; O, 2026-09-15)
+### P12 ✓ — The sweep (green 2026-09-17, `lessons/phase-12.md`; the stack's last arc runs everything; O, 2026-09-15)
 
 The FAQ and the announcement lines §6 changed (`copy.ts:150` "ends at the upgrade" → "ends when the upgrade
 lands"); the copy-deck check (every screen's strings live in one module per feature and a Vitest spec asserts the
