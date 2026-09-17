@@ -220,3 +220,29 @@ threat model, vestigial code, and both verbatim rules. Before it ran: `ClaimStat
    Codex's "looks fine": formatting is a re-export, not a copy; the version-name adapters have distinct
    inputs; miner and stats share `readDeadline`; `Sheet` keeps the stats calculator; the witness and
    signature bindings; the Presto endpoint policy; the old origin's WASM as a recorded departure.
+
+**Round 2**: REVISE, three findings, all verified and folded (`1d51b9e`).
+1. (medium) The same recovery hole one field over: `proofDeadline: "not-a-date"` passed parsing and
+   threw in `hhmm()` at the first row line. `optionalFields` now takes the five numeric strings
+   (`expiresAt`, `epoch`, `proofDeadline`, `target`, `inboxIndex`) through one `decimal()` check, the two
+   timestamps also bounded in seconds; three test cases.
+2. (medium) A fallback's `onProof('end')` cleared `txProvingAtom` while the dialog's progress screen was
+   still up (it stays until the operation resolves), so the screen flipped from "In your browser" back to
+   "Through Presto ✦" mid-submission, and the rows' estimate back to 5 s. First fix: keep the answer on
+   the atom until the next proof starts or the permission flips — rejected in round 3 (below).
+3. (low) The HeroCard comment still promised the deleted `side` column.
+   Also folded: `Claim.tsx` reports its step in a `useLayoutEffect` — the frame's lock landed one paint
+   after the waiting step, the `bridge-features` flake under load (8/8 green parallel since).
+
+**Round 3**: REVISE, one finding, folded (`be1791d`); everything else "looks fine" (the recovery
+strings satisfy their `BigInt` readers; hashes go to links and caught receipt reads; the layout effect
+synchronises before paint without a loop).
+1. (medium) Round 2's superset misattributed: after a WASM fallback the *next* transaction's form said
+   "in your browser, about 20 s" while `setForceLocal(false)` still let the SDK try Presto first — a
+   historical answer as a false promise about who receives the next private inputs. Now the atom clears
+   at proof end again; `useHeldTxProver()` keeps the answer for the progress screen that saw it (a fresh
+   screen sees null → the promise); `useClaimProvers()` attributes a proof in flight to the earliest-
+   tapped claiming row and drops the entry when the row stops claiming. `tx-prover.vitest` covers
+   fallback → next form → native; `activity-rows` the held row under a page promising Presto.
+   Lesson: "keep the last real answer" sounded like the ✦ rule but the ✦ rule is about what proved,
+   never about what will — a promise is the permission, an answer belongs to its own screen.

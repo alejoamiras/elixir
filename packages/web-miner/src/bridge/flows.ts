@@ -59,6 +59,8 @@ export interface BridgeContext {
   preflight?: () => Promise<void>;
   /** The device's clock, for the journal's timestamps; a test's stand-in. */
   now?: () => number;
+  /** The crossing the wallet's next proof is for, null once its operation ends: whose the proof's answer is. */
+  proving?: (id: string | null) => void;
 }
 
 const WAIT = { timeout: 600 };
@@ -86,6 +88,7 @@ async function guarded<T>(ctx: BridgeContext, op: () => Promise<T>): Promise<T> 
       await ctx.settled?.();
       return await op();
     } finally {
+      ctx.proving?.(null);
       ctx.release?.('bridge');
     }
   });
@@ -160,6 +163,7 @@ async function sendRecorded(
     }));
   });
   let txHash: TxHash;
+  ctx.proving?.(c.id);
   try {
     ({ txHash } = await send());
   } finally {
@@ -244,6 +248,7 @@ export function claimArrival(ctx: BridgeContext, c: Crossing, timeoutSeconds = 6
       BigInt(c.inboxIndex),
     );
     await waitForL1ToL2MessageReady(ctx.node, leaf, { timeoutSeconds });
+    ctx.proving?.(c.id);
     const { receipt } = await miner.methods
       .claim_from_l1(BigInt(c.amount), secrets.secret, ctx.from, BigInt(c.inboxIndex))
       .send({ from: ctx.from, fee: fee as never, wait: WAIT });

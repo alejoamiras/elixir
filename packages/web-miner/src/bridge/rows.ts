@@ -113,7 +113,7 @@ interface Env {
   claiming?: ReadonlyMap<string, number>;
   /** Who proves this page's next transaction; the browser when unknown. */
   prover?: ProverKind;
-  /** Who proved a claim under way, by crossing id: that row's answer over the page's promise. */
+  /** Who proved a crossing's transaction, by id: that row's answer over the page's promise. */
   provers?: ReadonlyMap<string, ProverKind>;
 }
 

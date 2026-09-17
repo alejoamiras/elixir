@@ -75,6 +75,7 @@ import {
   type ClaimRecord,
   claimsAtom,
   journalAtom,
+  provingCrossingAtom,
   rowStatesAtom,
   type VersionFacts,
 } from '../state';
@@ -235,6 +236,7 @@ export class BridgeSession {
         : {}),
       l1Now: () => this.l1Now(),
       preflight: () => this.preflight(),
+      proving: (id) => d.store.set(provingCrossingAtom, id),
       ...(d.now ? { now: d.now } : {}),
     };
     this.rollups.set(
