@@ -121,9 +121,16 @@ function load(name: string): Promise<Uint8Array> {
 
 let originalFetch = globalThis.fetch.bind(globalThis);
 
-/** Tests only: the fetch behind `/crs/<name>`, bound at import (one realm's suites share the module). */
-export const setCrsFetchForTests = (f: typeof globalThis.fetch): void => {
+/**
+ * Tests only: the fetch behind `/crs/<name>`, bound at import. It is also the realm's pass-through
+ * for every other URL and one process runs many suites, so the caller puts it back: the return does.
+ */
+export const setCrsFetchForTests = (f: typeof globalThis.fetch): (() => void) => {
+  const was = originalFetch;
   originalFetch = f;
+  return () => {
+    originalFetch = was;
+  };
 };
 
 function requestedRange(init: RequestInit | undefined, total: number): [number, number] {

@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
 import lock from '../../site/crs.lock.json';
 
 // The fetch behind `/crs/<name>`: every request is answered here, counted with its range header.
@@ -28,7 +28,7 @@ const crsFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 }) as typeof globalThis.fetch;
 // Importing the interceptor wraps this realm's fetch (the guard suite does the same).
 const { setCrsFetchForTests, startCrs, streamVerified } = await import('../src/pinned-crs.ts');
-setCrsFetchForTests(crsFetch);
+afterAll(setCrsFetchForTests(crsFetch));
 
 const hex = (buf: ArrayBuffer) =>
   Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
