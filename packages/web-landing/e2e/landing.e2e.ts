@@ -205,3 +205,21 @@ test('a phone reads, shares the miner link and mines nothing', async ({ page }) 
   await expect(page.getByTestId('hero-mine')).toHaveCount(0);
   await expect(page.getByTestId('ledger-public')).toBeVisible();
 });
+
+test('the bar: the shared brand with its version, the sections, Stats and Mine, testnet said quietly', async ({
+  page,
+}) => {
+  const r = run();
+  await page.goto(pageUrl(r));
+  const bar = page.locator('header').first();
+  await expect(bar.getByTestId('brand-version')).toHaveText(/^V\d+$/);
+  await expect(bar.getByRole('navigation', { name: 'sections' }).getByRole('link')).toHaveText([
+    'Money',
+    'Chain',
+    'How',
+    'Verify',
+  ]);
+  await expect(bar.getByTestId('bar-stats')).toHaveAttribute('href', /\/stats\/$/);
+  await expect(bar.getByTestId('bar-mine')).toHaveAttribute('href', /\/mine\/$/);
+  await expect(bar.locator('[data-slot=badge][data-variant=net]')).toHaveText('testnet');
+});

@@ -1,9 +1,11 @@
 export { Alert, AlertDescription, AlertTitle } from './components/alert.tsx';
 export { AmountBlock, MaxChip } from './components/amount-block.tsx';
+export { AmountField } from './components/amount-field.tsx';
 export { Badge, badgeVariants } from './components/badge.tsx';
 export { Button, buttonVariants } from './components/button.tsx';
 export { Chip } from './components/chip.tsx';
 export { ChipLink } from './components/chip-link.tsx';
+export { ClaimChip, type ClaimStep } from './components/claim-chip.tsx';
 export {
   Dialog,
   DialogClose,
@@ -15,8 +17,10 @@ export {
 } from './components/dialog.tsx';
 export { EpochRail, type EpochRailProps } from './components/epoch-rail.tsx';
 export { ExternalLink } from './components/external-link.tsx';
+export { AccountChip, Brand, Gear, Header, type HeaderProps, type HeaderTab } from './components/header.tsx';
 export { HeroCard, type HeroTone } from './components/hero-card.tsx';
 export { HoldButton } from './components/hold-button.tsx';
+export { Icon, type IconName } from './components/icons.tsx';
 export { Input, Textarea } from './components/input.tsx';
 export { JournalCard, type JournalTone } from './components/journal-card.tsx';
 export { Kpi } from './components/kpi.tsx';
@@ -43,6 +47,7 @@ export {
 } from './components/sheet.tsx';
 export { Skeleton } from './components/skeleton.tsx';
 export { type BarSegment, StackedBar } from './components/stacked-bar.tsx';
+export { type ChipTone, StatusChip } from './components/status-chip.tsx';
 export { type Status, StatusPill, statusLabel } from './components/status-pill.tsx';
 export { fmtSeconds, type Step, Stepper } from './components/stepper.tsx';
 export { Switch } from './components/switch.tsx';

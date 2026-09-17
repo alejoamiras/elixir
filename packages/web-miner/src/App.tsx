@@ -2,16 +2,18 @@ import { useAtomValue } from 'jotai';
 import { type ReactNode, useCallback, useEffect, useSyncExternalStore } from 'react';
 import { proofsPerMinute } from '../../miner-core/src/metrics.ts';
 import { defaultNodeUrl, restoreDefaultNode } from '../../site/src/browser/connection.ts';
+import { shortAddress } from '../../site/src/browser/format.ts';
 import { previewNotice } from '../../site/src/browser/host.ts';
 import { bannerState, nodeHealth, subscribeNodeHealth } from '../../site/src/browser/node-health.ts';
 import { ownVersionName } from '../../site/src/browser/version-name.ts';
 import {
+  AccountChip,
   Alert,
   AlertDescription,
   AlertTitle,
   Badge,
-  cn,
-  Mark,
+  Gear,
+  Header,
   NodeBanner,
   NodeWayOut,
   StatusPill,
@@ -30,6 +32,7 @@ import { SignInDialog } from './features/SignInDialog';
 import { TakingLongDialog } from './features/TakingLongDialog';
 import { useHotkeys, usePauses, useResumeOnOpen } from './features/use-page-behaviour';
 import { pillStatus } from './lib/status';
+import { minerTabs } from './lib/tabs';
 import { prestoAtom } from './presto';
 import { navigate, pathFor, type Route, useRoute } from './routes';
 import { Mine } from './routes/Mine';
@@ -39,15 +42,6 @@ import type { Session } from './session';
 import { useSettings } from './settings';
 import { bootAtom, epochAtom, minerAtom, nowAtom, rulesAtom, signInAtom } from './state';
 import { applyTabStatus } from './tab-status';
-
-/** The stats app lives beside this one on the same origin; standalone builds point at the assembled path. */
-const statsHref = `${(import.meta.env.BASE_URL ?? '/').replace(/\/mine\/?$/, '/')}stats/`;
-const NAV: ({ route: Route; label: string } | { href: string; label: string })[] = [
-  { route: 'mine', label: 'Mine' },
-  { route: 'wallet', label: 'Wallet' },
-  { href: statsHref, label: 'Stats ↗' },
-  { route: 'settings', label: 'Settings' },
-];
 
 function useTabStatus(enabled: boolean) {
   const miner = useAtomValue(minerAtom);
@@ -77,66 +71,43 @@ export function Shell({ children }: { children: ReactNode }) {
   const banner = bannerState(health, now, STALE_AFTER_MS);
   const presto = useAtomValue(prestoAtom);
   const status = boot.phase === 'opening' ? 'opening' : pillStatus(miner, now);
+  // The account chip leads to the money; on the old origin the wallet is the page itself, so to Settings.
+  const accountRoute: Route = isOldRole() ? 'settings' : 'wallet';
   return (
     <div className="mx-auto flex max-w-[1120px] flex-col">
-      <header className="flex h-[52px] items-center gap-5 border-b border-line px-4 md:px-5">
-        <span className="flex items-center gap-2 font-semibold">
-          <Mark state={miner.phase === 'idle' ? 'idle' : 'mining'} />
-          Yacana
-          <span
-            className="rounded-sm border border-line-2 px-1.5 py-0.5 font-mono text-2xs font-medium tracking-[0.08em] text-ink-3"
-            data-testid="brand-version"
-          >
-            {ownVersionName()}
-          </span>
-        </span>
-        <nav className="flex gap-4 text-sm" aria-label="miner">
-          {NAV.map((n) =>
-            'href' in n ? (
-              <a
-                key={n.href}
-                href={n.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="py-1 text-ink-2 hover:text-ink"
-                data-testid="nav-stats"
-              >
-                {n.label}
-              </a>
-            ) : (
-              <a
-                key={n.route}
-                href={`#${n.route}`}
-                aria-current={route === n.route ? 'page' : undefined}
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate(n.route);
-                }}
-                className={cn(
-                  'py-1 text-ink-2 hover:text-ink',
-                  route === n.route && 'text-ink underline underline-offset-[18px]',
-                )}
-              >
-                {n.label}
-              </a>
-            ),
-          )}
-        </nav>
-        <span className="ml-auto flex items-center gap-3">
-          <Badge variant="warn">testnet · fees sponsored</Badge>
-          <StatusPill status={status} data-testid="phase" data-prover={presto.active ?? undefined}>
-            {statusLabel(status)}
-            {presto.active === 'presto' && (
-              <>
-                <span className="text-ink-4">·</span>
-                <span className="text-uv-2" data-testid="native">
-                  <span className="font-semibold text-uv">✦</span> presto
-                </span>
-              </>
+      <Header
+        version={ownVersionName()}
+        homeHref={pathFor('mine')}
+        onHome={() => navigate('mine')}
+        mark={miner.phase === 'idle' ? 'idle' : 'mining'}
+        navLabel="miner"
+        tabs={minerTabs(route, navigate)}
+        right={
+          <>
+            <Badge variant="net">testnet</Badge>
+            <StatusPill status={status} data-testid="phase" data-prover={presto.active ?? undefined}>
+              {statusLabel(status)}
+              {presto.active === 'presto' && (
+                <>
+                  <span className="text-ink-4">·</span>
+                  <span className="text-uv-2" data-testid="native">
+                    <span className="font-semibold text-uv">✦</span> presto
+                  </span>
+                </>
+              )}
+            </StatusPill>
+            {boot.phase === 'ready' && (
+              <AccountChip
+                address={shortAddress(boot.record.account.address)}
+                href={pathFor(accountRoute)}
+                onSelect={() => navigate(accountRoute)}
+                data-testid="account-chip"
+              />
             )}
-          </StatusPill>
-        </span>
-      </header>
+            <Gear href={pathFor('settings')} onSelect={() => navigate('settings')} />
+          </>
+        }
+      />
       <div className="flex flex-col gap-4 p-4 md:p-5">
         {notice && (
           <Alert variant="warn" data-testid="preview-banner">

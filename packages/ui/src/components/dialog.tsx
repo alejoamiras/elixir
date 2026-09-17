@@ -25,19 +25,26 @@ function DialogContent({
   children,
   hideClose,
   overlayClassName,
+  size = 'default',
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   /** A dialog whose only ways out are its own actions (a sign-in, an opening in progress). */
   hideClose?: boolean;
   overlayClassName?: string;
+  /** `tx`: the one 440 px frame every money flow and the account share. */
+  size?: 'default' | 'tx';
 }) {
   return (
     <DialogPrimitive.Portal>
       <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        data-size={size}
         className={cn(
-          'fixed top-1/2 left-1/2 z-50 flex w-full max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-lg border border-line-2 bg-raised p-5 shadow-xl duration-200 motion-safe:data-[state=closed]:animate-out data-[state=closed]:fade-out-0 motion-safe:data-[state=open]:animate-in data-[state=open]:fade-in-0',
+          'fixed top-1/2 left-1/2 z-50 flex w-full -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-lg border border-line-2 bg-raised p-5 shadow-xl duration-200 motion-safe:data-[state=closed]:animate-out data-[state=closed]:fade-out-0 motion-safe:data-[state=open]:animate-in data-[state=open]:fade-in-0',
+          size === 'tx'
+            ? 'max-w-[calc(100vw-32px)] sm:w-[440px] sm:rounded-[10px] sm:px-[26px] sm:pt-[26px] sm:pb-[22px]'
+            : 'max-w-md',
           className,
         )}
         {...props}

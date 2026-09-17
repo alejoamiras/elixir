@@ -12,6 +12,8 @@ const badgeVariants = cva(
         ok: 'border-ok/35 bg-transparent text-ok',
         warn: 'border-warn/45 bg-transparent text-warn uppercase tracking-[0.1em] font-medium',
         bad: 'border-bad/50 bg-transparent text-bad',
+        /** The network's name, said quietly: amber is for warnings. */
+        net: 'border-line-2 bg-transparent text-ink-2 uppercase tracking-[0.1em] font-medium',
       },
     },
     defaultVariants: { variant: 'neutral' },

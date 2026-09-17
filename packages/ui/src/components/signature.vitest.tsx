@@ -104,6 +104,24 @@ describe('Stepper', () => {
     expect(active).toHaveAttribute('aria-current', 'step');
     expect(active?.querySelector('.sr-only')).toHaveTextContent('active');
     expect(screen.getByText(/dropped in 9 min 38 s/)).toBeInTheDocument();
+    // Pending titles are readable (ink-2), not the faint ink-4 the details once were.
+    expect(screen.getByText('waiting for a block')).toHaveClass('text-ink-2');
+    expect(screen.getByText(/dropped in 9 min 38 s/)).toHaveClass('text-ink-3');
+  });
+
+  test('a determinate bar under a step only where the caller knows the progress', () => {
+    render(
+      <Stepper
+        steps={[
+          { id: 'crs', label: 'Loading the proving keys', state: 'active', progress: 0.42, right: '12 MB' },
+          { id: 'notes', label: 'Reading your notes', state: 'pending' },
+        ]}
+      />,
+    );
+    const bar = screen.getByRole('progressbar');
+    expect(bar).toHaveAttribute('aria-valuenow', '42');
+    expect(screen.getByText('12 MB')).toBeInTheDocument();
+    expect(screen.getAllByRole('progressbar')).toHaveLength(1);
   });
 });
 
