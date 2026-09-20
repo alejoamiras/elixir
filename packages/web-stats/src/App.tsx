@@ -9,14 +9,15 @@ import {
 import { duration } from '../../site/src/browser/format.ts';
 import { previewNotice } from '../../site/src/browser/host.ts';
 import { bannerState, nodeHealth, subscribeNodeHealth } from '../../site/src/browser/node-health.ts';
+import { ownVersionName } from '../../site/src/browser/version-name.ts';
 import {
   Alert,
   AlertDescription,
   AlertTitle,
   Badge,
-  cn,
   ExternalLink,
-  Mark,
+  Header,
+  type HeaderTab,
   NodeBanner,
   NodeWayOut,
 } from '../../ui/src/index.ts';
@@ -24,17 +25,31 @@ import { settled } from './beats';
 import { POLL_MS } from './chain';
 import { links } from './explorer';
 import { Announcement } from './features/Announcement';
-import { navigate, type Route, useRoute } from './routes';
+import { navigate, pathFor, type Route, useRoute } from './routes';
 import { Bridge } from './routes/Bridge';
 import { Stats } from './routes/Stats';
 import { Verify } from './routes/Verify';
 import { fixedAtom, historyAtom, nowAtom, statusAtom, unsettledAtom } from './state';
 import type { EpochWindow } from './window';
 
-const NAV: { route: Route; label: string }[] = [
-  { route: 'stats', label: 'Stats' },
-  { route: 'bridge', label: 'Bridge' },
-  { route: 'verify', label: 'Verify' },
+/** Stats · Bridge · Verify · Mine ↗: the miner opens in its own tab, where mining then lives. */
+export const statsTabs = (route: Route, go: (route: Route) => void, minerHref: string): HeaderTab[] => [
+  {
+    label: 'Stats',
+    icon: 'stats',
+    href: pathFor('stats'),
+    current: route === 'stats',
+    onSelect: () => go('stats'),
+  },
+  { label: 'Bridge', href: pathFor('bridge'), current: route === 'bridge', onSelect: () => go('bridge') },
+  {
+    label: 'Verify',
+    icon: 'verify',
+    href: pathFor('verify'),
+    current: route === 'verify',
+    onSelect: () => go('verify'),
+  },
+  { label: 'Mine', icon: 'mine', href: minerHref, external: true, testId: 'nav-mine' },
 ];
 const TITLE: Record<Route, string> = {
   stats: 'Yacana · Stats',
@@ -95,38 +110,20 @@ function Shell({ children, connection }: { children: ReactNode; connection: Conn
   const now = useAtomValue(nowAtom);
   return (
     <div className="mx-auto flex max-w-[1120px] flex-col">
-      <header className="flex h-[52px] items-center gap-5 border-b border-line px-4 md:px-5">
-        <span className="flex items-center gap-2 font-semibold">
-          <Mark state={status.phase === 'ready' ? 'mining' : 'idle'} />
-          Yacana
-        </span>
-        <nav className="flex gap-4 text-sm" aria-label="stats">
-          {NAV.map((n) => (
-            <a
-              key={n.route}
-              href={`#${n.route}`}
-              aria-current={route === n.route ? 'page' : undefined}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate(n.route);
-              }}
-              className={cn(
-                'py-1 text-ink-2 hover:text-ink',
-                route === n.route && 'text-ink underline underline-offset-[18px]',
-              )}
-            >
-              {n.label}
-            </a>
-          ))}
-          <a href={minerHref} className="py-1 text-ink-2 hover:text-ink">
-            Miner ↗
-          </a>
-        </nav>
-        <span className="ml-auto flex items-center gap-3">
-          <Badge variant="warn">testnet</Badge>
-          <Freshness />
-        </span>
-      </header>
+      <Header
+        version={ownVersionName()}
+        homeHref={pathFor('stats')}
+        onHome={() => navigate('stats')}
+        mark={status.phase === 'ready' ? 'mining' : 'idle'}
+        navLabel="stats"
+        tabs={statsTabs(route, navigate, minerHref)}
+        right={
+          <>
+            <Badge variant="net">testnet</Badge>
+            <Freshness />
+          </>
+        }
+      />
       <main className="flex flex-col gap-4 p-4 md:p-5" data-settled={settled(history, unsettled) ? '1' : '0'}>
         {notice && (
           <Alert variant="warn" data-testid="preview-banner">

@@ -9,7 +9,7 @@ const keyOf = (it: TrailItem): string => it.id ?? (typeof it.label === 'string' 
 const COLOR: Record<TrailState, string> = {
   todo: 'text-ink-3',
   on: 'text-ink',
-  done: 'text-ok',
+  done: 'text-ink-3',
   bad: 'text-bad',
   warn: 'text-warn',
 };
@@ -25,14 +25,15 @@ const DOT: Record<TrailState, string> = {
 const CHIP_BORDER: Record<TrailState, string> = {
   todo: 'border-line',
   on: 'border-uv',
-  done: 'border-ok/40',
+  done: 'border-line',
   bad: 'border-bad/50',
   warn: 'border-warn/45',
 };
 
 /**
  * A crossing's stations in order, `›` between them, each with its state: bordered chips under a
- * card's title (`chips`), or the bare mono row inside a journal card (`inline`).
+ * card's title (`chips`), or the bare mono row inside a journal card (`inline`). A done station
+ * carries ✓ where the others carry their light.
  */
 export function Trail({
   items,
@@ -68,7 +69,11 @@ export function Trail({
               COLOR[it.state],
             )}
           >
-            <i aria-hidden className={cn('inline-block size-[5px] shrink-0', DOT[it.state])} />
+            {it.state === 'done' ? (
+              <span aria-hidden>✓ </span>
+            ) : (
+              <i aria-hidden className={cn('inline-block size-[5px] shrink-0', DOT[it.state])} />
+            )}
             {it.label}
           </span>
         </span>

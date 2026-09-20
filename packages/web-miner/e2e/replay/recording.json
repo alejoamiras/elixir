@@ -1,11 +1,11 @@
 {
-  "recordedAt": "2026-09-12T22:01:50.050Z",
+  "recordedAt": "2026-09-15T19:56:21.979Z",
   "deployment": {
     "chainId": "31337",
     "rollupVersion": "3685977955",
     "rollupAddress": "0x4ed7c70f96b99c776995fb64377f0d4ab3b0e1c1",
-    "miner": "0x1c0d2fc65fbd8c5cd0b8ccff9f1ee0c625d1b3818e49cda03a13a50121cca1ff",
-    "token": "0x117d841f41856547e2e7fd338eb8363593cb664f97e407a5163adcd3b099b490",
+    "miner": "0x1613448a334307b9a1bbefdd089f4024526c733292a12e66bf230c2bd1047a21",
+    "token": "0x2aeedff96bd591b0f9de2b5a8e6cbfda1d24526bd0d4953dd7616fcbd3857b7f",
     "minerClassId": "0x09500c6fc6e6e2731eff89f8c8a9de63fa9915f3aa3b9752d51d7b4b9a1ad63a",
     "tokenClassId": "0x10fd5603d57b91daa46f9b8f98ff0cbd4516315ce10e423c05dcfe9638bfecbf"
   },
@@ -15,12 +15,12 @@
     "layoutsSha256": "488aa9cd0616524786a7f494afc95690a0bdf3e32ac7abc504c5fee81fdf27e6",
     "aztecVersion": "5.2.0"
   },
-  "claimsKey": "aztec_getPublicStorageAt [\"latest\",\"0x1c0d2fc65fbd8c5cd0b8ccff9f1ee0c625d1b3818e49cda03a13a50121cca1ff\",\"0x035e3b6ba5d690a33845814e334a4bc18c8b6600cd65d7f1948cbaf3ace02331\"]",
+  "claimsKey": "aztec_getPublicStorageAt [\"latest\",\"0x1613448a334307b9a1bbefdd089f4024526c733292a12e66bf230c2bd1047a21\",\"0x035e3b6ba5d690a33845814e334a4bc18c8b6600cd65d7f1948cbaf3ace02331\"]",
   "answers": {
     "aztec_getBlockData [\"latest\"]": {
       "header": {
         "lastArchive": {
-          "root": "0x11d059ab86371f1046df160e5a9c3d2cf8009a6ce653904fe8a5c8c2fda34014",
+          "root": "0x16c2263420b670fda5153490ea3c9e00791fde91767db7ccd395614387dcfcac",
           "nextAvailableLeafIndex": 8
         },
         "state": {
@@ -34,22 +34,22 @@
               "nextAvailableLeafIndex": 512
             },
             "nullifierTree": {
-              "root": "0x13baeff182835a4d2db5ec72dee55a5711d5c9100f575194543f5b6685f82104",
+              "root": "0x1509a6d7a15e8199f5e0c42af58f80e14b6f90e077059cf898f5aac46e09b19f",
               "nextAvailableLeafIndex": 640
             },
             "publicDataTree": {
-              "root": "0x0f63a144b4364c628f383bdc3bf1c2daeeb7645a015dae0a4ed969ac7b2534b7",
+              "root": "0x1facc9b9bd16baf2477fbb66f60394efe9c9f8f694e89cc124b41636ca5b0775",
               "nextAvailableLeafIndex": 166
             }
           }
         },
-        "spongeBlobHash": "0x099db1275a889ece002fe2b90b13f48d0e1b48239f83ffe061ae7ec4f02f29d7",
+        "spongeBlobHash": "0x179e926ac10cc133a1bfeb3708d80e5dea674f749055cec78bae8c3740092752",
         "globalVariables": {
           "chainId": "0x0000000000000000000000000000000000000000000000000000000000007a69",
           "version": "0x00000000000000000000000000000000000000000000000000000000dbb38f63",
           "blockNumber": 8,
           "slotNumber": "0x0000000000000000000000000000000000000000000000000000000000000008",
-          "timestamp": "1789251273",
+          "timestamp": "1789502958",
           "coinbase": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
           "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000",
           "gasFees": {
@@ -61,37 +61,19 @@
         "totalManaUsed": "0x00000000000000000000000000000000000000000000000000000000000bdd07"
       },
       "archive": {
-        "root": "0x24df13a7492e0e17e9eedf360687a87a1bdb53fc454de1cf9b69529b3b55502e",
+        "root": "0x279ace85486a46248f76df5a98946bda8d99095952107e531de301193ee60b09",
         "nextAvailableLeafIndex": 9
       },
-      "blockHash": "0x3046cec8f4cebfcec65553323fff3b7bdb9e603a8b08293381ea325d57be1a67",
+      "blockHash": "0x0898a6bf97a91befef6b4cfbe73f3d6c0e436156648d11fa77aba2d520a6f1c1",
       "checkpointNumber": 8,
       "indexWithinCheckpoint": 0
     },
     "aztec_getBlockNumber []": 8,
     "aztec_getChainId []": 31337,
-    "aztec_getContract [\"0x117d841f41856547e2e7fd338eb8363593cb664f97e407a5163adcd3b099b490\"]": {
+    "aztec_getContract [\"0x1613448a334307b9a1bbefdd089f4024526c733292a12e66bf230c2bd1047a21\"]": {
       "version": 2,
-      "salt": "0x2a33a8a5ea14ad235855ffb95c90b67e7b5ef20fd1735d4477bfba2d1a1ea080",
-      "deployer": "0x114f44f58b34c4749c55221aee8c3553595972a7bd45ab87aebc5df7b531fd90",
-      "currentContractClassId": "0x10fd5603d57b91daa46f9b8f98ff0cbd4516315ce10e423c05dcfe9638bfecbf",
-      "originalContractClassId": "0x10fd5603d57b91daa46f9b8f98ff0cbd4516315ce10e423c05dcfe9638bfecbf",
-      "initializationHash": "0x018c0a77a2a2a72a5483d61dc3120876891a0c0c7357d14f360eb128941df6be",
-      "immutablesHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "publicKeys": {
-        "npkMHash": "0x14fbaeaeddaa69be81d404c684e78e9f1a786d225faf8de2ce97c92f67d89a26",
-        "ivpkM": "0x00c044b05b6ca83b9c2dbae79cc1135155956a64e136819136e9947fe5e5866c1c1f0ca244c7cd46b682552bff8ae77dea40b966a71de076ec3b7678f2bdb151",
-        "ovpkMHash": "0x0e60ed663a4da5636e2e25a1f1f0c5b27c011c8eaed22bbe61e2a0fd875dd24b",
-        "tpkMHash": "0x082c6d164b0ba073c9dd911100248c8ecd80b03f82f38531856a3c16dadcbef0",
-        "mspkMHash": "0x14a5d4bde495b8c3a9ba4aed0d4870526e46fdff22d341a2f689ac5a50d10356",
-        "fbpkMHash": "0x0f124f07811eebfaaa6d31316a2cc5bf255fa118f720e8ff1f2fc0d4aa46d496"
-      },
-      "address": "0x117d841f41856547e2e7fd338eb8363593cb664f97e407a5163adcd3b099b490"
-    },
-    "aztec_getContract [\"0x1c0d2fc65fbd8c5cd0b8ccff9f1ee0c625d1b3818e49cda03a13a50121cca1ff\"]": {
-      "version": 2,
-      "salt": "0x083082626c491021e7585f90ff8514233276f665bb683d34ccda68940e98a0ad",
-      "deployer": "0x114f44f58b34c4749c55221aee8c3553595972a7bd45ab87aebc5df7b531fd90",
+      "salt": "0x2fddf655d7ca556fd89d18ec488fa432b17ff145191064c0de54018d6d58b785",
+      "deployer": "0x074b5e06af9b9b461323701769904863d5faae3ff564c3f83485b8ca70bcb7c7",
       "currentContractClassId": "0x09500c6fc6e6e2731eff89f8c8a9de63fa9915f3aa3b9752d51d7b4b9a1ad63a",
       "originalContractClassId": "0x09500c6fc6e6e2731eff89f8c8a9de63fa9915f3aa3b9752d51d7b4b9a1ad63a",
       "initializationHash": "0x0c09bb1d01cc7caeda2e9df13554b2db9ea046cc370454439c9e7f2afcece262",
@@ -104,7 +86,25 @@
         "mspkMHash": "0x14a5d4bde495b8c3a9ba4aed0d4870526e46fdff22d341a2f689ac5a50d10356",
         "fbpkMHash": "0x0f124f07811eebfaaa6d31316a2cc5bf255fa118f720e8ff1f2fc0d4aa46d496"
       },
-      "address": "0x1c0d2fc65fbd8c5cd0b8ccff9f1ee0c625d1b3818e49cda03a13a50121cca1ff"
+      "address": "0x1613448a334307b9a1bbefdd089f4024526c733292a12e66bf230c2bd1047a21"
+    },
+    "aztec_getContract [\"0x2aeedff96bd591b0f9de2b5a8e6cbfda1d24526bd0d4953dd7616fcbd3857b7f\"]": {
+      "version": 2,
+      "salt": "0x02f2841d9726ab482946c8e145b41b7b1930e391e4919414b24eb710d9f801ee",
+      "deployer": "0x074b5e06af9b9b461323701769904863d5faae3ff564c3f83485b8ca70bcb7c7",
+      "currentContractClassId": "0x10fd5603d57b91daa46f9b8f98ff0cbd4516315ce10e423c05dcfe9638bfecbf",
+      "originalContractClassId": "0x10fd5603d57b91daa46f9b8f98ff0cbd4516315ce10e423c05dcfe9638bfecbf",
+      "initializationHash": "0x1d3fd932dc51c6cacd26ab6f027fe29c48d8fa0b7df194aa2a15a565cedf4a1a",
+      "immutablesHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "publicKeys": {
+        "npkMHash": "0x14fbaeaeddaa69be81d404c684e78e9f1a786d225faf8de2ce97c92f67d89a26",
+        "ivpkM": "0x00c044b05b6ca83b9c2dbae79cc1135155956a64e136819136e9947fe5e5866c1c1f0ca244c7cd46b682552bff8ae77dea40b966a71de076ec3b7678f2bdb151",
+        "ovpkMHash": "0x0e60ed663a4da5636e2e25a1f1f0c5b27c011c8eaed22bbe61e2a0fd875dd24b",
+        "tpkMHash": "0x082c6d164b0ba073c9dd911100248c8ecd80b03f82f38531856a3c16dadcbef0",
+        "mspkMHash": "0x14a5d4bde495b8c3a9ba4aed0d4870526e46fdff22d341a2f689ac5a50d10356",
+        "fbpkMHash": "0x0f124f07811eebfaaa6d31316a2cc5bf255fa118f720e8ff1f2fc0d4aa46d496"
+      },
+      "address": "0x2aeedff96bd591b0f9de2b5a8e6cbfda1d24526bd0d4953dd7616fcbd3857b7f"
     },
     "aztec_getNodeInfo []": {
       "nodeVersion": "5.2.0",
@@ -142,11 +142,11 @@
         }
       }
     },
-    "aztec_getPublicStorageAt [\"latest\",\"0x1c0d2fc65fbd8c5cd0b8ccff9f1ee0c625d1b3818e49cda03a13a50121cca1ff\",\"0x0000000000000000000000000000000000000000000000000000000000000003\"]": "0x117d841f41856547e2e7fd338eb8363593cb664f97e407a5163adcd3b099b490",
-    "aztec_getPublicStorageAt [\"latest\",\"0x1c0d2fc65fbd8c5cd0b8ccff9f1ee0c625d1b3818e49cda03a13a50121cca1ff\",\"0x000000000000000000000000000000000000000000000000000000000000000f\"]": "0x0000000000000000000000000000000000000000000000000000000000000000",
-    "aztec_getPublicStorageAt [\"latest\",\"0x1c0d2fc65fbd8c5cd0b8ccff9f1ee0c625d1b3818e49cda03a13a50121cca1ff\",\"0x035e3b6ba5d690a33845814e334a4bc18c8b6600cd65d7f1948cbaf3ace02331\"]": "0x0000000000000000000000000000000000000000000000000000000000000000",
-    "aztec_getPublicStorageAt [\"latest\",\"0x1c0d2fc65fbd8c5cd0b8ccff9f1ee0c625d1b3818e49cda03a13a50121cca1ff\",\"0x0b8231a42f1b14f6d5723e64e4e4d3c4061c684f446e5eaaea1b1848ce4fed97\"]": "0x0000000000000000000000000000000080000000000000000000000000000000",
-    "aztec_getPublicStorageAt [\"latest\",\"0x1c0d2fc65fbd8c5cd0b8ccff9f1ee0c625d1b3818e49cda03a13a50121cca1ff\",\"0x0b8231a42f1b14f6d5723e64e4e4d3c4061c684f446e5eaaea1b1848ce4fed98\"]": "0x2cb8cf22166467371544d35114e081b445e47e474faa99e156b2d3a8a2f4f479",
-    "aztec_getPublicStorageAt [\"latest\",\"0x1c0d2fc65fbd8c5cd0b8ccff9f1ee0c625d1b3818e49cda03a13a50121cca1ff\",\"0x0b8231a42f1b14f6d5723e64e4e4d3c4061c684f446e5eaaea1b1848ce4fed99\"]": "0x000000000000000000000000000000000000000000000000000000006aa5cec9"
+    "aztec_getPublicStorageAt [\"latest\",\"0x1613448a334307b9a1bbefdd089f4024526c733292a12e66bf230c2bd1047a21\",\"0x0000000000000000000000000000000000000000000000000000000000000003\"]": "0x2aeedff96bd591b0f9de2b5a8e6cbfda1d24526bd0d4953dd7616fcbd3857b7f",
+    "aztec_getPublicStorageAt [\"latest\",\"0x1613448a334307b9a1bbefdd089f4024526c733292a12e66bf230c2bd1047a21\",\"0x000000000000000000000000000000000000000000000000000000000000000f\"]": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "aztec_getPublicStorageAt [\"latest\",\"0x1613448a334307b9a1bbefdd089f4024526c733292a12e66bf230c2bd1047a21\",\"0x035e3b6ba5d690a33845814e334a4bc18c8b6600cd65d7f1948cbaf3ace02331\"]": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "aztec_getPublicStorageAt [\"latest\",\"0x1613448a334307b9a1bbefdd089f4024526c733292a12e66bf230c2bd1047a21\",\"0x0b8231a42f1b14f6d5723e64e4e4d3c4061c684f446e5eaaea1b1848ce4fed97\"]": "0x0000000000000000000000000000000080000000000000000000000000000000",
+    "aztec_getPublicStorageAt [\"latest\",\"0x1613448a334307b9a1bbefdd089f4024526c733292a12e66bf230c2bd1047a21\",\"0x0b8231a42f1b14f6d5723e64e4e4d3c4061c684f446e5eaaea1b1848ce4fed98\"]": "0x1d19474218e5fba1d335d9fd37910029f0585e1d20eaf12b72f3d683d4795912",
+    "aztec_getPublicStorageAt [\"latest\",\"0x1613448a334307b9a1bbefdd089f4024526c733292a12e66bf230c2bd1047a21\",\"0x0b8231a42f1b14f6d5723e64e4e4d3c4061c684f446e5eaaea1b1848ce4fed99\"]": "0x000000000000000000000000000000000000000000000000000000006aa9a5ee"
   }
 }

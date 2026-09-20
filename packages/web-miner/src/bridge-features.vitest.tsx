@@ -155,9 +155,9 @@ describe('the bridge tile', () => {
       ...(screen.getAllByTestId('crossing')[0] as HTMLElement).querySelectorAll('[data-state]'),
     ];
     expect(stations.map((s) => s.textContent)).toEqual([
-      'burned',
+      '✓ burned',
       'a block',
-      'proven to Ethereum',
+      '✓ proven to Ethereum',
       'claim on Ethereum',
     ]);
     expect(stations.map((s) => s.getAttribute('data-state'))).toEqual(['done', 'todo', 'done', 'on']);
