@@ -1,33 +1,42 @@
 import type { Step } from '../../ui/src/index.ts';
 
-export type StepId = 'key' | 'node' | 'crs' | 'notes' | 'ready';
+/** The four stages the dialog lists; the node's health is the preflight's, not an opening step. */
+export type StepId = 'key' | 'crs' | 'notes' | 'ready';
 
-/** A boot step for the opening dialog: ui's Step, plus the byte progress the keys step carries. */
+/** A boot step for the opening dialog: ui's Step, the keys step's bytes, and when the step went active. */
 export interface OpeningStep extends Step {
   id: StepId;
   bytes?: { loaded: number; total: number };
+  /** Epoch ms when the step went active: the elapsed time shown where no count is known. */
+  since?: number;
+  /** Why the step failed, for the right column. */
+  reason?: string;
 }
 
-/** The bar's width is the finished steps' weights plus the active keys step's byte fraction. */
-const WEIGHTS: Record<StepId, number> = { key: 5, node: 5, crs: 70, notes: 15, ready: 5 };
+/**
+ * The bar's width is the finished steps' weights plus the active keys step's byte fraction. Only the
+ * download has a count, so the bar shows during it alone; the weights size a first visit on a real
+ * network (20 MB of keys against a sync usually under a minute), which a local run cannot measure.
+ */
+const WEIGHTS: Record<StepId, number> = { key: 5, crs: 60, notes: 30, ready: 5 };
 
 const LABEL: Record<StepId, string> = {
-  key: 'your device',
-  node: 'the node answers for this deployment',
-  crs: 'proving keys',
-  notes: 'notes and balance',
-  ready: 'ready to mine',
+  key: 'Passkey confirmed',
+  crs: 'Preparing your miner',
+  notes: 'Syncing your private balance',
+  ready: 'Ready to mine',
 };
 
-/**
- * The five steps. The device (the ceremony) and the node (the preflight) are already done when the
- * opening body first shows; `keyLabel` names the first one for the account's kind (passkey, words).
- */
+/** The first step's label for the account's kind. */
+export const keyStepLabel = (kind: 'passkey' | 'words'): string =>
+  kind === 'words' ? '12 words accepted' : LABEL.key;
+
+/** The four steps; the ceremony (the key step) is the active one until it ends. */
 export function initialSteps(keyLabel = LABEL.key): OpeningStep[] {
   return (Object.keys(WEIGHTS) as StepId[]).map((id) => ({
     id,
     label: id === 'key' ? keyLabel : LABEL[id],
-    state: id === 'key' || id === 'node' ? 'done' : 'pending',
+    state: 'pending',
   }));
 }
 
@@ -42,13 +51,16 @@ export function progressOf(steps: readonly OpeningStep[]): number {
   return Math.min(100, Math.max(0, Math.round(pct)));
 }
 
-/** The active step's fraction is unknown (the notes step): the bar moves inside that step's slice. */
-export const openingIndeterminate = (steps: readonly OpeningStep[]): boolean =>
-  steps.some((s) => s.state === 'active' && s.id === 'notes');
+/** The bar shows only where the count is known: the keys step, while its bytes land. */
+export const barShown = (steps: readonly OpeningStep[]): boolean =>
+  steps.some((s) => s.state === 'active' && s.id === 'crs' && s.bytes !== undefined && s.bytes.total > 0);
 
-/** The notes step's share of the bar, for the stripe's width. */
-export const NOTES_SPAN = WEIGHTS.notes;
-
-/** The keys step's second line while it downloads: MB landed of the pinned total. */
+/** The keys step's right column while it downloads: MB landed of the pinned total. */
 export const bytesDetail = (bytes: { loaded: number; total: number }): string =>
   `${(bytes.loaded / 2 ** 20).toFixed(1)} of ${Math.round(bytes.total / 2 ** 20)} MB`;
+
+/** `m:ss` since a step went active. */
+export const elapsed = (since: number, now: number): string => {
+  const s = Math.max(0, Math.floor((now - since) / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};

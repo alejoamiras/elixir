@@ -71,7 +71,6 @@ test('an old Presto answers: the update row, and Retry re-asks', async ({ page, 
     const notice = page.getByTestId('presto-notice');
     await expect(notice).toContainText('needs an update', { timeout: 60_000 });
     await expect(page.getByTestId('presto-billboard')).toHaveCount(0);
-    await page.getByTestId('not-now').click();
     await render(page, 'row');
     fake.upgrade();
     await page.getByTestId('presto-retry').click();

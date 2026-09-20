@@ -12,6 +12,11 @@ const verified = new Map<string, Promise<Uint8Array>>();
 
 const TOTAL_BYTES = Object.values(files).reduce((n, f) => n + f.bytes, 0);
 
+/** The bytes arrived but are not the pinned asset: not a network failure, and a retry alone does not fix it. */
+export class CrsPinError extends Error {
+  override readonly name = 'CrsPinError';
+}
+
 const hex = (buf: ArrayBuffer) =>
   Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
 
@@ -22,37 +27,56 @@ export interface CrsProgress {
   error?: string;
 }
 
+/** A download in progress or interrupted: the buffer and how far it got, resumed by the next attempt. */
+export interface Download {
+  out: Uint8Array<ArrayBuffer>;
+  at: number;
+}
+
 /**
  * Streams a pinned asset into a buffer of exactly its pinned size, reporting bytes as they land, and
  * checks the whole against the pin at the end: a wrong hash can only be known after the download; a
- * body longer than the pin fails the moment it overflows, never buffered whole.
+ * body longer than the pin fails the moment it overflows, never buffered whole. A 206 continues
+ * `p` from where it stopped; any other answer starts the buffer over (the bytes leave the count).
  */
 export async function streamVerified(
   res: Response,
   pin: { bytes: number; sha256: string },
   name: string,
   onBytes: (n: number) => void,
+  p: Download = { out: new Uint8Array(pin.bytes), at: 0 },
 ): Promise<Uint8Array> {
   if (!res.ok) throw new Error(`crs: /crs/${name} → HTTP ${res.status}`);
   const reader = res.body?.getReader();
   if (!reader) throw new Error(`crs: ${name} came without a body`);
-  const out = new Uint8Array(pin.bytes);
-  let at = 0;
+  if (p.at > 0 && !(res.status === 206 && res.headers.get('content-range')?.startsWith(`bytes ${p.at}-`))) {
+    onBytes(-p.at);
+    p.at = 0;
+  }
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
-    if (at + value.length > pin.bytes) {
+    if (p.at + value.length > pin.bytes) {
       await reader.cancel();
-      throw new Error(`crs: ${name} is longer than its pin (${pin.bytes} bytes)`);
+      throw new CrsPinError(`crs: ${name} is longer than its pin (${pin.bytes} bytes)`);
     }
-    out.set(value, at);
-    at += value.length;
+    p.out.set(value, p.at);
+    p.at += value.length;
     onBytes(value.length);
   }
-  const digest = hex(await crypto.subtle.digest('SHA-256', out.subarray(0, at)));
-  if (at !== pin.bytes || digest !== pin.sha256)
-    throw new Error(`crs: ${name} does not match its pin (${at} bytes, sha256 ${digest})`);
-  return out;
+  return checkPin(p, pin, name);
+}
+
+/** The buffer against its pin: how every download ends, and all a complete buffer needs. */
+async function checkPin(
+  p: Download,
+  pin: { bytes: number; sha256: string },
+  name: string,
+): Promise<Uint8Array> {
+  const digest = hex(await crypto.subtle.digest('SHA-256', p.out.subarray(0, p.at)));
+  if (p.at !== pin.bytes || digest !== pin.sha256)
+    throw new CrsPinError(`crs: ${name} does not match its pin (${p.at} bytes, sha256 ${digest})`);
+  return p.out;
 }
 
 let progress: CrsProgress = { loaded: 0, total: TOTAL_BYTES, done: false };
@@ -62,21 +86,52 @@ const report = (patch: Partial<CrsProgress>) => {
   onProgress?.(progress);
 };
 
+/** What an interrupted download left, per file: the next run asks for the rest. */
+const partials = new Map<string, Download>();
+
 function load(name: string): Promise<Uint8Array> {
   let p = verified.get(name);
   if (!p) {
+    const pin = files[name];
+    const partial = partials.get(name) ?? { out: new Uint8Array(pin?.bytes ?? 0), at: 0 };
     p = (async () => {
-      const pin = files[name];
-      if (!pin) throw new Error(`crs: ${name} is not pinned`);
-      const res = await originalFetch(`/crs/${name}`);
-      return streamVerified(res, pin, name, (n) => report({ loaded: progress.loaded + n }));
+      if (!pin) throw new CrsPinError(`crs: ${name} is not pinned`);
+      // Every byte arrived before the stream broke: nothing to ask for (a range past the end is a 416).
+      if (partial.at === pin.bytes) return checkPin(partial, pin, name);
+      const range = partial.at > 0 ? { headers: { range: `bytes=${partial.at}-` } } : undefined;
+      const res = await originalFetch(`/crs/${name}`, range);
+      return streamVerified(res, pin, name, (n) => report({ loaded: progress.loaded + n }), partial);
     })();
+    // A dropped connection keeps what arrived for the next run's range request; bytes that failed
+    // their pin are worthless and leave the count.
+    p.then(
+      () => partials.delete(name),
+      (e: unknown) => {
+        verified.delete(name);
+        if (e instanceof CrsPinError) {
+          partials.delete(name);
+          report({ loaded: progress.loaded - partial.at });
+        } else partials.set(name, partial);
+      },
+    );
     verified.set(name, p);
   }
   return p;
 }
 
-const originalFetch = globalThis.fetch.bind(globalThis);
+let originalFetch = globalThis.fetch.bind(globalThis);
+
+/**
+ * Tests only: the fetch behind `/crs/<name>`, bound at import. It is also the realm's pass-through
+ * for every other URL and one process runs many suites, so the caller puts it back: the return does.
+ */
+export const setCrsFetchForTests = (f: typeof globalThis.fetch): (() => void) => {
+  const was = originalFetch;
+  originalFetch = f;
+  return () => {
+    originalFetch = was;
+  };
+};
 
 function requestedRange(init: RequestInit | undefined, total: number): [number, number] {
   const header = new Headers(init?.headers).get('range');
@@ -110,8 +165,9 @@ let crsRun: Promise<void> | undefined;
 
 /**
  * Loads and verifies every pinned asset, with byte progress, from the first moment the page runs:
- * off the preflight's path, so the chain shows while the keys come down. One run per context; a bad
- * pin leaves it failed (only a reload retries) and the failure is in the progress and in `crsReady`.
+ * off the preflight's path, so the chain shows while the keys come down. One run at a time; a run
+ * that failed leaves the failure in the progress and in `crsReady`, and the next call fetches again
+ * only what did not verify.
  */
 export function startCrs(listen?: (p: CrsProgress) => void): Promise<void> {
   if (listen) {
@@ -120,11 +176,13 @@ export function startCrs(listen?: (p: CrsProgress) => void): Promise<void> {
   }
   crsRun ??= (async () => {
     try {
+      report({ error: undefined });
       await purgeCrsCache();
       await Promise.all(Object.keys(files).map(load));
       report({ loaded: TOTAL_BYTES, done: true });
     } catch (e) {
       report({ error: e instanceof Error ? e.message : String(e) });
+      crsRun = undefined;
       throw e;
     }
   })();

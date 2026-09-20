@@ -17,7 +17,15 @@ export {
 } from './components/dialog.tsx';
 export { EpochRail, type EpochRailProps } from './components/epoch-rail.tsx';
 export { ExternalLink } from './components/external-link.tsx';
-export { AccountChip, Brand, Gear, Header, type HeaderProps, type HeaderTab } from './components/header.tsx';
+export {
+  AccountChip,
+  Avatar,
+  Brand,
+  Gear,
+  Header,
+  type HeaderProps,
+  type HeaderTab,
+} from './components/header.tsx';
 export { HeroCard, type HeroTone } from './components/hero-card.tsx';
 export { HoldButton } from './components/hold-button.tsx';
 export { Icon, type IconName } from './components/icons.tsx';

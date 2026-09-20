@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures.ts';
-import { BOOT_MS, run } from './helpers.ts';
+import { BOOT_MS, openDialog, run } from './helpers.ts';
 
 const stats = async (proxy: string) => (await (await fetch(`${proxy}/__stats`)).json()) as { count: number };
 const setMode = (proxy: string, mode: 'ok' | 'down') =>
@@ -23,7 +23,8 @@ test('a live switch A → B while mining, a claim after it, and the banner on a 
     r.proxyA,
   );
   await page.goto(`${r.baseURL}/`);
-  await expect(page.getByTestId('key-screen')).toBeVisible({ timeout: BOOT_MS });
+  await openDialog(page);
+  await page.getByTestId('start-create').click();
   await page.getByTestId('use-words').click();
   await page.getByTestId('words-skip').click();
   await expect(page.getByTestId('account')).toBeVisible({ timeout: BOOT_MS });

@@ -55,13 +55,13 @@ export function BalanceCard({ className }: { className?: string }) {
             </Button>
           ) : (
             <Button
-              variant="uv"
+              variant="ghost"
               size="sm"
               disabled={opening}
               onClick={() => openSignIn(true)}
               data-testid="sign-in-balance"
             >
-              Sign in
+              Log in
             </Button>
           )}
           <Button variant="ghost" size="sm" disabled={!ready} onClick={() => navigate('wallet')}>

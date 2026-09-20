@@ -216,8 +216,11 @@ export function loadSiteConfig(opts: {
     exampleClaim: opts.exampleClaim ?? null,
   };
   config.record = recordOf(env, deployment, config);
-  config.migration = blockOf<MigrationRecord>(env, 'VITE_MIGRATION', config.record.migration);
-  config.bridge = blockOf<BridgeRecord>(env, 'VITE_BRIDGE', config.record.bridge);
+  // An e2e build carries only the blocks its run hands it: the profile's bridge would point a
+  // throwaway deployment's page at the live portal, whose Registry then reads as a flip.
+  const own = mode === 'e2e' ? undefined : config.record;
+  config.migration = blockOf<MigrationRecord>(env, 'VITE_MIGRATION', own?.migration);
+  config.bridge = blockOf<BridgeRecord>(env, 'VITE_BRIDGE', own?.bridge);
   config.firstEpoch = firstEpochOf(pick, config.record);
   assertExampleClaim(config);
   if (mode === 'production') assertProductionConfig(config, siteEnv);

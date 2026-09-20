@@ -2,17 +2,26 @@ import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import type { Crossing } from '../../../bridge/src/journal.ts';
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { Badge, Button, ExternalLink, Kpi, Tile, TileBoundary, TileHeader } from '../../../ui/src/index.ts';
+import {
+  Badge,
+  Button,
+  ExternalLink,
+  Kpi,
+  Note,
+  Tile,
+  TileBoundary,
+  TileHeader,
+} from '../../../ui/src/index.ts';
 import { bridgeRecord } from '../bridge/env';
 import { links } from '../explorer';
 import { ArrivalCard } from '../features/ArrivalCard';
+import { WordsBackup } from '../features/account/Words';
 import { BridgeProviders } from '../features/BridgeProviders';
 import { BridgeTile } from '../features/BridgeTile';
 import { DepositSheet, HeldSheet } from '../features/DepositSheet';
 import { SendSheet } from '../features/SendSheet';
 import { SignOutDialog } from '../features/SignOutDialog';
 import { ToEthereumSheet } from '../features/ToEthereumSheet';
-import { WordsBackup } from '../features/WordsScreens';
 import type { MasterRecord } from '../keys/store';
 import { amount, shortAddress } from '../lib/format';
 import { useTileLog } from '../lib/tile-log';
@@ -24,12 +33,15 @@ import { balanceAtom, bootAtom, bridgeAtom, claimsAtom } from '../state';
 export function BalanceTile({
   balance,
   claims,
+  typedWords,
   onSend,
   onToEthereum,
   onDeposit,
 }: {
   balance: bigint | null;
   claims: number;
+  /** The account was opened by typing 12 words: an empty balance may be a mistyped word's account. */
+  typedWords?: boolean;
   onSend: () => void;
   onToEthereum: () => void;
   onDeposit: () => void;
@@ -51,6 +63,11 @@ export function BalanceTile({
         size="lg"
         sub={`${claims} ${claims === 1 ? 'claim' : 'claims'} · nothing about this balance is public`}
       />
+      {typedWords && balance === 0n && (
+        <Note title="Expected a balance?" className="mt-4" data-testid="empty-hint">
+          A mistyped word opens a different, empty account: check your words.
+        </Note>
+      )}
       <div className="mt-4 flex flex-wrap gap-2">
         <Button variant="primary" onClick={onSend} disabled={!balance} data-testid="withdraw">
           Send
@@ -173,14 +190,18 @@ export function Wallet({ session }: { session: Session }) {
   const boot = useAtomValue(bootAtom);
   const balance = useAtomValue(balanceAtom);
   const claims = useAtomValue(claimsAtom);
-  const [send, setSend] = useState(() => takeIntent() === 'send');
+  const [intent] = useState(takeIntent);
+  const [send, setSend] = useState(intent === 'send');
   const [exit, setExit] = useState(false);
   const [deposit, setDeposit] = useState<false | { resume?: Crossing }>(false);
   const [redeem, setRedeem] = useState<Crossing | null>(null);
   const [forward, setForward] = useState<Crossing | null>(null);
   const [signOut, setSignOut] = useState(false);
-  // A backup opened from the sign-out dialog returns to the dialog once the words are confirmed.
-  const [backup, setBackup] = useState<false | 'account' | 'sign-out'>(false);
+  // A backup opened from the sign-out dialog (here, or Welcome's before the account opened) returns
+  // to the dialog once the words are confirmed.
+  const [backup, setBackup] = useState<false | 'account' | 'sign-out'>(
+    intent === 'backup' ? 'sign-out' : false,
+  );
   if (boot.phase !== 'ready') return null;
   const account = boot.account;
   const words = session.openWords;
@@ -189,6 +210,7 @@ export function Wallet({ session }: { session: Session }) {
       <Tile>
         <WordsBackup
           phrase={words}
+          eyebrow="account · 12 words"
           onDone={async () => {
             await session.markBackedUp();
             setSignOut(backup === 'sign-out');
@@ -203,6 +225,7 @@ export function Wallet({ session }: { session: Session }) {
         <BalanceTile
           balance={balance}
           claims={claims.length}
+          typedWords={boot.typedWords}
           onSend={() => setSend(true)}
           onToEthereum={() => setExit(true)}
           onDeposit={() => setDeposit({})}
@@ -260,7 +283,6 @@ export function Wallet({ session }: { session: Session }) {
       />
       <SignOutDialog
         record={boot.record}
-        balance={balance}
         open={signOut}
         onOpenChange={setSignOut}
         onSignOut={() => session.forget(boot.record)}

@@ -99,7 +99,7 @@ function harness() {
   const store = createStore();
   const session = new Session(store, { nodeUrl: 'x', miner: 'm', token: 't' } as never, {
     preflightImpl: async () => {
-      store.set(bootAtom, { phase: 'signedOut', records: [] });
+      store.set(bootAtom, { phase: 'signedOut', slot: { record: null, staged: null, revision: 0 } });
       return { publicEpoch: { start() {}, stop: async () => {} }, presto: fake.endpoint } as never;
     },
   });

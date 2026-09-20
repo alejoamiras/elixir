@@ -24,7 +24,7 @@ const cores = () => navigator.hardwareConcurrency || 2;
 import { openPip, pipSupported } from '../pip';
 import { prestoAtom } from '../presto';
 import { useSettings } from '../settings';
-import { bootAtom, epochAtom, minerAtom, nowAtom, signInAtom } from '../state';
+import { bootAtom, epochAtom, mineIntentAtom, minerAtom, nowAtom, signInAtom } from '../state';
 import { NoticeCard } from './ClaimStatus';
 
 /** The user's Start goes through the session (it re-asks Presto); the controller alone stops. */
@@ -127,6 +127,7 @@ function StartControl({
   onStart,
 }: Controls & { ready: boolean; opening: boolean; miner: MinerState }) {
   const openSignIn = useSetAtom(signInAtom);
+  const setIntent = useSetAtom(mineIntentAtom);
   if (opening)
     return (
       <Button size="sm" variant="primary" disabled data-testid="start-opening">
@@ -135,8 +136,16 @@ function StartControl({
     );
   if (!ready)
     return (
-      <Button size="sm" variant="uv" data-testid="sign-in-mine" onClick={() => openSignIn(true)}>
-        Sign in to mine
+      <Button
+        size="sm"
+        variant="primary"
+        data-testid="sign-in-mine"
+        onClick={() => {
+          setIntent(true);
+          openSignIn(true);
+        }}
+      >
+        Start mining
       </Button>
     );
   if (miner.phase === 'mining' || miner.phase === 'claiming')

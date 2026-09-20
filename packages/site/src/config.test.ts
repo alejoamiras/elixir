@@ -281,6 +281,15 @@ describe('site config', () => {
     });
     expect(handed.bridge?.portal).toBe(bridge.portal);
     expect(handed.migration?.toIndex).toBe('1');
+    // An e2e run without a portal gets no bridge, whatever the profile's record carries.
+    const throwaway = loadSiteConfig({
+      ...base,
+      mode: 'e2e',
+      deployment: { ...deployment, bridge, migration },
+      env: { VITE_BRIDGE: '', VITE_MIGRATION: '' },
+    });
+    expect(throwaway.bridge).toBeNull();
+    expect(throwaway.migration).toBeNull();
     // Production never takes them from the environment: the record's block, or none, whatever the env says.
     const ignored = loadSiteConfig({
       ...base,

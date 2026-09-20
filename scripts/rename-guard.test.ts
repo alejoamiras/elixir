@@ -94,9 +94,12 @@ const COPY_EXEMPT_FILES = [
   /\/keys\/passkey\.ts$/, // WebAuthn's literal 'public-key'
   /\/shims\//,
 ];
-/** Compounds where "key" is the cryptographic object, not the account. */
+/**
+ * Compounds and phrases where "key" is the cryptographic object, not the account: a passkey that is
+ * "the only key" to an account, a device that "can't derive the key" from its passkeys.
+ */
 const KEY_COMPOUNDS =
-  /\b(passkeys?|proving keys?|verifier key|device key|admin key|spend key|public-key|secret key|signing key|private key|key material|api key)\b/gi;
+  /\b(passkeys?|proving keys?|verifier key|device key|admin key|spend key|public-key|secret key|signing key|private key|key material|api key|the only key|derive (?:a|the) key)\b/gi;
 /** The word on its own; `yacana-keys`, `yacana-key:` and `public-key` are joined tokens, not the word. */
 const ACCOUNT_KEY = /(?<![\w:-])keys?(?![\w:-])/i;
 /**

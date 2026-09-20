@@ -21,7 +21,7 @@ function harness(startImpl: (...a: never[]) => Promise<Started>) {
   const session = new Session(store, { nodeUrl: 'x', miner: 'm', token: 't' } as never, {
     startImpl: startImpl as never,
     preflightImpl: async () => {
-      store.set(bootAtom, { phase: 'signedOut', records: [] });
+      store.set(bootAtom, { phase: 'signedOut', slot: { record: null, staged: null, revision: 0 } });
       return pre.pre;
     },
   });
@@ -278,8 +278,8 @@ describe('the opening attempt', () => {
     });
     await session.ready;
     await runAttempt(session, ceremony);
-    const boot = store.get(bootAtom) as { phase: string; error?: string };
+    const boot = store.get(bootAtom) as { phase: string; error?: { message: string } };
     expect(boot.phase).toBe('signedOut');
-    expect(boot.error).toMatch(/did not answer/);
+    expect(boot.error?.message).toMatch(/did not answer/);
   });
 });
