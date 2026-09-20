@@ -1,7 +1,8 @@
 import type * as React from 'react';
+import type { ChipTone } from '../bridge-types.ts';
 import { cn } from '../lib/cn.ts';
 
-export type ChipTone = 'ok' | 'on' | 'warn' | 'bad' | 'dim' | 'done';
+export type { ChipTone };
 
 const TONE: Record<ChipTone, string> = {
   ok: 'border-ok/45 text-ok [&>i]:bg-ok',

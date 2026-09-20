@@ -39,7 +39,7 @@ the next version is deployed.
 ## The day before: close deposits into V5
 
 3. `bun run bridge -- close-deposits <V5>` (one-way). A deposit into a version about to stop would strand its Inbox
-   message; the miner's deposit sheet reads the portal and refuses before it asks the wallet.
+   message; the miner's deposit dialog reads the portal and refuses before it asks the wallet.
 
 ## Minute one after the flip
 

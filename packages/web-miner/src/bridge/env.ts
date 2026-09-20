@@ -15,6 +15,12 @@ export const migrationRecord = (): MigrationRecord | null =>
 /** The versioned origin's build: it restores accounts and moves what is left, and mines nothing. */
 export const isOldRole = (): boolean => import.meta.env.VITE_APP_ROLE === 'old';
 
+/** A build that continues an earlier version's epochs: send-aheads from that version land here. */
+export const isContinuation = (): boolean =>
+  !!import.meta.env.VITE_DEPLOYMENT_RECORD &&
+  (JSON.parse(import.meta.env.VITE_DEPLOYMENT_RECORD) as { continuation?: unknown }).continuation !==
+    undefined;
+
 /** A version by name: this build's from the record, the canonical's from the view; any other has no name here. */
 export const versionNameOf = (
   number: string | bigint | undefined,
@@ -25,6 +31,18 @@ export const versionNameOf = (
   if (n === import.meta.env.VITE_ROLLUP_VERSION) return ownVersionName();
   if (canonical && canonical.version.toString() === n) return `V${canonical.index}`;
   return 'another version';
+};
+
+/**
+ * The version after this one, by name: the canonical one when it is already another than this
+ * build's, the announced upgrade's otherwise. Unnamed until one of the two says so — the page never
+ * invents a number for a version nobody has registered.
+ */
+export const nextVersionName = (canonical?: { version: bigint; index: bigint }): string => {
+  if (canonical && canonical.version.toString() !== import.meta.env.VITE_ROLLUP_VERSION)
+    return `V${canonical.index}`;
+  const m = migrationRecord();
+  return m ? `V${m.toIndex}` : 'the next version';
 };
 
 export interface ServedBuild {

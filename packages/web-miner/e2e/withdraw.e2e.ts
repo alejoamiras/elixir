@@ -67,9 +67,10 @@ test('withdraw: private to a second key on this device, public to an address', a
   await page.getByRole('link', { name: 'Wallet' }).click();
   await page.getByTestId('withdraw').click();
   await page.getByTestId('withdraw-to').fill(b);
+  // Leaving the address runs the probe (B is an account the chain knows: no note); one screen, the
+  // button carries the amount and the mode.
   await page.getByTestId('withdraw-amount').fill('1');
-  await page.getByTestId('withdraw-review').click();
-  await expect(page.getByTestId('withdraw-send')).toHaveText('Send privately');
+  await expect(page.getByTestId('withdraw-send')).toHaveText(/^Send 1 \S+ privately$/);
   await expect(page.getByTestId('unknown-recipient')).toHaveCount(0);
   await page.getByTestId('withdraw-send').click();
   await expect(page.getByTestId('withdraw-sent')).toBeVisible({ timeout: 10 * 60_000 });
@@ -83,9 +84,8 @@ test('withdraw: private to a second key on this device, public to an address', a
   await page.getByTestId('withdraw-to').fill(b);
   await page.getByTestId('withdraw-amount').fill('1');
   await page.getByRole('radio', { name: /Publicly/ }).click();
-  await page.getByTestId('withdraw-review').click();
   await expect(page.getByTestId('public-warning')).toContainText('This will be public.');
-  await expect(page.getByTestId('withdraw-send')).toHaveText('Send publicly');
+  await expect(page.getByTestId('withdraw-send')).toHaveText(/^Send 1 \S+ publicly$/);
   await page.getByTestId('withdraw-send').click();
   await expect(page.getByTestId('withdraw-sent')).toBeVisible({ timeout: 10 * 60_000 });
   await page.getByRole('button', { name: 'Done' }).click();

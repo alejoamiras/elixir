@@ -1,3 +1,5 @@
+export type { RowAction, RowLine } from './bridge-types.ts';
+export { ActivityRow, type ActivityRowProps } from './components/activity-row.tsx';
 export { Alert, AlertDescription, AlertTitle } from './components/alert.tsx';
 export { AmountBlock, MaxChip } from './components/amount-block.tsx';
 export { AmountField } from './components/amount-field.tsx';
@@ -30,7 +32,6 @@ export { HeroCard, type HeroTone } from './components/hero-card.tsx';
 export { HoldButton } from './components/hold-button.tsx';
 export { Icon, type IconName } from './components/icons.tsx';
 export { Input, Textarea } from './components/input.tsx';
-export { JournalCard, type JournalTone } from './components/journal-card.tsx';
 export { Kpi } from './components/kpi.tsx';
 export { Label } from './components/label.tsx';
 export { Mark } from './components/mark.tsx';

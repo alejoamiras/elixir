@@ -2,6 +2,8 @@
 // without pulling the components in.
 import type * as React from 'react';
 
+export type ChipTone = 'ok' | 'on' | 'warn' | 'bad' | 'dim' | 'done';
+
 export type TrailState = 'todo' | 'on' | 'done' | 'bad' | 'warn';
 
 export interface TrailItem {
@@ -29,4 +31,23 @@ export interface BarSegment {
   value: number;
   /** A CSS colour: a token (`var(--uv)`) or any value. */
   color: string;
+}
+
+export type RowAction = 'claim' | 'claim-l1' | 'forward' | 'redeem' | 'again' | 'settings';
+
+/**
+ * Everything the activity row says about one crossing, built by the app: the row renders it and
+ * decides nothing. `action` is the button; `action.disabled` is the reason it cannot run yet — a
+ * money button that is off says why. `also` is a second, quieter way out, a link in the line under
+ * the row, and `note` the rest of that line: what the way out is bounded by.
+ */
+export interface RowLine {
+  chip: { word: string; tone: ChipTone };
+  sentence: string;
+  trail: TrailItem[];
+  action?: { kind: RowAction; label: string; disabled?: string };
+  also?: { kind: RowAction; label: string };
+  note?: string;
+  /** Work under way on this page, 0–1 against its usual time: a bar under the sentence. */
+  progress?: number;
 }

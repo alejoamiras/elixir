@@ -4,21 +4,19 @@ import { TileBoundary } from '../../../ui/src/index.ts';
 import { isOldRole } from '../bridge/env';
 import { BalanceCard } from '../components/BalanceCard';
 import type { MinerController } from '../controller';
-import { ArrivalCard } from '../features/ArrivalCard';
 import { BridgeProviders } from '../features/BridgeProviders';
 import { NoticeCard } from '../features/ClaimStatus';
+import { SendAheadDialog } from '../features/dialogs/SendAhead';
 import { LedgerTile } from '../features/LedgerTile';
 import { KpiTiles, LoopTile } from '../features/LoopTile';
 import { MigrationCard } from '../features/MigrationCard';
 import { OldApp } from '../features/OldApp';
 import { RailTile } from '../features/RailTile';
-import { SendAheadSheet } from '../features/SendAheadSheet';
 import { useTileLog } from '../lib/tile-log';
-import { navigate } from '../routes';
 import type { Session } from '../session';
 import { balanceAtom, bootAtom, minerAtom } from '../state';
 
-/** The guided path over the cockpit: the migration card and what has arrived, with the send-ahead sheet. */
+/** The guided path over the cockpit: the upgrade card with the send-ahead dialog; what arrives shows in the Wallet. */
 function GuidedPath({ session }: { session: Session }) {
   const onError = useTileLog();
   const balance = useAtomValue(balanceAtom);
@@ -28,14 +26,7 @@ function GuidedPath({ session }: { session: Session }) {
       <TileBoundary name="migration" onError={onError} className="md:col-span-2 xl:col-span-4">
         <MigrationCard onSendAhead={() => setAhead(true)} className="md:col-span-2 xl:col-span-4" />
       </TileBoundary>
-      <TileBoundary name="arrivals" onError={onError} className="md:col-span-2 xl:col-span-4">
-        <ArrivalCard
-          session={session}
-          onResume={() => navigate('wallet')}
-          className="md:col-span-2 xl:col-span-4"
-        />
-      </TileBoundary>
-      <SendAheadSheet session={session} balance={balance ?? 0n} open={ahead} onOpenChange={setAhead} />
+      <SendAheadDialog session={session} balance={balance ?? 0n} open={ahead} onOpenChange={setAhead} />
     </BridgeProviders>
   );
 }

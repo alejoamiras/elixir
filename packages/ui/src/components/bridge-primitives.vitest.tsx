@@ -1,8 +1,8 @@
-import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, test } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, test, vi } from 'vitest';
+import { ActivityRow } from './activity-row.tsx';
 import { AmountBlock, MaxChip } from './amount-block.tsx';
 import { HeroCard } from './hero-card.tsx';
-import { JournalCard } from './journal-card.tsx';
 import { Note } from './note.tsx';
 import { StackedBar } from './stacked-bar.tsx';
 import { Stepper } from './stepper.tsx';
@@ -60,36 +60,97 @@ describe('the bridge primitives', () => {
     expect(screen.getByRole('button', { name: /Send 48/ })).toBeTruthy();
     expect(card.querySelector('[data-slot="trail"]')).toBeTruthy();
   });
+});
 
-  test('a journal card: the amount and its unit, who, when, the inline trail, the line and the actions', () => {
+describe('the activity row', () => {
+  test('the amount and where it goes, the chip and the time, the sentence, the trail, one action and Details', () => {
+    const onAction = vi.fn();
+    const line = {
+      chip: { word: 'ready to claim', tone: 'ok' as const },
+      sentence: 'Ready. Claim it on Ethereum with a wallet on Sepolia; that wallet pays the gas in ETH.',
+      trail: [
+        { label: 'sent', state: 'done' as const },
+        { label: 'claim on Ethereum', state: 'on' as const },
+      ],
+      action: { kind: 'claim-l1' as const, label: 'Claim on Ethereum' },
+    };
     render(
       <ul>
-        <JournalCard
+        <ActivityRow
           amount="8.00"
           unit="tYACA"
-          who="to Ethereum · 0x9f3a…21c0"
+          direction="→ Ethereum · 0x9f3a…21c0"
           when="18:52 · Sep 11"
-          trail={[
-            { label: 'burned', state: 'done' },
-            { label: 'proven to Ethereum', state: 'on' },
-          ]}
-          line={
-            <>
-              Being proven to Ethereum with epoch 412. <b>Nothing to do.</b>
-            </>
-          }
-          actions={<a href="#e">Etherscan ↗</a>}
-          tone="on"
-          data-testid="jc"
+          line={line}
+          onAction={onAction}
+          details={<a href="#e">Etherscan ↗</a>}
+          data-testid="row"
         />
       </ul>,
     );
-    const card = screen.getByTestId('jc');
-    expect(card.getAttribute('data-tone')).toBe('on');
-    expect(card.textContent).toContain('8.00');
-    expect(card.textContent).toContain('18:52 · Sep 11');
-    expect(card.querySelector('[data-variant="inline"]')).toBeTruthy();
+    const row = screen.getByTestId('row');
+    // A row that waits for the user is the one drawn in colour.
+    expect(row.getAttribute('data-state')).toBe('ok');
+    expect(row.textContent).toContain('8.00');
+    expect(row.textContent).toContain('18:52 · Sep 11');
+    expect(screen.getByTestId('crossing-word').textContent).toBe('ready to claim');
+    expect(screen.getByTestId('row-line').textContent).toMatch(/^Ready\./);
+    expect(row.querySelector('[data-variant="inline"]')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Claim on Ethereum' }));
+    expect(onAction).toHaveBeenCalledWith('claim-l1');
+    // Details is closed until asked, and the links are the disclosure's.
+    expect(screen.queryByRole('link', { name: /Etherscan/ })).toBeNull();
+    fireEvent.click(screen.getByTestId('row-details'));
     expect(screen.getByRole('link', { name: /Etherscan/ })).toBeTruthy();
+  });
+
+  test('an activity row with a reason keeps its button off and says why; a collapsed row keeps only its first line', () => {
+    const line = {
+      chip: { word: 'held for V6', tone: 'on' as const },
+      sentence: 'Held on Ethereum for V6.',
+      trail: [{ label: 'sent', state: 'done' as const }],
+      action: {
+        kind: 'forward' as const,
+        label: 'Forward to V6',
+        disabled: 'Connect a wallet on Sepolia first.',
+      },
+      also: { kind: 'redeem' as const, label: 'or redeem it on Ethereum' },
+      note: 'while the bridge is open.',
+    };
+    const onAction = vi.fn();
+    render(
+      <ul>
+        <ActivityRow
+          amount="3.50"
+          unit="tYACA"
+          direction="→ V6"
+          when="Sep 14"
+          line={line}
+          onAction={onAction}
+          data-testid="row"
+        />
+        <ActivityRow
+          amount="0.50"
+          unit="YACA"
+          direction="→ here"
+          when="Sep 1"
+          line={line}
+          collapsed
+          data-testid="old"
+        />
+      </ul>,
+    );
+    expect((screen.getByRole('button', { name: 'Forward to V6' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('row-disabled').textContent).toBe('Connect a wallet on Sepolia first.');
+    expect(screen.getByTestId('row').textContent).toContain(
+      'or redeem it on Ethereum while the bridge is open.',
+    );
+    fireEvent.click(screen.getByTestId('row-redeem'));
+    expect(onAction).toHaveBeenCalledWith('redeem');
+    const old = screen.getByTestId('old');
+    expect(old.textContent).toContain('0.50');
+    expect(old.textContent).not.toContain('Held on Ethereum');
+    expect(old.querySelector('[data-slot="trail"]')).toBeNull();
   });
 });
 
