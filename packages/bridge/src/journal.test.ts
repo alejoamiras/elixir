@@ -1,5 +1,13 @@
 import { describe, expect, test } from 'bun:test';
-import { advance, type Crossing, crossingId, FADE_AFTER_MS, type Facts, visible } from './journal.ts';
+import {
+  advance,
+  type Crossing,
+  crossingId,
+  FADE_AFTER_MS,
+  type Facts,
+  rowState,
+  visible,
+} from './journal.ts';
 import type { ArchivedExit } from './witness.ts';
 
 const PORTAL = `0x${'be'.repeat(20)}` as const;
@@ -132,6 +140,24 @@ describe('the crossing journal', () => {
     expect(states).toEqual(['deposited', 'deposited', 'claimable', 'minted-l2']);
     expect(done.error).toBeUndefined();
     expect(done).toMatchObject({ inboxIndex: '9', claimTxHash: '0xc' });
+  });
+
+  test('a send without a hash is checking until the node in use covers its window past the expiry; a late log moves it on', () => {
+    const lost = { ...fresh(1), expiresAt: '500', anchorBlock: 40 };
+    const covered = { sourceTipAt: 600n, covered: true };
+    expect(rowState(lost, covered)).toBe('unfinished');
+    // Reloaded before the hash was written: no expiry to measure against.
+    expect(rowState(fresh(1), covered)).toBe('checking');
+    // The node's history does not reach the anchor block, or it is behind the expiry, or it has no tip.
+    expect(rowState(lost, { sourceTipAt: 600n, covered: false })).toBe('checking');
+    expect(rowState(lost, { sourceTipAt: 500n, covered: true })).toBe('checking');
+    expect(rowState(lost, { sourceTipAt: null, covered: true })).toBe('checking');
+    // A deposit's waiting is the wallet's, not the node's; a record with a hash reads as its state.
+    expect(rowState({ ...fresh(3), expiresAt: '500' }, covered)).toBe('proving');
+    expect(rowState({ ...lost, txHash: '0xab' }, covered)).toBe('proving');
+    const found = advance(lost, { now: 9, tx: { status: 'mined', block: 41, epoch: '3', txHash: '0xab' } });
+    expect(found.state).toBe('proven-pending');
+    expect(rowState(found, covered)).toBe('proven-pending');
   });
 
   test('unchanged facts return the same object; a finished record fades after a week', () => {

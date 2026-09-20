@@ -3,6 +3,18 @@
 import type { Crossing, Facts } from '../../../bridge/src/journal.ts';
 import type { ArchivedExit } from '../../../bridge/src/witness.ts';
 
+/**
+ * What Ethereum says about a deposit's transaction: the Inbox message it made, the revert that
+ * spent its gas, `undefined` for an RPC that answered and holds no such receipt, `'unreadable'`
+ * for one that did not answer or answered with something else's receipt. The last two are not the
+ * same fact: only a definite absence may end a deposit.
+ */
+export type L1Receipt =
+  | { status: 'reverted' }
+  | { status: 'mined'; inboxIndex: string }
+  | 'unreadable'
+  | undefined;
+
 export interface FactReads {
   /** Undefined when nothing here can answer: a version this build's node does not serve. */
   tx(c: Crossing): Promise<Facts['tx']>;
@@ -18,6 +30,8 @@ export interface FactReads {
   redeemed(c: Crossing): Promise<Facts['redeemed']>;
   messageReady(c: Crossing): Promise<boolean>;
   claimed(c: Crossing): Promise<Facts['claimed']>;
+  /** A deposit's Ethereum receipt by its hash. */
+  l1Tx(c: Crossing): Promise<L1Receipt>;
   /** Ethereum's clock, which every deadline is measured against; the device's may differ. */
   nowSeconds(): Promise<bigint>;
 }
@@ -34,20 +48,28 @@ const ON_PORTAL = new Set<Crossing['state']>([
 const AT_DESTINATION = new Set<Crossing['state']>(['forwarded', 'deposited']);
 
 /**
- * A deposit's own deadline is an hour; a record still waiting for the wallet this long after it
- * was made cannot land any more — Ethereum refuses the transaction past the deadline — and gives
- * itself up. The landing scan revives it should the event exist after all.
+ * A deposit is settled by Ethereum's receipt, or given up past the deadline in its own calldata,
+ * which the portal enforces at inclusion. Three things the code cannot say: the clock is read
+ * before the receipt, because read after it could be past a deadline a deposit included in between
+ * made it under; an unreadable receipt is not an absence, or a broken RPC would have the page burn
+ * the same coins twice; and a dishonest "no such receipt" is indistinguishable from an honest empty
+ * node, the assumption every reading here rests on. The device's clock is never consulted.
  */
-export const DEPOSIT_GIVES_UP_MS = 2 * 3600 * 1000;
+async function depositFacts(reads: FactReads, c: Crossing, f: Facts): Promise<Facts> {
+  const expired = c.expiresAt ? (await reads.nowSeconds()) > BigInt(c.expiresAt) : false;
+  if (c.l1TxHash) {
+    const receipt = await reads.l1Tx(c);
+    if (receipt === 'unreadable') return f;
+    if (receipt?.status === 'mined')
+      return { ...f, deposited: { txHash: c.l1TxHash, inboxIndex: receipt.inboxIndex } };
+    if (receipt?.status === 'reverted') return { ...f, tx: { status: 'dropped' } };
+  }
+  return expired ? { ...f, tx: { status: 'dropped' } } : f;
+}
 
-/** A send without a hash is still asked about: the node may know it by its tag. A deposit's tale is Ethereum's. */
-const txFacts = async (reads: FactReads, c: Crossing, f: Facts): Promise<Facts> => {
-  if (c.kind === 3)
-    return c.state === 'proving' && f.now - c.createdAt > DEPOSIT_GIVES_UP_MS
-      ? { ...f, tx: { status: 'dropped' } }
-      : f;
-  return { ...f, tx: await reads.tx(c) };
-};
+/** A send without a hash is still asked about: the node may know it by its tag. */
+const txFacts = async (reads: FactReads, c: Crossing, f: Facts): Promise<Facts> =>
+  c.kind === 3 ? depositFacts(reads, c, f) : { ...f, tx: await reads.tx(c) };
 
 /** The epoch's proof: its deadline, whether it landed, the witness once it has; pruned when the deadline passed without it. */
 async function epochFacts(reads: FactReads, c: Crossing, f: Facts): Promise<Facts> {

@@ -101,6 +101,7 @@ export function parseCrossing(raw: unknown, where: string): Crossing {
 function optionalFields(o: Record<string, unknown>, c: Crossing, num: (k: string) => number): void {
   const strings = [
     'txHash',
+    'expiresAt',
     'epoch',
     'proofDeadline',
     'target',
@@ -110,7 +111,8 @@ function optionalFields(o: Record<string, unknown>, c: Crossing, num: (k: string
     'error',
   ] as const;
   for (const k of strings) if (typeof o[k] === 'string') (c as unknown as Record<string, unknown>)[k] = o[k];
-  for (const k of ['block', 'claimBlock'] as const) if (typeof o[k] === 'number') c[k] = num(k);
+  for (const k of ['block', 'claimBlock', 'anchorBlock'] as const)
+    if (typeof o[k] === 'number') c[k] = num(k);
   if (o.claimSettled === true) c.claimSettled = true;
 }
 
@@ -167,11 +169,14 @@ export function parseRecoveryFile(text: string, expected: { chainId: string; por
 /**
  * A restored crossing's state is a hint, never a verdict: an ended state is imported as the
  * furthest state its own fields can be read from, and the chain says again how it ended. A file
- * cannot hide a live crossing that way, and no record lands where no read moves it.
+ * cannot hide a live crossing that way, and no record lands where no read moves it. The send's
+ * expiry is dropped too: only a page that observed the send may let it authorise "didn't finish"
+ * (the file's device may have been behind), so a restored send without a hash stays `checking`.
  */
 export function asHint(c: Crossing): Crossing {
-  if (!FINAL_STATES.has(c.state)) return c;
-  return { ...c, state: readableFrom(c), claimSettled: undefined };
+  const { expiresAt: _expiresAt, anchorBlock: _anchorBlock, ...observed } = c;
+  if (!FINAL_STATES.has(c.state)) return observed;
+  return { ...observed, state: readableFrom(c), claimSettled: undefined };
 }
 
 const readableFrom = (c: Crossing): CrossingState => {

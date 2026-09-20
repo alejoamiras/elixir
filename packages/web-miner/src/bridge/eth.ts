@@ -85,6 +85,42 @@ export interface DepositParams {
   deadline: bigint;
 }
 
+/** The three holder calls as viem takes them: written by the wallet, estimated for the payer's funds first. */
+export const depositCall = (p: DepositParams) =>
+  ({
+    address: p.portal,
+    abi: yacanaPortalAbi,
+    functionName: 'deposit',
+    args: [p.amount, p.secretHash, p.version, p.deadline],
+  }) as const;
+export const forwardCall = (p: { portal: Hex; version: bigint; args: ForwardArgs }) =>
+  ({
+    address: p.portal,
+    abi: yacanaPortalAbi,
+    functionName: 'forward',
+    args: [p.version, asPortalArgs(p.args)],
+  }) as const;
+export const redeemCall = (p: {
+  portal: Hex;
+  version: bigint;
+  args: ForwardArgs;
+  recipient: Hex;
+  expiry: bigint;
+  sig: Hex;
+}) =>
+  ({
+    address: p.portal,
+    abi: yacanaPortalAbi,
+    functionName: 'redeem',
+    args: [
+      p.version,
+      asPortalArgs({ ...p.args, expiry: p.expiry, sig: p.sig }),
+      p.recipient,
+      p.expiry,
+      p.sig,
+    ],
+  }) as const;
+
 /**
  * A deposit is one transaction from the wallet: the portal burns the sender's YACA itself (the
  * token's burn is the portal's alone and spends no allowance), and the event names the Inbox
@@ -98,13 +134,7 @@ export async function depositOnEthereum(
 ): Promise<{ txHash: Hex; inboxIndex: bigint }> {
   const signer = await pinnedSigner(config);
   onStep?.('deposit');
-  const txHash = await writeContract(config, {
-    ...signer,
-    address: p.portal,
-    abi: yacanaPortalAbi,
-    functionName: 'deposit',
-    args: [p.amount, p.secretHash, p.version, p.deadline],
-  });
+  const txHash = await writeContract(config, { ...signer, ...depositCall(p) });
   await onSent?.(txHash);
   const receipt = await mined(config, txHash);
   const [deposited] = parseEventLogs({ abi: yacanaPortalAbi, eventName: 'Deposited', logs: receipt.logs });
@@ -117,13 +147,7 @@ export async function forwardOnEthereum(
   config: WagmiConfig,
   p: { portal: Hex; version: bigint; args: ForwardArgs },
 ): Promise<{ txHash: Hex; inboxIndex: bigint; target: bigint }> {
-  const txHash = await writeContract(config, {
-    ...(await pinnedSigner(config)),
-    address: p.portal,
-    abi: yacanaPortalAbi,
-    functionName: 'forward',
-    args: [p.version, asPortalArgs(p.args)],
-  });
+  const txHash = await writeContract(config, { ...(await pinnedSigner(config)), ...forwardCall(p) });
   const receipt = await mined(config, txHash);
   const [forwarded] = parseEventLogs({ abi: yacanaPortalAbi, eventName: 'Forwarded', logs: receipt.logs });
   if (!forwarded) throw new Error(`forward ${txHash} emitted no Forwarded event`);
@@ -134,19 +158,7 @@ export async function redeemOnEthereum(
   config: WagmiConfig,
   p: { portal: Hex; version: bigint; args: ForwardArgs; recipient: Hex; expiry: bigint; sig: Hex },
 ): Promise<{ txHash: Hex }> {
-  const txHash = await writeContract(config, {
-    ...(await pinnedSigner(config)),
-    address: p.portal,
-    abi: yacanaPortalAbi,
-    functionName: 'redeem',
-    args: [
-      p.version,
-      asPortalArgs({ ...p.args, expiry: p.expiry, sig: p.sig }),
-      p.recipient,
-      p.expiry,
-      p.sig,
-    ],
-  });
+  const txHash = await writeContract(config, { ...(await pinnedSigner(config)), ...redeemCall(p) });
   await mined(config, txHash);
   return { txHash };
 }

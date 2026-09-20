@@ -14,13 +14,16 @@ import {
 } from '../../../ui/src/index.ts';
 import { TAKING_LONG_AFTER_MS, takingLong } from '../bridge/copy';
 import { duration, amount as fmt } from '../lib/format';
-import { journalAtom, nowAtom } from '../state';
+import { bridgeAtom, journalAtom, nowAtom } from '../state';
 
 export function TakingLongDialog({ onSettings, onWallet }: { onSettings: () => void; onWallet: () => void }) {
   const journal = useAtomValue(journalAtom);
   const now = useAtomValue(nowAtom);
+  const registeredAt = useAtomValue(bridgeAtom).targetRegisteredAt;
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(new Set());
-  const slow = journal.filter((c) => takingLong(c, now));
+  const slow = journal.filter((c) =>
+    takingLong(c, now, registeredAt === undefined ? undefined : Number(registeredAt)),
+  );
   const first = slow.find((c) => !dismissed.has(c.id));
   const dismiss = (ids: string[]) => setDismissed((was) => new Set([...was, ...ids]));
   if (!first) return null;

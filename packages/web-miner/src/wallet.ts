@@ -25,7 +25,12 @@ export const PROVERLESS = import.meta.env.VITE_E2E_PROVERLESS === '1';
 export interface SentTx {
   txHash: string;
   expiresAt: number;
+  /** The block it was built against: the earliest it can land after. */
+  anchorBlock: number;
 }
+
+/** Runs before one send reaches the node; a rejection refuses that send. */
+export type SendHook = (sent: SentTx) => Promise<void>;
 
 export interface OpenedWallet {
   wallet: EmbeddedWallet;
@@ -36,6 +41,8 @@ export interface OpenedWallet {
   pxeDb: string;
   /** The last transaction the wallet handed to the node. */
   lastSent: () => SentTx | undefined;
+  /** Installs `hook` for the next send alone; the return removes it if that send never comes. */
+  beforeNextSend: (hook: SendHook) => () => void;
 }
 
 /** Stores are per rollup, not per L1 chain: two rollups on Sepolia must never share PXE state. */
@@ -44,15 +51,41 @@ export const pxeNamespace = async (node: Node, chainId: bigint): Promise<string>
   return `yacana-pxe-${chainId}-${info.rollupVersion}-${info.l1ContractAddresses.rollupAddress.toString()}`;
 };
 
+export const sentOf = (tx: Tx): SentTx => ({
+  txHash: tx.getTxHash().toString(),
+  expiresAt: Number(tx.data.expirationTimestamp),
+  anchorBlock: Number(tx.data.constants.anchorBlockHeader.globalVariables.blockNumber),
+});
+
+/**
+ * Every send observed synchronously, and a one-shot hook a flow may install for its own send: the
+ * hook runs (and may refuse) before the transaction reaches the node, so a record can be made
+ * durable first. A send with no hook installed goes straight through, as a mining claim's does.
+ */
+export function sendObserver(onSend: (sent: SentTx) => void) {
+  let hook: SendHook | undefined;
+  return {
+    sendTx(target: Pick<Node, 'sendTx'>, tx: Tx): ReturnType<Node['sendTx']> {
+      const sent = sentOf(tx);
+      onSend(sent);
+      const h = hook;
+      hook = undefined;
+      return h ? h(sent).then(() => target.sendTx(tx)) : target.sendTx(tx);
+    },
+    beforeNextSend(h: SendHook): () => void {
+      hook = h;
+      return () => {
+        if (hook === h) hook = undefined;
+      };
+    },
+  };
+}
+
 /** The wallet's node with `sendTx` observed: nothing else exposes a sent transaction's expiry. */
-const observeSends = (node: Node, onSend: (tx: Tx) => void): Node =>
+const observeSends = (node: Node, observer: ReturnType<typeof sendObserver>): Node =>
   new Proxy(node, {
     get(target, prop) {
-      if (prop === 'sendTx')
-        return (tx: Tx) => {
-          onSend(tx);
-          return target.sendTx(tx);
-        };
+      if (prop === 'sendTx') return (tx: Tx) => observer.sendTx(target, tx);
       const value = Reflect.get(target, prop) as unknown;
       return typeof value === 'function' ? (value as (...a: unknown[]) => unknown).bind(target) : value;
     },
@@ -63,9 +96,10 @@ export async function openWallet(node: Node, chainId: bigint): Promise<OpenedWal
   const pxeDb = await pxeNamespace(node, chainId);
   const pxeStore = await AztecIndexedDBStore.open(createLogger('web-miner'), pxeDb, false);
   let sent: SentTx | undefined;
-  const observed = observeSends(node, (tx) => {
-    sent = { txHash: tx.getTxHash().toString(), expiresAt: Number(tx.data.expirationTimestamp) };
+  const observer = sendObserver((s) => {
+    sent = s;
   });
+  const observed = observeSends(node, observer);
   let wallet: EmbeddedWallet | undefined;
   try {
     if (PROVERLESS) console.warn(`${PROVERLESS_MARKER}: this build sends transactions unproved`);
@@ -81,7 +115,14 @@ export async function openWallet(node: Node, chainId: bigint): Promise<OpenedWal
       paymentMethod: new SponsoredFeePaymentMethod(fpc.address),
       gasSettings: { gasLimits: await claimGasLimits(node) },
     };
-    return { wallet, fee, feeFor: feePayer(fee).for, pxeDb, lastSent: () => sent };
+    return {
+      wallet,
+      fee,
+      feeFor: feePayer(fee).for,
+      pxeDb,
+      lastSent: () => sent,
+      beforeNextSend: observer.beforeNextSend,
+    };
   } catch (e) {
     if (wallet) await wallet.stop().catch(() => {});
     else await pxeStore.close().catch(() => {});
