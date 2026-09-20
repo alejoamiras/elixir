@@ -1,13 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import {
-  advance,
-  type Crossing,
-  crossingId,
-  FADE_AFTER_MS,
-  type Facts,
-  rowState,
-  visible,
-} from './journal.ts';
+import { advance, type Crossing, crossingId, type Facts, rowState } from './journal.ts';
 import type { ArchivedExit } from './witness.ts';
 
 const PORTAL = `0x${'be'.repeat(20)}` as const;
@@ -160,13 +152,9 @@ describe('the crossing journal', () => {
     expect(rowState(found, covered)).toBe('proven-pending');
   });
 
-  test('unchanged facts return the same object; a finished record fades after a week', () => {
+  test('unchanged facts return the same object', () => {
     const c = fresh(1);
     expect(advance(c, { now: 5 })).toBe(c);
-    const done = { ...c, state: 'minted-l1' as const, updatedAt: 10_000 };
-    expect(visible(done, 10_000 + FADE_AFTER_MS - 1)).toBe(true);
-    expect(visible(done, 10_000 + FADE_AFTER_MS)).toBe(false);
-    expect(visible(c, 10_000 + 10 * FADE_AFTER_MS)).toBe(true);
     expect(crossingId(c)).toBe(`31337:${PORTAL}:5:1:0`);
   });
 });

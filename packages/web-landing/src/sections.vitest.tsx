@@ -263,7 +263,9 @@ describe('the launch week', () => {
     try {
       render(<App live={ready} launch={loading} />);
       const line = screen.getByTestId('announcement');
-      expect(line.textContent).toContain('arrives around 2027-01-21. Mining on V5 ends at the upgrade');
+      expect(line.textContent).toContain(
+        'arrives around 2027-01-21. Mining on V5 ends when the upgrade lands',
+      );
       expect(line.querySelector('a')?.getAttribute('href')).toBe('/faq');
     } finally {
       vi.unstubAllEnvs();

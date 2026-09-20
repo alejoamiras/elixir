@@ -1,6 +1,5 @@
-// The Wallet's one reading of the journal: a row per crossing with everything it says, the count of
-// rows waiting on the user, and why a money button is off. The count, each row's action and the
-// button's reason come from here together, so the badge can never disagree with the rows under it.
+// The Wallet's one reading of the journal: the badge's count, each row's action and the money
+// buttons' reasons derive together here, so none can disagree with the rows under it.
 import { dayOf, deadlinePhrase } from '../../../bridge/src/exit-deadline.ts';
 import {
   type Crossing,
@@ -12,6 +11,7 @@ import {
 import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import type { RowLine } from '../../../ui/src/index.ts';
 import { amount as fmt, shortAddress } from '../lib/format';
+import type { ProverKind } from '../presto';
 import type { BridgeView, VersionFacts } from '../state';
 import { chainName, rowLine, stamp, takingLong, whoOf } from './copy';
 import { isOldRole, lifecycleRecord, nextVersionName, versionNameOf } from './env';
@@ -106,11 +106,19 @@ const waitsOnUser = (line: RowLine): boolean =>
   line.action.kind !== 'settings' &&
   !(line.chip.tone === 'on' && (line.action.kind === 'forward' || line.action.kind === 'redeem'));
 
+/** A crossing's own answer while its row still proves or claims; the page's promise otherwise. */
+const proverOf = (c: Crossing, state: RowState, env: Env): ProverKind | undefined =>
+  (env.claiming?.has(c.id) || state === 'proving' ? env.provers?.get(c.id) : undefined) ?? env.prover;
+
 interface Env {
   ownVersion: string;
   chainId?: string;
   /** The private claims under way here, by crossing id, with when each tap came. */
   claiming?: ReadonlyMap<string, number>;
+  /** Who proves this page's next transaction; the browser when unknown. */
+  prover?: ProverKind;
+  /** Who proved a crossing's transaction, by id: over the page's promise while that row proves or claims. */
+  provers?: ReadonlyMap<string, ProverKind>;
 }
 
 /**
@@ -155,6 +163,7 @@ export function activity(
         verdictUnknown: view.verdict.kind === 'unknown' || view.rpcFailing,
         claiming: since !== undefined,
         elapsed: elapsedOf(c, state, now, since),
+        prover: proverOf(c, state, env),
         elsewhere: elsewhereOf(c, view, env.ownVersion),
         money,
         who: partyOf(c),

@@ -33,6 +33,7 @@ import {
   useLive,
   useOpening,
 } from './Frame';
+import { type ProvingWords, useOwnProvingWords, useProvingWords } from './use-tx-prover';
 
 const SYM = PARAMS.TOKEN_SYMBOL;
 const money = (raw: bigint) => `${fmt(raw, PARAMS.DECIMALS)} ${SYM}`;
@@ -109,6 +110,7 @@ function Form({
 
 /** The five stations with their times, and the day the next version never opens. */
 function How({ next, onBack }: { next: string; onBack: () => void }) {
+  const words = useProvingWords();
   const v = ownVersionName();
   const view = useAtomValue(bridgeAtom);
   return (
@@ -121,8 +123,8 @@ function How({ next, onBack }: { next: string; onBack: () => void }) {
             id: 'leave',
             label: `Leaves ${v}, privately`,
             state: 'pending',
-            right: 'about 20 s',
-            detail: 'Your browser proves it; mining pauses meanwhile.',
+            right: words.about,
+            detail: words.how,
           },
           {
             id: 'reach',
@@ -170,7 +172,7 @@ function How({ next, onBack }: { next: string; onBack: () => void }) {
   );
 }
 
-function Proving({ next, since }: { next: string; since: number }) {
+function Proving({ next, since, words }: { next: string; since: number; words: ProvingWords }) {
   const elapsed = useElapsed(since);
   return (
     <>
@@ -182,14 +184,14 @@ function Proving({ next, since }: { next: string; since: number }) {
             label: 'Proving privately',
             state: 'active',
             right: elapsed === undefined ? undefined : seconds(elapsed),
-            detail: 'In your browser; Presto proves only mining work.',
+            detail: words.detail,
           },
           { id: 'send', label: 'Sent', state: 'pending' },
           { id: 'reach', label: 'Reaching Ethereum', state: 'pending', right: 'usually within the hour' },
           { id: 'held', label: `Held on Ethereum for ${next}`, state: 'pending' },
         ]}
       />
-      <Foot>Keep this tab open while it proves, about 20 s.</Foot>
+      <Foot>{words.foot}</Foot>
     </>
   );
 }
@@ -292,13 +294,15 @@ function SendAheadRun({
   const [step, setStep] = useState<Step>({ kind: initial });
   const [error, setError] = useState<string>();
   const live = useLive(open);
+  const proving = useOwnProvingWords();
   const close = () => onOpenChange(false);
   const send = async (amount: bigint, display: string) => {
     if (!live()) return;
+    proving.reset();
     setError(undefined);
     setStep({ kind: 'proving', amount, display, since: Date.now() });
     try {
-      const crossing = (await session.bridge?.sendAhead(amount)) ?? undefined;
+      const crossing = (await session.bridge?.sendAhead(amount, proving.said)) ?? undefined;
       setStep({ kind: 'sent', display, crossing });
     } catch (e) {
       setError(firstLine(e));
@@ -332,7 +336,7 @@ function SendAheadRun({
         </div>
       )}
       {step.kind === 'how' && <How next={next} onBack={() => setStep({ kind: 'form' })} />}
-      {step.kind === 'proving' && <Proving next={next} since={step.since} />}
+      {step.kind === 'proving' && <Proving next={next} since={step.since} words={proving.words} />}
       {step.kind === 'sent' && <Sent session={session} next={next} crossing={step.crossing} onDone={close} />}
     </TxDialog>
   );

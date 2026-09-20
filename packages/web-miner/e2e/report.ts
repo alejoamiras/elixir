@@ -43,6 +43,9 @@ export interface SpecRow {
   status: string;
   ms: number;
   proofs: number;
+  /** How many of the proofs Presto made, and their ms; the rest were WASM's in the page. */
+  prestoProofs: number;
+  prestoMs: number;
   provingMs: number;
   submissionMs: number;
 }
@@ -78,6 +81,8 @@ export function specRows(report: JsonReport): SpecRow[] {
       status: attempts.at(-1)?.status ?? 'missing',
       ms: sum(attempts.map((a) => a.duration)),
       proofs: proofs.length,
+      prestoProofs: proofs.filter((p) => p.prover === 'presto').length,
+      prestoMs: sum(proofs.filter((p) => p.prover === 'presto').map((p) => p.durationMs)),
       provingMs: sum(proofs.map((p) => p.durationMs)),
       submissionMs: sum(meters.flatMap((m) => m.sends).map((s) => s.endedAt - s.startedAt)),
     };
@@ -118,6 +123,8 @@ export function breakdown(report: JsonReport, rig: RigTimings | null, clocks: Cl
     // at the report, before the isolated network's teardown.
     unattributedMs: clocks.outerMs === null ? null : clocks.outerMs - accounted,
     provingMs,
+    prestoProofs: sum(specs.map((r) => r.prestoProofs)),
+    prestoMs: sum(specs.map((r) => r.prestoMs)),
     submissionMs: sum(specs.map((r) => r.submissionMs)),
     provingShareOfTests: testsMs ? provingMs / testsMs : 0,
     provingShareOfRun: clocks.outerMs ? provingMs / clocks.outerMs : null,
@@ -129,8 +136,11 @@ export type Breakdown = ReturnType<typeof breakdown>;
 const s = (ms: number | null) => (ms === null ? '—' : `${(ms / 1000).toFixed(1)}s`);
 const pct = (part: number, whole: number | null) => (whole ? `${((100 * part) / whole).toFixed(1)}%` : '—');
 const specLine = (r: SpecRow) =>
-  `| ${r.file} › ${r.title.slice(0, 56)} | ${r.status} | ${s(r.ms)} | ${r.proofs} | ${s(r.provingMs)} | ${s(r.submissionMs)} |`;
-const SPEC_HEAD = ['| spec | status | time | proofs | proving | submission |', '|---|---|---|---|---|---|'];
+  `| ${r.file} › ${r.title.slice(0, 56)} | ${r.status} | ${s(r.ms)} | ${r.proofs} | ${s(r.provingMs)} | ${r.prestoProofs ? `${r.prestoProofs} · ${s(r.prestoMs)}` : '—'} | ${s(r.submissionMs)} |`;
+const SPEC_HEAD = [
+  '| spec | status | time | proofs | proving | on Presto | submission |',
+  '|---|---|---|---|---|---|---|',
+];
 
 export function render(b: Breakdown): string {
   const c = b.clocks;
@@ -151,7 +161,9 @@ export function render(b: Breakdown): string {
     '',
     `Rig (network + prebuild + setup): **${s(rig)}**, ${pct(rig, c.outerMs)} of the run. ` +
       `Browser transaction proving: **${s(b.provingMs)}**, ${pct(b.provingMs, b.testsMs)} of test time, ` +
-      `${pct(b.provingMs, c.outerMs)} of the run; submission round trips ${s(b.submissionMs)}.`,
+      `${pct(b.provingMs, c.outerMs)} of the run` +
+      `${b.prestoProofs ? ` (${b.prestoProofs} proof(s) through Presto, ${s(b.prestoMs)})` : ''}; ` +
+      `submission round trips ${s(b.submissionMs)}.`,
     '',
     ...SPEC_HEAD,
     ...b.specs.map(specLine),

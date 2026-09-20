@@ -156,11 +156,11 @@ function AccountTile({ session }: { session: Session }) {
         <div className="flex min-w-0 flex-col gap-0.5">
           <span data-testid="settings-account">
             <ExternalLink
-              href={links.address(record.account.address)}
-              full={record.account.address}
+              href={links.address(boot.account)}
+              full={boot.account}
               className="font-mono text-sm text-ink"
             >
-              {shortAddress(record.account.address)}
+              {shortAddress(boot.account)}
             </ExternalLink>
           </span>
           <span className="text-xs text-ink-3">

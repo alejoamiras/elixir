@@ -157,6 +157,7 @@ CLAIM_CHIPS = [
 WIN = '#12 score 2.8 · 3.61 s · <b class="uv2">a win</b>'
 CLAIM_LINES = [
     ("proving", "win", "★", f"{WIN} · claiming: proving in your browser, about 20 s"),
+    ("proving · Presto", "win", "★", f"{WIN} · claiming: proving through Presto ✦"),
     ("sent", "win", "★", f"{WIN} · claiming: sent to the node · drops in 9:41 if no block takes it"),
     ("in a block", "win", "★", f"{WIN} · claiming: in a block · syncing the note"),
     ("minted", "ok", "✓", 'minted in block <a href="#">83,164 ↗</a> · 4 tYACA, privately'),

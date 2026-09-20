@@ -259,7 +259,5 @@ export const crossingId = (c: Pick<Crossing, 'chainId' | 'portal' | 'version' | 
 /** A crossing that still asks something of the reader: neither settled for good nor a send-again. */
 export const inFlight = (c: Crossing): boolean => !FINAL_STATES.has(c.state);
 
-/** A finished crossing stays on the card a week, then fades from the journal. */
+/** A finished crossing keeps its full row a week, then folds (never dropped: the record is the account of where money went). */
 export const FADE_AFTER_MS = 7 * 24 * 3600 * 1000;
-export const visible = (c: Crossing, now: number): boolean =>
-  inFlight(c) || now - c.updatedAt < FADE_AFTER_MS;

@@ -76,7 +76,14 @@ import {
 import { type L1Sampler, startL1Sampler } from './l1-sampler';
 import { initialSteps, keyStepLabel, type OpeningStep, type StepId } from './opening-steps';
 import { CrsPinError } from './pinned-crs';
-import { prestoAtom, prestoEligible, probePresto } from './presto';
+import {
+  type ProverKind,
+  prestoAtom,
+  prestoEligible,
+  prestoProvesTx,
+  probePresto,
+  txProvingAtom,
+} from './presto';
 import { loadSettings, saveSettings } from './settings';
 import {
   type AccountError,
@@ -88,6 +95,7 @@ import {
   logAtom,
   mineIntentAtom,
 } from './state';
+import type { TxProver } from './tx-prover';
 import { ChainViewHeldError } from './wallet';
 
 type Store = ReturnType<typeof createStore>;
@@ -145,10 +153,10 @@ async function owning<T>(master: Uint8Array, work: () => Promise<T>): Promise<T>
   }
 }
 
-/** The wallet's send hook, which the bridge cannot do without: see `L2Handles.beforeNextSend`. */
-const hookOf = (d: Deployment): NonNullable<Deployment['beforeNextSend']> => {
-  if (!d.beforeNextSend) throw new Error('this chain view cannot record a send before it is made');
-  return d.beforeNextSend;
+/** The wallet's turns, which the bridge cannot do without: see `L2Handles.turn`. */
+const turnOf = (d: Deployment): NonNullable<Deployment['turn']> => {
+  if (!d.turn) throw new Error('this chain view cannot record a send before it is made');
+  return d.turn;
 };
 
 export class Session {
@@ -178,6 +186,7 @@ export class Session {
   readonly l1: L1Sampler | undefined;
   private unsubBalance: (() => void) | undefined;
   private unsubFlip: (() => void) | undefined;
+  private unsubTxProver: (() => void) | undefined;
 
   /**
    * The open attempt: its generation and the AbortController Cancel aborts. `ceremony`: the OS prompt
@@ -385,6 +394,7 @@ export class Session {
       this.words = c.words;
       master = undefined; // the session owns it now
       this.started = started;
+      this.bindTxProver(started.txProver);
       await this.openBridge();
       this.store.set(bootAtom, {
         phase: 'ready',
@@ -667,7 +677,7 @@ export class Session {
           fee: feePayer(c.feeSettings).for('bridge'),
           // Every wallet this app opens is observed, so this holds; a deployment without the hook
           // could not record a send before making it, and the bridge refuses rather than send blind.
-          beforeNextSend: hookOf(c.deployment),
+          turn: turnOf(c.deployment),
         }),
         master,
         connection: { ...this.connection, ethRpcUrl: this.ethRpc },
@@ -691,6 +701,22 @@ export class Session {
     } catch (e) {
       c.log(`bridge did not open: ${e instanceof Error ? e.message : String(e)}`);
     }
+  }
+
+  /**
+   * The wallet's prover goes to Presto only while the page's own probe says it serves the kernel's
+   * scheme and the Worker has not given up on it (sticky): what the pre-proof line promises is what
+   * the SDK is allowed, and a denied or dead Presto is not sent a witness per proof. Who actually
+   * proves is told to the transaction's own turn (`wallet.ts`).
+   */
+  private bindTxProver(prover: TxProver | undefined): void {
+    this.unsubTxProver?.();
+    this.unsubTxProver = undefined;
+    this.store.set(txProvingAtom, null);
+    if (!prover) return;
+    const mirror = () => prover.setForceLocal(!prestoProvesTx(this.store.get(prestoAtom)));
+    mirror();
+    this.unsubTxProver = this.store.sub(prestoAtom, mirror);
   }
 
   private closeBridge(): void {
@@ -869,13 +895,13 @@ export class Session {
    * A balance read failing after the transfer is in a block cannot fail the call, or the same
    * transfer would be sent again.
    */
-  async withdraw(w: Withdrawal): Promise<Sent> {
+  async withdraw(w: Withdrawal, said?: (prover: ProverKind) => void): Promise<Sent> {
     const c = this.controller;
     if (!c) throw new Error('no open account');
     c.pause('withdraw');
     try {
       return await c.track(async () => {
-        const sent = await sendWithdraw(c.deployment, c.address, c.feeSettings, w);
+        const sent = await sendWithdraw(c.deployment, c.address, c.feeSettings, w, said);
         await c.refresh().catch((e: unknown) => c.log(`balance after withdraw: ${String(e)}`));
         return sent;
       });

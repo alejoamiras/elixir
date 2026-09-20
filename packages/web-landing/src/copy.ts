@@ -147,7 +147,7 @@ export const copy = {
   },
   /** The one line every page carries while a migration is announced; `day` is the upgrade's expected day. */
   announcement: (version: string, day: string) =>
-    `Aztec's next version arrives around ${day}. Mining on ${version} ends at the upgrade; send what you hold ahead from the miner before then.`,
+    `Aztec's next version arrives around ${day}. Mining on ${version} ends when the upgrade lands; send what you hold ahead from the miner before then.`,
   announcementLink: 'what happens →',
   faq: {
     title: 'What happens, and what can go wrong',

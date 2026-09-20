@@ -179,6 +179,7 @@
       "name": "@yacana/web-miner",
       "version": "0.0.0",
       "dependencies": {
+        "@alejoamiras/presto": "5.2.0-revision.2",
         "@alejoamiras/presto-banners": "1.0.0",
         "@alejoamiras/presto-core": "1.0.1",
         "@alejoamiras/presto-noir": "1.0.1",
@@ -261,6 +262,8 @@
     "@adobe/css-tools": ["@adobe/css-tools@4.5.0", "", {}, "sha512-6OzddxPio9UiWTCemp4N8cYLV2ZN1ncRnV1cVGtve7dhPOtRkleRyx32GQCYSwDYgaHU3USMm84tNsvKzRCa1Q=="],
 
     "@adraffy/ens-normalize": ["@adraffy/ens-normalize@1.11.1", "", {}, "sha512-nhCBV3quEgesuf7c7KYfperqSS14T8bYuvJ8PcLJp6znkZpFc0AuW4qBtr8eKVyPPe/8RSr7sglCWPU5eaxwKQ=="],
+
+    "@alejoamiras/presto": ["@alejoamiras/presto@5.2.0-revision.2", "", { "dependencies": { "@alejoamiras/presto-core": "1.0.1", "@aztec/bb-prover": "5.2.0", "@aztec/foundation": "5.2.0", "@aztec/noir-acvm_js": "5.2.0", "@aztec/noir-noirc_abi": "5.2.0", "@aztec/stdlib": "5.2.0", "@logtape/logtape": "^2.3.2" } }, "sha512-z1mpWZ6bIWKchrZHN2b0LavhW7w5837NLUkjcpn2oqNPVrBx9pTTZgwhj7MKAQjq761PacN/JoW10rHOo5FvNg=="],
 
     "@alejoamiras/presto-banners": ["@alejoamiras/presto-banners@1.0.0", "", {}, "sha512-0igchxgggtYb1NBEtYV/epOsNLKBQ5WlInHj21kC9drrjZnzaMyvFApxSdgF3ZXovXb8VxSI13LvcR4OzP9nLg=="],
 

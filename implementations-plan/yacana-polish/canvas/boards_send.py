@@ -29,7 +29,8 @@ def send_form(mode: str = "private", unknown: bool = False):
              + srow("Fee", "none · Yacana sponsors it")
              + srow("Visible", vis)
              + f'<div class="row sb" style="margin-top:4px">{btn(f"Send 1 tYACA {how}", "uv lg")}{quiet("Cancel")}</div>'
-             + '<p class="x2 mono ink3">proves in your browser, about 20 s · mining pauses meanwhile</p>')
+             + '<p class="x2 mono ink3">proves in your browser, about 20 s · mining pauses meanwhile</p>'
+             + '<p class="x2 mono ink3">with Presto: proves through Presto ✦, about 5 s · mining pauses meanwhile</p>')
     return dialog_page(inner)
 
 

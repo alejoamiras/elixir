@@ -551,7 +551,7 @@ harness's browser/origin cases, `versioned-origin.vitest`, `packages/deploy` tes
 `test:visual --update-snapshots` then `test:visual` (the stats bridge page's deadline sentences changed) · pass:
 both cases green with the new copy · layers: + rig, visual.
 
-### P11 — Transaction proofs through Presto (O, 2026-09-15: "hand to Presto too")
+### P11 ✓ — Transaction proofs through Presto (green 2026-09-17, `lessons/phase-11.md`; O, 2026-09-15: "hand to Presto too")
 
 The PXE's proofs — the claim, the burn to Ethereum, Send, Send ahead — go through Presto when it is the selected
 prover and its `/health` lists `chonk`; in the browser otherwise, as today. Facts: `EmbeddedWallet.create` takes
@@ -588,7 +588,7 @@ server; `wallet.vitest` the prover-choice table.
 shows the transaction proof on Presto, the fallback case green; or the spike's blocker written and the phase closed
 as "not built" with the owner told · layers: + e2e live with Presto.
 
-### P12 — The sweep (the stack's last arc runs everything; O, 2026-09-15)
+### P12 ✓ — The sweep (green 2026-09-17, `lessons/phase-12.md`; the stack's last arc runs everything; O, 2026-09-15)
 
 The FAQ and the announcement lines §6 changed (`copy.ts:150` "ends at the upgrade" → "ends when the upgrade
 lands"); the copy-deck check (every screen's strings live in one module per feature and a Vitest spec asserts the

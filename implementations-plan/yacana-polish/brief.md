@@ -69,6 +69,14 @@ mining" before a probe; the idle ledger is on the open epoch; the checksum error
 §9.1 gains the `other` halt and the reconfigure under Presto; §9.2 gains the swap on the sticky state, the
 `behind` pause and the claim's clock.
 
+v4.3 (P11, 2026-09-17): the wallet's transaction proofs — the claim, the burn to Ethereum, Send, Send ahead —
+go through Presto too when it is the prover in force and serves `chonk`; the dialog's proving line says
+"proves through Presto ✦, about 5 s · mining pauses meanwhile" beside the browser's, the claim line
+"claiming: proving through Presto ✦", the proving step "Through Presto ✦ on this machine", and How it
+works gains "With Presto, your transaction's private inputs go to Presto on this machine, never
+elsewhere"; #16's "Presto proves only mining work" is gone. Each line follows what actually proves
+(the ✦ rule of §5.3): Presto from the steps' transmit, the browser from a fallback.
+
 ## 1. The owner's list, mapped to surfaces
 
 | # | Surface | The complaint (owner's words, shortened) | Answered in |

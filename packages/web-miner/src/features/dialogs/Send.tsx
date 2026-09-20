@@ -40,6 +40,7 @@ import {
   useOnce,
   useOpening,
 } from './Frame';
+import { type ProvingWords, useOwnProvingWords, useProvingWords } from './use-tx-prover';
 
 const SYM = PARAMS.TOKEN_SYMBOL;
 const money = (raw: bigint) => `${fmt(raw, PARAMS.DECIMALS)} ${SYM}`;
@@ -220,10 +221,7 @@ function Form({
           {draft.mode === 'private' ? 'nothing; a private transfer' : 'the amount and the address, to anyone'}
         </Row>
       </Rows>
-      <Actions
-        quiet={<Quiet onClick={onCancel}>Cancel</Quiet>}
-        below="proves in your browser, about 20 s · mining pauses meanwhile"
-      >
+      <Actions quiet={<Quiet onClick={onCancel}>Cancel</Quiet>} below={useProvingWords().line}>
         <Primary disabled={busy || invalid} onClick={() => void submit()} data-testid="withdraw-send">
           Send{draft.amount.trim() && amountLine === null ? ` ${draft.amount.trim()} ${SYM}` : ''} {how}
         </Primary>
@@ -232,7 +230,7 @@ function Form({
   );
 }
 
-function Proving({ snap, since }: { snap: Snapshot; since: number }) {
+function Proving({ snap, since, words }: { snap: Snapshot; since: number; words: ProvingWords }) {
   const elapsed = useElapsed(since);
   return (
     <>
@@ -244,7 +242,7 @@ function Proving({ snap, since }: { snap: Snapshot; since: number }) {
             label: 'Proving privately',
             state: 'active',
             right: elapsed === undefined ? undefined : seconds(elapsed),
-            detail: 'In your browser; mining pauses meanwhile.',
+            detail: words.detail,
           },
           {
             id: 'send',
@@ -253,7 +251,7 @@ function Proving({ snap, since }: { snap: Snapshot; since: number }) {
           },
         ]}
       />
-      <Foot>Keep this tab open while it proves, about 20 s.</Foot>
+      <Foot>{words.foot}</Foot>
     </>
   );
 }
@@ -324,14 +322,16 @@ function SendRun({
   const [step, setStep] = useState<Step>({ kind: 'form' });
   const [error, setError] = useState<string>();
   const live = useLive(open);
+  const proving = useOwnProvingWords();
   const close = () => onOpenChange(false);
   const send = async (snap: Snapshot) => {
     if (!live()) return;
+    proving.reset();
     const since = Date.now();
     setError(undefined);
     setStep({ kind: 'proving', snap, since });
     try {
-      const sent = await session.withdraw(snap);
+      const sent = await session.withdraw(snap, proving.said);
       setStep({ kind: 'sent', snap, ...sent, provedMs: Date.now() - since });
     } catch (e) {
       setError(firstLine(e));
@@ -361,7 +361,7 @@ function SendRun({
       {step.kind === 'form' && (
         <Form session={session} self={self} balance={balance} onSend={(s) => void send(s)} onCancel={close} />
       )}
-      {step.kind === 'proving' && <Proving snap={step.snap} since={step.since} />}
+      {step.kind === 'proving' && <Proving snap={step.snap} since={step.since} words={proving.words} />}
       {step.kind === 'sent' && <Sent step={step} balance={balance} onDone={close} />}
     </TxDialog>
   );

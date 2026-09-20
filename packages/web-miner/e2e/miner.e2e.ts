@@ -115,27 +115,21 @@ test('first visit creates an account, mines at the easy target, claims and shows
   expect(await tracks()).toBe('246px 246px 246px 300px');
   expect(await width()).toBe(1080);
   expect(await placed()).toBe(true);
-  // The loop tile's height is fixed: the claim lives in the rail's slot, which is dashed until a win.
+  // The loop tile's height is fixed: the claim lives on the loop's chip and its win line, never in a slot.
   const loopHeight = () =>
     cockpit.evaluate((el) => (el.firstElementChild as HTMLElement).getBoundingClientRect().height);
   const idleHeight = await loopHeight();
-  await expect(page.getByTestId('claim-slot')).toContainText('no claim in flight');
+  await expect(page.getByTestId('claim-chip')).toHaveCount(0);
   await page.getByTestId('start').click();
-  await expect(page.getByTestId('phase')).toHaveText('mining');
+  // The pill's suffix follows what proves (✦ presto beside the run's headless Presto): the word alone is the phase.
+  await expect(page.getByTestId('phase')).toHaveText(/^mining/);
   // The easy target wins every other proof; the claim is then proved in-page and mined.
-  await expect(page.getByTestId('phase')).toHaveText('claiming', { timeout: 5 * 60_000 });
-  await expect(page.getByTestId('claim-slot')).toHaveAttribute('data-state', 'claim');
-  await expect(page.getByTestId('claim-stepper')).toBeVisible();
+  await expect(page.getByTestId('phase')).toHaveText(/^claiming/, { timeout: 5 * 60_000 });
+  await expect(page.getByTestId('claim-chip')).toContainText(/claiming · \w+/);
   expect(await loopHeight()).toBe(idleHeight);
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
   await expect(page.getByTestId('balance')).toHaveText('4');
   await expect(page.getByTestId('epoch-claims')).toHaveText('1 of 4');
-  // The acknowledgement sits in the slot for ten seconds while mining has already resumed.
-  await expect(page.getByTestId('claim-slot')).toHaveAttribute('data-state', 'minted');
-  await expect(page.getByTestId('minted').getByRole('link', { name: /block/ })).toHaveAttribute(
-    'href',
-    /\/blocks\/\d+$/,
-  );
   expect(await loopHeight()).toBe(idleHeight);
   const ledger = page.getByTestId('ledger');
   await expect(ledger).toContainText(/minted in block [\d,]+↗ \(opens in a new tab\) · 4 tYACA, privately/);
@@ -148,8 +142,8 @@ test('first visit creates an account, mines at the easy target, claims and shows
   // Mining resumes on its own after a claim; stop it cleanly (at this easy target the next win can be in
   // flight already: Stop returns once that claim has minted). The ✓ outlives the stop by its ten seconds.
   await page.getByTestId('stop').click({ timeout: 5 * 60_000 });
-  await expect(page.getByTestId('phase')).toHaveText('idle');
-  await expect(page.getByTestId('claim-slot')).toContainText('no claim in flight', { timeout: 15_000 });
+  await expect(page.getByTestId('phase')).toHaveText(/^idle/);
+  await expect(page.getByTestId('claim-chip')).toHaveCount(0, { timeout: 15_000 });
   // The nav reaches the stats app on the same origin.
   await expect(page.getByTestId('nav-stats')).toHaveAttribute('href', /\/stats\/$/);
   // At this easy target more than one claim can have minted before Stop landed: what the first visit

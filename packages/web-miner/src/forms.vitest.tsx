@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { SendDialog } from './features/dialogs/Send';
+import { initialPresto, prestoAtom } from './presto';
 import type { Session } from './session';
 
 const ONE = 10n ** BigInt(PARAMS.DECIMALS);
@@ -51,7 +52,7 @@ const mount = (session: Session) => {
     act(() => setOpen(false));
     act(() => setOpen(true));
   };
-  return { reopen };
+  return { reopen, store };
 };
 
 const stub = (known: boolean) => {
@@ -70,6 +71,21 @@ beforeEach(() =>
     removeEventListener: () => {},
   })),
 );
+
+describe('the proving line', () => {
+  test('says where the proof will go: the page, or Presto once the Worker keeps it and it serves chonk', () => {
+    const { store } = mount(stub(false).session);
+    expect(screen.getByText('proves in your browser, about 20 s · mining pauses meanwhile')).toBeTruthy();
+    act(() =>
+      store.set(prestoAtom, {
+        ...initialPresto,
+        selected: 'presto',
+        status: { available: true, needsDownload: false, schemes: ['ultra_honk', 'chonk'], protocol: 'http' },
+      }),
+    );
+    expect(screen.getByText('proves through Presto ✦, about 5 s · mining pauses meanwhile')).toBeTruthy();
+  });
+});
 
 describe('the send form', () => {
   test('the refusals sit under their fields; the button waits; leaving an unknown address says so', async () => {
@@ -122,6 +138,7 @@ describe('the send form', () => {
     await waitFor(() => expect(screen.getByTestId('withdraw-sent')).toBeDefined());
     expect(calls.withdraw).toHaveBeenCalledWith(
       expect.objectContaining({ amount: ONE, mode: 'public', display: '1' }),
+      expect.any(Function),
     );
     expect(screen.getByTestId('withdraw-sent').textContent).toContain('block 83,140');
     expect(screen.getByTestId('withdraw-sent').textContent).toContain(

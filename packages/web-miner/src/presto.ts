@@ -41,7 +41,7 @@ export const prestoConfig = (e: PrestoEndpoint): PrestoConfig => ({
   httpsOnly: e.httpsOnly,
 });
 
-const ROUTES = ['/health', '/prove/ultra-honk'];
+const ROUTES = ['/health', '/prove', '/prove/ultra-honk'];
 
 /**
  * The URLs the SDK fetches, exactly: health and prove over HTTPS, and over HTTP only when plaintext
@@ -111,8 +111,63 @@ export const prestoSticky = (s: PrestoState): boolean => s.selected === 'presto'
 export const prestoEligible = (status: PrestoStatus | null): boolean =>
   status?.available === true && (status.schemes ?? []).includes('ultra_honk');
 
-/** A probe waits at most this long at the guard; the SDK's own timeouts are shorter. */
-const PROBE_DEADLINE_MS = 60_000;
+/**
+ * The wallet's transaction proof goes to Presto: the page's probe saw it serve the kernel's scheme
+ * and the Worker has not given up on it. The Worker's own build does not matter (it wants
+ * UltraHonk); an unprobed Presto is not asked.
+ */
+export const prestoProvesTx = (s: PrestoState): boolean =>
+  s.fallbackReason === undefined &&
+  s.status?.available === true &&
+  (s.status.schemes ?? []).includes('chonk');
+
+/**
+ * Who is proving the wallet's transaction, from the prover's phases: unknown until the steps are
+ * transmitted (Presto) or proving begins without a transmit (the page); a fallback is the page's.
+ */
+export const txProvingAfter = (prev: ProverKind | null, phase: PrestoPhase): ProverKind | null => {
+  switch (phase) {
+    case 'detect':
+      return null;
+    case 'transmit':
+      return 'presto';
+    case 'proving':
+      return prev ?? 'wasm';
+    case 'fallback':
+      return 'wasm';
+    default:
+      return prev;
+  }
+};
+
+/** Who proves the miner's own claim under way, from its proof's word until it settles; null otherwise. */
+export const txProvingAtom = atom<ProverKind | null>(null);
+
+/** What a proving step says, by who proves it; the times are this machine's: Presto's own bb, or bb.js in the page. */
+export const PROVING = {
+  presto: {
+    about: 'about 5 s',
+    line: 'proves through Presto ✦, about 5 s · mining pauses meanwhile',
+    detail: 'Through Presto ✦ on this machine; mining pauses meanwhile.',
+    foot: 'Keep this tab open while it proves, about 5 s.',
+    claim: 'claiming: proving through Presto ✦',
+    how: 'With Presto, your transaction’s private inputs go to Presto on this machine, never elsewhere; mining pauses meanwhile.',
+  },
+  wasm: {
+    about: 'about 20 s',
+    line: 'proves in your browser, about 20 s · mining pauses meanwhile',
+    detail: 'In your browser; mining pauses meanwhile.',
+    foot: 'Keep this tab open while it proves, about 20 s.',
+    claim: 'claiming: proving in your browser, about 20 s',
+    how: 'Your browser proves it; mining pauses meanwhile.',
+  },
+} as const satisfies Record<ProverKind, Record<string, string>>;
+
+/**
+ * The guard's deadline on Presto's routes, in the Worker and the page alike: a proof may wait behind
+ * Presto's queue and, once, behind its bb download; the SDK bounds the health check itself.
+ */
+export const ACCELERATOR_DEADLINE_MS = 600_000;
 
 const clients = new Map<string, PrestoClient>();
 const clientFor = (e: PrestoEndpoint): PrestoClient => {
@@ -134,7 +189,7 @@ export async function probePresto(
   endpoint: PrestoEndpoint,
   force = false,
 ): Promise<PrestoStatus> {
-  setAcceleratorEndpoints(acceleratorUrls(endpoint), PROBE_DEADLINE_MS);
+  setAcceleratorEndpoints(acceleratorUrls(endpoint), ACCELERATOR_DEADLINE_MS);
   const status = await clientFor(endpoint).checkStatus({ forceRefresh: force });
   store.set(prestoAtom, (s) => ({ ...s, status, probedAt: Date.now() }));
   return status;
