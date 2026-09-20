@@ -1,6 +1,7 @@
 // The Wallet's one reading of the journal: a row per crossing with everything it says, the count of
 // rows waiting on the user, and why a money button is off. The count, each row's action and the
 // button's reason come from here together, so the badge can never disagree with the rows under it.
+import { dayOf, deadlinePhrase } from '../../../bridge/src/exit-deadline.ts';
 import {
   type Crossing,
   destinationOf,
@@ -12,8 +13,8 @@ import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import type { RowLine } from '../../../ui/src/index.ts';
 import { amount as fmt, shortAddress } from '../lib/format';
 import type { BridgeView, VersionFacts } from '../state';
-import { chainName, dayOf, deadlinePhrase, rowLine, stamp, takingLong, whoOf } from './copy';
-import { isOldRole, nextVersionName, versionNameOf } from './env';
+import { chainName, rowLine, stamp, takingLong, whoOf } from './copy';
+import { isOldRole, lifecycleRecord, nextVersionName, versionNameOf } from './env';
 
 /** YACA on Ethereum; the private token here keeps the profile's symbol. */
 const L1_SYMBOL = 'YACA';
@@ -127,6 +128,10 @@ export function activity(
 ): ActivityView {
   const chain = chainName(env.chainId);
   const registeredAt = view.targetRegisteredAt === undefined ? undefined : Number(view.targetRegisteredAt);
+  const stopped =
+    lifecycleRecord()?.stoppedProvingAt === undefined
+      ? undefined
+      : versionNameOf(env.ownVersion, view.canonical);
   const rows = [...journal]
     .sort((a, b) => b.createdAt - a.createdAt)
     .map((c): ActivityRowView => {
@@ -154,6 +159,7 @@ export function activity(
         money,
         who: partyOf(c),
         chain,
+        stopped,
       });
       return {
         c,

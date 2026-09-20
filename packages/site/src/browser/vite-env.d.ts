@@ -38,6 +38,8 @@ interface ImportMetaEnv {
   readonly VITE_APP_ROLE: 'apex' | 'old';
   /** JSON of the record's announced migration, or '' when none is announced. */
   readonly VITE_MIGRATION: string;
+  /** The record's lifecycle notes as JSON, or empty: the old origin's stop and node retirement. */
+  readonly VITE_LIFECYCLE: string;
   /** JSON of the record's portal block, or '' before the L1 deploy. */
   readonly VITE_BRIDGE: string;
   /** The first epoch this miner has: '0', or a continuation's start. Every epoch read floors here. */

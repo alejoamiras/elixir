@@ -29,8 +29,12 @@ test('the versioned origin: the same passkey restores the apex’s account there
   await page.goto(pageUrl({ ...r, baseURL: old }));
   await expect(page.getByTestId('cockpit')).toBeVisible({ timeout: BOOT_MS });
   await expect(page.getByTestId('retired')).toBeVisible();
-  await expect(page.getByTestId('retired')).toContainText('Mining has ended on this version');
+  await expect(page.getByTestId('retired')).toContainText('Send what’s still here ahead.');
   await expect(page.getByTestId('start')).toHaveCount(0);
+  // The old origin's header: Send ahead and the apex's Stats, no Wallet, no mining status.
+  await expect(page.getByRole('link', { name: 'Send ahead' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Wallet' })).toHaveCount(0);
+  await expect(page.getByTestId('phase')).toHaveCount(0);
   // No account on this origin, so no dialog on arrival; the tile's button opens it on Log in.
   const screen = page.getByTestId('key-screen');
   await expect(screen).toBeHidden();
@@ -48,6 +52,11 @@ test('the versioned origin: the same passkey restores the apex’s account there
   await expect(page.getByTestId('key-error')).toHaveCount(0);
   await expect(page.getByTestId('account')).toBeVisible();
   expect(await page.getByTestId('account').getAttribute('title')).toBe(account);
-  await expect(page.getByTestId('retired')).toContainText('send ahead');
+  // Signed in: the card with the way out, the live chip reading Ethereum, the rows with no forward.
+  await expect(page.getByTestId('old-card')).toHaveAttribute('data-state', 'still-here');
+  await expect(page.getByTestId('send-ahead')).toContainText('Send ahead to');
+  // The chip is the scan of Ethereum's accepted proofs finished, whatever it found: never "checking" for good.
+  await expect(page.getByTestId('proof-chip')).not.toHaveText('checking', { timeout: 60_000 });
+  await expect(page.getByTestId('activity')).toBeVisible();
   await shot(page, 'old-app');
 });

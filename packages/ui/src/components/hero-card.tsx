@@ -11,20 +11,24 @@ const BORDER: Record<HeroTone, string> = {
   bad: 'border-bad',
 };
 
-/** One moment's card: what is so, what it means, its trail, and on the right the one thing to do. */
+/** One moment's card; `aside` sits across from the eyebrow, `actions` under the body and trail, `side` in a right column. */
 export function HeroCard({
   eyebrow,
+  aside,
   title,
   children,
   trail,
+  actions,
   side,
   tone = 'uv',
   className,
   ...props
 }: Omit<React.ComponentProps<'section'>, 'title'> & {
   eyebrow: React.ReactNode;
+  aside?: React.ReactNode;
   title: React.ReactNode;
   trail?: readonly TrailItem[];
+  actions?: React.ReactNode;
   side?: React.ReactNode;
   tone?: HeroTone;
 }) {
@@ -40,7 +44,10 @@ export function HeroCard({
       {...props}
     >
       <div className="min-w-0">
-        <span className="label-mono">{eyebrow}</span>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <span className="label-mono">{eyebrow}</span>
+          {aside}
+        </div>
         <h2 className="mt-1.5 text-balance text-[24px] font-semibold leading-[1.15] tracking-[-0.02em]">
           {title}
         </h2>
@@ -48,6 +55,11 @@ export function HeroCard({
           {children}
         </div>
         {trail && trail.length > 0 && <Trail items={trail} className="mt-3.5" />}
+        {actions !== undefined && (
+          <div data-slot="hero-actions" className="mt-4 flex flex-wrap items-center gap-3.5">
+            {actions}
+          </div>
+        )}
       </div>
       {side !== undefined && (
         <div

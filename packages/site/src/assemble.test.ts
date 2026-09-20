@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import {
@@ -7,6 +7,7 @@ import {
   assemble,
   buildRecord,
   OLD_OUT,
+  OLD_REDIRECTS,
   PRODUCTION_OUT,
   productionOutFor,
   REDIRECTS,
@@ -63,6 +64,22 @@ describe('assembly inspects what it emitted', () => {
       assemble(scratch(), { YACANA_SITE_MODE: 'e2e', GITHUB_SHA: 'abc' }, steps),
     ).resolves.toMatchObject({ mode: 'e2e' });
   });
+
+  test('the old role assembles the miner alone at the root, with its own rewrites and no landing card', async () => {
+    const built: string[] = [];
+    const steps = stubbed('fetch("https://node.example/rpc")');
+    steps.buildApp = (name, base, outDir) => {
+      built.push(`${name}@${base}`);
+      mkdirSync(join(outDir, 'assets'), { recursive: true });
+      writeFileSync(join(outDir, 'assets/index-abc.js'), '');
+    };
+    const out = scratch();
+    await assemble(out, { YACANA_SITE_MODE: 'e2e', GITHUB_SHA: 'abc', YACANA_APP_ROLE: 'old' }, steps);
+    expect(built).toEqual(['web-miner@/']);
+    expect(readFileSync(join(out, '_redirects'), 'utf8')).toBe(`${OLD_REDIRECTS.join('\n')}\n`);
+    expect(existsSync(join(out, 'og.png'))).toBe(false);
+    expect(existsSync(join(out, 'mine'))).toBe(false);
+  });
 });
 
 describe('assembly', () => {
@@ -93,6 +110,16 @@ describe('assembly', () => {
       '/verify /stats/ 200',
     ]);
     for (const rule of REDIRECTS) expect(rule).toMatch(/^\/[a-z/]+ \/(mine|stats)\/ 200$/);
+    // The old origin: the version's bookmarks from its apex days land on the one app.
+    expect(OLD_REDIRECTS).toEqual([
+      '/mine / 200',
+      '/mine/ / 200',
+      '/mine/wallet / 200',
+      '/wallet / 200',
+      '/mine/settings / 200',
+      '/settings / 200',
+    ]);
+    for (const rule of OLD_REDIRECTS) expect(rule).toMatch(/^\/[a-z/]+ \/ 200$/);
   });
 
   test('a mode that is not one of the three is refused before anything is built', async () => {

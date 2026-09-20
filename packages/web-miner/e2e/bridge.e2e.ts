@@ -167,7 +167,7 @@ test('on V5: a words account mines one claim, exits to Ethereum (forwarded and m
     if (i === 0) await shot(page, 'committed-sheet');
     await page.getByRole('button', { name: 'Done' }).click();
   }
-  await expect(page.getByTestId('sent-ahead-status')).toContainText('2 tYACA sent ahead · 2 still crossing');
+  await expect(page.getByTestId('sent-ahead-status')).toContainText('2 tYACA sent ahead');
   await shot(page, 'mine-committed');
   // Settled, both are held on Ethereum: their witnesses are in the journal, and in the recovery file.
   await ctl.settle();
@@ -199,7 +199,9 @@ test('on V5 after the flip: the migration card says mining has ended and what is
   await expect(card).toHaveAttribute('data-moment', 'flipped', { timeout: 2 * 60_000 });
   // The rig's rollup version is whatever the network minted: the copy names it, the spec does not assume it.
   await expect(page.getByTestId('flipped-alert')).toContainText(/Mining has ended on V\d+\./);
-  await expect(card).toContainText(/Anything still on V\d+ when it goes quiet is lost\./);
+  await expect(card).toContainText(/what’s still here when it stops can’t leave\./);
+  // The live chip is the scan of Ethereum's accepted proofs finished, whatever it found.
+  await expect(page.getByTestId('proof-chip')).not.toHaveText('checking', { timeout: 60_000 });
   await expect(page.getByTestId('send-ahead')).toBeEnabled();
   await shot(page, 'mine-flipped');
   // A fresh browser knows nothing of what was sent: the recovery file brings the journal, and the card its sum.

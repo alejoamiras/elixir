@@ -1,7 +1,7 @@
 // Three apps into one origin (`/`, `/mine/`, `/stats/`), the shared assets once at the root,
 // `_headers`, `_redirects`, `build.json`. `bun run site:build` → packages/site/dist (the apex
 // Worker) or, under YACANA_APP_ROLE=old, packages/site/dist-old (the versioned origin's Worker,
-// v5/wrangler.jsonc); an e2e run passes its own out dir.
+// v5/wrangler.jsonc: the miner alone, at `/`); an e2e run passes its own out dir.
 import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -30,6 +30,10 @@ export const APPS = [
   { name: 'web-miner', base: '/mine/' },
   { name: 'web-stats', base: '/stats/' },
 ] as const;
+/** The old origin's one app: nothing to mine on, no stats of a retired version, the FAQ on the apex. */
+export const OLD_APPS = [{ name: 'web-miner', base: '/' }] as const;
+export const appsFor = (role: AppRole): readonly { name: string; base: string }[] =>
+  role === 'old' ? OLD_APPS : APPS;
 
 /**
  * The witness archives the operator commits (`deployments/witnesses/*.jsonl`: one file per profile,
@@ -71,6 +75,14 @@ export const REDIRECTS = [
   ...Object.keys(STATS_LINKS).map((r) => `/stats/${r} /stats/ 200`),
   '/verify /stats/ 200',
 ];
+/** The old origin's: the version's old bookmarks (`/mine/`, its deep links) land on the one app at `/`. */
+export const OLD_REDIRECTS = [
+  '/mine / 200',
+  '/mine/ / 200',
+  ...Object.keys(MINER_LINKS).flatMap((r) => [`/mine/${r} / 200`, `/${r} / 200`]),
+];
+export const redirectsFor = (role: AppRole): readonly string[] =>
+  role === 'old' ? OLD_REDIRECTS : REDIRECTS;
 
 export interface BuildRecord {
   mode: SiteConfig['mode'];
@@ -131,11 +143,14 @@ export async function assemble(
     );
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
-  for (const app of APPS) steps.buildApp(app.name, app.base, resolve(out, app.base.slice(1)), env);
+  for (const app of appsFor(config.role))
+    steps.buildApp(app.name, app.base, resolve(out, app.base.slice(1)), env);
   await steps.fetchCrs(out);
   await steps.copyArtifacts(out);
   console.log(await steps.copySlots(out));
-  cpSync(resolve(repo, 'packages/web-landing/public/og.png'), resolve(out, 'og.png'));
+  // The landing's card; the old origin has no landing.
+  if (config.role === 'apex')
+    cpSync(resolve(repo, 'packages/web-landing/public/og.png'), resolve(out, 'og.png'));
   for (const w of witnessFiles(repo)) {
     mkdirSync(resolve(out, 'witnesses'), { recursive: true });
     writeFileSync(resolve(out, w.to), `${w.lines.join('\n')}\n`);
@@ -144,7 +159,7 @@ export async function assemble(
     resolve(out, '_headers'),
     renderHeaders({ mode: config.mode === 'production' ? 'production' : 'e2e' }),
   );
-  writeFileSync(resolve(out, '_redirects'), `${REDIRECTS.join('\n')}\n`);
+  writeFileSync(resolve(out, '_redirects'), `${redirectsFor(config.role).join('\n')}\n`);
   const record = buildRecord(config);
   writeFileSync(resolve(out, 'build.json'), `${JSON.stringify(record, null, 2)}\n`);
   if (config.mode === 'production') assertProductionArtifact(out, config);

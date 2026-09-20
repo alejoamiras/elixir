@@ -60,11 +60,7 @@ export function Bridge() {
         </TileBoundary>
       )}
       <TileBoundary name="bridge-phases">
-        <BridgePhases
-          version={mine}
-          migration={migration()}
-          nowSeconds={snapshot ? Number(snapshot.chainTime) : Math.floor(now / 1000)}
-        />
+        <BridgePhases version={mine} migration={migration()} snapshot={snapshot} />
       </TileBoundary>
       {snapshot && (
         <TileBoundary name="bridge-coins">

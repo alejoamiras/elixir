@@ -81,8 +81,9 @@ after the flip lands like any other once its epoch is proven (rig case H4). The 
    carried V5 in `deployments/testnet.json` (the one before step 6's move) in its own worktree so the V6
    checkout is never touched: `git worktree add ../yacana-v5 <that commit>`, then in `../yacana-v5`
    `bun install && YACANA_APP_ROLE=old bun run site:build` (into its `packages/site/dist-old`) and, from its
-   `packages/site`, `wrangler deploy -c v5/wrangler.jsonc` (the `yacana-v5` Worker: `v5.yacana.network`); then
-   back at the V6 checkout's root, `git worktree remove ../yacana-v5`. An open V5 tab learns from `build.json`
+   `packages/site`, `wrangler deploy -c v5/wrangler.jsonc` (the `yacana-v5` Worker: `v5.yacana.network`). Keep
+   the worktree: steps 11 and 12 note V5's stop in it and redeploy from it; `git worktree remove ../yacana-v5`
+   from the V6 checkout's root once the old origin comes down. An open V5 tab learns from `build.json`
    that it is behind and asks for a reload. The old origin restores accounts (never creates one), sends ahead
    and exits; mining there has ended. Keep it up until V5's deadline has passed, then take it down.
 
@@ -98,13 +99,32 @@ after the flip lands like any other once its epoch is proven (rig case H4). The 
    promise no schedule, only that Yacana forwards a held send-ahead once the next version opens and that holders
    can forward or redeem themselves.
 10. **The witness archive.** Commit `deployments/witnesses/testnet.jsonl` and redeploy the site: the assembly
-    serves each version's lines at `/witnesses/<version>.jsonl`, and a holder's page on V6 completes a V5 send it
-    already holds from there once V5's node is gone (a device that never held it needs the recovery file).
+    serves each version's lines at `/witnesses/<rollup version>.jsonl` (the record's `rollupVersion`, not the
+    registry's index), and a holder's page on V6 completes a V5 send it already holds from there once V5's node
+    is gone (a device that never held it needs the recovery file).
+
+## When V5 stops
+
+11. **Note the stop.** When V5's operators stop it for good (its last proof is on Ethereum; the miner's chip and
+    the old origin say "no proof from V5 for …" meanwhile, never "stopped"), `YACANA_RECORD=deployments/testnet-v5.json
+    bun run bridge -- note-stop <V5> [<unix seconds>]` writes `lifecycle.stoppedProvingAt` to V5's record: no key,
+    no chain, the time defaults to now, a second note is refused. Commit it. Then redeploy the old origin with the
+    note: in step 8's worktree (V5's record is `deployments/testnet.json` there) run the same `note-stop` against
+    that path, commit there too, build and `wrangler deploy -c v5/wrangler.jsonc`. Its page turns from "send
+    ahead" to "V5 has stopped proving. Nothing more can leave"; what V5 proved in time stays claimable on V6 or
+    redeemable on Ethereum until V5's last day. The pages never infer a stop from a silent hour: only this note
+    says "stopped".
+12. **Retire the node.** Commit the witness archive first (step 10: a holder's V6 page completes V5's settled sends
+    from `/witnesses/<V5's rollup version>.jsonl`, not from V5's node), then take V5's node down and `bun run bridge -- retire-node
+    <V5>` on both records as in step 11 (after the stop, once), committed in both checkouts: `lifecycle.nodeRetired`.
+    The old origin's redeploy then shows the "node gone" page before any node access — no log in, no Change node,
+    the apex one link away.
 
 ## Then
 
 - V5's deadline: the later of the version after next's observed activation and 180 days after the flip, plus
-  paused seconds. `status` shows it. After it, nothing leaves V5; take the old origin down.
+  paused seconds. `status` shows it. After it, nothing leaves V5; take the old origin down and remove step 8's
+  worktree.
 - The rehearsal: every step above runs on a preview deployment first (`docs/deployments.md`: the branch alias is
   a preview host with its own passkeys; a version of the `yacana-v5` Worker created without its route serves the
   frozen record on a preview URL). Production deploys (the apex, the `v5` custom domain) happen after the merge,
@@ -124,3 +144,4 @@ after the flip lands like any other once its epoch is proven (rig case H4). The 
 | pause | `pause`, `pause-all`, `unpause` | `bridge.bun.test.ts` (H9: held exits, the budget charged), `migration.bun.test.ts` (`pause-all` reaches every version) |
 | forward | `forward` | `migration.bun.test.ts` (H11: a stranger refused, a wrong target held, the forwarder and the holder accepted, all from the archive with the source node gone), `bridge.bun.test.ts` (H1, H6, H10), `never-settled.bun.test.ts` (an unproven epoch forwards nothing) |
 | the holder's side | — | `browser.bun.test.ts` (V5, the flip, V6 through the page), `origin.bun.test.ts` (one passkey across the apex and the old origin) |
+| the stop, the node's retirement | `note-stop`, `retire-node` | record writes only: `packages/deploy/src/bridge/lifecycle.test.ts`; the pages' states on them are component specs (`versioned-origin.vitest.tsx`, `gallery.vitest.tsx`) |

@@ -307,6 +307,37 @@ describe('site config', () => {
     ).toThrow(/toIndex/);
   });
 
+  test("the record's lifecycle notes travel the same way, checked as a unix time and a boolean", () => {
+    const lifecycle = { stoppedProvingAt: '1790700000', nodeRetired: true };
+    expect(loadSiteConfig({ ...base, mode: 'production' }).lifecycle).toBeNull();
+    const noted = loadSiteConfig({ ...base, mode: 'production', deployment: { ...deployment, lifecycle } });
+    expect(noted.lifecycle).toEqual(lifecycle);
+    expect(JSON.parse(viteDefine(noted)['import.meta.env.VITE_LIFECYCLE'] as string)).toBe(
+      JSON.stringify(lifecycle),
+    );
+    expect(
+      viteDefine(loadSiteConfig({ ...base, mode: 'production' }))['import.meta.env.VITE_LIFECYCLE'],
+    ).toBe('""');
+    expect(
+      loadSiteConfig({ ...base, mode: 'e2e', env: { VITE_LIFECYCLE: JSON.stringify({ nodeRetired: true }) } })
+        .lifecycle,
+    ).toEqual({ nodeRetired: true });
+    expect(() =>
+      loadSiteConfig({
+        ...base,
+        mode: 'production',
+        deployment: { ...deployment, lifecycle: { stoppedProvingAt: 'Sep 21' } },
+      }),
+    ).toThrow(/stoppedProvingAt/);
+    expect(() =>
+      loadSiteConfig({
+        ...base,
+        mode: 'production',
+        deployment: { ...deployment, lifecycle: { nodeRetired: 'yes' as unknown as boolean } },
+      }),
+    ).toThrow(/nodeRetired/);
+  });
+
   test('the mode is one of three words or an error, never a fourth mode by typo', () => {
     expect(siteModeFrom(undefined, 'production')).toBe('production');
     expect(siteModeFrom('', 'dev')).toBe('dev');

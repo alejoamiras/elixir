@@ -1,7 +1,7 @@
 // The two bridge blocks the build carries, parsed once per read: nothing else in the page decides
 // whether the bridge exists. Kept free of the wallet stack so a tile can ask without loading it.
 
-import type { BridgeRecord, MigrationRecord } from '../../../bridge/src/record.ts';
+import type { BridgeRecord, LifecycleRecord, MigrationRecord } from '../../../bridge/src/record.ts';
 import { ownVersionName } from '../../../site/src/browser/version-name.ts';
 
 /** The build's portal, or null before the L1 deploy: no bridge features then. */
@@ -11,6 +11,10 @@ export const bridgeRecord = (): BridgeRecord | null =>
 /** The announced upgrade, or null on a quiet version. */
 export const migrationRecord = (): MigrationRecord | null =>
   import.meta.env.VITE_MIGRATION ? (JSON.parse(import.meta.env.VITE_MIGRATION) as MigrationRecord) : null;
+
+/** The operator's notes on a retired version (the stop, the node gone), or null while none is noted. */
+export const lifecycleRecord = (): LifecycleRecord | null =>
+  import.meta.env.VITE_LIFECYCLE ? (JSON.parse(import.meta.env.VITE_LIFECYCLE) as LifecycleRecord) : null;
 
 /** The versioned origin's build: it restores accounts and moves what is left, and mines nothing. */
 export const isOldRole = (): boolean => import.meta.env.VITE_APP_ROLE === 'old';
