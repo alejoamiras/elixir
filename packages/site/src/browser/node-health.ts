@@ -11,11 +11,44 @@ export type Transport =
   | { kind: 'throttled'; retryAt: number; status: 429; backoffMs: number }
   | { kind: 'silent'; since: number; retryAt: number; backoffMs: number };
 
+/** The node's latest block as the pollers last saw it. */
+export interface NodeTip {
+  block: number;
+  /** The node's last checkpointed checkpoint number. */
+  checkpoint: number;
+  /** The block's own timestamp (s): its age is what the user feels, not the verdict. */
+  timestamp: number;
+  observedAt: number;
+}
+
+/** The rollup's view from L1: every checkpoint the node should have. */
+export interface L1Sample {
+  pendingCheckpoint: number;
+  /** The L1 head the sample was read at: a sample whose head did not move is a cached answer, not news. */
+  head: number;
+  at: number;
+}
+
 export interface NodeHealth {
   transport: Transport;
   /** The pollers' last successful chain read (ms since epoch); null before the first. */
   lastReadAt: number | null;
+  tip: NodeTip | null;
+  l1: L1Sample | null;
+  /** Whether the node in use passed the deployment check; null until it was run. */
+  deploymentOk: boolean | null;
+  /** The last fresh comparison's verdict, kept while L1 says nothing new: a known lag is never cleared by silence. */
+  behind: boolean;
 }
+
+export type NodeStanding = 'healthy' | 'behind' | 'throttled' | 'silent' | 'unknown';
+
+/** An L1 sample older than this says nothing about now. */
+export const L1_FRESH_MS = 60_000;
+/** A tip older than this (the signed-out poll is every 30 s) is no observation of the node now. */
+export const TIP_FRESH_MS = 90_000;
+/** The node may lag the rollup by this many checkpoints without being behind. */
+export const BEHIND_CHECKPOINTS = 1;
 
 export type HealthEvent =
   | { type: 'ok'; latencyMs: number }
@@ -34,7 +67,15 @@ const OPAQUE_WINDOW_MS = 30_000;
 
 const OK: Transport = { kind: 'ok', latencyMs: 0 };
 
-let health: NodeHealth = { transport: OK, lastReadAt: null };
+const FRESH: Omit<NodeHealth, 'transport'> = {
+  lastReadAt: null,
+  tip: null,
+  l1: null,
+  deploymentOk: null,
+  behind: false,
+};
+
+let health: NodeHealth = { transport: OK, ...FRESH };
 const listeners = new Set<() => void>();
 let opaque: number[] = [];
 /** Set while the one recovery request at a deadline is on the network. */
@@ -119,6 +160,8 @@ export function recordOutcome(o: NodeRequestOutcome): void {
 
 /** Tests only: a transport state without the outcomes that would take real seconds to reach it. */
 export const setTransportForTests = (t: Transport): void => set({ ...health, transport: t });
+/** Tests only: a whole health record, for the standing's rules. */
+export const setHealthForTests = (h: Partial<NodeHealth>): void => set({ ...health, ...h });
 
 const synthetic = (t: Transport): Response =>
   new Response(
@@ -163,6 +206,64 @@ export function startNodeHealth(): void {
 /** The pollers say when usable chain data arrived; the interceptor never does. */
 export const markRead = (at = Date.now()): void => set({ ...health, lastReadAt: at });
 
+const l1Fresh = (h: NodeHealth, now: number): boolean => h.l1 !== null && now - h.l1.at <= L1_FRESH_MS;
+/** The tip is read beside the poll and its failure is swallowed: an old observation says nothing about the node now. */
+const tipFresh = (h: NodeHealth, now: number): boolean =>
+  h.tip !== null && now - h.tip.observedAt <= TIP_FRESH_MS;
+
+/** Behind when fresh samples of both sides say the node lacks more than the tolerance; otherwise the last verdict stands. */
+const verdict = (h: NodeHealth, now: number): boolean =>
+  h.tip !== null && h.l1 !== null && tipFresh(h, now) && l1Fresh(h, now)
+    ? h.l1.pendingCheckpoint - h.tip.checkpoint > BEHIND_CHECKPOINTS
+    : h.behind;
+
+/** The node's tip as a poller read it (the public epoch poll, the session's refresh). */
+export function recordTip(tip: Omit<NodeTip, 'observedAt'>, now = Date.now()): void {
+  const next = { ...health, tip: { ...tip, observedAt: now } };
+  set({ ...next, behind: verdict(next, now) });
+}
+
+/**
+ * The rollup's pending checkpoint from L1. Counts only with a head past the last sample's: an RPC
+ * answering from a cache would otherwise keep a stale view fresh. Returns whether it counted.
+ */
+export function recordL1(sample: Omit<L1Sample, 'at'>, now = Date.now()): boolean {
+  if (health.l1 !== null && sample.head <= health.l1.head) return false;
+  const next = { ...health, l1: { ...sample, at: now } };
+  set({ ...next, behind: verdict(next, now) });
+  return true;
+}
+
+/** The RPC changed: its head is no baseline for the next one's; the verdict stands until a fresh sample says otherwise. */
+export const resetL1 = (): void => set({ ...health, l1: null });
+
+/** The row's Retry: the cooldown's deadline is now, so the next request goes to the network as the recovery. */
+export function retryNode(): void {
+  const t = health.transport;
+  if (t.kind === 'ok') return;
+  set({ ...health, transport: { ...t, retryAt: Date.now() } });
+}
+
+/** The deployment check's outcome for the node in use (the boot's probe, a switch's). */
+export const markDeployment = (ok: boolean): void => set({ ...health, deploymentOk: ok });
+
+/**
+ * One word for the node: the transport's while it is not answering, `behind` while a fresh L1
+ * sample last said so, `healthy` only with the deployment checked and L1 fresh; `unknown` otherwise
+ * (the chip then shows the transport's word, never a verdict L1 could not give).
+ */
+export function standing(h: NodeHealth, now: number): NodeStanding {
+  if (h.transport.kind === 'throttled') return 'throttled';
+  if (h.transport.kind === 'silent') return 'silent';
+  if (h.behind) return 'behind';
+  if (h.deploymentOk && tipFresh(h, now) && l1Fresh(h, now)) return 'healthy';
+  return 'unknown';
+}
+
+/** Seconds since the tip's block was made; null before any tip. */
+export const tipAgeS = (h: NodeHealth, now: number): number | null =>
+  h.tip === null ? null : Math.max(0, Math.round(now / 1000 - h.tip.timestamp));
+
 /** The store forgets the old node: a switch starts from `ok`. */
 export const resetNodeHealth = (): void => {
   opaque = [];
@@ -170,7 +271,7 @@ export const resetNodeHealth = (): void => {
   probingSince = 0;
   cooldownFrom = 0;
   resetAt = performance.now();
-  set({ transport: OK, lastReadAt: null });
+  set({ transport: OK, ...FRESH });
 };
 
 export const nodeHealth = (): NodeHealth => health;

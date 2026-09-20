@@ -20,9 +20,15 @@ test('a claim with a bound public input altered is refused at proving before it 
   expect(await page.evaluate(() => window.yacana?.proverless)).toBe(false);
   await page.evaluate(() => window.yacana?.tamperNextClaim());
   await page.getByTestId('start').click();
-  await expect(page.getByTestId('claim-slot')).toHaveAttribute('data-state', 'notice', {
-    timeout: 10 * 60_000,
-  });
+  // Stop during the claim: the chip says the claim finishes, Stop is spent; mining will not resume after it.
+  const chip = page.getByTestId('claim-chip');
+  await expect(chip).toContainText(/claiming · proving · \d+ s/, { timeout: 10 * 60_000 });
+  await page.getByTestId('stop').click();
+  await expect(chip).toContainText(/stopping · claim finishing · \d+ s/);
+  await expect(page.getByTestId('stop')).toBeDisabled();
+  const retry = page.getByTestId('ledger').getByRole('button', { name: 'Retry' });
+  await expect(retry).toBeVisible({ timeout: 10 * 60_000 });
+  await expect(page.getByTestId('ledger')).toContainText(/a win · claim failed: .+ · mining paused/);
   const log = await page.evaluate(() => window.yacana?.log() ?? []);
   const failure = log.find((l) => l.includes('claim failed'));
   console.log(`[canary] ${failure}`);
@@ -35,9 +41,13 @@ test('a claim with a bound public input altered is refused at proving before it 
   expect(sends).toBe(0);
   await expect(page.getByTestId('claims')).toHaveText('0');
 
-  expect(await page.evaluate(() => window.yacana?.retryPendingClaim())).toBe(true);
+  // Retry on the line: the same ticket, its input restored, mints — and the Stop pressed earlier holds.
+  await retry.click();
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
   await expect(page.getByTestId('balance')).toHaveText('4');
   expect(sends).toBe(1);
-  await page.getByTestId('stop').click();
+  await expect(page.getByTestId('start')).toBeVisible();
+  await expect(page.getByTestId('ledger')).toContainText(
+    /minted in block [\d,]+↗ \(opens in a new tab\) · 4 tYACA, privately/,
+  );
 });

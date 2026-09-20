@@ -74,6 +74,15 @@ export async function probeNode(
   }
 }
 
+/** The node's latest block, its checkpointed checkpoint and the block's own time: the tip the health store keeps. */
+export async function readTip(node: Node): Promise<{ block: number; checkpoint: number; timestamp: number }> {
+  const [latest, checkpoint] = await Promise.all([
+    readLatestBlock(node),
+    node.getCheckpointNumber('checkpointed'),
+  ]);
+  return { block: latest.number, checkpoint: Number(checkpoint), timestamp: latest.timestamp };
+}
+
 export interface SwitchableNode {
   node: Node;
   /** Points every holder of `node` at `url`; a call already in flight finishes on the client it started on. */

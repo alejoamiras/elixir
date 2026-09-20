@@ -68,7 +68,13 @@ test('an old Presto answers: the update row, and Retry re-asks', async ({ page, 
   try {
     await page.goto(replay.url({ presto: String(fake.port) }));
     await expect(page.getByTestId('cockpit')).toBeVisible({ timeout: BOOT_MS });
+    // Presto is asked at Start mining alone: the cockpit's ready shows nothing of it.
     const notice = page.getByTestId('presto-notice');
+    await expect(notice).toHaveCount(0);
+    await page.getByTestId('sign-in-mine').click();
+    await expect(page.getByTestId('key-screen')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('key-screen')).toHaveCount(0);
     await expect(notice).toContainText('needs an update', { timeout: 60_000 });
     await expect(page.getByTestId('presto-billboard')).toHaveCount(0);
     await render(page, 'row');

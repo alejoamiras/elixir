@@ -12,7 +12,7 @@ declare global {
       log(): string[];
       proverless: boolean;
       tamperNextClaim(): void;
-      retryPendingClaim(): boolean;
+      retryPendingClaim(): Promise<boolean>;
       session: { publicBalance(owner: string): Promise<bigint> };
       controller():
         | {

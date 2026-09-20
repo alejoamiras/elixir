@@ -66,6 +66,21 @@ describe('reconfigure for Presto', () => {
     c.dispose();
   });
 
+  test('a thread change while native is sticky posts nothing and rides the next browser build', async () => {
+    const worker = new FakeWorker();
+    const { c } = controller(worker);
+    await c.ready();
+    c.reconfigure(6);
+    await tick();
+    expect(reconfigures(worker)).toEqual([]);
+    expect(c.currentThreads).toBe(6);
+    // Presto dropped out: the browser prover is built with the threads kept meanwhile.
+    c.reconfigure(c.currentThreads, null);
+    await tick();
+    expect(reconfigures(worker)).toEqual([{ type: 'reconfigure', threads: 6, presto: null }]);
+    c.dispose();
+  });
+
   test('a sticky fallback is the Worker’s verdict until a rebuild; Stop is counted', async () => {
     const worker = new FakeWorker();
     const { store, c } = controller(worker);

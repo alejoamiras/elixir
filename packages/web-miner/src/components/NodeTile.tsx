@@ -1,248 +1,188 @@
+// The Aztec node's row in Settings. The health store is the row's only source of words: the tile
+// never probes on its own; the setting is saved only once the switch took.
 import { useAtomValue } from 'jotai';
-import { useEffect, useReducer, useState, useSyncExternalStore } from 'react';
+import { useReducer, useSyncExternalStore } from 'react';
 import { defaultNodeUrl, isPinnedByQuery, saveConnection } from '../../../site/src/browser/connection.ts';
-import { type NodeProbe, parseNodeUrl } from '../../../site/src/browser/node.ts';
-import { nodeHealth, subscribeNodeHealth } from '../../../site/src/browser/node-health.ts';
-import { Button, ExternalLink, Input, Label, Tile, TileHeader } from '../../../ui/src/index.ts';
-import { canUse, checkReducer, describeProbe } from '../lib/node-check';
+import { parseNodeUrl } from '../../../site/src/browser/node.ts';
+import {
+  nodeHealth,
+  retryNode,
+  standing,
+  subscribeNodeHealth,
+  tipAgeS,
+} from '../../../site/src/browser/node-health.ts';
+import { Button, Input, StatusChip, type Step, Stepper } from '../../../ui/src/index.ts';
+import {
+  type EditState,
+  editReducer,
+  probeFailure,
+  rebuildFailure,
+  rowWords,
+  saving,
+} from '../lib/node-check';
 import type { Session } from '../session';
-import { bootAtom } from '../state';
-
-const RUN_A_NODE = 'https://docs.aztec.network/the_aztec_network/guides/run_nodes/how_to_run_full_node';
-const HEALTH_EVERY_MS = 10_000;
-
-type Health =
-  | { kind: 'pending'; verified: boolean }
-  | { kind: 'ok'; probe: NodeProbe; verified: true }
-  | { kind: 'failed'; message: string; verified: boolean };
+import { bootAtom, minerAtom, nowAtom } from '../state';
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const host = (url: string) => new URL(url).host;
 
-/**
- * The node in use, probed every ten seconds while the tile is on screen. `verified` survives a
- * failed probe: a node that passed the deployment check once is still that deployment when it throttles.
- */
-function useNodeHealth(session: Session, nodeUrl: string): Health {
-  const [health, setHealth] = useState<Health>({ kind: 'pending', verified: false });
-  useEffect(() => {
-    let live = true;
-    let running = false;
-    setHealth({ kind: 'pending', verified: false });
-    // The active node's probe rides the page's handle, whose deadline is the guard's, not this 10 s.
-    // A slow node could outlast the interval, so a tick is skipped while the last probe is in flight.
-    const tick = () => {
-      if (running) return;
-      running = true;
-      session
-        .probeNode(nodeUrl, HEALTH_EVERY_MS)
-        .then((probe) => live && setHealth({ kind: 'ok', probe, verified: true }))
-        .catch(
-          (e: unknown) =>
-            live && setHealth((h) => ({ kind: 'failed', message: message(e), verified: h.verified })),
-        )
-        .finally(() => {
-          running = false;
-        });
-    };
-    void tick();
-    const timer = setInterval(tick, HEALTH_EVERY_MS);
-    return () => {
-      live = false;
-      clearInterval(timer);
-    };
-  }, [session, nodeUrl]);
-  return health;
-}
+/** The stepper under the field while a save runs: reachable, this deployment, switching. */
+export const saveSteps = (state: EditState): Step[] => {
+  const probing = state.kind === 'probing';
+  const latency = state.kind === 'switching' ? `${(state.latencyMs / 1000).toFixed(1)} s` : undefined;
+  return [
+    { id: 'reachable', label: 'Reachable', state: probing ? 'active' : 'done', right: latency },
+    { id: 'deployment', label: 'This deployment', state: probing ? 'pending' : 'done' },
+    {
+      id: 'switching',
+      label: 'Switching',
+      state: probing ? 'pending' : 'active',
+      detail: probing
+        ? undefined
+        : "Rebuilding your view of the chain from the new node. Mining pauses until it's done.",
+      right: probing ? undefined : 'about a minute',
+    },
+  ];
+};
 
-const secondsSince = (at: number | null) =>
-  at === null ? null : Math.max(0, Math.round((Date.now() - at) / 1000));
-
-/** The status line: the store's word while the node is throttled or silent, the probe's otherwise. */
-function HealthLine({ health }: { health: Health }) {
-  const store = useSyncExternalStore(subscribeNodeHealth, nodeHealth, nodeHealth);
-  const t = store.transport;
-  if (t.kind !== 'ok') {
-    const age = secondsSince(store.lastReadAt);
-    return (
-      <>
-        <span className="text-warn">
-          {t.kind === 'throttled' ? '429 · rate limited' : `no answer for ${secondsSince(t.since)} s`}
-        </span>
-        {age !== null && <span>last answer {age} s ago</span>}
-        {health.verified && <span className="text-ok">this deployment ✓</span>}
-      </>
-    );
-  }
-  if (health.kind === 'pending') return <span>checking…</span>;
-  if (health.kind === 'failed') return <span className="text-warn">{health.message}</span>;
-  return (
-    <>
-      <span className="text-ok">
-        block {health.probe.block.toLocaleString('en-US')} · {health.probe.blockAgeS} s ago
-      </span>
-      <span>{Math.round(health.probe.latencyMs)} ms</span>
-      <span className="text-ok">this deployment ✓</span>
-    </>
+function Row({
+  nodeUrl,
+  onChange,
+  onDefault,
+}: {
+  nodeUrl: string;
+  onChange: () => void;
+  onDefault: () => void;
+}) {
+  const health = useSyncExternalStore(subscribeNodeHealth, nodeHealth, nodeHealth);
+  const now = useAtomValue(nowAtom);
+  const notice = useAtomValue(minerAtom).notice?.kind;
+  const pinned = isPinnedByQuery();
+  const state = standing(health, now);
+  const words = rowWords(
+    state,
+    health,
+    now,
+    tipAgeS(health, now),
+    notice === 'offline' || notice === 'behind',
   );
-}
-
-function HealthRow({ nodeUrl, health }: { nodeUrl: string; health: Health }) {
   const isDefault = nodeUrl === defaultNodeUrl();
   return (
-    <div className="flex items-start justify-between gap-4 rounded-lg border border-line-2 px-3.5 py-3">
-      <div className="min-w-0">
-        <div className="font-mono text-sm" data-testid="node-in-use">
-          {new URL(nodeUrl).host}
-          {isDefault && <span className="text-2xs text-ink-3"> · the default</span>}
+    <div className="flex items-start justify-between gap-4" data-testid="node-row" data-standing={state}>
+      <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex items-center gap-2.5 text-sm">
+          <span>Aztec node</span>
+          <StatusChip tone={words.chip.tone} data-testid="node-chip">
+            {words.chip.word}
+          </StatusChip>
         </div>
-        <div
-          className="mt-1.5 flex flex-wrap gap-x-3.5 gap-y-1 font-mono text-2xs text-ink-2"
-          data-testid="node-health"
-        >
-          <HealthLine health={health} />
+        <div className="flex flex-wrap items-baseline gap-x-2 font-mono text-xs text-ink-2">
+          <span data-testid="node-in-use">{host(nodeUrl)}</span>
+          {isDefault ? (
+            <span className="text-ink-3">· default</span>
+          ) : (
+            <>
+              <span className="text-ink-3">· custom</span>
+              <Button variant="link" className="text-xs" onClick={onDefault} data-testid="node-default">
+                Use the default
+              </Button>
+            </>
+          )}
+        </div>
+        <div className="font-mono text-2xs text-ink-3" data-testid="node-line">
+          {words.line}
         </div>
       </div>
-      <Button size="sm" disabled>
-        In use
-      </Button>
+      <div className="flex shrink-0 items-center gap-2">
+        {words.retry && (
+          <Button size="sm" onClick={retryNode} data-testid="node-retry">
+            Retry
+          </Button>
+        )}
+        <Button size="sm" onClick={onChange} disabled={pinned} data-testid="node-change">
+          Change
+        </Button>
+        {pinned && <span className="text-2xs text-ink-3">set by the page URL</span>}
+      </div>
     </div>
   );
 }
 
-function CheckForm({
-  session,
-  nodeUrl,
-  onSwitched,
+function Field({
+  state,
+  dispatch,
+  onSave,
 }: {
-  session: Session;
-  nodeUrl: string;
-  onSwitched: () => void;
+  state: Exclude<EditState, { kind: 'row' }>;
+  dispatch: (e: Parameters<typeof editReducer>[1]) => void;
+  onSave: (url: string) => void;
 }) {
-  const [typed, setTyped] = useState('');
-  const [state, dispatch] = useReducer(checkReducer, { kind: 'idle' });
-  const pinned = isPinnedByQuery();
-  const check = async () => {
-    let url: string;
-    try {
-      url = parseNodeUrl(typed, import.meta.env.VITE_SITE_MODE).href;
-    } catch (e) {
-      dispatch({ type: 'check', url: typed.trim() });
-      return dispatch({ type: 'failed', url: typed.trim(), message: message(e) });
-    }
-    dispatch({ type: 'check', url });
-    setTyped(url);
-    try {
-      dispatch({ type: 'ok', url, probe: await session.probeNode(url) });
-    } catch (e) {
-      dispatch({ type: 'failed', url, message: message(e) });
-    }
-  };
-  const use = async () => {
-    const url = typed.trim();
-    dispatch({ type: 'switch', url });
-    try {
-      await session.switchNode(url);
-    } catch (e) {
-      return dispatch({ type: 'switch-failed', url, message: message(e) });
-    }
-    // The live node moved: the tile follows it now. The setting is saved only after the switch, so a
-    // failed switch never leaves storage pointing at a node the page never took.
-    onSwitched();
-    if (!saveConnection({ nodeUrl: url }))
-      return dispatch({
-        type: 'switch-failed',
-        url,
-        message:
-          'Now in use, but the browser refused to save it; free some site storage so it sticks on reload.',
-      });
-    dispatch({ type: 'switched', url });
-  };
-  const busy = state.kind === 'checking' || state.kind === 'switching';
+  const busy = saving(state);
   const opening = useAtomValue(bootAtom).phase === 'opening';
+  const error = state.kind === 'editing' ? state.error : undefined;
   return (
-    <div className="grid gap-3">
-      <div className="grid gap-1.5">
-        <Label htmlFor="node-url">Another node</Label>
-        <div className="flex gap-2">
-          <Input
-            id="node-url"
-            className="font-mono"
-            value={typed}
-            placeholder="https://…"
-            disabled={pinned || busy}
-            onChange={(e) => {
-              setTyped(e.target.value);
-              dispatch({ type: 'edit' });
-            }}
-            data-testid="node-url"
-          />
-          <Button
-            size="default"
-            disabled={pinned || busy || !typed.trim()}
-            onClick={() => void check()}
-            data-testid="node-check"
-          >
-            {state.kind === 'checking' ? 'Checking…' : 'Check'}
-          </Button>
-        </div>
-        {pinned && <span className="text-xs text-ink-2">set by the page URL</span>}
-      </div>
-      <CheckResult state={state} />
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-2" data-testid="node-edit">
+      <span className="text-sm">Aztec node</span>
+      <div className="flex gap-2">
+        <Input
+          id="node-url"
+          className="font-mono"
+          value={state.url}
+          placeholder="https://…"
+          disabled={busy}
+          onChange={(e) => dispatch({ type: 'edit', url: e.target.value })}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !busy) onSave(state.url);
+          }}
+          data-testid="node-url"
+        />
         <Button
           variant="primary"
-          disabled={!canUse(state, typed, nodeUrl) || pinned || opening}
-          onClick={() => void use()}
-          data-testid="node-use"
+          disabled={busy || opening || !state.url.trim()}
+          onClick={() => onSave(state.url)}
+          data-testid="node-save"
         >
-          {state.kind === 'switching' ? 'Switching…' : 'Use this node'}
+          {busy ? 'Saving…' : 'Save'}
         </Button>
-        <span className="text-xs text-ink-3">
-          {opening
-            ? 'An account is opening: finish or cancel the sign-in first.'
-            : "Applies at once; your account's view of the chain is rebuilt from the new node (about a minute) and mining carries on. The page checks any node against this deployment before it reads a number from it."}
-        </span>
+        <Button
+          variant="ghost"
+          disabled={busy}
+          onClick={() => dispatch({ type: 'cancel' })}
+          data-testid="node-cancel"
+        >
+          Cancel
+        </Button>
       </div>
+      {error ? (
+        <p className="text-xs text-warn" data-testid="node-error">
+          {error}
+        </p>
+      ) : (
+        <p className="text-xs text-ink-3">
+          {opening ? (
+            'An account is opening: finish or cancel the sign-in first.'
+          ) : (
+            <>
+              Any https node on this deployment.{' '}
+              <button
+                type="button"
+                className="text-ink-3 underline decoration-dotted underline-offset-2 hover:text-ink-2"
+                disabled={busy}
+                onClick={() => dispatch({ type: 'edit', url: defaultNodeUrl() })}
+                data-testid="node-fill-default"
+              >
+                Use the default
+              </button>
+            </>
+          )}
+        </p>
+      )}
+      {busy && <Stepper steps={saveSteps(state)} data-testid="node-stepper" />}
     </div>
   );
 }
 
-function CheckResult({ state }: { state: ReturnType<typeof checkReducer> }) {
-  if (state.kind === 'idle' || state.kind === 'checking') return null;
-  const lines =
-    state.kind === 'ok'
-      ? describeProbe(state.probe)
-      : state.kind === 'switching'
-        ? ['rebuilding the chain view from the new node…']
-        : state.kind === 'switched'
-          ? ['✓ in use']
-          : [state.message];
-  const warn = state.kind === 'failed' || state.kind === 'switch-failed';
-  return (
-    <div
-      className={`flex flex-wrap gap-x-3.5 gap-y-1 font-mono text-2xs ${warn ? 'text-warn' : 'text-ink-2'}`}
-      data-testid="node-check-result"
-    >
-      {lines.map((l) => (
-        <span key={l} className={!warn && l.startsWith('✓') ? 'text-ok' : undefined}>
-          {l}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-const NodeNote = () => (
-  <p className="border-t border-line pt-3 text-xs text-ink-3">
-    The node answers what this page asks; it can delay or hide, never spend: every claim is proved here and
-    verified on the chain. A public node may rate-limit you:{' '}
-    <ExternalLink href={RUN_A_NODE} className="font-sans whitespace-nowrap text-ink-2">
-      run a node
-    </ExternalLink>
-  </p>
-);
-
-/** Settings → Node: the node in use and its health, and the way to check and use another one. */
+/** Settings → Network → Aztec node: the row, its edit, and the save that probes then switches. */
 export function NodeTile({
   session,
   nodeUrl,
@@ -252,15 +192,58 @@ export function NodeTile({
   nodeUrl: string;
   onSwitched: () => void;
 }) {
-  const health = useNodeHealth(session, nodeUrl);
+  const [state, dispatch] = useReducer(editReducer, { kind: 'row' });
+  const save = async (typed: string) => {
+    // The node in use when the save began: what "Kept …" names, whatever the tile shows meanwhile.
+    const former = nodeUrl;
+    let url: string;
+    try {
+      url = parseNodeUrl(typed, import.meta.env.VITE_SITE_MODE).href;
+    } catch (e) {
+      dispatch({ type: 'probe', url: typed });
+      return dispatch({ type: 'failed', url: typed, message: probeFailure(message(e), host(nodeUrl)) });
+    }
+    dispatch({ type: 'edit', url });
+    dispatch({ type: 'probe', url });
+    try {
+      const probe = await session.probeNode(url);
+      dispatch({ type: 'reachable', url, latencyMs: probe.latencyMs });
+    } catch (e) {
+      return dispatch({ type: 'failed', url, message: probeFailure(message(e), host(nodeUrl)) });
+    }
+    try {
+      await session.switchNode(url);
+    } catch (e) {
+      // `kept: false` is a switch that could rebuild from neither node: nothing was kept.
+      const kept = (e as { kept?: boolean }).kept === false ? null : host(former);
+      return dispatch({ type: 'failed', url, message: rebuildFailure(host(url), message(e), kept) });
+    }
+    // The live node moved: the tile follows it now. The setting is saved only after the switch, so a
+    // failed switch never leaves storage pointing at a node the page never took.
+    onSwitched();
+    if (!saveConnection({ nodeUrl: url }))
+      return dispatch({
+        type: 'failed',
+        url,
+        message:
+          'Now in use, but the browser refused to save it; free some site storage so it sticks on reload.',
+      });
+    dispatch({ type: 'saved' });
+  };
   return (
-    <Tile>
-      <TileHeader aside="chain reads and claims go through it">Node</TileHeader>
-      <div className="grid gap-3.5">
-        <HealthRow nodeUrl={nodeUrl} health={health} />
-        <CheckForm session={session} nodeUrl={nodeUrl} onSwitched={onSwitched} />
-        <NodeNote />
-      </div>
-    </Tile>
+    <div className="rounded-[8px] border border-line-2 px-3.5 py-3">
+      {state.kind === 'row' ? (
+        <Row
+          nodeUrl={nodeUrl}
+          onChange={() => dispatch({ type: 'change', url: '' })}
+          onDefault={() => {
+            dispatch({ type: 'change', url: defaultNodeUrl() });
+            void save(defaultNodeUrl());
+          }}
+        />
+      ) : (
+        <Field state={state} dispatch={dispatch} onSave={(url) => void save(url)} />
+      )}
+    </div>
   );
 }

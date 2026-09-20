@@ -22,6 +22,9 @@ function fakeBackend(winAtNonce?: bigint) {
     async init({ threads, presto }) {
       calls.push(`init ${threads}${presto ? ` @${presto.port}` : ''}`);
     },
+    threads(n) {
+      calls.push(`threads ${n}`);
+    },
     async destroy() {
       calls.push('destroy');
     },
@@ -83,6 +86,15 @@ describe('prover loop', () => {
     loop.handle({ type: 'mine', job: { ...job(7n), secretId: 2 } });
     await tick();
     expect(f.mined[1]).toEqual({ startNonce: 7n, secret: '0x3' });
+  });
+
+  test('a thread count for the next WASM build reaches the backend without a rebuild', async () => {
+    const f = fakeBackend();
+    const loop = createProverLoop(f.backend, () => {});
+    loop.handle({ type: 'init', threads: 4, presto: null });
+    loop.handle({ type: 'threads', threads: 2 });
+    await tick();
+    expect(f.calls).toEqual(['init 4', 'threads 2']);
   });
 
   test('a reconfigure while idle rebuilds at once and a job arriving meanwhile waits for it', async () => {

@@ -5,7 +5,8 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { createStore } from 'jotai';
 import { readEpochs, readOpenEpochNumber } from '../../miner-core/src/reader.ts';
-import { markRead } from '../../site/src/browser/node-health.ts';
+import { readTip } from '../../site/src/browser/node.ts';
+import { markRead, recordTip } from '../../site/src/browser/node-health.ts';
 import { chunkLoader } from '../../site/src/browser/slots.ts';
 import type { EpochInfo } from './lib/reducer';
 import { epochAtom } from './state';
@@ -35,6 +36,8 @@ export function publicEpochReader(
     const open = await readOpenEpochNumber(node, miner, layout);
     const [row] = await readEpochs(node, miner, { from: open, to: open }, load, { withSeed: true });
     if (!row || row.seed === undefined) throw new Error(`epoch ${open} is beyond the slot table`);
+    // The tip rides the epoch read; it is the health store's, so its failure is not the epoch's.
+    await readTip(node).then(recordTip, () => {});
     return {
       epoch: BigInt(open),
       seed: row.seed,

@@ -93,11 +93,15 @@ describe('PrestoBanner', () => {
   });
 
   test('present but in the way: the row with its words and a Retry that reaches the host; the download is an info row without one', () => {
+    // Nothing before any probe: Start mining asks, the cockpit's ready does not.
+    expect(mount({}).container.innerHTML).toBe('');
+    cleanup();
     const blocked = mount({ status: status({ available: false, reason: 'permission-blocked' }) });
     const row = blocked.getByTestId('presto-notice');
     expect(row.dataset.tone).toBe('warn');
     expect(row.textContent).toContain('blocked local access');
-    expect(row.textContent).toContain('browser · 11 threads');
+    // No thread count on the row: the epoch tile's power row is where the threads live.
+    expect(row.textContent).not.toContain('threads');
     fireEvent.click(blocked.getByTestId('presto-retry'));
     expect(blocked.onRetry).toHaveBeenCalledTimes(1);
     expect(blocked.container.querySelector('presto-banner')).toBeNull();

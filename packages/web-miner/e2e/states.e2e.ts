@@ -104,20 +104,103 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
   await page.getByTestId('start').click();
   await expect(page.getByTestId('claim-stepper')).toBeVisible({ timeout: 10 * 60_000 });
   await expect(page.getByTestId('notice-reverted')).toBeVisible({ timeout: 15 * 60_000 });
+  // The verified cause on the win line: the miner's own "stale claim", never assumed.
+  await expect(page.getByTestId('ledger')).toContainText(
+    "a win · didn't land: the epoch closed first · the sponsor paid, your proof is unspent",
+  );
+  await expect(page.getByTestId('notice-reverted')).toContainText('someone closed the epoch first');
   await closing;
   await expect(page.getByTestId('phase')).toHaveText('mining', { timeout: 5 * 60_000 });
   await expect(page.getByText('chain view rebuilt')).toBeVisible();
   // At the easy target the next claims come fast: the balance is checked against the claim count,
   // which only holds if the note minted before the reset came back with the rebuilt view.
   await expect(page.getByTestId('claims')).not.toHaveText(/^[01]$/, { timeout: 10 * 60_000 });
-  await expect.poll(() => balanceForClaims(page), { timeout: 60_000 }).toMatch(/^\d+ for \d+ claims$/);
-  const read = await balanceForClaims(page);
-  const parsed = /^(\d+) for (\d+) claims$/.exec(read);
-  if (!parsed) throw new Error(`unparsable balance read: ${read}`);
-  expect(Number(parsed[1])).toBe(4 * Number(parsed[2]));
+  // The balance follows the next refresh after the mint; the rebuilt view's older note must be in it.
+  await expect
+    .poll(
+      async () => {
+        const parsed = /^(\d+) for (\d+) claims$/.exec(await balanceForClaims(page));
+        return parsed ? Number(parsed[1]) === 4 * Number(parsed[2]) : false;
+      },
+      { timeout: 60_000 },
+    )
+    .toBe(true);
   // No handshake this time: the rebuilt view still knows the recipient; one note, the mint's.
   const later = await lastClaim(page);
   console.log(`[effects] a claim after the rebuild: ${JSON.stringify(later)}`);
   expect(later?.nullifiers).toContain(later?.ticketNullifier);
   expect(later?.noteHashes).toHaveLength(1);
+});
+
+/** The rollup's L1 view as a stub the page's health sampler reads: the chain id the node reports, a head that moves, a pending checkpoint of the test's choosing. */
+async function l1Stub(page: Page, nodeUrl: string, pending: () => bigint): Promise<string> {
+  const chainId = (
+    (await (
+      await fetch(nodeUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'node_getChainId', params: [] }),
+      })
+    ).json()) as { result: number }
+  ).result;
+  const url = 'http://127.0.0.1:1/l1';
+  let head = 1_000;
+  await page.route(`${url}**`, async (route) => {
+    const body = JSON.parse(route.request().postData() ?? '{}') as { id: number; method: string };
+    const hex = (n: bigint) => `0x${n.toString(16)}`;
+    const result =
+      body.method === 'eth_chainId'
+        ? hex(BigInt(chainId))
+        : body.method === 'eth_blockNumber'
+          ? hex(BigInt(++head))
+          : body.method === 'eth_call'
+            ? `0x${pending().toString(16).padStart(64, '0')}`
+            : null;
+    await route.fulfill({ json: { jsonrpc: '2.0', id: body.id, result } });
+  });
+  return url;
+}
+
+/** The node's JSON-RPC, as the page speaks it. */
+async function rpc<T>(nodeUrl: string, method: string, params: unknown[]): Promise<T> {
+  const res = await fetch(nodeUrl, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+  });
+  const reply = (await res.json()) as { result?: T; error?: { message: string } };
+  if (reply.error) throw new Error(`${method}: ${reply.error.message}`);
+  return reply.result as T;
+}
+
+const checkpointed = async (nodeUrl: string): Promise<bigint> =>
+  BigInt(await rpc<number | string>(nodeUrl, 'node_getCheckpointNumber', ['checkpointed']));
+
+test('a node behind the rollup on L1 pauses mining; its catching up resumes it', async ({ page }) => {
+  const r = run();
+  // The rollup's pending checkpoint sits three past the node's; the node catches up under warped slots
+  // (the local network builds a block per slot it is warped over), L1's word never moves back.
+  let pending = 0n;
+  const ethRpc = await l1Stub(page, r.nodeUrl, () => pending);
+  await bootPage(page, pageUrl(r, { miner: r.hardMiner, token: r.hardToken, ethRpc }));
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('phase')).toHaveText('mining');
+  const before = await checkpointed(r.nodeUrl);
+  pending = before + 3n;
+  await expect(page.getByTestId('notice-behind')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId('phase')).toHaveText('paused');
+  // The Settings row names the lag and the pause.
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await expect(page.getByTestId('node-chip')).toContainText('behind');
+  await expect(page.getByTestId('node-line')).toContainText(
+    'the node answers, but its chain is old · mining paused',
+  );
+  await page.getByRole('link', { name: 'Mine' }).click();
+  // Six slots on the node: its checkpoints reach and pass the rollup's word.
+  for (let i = 0; i < 6 && (await checkpointed(r.nodeUrl)) < pending; i++)
+    await rpc(r.nodeUrl, 'aztecDebug_warpL2TimeAtLeastBy', [72]);
+  expect(await checkpointed(r.nodeUrl)).toBeGreaterThanOrEqual(pending - 1n);
+  await expect(page.getByTestId('notice-behind')).toHaveCount(0, { timeout: 60_000 });
+  await expect(page.getByTestId('phase')).toHaveText('mining');
+  await page.getByTestId('stop').click();
 });

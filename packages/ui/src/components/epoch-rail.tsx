@@ -36,7 +36,7 @@ export function EpochRail({
       <TileHeader className="mb-0" aside={aside}>
         epoch {epoch}
       </TileHeader>
-      <div className="flex gap-1" role="img" aria-label={`${claims} of ${n} claims`}>
+      <div className="flex gap-1" role="img" aria-label={`${claims} of ${n} wins`}>
         {Array.from({ length: n }, (_, i) => (
           <span
             key={i.toString()}

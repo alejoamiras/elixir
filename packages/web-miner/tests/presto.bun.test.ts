@@ -92,13 +92,13 @@ describe('the fix-it row', () => {
     );
     expect(downloading).toEqual({
       tone: 'info',
-      text: expect.stringContaining('fetching bb for Aztec 5.2.0'),
+      text: expect.stringContaining('fetching its prover for Aztec 5.2.0'),
       retry: false,
     });
     // A sticky verdict outranks a phase that is over.
     expect(
       noticeFor({ ...initialPresto, fallbackReason: 'invalid-proof', phase: 'downloading' }, site)?.text,
-    ).toContain('did not verify');
+    ).toContain('didn’t verify');
   });
 
   test("each probe outcome that needs the visitor's hand has its words", () => {

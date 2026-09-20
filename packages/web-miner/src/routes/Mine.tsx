@@ -6,6 +6,7 @@ import { BalanceCard } from '../components/BalanceCard';
 import type { MinerController } from '../controller';
 import { ArrivalCard } from '../features/ArrivalCard';
 import { BridgeProviders } from '../features/BridgeProviders';
+import { NoticeCard } from '../features/ClaimStatus';
 import { LedgerTile } from '../features/LedgerTile';
 import { KpiTiles, LoopTile } from '../features/LoopTile';
 import { MigrationCard } from '../features/MigrationCard';
@@ -15,7 +16,7 @@ import { SendAheadSheet } from '../features/SendAheadSheet';
 import { useTileLog } from '../lib/tile-log';
 import { navigate } from '../routes';
 import type { Session } from '../session';
-import { balanceAtom, bootAtom } from '../state';
+import { balanceAtom, bootAtom, minerAtom } from '../state';
 
 /** The guided path over the cockpit: the migration card and what has arrived, with the send-ahead sheet. */
 function GuidedPath({ session }: { session: Session }) {
@@ -56,6 +57,7 @@ export function Mine({
 }) {
   const onError = useTileLog();
   const ready = useAtomValue(bootAtom).phase === 'ready';
+  const notice = useAtomValue(minerAtom).notice;
   // The versioned origin is one page: nothing is mined there, so no cockpit.
   if (isOldRole()) return <OldApp session={session} />;
   return (
@@ -64,6 +66,11 @@ export function Mine({
       data-signed-out={ready ? undefined : ''}
       data-testid="cockpit"
     >
+      {notice && (
+        <div className="md:col-span-2 xl:col-span-4">
+          <NoticeCard notice={notice} />
+        </div>
+      )}
       {session && ready && <GuidedPath session={session} />}
       <TileBoundary name="loop" onError={onError} className="md:col-span-2 xl:col-span-3">
         <LoopTile
@@ -80,7 +87,7 @@ export function Mine({
       </TileBoundary>
       <div className="contents md:order-4 md:flex md:flex-col md:gap-[14px] xl:contents">
         <TileBoundary name="ledger" onError={onError} className="xl:col-span-3">
-          <LedgerTile className="xl:col-span-3" />
+          <LedgerTile controller={controller} className="xl:col-span-3" />
         </TileBoundary>
         <TileBoundary name="balance" onError={onError}>
           <BalanceCard />
