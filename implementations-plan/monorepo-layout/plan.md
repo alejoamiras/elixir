@@ -251,6 +251,18 @@ arc end. Arcs 1–3 change specifiers and locations only, so hashes should be id
 lessons down to the cause (for instance a path leaking into a chunk after the move) or is a finding. It also catches
 a lost Tailwind `@source` (utilities vanish from the CSS silently).
 
+**Amended in P1.1 (D10).** Identical hashes do not survive arc 1: a rewritten import is re-sorted by Biome
+(package specifiers before relative ones), module order changes, and the minifier renames across the whole chunk
+(measured: one moved line in `web-miner/src/main.tsx`, +12 bytes, five files re-hashed; bisected in
+`lessons/phase-1.md`). From P1.1 the gate is `bundle-compare.ts` reporting **no findings** against the baseline
+build and its module inventories: the same files once content hashes leave their names (shared stems compared as
+groups); everything that is not JavaScript byte-identical after hashed names are normalised inside it (this keeps
+the lost-`@source` check exact); no path of this machine in any script and no rise in generic folder prefixes; and,
+per page and per Worker, **the same set of bundled modules** (`YACANA_MODULE_REPORT`, a build-time listing in
+`vite-base.ts` that emits nothing into the bundle), with only a moved folder's ids mapped in arc 3. Every
+JavaScript size delta is printed and recorded; size is diagnostic, never proof. This is regression evidence, not
+byte or semantic equivalence: the behavioural gates (HEAVY, the canary, `import-order`) carry that.
+
 ### 3.11 File-level change map
 
 | Arc | Added | Moved | Deleted | Edited |
@@ -407,7 +419,7 @@ counts equal the baseline in `lessons/phase-0.md` adjusted by the tests each pha
 adjustment written down in that phase's lessons entry.
 
 **HEAVY**, arc ends, each in `tmux`, each run on its own isolated network:
-`bun run --cwd <web-miner> test:replay` · `bun run site:build` · the bundle manifest (§3.10) diffed against the
+`bun run --cwd <web-miner> test:replay` · `bun run site:build` · the bundle comparison (§3.10) against the
 baseline · `bun run e2e:agent -- bun run site:e2e` · `E2E_PROVERLESS=1 E2E_SHARD=cockpit bun run e2e:agent -- bun run
 --cwd <web-miner> test:e2e` · `bun run e2e:agent -- bun run --cwd <web-stats> test:e2e` · `bun run e2e:agent -- bun
 run --cwd <web-landing> test:e2e` · then `git status --porcelain` shows nothing untracked (the ignores hold).
@@ -453,7 +465,7 @@ file, a `?raw` JSON (`web-stats/src/features/stats.vitest.tsx`), a dynamic `impo
 *Assumes*: Facts 4–7; I1.
 *Gate*: FAST · `build` of `web-miner` and `web-stats` · a dev-server smoke per app: start `vite` on a registry port,
 fetch `/` and one module that imports `@yacana/*`, assert 200 and no "Failed to resolve" in the log, stop it by owned
-process group · `test:replay` · the bundle manifest unchanged.
+process group · `test:replay` · the bundle comparison (§3.10, amended) reports no findings.
 *Kill criterion*: a kind that cannot resolve → stop, record, apply I1's fallback for that kind only.
 
 **P1.2 Maps and declarations.** `codemod.ts --emit-exports` → the 11 maps; deps per §3.2; rewrite the remaining
@@ -462,7 +474,7 @@ process group · `test:replay` · the bundle manifest unchanged.
 
 **P1.3 Codemod.** TypeScript specifiers, the three `/// <reference path>` (relative until P2.1), the three CSS
 `@import`s. `scripts/run` imports stay relative: it is not a workspace yet.
-*Gate*: FAST · zero unresolved non-exempt targets · `bun run --cwd packages/web-landing build` · bundle manifest unchanged.
+*Gate*: FAST · zero unresolved non-exempt targets · `bun run --cwd packages/web-landing build` · the bundle comparison reports no findings.
 
 **P1.4 The boundaries guard.** Rules 1–2 and the extractor's fixture test.
 *Gate*: FAST · one deliberate regression per rule (a relative escape in TS; one in CSS; a production import declared
@@ -704,6 +716,7 @@ path-helper package).
 | D6 | Live `miner-core` tests move to `deploy` | A dev-only cycle | They test a deployment; approved scope says the cycle goes |
 | D7 | No shared repo-root helper | `packageDir()` in a new package | Depth is preserved; production code may not import `tools` |
 | D8 | A test-only fix outside §2, as its own commit before P0.1: `history-transport` holds a lease on the fetch guard | Carry one known `bun test` failure as the baseline | Root `bun test` was red on `main` (the Presto suite arms the one-way guard, the next file's server is refused); a baseline that exits 1 hides every later failure. `lessons/phase-0.md` §1 |
+| D10 | The bundle gate becomes `bundle-compare.ts` with per-page and per-Worker module inventories (§3.10, amended) | Byte-identical manifests; a size tolerance; an order-preserving codemod | Identity is unattainable once Biome re-sorts ~600 rewritten imports. Codex (session `01a0c475`, high confidence) rejected a size tolerance as proof (0.1 % of the miner's chunk is 4.9 KB; the Node polyfills make a green build weak evidence against Node leakage) and asked for the module inventory, which answers "did anything new reach a page" better than a hash did. Its wider point, that re-sorting named imports can reorder transitive evaluation, is answered by an audit, not by the gate: only `node-guard`, `pinned-crs` and the Worker's shim patch globals at import, and every page entry and the Worker pin them as leading side-effect imports, which Biome never moves (`lessons/phase-1.md`) |
 | D9 | `verify()` classifies on bb's diagnostic against a closed list, not on exit status plus diagnostic as P0.1 words it | Exit status as the discriminator | bb 5.2.0 exits 1 for a refusal and for an unreadable input alike (observed, `lessons/phase-0.md` §2); an unlisted diagnostic is operational, so a new bb wording stops the run |
 
 ### Audit findings: adopted

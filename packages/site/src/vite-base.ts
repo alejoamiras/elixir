@@ -1,8 +1,8 @@
 // The Vite configuration every app shares: the site config as `define`, the rendered headers on
 // the dev/preview servers and in the build output, and the bb.js plumbing for the apps that prove.
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
@@ -97,8 +97,28 @@ const emitHeaders = (text: string): Plugin => ({
   },
 });
 
+/**
+ * With `YACANA_MODULE_REPORT=<dir>`, lists every module that went into this bundle, one repo-relative
+ * id per line: what a page or the Worker actually carries, which a hash cannot say and a successful
+ * build does not (the Node polyfills let a Node-only module bundle quietly). Emits nothing into the bundle.
+ */
+const moduleReport = (name: string): Plugin => ({
+  name: 'yacana-module-report',
+  generateBundle(_options, bundle) {
+    const dir = process.env.YACANA_MODULE_REPORT;
+    if (!dir) return;
+    const ids = new Set<string>();
+    for (const chunk of Object.values(bundle))
+      if (chunk.type === 'chunk')
+        for (const id of Object.keys(chunk.modules)) ids.add(id.replace(`${repo}/`, '').replace(/\?.*$/, ''));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(resolve(dir, `${name}.txt`), `${[...ids].sort().join('\n')}\n`);
+  },
+});
+
 export function siteVite(app: SiteAppOptions): (ctx: { command: 'build' | 'serve' }) => UserConfig {
   return ({ command }) => {
+    const reportName = basename(app.root);
     const config = siteConfig(command);
     // An e2e build previews under production's headers plus the local node forms; production alone ships.
     const shipped = headerMap({ mode: config.mode === 'production' ? 'production' : 'e2e' });
@@ -128,7 +148,7 @@ export function siteVite(app: SiteAppOptions): (ctx: { command: 'build' | 'serve
             // would rewrite to a chunk that has none of them.
             exclude: ['@aztec/bb.js', '@aztec/noir-acvm_js', '@aztec/noir-noirc_abi', '@aztec/noir-noir_js'],
           },
-          worker: { format: 'es' },
+          worker: { format: 'es', plugins: () => [moduleReport(`${reportName}.worker`)] },
         }
       : {
           resolve: {
@@ -156,6 +176,7 @@ export function siteVite(app: SiteAppOptions): (ctx: { command: 'build' | 'serve
         nodePolyfills({ globals: { Buffer: true, global: true, process: true } }),
         emitHeaders(renderHeaders({ mode: config.mode === 'production' ? 'production' : 'e2e' })),
         favicon(),
+        moduleReport(reportName),
       ],
       server: { headers: dev, fs: { allow: [repo] } },
       // An e2e preview answers any host name, over TLS when a case brings a certificate: the rig's
