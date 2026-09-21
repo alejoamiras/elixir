@@ -220,3 +220,11 @@ loads bb.js's browser WASM loader through the root `node_modules`, a subpath the
 | `bbVersion()` | `5.2.0` |
 | FAST | all ok; `bun test` 98 s |
 | `lint:actions` | exit 0 |
+
+### Round 3 (2026-09-21) — "no new material findings"
+
+Codex re-ran both guards and the new version test (23 pass), probed `bbVersion()`'s two throws in memory, and
+found nothing regressed by `92781c0`. **Arc 2's loop converged in three rounds** (session
+`01a0c50b-59f7-7a23-9778-12873e597ac5`, `/tmp/codex-XV7JKhjX/response*.md`). Score: 4 findings in 2 rounds, all
+real, two of them mine from round 1's fix — the second-round pair is the price of fixing under review without a
+test for the value fixed.
