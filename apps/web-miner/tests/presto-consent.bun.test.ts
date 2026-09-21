@@ -150,7 +150,7 @@ describe('the record', () => {
     const c = createConsent({ ...o.tab(), lock: held.lock });
     expect(c.read().used).toBe(true);
     const revoke = c.revoke();
-    // Already the record the revoke will write: a Look made now captures the new revision, not the old.
+    // A revision no page holds yet: a click at the old one no longer consents, and a Look made now captures a new one.
     expect(c.read()).toEqual({ used: false, rev: 5 });
     expect(isConsented(c.read(), 4)).toBe(false);
     expect(c.read()).toBe(c.read());

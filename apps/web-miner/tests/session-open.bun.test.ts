@@ -2,8 +2,9 @@ import 'fake-indexeddb/auto';
 import { describe, expect, test } from 'bun:test';
 import { createStore } from 'jotai';
 import type { Started } from '../src/boot.ts';
+import { type Consent, createConsent } from '../src/presto-consent.ts';
 import { Session } from '../src/session.ts';
-import { bootAtom, epochAtom } from '../src/state.ts';
+import { bootAtom, epochAtom, mineIntentAtom } from '../src/state.ts';
 
 // The attempt bookkeeping (generation, cancel, supersession) with the ceremony and the wallet-level
 // work both faked: the wallet's own stop-on-abort lives in startSession and is covered by the E2E.
@@ -15,11 +16,12 @@ const fakePre = () => {
 };
 
 /** A Session whose preflight and startImpl are fakes; `runAttempt` is exercised through the real methods. */
-function harness(startImpl: (...a: never[]) => Promise<Started>) {
+function harness(startImpl: (...a: never[]) => Promise<Started>, consent?: Consent) {
   const store = createStore();
   const pre = fakePre();
   const session = new Session(store, { nodeUrl: 'x', miner: 'm', token: 't' } as never, {
     startImpl: startImpl as never,
+    consent,
     preflightImpl: async () => {
       store.set(bootAtom, { phase: 'signedOut', slot: { record: null, staged: null, revision: 0 } });
       return pre.pre;
@@ -281,5 +283,48 @@ describe('the opening attempt', () => {
     const boot = store.get(bootAtom) as { phase: string; error?: { message: string } };
     expect(boot.phase).toBe('signedOut');
     expect(boot.error?.message).toMatch(/did not answer/);
+  });
+});
+
+describe('consent during the opening', () => {
+  test('a revoke while the account opens reaches the controller at adoption: the revoke lands before its first start, which is local', async () => {
+    const map = new Map([['yacana.presto', JSON.stringify({ used: true, rev: 0 })]]);
+    const consent = createConsent({
+      storage: { getItem: (k) => map.get(k) ?? null, setItem: (k, v) => void map.set(k, v) },
+    });
+    let release: (() => void) | undefined;
+    const log: string[] = [];
+    let presto: unknown = { host: '127.0.0.1', port: 1, httpsPort: 1, httpsOnly: false };
+    // The controller startSession built with the endpoint consent allowed at the time.
+    const controller = {
+      dispose() {},
+      start: () => log.push(presto ? 'start-native' : 'start-local'),
+      revoke() {
+        presto = null;
+        log.push('revoke');
+      },
+      get currentPresto() {
+        return presto;
+      },
+      get stopCount() {
+        return 0;
+      },
+    };
+    const { store, session } = harness(async () => {
+      await new Promise<void>((r) => (release = r));
+      return { controller, wallet: () => ({}), threads: 4 } as never;
+    }, consent);
+    await session.ready;
+    expect(session.consented()).toBe(true);
+    store.set(mineIntentAtom, true);
+    const run = runAttempt(session, ceremony);
+    await new Promise((r) => setTimeout(r, 5));
+    // The session has no controller yet: the record moves, nothing native is there to tear down.
+    await consent.revoke();
+    expect(session.consented()).toBe(false);
+    release?.();
+    await run;
+    expect(store.get(bootAtom).phase).toBe('ready');
+    expect(log).toEqual(['revoke', 'start-local']);
   });
 });

@@ -41,8 +41,9 @@ export interface Consent {
   /** `used: true`, only if the record's `rev` is still `atRev`: a revoke since then wins. */
   promote(atRev: number): Promise<void>;
   /**
-   * `used: false` and `rev + 1`. From the call until the write commits `read()` already returns
-   * that record, whatever storage holds: neither memory nor a click at the old revision consents.
+   * `used: false` and `rev + 1`. From the call until the write commits `read()` returns `used:
+   * false` at a revision no page holds yet, whatever storage says: neither memory nor a click at
+   * the old revision consents meanwhile.
    */
   revoke(): Promise<void>;
   /** Resolves once every write issued so far has landed, in storage or in memory. */

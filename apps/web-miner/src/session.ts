@@ -430,16 +430,16 @@ export class Session {
     }
   }
 
-  /**
-   * The account is verified open: the slot takes it. A refusal (the slot changed under a stale
-   * lease) ends the attempt like any other failure; the open wallet is discarded with it.
-   */
   /** A revoke while the account was opening found no controller to tell: the one adopted hears it now. */
   private adoptController(c: MinerController): void {
     this.controller = c;
     if (c.currentPresto && !this.consented()) c.revoke();
   }
 
+  /**
+   * The account is verified open: the slot takes it. A refusal (the slot changed under a stale
+   * lease) ends the attempt like any other failure; the open wallet is discarded with it.
+   */
   private async adopt(r: Reservation | undefined, record: MasterRecord): Promise<undefined> {
     if (!r) return;
     await commit(r);
