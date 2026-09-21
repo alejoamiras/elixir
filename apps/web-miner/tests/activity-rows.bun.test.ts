@@ -6,7 +6,7 @@ process.env.VITE_ROLLUP_VERSION = '5';
 process.env.VITE_VERSION_INDEX = '0';
 
 import { describe, expect, test } from 'bun:test';
-import { type Crossing, FADE_AFTER_MS } from '@yacana/bridge/journal';
+import { type Crossing, FADE_AFTER_MS, UNKNOWN_ETH } from '@yacana/bridge/journal';
 import { PARAMS } from '@yacana/miner-core/generated/params';
 import { TAKING_LONG_AFTER_MS } from '../src/bridge/copy.ts';
 import { activity, moneyStanding } from '../src/bridge/rows.ts';
@@ -69,10 +69,37 @@ describe('the activity reading', () => {
     expect(a.rows.map((r) => r.line.action?.kind)).toEqual([undefined, 'claim', 'claim-l1', undefined]);
     expect(a.rows[0]?.line.also?.kind).toBe('redeem');
     expect(a.needsUser).toBe(2);
-    // The amount is printed in the unit of the side it starts on; the sentence names where it lands.
-    expect(a.rows[1]?.unit).toBe('YACA');
-    expect(a.rows[2]?.unit).toBe(PARAMS.TOKEN_SYMBOL);
-    expect(a.rows[1]?.direction).toBe('→ here · from 0x709979…79C8');
+    // The kind leads, and the amount is a signed figure in this balance's unit whichever side it started on.
+    const sym = PARAMS.TOKEN_SYMBOL;
+    expect(a.rows.map((r) => [r.kind, r.title, r.signed])).toEqual([
+      ['ahead', 'Sent ahead to the next version', `−2 ${sym}`],
+      ['in', 'From Ethereum', `+2 ${sym}`],
+      ['out', 'To Ethereum', `−2 ${sym}`],
+      ['out', 'To Ethereum', `−2 ${sym}`],
+    ]);
+    // An exit names its recipient and a deposit its sender; a send-ahead names nobody.
+    expect(a.rows[1]?.meta).toMatch(/^0x709979…79C8 · \d\d:\d\d · /);
+    expect(a.rows[0]?.meta).toMatch(/^\d\d:\d\d · /);
+    // A send-ahead is money out where it was sent and money in where it lands: the same record, read from here.
+    const landing = crossing('l', {
+      kind: 2,
+      version: '4',
+      target: '5',
+      state: 'claimable',
+      inboxIndex: '7',
+    });
+    const here = activity([landing], view, NOW, {}, env).rows[0];
+    expect([here?.kind, here?.title, here?.signed]).toEqual(['in', 'From another version', `+2 ${sym}`]);
+    // A deposit found on-chain before its event was read has no sender on record, and says so.
+    const found = activity(
+      [crossing('d', { kind: 3, state: 'claimable', ethAddress: UNKNOWN_ETH })],
+      view,
+      NOW,
+      {},
+      env,
+    );
+    expect(found.rows[0]?.meta).toMatch(/^found on Ethereum · /);
+    expect(JSON.stringify(found.rows[0])).not.toContain('0x000000…');
   });
 
   test("a hashless send reads as the refresh says, not as the record does; a K2 that needs the upgrade read says it can't", () => {
@@ -135,7 +162,7 @@ describe('the activity reading', () => {
     const held = crossing('k', { kind: 2, state: 'held' });
     const a = activity([held], { ...view, canonical: { version: 6n, index: 6n } }, NOW, {}, env);
     expect(a.rows[0]?.line.chip.word).toBe('held for V6');
-    expect(a.rows[0]?.direction).toBe('→ V6');
+    expect(a.rows[0]?.title).toBe('Sent ahead to V6');
   });
 
   test('a held send-ahead is longer than usual only once its destination exists: never before the flip', () => {

@@ -1,4 +1,4 @@
-export type { RowAction, RowLine } from './bridge-types.ts';
+export type { RowAction, RowKind, RowLine } from './bridge-types.ts';
 export { ActivityRow, type ActivityRowProps } from './components/activity-row.tsx';
 export { Alert, AlertDescription, AlertTitle } from './components/alert.tsx';
 export { AmountBlock, MaxChip } from './components/amount-block.tsx';

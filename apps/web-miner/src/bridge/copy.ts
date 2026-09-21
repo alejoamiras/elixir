@@ -4,7 +4,7 @@
 // forwarded by Yacana, its holder or an authorized relayer, or redeemed. The only promised time is
 // the proof's, because it is the only one a contract enforces.
 import { type DeadlineReading, dayOf, deadlinePhrase } from '@yacana/bridge/exit-deadline';
-import { type Crossing, knownEth, type RowState } from '@yacana/bridge/journal';
+import type { Crossing, RowState } from '@yacana/bridge/journal';
 import { policyFor } from '@yacana/bridge/policy';
 import type { ProofReading } from '@yacana/bridge/proofs';
 import { revertRow } from '@yacana/bridge/revert';
@@ -407,14 +407,4 @@ export const rowLine = (c: Crossing, f: RowFacts): RowLine =>
 export const revertLine = (e: unknown, c: Crossing, f: Omit<RowFacts, 'state'>): string | undefined => {
   const state = revertRow(e);
   return state ? rowLine(c, { ...f, state }).sentence : undefined;
-};
-
-/** Where a crossing goes, beside its amount: the direction and the party at the other end. */
-export const whoOf = (c: Crossing, short: (a: string) => string, target: string): string => {
-  if (c.kind === 1) return `→ Ethereum · ${short(c.ethAddress)}`;
-  if (c.kind === 3) {
-    const from = knownEth(c);
-    return from ? `→ here · from ${short(from)}` : '→ here · found on Ethereum';
-  }
-  return `→ ${target}`;
 };

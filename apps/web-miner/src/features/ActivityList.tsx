@@ -95,10 +95,10 @@ function Row({
   };
   return (
     <ActivityRow
-      amount={r.amount}
-      unit={r.unit}
-      direction={r.direction}
-      when={r.when}
+      kind={r.kind}
+      title={r.title}
+      meta={r.meta}
+      signed={r.signed}
       line={r.line}
       collapsed={r.collapsed}
       onAction={act}

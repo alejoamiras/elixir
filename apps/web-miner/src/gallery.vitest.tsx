@@ -242,8 +242,8 @@ describe('the arrivals, every state', () => {
       'ready to claim',
     ]);
     expect(screen.getAllByTestId('row-claim')).toHaveLength(2);
-    // A deposit's amount is what left Ethereum; its sentence, what lands here.
-    expect(screen.getAllByTestId('crossing')[3]?.textContent).toContain('12 YACA');
+    // A deposit's amount is signed and in this balance's unit, like every other row's.
+    expect(screen.getAllByTestId('row-amount')[3]?.textContent).toBe(`+12 ${PARAMS.TOKEN_SYMBOL}`);
     expect(screen.getAllByTestId('crossing')[2]?.textContent).toContain(
       `8 ${PARAMS.TOKEN_SYMBOL} in your balance`,
     );
@@ -312,32 +312,32 @@ describe('what was sent ahead', () => {
   });
 });
 
-describe('the old app', () => {
-  const proof = (ageS: number) => ({ at: BigInt(SECONDS - ageS), checkpoint: 1n, block: 1n });
-  // Signed in, the bridge session is open: its wagmi config is what the rows and the dialogs mount under.
-  const config = createConfig({ chains: [anvil], transports: { [anvil.id]: http('http://127.0.0.1:9') } });
-  const old = (setup: (store: ReturnType<typeof createStore>) => void, s?: Session) => {
-    vi.stubEnv('VITE_APP_ROLE', 'old');
-    return mount(<OldApp session={s} />, (store) => {
-      store.set(bootAtom, { phase: 'ready', account: '0xacc', threads: 1, record: ready });
-      store.set(bridgeSessionAtom, { config } as unknown as BridgeSession);
-      setup(store);
-    });
-  };
-  const withProof = (age: number) => (s: ReturnType<typeof createStore>) => {
-    s.set(bridgeAtom, {
-      verdict: { kind: 'before' },
-      standing,
-      readAt: NOW,
-      rpcFailing: false,
-      proof: proof(age),
-    });
-    s.set(balanceAtom, 35n * (ONE / 10n));
-    s.set(journalAtom, [
-      crossing('held', { kind: 2, state: 'held', ...settled, amount: (48n * ONE).toString() }),
-    ]);
-  };
+const proof = (ageS: number) => ({ at: BigInt(SECONDS - ageS), checkpoint: 1n, block: 1n });
+// Signed in, the bridge session is open: its wagmi config is what the rows and the dialogs mount under.
+const config = createConfig({ chains: [anvil], transports: { [anvil.id]: http('http://127.0.0.1:9') } });
+const old = (setup: (store: ReturnType<typeof createStore>) => void, s?: Session) => {
+  vi.stubEnv('VITE_APP_ROLE', 'old');
+  return mount(<OldApp session={s} />, (store) => {
+    store.set(bootAtom, { phase: 'ready', account: '0xacc', threads: 1, record: ready });
+    store.set(bridgeSessionAtom, { config } as unknown as BridgeSession);
+    setup(store);
+  });
+};
+const withProof = (age: number) => (s: ReturnType<typeof createStore>) => {
+  s.set(bridgeAtom, {
+    verdict: { kind: 'before' },
+    standing,
+    readAt: NOW,
+    rpcFailing: false,
+    proof: proof(age),
+  });
+  s.set(balanceAtom, 35n * (ONE / 10n));
+  s.set(journalAtom, [
+    crossing('held', { kind: 2, state: 'held', ...settled, amount: (48n * ONE).toString() }),
+  ]);
+};
 
+describe('the old app', () => {
   test('still here: the hero with the live chip, the card with the way out, the rows without a forward', () => {
     const { container } = old(withProof(12 * 60), session);
     expect(screen.getByTestId('retired').dataset.state).toBe('live');
@@ -350,6 +350,25 @@ describe('the old app', () => {
     expect(screen.queryByTestId('row-forward')).toBeNull();
     expect(screen.getByTestId('recovery-save')).toBeTruthy();
     keep('old-app', container.innerHTML);
+  });
+
+  test('a deposit on the old origin is the row the apex draws: the kind leads, the amount is signed, no address it lacks', () => {
+    old((s) => {
+      withProof(12 * 60)(s);
+      s.set(journalAtom, [
+        crossing('dep', {
+          kind: 3,
+          state: 'claimable',
+          inboxIndex: '7',
+          amount: (2n * ONE).toString(),
+          ethAddress: `0x${'00'.repeat(20)}`,
+        }),
+      ]);
+    }, session);
+    expect(screen.getByTestId('row-title').textContent).toBe('From Ethereum');
+    expect(screen.getByTestId('row-amount').textContent).toBe(`+2 ${PARAMS.TOKEN_SYMBOL}`);
+    expect(screen.getByTestId('crossing').textContent).toContain('found on Ethereum');
+    expect(screen.getByTestId('crossing').textContent).not.toContain('0x0000');
   });
 
   test('silent for hours: the chip amber, the body saying the version may have stopped', () => {
