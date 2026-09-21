@@ -110,3 +110,24 @@ On `2e02c27` (the loop's two commits change the guard alone), each e2e on its ow
 | `bun run rig -- flip` | 1 pass, H0 in 61 s |
 | `YACANA_APP_ROLE=old bun run site:build` | `apps/site/dist-old` assembled, the same ten entries as arc 3's |
 | `git status --porcelain` | nothing untracked but the arc's own reports |
+
+### Round 3 (2026-09-21) — "One remaining P2 bypass in the ambient-file exception" — the loop's hard stop, NOT converged
+
+The ambient branch compared file names and returned before the reachability check: reduce the landing's app and
+tests projects to `vite-env.d.ts` alone, reference them from `site`'s config, move the landing's real roots into
+replacement configs without the declaration, and both rules passed while `import.meta.env.…` in the landing's
+`main.tsx` lost its typing. Fixed: every owner of every file, ambient or not, must be reached from the file's own
+home **and from no other** (`reached` is now config → homes). Replaying it exposed a hole of my own in the same
+block: `leaves()` dropped a config's own root files as soon as it had references, so a config with both was read
+as its references alone — it now returns both, which is what `tsc -b` builds. All three of codex's constructions
+replayed after the fix: each fails on its own finding (`apps/web-landing/src/vite-env.d.ts: …tsconfig.app.json,
+…tsconfig.tests.json` for this one), each restored to 13 pass.
+
+**Three rounds, three real bypasses, all in the guard this arc added; none in the solution itself** (codex found no
+stale-green mechanism, no coverage regression, no CI gap in any round). The blueprint's hard stop is three rounds:
+a fourth is the owner's call, not run here. The final cross-arc pass reviews this block again in a fresh session.
+
+| step | result |
+|---|---|
+| lint · layout guard | exit 0 · 13 pass |
+| the three bypasses replayed, each restored | exit 1 ×3, each naming its finding · exit 0 ×3 |

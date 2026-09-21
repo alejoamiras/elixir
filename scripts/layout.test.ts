@@ -403,14 +403,13 @@ describe('the typecheck solution', () => {
       throw new Error(ts.flattenDiagnosticMessageText(d.messageText, '\n'));
     },
   };
-  /** The leaf projects under a config: its own root files, or those of the projects it references. */
+  /** Every project `tsc -b <cfg>` builds: the config's own root files, and the projects it references. */
   const leaves = (cfg: string): { cfg: string; files: string[] }[] => {
     const parsed = ts.getParsedCommandLineOfConfigFile(cfg, {}, host);
     if (!parsed) throw new Error(`${cfg}: unreadable`);
-    const refs = parsed.projectReferences ?? [];
-    if (refs.length === 0)
-      return [{ cfg: relative(repo, cfg), files: parsed.fileNames.map((f) => relative(repo, f)) }];
-    return refs.flatMap((r) => leaves(ts.resolveProjectReferencePath(r)));
+    const own = { cfg: relative(repo, cfg), files: parsed.fileNames.map((f) => relative(repo, f)) };
+    const below = (parsed.projectReferences ?? []).flatMap((r) => leaves(ts.resolveProjectReferencePath(r)));
+    return own.files.length ? [own, ...below] : below;
   };
   const root = ts.getParsedCommandLineOfConfigFile(join(repo, 'tsconfig.json'), {}, host);
   const referenced = (root?.projectReferences ?? []).map((r) => relative(repo, r.path));
@@ -439,15 +438,18 @@ describe('the typecheck solution', () => {
     for (const p of projects) for (const f of p.files) owners.set(f, [...(owners.get(f) ?? []), p.cfg]);
     // A project under the right folder is not enough: `bun run --cwd <ws> typecheck` builds what the
     // workspace's own config reaches, so the owner must be one of those.
-    const reached = new Map(
-      homes.flatMap((h) => leaves(join(repo, h, 'tsconfig.json')).map((p) => [p.cfg, h] as const)),
-    );
+    const reached = new Map<string, string[]>();
+    for (const h of homes)
+      for (const p of leaves(join(repo, h, 'tsconfig.json')))
+        reached.set(p.cfg, [...(reached.get(p.cfg) ?? []), h]);
+    /** Reached from the file's own home and from no other. */
+    const own = (cfg: string, f: string): boolean => reached.get(cfg)?.join() === home(f);
     const off = typescript
       .filter((f) => {
         const have = (owners.get(f) ?? []).sort();
         const want = expectedOwners(f);
-        if (want) return have.join() !== want.join();
-        return have.length !== 1 || reached.get(have[0] ?? '') !== home(f);
+        if (!have.every((cfg) => own(cfg, f))) return true;
+        return want ? have.join() !== want.join() : have.length !== 1;
       })
       .map((f) => `${f}: ${owners.get(f)?.join(', ') || 'no project'}`);
     expect(off).toEqual([]);
