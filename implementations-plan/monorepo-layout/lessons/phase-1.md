@@ -132,3 +132,44 @@ cognitive-complexity budget (19) and was split, not suppressed.
 | regression: a relative escape in TypeScript | failed: `packages/web-stats/src/bridge-beat.ts:9 reaches packages/miner-core/src/reader.ts by path`; reverted |
 | regression: a relative escape in CSS | failed: `packages/web-miner/src/index.css:1 reaches packages/ui/src/theme.css by path`; reverted |
 | regression: a production import only in `devDependencies` | failed: `packages/web-landing/src/App.tsx:10 imports @yacana/ui: not in dependencies of packages/web-landing/package.json` (and three more lines); reverted |
+
+## P1.5 Location-independent config and the layout guard
+
+`scripts/layout.test.ts`, ten rules, all holding on the tree before any folder moves. It found real gaps on `main`
+on its first run, fixed in the same commit:
+
+- **Five `bun:test` files ran in no pull-request workflow**: `ui`'s `mark`, `score-loop-model` and `tokens`, and
+  `web-landing`'s `chain` and `live`. `ui.yml` and `web-landing.yml` ran Vitest only. Both now run `bun test` on
+  their package.
+- **Five workflows ran a workspace's tests without watching all it depends on** (14 missing globs): `deploy`
+  lacked `bridge` and `portal`; `site` lacked `miner-core`, `portal`, `work-circuit`; `web-landing` lacked `portal`,
+  `web-miner`, `web-stats`, `work-circuit`; `web-miner` lacked `web-stats`, `work-circuit`; `web-stats` lacked
+  `web-miner`. Several exist only through the `site ⇄ web-*` cycle; P2.4 prunes what the graph stops requiring.
+- **`contracts.yml` and `work-circuit.yml` watched `toolchain.test.ts` but not `toolchain.ts`**, the resolver it
+  tests. My first version of the rule accepted that (it only asked for a glob under `scripts/run/`); it now asks
+  for a glob that matches the resolver file. **Lesson: run a new guard against a known-bad case from the plan's
+  own facts before trusting a green.**
+
+Parser limits met and handled: `x=$(jq … file)` leaves a parenthesis on the token, so command substitutions are
+unwrapped; a folder a script writes into (`bun …/fetch-crs.ts packages/web-miner/public`) is not tracked, so for a
+script's arguments the owning workspace is checked, as for uploaded artifacts. The path rule was 55 on Biome's
+cognitive-complexity scale as first written and was split into two helpers.
+
+The 50 anchored lines of the root `.gitignore` (the plan counted 42 before the polish arcs) moved into five
+per-workspace files; `git status --porcelain --ignored --untracked-files=all` lists the same 68 252 entries before
+and after. `biome.json` names no folder (`!**/abi`, `!**/artifacts`); it checks 613 files, the 610 of before plus
+the three new scripts.
+
+### P1.5 gate (2026-09-21)
+
+| step | result |
+|---|---|
+| FAST | exit 0 · **525 pass · 42 skip · 0 fail** = 515 + the layout guard's 10 |
+| `bun run lint:actions` | exit 0 |
+| regression: a dead filter glob | failed: `ui.yml: packages/ui-gone/**` (and the graph rule, for the same line); reverted |
+| regression: a stale path in a `run:` line | failed: `site.yml: packages/site-gone does not exist (bun run --cwd packages/site-gone typecheck)`; reverted |
+| regression: a workspace path in an unsupported form | failed: `ui.yml: unsupported form names packages/ui/package.json (cat packages/ui/package.json)`; reverted |
+| regression: a test file no PR workflow runs | failed: `packages/ui/src/score-loop-model.test.ts`, `packages/ui/src/tokens.test.ts`; reverted |
+| regression: a workflow missing a dependency's folder | failed: `deploy.yml: runs packages/deploy's tests, filter lacks packages/bridge/**`; reverted |
+| regression: a toolchain lane without `YACANA_REQUIRE_TOOLCHAIN` | failed: `work-circuit.yml: the toolchain test may skip`; reverted |
+| `git status --porcelain` after `site:build` and `test:replay` | empty |

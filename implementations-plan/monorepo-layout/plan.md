@@ -480,7 +480,7 @@ process group · `test:replay` · the bundle comparison (§3.10, amended) report
 *Gate*: FAST · one deliberate regression per rule (a relative escape in TS; one in CSS; a production import declared
 only in `devDependencies`) fails the guard naming file and line, then is reverted.
 
-**P1.5 Location-independent config and the layout guard.** Per-workspace `.gitignore` files, `biome.json` negations,
+**P1.5 ✓ Location-independent config and the layout guard.** Per-workspace `.gitignore` files, `biome.json` negations,
 `scripts/layout.test.ts` with every rule of §3.4; baseline filter gaps fixed.
 *Gate*: FAST · `bun run lint:actions` · six deliberate regressions fail it (a dead filter glob; a stale path in a
 `run:` line; a workspace path in an unsupported command form; a test file no PR workflow runs; a workflow missing a
