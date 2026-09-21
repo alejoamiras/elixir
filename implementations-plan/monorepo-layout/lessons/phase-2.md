@@ -140,3 +140,22 @@ rig), which no `dependencies` edge says.
 | regression: production source importing another workspace's `scripts/` subpath | failed: `web-landing/src/App.tsx:1 imports @yacana/web-kit/scripts/copy-slots, which is @yacana/web-kit's ./scripts/copy-slots.ts: not production code`; reverted |
 | regression: a same-layer production cycle (`miner-core → bridge`) | failed: `["@yacana/bridge", "@yacana/miner-core", "@yacana/bridge"]`; reverted |
 | both guards after the prune · `lint:actions` | 21 pass · exit 0 |
+
+## Arc 2 HEAVY (2026-09-21)
+
+| step | result |
+|---|---|
+| `test:replay` | 4 passed |
+| `site:build` + bundle comparison | 651 files, seven inventories identical with the moved ids mapped (`packages/site=packages/web-kit`, the two single files); **one delta, explained**: `artifacts/yacana_work.json` differs from the baseline build in its `hash` field alone (`1072…` → `9160…`), the committed artifact arc 0's fix refreshed (`2a85076`); bytecode, ABI, debug symbols and file map identical |
+| `site:e2e` | 3 passed |
+| cockpit shard, proverless | 7 passed; RSS 1440 → 1470 MiB (+30, peak 1768) |
+| web-stats e2e | 7 passed |
+| web-landing e2e | 5 passed |
+| `bun run rig -- flip` | 1 pass, H0 in 64 s |
+| `git status --porcelain` | nothing untracked but this arc's own reports |
+
+The cockpit's memory test passed here this time, +30 MiB against the +846, +900 and +671 of arc 1's three runs
+on the same host. So "192 threads" was at best part of the story: the failure is intermittent on this machine
+(load was 63 falling from 157 during this run; arc 1's ran at 80). The reading of arc 1 stands — the failure
+predates this work and CI is where the bound holds — and the follow-up entry gains a fact: it is a flake here, not
+a constant. **Lesson: one green run does not retire an intermittent failure; the baseline comparison did the work.**
