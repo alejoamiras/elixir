@@ -11,6 +11,7 @@ import {
 import { setAcceleratorEndpoints } from '@yacana/web-kit/browser/node-guard';
 import { atom, type createStore } from 'jotai';
 import { queryOverridesAllowed } from './config';
+import { type ConsentRecord, isConsented } from './presto-consent';
 
 type Store = ReturnType<typeof createStore>;
 
@@ -92,10 +93,93 @@ export interface PrestoState {
   fallbackReason?: FallbackCause;
   /** The backend's phase worth showing (`downloading`: Presto is fetching bb before the first proof). */
   phase?: PrestoPhase;
+  /** The record's `rev` when this page's Look was clicked; null until then, and again after a revoke. */
+  consentRev: number | null;
+  /** A Look's probe is out. */
+  looking: boolean;
+  /**
+   * Bumped by every consent change and never reset, not even with the rest of this state: a
+   * lookup publishes only on its own `gen`, so an answer from before a revoke lands nowhere.
+   */
+  gen: number;
 }
 
-export const initialPresto: PrestoState = { status: null, probedAt: null, selected: null, active: null };
+export const initialPresto: PrestoState = {
+  status: null,
+  probedAt: null,
+  selected: null,
+  active: null,
+  consentRev: null,
+  looking: false,
+  gen: 0,
+};
 export const prestoAtom = atom<PrestoState>(initialPresto);
+
+/**
+ * Where the browser stands on this page reaching loopback. `pending` until the first query settles;
+ * `unknown` is a browser without the descriptor (Firefox, Safari), confirmed, never "slow".
+ */
+export type Lna = 'pending' | 'granted' | 'prompt' | 'denied' | 'unknown';
+export const lnaAtom = atom<Lna>('pending');
+
+/** Chromium's split descriptor first, the one it replaced when the first is unknown. */
+const LNA_NAMES = ['loopback-network', 'local-network-access'];
+
+/**
+ * Queries the permission and follows the status that answered through `onChange`. No timeout: an
+ * unsettled query means the browser has not answered, and nothing automatic may run until it has.
+ */
+export async function lnaState(
+  permissions: Pick<Permissions, 'query'> | undefined,
+  onChange?: (state: Lna) => void,
+): Promise<Lna> {
+  if (!permissions) return 'unknown';
+  for (const name of LNA_NAMES) {
+    let status: PermissionStatus;
+    try {
+      status = await permissions.query({ name: name as PermissionName });
+    } catch {
+      continue;
+    }
+    if (onChange) status.onchange = () => onChange(status.state);
+    return status.state;
+  }
+  return 'unknown';
+}
+
+/** Settles `lnaAtom` from the browser and keeps it current; the page calls it once. */
+export function watchLna(store: Store): void {
+  const set = (s: Lna) => store.set(lnaAtom, s);
+  void lnaState(globalThis.navigator?.permissions, set).then(set);
+}
+
+/**
+ * An automatic probe (a Start with Presto remembered) may run: consent is in force and the
+ * browser will not prompt for it. Under `prompt` the user primes the prompt with a click instead;
+ * `unknown` runs it, the accepted limit of a browser that re-asks without a descriptor.
+ */
+export const mayAsk = (consented: boolean, lna: Lna): boolean =>
+  consented && (lna === 'granted' || lna === 'unknown');
+
+/** What the Presto card shows; one reading for the rail and Settings. */
+export type PrestoStanding = 'ask' | 'checking' | 'found' | 'remembered' | 'proving' | 'absent' | 'blocked';
+
+const permissionBlocked = (status: PrestoStatus | null): boolean =>
+  status?.available === false && status.reason === 'permission-blocked';
+
+/**
+ * `blocked` is the browser's verdict, before anything else. Under consent: the Worker proving
+ * natively, then the probe's answer (`found`: eligible and not given up on, "proves when you
+ * start"; `absent`: offline or a fix-it reason), then a remembered Presto not yet asked this page.
+ */
+export function prestoStanding(s: PrestoState, record: ConsentRecord, lna: Lna): PrestoStanding {
+  if (lna === 'denied' || permissionBlocked(s.status)) return 'blocked';
+  if (s.looking) return 'checking';
+  if (!isConsented(record, s.consentRev)) return 'ask';
+  if (prestoSticky(s)) return 'proving';
+  if (s.status) return prestoEligible(s.status) && !s.fallbackReason ? 'found' : 'absent';
+  return record.used ? 'remembered' : 'ask';
+}
 
 /** Presto's site: the billboard's link and the epoch tile's "About Presto". */
 export const PRESTO_SITE = 'https://presto.build';
