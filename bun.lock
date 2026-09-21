@@ -21,6 +21,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@yacana/web-kit": "workspace:*",
+        "@yacana/web-landing": "workspace:*",
         "@yacana/web-miner": "workspace:*",
         "@yacana/web-stats": "workspace:*",
       },

@@ -199,9 +199,9 @@ function filterGaps(w: Workflow): string[] {
     : [];
   const args = [...testInvocations(w).flat(), ...components, ...builds];
   const watched = (a: string): boolean => w.filter.some((g) => !g.startsWith('!') && new Glob(g).match(a));
-  // The build's configuration is outside every workspace: the site's env file and the profile's record.
+  // The build's configuration is outside every workspace: the env file, the profile's record, the witnesses.
   const config =
-    builds.length && !watched('deployments/site.env')
+    builds.length && !w.filter.includes('deployments/**')
       ? [`${w.file}: runs the production build, filter lacks deployments/**`]
       : [];
   const gaps = all
@@ -315,10 +315,13 @@ describe('workflows', () => {
   });
 
   test("a workspace's test:components runs its whole Vitest config", () => {
+    // A workspace without the script is skipped by the root's filtered run, and its specs with it.
     const narrowed = all
       .map((w) => ({ dir: w.dir, script: w.manifest.scripts?.['test:components'] }))
-      .filter((w) => w.script !== undefined && w.script !== 'vitest run')
-      .map((w) => `${w.dir}: test:components is "${w.script}", not "vitest run"`);
+      .filter(
+        (w) => (w.script !== undefined || exists(`${w.dir}/vitest.config.ts`)) && w.script !== 'vitest run',
+      )
+      .map((w) => `${w.dir}: test:components is ${JSON.stringify(w.script ?? null)}, not "vitest run"`);
     expect(narrowed).toEqual([]);
   });
 

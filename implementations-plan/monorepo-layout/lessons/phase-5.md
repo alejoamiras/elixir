@@ -51,3 +51,22 @@ Replays, each red and then restored (`git status` clean but for the intended edi
 - `contracts.yml` without `deployments/**` → first replay stayed **green**: my rule covered workspaces only, and the env file is in none. Added the config rule; the replay then said "runs the production build, filter lacks deployments/**".
 
 FAST after the fixes: status 0 (lint, the six typecheck steps, `bun test`, components). Where the fixes live: ledger D14.
+
+### Round 2 (2026-09-21): "Changes requested: three remaining P2 guard gaps (high confidence)"
+
+| # | Finding | Verified | Fix |
+|---|---|---|---|
+| 1 | Round 1's script rule accepted an absent `test:components`: the root's filtered run skips a workspace without the script, and the guard still credited its specs | True | A workspace with a `vitest.config.ts` must have the script, and it must be `vitest run` |
+| 2 | The site's closure left the landing out: `apps/site` declared the miner and the stats as dependencies but not `@yacana/web-landing`, which the assembler builds and copies `og.png` from | True, and wider than reported: once declared, the guard named `site.yml` too, whose filter never watched `apps/web-landing/**` | `apps/site` declares the landing (`bun.lock` +1 line); `site.yml` watches it |
+| 3 | Watching `deployments/site.env` alone satisfied the rule whose message asks for `deployments/**` | True | The filter must contain the glob itself: the profile's record and the witness archives are build inputs too |
+
+Codex on D14: acceptable for an uninterrupted landing; my "no interval exists" was false, since `main` holds the
+gaps between arc 2 and arc 5. The ledger row now says so and states the landing constraint.
+
+Replays, each red and then restored: the miner's `test:components` deleted; `contracts.yml` without
+`apps/web-landing/**`; `site.yml` without it; `contracts.yml` with `deployments/site.env` in place of
+`deployments/**`. Round 1's four replays are still red.
+
+**Lesson.** A rule's replay proves the one mutation I thought of. Both rounds' misses were the neighbouring
+mutation (narrow the script → delete it; drop the glob → narrow it), so a guard's replay set should include the
+absent and the narrowed form of whatever it requires, not only the wrong one.
