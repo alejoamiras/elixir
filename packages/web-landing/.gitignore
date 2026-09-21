@@ -1,0 +1,11 @@
+# web-landing prebuild outputs (CRS, artifacts, slot chunks, layouts) and E2E state
+/public/artifacts/
+/public/crs/
+/public/slots/
+/public/layouts.json
+/test-results/
+/e2e/.run.json
+/e2e/.dist/
+/e2e/.dist-claim/
+/e2e/.example-claim.json
+/e2e/.vite.log

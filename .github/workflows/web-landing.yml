@@ -24,6 +24,10 @@ jobs:
           - 'packages/miner-core/src/**'
           - 'packages/miner-core/scripts/**'
           - 'packages/miner-core/fixtures/**'
+          - 'packages/portal/**'
+          - 'packages/web-miner/**'
+          - 'packages/work-circuit/**'
+          - 'packages/web-stats/**'
           - 'biome.json'
           - 'bunfig.toml'
           - 'tsconfig.json'
@@ -46,4 +50,4 @@ jobs:
       - run: bun run --cwd packages/web-landing typecheck
       - run: bun run --cwd packages/web-landing test:components
       # The site config (launch mode, the example claim) and the metrics the copy deck computes from.
-      - run: bun test packages/site packages/miner-core/src/metrics.test.ts
+      - run: bun test packages/web-landing packages/site packages/miner-core/src/metrics.test.ts

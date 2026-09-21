@@ -1,0 +1,13 @@
+/e2e/.record.json
+# web-stats prebuild outputs (slot chunks and the storage layouts)
+/public/slots/
+/public/layouts.json
+/test-results/
+/e2e/.run.json
+/e2e/.mock.json
+/e2e/.dist/
+/e2e/.vite.log
+/e2e/.visual.json
+/e2e/.visual-dist/
+/e2e/.visual.log
+/e2e/.visual-record.json

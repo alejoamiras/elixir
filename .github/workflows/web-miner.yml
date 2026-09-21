@@ -28,6 +28,8 @@ jobs:
           - 'packages/ui/**'
           - 'packages/bridge/**'
           - 'packages/portal/abi/**'
+          - 'packages/web-stats/**'
+          - 'packages/work-circuit/**'
           - 'yacana.params.json'
           - 'scripts/params-codegen.ts'
           - 'biome.json'
