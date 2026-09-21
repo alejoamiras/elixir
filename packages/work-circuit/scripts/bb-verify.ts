@@ -17,8 +17,10 @@ export class OperationalError extends Error {
   readonly operational = true;
 }
 
-// bb echoes a path it cannot open, and a path is the caller's text: it may hold any diagnostic, on
-// a line of its own. So an unreadable input is settled first, and a verdict is a whole line.
+// bb echoes its paths (one it cannot open; every one under BB_VERBOSE, before it reads anything),
+// and a path is the caller's text: it may hold any diagnostic. So a path may not break a line, an
+// unreadable input is settled first, and a verdict is a whole line.
+const LINE_BREAK = /[\r\n]/;
 const UNREADABLE = /Unable to open file/;
 const MALFORMED = [
   /^Deserialized point is not on the curve$/,
@@ -39,6 +41,8 @@ interface Ran {
 }
 
 async function run(files: VerifyFiles, bb: string): Promise<Ran> {
+  if ([files.proof, files.publicInputs, files.vk].some((p) => LINE_BREAK.test(p)))
+    throw new OperationalError('an input path holds a line break');
   try {
     const child = Bun.spawn(
       [

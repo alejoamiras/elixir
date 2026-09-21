@@ -29,8 +29,8 @@ describe('verify', () => {
 
   test('a VK that is not there is operational, not a refusal', async () => {
     const run = verify({ ...files, vk: join(scratch, 'no-such-vk') });
-    expect(run).rejects.toBeInstanceOf(OperationalError);
-    expect(run).rejects.toThrow(/Unable to open file/);
+    await expect(run).rejects.toBeInstanceOf(OperationalError);
+    await expect(run).rejects.toThrow(/Unable to open file/);
   }, 60_000);
 
   test('a path cannot supply the verdict: bb echoes it, as a substring or as a line of its own', async () => {
@@ -39,7 +39,15 @@ describe('verify', () => {
       join(scratch, 'invalid proof size'),
       join(scratch, 'x\nProof verification failed\n'),
     ])
-      expect(verify({ ...files, vk })).rejects.toBeInstanceOf(OperationalError);
+      await expect(verify({ ...files, vk })).rejects.toBeInstanceOf(OperationalError);
+    // Refused before bb runs: verbose bb prints every argument before it reads one, so another
+    // input failing first would leave an injected line standing with no unreadable-file diagnostic.
+    const injected = verify({
+      ...files,
+      publicInputs: '/',
+      vk: join(scratch, 'x\nProof verification failed\n'),
+    });
+    await expect(injected).rejects.toThrow(/line break/);
   }, 60_000);
 
   test('a VK of the wrong size is a refusal that never parsed', async () => {
@@ -47,7 +55,7 @@ describe('verify', () => {
   }, 60_000);
 
   test('a binary that is not there is operational', async () => {
-    expect(verify(files, join(scratch, 'no-such-bb'))).rejects.toBeInstanceOf(OperationalError);
+    await expect(verify(files, join(scratch, 'no-such-bb'))).rejects.toBeInstanceOf(OperationalError);
   });
 
   test('a binary that kills itself is operational', async () => {
@@ -55,7 +63,7 @@ describe('verify', () => {
     await Bun.write(suicide, '#!/bin/sh\nkill -KILL $$\n');
     chmodSync(suicide, 0o755);
     const run = verify(files, suicide);
-    expect(run).rejects.toBeInstanceOf(OperationalError);
-    expect(run).rejects.toThrow(/SIGKILL/);
+    await expect(run).rejects.toBeInstanceOf(OperationalError);
+    await expect(run).rejects.toThrow(/SIGKILL/);
   });
 });
