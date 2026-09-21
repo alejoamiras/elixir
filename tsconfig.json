@@ -1,41 +1,50 @@
 {
-  "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "lib": ["ESNext", "DOM"],
-    "types": ["bun"],
-    "strict": true,
-    "noFallthroughCasesInSwitch": true,
-    "verbatimModuleSyntax": true,
-    "allowImportingTsExtensions": true,
-    "noEmit": true,
-    "skipLibCheck": true
-  },
-  "include": [
-    "apps/*/src",
-    "apps/*/scripts",
-    "apps/*/e2e",
-    "apps/*/tests",
-    "packages/*/src",
-    "packages/*/scripts",
-    "packages/*/tests",
-    "protocol/*/src",
-    "protocol/*/scripts",
-    "tools/*/src",
-    "tools/*/scripts",
-    "tools/*/tests",
-    "scripts",
-    "*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "**/dist",
-    "**/target",
-    "packages/ui/src",
-    "apps/web-miner/src",
-    "apps/web-miner/tests",
-    "apps/web-stats/src",
-    "apps/web-landing/src"
+  "files": [],
+  "references": [
+    {
+      "path": "./apps/site"
+    },
+    {
+      "path": "./apps/web-landing"
+    },
+    {
+      "path": "./apps/web-miner"
+    },
+    {
+      "path": "./apps/web-stats"
+    },
+    {
+      "path": "./packages/bridge"
+    },
+    {
+      "path": "./packages/miner-core"
+    },
+    {
+      "path": "./packages/ui"
+    },
+    {
+      "path": "./packages/web-kit"
+    },
+    {
+      "path": "./protocol/contracts"
+    },
+    {
+      "path": "./protocol/portal"
+    },
+    {
+      "path": "./protocol/work-circuit"
+    },
+    {
+      "path": "./scripts"
+    },
+    {
+      "path": "./tools/deploy"
+    },
+    {
+      "path": "./tools/harness"
+    },
+    {
+      "path": "./tools/localnet"
+    }
   ]
 }

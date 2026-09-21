@@ -36,7 +36,7 @@
     "test": "bun test",
     "test:components": "bun run --filter './apps/*' --filter './packages/*' test:components",
     "test:e2e": "bun run --filter './apps/*' test:e2e",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -b --force"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,jsonc}": [

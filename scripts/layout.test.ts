@@ -4,10 +4,11 @@
 // exits 0. Everything here holds on the tree as it is, so it can land before any move it guards.
 import { describe, expect, test } from 'bun:test';
 import { readdirSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { Glob, YAML } from 'bun';
 import ts from 'typescript';
 import {
+  ownerOf,
   readManifest,
   repo,
   resolveRelative,
@@ -392,5 +393,66 @@ describe('sources', () => {
           .map((m) => `${f}: ${m[1]}`),
       );
     expect(missing).toEqual([]);
+  });
+});
+
+describe('the typecheck solution', () => {
+  const host: ts.ParseConfigFileHost = {
+    ...ts.sys,
+    onUnRecoverableConfigFileDiagnostic: (d) => {
+      throw new Error(ts.flattenDiagnosticMessageText(d.messageText, '\n'));
+    },
+  };
+  /** Every project `tsc -b <cfg>` builds: the config's own root files, and the projects it references. */
+  const leaves = (cfg: string): { cfg: string; files: string[] }[] => {
+    const parsed = ts.getParsedCommandLineOfConfigFile(cfg, {}, host);
+    if (!parsed) throw new Error(`${cfg}: unreadable`);
+    const own = { cfg: relative(repo, cfg), files: parsed.fileNames.map((f) => relative(repo, f)) };
+    const below = (parsed.projectReferences ?? []).flatMap((r) => leaves(ts.resolveProjectReferencePath(r)));
+    return own.files.length ? [own, ...below] : below;
+  };
+  const root = ts.getParsedCommandLineOfConfigFile(join(repo, 'tsconfig.json'), {}, host);
+  const referenced = (root?.projectReferences ?? []).map((r) => relative(repo, r.path));
+  const projects = leaves(join(repo, 'tsconfig.json'));
+  const typescript = files.filter((f) => /\.tsx?$/.test(f) && !f.startsWith('implementations-plan/'));
+  /** The folder whose project must root the file: its workspace; `scripts` for the root scripts and root files. */
+  const home = (f: string): string =>
+    ownerOf(f, all)?.dir ??
+    (f.startsWith('scripts/') || !f.includes('/') ? 'scripts' : (f.split('/')[0] ?? ''));
+  /** The projects that may root a file: its home's, and for an app's ambient module types the app and tests projects. */
+  const expectedOwners = (f: string): string[] | undefined => {
+    const m = /^(apps\/[^/]+)\/src\/vite-env\.d\.ts$/.exec(f);
+    return m ? [`${m[1]}/tsconfig.app.json`, `${m[1]}/tsconfig.tests.json`] : undefined;
+  };
+
+  const homes = [...new Set(typescript.map(home))];
+
+  test('the root references every workspace with TypeScript and the root scripts, and nothing else', () => {
+    expect(homes.filter((dir) => !referenced.includes(dir))).toEqual([]);
+    expect(referenced.filter((dir) => !homes.includes(dir))).toEqual([]);
+    expect(referenced.filter((dir) => !exists(`${dir}/tsconfig.json`))).toEqual([]);
+  });
+
+  test("every tracked TypeScript file is a root file of exactly one project, reached from its workspace's", () => {
+    const owners = new Map<string, string[]>();
+    for (const p of projects) for (const f of p.files) owners.set(f, [...(owners.get(f) ?? []), p.cfg]);
+    // A project under the right folder is not enough: `bun run --cwd <ws> typecheck` builds what the
+    // workspace's own config reaches, so the owner must be one of those.
+    const reached = new Map<string, string[]>();
+    for (const h of homes)
+      for (const p of leaves(join(repo, h, 'tsconfig.json')))
+        reached.set(p.cfg, [...(reached.get(p.cfg) ?? []), h]);
+    /** Reached from the file's own home and from no other. */
+    const own = (cfg: string, f: string): boolean => reached.get(cfg)?.join() === home(f);
+    const off = typescript
+      .filter((f) => {
+        const have = (owners.get(f) ?? []).sort();
+        const want = expectedOwners(f);
+        if (!have.every((cfg) => own(cfg, f))) return true;
+        return want ? have.join() !== want.join() : have.length !== 1;
+      })
+      .map((f) => `${f}: ${owners.get(f)?.join(', ') || 'no project'}`);
+    expect(off).toEqual([]);
+    expect([...owners.keys()].filter((f) => !files.includes(f))).toEqual([]);
   });
 });

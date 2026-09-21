@@ -11,7 +11,7 @@
     "preview": "wrangler dev",
     "test": "bun test",
     "test:e2e": "playwright test",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -b --force"
   },
   "dependencies": {
     "@yacana/web-kit": "workspace:*",

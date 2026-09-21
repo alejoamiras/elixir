@@ -9,8 +9,7 @@
     "e2e",
     "scripts",
     "playwright.config.ts",
-    "playwright.replay.config.ts",
-    "playwright.rig.config.ts",
+    "playwright.visual.config.ts",
     "vitest.config.ts",
     "src/vite-env.d.ts"
   ]

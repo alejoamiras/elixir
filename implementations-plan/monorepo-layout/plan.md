@@ -535,7 +535,7 @@ returns nothing, and the same grep on `docs/deployments.md` returns only lines u
 
 ### Arc 4: one typecheck
 
-**P4.1 Solution.** §3.8.
+**P4.1 ✓ Solution.** §3.8.
 *Gate*: `bun run typecheck` exits 0 · deliberate errors fail it and name the file: one type error per layer;
 `Bun.file(…)` in a React source (wrong under `vite/client`); `import.meta.env.VITE_X` in a `tools` file (wrong under
 `bun`) · editing only a `miner-core` export's type makes a dependent app's project fail (no stale green) · every
@@ -545,7 +545,7 @@ import). Ambient `*.d.ts` files may be roots of several projects, by an explicit
 is a root of both its app and its tests project today) ·
 cold wall-clock ≤ 3× the baseline suite (I5) · FAST.
 
-**P4.2 Wire it.** Per-package `typecheck` scripts; the layout guard's references rule.
+**P4.2 ✓ Wire it.** Per-package `typecheck` scripts; the layout guard's references rule.
 *Gate*: FAST · `bun run lint:actions` · a workspace missing from the references fails the layout guard.
 *Arc end*: HEAVY+.
 

@@ -47,6 +47,7 @@ bun run lint           # biome + sort-package-json --check
 bun run lint:fix
 bun run lint:shell     # shellcheck on tools/localnet/bin/*.sh and hooks
 bun run lint:actions   # actionlint
+bun run typecheck      # tsc -b --force over the solution: every workspace's project and the root scripts (one workspace: bun run --cwd <ws> typecheck)
 bun test               # all bun:test suites (packages + scripts)
 bun run contracts:compile / contracts:test
 bun run e2e:agent -- <cmd>   # run <cmd> against a fresh isolated local network (AZTEC_NODE_URL set)
