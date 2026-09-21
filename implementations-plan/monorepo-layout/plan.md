@@ -416,7 +416,7 @@ proving through the Worker) and `bun run --cwd <web-stats> test:visual`.
 
 ### Arc 0: spikes out
 
-**P0.1 Remove the spikes, keep the evidence.** First record the baseline in `lessons/phase-0.md`: `bun test` pass and
+**P0.1 ✓ Remove the spikes, keep the evidence.** First record the baseline in `lessons/phase-0.md`: `bun test` pass and
 skip counts, FAST wall-clock, the full typecheck suite's cold wall-clock, the bundle manifest. Then arc 0's row of
 §3.11. `mutation.ts` executes its own witness, builds its wrong VK in-script, and asserts that file exists, has the
 real VK's byte length and differs from it before verifying. `verify()` classifies every `bb verify` outcome into
@@ -703,6 +703,8 @@ path-helper package).
 | D5 | `toolchainBin` throws on an unreadable pin | Keep the `PATH` fallback | The fallback turns pinning off exactly when a path is wrong |
 | D6 | Live `miner-core` tests move to `deploy` | A dev-only cycle | They test a deployment; approved scope says the cycle goes |
 | D7 | No shared repo-root helper | `packageDir()` in a new package | Depth is preserved; production code may not import `tools` |
+| D8 | A test-only fix outside §2, as its own commit before P0.1: `history-transport` holds a lease on the fetch guard | Carry one known `bun test` failure as the baseline | Root `bun test` was red on `main` (the Presto suite arms the one-way guard, the next file's server is refused); a baseline that exits 1 hides every later failure. `lessons/phase-0.md` §1 |
+| D9 | `verify()` classifies on bb's diagnostic against a closed list, not on exit status plus diagnostic as P0.1 words it | Exit status as the discriminator | bb 5.2.0 exits 1 for a refusal and for an unreadable input alike (observed, `lessons/phase-0.md` §2); an unlisted diagnostic is operational, so a new bb wording stops the run |
 
 ### Audit findings: adopted
 

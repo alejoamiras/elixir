@@ -1,0 +1,79 @@
+# Phase 0 lessons: spikes out, the decoupled deploy script
+
+## Baseline (2026-09-21, `main` at `06b25d7` + the one test fix below)
+
+| measure | value |
+|---|---|
+| `bun test` | **503 pass · 42 skip · 0 fail** (545 tests, 114 files), 107 s |
+| component specs | ui 69 · web-landing 14 · web-miner 121 · web-stats 84 |
+| FAST wall-clock | 178 s (lint 0 · typechecks 64 · `bun test` 107 · components 7) |
+| full typecheck suite, cold (build-info removed) | 52 s (root 13 · site 4 · ui 5 · web-miner 17 · web-stats 8 · web-landing 5) |
+| bundle manifest | `bundle-baseline.txt`: 651 files, production build, `GITHUB_SHA` pinned to the baseline |
+
+The machine ran at a load average of 50–70 from other agents throughout; timings are comparable with each other,
+not with a quiet machine.
+
+## Attempts
+
+1. **Baseline `bun test` red on untouched `main`: 2 failures.** Not load, though it looked like it.
+   - `work-circuit/src/vk-pinning.test.ts`: `aztec-nargo: command not found`. The test calls the bare name and the
+     shell had no toolchain on `PATH`. CI's `setup-aztec` appends `~/.aztec/versions/<pin>/bin` to `GITHUB_PATH`, so
+     the FAST runner now does the same from `.aztecrc` and refuses to run without the pinned directory. The bare
+     name in that test is the PATH dependence listed in `follow-ups.md`.
+   - `web-stats/tests/history-transport.bun.test.ts`: reported as a 5 s timeout; with a long timeout it *fails* at
+     6 s with `blocked endpoint http://127.0.0.1:<port>`. The site's fetch guard is one-way and process-wide; the
+     web-miner Presto suite arms it, and the next file's requests to its own server are refused until the SDK
+     client's retries run out. Reproduced with those two files alone; passes alone in 350 ms. Per-package CI lanes
+     never share the process, so only the root `bun test` was red, on `main`.
+   - Fix, its own commit and outside the plan's §2: the test holds a candidate lease for its server, the idiom the
+     Presto suites already use. The measurement is unchanged (147 methods in 21 HTTP requests, armed or not).
+   - **Lesson: a timeout under load is a hypothesis, not a diagnosis. Re-run with a long timeout before blaming
+     the machine.**
+
+2. **`bb verify` exit statuses on 5.2.0, observed before writing the classifier.** Everything that is not success
+   exits 1, operational failures included:
+
+   | case | exit | diagnostic |
+   |---|---|---|
+   | untouched | 0 | `Proof verified successfully` |
+   | wrong public input; wrong VK (well-formed) | 1 | `verification failed at reduction step` · `Proof verification failed` |
+   | flipped limb | 1 | `Deserialized point is not on the curve` |
+   | field ≥ modulus | 1 | `Non-canonical proof element: value >= field modulus` |
+   | truncated proof | 1 | `Proof verification failed: invalid proof size. Expected 410, got 409` |
+   | missing VK or proof file | 1 | `Unable to open file: … (No such file or directory)` |
+   | missing binary | spawn throws `ENOENT` | |
+   | binary kills itself | none, signal `SIGKILL` | |
+
+   So the old `exitCode === 0` test did count a missing VK as a refused mutation: the wrong-VK case read
+   `target/sweep_1024/vk`, which exists only after a sweep, and passed vacuously on a clean tree. The plan assumed
+   exit status plus diagnostic; only the diagnostic discriminates. `bb-verify.ts` reads it against a closed list
+   and treats anything else as operational (fail closed: a new bb wording stops the run instead of passing it).
+
+3. **Deliberate regression on the classifier.** Folding every non-zero exit into "refused" failed 2 of the 3
+   operational tests (missing VK, self-killing binary); the missing binary fails at spawn, a second path, and
+   folding that too failed the third. Both probes reverted; 4/4 green.
+
+4. **The worktree guard refuses opaque command strings** (`tmux new-session … "bash …"`, a python heredoc naming
+   git). An earlier launch had passed only because the payload sat behind shell variables. Long runs now go
+   through the harness's background jobs as a plain `bash <script>`, which outlive the agent shell as tmux would.
+
+5. **First `check:mutation` on the new classifier stopped, as designed.** A multi-bit flip in a commitment limb
+   trips bb's limb-range assertion (`Assertion failed: (uint256_t(fr_vec[0]) < …)` · `Reason : Conversion error
+   here usually implies some bad proof serde or parsing`), a wording the single-bit survey never produced. A
+   second survey (13 fields × 5 bit positions) found six distinct diagnostics in all; that one joined the
+   undecodable list, and `failed at pairing check` already reads as a refusal. **Lesson: survey the input space
+   the script actually walks, not one sample per class.**
+
+## P0.1 gate (2026-09-21)
+
+| step | result |
+|---|---|
+| FAST | exit 0 · **507 pass · 42 skip · 0 fail** (549 tests, 115 files) = baseline + the 4 `bb-verify` tests; no test left with the spikes |
+| `bun install --frozen-lockfile` | ok (three devDependencies left `deploy`; lockfile −10 +3) |
+| `bun run codegen` then diff | ok, no drift |
+| `contracts:compile` · `contracts:test` | ok (36 s · 36 s) |
+| `artifacts:commit` then diff · `export-layouts` then diff | ok, no drift |
+| `check:mutation` alone, no witness on the tree | ok: 410 single flips, 50 combinations, 8 valid-point substitutions refused; wrong public input and wrong VK both `{verified:false, wellFormed:true}`; the ZK-flavour proof refused |
+| `check:proofs` | exit 0: `yacana_work` 151 728 gates, prove 0.91 s; 10 native proves → 1 distinct proof; WASM byte-identical to native, WASM verify true |
+| `verify()` unit tests · deliberate regression | 4/4; regression failed 3/3 operational tests, reverted |
+| baseline bundle manifest | `bundle-baseline.txt` |

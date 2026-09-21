@@ -17,8 +17,10 @@ export class OperationalError extends Error {
   readonly operational = true;
 }
 
-const MALFORMED = /Deserialized point is not on the curve|Non-canonical proof element|invalid proof size/;
-const REFUSED = /verification failed at reduction step|Proof verification failed/;
+// The last of these is bb's limb-range assertion on a commitment coordinate.
+const MALFORMED =
+  /Deserialized point is not on the curve|Non-canonical proof element|invalid proof size|bad proof serde or parsing/;
+const REFUSED = /Proof verification failed/;
 
 interface Ran {
   exitCode: number | null;
