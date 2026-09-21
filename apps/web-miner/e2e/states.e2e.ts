@@ -53,6 +53,14 @@ const balanceForClaims = (page: Page) =>
     return `${text('balance')} for ${text('claims')} claims`;
   });
 
+/** The open epoch's count from the tile, once the chain view has it. */
+async function epochClaims(page: Page): Promise<{ have: number; n: number }> {
+  const tile = page.getByTestId('epoch-claims');
+  await expect(tile).toHaveText(/^\d+\s+of\s+\d+$/, { timeout: 60_000 });
+  const [, have, n] = /^(\d+)\s+of\s+(\d+)$/.exec(((await tile.textContent()) ?? '').trim()) ?? [];
+  return { have: Number(have), n: Number(n) };
+}
+
 test('a lost race: the claim reverts, the chain view is rebuilt, the next claim mints, the balance survives', async ({
   page,
 }) => {
@@ -60,14 +68,18 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
   const r = run();
   const origin = nodeOrigin(r.nodeUrl);
   await bootPage(page, pageUrl(r));
+  // In a shard the earlier specs claim in the same epoch: where it stands decides the claim's shape.
+  const opening = await epochClaims(page);
   await page.getByTestId('start').click();
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
   await expect(page.getByTestId('balance')).toHaveText('4');
   // A first contact: tx hash, ticket, delivery and handshake nullifiers; the mint's and the handshake's notes.
+  // The claim that closes its epoch carries one more, from its public half: the next epoch's
+  // PublicImmutable is initialized there, and an initialization is a nullifier.
   const first = await lastClaim(page);
   console.log(`[effects] first claim: ${JSON.stringify(first)}`);
   expect(first?.nullifiers).toContain(first?.ticketNullifier);
-  expect(first?.nullifiers).toHaveLength(4);
+  expect(first?.nullifiers).toHaveLength(opening.have === opening.n - 1 ? 5 : 4);
   expect(first?.noteHashes).toHaveLength(2);
   await expect(page.getByTestId('ledger')).toContainText(
     /minted in block [\d,]+↗ \(opens in a new tab\) · 4 tYACA, privately/,
@@ -79,10 +91,7 @@ test('a lost race: the claim reverts, the chain view is rebuilt, the next claim 
   // epoch to N − 1 claims while this page is stopped — the count comes from the tile, since an
   // unsharded run's earlier specs claim in the same epoch — and only the closer runs under the hold.
   await page.getByTestId('stop').click();
-  const shown = ((await page.getByTestId('epoch-claims').textContent()) ?? '').trim();
-  const counts = /^(\d+)\s+of\s+(\d+)$/.exec(shown);
-  if (!counts) throw new Error(`unreadable epoch claims: ${shown}`);
-  const [have, n] = [Number(counts[1]), Number(counts[2])];
+  const { have, n } = await epochClaims(page);
   if (have < n - 1) await burst(r, n - 1 - have);
   // The poll keeps running while stopped; the count is checked here, while the epoch is still stable.
   await expect(page.getByTestId('epoch-claims')).toHaveText(new RegExp(`^${n - 1}\\s+of\\s+${n}$`), {
