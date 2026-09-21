@@ -3,7 +3,7 @@ import { ProofLedger, type ProofLine, Tile, TileHeader } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
 import type { MinerController } from '../controller';
 import { ledgerLinks } from '../explorer';
-import { settlementSuffix, winNote } from '../lib/claim-copy';
+import { settlementSuffix, settlementTitle, winNote } from '../lib/claim-copy';
 import type { LedgerLine } from '../lib/reducer';
 import type { ProverKind } from '../presto';
 import { type ClaimRecord, claimsAtom, epochAtom, minerAtom, nowAtom } from '../state';
@@ -19,8 +19,9 @@ export const shownLines = (
   lines.map((l) => {
     if (l.kind === 'win') return { ...l, note: winNote(l.claim, nowMs, prover) };
     if (l.kind === 'minted' && l.links) {
-      const suffix = settlementSuffix(claims.find((c) => c.txHash === l.links?.tx)?.settled);
-      return suffix ? { ...l, suffix } : l;
+      const settled = claims.find((c) => c.txHash === l.links?.tx)?.settled;
+      const suffix = settlementSuffix(settled);
+      return suffix ? { ...l, suffix, suffixTitle: settlementTitle(settled) } : l;
     }
     return l;
   });
@@ -52,9 +53,7 @@ export function LedgerTile({
       : [];
   return (
     <Tile className={className}>
-      <TileHeader aside="★ win · claiming · ✓ minted, final once its epoch is proven · ✗ failed · ── epoch">
-        proofs, newest first
-      </TileHeader>
+      <TileHeader aside="★ win · ✓ minted · ✗ failed · ── epoch">proofs, newest first</TileHeader>
       {lines.length ? (
         <ProofLedger
           lines={shownLines(lines, claims, now, txProver)}

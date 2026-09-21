@@ -37,7 +37,7 @@ export function PowerSlider({
   cores: number;
   threads: number;
   onChange: (threads: number) => void;
-  /** The measured rate, e.g. "18.4 / min"; the readout is never a prediction. */
+  /** The measured rate, e.g. "18.4 proofs/min"; the readout is never a prediction. */
   readout?: React.ReactNode;
   /** The setting is kept but not in force (another prover decides the threads): shown dimmed, not editable. */
   disabled?: boolean;

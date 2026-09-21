@@ -250,7 +250,6 @@ function Waiting() {
 }
 
 function Done({ crossing, onDone }: { crossing?: Crossing; onDone: () => void }) {
-  const wallet = useWalletName();
   const journal = useAtomValue(journalAtom);
   const live = (crossing && journal.find((c) => c.id === crossing.id)) ?? crossing;
   const tx = live?.l1TxHash;
@@ -260,11 +259,11 @@ function Done({ crossing, onDone }: { crossing?: Crossing; onDone: () => void })
         steps={[
           {
             id: 'sent',
-            label: `Sent from ${wallet}`,
+            label: 'Deposit sent',
             state: 'done',
             right: tx ? (
               <ExternalLink href={l1Links.tx(tx)} full={tx}>
-                Etherscan ↗
+                Etherscan
               </ExternalLink>
             ) : undefined,
           },

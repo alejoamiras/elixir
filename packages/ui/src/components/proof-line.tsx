@@ -17,7 +17,15 @@ export type ProofLine =
   | { kind: 'attempt'; time: string; n: number; score: number; proveMs: number; best?: boolean }
   | { kind: 'win'; time: string; n: number; score: number; proveMs: number; note?: WinNote }
   /** `text` follows the block phrase, which the renderer builds from `links.block` (linked when it can). */
-  | { kind: 'minted'; time: string; text: string; links?: { block: number; tx: string }; suffix?: string }
+  | {
+      kind: 'minted';
+      time: string;
+      text: string;
+      links?: { block: number; tx: string };
+      suffix?: string;
+      /** What the suffix means, on hover. */
+      suffixTitle?: string;
+    }
   | { kind: 'failed'; time: string; text: string }
   | { kind: 'epoch'; time: string; text: string };
 
@@ -104,7 +112,11 @@ function Minted({ line, linkFor }: { line: Extract<ProofLine, { kind: 'minted' }
           </ExternalLink>
         </span>
       )}
-      {line.suffix && <span className="text-ink-3">· {line.suffix}</span>}
+      {line.suffix && (
+        <span className="text-ink-3" title={line.suffixTitle}>
+          · {line.suffix}
+        </span>
+      )}
     </>
   );
 }

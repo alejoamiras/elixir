@@ -183,10 +183,10 @@ describe('PowerSlider', () => {
     expect(clampThreads(0, 12)).toBe(1);
     expect(clampThreads(40, 12)).toBe(11);
     const onChange = vi.fn();
-    render(<PowerSlider cores={12} threads={99} onChange={onChange} readout="18.4 / min" />);
+    render(<PowerSlider cores={12} threads={99} onChange={onChange} readout="18.4 proofs/min" />);
     const slider = screen.getByRole('slider');
     expect(slider).toHaveValue('11');
-    expect(screen.getByText(/11 threads/)).toHaveTextContent('18.4 / min');
+    expect(screen.getByText(/11 threads/)).toHaveTextContent('18.4 proofs/min');
     fireEvent.change(slider, { target: { value: '3' } });
     expect(onChange).toHaveBeenCalledWith(3);
     expect(document.querySelector('[data-slot=power-label][data-on]')).toHaveTextContent('max · 11');

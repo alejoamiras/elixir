@@ -1,7 +1,7 @@
 // The claim on its win line: the step while it runs, the outcome after, one clock from the win,
 // Stop's mark; and the sentences the ledger draws from them.
 import { describe, expect, test } from 'bun:test';
-import { winNote } from '../src/lib/claim-copy.ts';
+import { settlementSuffix, settlementTitle, winNote } from '../src/lib/claim-copy.ts';
 import { type Event, initial, type MinerState, reduce } from '../src/lib/reducer.ts';
 
 const epoch = { epoch: 3n, seed: 7n, target: 1n << 122n, openedAt: 0n, claims: 1 };
@@ -174,5 +174,14 @@ describe('the claim on its win line', () => {
     const bare = play([{ type: 'winner', epoch: 3n, secretId: 1, at: 1_000 }]);
     const [lineless] = reduce(bare, { type: 'failed', error: 'x', kind: 'expired', at: 2_000 });
     expect(lineless.ledger[0]).toMatchObject({ kind: 'failed', text: 'claim expired' });
+  });
+
+  test('a minted line says settling until its epoch is proven, and only that word explains itself', () => {
+    expect([settlementSuffix('pending'), settlementTitle('pending')]).toEqual([
+      'settling',
+      'Final once its epoch is proven.',
+    ]);
+    expect([settlementSuffix('settled'), settlementTitle('settled')]).toEqual(['final', undefined]);
+    expect(settlementSuffix(undefined)).toBeUndefined();
   });
 });
