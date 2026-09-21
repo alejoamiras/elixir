@@ -49,6 +49,17 @@ function wellFormed(proof: Uint8Array): boolean {
   return true;
 }
 
+/** Resolves once the messages already queued for this realm have been delivered: one of its own, behind them. */
+const queuedMessages = (): Promise<void> =>
+  new Promise((resolve) => {
+    const { port1, port2 } = new MessageChannel();
+    port1.onmessage = () => {
+      port1.close();
+      resolve();
+    };
+    port2.postMessage(null);
+  });
+
 export class PrestoWorkProver implements WorkProver {
   private readonly noir: Noir;
   private readonly backend: PrestoUltraHonkBackend;
@@ -98,7 +109,9 @@ export class PrestoWorkProver implements WorkProver {
       nonce: inputs.nonce.toString(),
     });
     const out = Fr.fromString(String(returnValue));
-    // A revoke that landed during the execute above: the witness never leaves.
+    // The execute above can be one synchronous run: a revoke posted during it is still a queued
+    // message when it returns. The queue gets its turn, then the witness leaves only if none landed.
+    await queuedMessages();
     if (this.stuck) return { proof: await this.local(witness), out };
     const proof = await this.native(inputs, witness, out);
     return { proof: proof ?? (await this.local(witness)), out };

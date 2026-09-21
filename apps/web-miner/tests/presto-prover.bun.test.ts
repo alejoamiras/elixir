@@ -339,4 +339,24 @@ describe('the first native proof of a build', () => {
       await p.destroy();
     }
   }, 240_000);
+
+  test('a revoke still queued as a message when the witness is ready: the queue gets its turn first', async () => {
+    fake.script.push({ status: 200, body: { proof: b64(fixtureProof), public_inputs: b64(fixtureInputs) } });
+    const { p } = prover(fake.endpoint);
+    try {
+      await p.prove(FIXTURE); // warm: the next execute has nothing left to load
+      const before = fake.proves().length;
+      // As the Worker receives it: a task, not a call, behind whatever runs now.
+      const { port1, port2 } = new MessageChannel();
+      port1.onmessage = () => p.forceLocal('revoked');
+      const proving = p.prove(FIXTURE);
+      port2.postMessage(null);
+      await proving;
+      port1.close();
+      expect(fake.proves().length - before).toBe(0);
+      expect(p.lastProver).toBe('wasm');
+    } finally {
+      await p.destroy();
+    }
+  }, 240_000);
 });
