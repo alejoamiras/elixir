@@ -49,7 +49,11 @@ function wellFormed(proof: Uint8Array): boolean {
   return true;
 }
 
-/** Resolves once the messages already queued for this realm have been delivered: one of its own, behind them. */
+/**
+ * Resolves behind the messages already queued for this realm's never-transferred ports: HTML
+ * delivers those as one FIFO, and the Worker's own port is one of them. A transferred port has its
+ * own queue and no such ordering; none carries the revoke.
+ */
 const queuedMessages = (): Promise<void> =>
   new Promise((resolve) => {
     const { port1, port2 } = new MessageChannel();
