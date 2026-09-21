@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { relative } from 'node:path';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { yacanaPortalAbi } from '@yacana/bridge/portal';
+import { portalReader } from '@yacana/bridge/portal-reader';
 import { forwardAll } from '@yacana/deploy/bridge/forward';
 import type { Operator } from '@yacana/deploy/bridge/operator';
 import { closeDeposits } from '@yacana/deploy/bridge/pause';
@@ -14,7 +15,7 @@ import { versionStatus } from '@yacana/deploy/bridge/status';
 import { repoRoot } from '@yacana/localnet/toolchain';
 import { type RigNode, startUpgradeRig, type UpgradeRig } from '@yacana/localnet/upgrade-rig';
 import type { WorkProver } from '@yacana/miner-core/work';
-import { createWalletClient, getContract, http, parseEventLogs } from 'viem';
+import { createWalletClient, getContract, type Hex, http, parseEventLogs } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 import { errorName, revertName } from '../src/revert.ts';
@@ -96,6 +97,16 @@ describe.skipIf(!enabled)('a deposit from Ethereum (H2)', () => {
     const [deposited] = parseEventLogs({ abi: yacanaPortalAbi, eventName: 'Deposited', logs: receipt.logs });
     if (!deposited) throw new Error('no Deposited event');
     expect(deposited.args.amount).toBe(amount);
+    // What the page's landing scan reads from the same log: the deposit, with who made it.
+    const bridge = v5.operator.record.bridge;
+    const found = await portalReader(rig.publicClient, {
+      portal: bridge.portal as Hex,
+      registry: bridge.registry as Hex,
+      deployBlock: BigInt(bridge.deployBlock ?? 0),
+    }).arrivals();
+    expect(found.deposited).toEqual([
+      expect.objectContaining({ sender: holder.address, amount, inboxIndex: deposited.args.inboxIndex }),
+    ]);
     expect(await v5.operator.yaca.read.balanceOf([holder.address])).toBe(reward / 2n - amount);
     // H8: what exists on Ethereum is what left Aztec minus what went back, and the headroom follows.
     const after = await versionStatus(v5.operator, version);
