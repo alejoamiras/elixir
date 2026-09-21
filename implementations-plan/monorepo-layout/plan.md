@@ -551,7 +551,7 @@ cold wall-clock ≤ 3× the baseline suite (I5) · FAST.
 
 ### Arc 5: the repository's name
 
-**P5.1 In-repo references.** Three live references and one exemption: `web-landing/src/copy.ts:17` (`REPO`), its two
+**P5.1 ✓ In-repo references.** Three live references and one exemption: `web-landing/src/copy.ts:17` (`REPO`), its two
 assertions (`web-landing/e2e/landing.e2e.ts:114`, `src/sections.vitest.tsx:99`), and `scripts/rename-guard.test.ts:24`
 (the `github.com/alejoamiras/elixir` exemption goes, so the guard starts refusing the old URL). History keeps the old
 name: `implementations-plan/elixir-*`, `docs/pitch/`, the archived deployment record and its docs section stay exempt.
