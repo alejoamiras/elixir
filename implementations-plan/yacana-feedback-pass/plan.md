@@ -6,9 +6,20 @@ eli5_mode: artifact
 code_review: off
 hardening: none (no new trust boundary; the one permission-shaped change narrows what the page does unasked)
 budget: "recon 2 agents (1 reuse sweep; the test-impact sweep rerun by the driver); codex at high (GPT-6 Astra); one fable audit; code-review off (owner, 2026-09-20)"
-status: drafted 2026-09-20; round-1 audits folded (codex reject → reworked, fable conditional approve → conditions folded); the final codex pass rejected twice (round 1: ten findings; round 2: seven), all folded; round 3: conditional approve, its three conditions folded; **approved by the owner 2026-09-21** (defaults accepted, A7 replaced by an automated test on Presto's technique); implementation under way since 2026-09-21 (a ✓ on a phase header means its gate passed; the evidence is in `lessons/phase-N.md`)
+status: drafted 2026-09-20; round-1 audits folded (codex reject → reworked, fable conditional approve → conditions folded); the final codex pass rejected twice (round 1: ten findings; round 2: seven), all folded; round 3: conditional approve, its three conditions folded; **approved by the owner 2026-09-21** (defaults accepted, A7 replaced by an automated test on Presto's technique); implemented 2026-09-21, all phases ✓ (the evidence is in `lessons/phase-N.md`); delivered as stack #64 (#61–#63), unmerged, awaiting a rebase onto the monorepo layout — see Outcome
 created: 2026-09-20
 ---
+
+## Outcome
+
+Delivered 2026-09-21 as stack #64 on GitHub: #61 (arc 1, links · stepper · loop · presets · activity row) ←
+#62 (arc 2, Presto by consent) ← #63 (arc 3, the balance on top, the tiles, the Wallet). All eight phases ✓;
+every arc's codex loop and the cross-arc pass converged ("no new material findings"); the sweep on the final
+tree found one consent leak (arc 2, fixed and reviewed) and two spec assumptions (`lessons/phase-8.md`).
+Not merged. **The stack sits on the pre-layout `main`**: the monorepo-layout PRs #54–#58 landed while it
+was built, so #61 conflicts with `main` (34 files at the tip, mostly path moves) and its Actions cannot run
+until it is rebased; #62 and #63 run against their stack bases. The owner decides the base: after #59 lands,
+`gh stack sync`, resolve, rerun the fast layers and the sweep with the moved commands, one codex delta round.
 
 # yacana-feedback-pass — the first users' feedback, built to the approved boards
 
