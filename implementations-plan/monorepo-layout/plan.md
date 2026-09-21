@@ -514,7 +514,7 @@ one importing another workspace's `scripts/` subpath; a same-layer production cy
 
 ### Arc 3: the move
 
-**P3.1 Move and re-point.** Commit 1: `git mv` the nine workspaces, nothing else (kept separate for review only;
+**P3.1 ✓ Move and re-point.** Commit 1: `git mv` the nine workspaces, nothing else (kept separate for review only;
 squash merges do not preserve it and no gate can run on it). Commit 2: everything in arc 3's row of §3.11 except
 docs, **including the 12 workflows and `setup-presto`**: the layout guard reads them, so they move with the folders.
 `bun install`.
@@ -523,7 +523,7 @@ docs, **including the 12 workflows and `setup-presto`**: the layout guard reads 
 portal:test` · `bun run site:build` · bundle manifest unchanged (a lost `@source` shows here) · `bun run
 site:wrangler deploy --dry-run` still resolves the moved Worker config.
 
-**P3.2 Prove the CI edit is mechanical.** Apply the path map (`packages/<moved>` → new folder, `scripts/run` →
+**P3.2 ✓ Prove the CI edit is mechanical.** Apply the path map (`packages/<moved>` → new folder, `scripts/run` →
 `tools/localnet/…`) to the **baseline** workflow files with `sed` and diff the result against the edited ones; only
 differences listed in the phase's lessons entry may remain. No file changes unless the diff finds one.
 *Gate*: FAST · the diff, shown · both guards.
