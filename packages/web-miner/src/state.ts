@@ -1,10 +1,10 @@
+import type { DeadlineReading } from '@yacana/bridge/exit-deadline';
+import type { FlipVerdict } from '@yacana/bridge/flip';
+import type { Crossing, RowState } from '@yacana/bridge/journal';
+import type { VersionStanding } from '@yacana/bridge/portal-reader';
+import type { ProofReading } from '@yacana/bridge/proofs';
+import type { PreflightRow } from '@yacana/ui';
 import { atom } from 'jotai';
-import type { DeadlineReading } from '../../bridge/src/exit-deadline.ts';
-import type { FlipVerdict } from '../../bridge/src/flip.ts';
-import type { Crossing, RowState } from '../../bridge/src/journal.ts';
-import type { VersionStanding } from '../../bridge/src/portal-reader.ts';
-import type { ProofReading } from '../../bridge/src/proofs.ts';
-import type { PreflightRow } from '../../ui/src/index.ts';
 import type { BridgeSession } from './bridge/session';
 import type { SlotView } from './keys/slot';
 import type { MasterRecord } from './keys/store';

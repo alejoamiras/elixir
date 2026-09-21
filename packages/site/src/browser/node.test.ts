@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
-import type { ExpectedDeployment } from '../../../miner-core/src/reader.ts';
+import type { ExpectedDeployment } from '@yacana/miner-core/reader';
 
 let mod: typeof import('./node.ts');
 let guard: typeof import('./node-guard.ts');

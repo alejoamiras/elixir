@@ -5,8 +5,8 @@
 import { resolve } from 'node:path';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
-import { PROFILE } from '../../miner-core/src/generated/params.ts';
-import { difficulty } from '../../miner-core/src/metrics.ts';
+import { PROFILE } from '@yacana/miner-core/generated/params';
+import { difficulty } from '@yacana/miner-core/metrics';
 import {
   DEFAULT_LIMITS,
   type EpochRow,
@@ -14,8 +14,8 @@ import {
   readEpochs,
   readOpenEpochNumber,
   rowsToJson,
-} from '../../miner-core/src/reader.ts';
-import { deriveSlotTable, loadLayouts } from '../../miner-core/src/slots.ts';
+} from '@yacana/miner-core/reader';
+import { deriveSlotTable, loadLayouts } from '@yacana/miner-core/slots';
 
 const repo = resolve(import.meta.dir, '../../..');
 

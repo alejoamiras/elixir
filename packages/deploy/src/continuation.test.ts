@@ -1,7 +1,7 @@
 // The by-hand continuation: the announced epoch, seed and target travel together into the deploy,
 // so a continuation never restarts the difficulty schedule at the profile's initial target.
 import { afterEach, describe, expect, test } from 'bun:test';
-import { PROFILE } from '../../miner-core/src/generated/params.ts';
+import { PROFILE } from '@yacana/miner-core/generated/params';
 import { continuationOf } from './deploy.ts';
 
 const SOURCE = `deployments/${PROFILE}.json`;

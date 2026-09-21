@@ -4,7 +4,7 @@
 // reports nothing, and a WASM proof under a native prover is never held.
 import { describe, expect, test } from 'bun:test';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { PROOF_FIELDS } from '../../miner-core/src/proof.ts';
+import { PROOF_FIELDS } from '@yacana/miner-core/proof';
 import type { ProverKind } from '../src/presto.ts';
 import { mineFrom, type NativeAwareProver } from '../src/worker-mine.ts';
 import type { FromWorker, MineJob } from '../src/worker-protocol.ts';

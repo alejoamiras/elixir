@@ -1,4 +1,4 @@
-import { DEFAULT_LIMITS, type EpochRow, readEpochs, readLottery } from '../../miner-core/src/reader.ts';
+import { DEFAULT_LIMITS, type EpochRow, readEpochs, readLottery } from '@yacana/miner-core/reader';
 import type { Reader } from './chain';
 import type { Lottery } from './state';
 import { WINDOW } from './window';

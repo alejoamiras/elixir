@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
+import { resetNodeHealth, setTransportForTests } from '@yacana/site/browser/node-health';
 import { createStore, Provider } from 'jotai';
 import { afterEach, describe, expect, test } from 'vitest';
-import { resetNodeHealth, setTransportForTests } from '../../site/src/browser/node-health.ts';
 import { Shell } from './App';
 
 afterEach(() => {

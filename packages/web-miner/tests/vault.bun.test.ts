@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { entropyOf, masterFromMnemonic } from '../../miner-core/src/keys/mnemonic.ts';
+import { entropyOf, masterFromMnemonic } from '@yacana/miner-core/keys/mnemonic';
 import type { AccountClasses } from '../src/keys/classes.ts';
 import {
   addressOf,

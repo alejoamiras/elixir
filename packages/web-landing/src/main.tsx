@@ -1,9 +1,9 @@
-import '../../site/src/browser/node-guard.ts';
+import '@yacana/site/browser/node-guard';
 import './index.css';
+import { loadConnection } from '@yacana/site/browser/connection';
+import { ThemeProvider } from '@yacana/ui';
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { loadConnection } from '../../site/src/browser/connection.ts';
-import { ThemeProvider } from '../../ui/src/index.ts';
 import { App } from './App';
 import { watchChain } from './chain';
 import type { LaunchStatus, LiveStatus } from './state';

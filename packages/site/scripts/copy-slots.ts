@@ -4,9 +4,9 @@
 //   bun packages/site/scripts/copy-slots.ts <public dir>
 import { cpSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { DEFAULT_OUT, generateSlots, STAMP, slotsCurrent } from '../../miner-core/scripts/gen-slots.ts';
-import { CHUNK, TABLE_EPOCHS } from '../../miner-core/src/reader.ts';
-import { LAYOUTS_PATH } from '../../miner-core/src/slots.ts';
+import { CHUNK, TABLE_EPOCHS } from '@yacana/miner-core/reader';
+import { DEFAULT_OUT, generateSlots, STAMP, slotsCurrent } from '@yacana/miner-core/scripts/gen-slots';
+import { LAYOUTS_PATH } from '@yacana/miner-core/slots';
 
 export async function copySlots(publicDir: string): Promise<string> {
   const slots = resolve(publicDir, 'slots');

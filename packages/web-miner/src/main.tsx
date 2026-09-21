@@ -1,4 +1,4 @@
-import '../../site/src/browser/node-guard.ts';
+import '@yacana/site/browser/node-guard';
 import { startCrs } from './pinned-crs';
 import './index.css';
 import { ThemeProvider } from '@yacana/ui';

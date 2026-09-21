@@ -2,7 +2,7 @@
 // the vault seals its records — so the build for the next version can say "you still had N on V5,
 // last seen on D" to the same person and to nobody else. Written on every balance read; the key
 // names the chain, the rollup, the token and the account, so versions never overwrite each other.
-import { hkdf } from '../../../miner-core/src/keys/derive.ts';
+import { hkdf } from '@yacana/miner-core/keys/derive';
 
 const INFO = 'yacana.snapshot.v1';
 

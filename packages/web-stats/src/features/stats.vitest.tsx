@@ -1,9 +1,9 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { type EpochRow, linkRows, rowsFromJson } from '@yacana/miner-core/reader';
+import { Skeleton } from '@yacana/ui';
 import { createStore, Provider } from 'jotai';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { type EpochRow, linkRows, rowsFromJson } from '../../../miner-core/src/reader.ts';
-import { Skeleton } from '../../../ui/src/index.ts';
 import { App } from '../App';
 import { Difficulty, Duration, Emission, Retarget } from '../charts/index.tsx';
 import { span } from '../charts/specs';

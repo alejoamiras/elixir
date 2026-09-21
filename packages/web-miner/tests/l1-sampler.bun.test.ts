@@ -1,8 +1,8 @@
 // bun: the L1 sampler against a fake viem client — a matching chain's reading lands in the health
 // store, another chain's is dropped, a failure is logged and the next tick tries again.
 import { beforeEach, describe, expect, test } from 'bun:test';
-import type { ethRpcClient } from '../../site/src/browser/eth-rpc.ts';
-import { nodeHealth, resetNodeHealth } from '../../site/src/browser/node-health.ts';
+import type { ethRpcClient } from '@yacana/site/browser/eth-rpc';
+import { nodeHealth, resetNodeHealth } from '@yacana/site/browser/node-health';
 import { startL1Sampler } from '../src/l1-sampler.ts';
 
 type Client = ReturnType<typeof ethRpcClient>;

@@ -1,16 +1,8 @@
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { calculator } from '@yacana/miner-core/metrics';
+import { amount, duration } from '@yacana/site/browser/format';
+import { Input, KvRow, Label, Sheet, SheetContent, SheetDescription, SheetTitle } from '@yacana/ui';
 import { useState } from 'react';
-import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { calculator } from '../../../miner-core/src/metrics.ts';
-import { amount, duration } from '../../../site/src/browser/format.ts';
-import {
-  Input,
-  KvRow,
-  Label,
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetTitle,
-} from '../../../ui/src/index.ts';
 
 const RULES = {
   N: PARAMS.N,

@@ -1,9 +1,10 @@
 // Every epoch since launch as a bar at its absolute cell, the window box over the 48 shown, and
 // the day axis under it. A click centres the window on the epoch under the pointer; the box drags.
+
+import type { EpochRow } from '@yacana/miner-core/reader';
+import { firstEpoch } from '@yacana/site/browser/connection';
+import { cn } from '@yacana/ui';
 import { memo, type PointerEvent as ReactPointerEvent, useCallback, useRef, useState } from 'react';
-import type { EpochRow } from '../../../miner-core/src/reader.ts';
-import { firstEpoch } from '../../../site/src/browser/connection.ts';
-import { cn } from '../../../ui/src/index.ts';
 import { useWidth } from '../charts/plot';
 import { barsFor, dayTicks, epochAtX, MAP_HEIGHT, type Tone, thinTicks, windowBox } from '../map-geometry';
 import { centredFrom, newestFrom, normaliseFrom } from '../window';

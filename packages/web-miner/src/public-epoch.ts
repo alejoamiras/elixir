@@ -3,11 +3,11 @@
 // controller's first read takes the atom over. A write is dropped once the poll is stopped, or when
 // the atom already holds a newer epoch, so a late public read can never overwrite fresher claims.
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { readEpochs, readOpenEpochNumber } from '@yacana/miner-core/reader';
+import { readTip } from '@yacana/site/browser/node';
+import { markRead, recordTip } from '@yacana/site/browser/node-health';
+import { chunkLoader } from '@yacana/site/browser/slots';
 import type { createStore } from 'jotai';
-import { readEpochs, readOpenEpochNumber } from '../../miner-core/src/reader.ts';
-import { readTip } from '../../site/src/browser/node.ts';
-import { markRead, recordTip } from '../../site/src/browser/node-health.ts';
-import { chunkLoader } from '../../site/src/browser/slots.ts';
 import type { EpochInfo } from './lib/reducer';
 import { epochAtom } from './state';
 

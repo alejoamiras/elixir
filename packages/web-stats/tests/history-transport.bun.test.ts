@@ -6,7 +6,7 @@ import { describe, expect, test } from 'bun:test';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
-import { CHUNK, type SlotTable } from '../../miner-core/src/reader.ts';
+import { CHUNK, type SlotTable } from '@yacana/miner-core/reader';
 import type { Reader } from '../src/chain';
 import { readWindowRows } from '../src/read-window';
 
@@ -40,7 +40,7 @@ describe('a page of history on the wire', () => {
     });
     const url = `http://127.0.0.1:${server.port}`;
     // Another suite in this process may have installed the fetch guard, which has no uninstall.
-    const release = (await import('../../site/src/browser/node-guard.ts')).allowCandidate(url, 60_000);
+    const release = (await import('@yacana/site/browser/node-guard')).allowCandidate(url, 60_000);
     try {
       const node = createAztecNodeClient(url);
       const table: SlotTable = {

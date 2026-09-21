@@ -10,7 +10,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { deriveKeys } from '@aztec/stdlib/keys';
-import { deriveAccountFields, hkdf } from '../../../miner-core/src/keys/derive.ts';
+import { deriveAccountFields, hkdf } from '@yacana/miner-core/keys/derive';
 
 /**
  * The account class the last shipped build derived addresses with. When an SDK bump changes the

@@ -1,6 +1,6 @@
 // Mainnet's launch week: the hero is the lottery.
-import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { Button, Kpi, shortHash, Tile } from '../../../ui/src/index.ts';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { Button, Kpi, shortHash, Tile } from '@yacana/ui';
 import { copy, LINKS } from '../copy';
 import { useNow } from '../hooks';
 import type { LaunchStatus, LiveStatus } from '../state';

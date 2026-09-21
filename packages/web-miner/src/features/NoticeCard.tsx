@@ -1,6 +1,7 @@
 // The card under the header when a claim did not mint, or the node or the prover went away.
+
+import { Alert, AlertDescription, AlertTitle, Button } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
-import { Alert, AlertDescription, AlertTitle, Button } from '../../../ui/src/index.ts';
 import type { Notice } from '../lib/reducer';
 import { nowAtom } from '../state';
 

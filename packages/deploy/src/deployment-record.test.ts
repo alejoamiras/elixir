@@ -4,8 +4,8 @@ import { describe, expect, test } from 'bun:test';
 import { resolve } from 'node:path';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { PROFILE } from '@yacana/miner-core/generated/params';
 import config from '../../../yacana.params.json';
-import { PROFILE } from '../../miner-core/src/generated/params.ts';
 
 const repo = resolve(import.meta.dir, '../../..');
 type Json = Record<string, unknown>;

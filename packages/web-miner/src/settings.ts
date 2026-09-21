@@ -1,7 +1,8 @@
 // User settings, one localStorage key; every field has a default so a partial or foreign value
 // degrades to the defaults instead of breaking boot.
+
+import type { Theme } from '@yacana/ui';
 import { atom, useAtom } from 'jotai';
-import type { Theme } from '../../ui/src/index.ts';
 
 export interface Settings {
   /** undefined = cores − 1 (the max). */

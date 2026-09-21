@@ -7,19 +7,19 @@ import { join, relative } from 'node:path';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { yacanaPortalAbi } from '@yacana/bridge/portal';
-import { createWalletClient, getContract, type Hex, http } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
-import { repoRoot } from '../../../scripts/run/toolchain.ts';
-import type { RigNode, UpgradeRig } from '../../../scripts/run/upgrade-rig.ts';
-import { deployL1 } from '../../deploy/scripts/l1-deploy.ts';
-import { type Operator, openOperator } from '../../deploy/src/bridge/operator.ts';
+import { type Operator, openOperator } from '@yacana/deploy/bridge/operator';
 import {
   type BridgeRecord,
   type Deployment,
   type DeployOverrides,
   deployYacana,
-} from '../../deploy/src/deploy.ts';
+} from '@yacana/deploy/deploy';
+import { deployL1 } from '@yacana/deploy/scripts/l1-deploy';
+import { createWalletClient, getContract, type Hex, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
+import { repoRoot } from '../../../scripts/run/toolchain.ts';
+import type { RigNode, UpgradeRig } from '../../../scripts/run/upgrade-rig.ts';
 
 /** Anvil account 2: the listed forwarder, distinct from the operators (account 1) and the publisher (0). */
 export const FORWARDER_KEY: Hex = '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a';

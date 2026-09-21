@@ -2,15 +2,16 @@
 // with the extras the page draws (YACA's supply, every crossing's event with its block's time). A
 // deployment without a portal has nothing to read; a read that fails keeps the last snapshot on
 // the page and says the RPC is not answering; extras that fail leave the sentences standing.
+
+import { scanLogs } from '@yacana/bridge/logs';
+import { yacaAbi, yacanaPortalAbi } from '@yacana/bridge/portal';
+import { portalReader } from '@yacana/bridge/portal-reader';
+import type { BridgeRecord } from '@yacana/bridge/record';
+import type { Connection } from '@yacana/site/browser/connection';
+import { ethRpcClient } from '@yacana/site/browser/eth-rpc';
+import { setEthRpcEndpoint } from '@yacana/site/browser/node-guard';
 import type { createStore } from 'jotai';
 import type { Hex, PublicClient } from 'viem';
-import { scanLogs } from '../../bridge/src/logs.ts';
-import { yacaAbi, yacanaPortalAbi } from '../../bridge/src/portal.ts';
-import { portalReader } from '../../bridge/src/portal-reader.ts';
-import type { BridgeRecord } from '../../bridge/src/record.ts';
-import type { Connection } from '../../site/src/browser/connection.ts';
-import { ethRpcClient } from '../../site/src/browser/eth-rpc.ts';
-import { setEthRpcEndpoint } from '../../site/src/browser/node-guard.ts';
 import { type BridgeExtras, type FlowEvent, readBridge, sampleBlocks } from './bridge-beat';
 import { POLL_MS } from './chain';
 import { bridgeAtom } from './state';

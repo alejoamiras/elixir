@@ -2,13 +2,14 @@
 // for the recipient chosen at the send, forward a held send-ahead into the version it lands on, or
 // redeem one as YACA for the connected account. The wallet's ETH is read before it is asked; a
 // portal refusal is said in the row's own words.
+
+import type { Crossing } from '@yacana/bridge/journal';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { Alert, AlertDescription, ExternalLink, Note, Stepper } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Hex } from 'viem';
 import { useAccount } from 'wagmi';
-import type { Crossing } from '../../../../bridge/src/journal.ts';
-import { PARAMS } from '../../../../miner-core/src/generated/params.ts';
-import { Alert, AlertDescription, ExternalLink, Note, Stepper } from '../../../../ui/src/index.ts';
 import { revertLine } from '../../bridge/copy';
 import { versionNameOf } from '../../bridge/env';
 import { targetOf } from '../../bridge/rows';

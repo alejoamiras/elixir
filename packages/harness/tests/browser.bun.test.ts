@@ -6,6 +6,14 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { type ChildProcess, spawn } from 'node:child_process';
 import { mkdirSync, openSync, rmSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
+import { forwardAll } from '@yacana/deploy/bridge/forward';
+import type { Operator } from '@yacana/deploy/bridge/operator';
+import { registerVersion } from '@yacana/deploy/bridge/register';
+import { retireOnL1, retireOnL2 } from '@yacana/deploy/bridge/retire';
+import { noteAllTransitions } from '@yacana/deploy/bridge/transition';
+import { type BridgeRecord, continuationOf } from '@yacana/deploy/deploy';
+import { e2eBuildEnv } from '@yacana/web-miner/e2e/build-env';
+import type { E2eRun } from '@yacana/web-miner/e2e/run';
 import type { Hex } from 'viem';
 import { serveControl } from '../../../scripts/run/control.ts';
 import { lanePortBase, runPortWindowBase } from '../../../scripts/run/port-window.ts';
@@ -18,14 +26,6 @@ import {
   startUpgradeRig,
   type UpgradeRig,
 } from '../../../scripts/run/upgrade-rig.ts';
-import { forwardAll } from '../../deploy/src/bridge/forward.ts';
-import type { Operator } from '../../deploy/src/bridge/operator.ts';
-import { registerVersion } from '../../deploy/src/bridge/register.ts';
-import { retireOnL1, retireOnL2 } from '../../deploy/src/bridge/retire.ts';
-import { noteAllTransitions } from '../../deploy/src/bridge/transition.ts';
-import { type BridgeRecord, continuationOf } from '../../deploy/src/deploy.ts';
-import { e2eBuildEnv } from '../../web-miner/e2e/build-env.ts';
-import type { E2eRun } from '../../web-miner/e2e/run.ts';
 import { openUser } from '../src/user.ts';
 import { asForwarder, deployBridge, deployMiner, type MinerOnRig } from '../src/yacana.ts';
 

@@ -1,11 +1,6 @@
 // What a page fetches from its own origin to read epochs: the committed storage layouts and the
 // slot table's chunks, at the origin's root (an app's `public/` standalone, the assembled site's).
-import {
-  type Layouts,
-  layoutsFromJson,
-  type SlotLoader,
-  slotTableFromJson,
-} from '../../../miner-core/src/reader.ts';
+import { type Layouts, layoutsFromJson, type SlotLoader, slotTableFromJson } from '@yacana/miner-core/reader';
 
 export const fetchLayouts = async (): Promise<Layouts> =>
   layoutsFromJson(await (await fetch('/layouts.json')).text());

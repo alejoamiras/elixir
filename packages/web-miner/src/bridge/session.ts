@@ -12,25 +12,16 @@ import { Tag } from '@aztec/stdlib/logs';
 import { computeFeeJuiceMessageNullifier } from '@aztec/stdlib/messaging';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { TxHash } from '@aztec/stdlib/tx';
-import type { createStore } from 'jotai';
-import {
-  createPublicClient,
-  type Hex,
-  http,
-  type PublicClient,
-  parseEventLogs,
-  TransactionReceiptNotFoundError,
-} from 'viem';
 import {
   checkpointProven,
   epochProven,
   proofDeadline,
   type RollupReads,
   rollupReads,
-} from '../../../bridge/src/deadline.ts';
-import { readDeadline } from '../../../bridge/src/exit-deadline.ts';
-import { flipVerdict } from '../../../bridge/src/flip.ts';
-import { claimLeaf } from '../../../bridge/src/inbox.ts';
+} from '@yacana/bridge/deadline';
+import { readDeadline } from '@yacana/bridge/exit-deadline';
+import { flipVerdict } from '@yacana/bridge/flip';
+import { claimLeaf } from '@yacana/bridge/inbox';
 import {
   advance,
   type Crossing,
@@ -40,19 +31,14 @@ import {
   inFlight,
   type RowState,
   rowState,
-} from '../../../bridge/src/journal.ts';
-import { yacanaPortalAbi } from '../../../bridge/src/portal.ts';
-import {
-  type ProofFloor,
-  type ProofReader,
-  type ProofReading,
-  proofReader,
-} from '../../../bridge/src/proofs.ts';
-import { OperationQueue } from '../../../bridge/src/queue.ts';
-import type { BridgeRecord } from '../../../bridge/src/record.ts';
-import { asHint, parseRecoveryFile, type RecoveryFile, recoveryFile } from '../../../bridge/src/recovery.ts';
-import { exitLogTag } from '../../../bridge/src/secrets.ts';
-import { leafIdOf } from '../../../bridge/src/signatures.ts';
+} from '@yacana/bridge/journal';
+import { yacanaPortalAbi } from '@yacana/bridge/portal';
+import { type ProofFloor, type ProofReader, type ProofReading, proofReader } from '@yacana/bridge/proofs';
+import { OperationQueue } from '@yacana/bridge/queue';
+import type { BridgeRecord } from '@yacana/bridge/record';
+import { asHint, parseRecoveryFile, type RecoveryFile, recoveryFile } from '@yacana/bridge/recovery';
+import { exitLogTag } from '@yacana/bridge/secrets';
+import { leafIdOf } from '@yacana/bridge/signatures';
 import {
   type ArchivedExit,
   archiveEntry,
@@ -64,8 +50,17 @@ import {
   type RecordedExit,
   readArchive,
   verifiedArchiveEntry,
-} from '../../../bridge/src/witness.ts';
-import { nodeHealth } from '../../../site/src/browser/node-health.ts';
+} from '@yacana/bridge/witness';
+import { nodeHealth } from '@yacana/site/browser/node-health';
+import type { createStore } from 'jotai';
+import {
+  createPublicClient,
+  type Hex,
+  http,
+  type PublicClient,
+  parseEventLogs,
+  TransactionReceiptNotFoundError,
+} from 'viem';
 import { readBalanceSnapshot, saveBalanceSnapshot } from '../bridge/snapshot.ts';
 import type { Connection } from '../config';
 import { fingerprintOf } from '../keys/classes';

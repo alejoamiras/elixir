@@ -1,7 +1,7 @@
 // The node row's edit, as a pure state machine: the row, the field, the save under way. What the
 // buttons may do and what stays under the field follow from the state; an answer for a URL the
 // state no longer owns is dropped.
-import type { NodeHealth, NodeStanding } from '../../../site/src/browser/node-health.ts';
+import type { NodeHealth, NodeStanding } from '@yacana/site/browser/node-health';
 
 export type EditState =
   | { kind: 'row' }

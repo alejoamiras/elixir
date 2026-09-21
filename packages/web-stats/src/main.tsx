@@ -1,12 +1,12 @@
-import '../../site/src/browser/node-guard.ts';
+import '@yacana/site/browser/node-guard';
 import './index.css';
+import { expectedDeployment, firstEpoch, loadConnection } from '@yacana/site/browser/connection';
+import { endpointFingerprint, quietNodeReads } from '@yacana/site/browser/node-guard';
+import { markRead, nodeHealth, startNodeHealth, waitTurn } from '@yacana/site/browser/node-health';
+import { ThemeProvider } from '@yacana/ui';
 import { createStore, Provider } from 'jotai';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { expectedDeployment, firstEpoch, loadConnection } from '../../site/src/browser/connection.ts';
-import { endpointFingerprint, quietNodeReads } from '../../site/src/browser/node-guard.ts';
-import { markRead, nodeHealth, startNodeHealth, waitTurn } from '../../site/src/browser/node-health.ts';
-import { ThemeProvider } from '../../ui/src/index.ts';
 import { App } from './App';
 import { type BeatReads, type BeatSinks, bootBeats, pollBeats, windowBeat } from './beats';
 import { startBridge } from './bridge';

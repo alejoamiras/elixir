@@ -1,14 +1,8 @@
 // The one frame every money flow shares. What a dialog says is its own; how it is laid out is here.
+
+import { Button, cn, Dialog, DialogContent, DialogDescription, DialogTitle } from '@yacana/ui';
 import type * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Button,
-  cn,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from '../../../../ui/src/index.ts';
 
 export function TxDialog({
   open,

@@ -8,14 +8,14 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import { openSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { registerVersion } from '@yacana/deploy/bridge/register';
+import { e2eBuildEnv } from '@yacana/web-miner/e2e/build-env';
+import type { E2eRun } from '@yacana/web-miner/e2e/run';
 import { lanePortBase, runPortWindowBase } from '../../../scripts/run/port-window.ts';
 import { startPreview } from '../../../scripts/run/preview.ts';
 import { claim, release } from '../../../scripts/run/registry.ts';
 import { repoRoot } from '../../../scripts/run/toolchain.ts';
 import { type RigNode, startUpgradeRig, type UpgradeRig } from '../../../scripts/run/upgrade-rig.ts';
-import { registerVersion } from '../../deploy/src/bridge/register.ts';
-import { e2eBuildEnv } from '../../web-miner/e2e/build-env.ts';
-import type { E2eRun } from '../../web-miner/e2e/run.ts';
 import { deployBridge, deployMiner, type MinerOnRig } from '../src/yacana.ts';
 
 /** A child awaited without blocking this process: the rig's node logs through it and the control server answers from it. */

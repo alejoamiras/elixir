@@ -1,1 +1,1 @@
-export * from '../../../site/src/browser/format.ts';
+export * from '@yacana/site/browser/format';

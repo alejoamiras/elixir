@@ -1,6 +1,6 @@
+import type { EpochRow } from '@yacana/miner-core/reader';
+import { Tile, TileBoundary, TileHeader } from '@yacana/ui';
 import type { ReactNode } from 'react';
-import type { EpochRow } from '../../../miner-core/src/reader.ts';
-import { Tile, TileBoundary, TileHeader } from '../../../ui/src/index.ts';
 import { type ChartProps, Difficulty, Duration, Emission, Retarget } from '../charts/index.tsx';
 
 function ChartTile({

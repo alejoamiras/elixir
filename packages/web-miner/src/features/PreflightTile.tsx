@@ -1,4 +1,4 @@
-import { Preflight, type PreflightRow, Tile } from '../../../ui/src/index.ts';
+import { Preflight, type PreflightRow, Tile } from '@yacana/ui';
 
 /** The preflight's rows while it runs: the cockpit takes over the moment it passes. */
 export function PreflightTile({ rows }: { rows: PreflightRow[] }) {

@@ -1,7 +1,7 @@
 // Every sentence on the page, so it can be edited as text. The numbers come from the protocol
 // parameters, so the testnet and mainnet pages state their own schedule.
-import { PARAMS } from '../../miner-core/src/generated/params.ts';
-import { scheduledClaimsPerHour } from '../../miner-core/src/metrics.ts';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { scheduledClaimsPerHour } from '@yacana/miner-core/metrics';
 
 const RULES = { N: PARAMS.N, EXPECTED_EPOCH_SECONDS: PARAMS.EXPECTED_EPOCH_SECONDS, T_MAX: PARAMS.T_MAX };
 const reward = Number(PARAMS.REWARD / 10n ** BigInt(PARAMS.DECIMALS));

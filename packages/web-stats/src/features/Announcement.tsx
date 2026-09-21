@@ -1,8 +1,8 @@
 // The one-line announcement the stats pages carry while a migration is announced: the
 // build's record says which Registry index comes next and when the upgrade is expected; the lead in
 // bold, the FAQ one link away.
-import type { MigrationRecord } from '../../../bridge/src/record.ts';
-import { ownVersionName } from '../../../site/src/browser/version-name.ts';
+import type { MigrationRecord } from '@yacana/bridge/record';
+import { ownVersionName } from '@yacana/site/browser/version-name';
 import { FAQ_HREF } from '../routes';
 
 const migration = (): MigrationRecord | null =>

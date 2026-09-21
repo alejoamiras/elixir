@@ -11,16 +11,16 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { claimLeaf } from '@yacana/bridge/inbox';
 import { type CrossingScope, type CrossingSecrets, deriveCrossingSecrets } from '@yacana/bridge/secrets';
-import { type L2Side, openL2 } from '../../deploy/src/bridge/l2.ts';
-import type { Deployment } from '../../deploy/src/deploy.ts';
-import { loadWorkArtifact } from '../../miner-core/src/artifacts.ts';
-import { buildClaim, claimGasLimits } from '../../miner-core/src/claim.ts';
-import { readOpenEpoch } from '../../miner-core/src/epoch.ts';
-import { PARAMS } from '../../miner-core/src/generated/params.ts';
-import { mineEpoch } from '../../miner-core/src/miner.ts';
-import { deployDomain } from '../../miner-core/src/proof.ts';
-import { newEpochSecret } from '../../miner-core/src/secret.ts';
-import { BbJsWorkProver, type WorkProver } from '../../miner-core/src/work.ts';
+import { type L2Side, openL2 } from '@yacana/deploy/bridge/l2';
+import type { Deployment } from '@yacana/deploy/deploy';
+import { loadWorkArtifact } from '@yacana/miner-core/artifacts';
+import { buildClaim, claimGasLimits } from '@yacana/miner-core/claim';
+import { readOpenEpoch } from '@yacana/miner-core/epoch';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { mineEpoch } from '@yacana/miner-core/miner';
+import { deployDomain } from '@yacana/miner-core/proof';
+import { newEpochSecret } from '@yacana/miner-core/secret';
+import { BbJsWorkProver, type WorkProver } from '@yacana/miner-core/work';
 
 export interface User extends L2Side {
   /** The account's secret and the wallet master: what reopens the same holder on another node. */

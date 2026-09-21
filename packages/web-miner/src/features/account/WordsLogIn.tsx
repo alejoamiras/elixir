@@ -1,6 +1,6 @@
+import { isWord, normaliseWords, validWords, WORDS } from '@yacana/miner-core/keys/mnemonic';
+import { Textarea } from '@yacana/ui';
 import { useEffect, useState } from 'react';
-import { isWord, normaliseWords, validWords, WORDS } from '../../../../miner-core/src/keys/mnemonic.ts';
-import { Textarea } from '../../../../ui/src/index.ts';
 import type { AccountError } from '../../state';
 import { AccountNote } from './Notes';
 import { Primary, Screen } from './Screen';

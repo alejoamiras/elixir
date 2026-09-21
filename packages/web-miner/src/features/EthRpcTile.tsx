@@ -2,15 +2,16 @@
 // guard reports for it, the host and whether it is the default, the chain and the latency; Change
 // turns it into a field, Save checks the candidate (the portal's chain, the portal's code) and
 // takes it, a failure stays under the field with the old RPC kept.
-import { useReducer, useSyncExternalStore } from 'react';
-import { defaultEthRpcUrl } from '../../../site/src/browser/connection.ts';
+
+import { defaultEthRpcUrl } from '@yacana/site/browser/connection';
 import {
   ethChainName,
   ethRpcHealth,
   parseEthRpcUrl,
   subscribeEthRpcHealth,
-} from '../../../site/src/browser/eth-rpc.ts';
-import { Button, Input, StatusChip } from '../../../ui/src/index.ts';
+} from '@yacana/site/browser/eth-rpc';
+import { Button, Input, StatusChip } from '@yacana/ui';
+import { useReducer, useSyncExternalStore } from 'react';
 import { bridgeRecord } from '../bridge/env';
 import { editReducer, saving } from '../lib/node-check';
 import type { Session } from '../session';

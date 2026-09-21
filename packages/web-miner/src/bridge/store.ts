@@ -3,8 +3,9 @@
 // and, per version, the next crossing index. The index is read and taken inside the transaction
 // that writes the crossing, so two tabs (or two clicks) never derive the same secrets; a reserved
 // index whose crossing later failed is never reused (its secrets may have reached a log).
+
+import type { Crossing } from '@yacana/bridge/journal';
 import type { Hex } from 'viem';
-import type { Crossing } from '../../../bridge/src/journal.ts';
 
 export const BRIDGE_DB = 'yacana-bridge';
 const CROSSINGS = 'crossings';

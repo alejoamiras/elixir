@@ -7,11 +7,11 @@ import {
   type Node,
   type SlotLoader,
   type StorageLayout,
-} from '../../miner-core/src/reader.ts';
-import { type Connection, expectedDeployment } from '../../site/src/browser/connection.ts';
-import { nodeClient } from '../../site/src/browser/node.ts';
-import { setNodeEndpoint } from '../../site/src/browser/node-guard.ts';
-import { chunkLoader, fetchLayouts } from '../../site/src/browser/slots.ts';
+} from '@yacana/miner-core/reader';
+import { type Connection, expectedDeployment } from '@yacana/site/browser/connection';
+import { nodeClient } from '@yacana/site/browser/node';
+import { setNodeEndpoint } from '@yacana/site/browser/node-guard';
+import { chunkLoader, fetchLayouts } from '@yacana/site/browser/slots';
 
 /** The poll's cadence; the banner calls the numbers stale after two of them. */
 export const POLL_MS = 30_000;

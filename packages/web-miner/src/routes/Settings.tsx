@@ -1,9 +1,7 @@
 // Settings. The node is changed here signed out too, so the page stays free of the sign-in dialog.
-import { useAtomValue, useSetAtom } from 'jotai';
-import type * as React from 'react';
-import { useEffect, useState } from 'react';
-import { relyingParty } from '../../../site/src/browser/host.ts';
-import { ownVersionName } from '../../../site/src/browser/version-name.ts';
+
+import { relyingParty } from '@yacana/site/browser/host';
+import { ownVersionName } from '@yacana/site/browser/version-name';
 import {
   Button,
   ExternalLink,
@@ -17,7 +15,10 @@ import {
   TileBoundary,
   TileHeader,
   useTheme,
-} from '../../../ui/src/index.ts';
+} from '@yacana/ui';
+import { useAtomValue, useSetAtom } from 'jotai';
+import type * as React from 'react';
+import { useEffect, useState } from 'react';
 import { bridgeRecord, isOldRole } from '../bridge/env';
 import { NodeTile } from '../components/NodeTile';
 import type { Connection } from '../config';

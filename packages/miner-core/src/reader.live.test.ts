@@ -5,7 +5,7 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { TokenContract } from '@aztec-foundation/aztec-standards/artifacts/src/artifacts/Token.js';
-import { deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
+import { deployYacana, TEST_PORTAL } from '@yacana/deploy/deploy';
 import { loadMinerArtifact } from './artifacts.ts';
 import { PARAMS } from './generated/params.ts';
 import {

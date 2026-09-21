@@ -1,7 +1,8 @@
 // What the page does on its own: keyboard, the battery and hidden-tab pauses, resume on open.
+
+import { clampThreads } from '@yacana/ui';
 import { useAtomValue, useStore } from 'jotai';
 import { useEffect } from 'react';
-import { clampThreads } from '../../../ui/src/index.ts';
 import type { MinerController } from '../controller';
 import { prestoAtom } from '../presto';
 import { navigate } from '../routes';

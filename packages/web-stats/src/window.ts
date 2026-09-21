@@ -1,7 +1,7 @@
 // The window: 48 epochs the strip, the charts and the table show, `[from, from + 47]` clamped to
 // the chain; `?from=` names it, absent means the newest one, which follows the open epoch. The
 // chain begins at `first`: 0, or the epoch a continuation started at (it has none before).
-import { type EpochRow, linkRows } from '../../miner-core/src/reader.ts';
+import { type EpochRow, linkRows } from '@yacana/miner-core/reader';
 
 /** Epochs per window: the strip's cells, the reader's page, one ‹ › step. */
 export const WINDOW = 48;

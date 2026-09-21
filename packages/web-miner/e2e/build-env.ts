@@ -1,7 +1,7 @@
 // The e2e build's environment, shared by the suite's setup and the upgrade rig's browser case: the
 // throwaway deployment, the local node, localhost as the RP ID, query overrides on, the run's Presto
 // port, and the bridge block when the run has a portal.
-import type { BridgeRecord, Deployment, LifecycleRecord, MigrationRecord } from '../../deploy/src/deploy.ts';
+import type { BridgeRecord, Deployment, LifecycleRecord, MigrationRecord } from '@yacana/deploy/deploy';
 
 export interface BuildOptions {
   nodeUrl: string;

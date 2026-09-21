@@ -2,9 +2,9 @@
 // while it is present but in the way, nothing while it proves. The row is the node banner's shape.
 import { stateFromStatus } from '@alejoamiras/presto-banners';
 import type { PrestoStatus } from '@alejoamiras/presto-core';
+import { Alert, Button, useTheme } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
 import { createElement, useEffect, useRef } from 'react';
-import { Alert, Button, useTheme } from '../../../ui/src/index.ts';
 import { noticeFor, PRESTO_SITE, prestoAtom } from '../presto';
 
 type BannerElement = HTMLElement & { status: PrestoStatus };

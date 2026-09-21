@@ -1,6 +1,6 @@
+import { difficulty } from '@yacana/miner-core/metrics';
+import { ProofLedger, type ProofLine, Tile, TileHeader } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
-import { difficulty } from '../../../miner-core/src/metrics.ts';
-import { ProofLedger, type ProofLine, Tile, TileHeader } from '../../../ui/src/index.ts';
 import type { MinerController } from '../controller';
 import { ledgerLinks } from '../explorer';
 import { settlementSuffix, winNote } from '../lib/claim-copy';

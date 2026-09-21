@@ -3,22 +3,13 @@
 // themselves; a dotted word carries its one-line tooltip, one disclosure per card holds the
 // sentence, and the rules live on the FAQ.
 
+import type { VersionFlows } from '@yacana/bridge/portal-reader';
+import type { MigrationRecord } from '@yacana/bridge/record';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import type { EpochRow } from '@yacana/miner-core/reader';
+import { firstEpoch } from '@yacana/site/browser/connection';
+import { Badge, ChipLink, Kpi, KvRow, StackedBar, Tile, TileHeader, Timeline } from '@yacana/ui';
 import { useEffect, useId, useState } from 'react';
-import type { VersionFlows } from '../../../bridge/src/portal-reader.ts';
-import type { MigrationRecord } from '../../../bridge/src/record.ts';
-import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import type { EpochRow } from '../../../miner-core/src/reader.ts';
-import { firstEpoch } from '../../../site/src/browser/connection.ts';
-import {
-  Badge,
-  ChipLink,
-  Kpi,
-  KvRow,
-  StackedBar,
-  Tile,
-  TileHeader,
-  Timeline,
-} from '../../../ui/src/index.ts';
 import {
   type BridgeSnapshot,
   chainNow,

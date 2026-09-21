@@ -12,6 +12,16 @@ import { relative } from 'node:path';
 import { yacanaPortalAbi } from '@yacana/bridge/portal';
 import { signForward, signRedeem } from '@yacana/bridge/signatures';
 import { type ArchivedExit, forwardArgsFromArchive, readArchive } from '@yacana/bridge/witness';
+import { archivePath, forwardAll } from '@yacana/deploy/bridge/forward';
+import { type Operator, writeOpts } from '@yacana/deploy/bridge/operator';
+import { pauseAll, unpause } from '@yacana/deploy/bridge/pause';
+import { registerVersion } from '@yacana/deploy/bridge/register';
+import { retireOnL1, retireOnL2 } from '@yacana/deploy/bridge/retire';
+import { versionStatus } from '@yacana/deploy/bridge/status';
+import { noteAllTransitions } from '@yacana/deploy/bridge/transition';
+import { continuationOf, type Deployment } from '@yacana/deploy/deploy';
+import { readOpenEpoch } from '@yacana/miner-core/epoch';
+import type { WorkProver } from '@yacana/miner-core/work';
 import { type Hex, parseEventLogs } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { repoRoot } from '../../../scripts/run/toolchain.ts';
@@ -21,16 +31,6 @@ import {
   startUpgradeRig,
   type UpgradeRig,
 } from '../../../scripts/run/upgrade-rig.ts';
-import { archivePath, forwardAll } from '../../deploy/src/bridge/forward.ts';
-import { type Operator, writeOpts } from '../../deploy/src/bridge/operator.ts';
-import { pauseAll, unpause } from '../../deploy/src/bridge/pause.ts';
-import { registerVersion } from '../../deploy/src/bridge/register.ts';
-import { retireOnL1, retireOnL2 } from '../../deploy/src/bridge/retire.ts';
-import { versionStatus } from '../../deploy/src/bridge/status.ts';
-import { noteAllTransitions } from '../../deploy/src/bridge/transition.ts';
-import { continuationOf, type Deployment } from '../../deploy/src/deploy.ts';
-import { readOpenEpoch } from '../../miner-core/src/epoch.ts';
-import type { WorkProver } from '../../miner-core/src/work.ts';
 import { errorName, revertName } from '../src/revert.ts';
 import { balanceOf, claimFromL1, mineOnce, openUser, sendAhead, type User, workProver } from '../src/user.ts';
 import { asForwarder, asStranger, deployBridge, deployMiner, type MinerOnRig } from '../src/yacana.ts';

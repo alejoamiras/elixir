@@ -1,4 +1,4 @@
-import type { HeaderTab } from '../../../ui/src/index.ts';
+import type { HeaderTab } from '@yacana/ui';
 import { pathFor, type Route } from '../routes';
 import { statsHref } from './apex';
 

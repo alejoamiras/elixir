@@ -3,9 +3,9 @@
 // The questions the other pages link to keep their words (`copy.faq.questions`). A withdrawal is
 // claimed by its holder, a deposit is one transaction, a claim is a tap, a held send can be
 // redeemed any time.
-import { policyFor } from '../../bridge/src/policy.ts';
-import { PARAMS } from '../../miner-core/src/generated/params.ts';
-import { amount } from '../../site/src/browser/format.ts';
+import { policyFor } from '@yacana/bridge/policy';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { amount } from '@yacana/site/browser/format';
 import { copy } from './copy';
 import type { DiagramId } from './features/RuleDiagrams';
 

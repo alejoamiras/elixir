@@ -1,13 +1,14 @@
 // Send ahead: the whole balance by default, because anything still on this version when it stops
 // proving cannot leave. The recovery file is offered under Done: the journal is the only record of
 // the crossing.
+
+import { deadlinePhrase } from '@yacana/bridge/exit-deadline';
+import type { Crossing } from '@yacana/bridge/journal';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { ownVersionName } from '@yacana/site/browser/version-name';
+import { Alert, AlertDescription, AmountField, Note, Stepper } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
 import { type ComponentProps, useState } from 'react';
-import { deadlinePhrase } from '../../../../bridge/src/exit-deadline.ts';
-import type { Crossing } from '../../../../bridge/src/journal.ts';
-import { PARAMS } from '../../../../miner-core/src/generated/params.ts';
-import { ownVersionName } from '../../../../site/src/browser/version-name.ts';
-import { Alert, AlertDescription, AmountField, Note, Stepper } from '../../../../ui/src/index.ts';
 import { isOldRole, nextVersionName } from '../../bridge/env';
 import { reviewAmount } from '../../bridge/forms';
 import { FAQ_HREF } from '../../lib/apex';

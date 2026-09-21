@@ -5,13 +5,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import type { Crossing } from '@yacana/bridge/journal';
 import { PARAMS } from '@yacana/miner-core/generated/params';
 import { createStore, Provider } from 'jotai';
 import type { ReactNode } from 'react';
 import { anvil } from 'viem/chains';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createConfig, http } from 'wagmi';
-import type { Crossing } from '../../bridge/src/journal.ts';
 import { TAKING_LONG_AFTER_MS } from './bridge/copy';
 import type { BridgeSession } from './bridge/session';
 import { ActivityList } from './features/ActivityList';

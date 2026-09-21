@@ -1,6 +1,6 @@
 // `/faq`: served by the origin's SPA fallback, so a link from any app lands here; `#rules` from the
 // stats page. The rules rows are native disclosures: the line always, the picture on demand.
-import { Button, cn } from '../../../ui/src/index.ts';
+import { Button, cn } from '@yacana/ui';
 import { copy } from '../copy';
 import { type FaqRule, faq } from '../faq-copy';
 import { DIAGRAMS } from '../features/RuleDiagrams';

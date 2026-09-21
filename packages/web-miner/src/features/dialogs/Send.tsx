@@ -2,17 +2,9 @@
 // unknown-recipient probe is advisory; the send re-validates the exact values it submits and uses
 // nothing the probe saw.
 import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { Alert, AlertDescription, AmountField, ExternalLink, Note, Stepper, Textarea } from '@yacana/ui';
 import { type ComponentProps, useRef, useState } from 'react';
-import { PARAMS } from '../../../../miner-core/src/generated/params.ts';
-import {
-  Alert,
-  AlertDescription,
-  AmountField,
-  ExternalLink,
-  Note,
-  Stepper,
-  Textarea,
-} from '../../../../ui/src/index.ts';
 import { links } from '../../explorer';
 import { amount as fmt, shortAddress } from '../../lib/format';
 import type { Session } from '../../session';

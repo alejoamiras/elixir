@@ -1,18 +1,9 @@
+import type { Crossing } from '@yacana/bridge/journal';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { ownVersionName } from '@yacana/site/browser/version-name';
+import { Badge, Button, ExternalLink, Kpi, Note, Tile, TileBoundary, TileHeader } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
-import type { Crossing } from '../../../bridge/src/journal.ts';
-import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { ownVersionName } from '../../../site/src/browser/version-name.ts';
-import {
-  Badge,
-  Button,
-  ExternalLink,
-  Kpi,
-  Note,
-  Tile,
-  TileBoundary,
-  TileHeader,
-} from '../../../ui/src/index.ts';
 import { bridgeRecord, isContinuation, nextVersionName } from '../bridge/env';
 import { moneyStanding } from '../bridge/rows';
 import { links } from '../explorer';

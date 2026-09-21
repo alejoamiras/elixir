@@ -1,4 +1,4 @@
-import { Icon } from '../../../../ui/src/index.ts';
+import { Icon } from '@yacana/ui';
 import type { AccountError } from '../../state';
 import { AccountNote, noteFor, OldOriginNote } from './Notes';
 import { Primary, Quiet, QuietRow, Screen } from './Screen';

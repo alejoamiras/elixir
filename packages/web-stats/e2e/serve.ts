@@ -3,11 +3,11 @@
 import type { ChildProcess } from 'node:child_process';
 import { resolve } from 'node:path';
 import { Fr } from '@aztec/aztec.js/fields';
+import type { Deployment } from '@yacana/deploy/deploy';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { rowsFromJson } from '@yacana/miner-core/reader';
+import { deriveSlotTable, loadLayouts } from '@yacana/miner-core/slots';
 import * as preview from '../../../scripts/run/preview.ts';
-import type { Deployment } from '../../deploy/src/deploy.ts';
-import { PARAMS } from '../../miner-core/src/generated/params.ts';
-import { rowsFromJson } from '../../miner-core/src/reader.ts';
-import { deriveSlotTable, loadLayouts } from '../../miner-core/src/slots.ts';
 
 export const pkg = resolve(import.meta.dir, '..');
 export const FIXTURE = resolve(pkg, '../miner-core/fixtures/epochs.testnet.json');

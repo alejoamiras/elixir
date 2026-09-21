@@ -7,7 +7,7 @@ import {
   type ExpectedDeployment,
   readLatestBlock,
   type StorageLayout,
-} from '../../../miner-core/src/reader.ts';
+} from '@yacana/miner-core/reader';
 import type { SiteMode } from '../config.ts';
 import { allowCandidate } from './node-guard.ts';
 

@@ -472,7 +472,7 @@ process group · `test:replay` · the bundle comparison (§3.10, amended) report
 `@yacana/x/src/y.ts` specifiers in the same commit.
 *Gate*: FAST · `bun install --frozen-lockfile` · the scripted `bun.lock` diff (§4) is empty outside workspace entries.
 
-**P1.3 Codemod.** TypeScript specifiers, the three `/// <reference path>` (relative until P2.1), the three CSS
+**P1.3 ✓ Codemod.** TypeScript specifiers, the three `/// <reference path>` (relative until P2.1), the three CSS
 `@import`s. `scripts/run` imports stay relative: it is not a workspace yet.
 *Gate*: FAST · zero unresolved non-exempt targets · `bun run --cwd packages/web-landing build` · the bundle comparison reports no findings.
 

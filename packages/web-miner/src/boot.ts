@@ -4,20 +4,20 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
-import type { createStore } from 'jotai';
-import { PARAMS } from '../../miner-core/src/generated/params.ts';
-import { deriveAccountFields } from '../../miner-core/src/keys/derive.ts';
-import { type ExpectedDeployment, expectedFromStrings } from '../../miner-core/src/reader.ts';
-import { probeNode, readTip, type SwitchableNode, switchableNode } from '../../site/src/browser/node.ts';
-import { endpointFingerprint, setNodeEndpoint } from '../../site/src/browser/node-guard.ts';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { deriveAccountFields } from '@yacana/miner-core/keys/derive';
+import { type ExpectedDeployment, expectedFromStrings } from '@yacana/miner-core/reader';
+import { probeNode, readTip, type SwitchableNode, switchableNode } from '@yacana/site/browser/node';
+import { endpointFingerprint, setNodeEndpoint } from '@yacana/site/browser/node-guard';
 import {
   markDeployment,
   markRead,
   recordTip,
   resetNodeHealth,
   startNodeHealth,
-} from '../../site/src/browser/node-health.ts';
-import { clampThreads, type PreflightRow } from '../../ui/src/index.ts';
+} from '@yacana/site/browser/node-health';
+import { clampThreads, type PreflightRow } from '@yacana/ui';
+import type { createStore } from 'jotai';
 import { attachDeployment, loadArtifact, type Node, readEpochRules } from './chain';
 import type { Connection } from './config';
 import { MinerController, type Rebound } from './controller';

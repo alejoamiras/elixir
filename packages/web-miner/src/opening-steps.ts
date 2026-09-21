@@ -1,4 +1,4 @@
-import type { Step } from '../../ui/src/index.ts';
+import type { Step } from '@yacana/ui';
 
 /** The four stages the dialog lists; the node's health is the preflight's, not an opening step. */
 export type StepId = 'key' | 'crs' | 'notes' | 'ready';

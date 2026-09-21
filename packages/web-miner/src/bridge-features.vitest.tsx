@@ -3,14 +3,14 @@
 // each over a journal in the store and a session whose bridge is a stub.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { Crossing } from '@yacana/bridge/journal';
+import { PARAMS } from '@yacana/miner-core/generated/params';
 import { createStore, Provider } from 'jotai';
 import { type ReactNode, StrictMode } from 'react';
 import { anvil } from 'viem/chains';
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createConfig, http, mock, WagmiProvider } from 'wagmi';
 import { connect } from 'wagmi/actions';
-import type { Crossing } from '../../bridge/src/journal.ts';
-import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { wagmiConfigFor } from './bridge/eth';
 import { ActivityList, type RowActions } from './features/ActivityList';
 import { ClaimDialog } from './features/dialogs/Claim';

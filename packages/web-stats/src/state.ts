@@ -1,5 +1,5 @@
+import { type EpochRow, linkRows } from '@yacana/miner-core/reader';
 import { atom } from 'jotai';
-import { type EpochRow, linkRows } from '../../miner-core/src/reader.ts';
 import type { BridgeSnapshot } from './bridge-beat';
 import { type FillState, IDLE } from './history-fill';
 

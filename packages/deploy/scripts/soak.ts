@@ -19,14 +19,14 @@ import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { TokenContract } from '@aztec-foundation/aztec-standards/artifacts/src/artifacts/Token.js';
-import { loadMinerArtifact, loadWorkArtifact } from '../../miner-core/src/artifacts.ts';
-import { buildClaim, claimGasLimits, isDeliveryBlockedError } from '../../miner-core/src/claim.ts';
-import { readOpenEpoch, readRules } from '../../miner-core/src/epoch.ts';
-import { PARAMS, PROFILE } from '../../miner-core/src/generated/params.ts';
-import { mineEpoch } from '../../miner-core/src/miner.ts';
-import { deployDomain } from '../../miner-core/src/proof.ts';
-import { newEpochSecret } from '../../miner-core/src/secret.ts';
-import { BbJsWorkProver } from '../../miner-core/src/work.ts';
+import { loadMinerArtifact, loadWorkArtifact } from '@yacana/miner-core/artifacts';
+import { buildClaim, claimGasLimits, isDeliveryBlockedError } from '@yacana/miner-core/claim';
+import { readOpenEpoch, readRules } from '@yacana/miner-core/epoch';
+import { PARAMS, PROFILE } from '@yacana/miner-core/generated/params';
+import { mineEpoch } from '@yacana/miner-core/miner';
+import { deployDomain } from '@yacana/miner-core/proof';
+import { newEpochSecret } from '@yacana/miner-core/secret';
+import { BbJsWorkProver } from '@yacana/miner-core/work';
 
 const MAX_HOURS = 2; // owner's cap on the testnet soak
 const repo = resolve(import.meta.dir, '../../..');

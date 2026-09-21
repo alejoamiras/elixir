@@ -1,7 +1,7 @@
 // What a crossing's next reading needs and nothing more, by its state; each source behind one
 // function so a test can stand in for it.
-import type { Crossing, Facts } from '../../../bridge/src/journal.ts';
-import type { ArchivedExit } from '../../../bridge/src/witness.ts';
+import type { Crossing, Facts } from '@yacana/bridge/journal';
+import type { ArchivedExit } from '@yacana/bridge/witness';
 
 /**
  * What Ethereum says about a deposit's transaction: the Inbox message it made, the revert that

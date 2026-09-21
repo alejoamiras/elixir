@@ -94,3 +94,20 @@ not imports to it (none crosses a workspace today).
 | FAST | exit 0 · 509 pass · 42 skip · 0 fail |
 | `bun install --frozen-lockfile` | ok, no changes |
 | `bun.lock` diff outside workspace entries | empty but for the braces of newly created dependency blocks; no npm package moved |
+
+## P1.3 Codemod
+
+552 specifiers in 218 files (the 559 less the 3 references and the 4 config-time edges), 0 unresolved; a second run
+rewrites nothing. After Biome's re-sort every entry still opens as before: the three pages with
+`import '@yacana/site/browser/node-guard'`, the Worker with its shim and then the guard. No `vi.mock`,
+`mock.module` or `require` call holds a path that crosses a workspace, so nothing the extractor cannot see was left
+behind. `scripts/run` imports stay relative (47): it is not a workspace until P2.2.
+
+### P1.3 gate (2026-09-21)
+
+| step | result |
+|---|---|
+| FAST | exit 0 · 509 pass · 42 skip · 0 fail |
+| zero unresolved non-exempt targets | `codemod.ts --dry`: 0 specifiers, 0 unresolved |
+| `bun run --cwd packages/web-landing build` | ok |
+| bundle comparison | **no findings**: 651 files, the four module inventories identical to the baseline (596 / 1567 / 231 / 1270). Re-emitted scripts: landing `index` +9 B, miner `index` +12 B, stats `index` −2 B, and five at +0 B that embed a changed name (the prover Worker among them) |

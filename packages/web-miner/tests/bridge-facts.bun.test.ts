@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { advance, type Crossing, crossingId } from '../../bridge/src/journal.ts';
+import { advance, type Crossing, crossingId } from '@yacana/bridge/journal';
 import { type FactReads, factsFor } from '../src/bridge/facts.ts';
 
 const PORTAL = `0x${'be'.repeat(20)}` as const;

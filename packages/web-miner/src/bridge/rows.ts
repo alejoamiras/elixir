@@ -1,15 +1,9 @@
 // The Wallet's one reading of the journal: the badge's count, each row's action and the money
 // buttons' reasons derive together here, so none can disagree with the rows under it.
-import { dayOf, deadlinePhrase } from '../../../bridge/src/exit-deadline.ts';
-import {
-  type Crossing,
-  destinationOf,
-  FADE_AFTER_MS,
-  inFlight,
-  type RowState,
-} from '../../../bridge/src/journal.ts';
-import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import type { RowLine } from '../../../ui/src/index.ts';
+import { dayOf, deadlinePhrase } from '@yacana/bridge/exit-deadline';
+import { type Crossing, destinationOf, FADE_AFTER_MS, inFlight, type RowState } from '@yacana/bridge/journal';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import type { RowLine } from '@yacana/ui';
 import { amount as fmt, shortAddress } from '../lib/format';
 import type { ProverKind } from '../presto';
 import type { BridgeView, VersionFacts } from '../state';

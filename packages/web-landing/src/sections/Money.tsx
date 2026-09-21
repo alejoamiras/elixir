@@ -1,4 +1,4 @@
-import { cn } from '../../../ui/src/index.ts';
+import { cn } from '@yacana/ui';
 import { copy, symbol } from '../copy';
 import { Section, SectionHeading, SectionLabel } from './Section';
 

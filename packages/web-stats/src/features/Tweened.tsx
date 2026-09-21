@@ -1,6 +1,6 @@
+import { useTweenedNumber } from '@yacana/ui';
 import { useSetAtom } from 'jotai';
 import { useEffect } from 'react';
-import { useTweenedNumber } from '../../../ui/src/index.ts';
 import { unsettledAtom } from '../state';
 import { SK_VALUE, Sk } from './Sk';
 

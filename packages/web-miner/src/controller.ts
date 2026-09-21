@@ -3,25 +3,25 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { type TxEffect, TxHash } from '@aztec/stdlib/tx';
-import type { createStore } from 'jotai';
 import {
   claimFailureMessage,
   classifyClaimFailure,
   finalitySeconds,
   revertCause,
-} from '../../miner-core/src/claim-failure.ts';
-import { PARAMS } from '../../miner-core/src/generated/params.ts';
-import { difficulty } from '../../miner-core/src/metrics.ts';
-import { deployDomain, ticketNullifier } from '../../miner-core/src/proof.ts';
-import { newEpochSecret } from '../../miner-core/src/secret.ts';
-import { readTip } from '../../site/src/browser/node.ts';
+} from '@yacana/miner-core/claim-failure';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { difficulty } from '@yacana/miner-core/metrics';
+import { deployDomain, ticketNullifier } from '@yacana/miner-core/proof';
+import { newEpochSecret } from '@yacana/miner-core/secret';
+import { readTip } from '@yacana/site/browser/node';
 import {
   markRead,
   nodeHealth,
   recordTip,
   subscribeNodeHealth,
   tipAgeS,
-} from '../../site/src/browser/node-health.ts';
+} from '@yacana/site/browser/node-health';
+import type { createStore } from 'jotai';
 import { type Deployment, type Fee, readBalance, readEpoch, sendClaim, sendRoll } from './chain';
 import { chime } from './chime';
 import { amount } from './lib/format';

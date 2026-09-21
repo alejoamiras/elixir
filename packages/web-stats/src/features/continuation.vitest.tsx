@@ -2,8 +2,8 @@
 // map's slider starts there and the table counts the chain from it. The modules are imported after
 // the env is stubbed: `FIRST` is read once, at import.
 import { cleanup, render, screen } from '@testing-library/react';
+import type { EpochRow } from '@yacana/miner-core/reader';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import type { EpochRow } from '../../../miner-core/src/reader.ts';
 import { IDLE } from '../history-fill';
 import { windowFor } from '../window';
 

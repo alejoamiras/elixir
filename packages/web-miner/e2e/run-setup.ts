@@ -14,6 +14,8 @@ import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Fr } from '@aztec/aztec.js/fields';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { deployBridgeForRun, RUN_OPERATORS_KEY, registerForRun } from '@yacana/deploy/bridge/run';
+import { deployYacana, TEST_PORTAL } from '@yacana/deploy/deploy';
 import type { Hex } from 'viem';
 import { lanePortBase, runPortWindowBase } from '../../../scripts/run/port-window.ts';
 import {
@@ -24,8 +26,6 @@ import {
 } from '../../../scripts/run/presto.ts';
 import { waitUntilUp } from '../../../scripts/run/preview.ts';
 import { claim, release } from '../../../scripts/run/registry.ts';
-import { deployBridgeForRun, RUN_OPERATORS_KEY, registerForRun } from '../../deploy/src/bridge/run.ts';
-import { deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
 import { e2eBuildEnv } from './build-env.ts';
 import { type E2eBridge, type E2eRun, type E2eServer, type RigStep, RUN_FILE, TIMINGS_FILE } from './run.ts';
 

@@ -2,9 +2,9 @@
 // Rows must belong to the recorded deployment; epochs are limited to the soak's time window.
 //   AZTEC_NODE_URL=… bun packages/deploy/scripts/soak-report.ts packages/deploy/target/soak-*.jsonl
 import { resolve } from 'node:path';
-import { PARAMS, PROFILE } from '../../miner-core/src/generated/params.ts';
-import { difficulty } from '../../miner-core/src/metrics.ts';
-import type { EpochRow } from '../../miner-core/src/reader.ts';
+import { PARAMS, PROFILE } from '@yacana/miner-core/generated/params';
+import { difficulty } from '@yacana/miner-core/metrics';
+import type { EpochRow } from '@yacana/miner-core/reader';
 import { epochStats } from './epoch-stats.ts';
 
 interface Row {

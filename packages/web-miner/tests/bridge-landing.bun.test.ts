@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { Crossing } from '../../bridge/src/journal.ts';
-import { deriveCrossingSecrets } from '../../bridge/src/secrets.ts';
+import type { Crossing } from '@yacana/bridge/journal';
+import { deriveCrossingSecrets } from '@yacana/bridge/secrets';
 import type { Arrivals, Arrived } from '../src/bridge/landing.ts';
 import { arrivalCandidates, landed, matchArrivals, twinOf } from '../src/bridge/landing.ts';
 

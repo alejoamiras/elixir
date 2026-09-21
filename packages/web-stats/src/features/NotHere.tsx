@@ -1,4 +1,4 @@
-import { cn, Tile, TileHeader } from '../../../ui/src/index.ts';
+import { cn, Tile, TileHeader } from '@yacana/ui';
 
 export function NotHere({ className }: { className?: string }) {
   return (

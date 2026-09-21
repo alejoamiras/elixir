@@ -2,13 +2,13 @@
 // page draws (YACA's supply, every crossing's event with its time) arrive beside it, and the
 // figures of the tiles, the bar and the chart are derived here from both.
 
+import { type DeadlineReading, readDeadline } from '@yacana/bridge/exit-deadline';
+import type { PortalPolicy, PortalReader, VersionFlows } from '@yacana/bridge/portal-reader';
+import type { MigrationRecord } from '@yacana/bridge/record';
 import { PARAMS } from '@yacana/miner-core/generated/params';
 import type { EpochRow } from '@yacana/miner-core/reader';
-import { type DeadlineReading, readDeadline } from '../../bridge/src/exit-deadline.ts';
-import type { PortalPolicy, PortalReader, VersionFlows } from '../../bridge/src/portal-reader.ts';
-import type { MigrationRecord } from '../../bridge/src/record.ts';
-import { amount, duration } from '../../site/src/browser/format.ts';
-import type { BarSegment, TimelineItem } from '../../ui/src/bridge-types.ts';
+import { amount, duration } from '@yacana/site/browser/format';
+import type { BarSegment, TimelineItem } from '@yacana/ui/bridge-types';
 
 export interface BridgeSnapshot {
   versions: VersionFlows[];

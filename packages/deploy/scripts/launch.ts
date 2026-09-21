@@ -14,8 +14,8 @@ import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
-import { PARAMS, PROFILE } from '../../miner-core/src/generated/params.ts';
-import { DOM_LAUNCH } from '../../miner-core/src/proof.ts';
+import { PARAMS, PROFILE } from '@yacana/miner-core/generated/params';
+import { DOM_LAUNCH } from '@yacana/miner-core/proof';
 import type { Deployment } from '../src/deploy.ts';
 
 const repo = resolve(import.meta.dir, '../../..');

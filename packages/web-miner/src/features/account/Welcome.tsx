@@ -1,4 +1,4 @@
-import { Avatar, Icon } from '../../../../ui/src/index.ts';
+import { Avatar, Icon } from '@yacana/ui';
 import type { MasterRecord } from '../../keys/store';
 import { shortAddress } from '../../lib/format';
 import type { AccountError } from '../../state';

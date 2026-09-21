@@ -1,15 +1,13 @@
-import { useAtomValue } from 'jotai';
-import { type ReactNode, useEffect, useSyncExternalStore } from 'react';
 import {
   type Connection,
   defaultNodeUrl,
   NODE_SETTINGS_HREF,
   restoreDefaultNode,
-} from '../../site/src/browser/connection.ts';
-import { duration } from '../../site/src/browser/format.ts';
-import { previewNotice } from '../../site/src/browser/host.ts';
-import { bannerState, nodeHealth, subscribeNodeHealth } from '../../site/src/browser/node-health.ts';
-import { ownVersionName } from '../../site/src/browser/version-name.ts';
+} from '@yacana/site/browser/connection';
+import { duration } from '@yacana/site/browser/format';
+import { previewNotice } from '@yacana/site/browser/host';
+import { bannerState, nodeHealth, subscribeNodeHealth } from '@yacana/site/browser/node-health';
+import { ownVersionName } from '@yacana/site/browser/version-name';
 import {
   Alert,
   AlertDescription,
@@ -20,7 +18,9 @@ import {
   type HeaderTab,
   NodeBanner,
   NodeWayOut,
-} from '../../ui/src/index.ts';
+} from '@yacana/ui';
+import { useAtomValue } from 'jotai';
+import { type ReactNode, useEffect, useSyncExternalStore } from 'react';
 import { settled } from './beats';
 import { POLL_MS } from './chain';
 import { links } from './explorer';

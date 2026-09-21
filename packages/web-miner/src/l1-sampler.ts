@@ -4,9 +4,9 @@
 // The RPC is trusted as the user chose it: a chain id check keeps another chain's rollup out, nothing
 // authenticates the answers, and an answer from an RPC no longer in use is dropped.
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
+import { ethRpcClient } from '@yacana/site/browser/eth-rpc';
+import { recordL1 } from '@yacana/site/browser/node-health';
 import type { Hex } from 'viem';
-import { ethRpcClient } from '../../site/src/browser/eth-rpc.ts';
-import { recordL1 } from '../../site/src/browser/node-health.ts';
 
 export const L1_SAMPLE_MS = 15_000;
 

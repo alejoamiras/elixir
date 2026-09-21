@@ -1,8 +1,8 @@
 import type { PrestoStatus } from '@alejoamiras/presto-core';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
+import { ThemeProvider } from '@yacana/ui';
 import { createStore, Provider } from 'jotai';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { ThemeProvider } from '../../ui/src/index.ts';
 import { PrestoBanner } from './features/PrestoBanner';
 import { initialPresto, type PrestoState, prestoAtom } from './presto';
 import { bootAtom } from './state';

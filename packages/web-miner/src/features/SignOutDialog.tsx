@@ -1,9 +1,10 @@
 // Signing out drops the account from this device. A passkey brings it back; twelve words bring it
 // back only if they were written down, so an unbacked words account is sent to the backup first.
 // The gesture is a hold; the click path appears one failed hold away, for whoever can only click.
+
+import { Button, Dialog, DialogContent, DialogTitle, HoldButton } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
-import { Button, Dialog, DialogContent, DialogTitle, HoldButton } from '../../../ui/src/index.ts';
 import type { MasterRecord } from '../keys/store';
 import { shortAddress } from '../lib/format';
 import { minerAtom, nowAtom } from '../state';

@@ -3,26 +3,26 @@
 // screen with a message.
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
-import type { createStore } from 'jotai';
-import type { Hex } from 'viem';
-import { masterFromPrf } from '../../miner-core/src/keys/derive.ts';
+import { masterFromPrf } from '@yacana/miner-core/keys/derive';
 import {
   entropyOf,
   generateWords,
   masterFromMnemonic,
   normaliseWords,
-} from '../../miner-core/src/keys/mnemonic.ts';
+} from '@yacana/miner-core/keys/mnemonic';
 import {
   type EthRpcProbe,
   probeEthRpc,
   resetEthRpcHealth,
   startEthRpcHealth,
-} from '../../site/src/browser/eth-rpc.ts';
-import { duration } from '../../site/src/browser/format.ts';
-import { keysAllowed, relyingParty } from '../../site/src/browser/host.ts';
-import { type NodeProbe, probeNode } from '../../site/src/browser/node.ts';
-import { setEthRpcEndpoint } from '../../site/src/browser/node-guard.ts';
-import { nodeHealth, resetL1, waitTurn } from '../../site/src/browser/node-health.ts';
+} from '@yacana/site/browser/eth-rpc';
+import { duration } from '@yacana/site/browser/format';
+import { keysAllowed, relyingParty } from '@yacana/site/browser/host';
+import { type NodeProbe, probeNode } from '@yacana/site/browser/node';
+import { setEthRpcEndpoint } from '@yacana/site/browser/node-guard';
+import { nodeHealth, resetL1, waitTurn } from '@yacana/site/browser/node-health';
+import type { createStore } from 'jotai';
+import type { Hex } from 'viem';
 import {
   expectedOf,
   type Preflighted,

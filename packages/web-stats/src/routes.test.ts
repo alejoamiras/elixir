@@ -1,5 +1,5 @@
+import type { EpochRow } from '@yacana/miner-core/reader';
 import { describe, expect, test } from 'vitest';
-import type { EpochRow } from '../../miner-core/src/reader.ts';
 import { fromSearch, selectedFromSearch, withEpoch, withFrom } from './routes';
 import { centredFrom, newerFrom, olderFrom, WINDOW, windowFor, windowHeld } from './window';
 

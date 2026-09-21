@@ -1,5 +1,5 @@
+import { Button, Input } from '@yacana/ui';
 import { useEffect, useState } from 'react';
-import { Button, Input } from '../../../../ui/src/index.ts';
 import type { AccountError } from '../../state';
 import { answer, HIDE_AFTER_MS, passed, pending, QUIZ_INDICES, type Quiz, startQuiz } from '../words-quiz';
 import { AccountNote } from './Notes';

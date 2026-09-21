@@ -27,8 +27,8 @@ import {
   readArchive,
   rootOf,
 } from '@yacana/bridge/witness';
+import { MINER_ARTIFACT_PATH } from '@yacana/miner-core/artifacts';
 import { getContract, type Hex, type Log, parseEventLogs } from 'viem';
-import { MINER_ARTIFACT_PATH } from '../../../miner-core/src/artifacts.ts';
 import type { Deployment } from '../deploy.ts';
 import { confirmed, minerBytes32, type Operator, writeOpts } from './operator.ts';
 
