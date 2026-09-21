@@ -476,7 +476,7 @@ process group · `test:replay` · the bundle comparison (§3.10, amended) report
 `@import`s. `scripts/run` imports stay relative: it is not a workspace yet.
 *Gate*: FAST · zero unresolved non-exempt targets · `bun run --cwd packages/web-landing build` · the bundle comparison reports no findings.
 
-**P1.4 The boundaries guard.** Rules 1–2 and the extractor's fixture test.
+**P1.4 ✓ The boundaries guard.** Rules 1–2 and the extractor's fixture test.
 *Gate*: FAST · one deliberate regression per rule (a relative escape in TS; one in CSS; a production import declared
 only in `devDependencies`) fails the guard naming file and line, then is reverted.
 

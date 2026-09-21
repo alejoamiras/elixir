@@ -111,3 +111,24 @@ behind. `scripts/run` imports stay relative (47): it is not a workspace until P2
 | zero unresolved non-exempt targets | `codemod.ts --dry`: 0 specifiers, 0 unresolved |
 | `bun run --cwd packages/web-landing build` | ok |
 | bundle comparison | **no findings**: 651 files, the four module inventories identical to the baseline (596 / 1567 / 231 / 1270). Re-emitted scripts: landing `index` +9 B, miner `index` +12 B, stats `index` −2 B, and five at +0 B that embed a changed name (the prover Worker among them) |
+
+## P1.4 The boundaries guard
+
+`scripts/boundaries.test.ts`, on the extractor: no path leaves its workspace (TypeScript, references, CSS
+`@import`); every listed exception still exists, so the list cannot rot; a workspace import is declared, under
+`dependencies` when production code imports it (files no workspace owns answer to the root manifest); and, one rule
+more than the plan's two because it costs four lines, a workspace import names a subpath its owner exports, which
+otherwise fails only where that one file is loaded. Seven path edges are listed with their reason (the four
+config-time ones, the three references until P2.1) and five kinds of unowned target (`scripts/run` until P2.2).
+Tailwind's `@source` needs no exemption: the extractor reads `@import` only. The plan folder's tools are skipped;
+they import the graph by path and are neither shipped nor run in CI. The declaration rule went over the
+cognitive-complexity budget (19) and was split, not suppressed.
+
+### P1.4 gate (2026-09-21)
+
+| step | result |
+|---|---|
+| FAST | exit 0 · **515 pass · 42 skip · 0 fail** (557 tests, 116 files) = 509 + the guard's 6 |
+| regression: a relative escape in TypeScript | failed: `packages/web-stats/src/bridge-beat.ts:9 reaches packages/miner-core/src/reader.ts by path`; reverted |
+| regression: a relative escape in CSS | failed: `packages/web-miner/src/index.css:1 reaches packages/ui/src/theme.css by path`; reverted |
+| regression: a production import only in `devDependencies` | failed: `packages/web-landing/src/App.tsx:10 imports @yacana/ui: not in dependencies of packages/web-landing/package.json` (and three more lines); reverted |
