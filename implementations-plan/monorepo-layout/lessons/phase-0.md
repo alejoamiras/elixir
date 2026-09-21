@@ -77,3 +77,16 @@ not with a quiet machine.
 | `check:proofs` | exit 0: `yacana_work` 151 728 gates, prove 0.91 s; 10 native proves → 1 distinct proof; WASM byte-identical to native, WASM verify true |
 | `verify()` unit tests · deliberate regression | 4/4; regression failed 3/3 operational tests, reverted |
 | baseline bundle manifest | `bundle-baseline.txt` |
+
+## P0.2 gate and arc 0's end (2026-09-21)
+
+| step | result |
+|---|---|
+| FAST | exit 0 · 507 pass · 42 skip · 0 fail |
+| `bun run site:wrangler --version` | `4.127.1` |
+| `bun run site:wrangler deploy --dry-run` after a `site:build` | exit 0, `--dry-run: exiting now.`, nothing uploaded, no login asked for |
+| bundle manifest, arc 0 against the baseline | **identical**, 651 files, empty diff (`bundle-arc0.txt`) |
+
+The identical manifest is also the first evidence that a production build is reproducible run to run on this
+machine, which the later arcs' diffs depend on. Arc 0's end is scoped to the protocol and artifact gates of P0.1
+and this manifest; the browser suites start at arc 1's end.

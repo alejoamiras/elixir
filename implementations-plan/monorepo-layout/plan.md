@@ -438,7 +438,7 @@ missing binary, and with `BB` pointed at a script that kills itself, `verify()` 
 the baseline bundle manifest (§3.10). Layers: lint,
 typecheck, unit, TXE, native and WASM proving.
 
-**P0.2 The decoupled deploy script.** Root `site:wrangler` (`cd packages/site && wrangler`), and
+**P0.2 ✓ The decoupled deploy script.** Root `site:wrangler` (`cd packages/site && wrangler`), and
 `docs/deployments.md`'s Workers Builds paragraph rewritten to the decoupled settings of A1, marked as the target state.
 *Gate*: FAST · `bun run site:wrangler --version` prints wrangler 4.127.1 · `bun run site:wrangler deploy --dry-run`
 after a `site:build` exits 0 without uploading.

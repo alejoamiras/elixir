@@ -62,6 +62,7 @@ bun run artifacts:commit       # refresh the committed miner + work-circuit arti
 bun run site:build             # assemble the production site into packages/site/dist (Cloudflare's build command)
 bun run e2e:agent -- bun run site:e2e   # the assembled site under wrangler dev: paths, headers, build.json, the demo
 bun run site:deploy            # assemble the production site and `wrangler deploy` it (needs a Cloudflare login)
+bun run site:wrangler -- <args>  # the site's pinned wrangler from the site's folder (what Workers Builds' deploy command calls); `deploy --dry-run` uploads nothing
 YACANA_APP_ROLE=old bun run site:build   # the versioned origin's build (packages/site/dist-old, the yacana-v5 Worker of v5/wrangler.jsonc)
 bun run portal:build / portal:test       # YACA + the portal through the pinned aztec-forge (Foundry tests)
 bun run rig -- flip|all|browser|origin|<case>   # the upgrade rig: the local network flips itself; the migration cases; the holder's side through the page (tmux; each case boots its own network)

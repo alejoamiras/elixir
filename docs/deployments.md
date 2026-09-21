@@ -97,11 +97,15 @@ bun run site:deploy        # = bun run --cwd packages/site deploy: assemble the 
 ```
 
 Git-triggered deploys: Workers Builds (dashboard: connect the repository) keeps two build triggers for the Worker,
-and the build settings page edits only the production one, so set both: root directory `packages/site`, build
-command `bun install --frozen-lockfile && bun run build`, deploy command `npx wrangler deploy` on the `main` trigger
-and `npx wrangler versions upload` on the "Deploy non-production branches" trigger (`*` minus `main`; the API
-`PATCH /accounts/{account}/builds/triggers/{trigger}` with a token holding Workers Builds Configuration edits it
-without the dashboard). Bun 1.4.0 comes from the root `packageManager`, no variable needed. Every push to `main`
+and the build settings page edits only the production one, so set both. **Target state** (the settings name no
+folder, so the site can move without touching the dashboard): root directory `/`, build command
+`bun install --frozen-lockfile && bun run site:build`, deploy command `bun run site:wrangler deploy` on the `main`
+trigger and `bun run site:wrangler versions upload` on the "Deploy non-production branches" trigger (`*` minus
+`main`); `site:wrangler` is the root script that runs the site's pinned wrangler from the site's folder. **Until the
+cutover** both triggers still hold root directory `packages/site`, build command
+`bun install --frozen-lockfile && bun run build`, and `npx wrangler deploy` / `npx wrangler versions upload`. The API
+`PATCH /accounts/{account}/builds/triggers/{trigger}` with a token holding Workers Builds Configuration edits a
+trigger without the dashboard. Bun 1.4.0 comes from the root `packageManager`, no variable needed. Every push to `main`
 assembles and deploys; every other branch gets a version with a `workers.dev` preview URL and a branch alias
 (`<branch>-yacana.alejo-amiras.workers.dev`), both in the build log the commit's check run links to. Connected on
 2026-09-07; nothing else is configured there, the file carries the rest.

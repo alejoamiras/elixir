@@ -28,6 +28,7 @@
     "site:build": "bun packages/site/src/assemble.ts",
     "site:deploy": "bun run --cwd packages/site deploy",
     "site:e2e": "bun run --cwd packages/site test:e2e",
+    "site:wrangler": "cd packages/site && wrangler",
     "soak": "bun packages/deploy/scripts/soak.ts",
     "test": "bun test",
     "test:components": "bun run --filter './packages/*' test:components",
