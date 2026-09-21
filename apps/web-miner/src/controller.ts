@@ -583,10 +583,17 @@ export class MinerController {
     }
   }
 
+  /**
+   * Behind `ready`. A native config is judged again when it is sent, not when it was queued: a
+   * revoke meanwhile must not be undone by a rebuild that was already waiting.
+   */
   private post(m: ToWorker) {
     const prover = this.prover;
     void prover.ready.then(
-      () => prover.worker.postMessage(m),
+      () =>
+        prover.worker.postMessage(
+          m.type === 'reconfigure' && m.presto && !this.nativeAllowed() ? { ...m, presto: null } : m,
+        ),
       () => {},
     );
   }

@@ -61,12 +61,16 @@ describe('revoke', () => {
     }
     const worker = new HeldWorker();
     const { c } = controller(worker);
-    c.reconfigure(4); // posted through `ready`, as a `mine` would be
+    // A native rebuild queued behind `ready`, as a `mine` would be, before consent is withdrawn.
+    c.reconfigure(4, PRESTO_DEFAULT, { force: true });
     c.revoke();
     expect(worker.sent.map((m) => m.type)).toEqual(['init', 'revoke']);
     worker.release?.();
     await tick();
     expect(worker.sent.map((m) => m.type).slice(0, 2)).toEqual(['init', 'revoke']);
+    // What was queued is sent as consent stands now: no rebuild hands the Worker the endpoint again.
+    expect(reconfigures(worker).length).toBeGreaterThan(0);
+    expect(reconfigures(worker).every((m) => m.type === 'reconfigure' && m.presto === null)).toBe(true);
     expect(c.currentPresto).toBeNull();
     c.dispose();
   });

@@ -25,7 +25,7 @@ export interface PrestoView {
 export function usePresto(session: Session | undefined): PrestoView {
   const state = useAtomValue(prestoAtom);
   const lna = useAtomValue(lnaAtom);
-  // A claim under way is proved by whoever mined: the miner has not gone back to "when you start".
+  // A claim under way is not idle: the card must not fall back to "proves when you start".
   const phase = useAtomValue(minerAtom).phase;
   const mining = phase === 'mining' || phase === 'claiming';
   const consent = session?.consent ?? pageConsent;
