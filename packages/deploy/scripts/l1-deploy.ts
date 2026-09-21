@@ -8,7 +8,7 @@
 //   bun packages/deploy/scripts/l1-deploy.ts --anvil        # its own anvil and a stand-in Registry
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { policyFor } from '@yacana/bridge/src/policy.ts';
+import { policyFor } from '@yacana/bridge/policy';
 import { PARAMS, PROFILE } from '@yacana/miner-core/generated/params';
 import { createPublicClient, createWalletClient, type Hex, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';

@@ -5,7 +5,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { relative } from 'node:path';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { yacanaPortalAbi } from '@yacana/bridge/src/portal.ts';
+import { yacanaPortalAbi } from '@yacana/bridge/portal';
 import { createWalletClient, getContract, http, parseEventLogs } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';

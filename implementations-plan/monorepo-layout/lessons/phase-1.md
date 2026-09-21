@@ -67,3 +67,30 @@ modules, web-miner 1567, its Worker 231 (16 first-party, the guard and the shim 
 | dev-server smoke, both apps | `/` 200 · the module 200 · 1 workspace import rewritten to `/@fs`, 0 left bare · no `Failed to resolve` · owned group gone |
 | `test:replay` | 4 passed |
 | bundle comparison (§3.10, amended) | **no findings**: 651 files, the four module inventories identical to the baseline; re-emitted scripts `mine/assets/index` +12 B, `ccip`, `lazy`, `register` +0 B (they embed the main chunk's hashed name) |
+
+## P1.2 Maps and declarations
+
+The extractor lives in `scripts/workspace-graph.ts` (the guards reuse it); `codemod.ts` has three modes on it.
+`ts.preProcessFile` reports an import at its **opening quote** and a triple-slash reference at its first character,
+so offsets are normalised and asserted against the text before anything is rewritten. `vi.mock('…')` strings are
+not imports to it (none crosses a workspace today).
+
+- The survey agrees with the recon: 559 cross-workspace relative specifiers (554 imports, 2 CSS `@import`s left
+  after P1.1's hand one, 3 references), exactly the 4 config-time edges, 0 unresolved. Targets no workspace owns:
+  `scripts/run` 47, three `node_modules/@aztec` paths, `yacana.params.json`, one `deployments/` file.
+- `--emit-exports`: miner-core 19, bridge 19 (18 + its barrel), site 17 (19 less the two exempt targets), deploy 12,
+  web-miner 4, ui 3, web-stats 2, portal 2, work-circuit 1. The recon's "work-circuit 5" counted occurrences: one
+  module is imported (`generated/vk.ts`, five times); the other strings are filesystem paths, which the layout
+  guard's literal rule covers. A subpath that would name two files is an error, not a silent overwrite.
+- `--bare-only`: 30 `@yacana/x/src/y.ts` specifiers in 18 files (the plan's 36 less P1.1's 6), 0 unresolved.
+- `--emit-deps`: production importers into `dependencies`, the rest into `devDependencies`, the root manifest
+  included (`web-stats`, dev). The graph shows the cycles arc 2 removes: `site ⇄ web-miner/web-stats` in production,
+  `miner-core → deploy` from its live tests.
+
+### P1.2 gate (2026-09-21)
+
+| step | result |
+|---|---|
+| FAST | exit 0 · 509 pass · 42 skip · 0 fail |
+| `bun install --frozen-lockfile` | ok, no changes |
+| `bun.lock` diff outside workspace entries | empty but for the braces of newly created dependency blocks; no npm package moved |

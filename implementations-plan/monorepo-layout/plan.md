@@ -468,7 +468,7 @@ fetch `/` and one module that imports `@yacana/*`, assert 200 and no "Failed to 
 process group · `test:replay` · the bundle comparison (§3.10, amended) reports no findings.
 *Kill criterion*: a kind that cannot resolve → stop, record, apply I1's fallback for that kind only.
 
-**P1.2 Maps and declarations.** `codemod.ts --emit-exports` → the 11 maps; deps per §3.2; rewrite the remaining
+**P1.2 ✓ Maps and declarations.** `codemod.ts --emit-exports` → the 11 maps; deps per §3.2; rewrite the remaining
 `@yacana/x/src/y.ts` specifiers in the same commit.
 *Gate*: FAST · `bun install --frozen-lockfile` · the scripted `bun.lock` diff (§4) is empty outside workspace entries.
 

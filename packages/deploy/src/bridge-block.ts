@@ -2,7 +2,7 @@
 // continuation's source record, or from the block the L1 deploy left beside the record
 // (`deployments/<profile>.bridge.json`) when no record existed yet. The miner's portal is
 // immutable, so whichever block is carried must name the portal this miner was deployed to trust.
-import type { BridgeRecord } from '@yacana/bridge/src/record.ts';
+import type { BridgeRecord } from '@yacana/bridge/record';
 
 export function carriedBridge(
   portal: string,

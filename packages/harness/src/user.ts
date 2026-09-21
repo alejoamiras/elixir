@@ -9,12 +9,8 @@ import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { claimLeaf } from '@yacana/bridge/src/inbox.ts';
-import {
-  type CrossingScope,
-  type CrossingSecrets,
-  deriveCrossingSecrets,
-} from '@yacana/bridge/src/secrets.ts';
+import { claimLeaf } from '@yacana/bridge/inbox';
+import { type CrossingScope, type CrossingSecrets, deriveCrossingSecrets } from '@yacana/bridge/secrets';
 import { type L2Side, openL2 } from '../../deploy/src/bridge/l2.ts';
 import type { Deployment } from '../../deploy/src/deploy.ts';
 import { loadWorkArtifact } from '../../miner-core/src/artifacts.ts';

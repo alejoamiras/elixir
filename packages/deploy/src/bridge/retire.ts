@@ -6,9 +6,9 @@
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { retireLeaf } from '@yacana/bridge/src/inbox.ts';
-import { scanLogs } from '@yacana/bridge/src/logs.ts';
-import { yacanaPortalAbi } from '@yacana/bridge/src/portal.ts';
+import { retireLeaf } from '@yacana/bridge/inbox';
+import { scanLogs } from '@yacana/bridge/logs';
+import { yacanaPortalAbi } from '@yacana/bridge/portal';
 import { type Hex, parseEventLogs } from 'viem';
 import type { L2Side } from './l2.ts';
 import { confirmed, type Operator, writeOpts } from './operator.ts';

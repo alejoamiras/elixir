@@ -4,6 +4,25 @@
   "private": true,
   "description": "The deployable: one env source of truth, the shared Vite base, the rendered headers, assembly of the three apps",
   "type": "module",
+  "exports": {
+    "./browser/connection": "./src/browser/connection.ts",
+    "./browser/eth-rpc": "./src/browser/eth-rpc.ts",
+    "./browser/explorer": "./src/browser/explorer.ts",
+    "./browser/format": "./src/browser/format.ts",
+    "./browser/host": "./src/browser/host.ts",
+    "./browser/l1-explorer": "./src/browser/l1-explorer.ts",
+    "./browser/node": "./src/browser/node.ts",
+    "./browser/node-guard": "./src/browser/node-guard.ts",
+    "./browser/node-health": "./src/browser/node-health.ts",
+    "./browser/slots": "./src/browser/slots.ts",
+    "./browser/version-name": "./src/browser/version-name.ts",
+    "./config": "./src/config.ts",
+    "./crs.lock.json": "./crs.lock.json",
+    "./scripts/commit-artifacts": "./scripts/commit-artifacts.ts",
+    "./scripts/copy-artifacts": "./scripts/copy-artifacts.ts",
+    "./scripts/copy-slots": "./scripts/copy-slots.ts",
+    "./scripts/fetch-crs": "./scripts/fetch-crs.ts"
+  },
   "scripts": {
     "build": "bun src/assemble.ts",
     "deploy": "bun src/assemble.ts && wrangler deploy",
@@ -13,10 +32,17 @@
     "test:e2e": "playwright test",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
+  "dependencies": {
+    "@yacana/bridge": "workspace:*",
+    "@yacana/miner-core": "workspace:*",
+    "@yacana/web-miner": "workspace:*",
+    "@yacana/web-stats": "workspace:*"
+  },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
     "@tailwindcss/vite": "^4",
     "@vitejs/plugin-react": "^6",
+    "@yacana/deploy": "workspace:*",
     "typescript": "~6",
     "vite": "^8",
     "vite-plugin-node-polyfills": "^0.28.0",

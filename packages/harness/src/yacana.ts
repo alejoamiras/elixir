@@ -6,7 +6,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { yacanaPortalAbi } from '@yacana/bridge/src/portal.ts';
+import { yacanaPortalAbi } from '@yacana/bridge/portal';
 import { createWalletClient, getContract, type Hex, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';

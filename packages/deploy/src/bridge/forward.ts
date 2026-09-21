@@ -11,9 +11,9 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { OutboxAbi } from '@aztec/l1-artifacts/OutboxAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { exitRecordedEvent, readExits } from '@yacana/bridge/src/exits.ts';
-import { type ForwardArgs, yacanaPortalAbi } from '@yacana/bridge/src/portal.ts';
-import { leafIdOf } from '@yacana/bridge/src/signatures.ts';
+import { exitRecordedEvent, readExits } from '@yacana/bridge/exits';
+import { type ForwardArgs, yacanaPortalAbi } from '@yacana/bridge/portal';
+import { leafIdOf } from '@yacana/bridge/signatures';
 import {
   type ArchivedExit,
   archiveEntry,
@@ -26,7 +26,7 @@ import {
   type RecordedExit,
   readArchive,
   rootOf,
-} from '@yacana/bridge/src/witness.ts';
+} from '@yacana/bridge/witness';
 import { getContract, type Hex, type Log, parseEventLogs } from 'viem';
 import { MINER_ARTIFACT_PATH } from '../../../miner-core/src/artifacts.ts';
 import type { Deployment } from '../deploy.ts';

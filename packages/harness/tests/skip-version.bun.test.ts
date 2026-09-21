@@ -5,8 +5,8 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { relative } from 'node:path';
-import { policyFor } from '@yacana/bridge/src/policy.ts';
-import { forwardArgsFromArchive, readArchive } from '@yacana/bridge/src/witness.ts';
+import { policyFor } from '@yacana/bridge/policy';
+import { forwardArgsFromArchive, readArchive } from '@yacana/bridge/witness';
 import { repoRoot } from '../../../scripts/run/toolchain.ts';
 import { type RigNode, startUpgradeRig, type UpgradeRig } from '../../../scripts/run/upgrade-rig.ts';
 import { archivePath, forwardAll } from '../../deploy/src/bridge/forward.ts';

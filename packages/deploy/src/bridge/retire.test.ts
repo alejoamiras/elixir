@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from 'bun:test';
-import { LOG_WINDOW } from '@yacana/bridge/src/logs.ts';
+import { LOG_WINDOW } from '@yacana/bridge/logs';
 import type { L2Side } from './l2.ts';
 import type { Operator } from './operator.ts';
 import { retireOnL1, retireOnL2 } from './retire.ts';

@@ -26,5 +26,8 @@
     "@yacana/deploy": "workspace:*",
     "@yacana/miner-core": "workspace:*",
     "viem": "npm:@aztec/viem@2.38.2"
+  },
+  "devDependencies": {
+    "@yacana/web-miner": "workspace:*"
   }
 }

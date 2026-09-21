@@ -9,9 +9,9 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { relative } from 'node:path';
-import { yacanaPortalAbi } from '@yacana/bridge/src/portal.ts';
-import { signForward, signRedeem } from '@yacana/bridge/src/signatures.ts';
-import { type ArchivedExit, forwardArgsFromArchive, readArchive } from '@yacana/bridge/src/witness.ts';
+import { yacanaPortalAbi } from '@yacana/bridge/portal';
+import { signForward, signRedeem } from '@yacana/bridge/signatures';
+import { type ArchivedExit, forwardArgsFromArchive, readArchive } from '@yacana/bridge/witness';
 import { type Hex, parseEventLogs } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { repoRoot } from '../../../scripts/run/toolchain.ts';

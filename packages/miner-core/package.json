@@ -6,10 +6,23 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./artifacts": "./src/artifacts.ts",
+    "./claim": "./src/claim.ts",
+    "./claim-failure": "./src/claim-failure.ts",
+    "./csv": "./src/csv.ts",
+    "./epoch": "./src/epoch.ts",
     "./fixtures/epochs.testnet.json": "./fixtures/epochs.testnet.json",
     "./generated/params": "./src/generated/params.ts",
     "./keys/derive": "./src/keys/derive.ts",
+    "./keys/mnemonic": "./src/keys/mnemonic.ts",
+    "./metrics": "./src/metrics.ts",
+    "./miner": "./src/miner.ts",
+    "./proof": "./src/proof.ts",
     "./reader": "./src/reader.ts",
+    "./retarget": "./src/retarget.ts",
+    "./scripts/gen-slots": "./scripts/gen-slots.ts",
+    "./secret": "./src/secret.ts",
+    "./slots": "./src/slots.ts",
     "./work": "./src/work.ts"
   },
   "main": "src/index.ts",
@@ -28,5 +41,8 @@
     "@aztec/stdlib": "5.2.0",
     "@aztec/wallets": "5.2.0",
     "@scure/bip39": "2.3.0"
+  },
+  "devDependencies": {
+    "@yacana/deploy": "workspace:*"
   }
 }
