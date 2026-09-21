@@ -138,9 +138,12 @@ cognitive-complexity budget (19) and was split, not suppressed.
 `scripts/layout.test.ts`, ten rules, all holding on the tree before any folder moves. It found real gaps on `main`
 on its first run, fixed in the same commit:
 
-- **Five `bun:test` files ran in no pull-request workflow**: `ui`'s `mark`, `score-loop-model` and `tokens`, and
-  `web-landing`'s `chain` and `live`. `ui.yml` and `web-landing.yml` ran Vitest only. Both now run `bun test` on
-  their package.
+- **A false finding of mine, corrected in the review round below**: the guard first reported five `*.test.ts`
+  files (`ui`'s `mark`, `score-loop-model`, `tokens`; `web-landing`'s `chain`, `live`) as running in no
+  pull-request workflow, and I added a `bun test` step for each package. They import `vitest`, the Vitest configs
+  include `src/**/*.test.ts`, and `test:components` already ran them; the added steps ran them a second time under
+  the wrong runner. The steps are gone and the rule now asks which runner a file is written for. **Lesson: a
+  file's name does not say its runner; read the import before calling a test orphaned.**
 - **Five workflows ran a workspace's tests without watching all it depends on** (14 missing globs): `deploy`
   lacked `bridge` and `portal`; `site` lacked `miner-core`, `portal`, `work-circuit`; `web-landing` lacked `portal`,
   `web-miner`, `web-stats`, `work-circuit`; `web-miner` lacked `web-stats`, `work-circuit`; `web-stats` lacked
@@ -173,3 +176,51 @@ the three new scripts.
 | regression: a workflow missing a dependency's folder | failed: `deploy.yml: runs packages/deploy's tests, filter lacks packages/bridge/**`; reverted |
 | regression: a toolchain lane without `YACANA_REQUIRE_TOOLCHAIN` | failed: `work-circuit.yml: the toolchain test may skip`; reverted |
 | `git status --porcelain` after `site:build` and `test:replay` | empty |
+
+## Arc 1 review loop
+
+### Round 1 (codex, high): "approve with changes", seven material findings and a nit
+
+| # | finding | verdict | what changed |
+|---|---|---|---|
+| 1 | the boundary guard missed paths the compiler does not count as imports (`import.meta.glob`, `new URL`, `vi.mock`, `mock.module`), dropped a specifier it could not resolve, and excused a listed path edge from being declared | valid | `workspace-graph.ts` reads those calls; an unresolved specifier is judged by where it points; `site` declares `ui` |
+| 2 | a glob under a folder counted as coverage of the folder | valid | the tested workspace needs its own `dir/**`; a dependency may be watched narrowly if the glob matches a file that is not a test |
+| 3 | a folder was only seen at the start of a word | valid | `./packages/x` and `DIR=packages/x` are read |
+| 4 | a step that may not run counted as running; the rule did not know which runner owns a file | valid, and it exposed a false finding of mine (P1.5 above) | `alwaysRuns`; the runner is read from the file's import; the two duplicate steps removed |
+| 5 | `bundle-compare.ts` failed open: no reports on either side passed, two identical chunks cancelled against one, and a chunk with no partner of its size was never read for paths | valid | no report is a finding, an empty report is a finding, identical chunks cancel one for one, paths are counted over the whole group |
+| 6 | every Worker build wrote the same report file, so the last one won | valid: the miner builds four Workers (`main`, `prover`, `thread`, `worker`: 8 / 231 / 6 / 5 modules) and the baseline held one | the report is named by the Worker's entry; the baseline inventories were rebuilt on the baseline commit with the same reporter |
+| 7 | `site` reached `ui` through its Vite base without declaring it | valid | declared |
+| 8 | narration in a header comment; the lessons' claim about five tests | valid | trimmed; corrected |
+
+Replayed as regressions, each shown failing and reverted: a glob under a folder standing in for it (`ui.yml: runs
+packages/ui's tests, filter lacks packages/ui/**`), a stale folder behind `./` (`site.yml: packages/site-gone does
+not exist`), behind an assignment (`site.yml: unsupported form names DIR=packages/site-gone`), and the only step
+that runs a suite made conditional (`packages/web-stats/tests/history-transport.bun.test.ts` orphaned). My first
+input for the last one passed, correctly: `web-miner.yml` runs the root `test:components`, so `ui`'s specs had a
+second runner. **Lesson: a regression input proves the rule only if it is the sole thing standing between the
+file and a run.** The P1.5 table's row "a test file no PR workflow runs" rested on the false finding and is
+superseded by this one. FAST after the round: exit 0, 526 pass, 42 skip, 0 fail.
+
+## Arc 1 HEAVY+: the cockpit's memory bound fails on this host, at the baseline too
+
+`miner.e2e.ts` "three power changes keep mining, the ledger grows, memory stays bounded" asks that the browser's
+RSS grow by at most 300 MiB across three prover rebuilds, the last at the slider's maximum, which is
+`navigator.hardwareConcurrency`: 192 on this machine, 4 on the CI runner.
+
+| where | threads at the maximum | RSS baseline → after | growth | shard |
+|---|---|---|---|---|
+| arc 1 head | 192 | 1427 → 2273 MiB | +846 | 6 passed, 1 failed |
+| the baseline commit, its own checkout and network | 192 | 2091 → 2991 MiB | +900 | 6 passed, 1 failed |
+
+The same test fails by the same margin before any of this work: the bound is a statement about a CI-sized
+machine, and 192 Worker threads each hold their own stack and memory. Not a regression, not fixed here (the bound
+and the slider's ceiling are product questions outside this plan). I did not rerun until it passed; I ran the
+baseline, which is the experiment that separates the two explanations. **Lesson: when a gate fails on a
+resource bound, run the baseline on the same host before reading the diff.**
+
+A third run, arc 1 with the whole run pinned to 16 CPUs (`taskset`), failed the same way: 2439 → 3110 MiB, +671,
+6 passed, 1 failed. So the affinity mask does not shape the bound here, and thread count is at best part of the
+cause; I did not establish the rest and stopped there rather than try configurations until one passed. What is
+established: the test fails on this host with or without this work, by a similar margin. The shard's other six
+tests pass on arc 1. **The cockpit gate is not green locally and is not claimed as green**; its evidence is the
+baseline parity above plus the shard on a CI runner (`e2e.yml`, dispatched on the pushed head).

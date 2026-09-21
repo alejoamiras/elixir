@@ -111,8 +111,11 @@ const moduleReport = (name: string): Plugin => ({
     for (const chunk of Object.values(bundle))
       if (chunk.type === 'chunk')
         for (const id of Object.keys(chunk.modules)) ids.add(id.replace(`${repo}/`, '').replace(/\?.*$/, ''));
+    // Every Worker is a build of its own under one config: its entry keeps the reports apart.
+    const entry = Object.values(bundle).find((c) => c.type === 'chunk' && c.isEntry)?.name;
+    const file = name.endsWith('.worker') && entry ? `${name}.${entry}` : name;
     mkdirSync(dir, { recursive: true });
-    writeFileSync(resolve(dir, `${name}.txt`), `${[...ids].sort().join('\n')}\n`);
+    writeFileSync(resolve(dir, `${file}.txt`), `${[...ids].sort().join('\n')}\n`);
   },
 });
 

@@ -39,19 +39,27 @@ const generic = ['/mnt/', '/Users/', '/home/', 'packages/', 'apps/', 'protocol/'
 const count = (text: string, needle: string): number => text.split(needle).length - 1;
 const jsDeltas: string[] = [];
 
+/** Drops one of `from` for each equal buffer in `other`: two copies against one leave one over. */
+function unmatched(from: Buffer[], other: Buffer[]): Buffer[] {
+  const pool = [...other];
+  return from.filter((a) => {
+    const i = pool.findIndex((b) => a.equals(b));
+    if (i >= 0) pool.splice(i, 1);
+    return i < 0;
+  });
+}
+
+// Paths are counted over the whole group, so a chunk with no partner of its size is still read.
 function compareScripts(name: string, was: Buffer[], now: Buffer[]): void {
-  const left = was.filter((a) => !now.some((b) => a.equals(b))).sort((x, y) => x.length - y.length);
-  const right = now.filter((b) => !was.some((a) => a.equals(b))).sort((x, y) => x.length - y.length);
-  for (const [i, b] of right.entries()) {
-    const a = left[i];
-    if (!a) continue;
-    const d = b.length - a.length;
-    jsDeltas.push(`${name}: ${a.length} → ${b.length} (${d >= 0 ? '+' : ''}${d})`);
-    const [textA, textB] = [a.toString('utf8'), b.toString('utf8')];
-    for (const g of generic)
-      if (count(textB, g) > count(textA, g))
-        findings.push(`"${g}" ${count(textA, g)} → ${count(textB, g)} times in ${name}`);
-  }
+  const bySize = (x: Buffer, y: Buffer): number => x.length - y.length;
+  const left = unmatched(was, now).sort(bySize);
+  const right = unmatched(now, was).sort(bySize);
+  for (let i = 0; i < Math.max(left.length, right.length); i++)
+    jsDeltas.push(`${name}: ${left[i]?.length ?? 'none'} → ${right[i]?.length ?? 'none'}`);
+  const [textA, textB] = [left, right].map((side) => side.map((b) => b.toString('utf8')).join('\n'));
+  for (const g of generic)
+    if (count(textB ?? '', g) > count(textA ?? '', g))
+      findings.push(`"${g}" ${count(textA ?? '', g)} → ${count(textB ?? '', g)} times in ${name}`);
   for (const b of now)
     for (const leak of own) if (b.includes(leak)) findings.push(`this machine's path in ${name}`);
 }
@@ -82,7 +90,10 @@ const ids = (dir: string, file: string, map: boolean): Set<string> =>
       .filter(Boolean)
       .map((id) => (map ? remap(id) : id)),
   );
-for (const file of [...new Set([...readdirSync(baseMods), ...readdirSync(mods)])].sort()) {
+const reports = [...new Set([...readdirSync(baseMods), ...readdirSync(mods)])].sort();
+// No report is a build that ran without the reporter, not a build with nothing in it.
+if (!reports.length) findings.push('no module report on either side');
+for (const file of reports) {
   let a: Set<string>;
   let b: Set<string>;
   try {
@@ -92,6 +103,7 @@ for (const file of [...new Set([...readdirSync(baseMods), ...readdirSync(mods)])
     findings.push(`module report missing on one side: ${file}`);
     continue;
   }
+  if (!a.size || !b.size) findings.push(`${file}: an empty module report`);
   for (const id of a) if (!b.has(id)) findings.push(`${file}: module gone: ${id}`);
   for (const id of b) if (!a.has(id)) findings.push(`${file}: module new: ${id}`);
   console.log(`${file}: ${b.size} modules`);

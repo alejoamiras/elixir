@@ -1,0 +1,5 @@
+node_modules/@aztec/kv-store/dest/sqlite-opfs/errors.js
+node_modules/@aztec/kv-store/dest/sqlite-opfs/pool_lock.js
+node_modules/@aztec/kv-store/dest/sqlite-opfs/worker.js
+node_modules/@aztec/sqlite3mc-wasm/dest/index.js
+node_modules/@aztec/sqlite3mc-wasm/vendor/jswasm/sqlite3.mjs
