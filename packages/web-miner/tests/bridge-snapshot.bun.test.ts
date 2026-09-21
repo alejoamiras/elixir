@@ -18,7 +18,9 @@ describe('the balance snapshot', () => {
     const store = memory();
     await saveBalanceSnapshot(master, scope, { balance: 48n * 10n ** 18n, at: 1_000 }, store);
     const raw = store.map.get(snapshotKey(scope)) as string;
-    expect(raw).not.toContain('48');
+    // The plaintext's field name and the whole figure: two digits alone turn up in base64 by chance.
+    expect(raw).not.toContain('balance');
+    expect(raw).not.toContain((48n * 10n ** 18n).toString());
     expect(await readBalanceSnapshot(master, scope, store)).toEqual({ balance: 48n * 10n ** 18n, at: 1_000 });
     expect(await readBalanceSnapshot(new Uint8Array(32).fill(9), scope, store)).toBeNull();
     // Another version's key is another snapshot; a key with nothing under it is null.
