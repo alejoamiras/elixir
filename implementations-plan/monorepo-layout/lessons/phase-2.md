@@ -47,3 +47,46 @@ runs can catch an earlier arc; run every diff-style gate at every arc end, HEAVY
 | `bun run site:build` + bundle comparison | no findings: 651 files, seven inventories identical with the moved ids mapped, the prover Worker chunk byte-identical |
 | `bun run lint:actions` | exit 0 |
 | `bun.lock` diff | workspace entries and `packages/web-kit`; one npm entry re-keyed (`estree-walker@2.0.2` under two nested paths, same version and integrity) because `site` dropped the Vite plugins |
+
+## P2.2 `localnet`
+
+15 files moved with their history: the twelve `scripts/run/*.{ts,mjs}` to `tools/localnet/src/`, the three shell
+scripts to `tools/localnet/bin/`. `tools/*` is a workspace root; `@yacana/localnet` exports the eight modules
+§3.6 names and declares the twelve `@aztec/*` packages and `viem` its sources import, at the versions `deploy`
+and `harness` pin. 46 files rewritten: 45 relative imports became `@yacana/localnet/<module>` (registry 13,
+toolchain 10, upgrade-rig 9, port-window 6, preview 5, presto 2, control 2), the root scripts (`e2e:agent`,
+`rig`, `lint:shell`), the root `tsconfig` include, seven workflows and both composite actions, the comments that
+named the old path. Seven workspaces declare it: `harness` under `dependencies` (`src/yacana.ts`), the other six
+under `devDependencies` (scripts, e2e setups, Playwright configs).
+
+The two depth fixes of §3.6: `repoRoot` is derived once in `toolchain.ts` (three levels up now) and `presto.ts`
+and `registry.ts` import it; `upgrade-rig.ts` finds `pinned-node.mjs` next to itself instead of by a repo path.
+`toolchainBin(name, root = repoRoot)` throws on a pin it cannot read, an empty one and a malformed one, instead of
+handing back the bare name for `PATH` to resolve. `agent.sh` and `typecheck-all.sh` go up three. Missed by the
+sweep and caught by the first test run: `toolchain.test.ts` reached the lock and the pin two levels up by its own
+relative paths; it takes them from `repoRoot` now.
+
+The layout guard read the move as the plan said it would: the three toolchain lanes watched
+`tools/localnet/src/toolchain*.ts` (a file glob for what is a workspace now) and `registry.test.ts` ran nowhere
+(it had ridden on `miner-core.yml`'s `scripts` argument). All four toolchain lanes watch `tools/localnet/**`;
+`miner-core.yml` runs `tools/localnet` as well.
+
+One FAST run failed on `bridge-snapshot.bun.test.ts`, a test this phase never touched: "opaque at rest" asserted
+that the stored JSON does not contain `48`, and the JSON is a random IV and ciphertext in base64 (`w48QTIs…`).
+Two of four reruns failed. Fixed as its own commit, ledger D12: the check asserts on the field name and the whole
+figure. **Lesson: an assertion about random bytes is a coin toss with a delay; it fails on the arc that happens to
+flip it, not the one that wrote it.**
+
+### P2.2 gate (2026-09-21)
+
+| step | result |
+|---|---|
+| FAST | first run: 531 pass · 1 fail (the coin toss above); after D12: exit 0 · **532 pass · 42 skip · 0 fail** (527 + the five localnet cases) |
+| layout guard | 18 pass; regressions: a toolchain lane watching the resolver file instead of the folder (`portal.yml: … filter lacks tools/localnet/**`), a lane not running the toolchain test (`contracts.yml does not run tools/localnet/src/toolchain.test.ts`); both reverted |
+| `bunx tsc -p tools/localnet --noEmit` | exit 0 |
+| `bun run lint:shell` · `bun run lint:actions` | exit 0 · exit 0 |
+| `bun install --frozen-lockfile` + lock diff | no changes; the diff is workspace entries and `tools/localnet` |
+| unit tests | `toolchainBin` throws on a missing (`cannot be read`), empty and malformed pin and on an uninstalled version; `repoLocalAgentsDir` is `<repo>/.localnet/agents`; 13 pass |
+| `bun run portal:build && bun run portal:test` | ok · 74 passed |
+| `bun run e2e:agent -- true` | a network ready in 28 s, torn down |
+| `bun tools/localnet/src/isolated-node.ts --smoke` | SMOKE OK |
