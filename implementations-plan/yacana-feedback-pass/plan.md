@@ -6,7 +6,7 @@ eli5_mode: artifact
 code_review: off
 hardening: none (no new trust boundary; the one permission-shaped change narrows what the page does unasked)
 budget: "recon 2 agents (1 reuse sweep; the test-impact sweep rerun by the driver); codex at high (GPT-6 Astra); one fable audit; code-review off (owner, 2026-09-20)"
-status: drafted 2026-09-20; round-1 audits folded (codex reject → reworked, fable conditional approve → conditions folded); the final codex pass rejected twice (round 1: ten findings; round 2: seven), all folded; round 3: conditional approve, its three conditions folded; **approved by the owner 2026-09-21** (defaults accepted, A7 replaced by an automated test on Presto's technique); implementation not started
+status: drafted 2026-09-20; round-1 audits folded (codex reject → reworked, fable conditional approve → conditions folded); the final codex pass rejected twice (round 1: ten findings; round 2: seven), all folded; round 3: conditional approve, its three conditions folded; **approved by the owner 2026-09-21** (defaults accepted, A7 replaced by an automated test on Presto's technique); implementation under way since 2026-09-21 (a ✓ on a phase header means its gate passed; the evidence is in `lessons/phase-N.md`)
 created: 2026-09-20
 ---
 
@@ -379,6 +379,10 @@ Deleted: the Wallet's `WinsRow`/`WinsList`, `session.retryPresto`, `prestoWords`
 
 - I1. The scrollbar the owner saw is the opening checklist's nowrap right column (mechanism per Fact 4). P2 puts
   the overflow assertion in `opening.e2e.ts` first and sees it red on the old stepper.
+  **Refuted in P2 (2026-09-21)**: the assertion passed on the old stepper, and no string the page writes, window
+  size or scrollbar type overflows the account dialog in Chromium 151. The mechanism is real only past about
+  fifty characters (a 120-character cell: +401 px old, 0 new), so P2 guards the mechanism and does **not** claim
+  to have fixed what the owner saw; `lessons/phase-2.md` has the three attempts, `follow-ups.md` the open question.
 - I2. Chrome's permission: `prompt` before the first loopback fetch (which then pends), `granted` after Allow,
   `denied` blocks, and `PermissionStatus`'s `change` fires on the transition. **Settled by an automated real
   boundary, the way Presto's own repo does it** (Fact 19): `e2e/replay/lna.replay.ts` in P5c. The evidence names
@@ -433,14 +437,14 @@ and `bash scripts/run/install-presto-server.sh`. The `chain` shard holds
 
 ### Arc 1 — the plain fixes and `ui`
 
-**P1 — Links, words, the zero address.** F1 (five callers, three anchors, the scanning test), F2, F3, F7, F9
+**P1 ✓ — Links, words, the zero address.** F1 (five callers, three anchors, the scanning test), F2, F3, F7, F9
 (§3.3).
 **Gate**: fast · pass: the scanning test red before the callers change, green after; `recovery.test.ts` untouched
 and green; `landed()` tests: a deposit lands with its sender, a stored zero K3 row past arrival heals, a nonzero
 address is kept, K1/K2 rows and twins are untouched, a concurrent state advance inside `adopt` survives · layers:
 lint, typecheck, unit, component.
 
-**P2 — The stepper and the dialog's overflow.** The overflow assertion into `opening.e2e.ts` at 900×720
+**P2 ✓ — The stepper and the dialog's overflow.** *(The red-first step did not go red: I1 is refuted, see §5 and `lessons/phase-2.md`. The gate below passed as written.)* The overflow assertion into `opening.e2e.ts` at 900×720
 (reusing `dialog-geometry`'s `fits`), seen **red** first; then the geometry, `showsDetail`, `explain`, the two
 right-column one-liners.
 **Gate**: fast, then `E2E_PROVERLESS=0 E2E_SHARD=canary bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e` · pass:
