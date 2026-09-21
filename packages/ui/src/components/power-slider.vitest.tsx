@@ -16,6 +16,8 @@ describe('PowerSlider', () => {
     const slider = getByRole('slider') as HTMLInputElement;
     expect(slider.disabled).toBe(true);
     expect(block.textContent).toContain('11 threads');
+    // Not in force, so not pressable either.
+    expect([...block.querySelectorAll('button')].every((b) => b.disabled)).toBe(true);
     rerender(<PowerSlider cores={12} threads={11} onChange={onChange} />);
     expect(block.dataset.disabled).toBeUndefined();
     expect((getByRole('slider') as HTMLInputElement).disabled).toBe(false);

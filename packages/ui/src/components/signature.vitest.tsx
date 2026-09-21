@@ -189,13 +189,19 @@ describe('PowerSlider', () => {
     expect(screen.getByText(/11 threads/)).toHaveTextContent('18.4 proofs/min');
     fireEvent.change(slider, { target: { value: '3' } });
     expect(onChange).toHaveBeenCalledWith(3);
-    expect(document.querySelector('[data-slot=power-label][data-on]')).toHaveTextContent('max · 11');
+    // The presets are buttons under the track: the one in force is pressed, and pressing another sets the slider.
+    // The count is said once, in the readout.
+    const on = document.querySelector('[data-slot=power-preset][data-on]');
+    expect(on).toHaveTextContent(/^max$/);
+    expect(on).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'balanced' }));
+    expect(onChange).toHaveBeenLastCalledWith(6);
   });
 
-  test('labels with the same thread count merge instead of overlapping', () => {
+  test('presets with the same thread count merge into one button', () => {
     render(<PowerSlider cores={3} threads={1} onChange={vi.fn()} />);
-    const labels = [...document.querySelectorAll('[data-slot=power-label]')].map((l) => l.textContent);
-    expect(labels).toEqual(['eco / balanced · 1', 'max · 2']);
+    const labels = [...document.querySelectorAll('[data-slot=power-preset]')].map((l) => l.textContent);
+    expect(labels).toEqual(['eco / balanced', 'max']);
   });
 });
 
