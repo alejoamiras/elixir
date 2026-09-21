@@ -27,6 +27,7 @@ export interface Manifest {
   name: string;
   main?: string;
   exports?: Record<string, ExportTarget>;
+  scripts?: Record<string, string>;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   workspaces?: string[];
@@ -121,11 +122,12 @@ export function pathCalls(source: string, file = 'x.ts'): Specifier[] {
   return out;
 }
 
-const CSS_IMPORT = /@import\s+(?:url\(\s*)?["']([^"']+)["']/g;
+// `@import "x"`, `@import url("x")` and the unquoted `@import url(x)`.
+const CSS_IMPORT = /@import\s+(?:url\(\s*(["']?)([^"')\s]+)\1\s*\)|(["'])([^"']+)\3)/g;
 
 export function cssImports(source: string): Specifier[] {
   return [...source.matchAll(CSS_IMPORT)].map((m) => {
-    const text = m[1] ?? '';
+    const text = m[2] ?? m[4] ?? '';
     const start = (m.index ?? 0) + m[0].indexOf(text);
     return { text, start, end: start + text.length, kind: 'css-import' as const };
   });

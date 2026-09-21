@@ -193,9 +193,18 @@ function filterGaps(w: Workflow): string[] {
     .flatMap(gating)
     .filter((c) => c.includes('test:components') && c.includes('--cwd'))
     .map((c) => c[c.indexOf('--cwd') + 1] ?? '');
-  const args = [...testInvocations(w).flat(), ...components];
+  // A production build reads everything it assembles: `site:build` counts as running the whole site.
+  const builds = w.steps.flatMap(gating).some((c) => c.join(' ') === 'bun run site:build')
+    ? ['apps/site']
+    : [];
+  const args = [...testInvocations(w).flat(), ...components, ...builds];
   const watched = (a: string): boolean => w.filter.some((g) => !g.startsWith('!') && new Glob(g).match(a));
-  return all
+  // The build's configuration is outside every workspace: the site's env file and the profile's record.
+  const config =
+    builds.length && !watched('deployments/site.env')
+      ? [`${w.file}: runs the production build, filter lacks deployments/**`]
+      : [];
+  const gaps = all
     .filter((ws) => args.some((a) => a === ws.dir || a.startsWith(`${ws.dir}/`)))
     .flatMap((t) => {
       const whole = args.includes(t.dir);
@@ -203,9 +212,10 @@ function filterGaps(w: Workflow): string[] {
       const folders = [...closure(t)].filter((need) => !covers(w.filter, need.dir, whole && need === t));
       return [
         ...files.map((a) => `${w.file}: runs ${a}, which no filter glob matches`),
-        ...folders.map((need) => `${w.file}: runs ${t.dir}'s tests, filter lacks ${need.dir}/**`),
+        ...folders.map((need) => `${w.file}: runs ${t.dir}'s tests or build, filter lacks ${need.dir}/**`),
       ];
     });
+  return [...config, ...gaps];
 }
 
 /** Whether the Vitest config of the file's workspace picks the file up: an invocation alone does not. */
@@ -302,6 +312,14 @@ describe('workflows', () => {
   test("a workflow's filter names every workspace whose tests it runs, and what those depend on", () => {
     const gaps = workflows.filter((w) => w.filter.length).flatMap(filterGaps);
     expect([...new Set(gaps)]).toEqual([]);
+  });
+
+  test("a workspace's test:components runs its whole Vitest config", () => {
+    const narrowed = all
+      .map((w) => ({ dir: w.dir, script: w.manifest.scripts?.['test:components'] }))
+      .filter((w) => w.script !== undefined && w.script !== 'vitest run')
+      .map((w) => `${w.dir}: test:components is "${w.script}", not "vitest run"`);
+    expect(narrowed).toEqual([]);
   });
 
   test('the toolchain lanes require the toolchain and watch its resolver', () => {

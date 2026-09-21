@@ -123,7 +123,7 @@ nothing consumes it (Verify shows `W_VK_HASH`, another value).
 
 Codex re-derived the root-file comparison itself (242 = 242), checked the renderer's path against the three apps'
 `RUN_FILE` definitions, and swept string-built paths, regex literals, config values and comments once more: nothing
-left but the D13 line. **Arc 3's loop converged in two rounds** (`/tmp/codex-lBc8NTEF/response*.md`).
+left but the D13 line. **Arc 3's loop converged in two rounds**.
 
 ## Arc 3 HEAVY+ (2026-09-21)
 

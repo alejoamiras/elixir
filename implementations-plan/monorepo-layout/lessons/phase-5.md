@@ -28,3 +28,26 @@ Wrangler configs, HTML/OG metadata or active docs; no split-name construction; C
 Two non-blocking notes, both taken: this file had the redirect direction wrong (corrected above), and `bun.lock:6`
 still names the root workspace `elixir` — pre-existing, exempt from the guard, no URL in it (`follow-ups.md`).
 **Arc 5's loop converged in one round.**
+
+## Final cross-arc codex pass
+
+Fresh session `01a0c584-48c6-7751-bf32-2d659cfe068c` (GPT-6 Astra, `high`, read-only) over the whole stack,
+`06b25d7..87ed343`.
+
+### Round 1 (2026-09-21): "Changes requested: three material findings and one minor cleanup"
+
+| # | Finding | Verified | Fix |
+|---|---|---|---|
+| 1 | `contracts.yml` is the only pull-request lane that runs `bun run site:build`, and its filter stopped watching what the build reads: the baseline watched `packages/site/**`, the moved tree watched neither `packages/web-kit/**` (the config, the headers, the Vite base) nor `deployments/site.env` | True. The guard only credited `bun test` and `test:components`, so a build was invisible to it | The guard counts `bun run site:build` as running `apps/site` whole, so the filter must cover the site's production closure, and a lane that builds must watch `deployments/**`. The filter now names `packages/web-kit/**`, `deployments/**`, and whole `packages/bridge`, `packages/miner-core`, `protocol/work-circuit`, plus `protocol/portal/abi/**` |
+| 2 | The guard credits any `test:components` as the workspace's whole Vitest run without reading the script | True: `vitest run src/features` would have passed | A workspace's `test:components` must be exactly `vitest run` |
+| 3 | `@import url(../x.css)` without quotes is valid CSS and the boundary guard's extractor missed it | True | The extractor reads quoted, `url("…")` and unquoted `url(…)`; a fixture test pins the three forms |
+| 4 | Two lessons files named the reviewer's scratch directory | True | Removed; the session ids carry the provenance |
+
+Replays, each red and then restored (`git status` clean but for the intended edit):
+
+- `apps/web-stats` `test:components` narrowed to `vitest run src/features` → "test:components is "vitest run src/features", not "vitest run"".
+- `@import url(../../web-stats/src/index.css);` appended to the landing's stylesheet → "apps/web-landing/src/index.css:4 reaches apps/web-stats/src/index.css by path".
+- `contracts.yml` without `packages/web-kit/**` → "runs apps/site's tests or build, filter lacks packages/web-kit/**".
+- `contracts.yml` without `deployments/**` → first replay stayed **green**: my rule covered workspaces only, and the env file is in none. Added the config rule; the replay then said "runs the production build, filter lacks deployments/**".
+
+FAST after the fixes: status 0 (lint, the six typecheck steps, `bun test`, components). Where the fixes live: ledger D14.
