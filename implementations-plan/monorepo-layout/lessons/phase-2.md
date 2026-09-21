@@ -194,3 +194,29 @@ Also swept: an unused `resolve` import left in `tools/localnet/src/presto.ts` by
 | `token-artifact.ts` · `copy-artifacts.ts` from their own dirs | both find the artifact, `target/` unchanged |
 | FAST (lint, six typechecks, `bun test`, components) | all ok; `bun test` 107 s |
 | `lint:actions` · web-kit typecheck | exit 0 · exit 0 |
+
+### Round 2 (2026-09-21) — "Changes requested: two defects reproduced"
+
+Both real; both mine from round 1.
+
+1. **`bbVersion()` read the wrong manifest.** The first `package.json` above bb.js's resolved entry
+   (`dest/node-cjs/index.js`) is `dest/node-cjs/package.json`, `{"type":"commonjs"}` — so the walk-up returned
+   `undefined`, into `VITE_BB_VERSION` and the Settings row, and FAST stayed green because nothing asserted the
+   value. Fix: walk up to the manifest whose `name` is `@aztec/bb.js` and validate its `version`; exported and
+   pinned by `web-kit/src/vite-base.test.ts` to the version the manifest declares (`5.2.0`). **Lesson: a value
+   only a page displays needs a test the moment its source changes; the build cannot tell `undefined` from a
+   string.**
+2. **A `null` export target crashed the guard.** `{ browser: null, default: './src/config.ts' }` is valid
+   metadata (the subpath withheld under a condition) and `Object.values(null)` throws. `ExportTarget` admits
+   `null`, `exportPaths` yields nothing for it; a fixture test covers nested conditions, arrays, withheld
+   branches.
+
+Noted, pre-existing (not a regression, logged in `follow-ups.md`): `web-kit/src/browser/node-guard.test.ts:248`
+loads bb.js's browser WASM loader through the root `node_modules`, a subpath the package does not export.
+
+| step | result |
+|---|---|
+| both guards + web-kit's tests | 90 pass across 10 files |
+| `bbVersion()` | `5.2.0` |
+| FAST | all ok; `bun test` 98 s |
+| `lint:actions` | exit 0 |

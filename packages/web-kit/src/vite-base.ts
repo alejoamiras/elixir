@@ -69,14 +69,24 @@ export function siteConfig(command: 'build' | 'serve', env: NodeJS.ProcessEnv = 
   });
 }
 
-/** bb.js exports no `./package.json`: the manifest is the first one above its resolved entry. */
-function bbVersion(): string {
-  let dir = dirname(createRequire(import.meta.url).resolve('@aztec/bb.js'));
-  while (!existsSync(resolve(dir, 'package.json'))) {
-    if (dirname(dir) === dir) throw new Error('@aztec/bb.js resolved outside a package');
-    dir = dirname(dir);
+/**
+ * The installed bb.js version. The package exports no `./package.json`, and the first manifest above its
+ * resolved entry is `dest/node-cjs/package.json` (`{"type":"commonjs"}`): walk up to the one that names it.
+ */
+export function bbVersion(): string {
+  for (let dir = dirname(createRequire(import.meta.url).resolve('@aztec/bb.js')); ; dir = dirname(dir)) {
+    if (dirname(dir) === dir) throw new Error('@aztec/bb.js resolved outside its package');
+    const manifest = resolve(dir, 'package.json');
+    if (!existsSync(manifest)) continue;
+    const { name, version } = JSON.parse(readFileSync(manifest, 'utf8')) as {
+      name?: string;
+      version?: string;
+    };
+    if (name !== '@aztec/bb.js') continue;
+    if (!/^\d+\.\d+\.\d+/.test(version ?? ''))
+      throw new Error(`@aztec/bb.js's manifest has no version: ${manifest}`);
+    return version as string;
   }
-  return (JSON.parse(readFileSync(resolve(dir, 'package.json'), 'utf8')) as { version: string }).version;
 }
 
 /** The mark as every app's icon; the miner swaps in its status light at runtime, the others keep this one. */

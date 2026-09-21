@@ -201,6 +201,25 @@ describe('workspace boundaries', () => {
   });
 });
 
+describe('export targets', () => {
+  test('every path under conditions, fallbacks and withheld branches', () => {
+    expect(exportPaths('./src/a.ts')).toEqual(['./src/a.ts']);
+    expect(exportPaths({ import: './scripts/x.ts', types: './src/x.d.ts' })).toEqual([
+      './scripts/x.ts',
+      './src/x.d.ts',
+    ]);
+    expect(exportPaths({ node: { import: './a.ts', require: ['./b.cjs', { default: './c.js' }] } })).toEqual([
+      './a.ts',
+      './b.cjs',
+      './c.js',
+    ]);
+    expect(exportPaths({ browser: null, default: './src/config.ts' })).toEqual(['./src/config.ts']);
+    expect(exportPaths([null, './src/config.ts'])).toEqual(['./src/config.ts']);
+    expect(exportPaths(null)).toEqual([]);
+    expect(exportPaths(undefined)).toEqual([]);
+  });
+});
+
 describe('the specifier extractor', () => {
   test('sees every form of import and reference, and nothing in a comment or a string', () => {
     const source = [
