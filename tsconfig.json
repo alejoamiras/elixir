@@ -13,12 +13,18 @@
     "skipLibCheck": true
   },
   "include": [
+    "apps/*/src",
+    "apps/*/scripts",
+    "apps/*/e2e",
+    "apps/*/tests",
     "packages/*/src",
     "packages/*/scripts",
-    "packages/*/e2e",
     "packages/*/tests",
-    "scripts",
+    "protocol/*/scripts",
     "tools/*/src",
+    "tools/*/scripts",
+    "tools/*/tests",
+    "scripts",
     "*.ts"
   ],
   "exclude": [
@@ -26,9 +32,9 @@
     "**/dist",
     "**/target",
     "packages/ui/src",
-    "packages/web-miner/src",
-    "packages/web-miner/tests",
-    "packages/web-stats/src",
-    "packages/web-landing/src"
+    "apps/web-miner/src",
+    "apps/web-miner/tests",
+    "apps/web-stats/src",
+    "apps/web-landing/src"
   ]
 }

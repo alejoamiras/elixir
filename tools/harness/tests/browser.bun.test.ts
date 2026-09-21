@@ -44,7 +44,7 @@ const exec = (cmd: string, args: string[], opts: { cwd: string; env?: NodeJS.Pro
 const enabled = process.env.YACANA_RIG === '1';
 /** Anvil account 3: the holder the page's test wallet signs with. */
 const HOLDER_KEY: Hex = '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6';
-const minerPkg = resolve(repoRoot, 'packages/web-miner');
+const minerPkg = resolve(repoRoot, 'apps/web-miner');
 const STAGE_MS = 45 * 60_000;
 
 describe.skipIf(!enabled)('the migration through the page (browser)', () => {

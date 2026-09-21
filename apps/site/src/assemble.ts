@@ -1,6 +1,6 @@
 // Three apps into one origin (`/`, `/mine/`, `/stats/`), the shared assets once at the root,
-// `_headers`, `_redirects`, `build.json`. `bun run site:build` → packages/site/dist (the apex
-// Worker) or, under YACANA_APP_ROLE=old, packages/site/dist-old (the versioned origin's Worker,
+// `_headers`, `_redirects`, `build.json`. `bun run site:build` → apps/site/dist (the apex
+// Worker) or, under YACANA_APP_ROLE=old, apps/site/dist-old (the versioned origin's Worker,
 // v5/wrangler.jsonc: the miner alone, at `/`); an e2e run passes its own out dir.
 import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -110,7 +110,7 @@ export const buildRecord = (c: SiteConfig): BuildRecord => ({
 /** An app's bundle without its `public/` copies: the shared assets are materialised once at the root. */
 function buildApp(name: string, base: string, outDir: string, env: NodeJS.ProcessEnv): void {
   execFileSync('bunx', ['vite', 'build', '--base', base, '--outDir', outDir, '--emptyOutDir'], {
-    cwd: resolve(repo, 'packages', name),
+    cwd: resolve(repo, 'apps', name),
     stdio: 'inherit',
     env: { ...env, YACANA_ASSEMBLE: '1' },
   });
@@ -149,8 +149,7 @@ export async function assemble(
   await steps.copyArtifacts(out);
   console.log(await steps.copySlots(out));
   // The landing's card; the old origin has no landing.
-  if (config.role === 'apex')
-    cpSync(resolve(repo, 'packages/web-landing/public/og.png'), resolve(out, 'og.png'));
+  if (config.role === 'apex') cpSync(resolve(repo, 'apps/web-landing/public/og.png'), resolve(out, 'og.png'));
   for (const w of witnessFiles(repo)) {
     mkdirSync(resolve(out, 'witnesses'), { recursive: true });
     writeFileSync(resolve(out, w.to), `${w.lines.join('\n')}\n`);

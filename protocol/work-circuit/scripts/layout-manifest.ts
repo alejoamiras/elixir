@@ -4,7 +4,7 @@
 // bbapi/bbapi_ultra_honk.cpp: the proof keeps the IO pairing-point block that precedes the
 // witness commitments; only the inner public inputs are split off).
 // Writes src/generated/proof-layout.json and cross-checks the fixture proof's field widths.
-//   bun packages/work-circuit/scripts/layout-manifest.ts
+//   bun protocol/work-circuit/scripts/layout-manifest.ts
 import { resolve } from 'node:path';
 import { AZTEC_VERSION, workCircuitRoot } from './toolchain.ts';
 

@@ -9,7 +9,7 @@ import { computeDigest, DOM_NULL, deployDomain, low128, proofToFields, secretCom
 import { nextSeed, nextTarget } from './retarget.ts';
 
 const vectors = (await Bun.file(
-  resolve(import.meta.dir, '../../work-circuit/fixtures/vectors.json'),
+  resolve(import.meta.dir, '../../../protocol/work-circuit/fixtures/vectors.json'),
 ).json()) as {
   fixtureProof: string[];
   digest: string;
@@ -26,7 +26,9 @@ const big = (h: string) => BigInt(h);
 describe('cross-language vectors', () => {
   test('the fixture proof hashes to the pinned digest and low128', async () => {
     const proof = new Uint8Array(
-      await Bun.file(resolve(import.meta.dir, '../../work-circuit/fixtures/yacana_work/proof')).arrayBuffer(),
+      await Bun.file(
+        resolve(import.meta.dir, '../../../protocol/work-circuit/fixtures/yacana_work/proof'),
+      ).arrayBuffer(),
     );
     const fields = proofToFields(proof);
     expect(fields.map((f) => f.toString())).toEqual(vectors.fixtureProof.map((h) => fr(h).toString()));

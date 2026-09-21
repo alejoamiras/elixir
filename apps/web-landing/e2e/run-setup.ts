@@ -16,7 +16,7 @@ if (!nodeUrl) throw new Error('AZTEC_NODE_URL is not set: run through `bun run e
 const pkg = resolve(import.meta.dir, '..');
 const OUT_DIR = 'e2e/.dist';
 const CLAIM_OUT_DIR = 'e2e/.dist-claim';
-const CLAIM_FILE = 'packages/web-landing/e2e/.example-claim.json';
+const CLAIM_FILE = 'apps/web-landing/e2e/.example-claim.json';
 
 const e2eEnv = (d: Deployment): NodeJS.ProcessEnv => ({
   ...process.env,

@@ -1,7 +1,7 @@
 // Export the work circuit's VK (115 fields) and VK hash from bb's binary output into the Noir
 // globals the verifier crates embed and a TS module for miner-core. The VK is the puzzle: any
 // change here means a new deployment, so both outputs are committed and diffed in CI.
-//   bun packages/work-circuit/scripts/export-vk.ts [crate]
+//   bun protocol/work-circuit/scripts/export-vk.ts [crate]
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { $ } from 'bun';
@@ -42,7 +42,7 @@ mkdirSync(resolve(workCircuitRoot, 'crates', 'verify_w', 'src'), { recursive: tr
 mkdirSync(resolve(workCircuitRoot, 'src', 'generated'), { recursive: true });
 // Every embedded copy of the VK is written from this one run; CI diffs them against the commit.
 await Bun.write(resolve(workCircuitRoot, 'crates', 'verify_w', 'src', 'vk.nr'), noir);
-await Bun.write(resolve(repoRoot, 'packages', 'contracts', 'yacana_miner', 'src', 'vk.nr'), noir);
+await Bun.write(resolve(repoRoot, 'protocol', 'contracts', 'yacana_miner', 'src', 'vk.nr'), noir);
 await Bun.write(resolve(workCircuitRoot, 'src', 'generated', 'vk.ts'), ts);
 // The committed fixture: the proof of Prover.toml's inputs, used by the layout, digest and
 // mutation tests so they never depend on a prover being available. The proof itself is only

@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 
-// The upgrade rig's browser case (packages/harness/tests/browser.bun.test.ts) owns the network, the
+// The upgrade rig's browser case (tools/harness/tests/browser.bun.test.ts) owns the network, the
 // deployments and the servers, and runs bridge.e2e.ts one stage at a time against E2E_RUN_FILE: no
 // global setup here. Real proving across a flip: the stages are long.
 export default defineConfig({

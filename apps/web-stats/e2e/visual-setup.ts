@@ -25,7 +25,7 @@ const VISUAL_FILE = resolve(pkg, 'e2e/.visual.json');
 const RPC_FILE = resolve(pkg, 'e2e/visual-rpc.json');
 const DEPLOYMENT_FILE = resolve(pkg, 'e2e/visual-deployment.json');
 /** The record the run's operator registers from; repo-relative for the operator, gitignored. */
-const RECORD_FILE = 'packages/web-stats/e2e/.visual-record.json';
+const RECORD_FILE = 'apps/web-stats/e2e/.visual-record.json';
 /** What the Verify chips and the footer show: the baselines must not move with the commit. */
 const VISUAL_COMMIT = '0123456789abcdef0123456789abcdef01234567';
 

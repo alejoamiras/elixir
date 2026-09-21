@@ -1,7 +1,7 @@
 // W on the native bb: gates, witness, VK, timed proves and a verify per crate. The proof it leaves
 // in target/<crate> is what export-vk.ts commits as the fixture and what the WASM check compares to.
 // Writes target/prove.json and prints a markdown table labelled with this machine.
-//   bun packages/work-circuit/scripts/prove.ts [--runs N] [crate…]
+//   bun protocol/work-circuit/scripts/prove.ts [--runs N] [crate…]
 
 import { cpus, hostname } from 'node:os';
 import { resolve } from 'node:path';

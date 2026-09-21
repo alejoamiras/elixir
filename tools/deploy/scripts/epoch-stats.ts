@@ -1,7 +1,7 @@
 // Epoch history of a deployment read straight from public storage (no wallet, no PXE), through
 // the same reader the stats page uses: per epoch its target, opening time, claim count, duration,
 // retarget ratio and what closed it.
-//   AZTEC_NODE_URL=… bun packages/deploy/scripts/epoch-stats.ts [deployments/<profile>.json] [--json out.json]
+//   AZTEC_NODE_URL=… bun tools/deploy/scripts/epoch-stats.ts [deployments/<profile>.json] [--json out.json]
 import { resolve } from 'node:path';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';

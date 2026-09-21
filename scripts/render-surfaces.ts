@@ -18,7 +18,7 @@ const APPS = { landing: 'web-landing', miner: 'web-miner', stats: 'web-stats' } 
 
 /** Static file server for one app's `dist` with the SPA fallback, on an OS-assigned port. */
 function serve(name: keyof typeof APPS) {
-  const dist = resolve(repo, 'packages', APPS[name], 'dist');
+  const dist = resolve(repo, 'apps', APPS[name], 'dist');
   return Bun.serve({
     hostname: 'localhost',
     port: 0,

@@ -1,5 +1,5 @@
 // The replay lane's fixture-only build and server, and the one-off recording it replays.
-//   bun run e2e:agent -- bun packages/web-miner/e2e/replay/setup.ts record   # on the isolated network
+//   bun run e2e:agent -- bun apps/web-miner/e2e/replay/setup.ts record   # on the isolated network
 //   bun e2e/replay/setup.ts serve|teardown                                    # no node involved
 import { type ChildProcess, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -210,7 +210,7 @@ if (command === 'record') {
   if (drift.length)
     throw new Error(
       `e2e/replay/recording.json was taken against other inputs (${drift.join(', ')}): re-record with ` +
-        '`bun run e2e:agent -- bun packages/web-miner/e2e/replay/setup.ts record`',
+        '`bun run e2e:agent -- bun apps/web-miner/e2e/replay/setup.ts record`',
     );
   const run = await serve(recording.deployment, Number(process.env.E2E_OWNER_PID ?? process.ppid));
   console.log(`replay: ${run.baseURL} (recorded ${recording.recordedAt})`);

@@ -1,6 +1,6 @@
 // Renders public/og.html to public/og.png (1200 × 630, the Open Graph card) with the repo's
 // Playwright Chromium; the PNG is committed so the build needs no browser.
-//   bun packages/web-landing/scripts/og-card.ts
+//   bun apps/web-landing/scripts/og-card.ts
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { chromium } from '@playwright/test';

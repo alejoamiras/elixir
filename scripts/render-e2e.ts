@@ -27,7 +27,7 @@ const run = JSON.parse(readFileSync(resolve(repo, `packages/web-${app}/e2e/.run.
   tokenClassId: string;
   chainId: string;
   rollupVersion: string;
-  /** The miner run's two forwarding proxies (`packages/web-miner/e2e/node-proxy.ts`). */
+  /** The miner run's two forwarding proxies (`apps/web-miner/e2e/node-proxy.ts`). */
   proxyA?: string;
   proxyB?: string;
   vitePid?: number;

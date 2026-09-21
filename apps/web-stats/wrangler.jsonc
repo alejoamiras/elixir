@@ -1,5 +1,5 @@
 {
-  // Local `wrangler dev` parity only (the app's own build with its `_headers`); the deployable is packages/site.
+  // Local `wrangler dev` parity only (the app's own build with its `_headers`); the deployable is apps/site.
   "$schema": "https://json.schemastore.org/wrangler.json",
   "compatibility_date": "2026-09-01",
   "assets": { "directory": "./dist", "not_found_handling": "single-page-application" }

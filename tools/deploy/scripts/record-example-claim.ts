@@ -1,7 +1,7 @@
 // Records one accepted claim of a deployment for the landing's ledger, from the transaction's own
 // effect on the node: deployments/<profile>.example-claim.json (and, with --keep-effect, the effect
 // as the unit test's fixture). The node must be the record's deployment (chain, rollup, contracts).
-//   AZTEC_NODE_URL=… bun packages/deploy/scripts/record-example-claim.ts <txHash> [deployments/<profile>.json] [--keep-effect <file>]
+//   AZTEC_NODE_URL=… bun tools/deploy/scripts/record-example-claim.ts <txHash> [deployments/<profile>.json] [--keep-effect <file>]
 import { resolve } from 'node:path';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';

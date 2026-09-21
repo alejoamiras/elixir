@@ -1,5 +1,5 @@
 // Native determinism check: prove the same witness N times and require byte-identical proofs.
-//   bun packages/work-circuit/scripts/determinism.ts [--runs 10] [crate]
+//   bun protocol/work-circuit/scripts/determinism.ts [--runs 10] [crate]
 
 import { resolve } from 'node:path';
 import { $ } from 'bun';

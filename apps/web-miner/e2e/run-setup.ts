@@ -45,8 +45,8 @@ const bridgeMode = process.env.E2E_BRIDGE === '1' || shard === undefined || shar
 /** Anvil account 3: the holder the test wallet signs with (account 1 operates the bridge, account 0 publishes blocks). */
 const HOLDER_KEY: Hex = '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6';
 /** Relative to the repo root: what the operator functions and the control server open. */
-const RECORD_FILE = 'packages/web-miner/e2e/.record.json';
-const ARCHIVE_FILE = 'packages/web-miner/e2e/.witnesses.jsonl';
+const RECORD_FILE = 'apps/web-miner/e2e/.record.json';
+const ARCHIVE_FILE = 'apps/web-miner/e2e/.witnesses.jsonl';
 
 async function startControl(log: number, port: number, l1RpcUrl: string): Promise<ChildProcess> {
   const child = spawn(

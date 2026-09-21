@@ -11,7 +11,7 @@ contract HashesTest is Test {
   string internal json;
 
   function setUp() public {
-    json = vm.readFile("../bridge/fixtures/bridge-vectors.json");
+    json = vm.readFile("../../packages/bridge/fixtures/bridge-vectors.json");
   }
 
   function field(string memory key) internal view returns (bytes32) {

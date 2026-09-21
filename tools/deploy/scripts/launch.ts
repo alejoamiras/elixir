@@ -2,7 +2,7 @@
 // sponsored FPC. `commit` draws a secret preimage (kept in deployments/.launch-<profile>.json,
 // gitignored) and commits Poseidon2(DOM_LAUNCH, 1, miner, account, preimage) before launch_at; `reveal` reveals it inside the window after
 // launch_at; `open` calls launch() once the window has closed. Anyone may run any phase.
-//   AZTEC_NODE_URL=… bun packages/deploy/scripts/launch.ts commit|reveal|open [deployments/<profile>.json]
+//   AZTEC_NODE_URL=… bun tools/deploy/scripts/launch.ts commit|reveal|open [deployments/<profile>.json]
 import { resolve } from 'node:path';
 import { loadContractArtifact } from '@aztec/aztec.js/abi';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
@@ -54,7 +54,7 @@ try {
     )
   ).address;
   const artifact = loadContractArtifact(
-    await Bun.file(resolve(repo, 'packages/contracts/target/yacana_miner-YacanaMiner.json')).json(),
+    await Bun.file(resolve(repo, 'protocol/contracts/target/yacana_miner-YacanaMiner.json')).json(),
   );
   const miner = await Contract.at(AztecAddress.fromStringUnsafe(deployment.miner), artifact, wallet);
   const genesis = await unwrap<{ launch_at: bigint }>(miner.methods.genesis().simulate({ from }));

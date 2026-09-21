@@ -171,9 +171,9 @@ ${retarget}
 }
 
 const out: [string, string][] = [
-  ['packages/contracts/yacana_miner/src/params.nr', minerNr],
-  ['packages/work-circuit/crates/yacana_work/src/params.nr', workNr],
-  ['packages/work-circuit/crates/lib/src/domains.nr', domainsNr],
+  ['protocol/contracts/yacana_miner/src/params.nr', minerNr],
+  ['protocol/work-circuit/crates/yacana_work/src/params.nr', workNr],
+  ['protocol/work-circuit/crates/lib/src/domains.nr', domainsNr],
   ['packages/miner-core/src/generated/params.ts', ts],
 ];
 interface BridgeVectors {
@@ -246,10 +246,10 @@ fn exit_log_tag_matches_bridge() {
 }
 `;
 
-const vectorsFile = resolve(repo, 'packages/work-circuit/fixtures/vectors.json');
+const vectorsFile = resolve(repo, 'protocol/work-circuit/fixtures/vectors.json');
 if (existsSync(vectorsFile)) {
   out.push([
-    'packages/contracts/yacana_miner/src/test/vectors.nr',
+    'protocol/contracts/yacana_miner/src/test/vectors.nr',
     vectorsNr((await Bun.file(vectorsFile).json()) as Vectors),
   ]);
 } else {
@@ -260,7 +260,7 @@ if (existsSync(vectorsFile)) {
 const bridgeVectorsFile = resolve(repo, 'packages/bridge/fixtures/bridge-vectors.json');
 if (existsSync(bridgeVectorsFile)) {
   out.push([
-    'packages/contracts/yacana_bridge_hashes/src/test.nr',
+    'protocol/contracts/yacana_bridge_hashes/src/test.nr',
     bridgeVectorsNr((await Bun.file(bridgeVectorsFile).json()) as BridgeVectors),
   ]);
 } else {

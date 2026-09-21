@@ -2,7 +2,7 @@
 // combinations, wrong public inputs, wrong VK, and a ZK-flavour proof against the non-ZK
 // verifier. Every case must be refused by `bb verify`; the unmodified proof must pass. A verifier
 // that could not answer (bb-verify.ts) stops the run: it is never counted as a refusal.
-//   bun packages/work-circuit/scripts/mutation.ts [--combos 50] [--seed 1]
+//   bun protocol/work-circuit/scripts/mutation.ts [--combos 50] [--seed 1]
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { $ } from 'bun';

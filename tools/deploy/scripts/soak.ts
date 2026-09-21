@@ -2,7 +2,7 @@
 // the native bb backend, claims every win, rolls after T_MAX, and varies its own hashrate on a
 // schedule so the retarget sees real load changes. Stops after --hours (capped at 2) or once
 // --epochs epochs have closed on chain, whichever comes first.
-//   AZTEC_NODE_URL=… bun packages/deploy/scripts/soak.ts [--hours 2] [--epochs 24] [--threads N]
+//   AZTEC_NODE_URL=… bun tools/deploy/scripts/soak.ts [--hours 2] [--epochs 24] [--threads N]
 //                    [--schedule full,half,pause,full] [--label miner-a] [--report soak.jsonl]
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { cpus } from 'node:os';
@@ -48,10 +48,7 @@ const schedule = opt('schedule', 'full,half,pause,full').split(',');
 const label = opt('label', 'soak');
 const startedAt = new Date();
 const report = resolve(
-  opt(
-    'report',
-    `packages/deploy/target/soak-${label}-${startedAt.toISOString().replace(/[:.]/g, '-')}.jsonl`,
-  ),
+  opt('report', `tools/deploy/target/soak-${label}-${startedAt.toISOString().replace(/[:.]/g, '-')}.jsonl`),
 );
 const nodeUrl = process.env.AZTEC_NODE_URL;
 if (!nodeUrl) throw new Error('AZTEC_NODE_URL is required');

@@ -31,7 +31,7 @@ const exec = (cmd: string, args: string[], opts: { cwd: string; env?: NodeJS.Pro
   });
 
 const enabled = process.env.YACANA_RIG === '1';
-const minerPkg = resolve(repoRoot, 'packages/web-miner');
+const minerPkg = resolve(repoRoot, 'apps/web-miner');
 
 /** A preview behind the run's self-signed certificate answers; Node's fetch would refuse the cert. */
 async function upOverTls(url: string, child: ChildProcess): Promise<boolean> {

@@ -4,8 +4,8 @@
 // environment and the key is read inside the forge script, never placed on a command line.
 //
 //   YACANA_L1_RPC_URL=… YACANA_L1_PRIVATE_KEY=0x… YACANA_REGISTRY=0x… YACANA_OPERATORS=0x… \
-//     bun packages/deploy/scripts/l1-deploy.ts [deployments/<profile>.json]
-//   bun packages/deploy/scripts/l1-deploy.ts --anvil        # its own anvil and a stand-in Registry
+//     bun tools/deploy/scripts/l1-deploy.ts [deployments/<profile>.json]
+//   bun tools/deploy/scripts/l1-deploy.ts --anvil        # its own anvil and a stand-in Registry
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { policyFor } from '@yacana/bridge/policy';
@@ -17,7 +17,7 @@ import { createPublicClient, createWalletClient, type Hex, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import type { BridgeRecord } from '../src/deploy.ts';
 
-const portalDir = resolve(repoRoot, 'packages/portal');
+const portalDir = resolve(repoRoot, 'protocol/portal');
 const forgeStd = resolve(
   toolchainBin('aztec-forge'),
   '../../node_modules/@aztec/l1-artifacts/l1-contracts/lib/forge-std/src',

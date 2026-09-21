@@ -1,6 +1,6 @@
 {
   // `www.yacana.network` → the apex. A separate Worker so the site stays assets-only; deployed
-  // with `bun run --cwd packages/site deploy:www`, which also creates the domain's DNS record.
+  // with `bun run --cwd apps/site deploy:www`, which also creates the domain's DNS record.
   "$schema": "https://json.schemastore.org/wrangler.json",
   "name": "yacana-www",
   "main": "./redirect.ts",

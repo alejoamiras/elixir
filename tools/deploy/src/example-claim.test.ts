@@ -71,7 +71,7 @@ describe('the example claim from a transaction effect', () => {
   });
 });
 
-/** The committed record against the chain it came from: `YACANA_TESTNET_NODE_URL=https://… bun test packages/deploy`. */
+/** The committed record against the chain it came from: `YACANA_TESTNET_NODE_URL=https://… bun test tools/deploy`. */
 const testnet = process.env.YACANA_TESTNET_NODE_URL ?? '';
 describe.skipIf(!testnet)('the recorded claim on the testnet', () => {
   test('re-reading the transaction from the node yields the committed record', async () => {

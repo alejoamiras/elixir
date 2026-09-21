@@ -16,7 +16,7 @@ const nodeUrl = process.env.AZTEC_NODE_URL;
 if (!nodeUrl) throw new Error('AZTEC_NODE_URL is not set: run through `bun run e2e:agent -- …`');
 const OUT_DIR = 'e2e/.dist';
 /** Relative to the repo root: what the operator functions open to register the version. */
-const RECORD_FILE = 'packages/web-stats/e2e/.record.json';
+const RECORD_FILE = 'apps/web-stats/e2e/.record.json';
 
 // The mocked-RPC spec answers MOCK_NODE_ORIGIN, a local origin the e2e headers admit. The bridge
 // page reads the portal over the run's anvil when the run has one (`L1_RPC_URL`, from e2e:agent).

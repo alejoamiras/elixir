@@ -1,7 +1,7 @@
 // A second miner for the lost-race spec: claims in the open epoch from a fresh account until that
 // epoch closes — or until YACANA_BURST_CLAIMS claims landed — with the native bb backend. Prints one
 // JSON line per event; exits 0.
-//   AZTEC_NODE_URL=… YACANA_MINER=0x… YACANA_TOKEN=0x… [YACANA_BURST_CLAIMS=2] bun packages/web-miner/e2e/burst.ts
+//   AZTEC_NODE_URL=… YACANA_MINER=0x… YACANA_TOKEN=0x… [YACANA_BURST_CLAIMS=2] bun apps/web-miner/e2e/burst.ts
 import { cpus } from 'node:os';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Contract, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';

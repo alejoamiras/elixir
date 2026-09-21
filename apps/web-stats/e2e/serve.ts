@@ -10,7 +10,7 @@ import { rowsFromJson } from '@yacana/miner-core/reader';
 import { deriveSlotTable, loadLayouts } from '@yacana/miner-core/slots';
 
 export const pkg = resolve(import.meta.dir, '..');
-export const FIXTURE = resolve(pkg, '../miner-core/fixtures/epochs.testnet.json');
+export const FIXTURE = resolve(pkg, '../../packages/miner-core/fixtures/epochs.testnet.json');
 
 /** Public storage, slot by slot, that reproduces the captured testnet history on this deployment. */
 export async function mockStorage(d: Deployment): Promise<Record<string, Record<string, string>>> {

@@ -13,7 +13,7 @@ import { W_VK_BYTES } from '@yacana/work-circuit/generated/vk';
 import { acceleratorUrls, type PrestoEndpoint, type ProverKind } from '../src/presto.ts';
 import { PrestoWorkProver, type ProverTransition } from '../src/presto-prover.ts';
 
-const circuit = resolve(import.meta.dir, '../../work-circuit');
+const circuit = resolve(import.meta.dir, '../../../protocol/work-circuit');
 const artifact = (await Bun.file(resolve(circuit, 'artifacts/yacana_work.json')).json()) as WorkArtifact;
 // Prover.toml's inputs and the proof bb made of them, committed beside the VK.
 const FIXTURE: WorkInputs = {
@@ -141,7 +141,7 @@ beforeAll(async () => {
   guard.setAcceleratorEndpoints(acceleratorUrls(fake.endpoint), 60_000);
   // In its own process: by now `fetch` in this one may be the guard, or the miner's CRS interceptor
   // over it, and the download would be turned into a page request no one here can answer.
-  const script = resolve(pkg, '../web-kit/scripts/fetch-crs.ts');
+  const script = Bun.resolveSync('@yacana/web-kit/scripts/fetch-crs', pkg);
   const fetched = Bun.spawnSync(['bun', script, resolve(pkg, 'public')], {
     stdio: ['ignore', 'pipe', 'pipe'],
   });

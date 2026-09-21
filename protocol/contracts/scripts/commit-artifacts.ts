@@ -7,13 +7,13 @@ import { resolve } from 'node:path';
 const repo = resolve(import.meta.dir, '../../..');
 
 export const COMMITTED = {
-  miner: resolve(repo, 'packages/contracts/artifacts/yacana_miner-YacanaMiner.json'),
-  work: resolve(repo, 'packages/work-circuit/artifacts/yacana_work.json'),
+  miner: resolve(repo, 'protocol/contracts/artifacts/yacana_miner-YacanaMiner.json'),
+  work: resolve(repo, 'protocol/work-circuit/artifacts/yacana_work.json'),
 };
 
 const COMPILED = {
-  miner: resolve(repo, 'packages/contracts/target/yacana_miner-YacanaMiner.json'),
-  work: resolve(repo, 'packages/work-circuit/target/yacana_work.json'),
+  miner: resolve(repo, 'protocol/contracts/target/yacana_miner-YacanaMiner.json'),
+  work: resolve(repo, 'protocol/work-circuit/target/yacana_work.json'),
 };
 
 type Json = Record<string, unknown>;

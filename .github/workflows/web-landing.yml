@@ -16,17 +16,17 @@ jobs:
     with:
       filters: |
         relevant:
-          - 'packages/web-landing/**'
-          - '!packages/web-landing/**/*.md'
-          - 'packages/site/**'
+          - 'apps/web-landing/**'
+          - '!apps/web-landing/**/*.md'
+          - 'apps/site/**'
           - 'packages/ui/**'
           - 'packages/web-kit/**'
           - 'packages/bridge/**'
           - 'packages/miner-core/**'
-          - 'packages/portal/**'
-          - 'packages/web-miner/**'
-          - 'packages/work-circuit/**'
-          - 'packages/web-stats/**'
+          - 'protocol/portal/**'
+          - 'apps/web-miner/**'
+          - 'protocol/work-circuit/**'
+          - 'apps/web-stats/**'
           - 'biome.json'
           - 'bunfig.toml'
           - 'tsconfig.json'
@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-bun
       - run: bun run lint
-      - run: bun run --cwd packages/web-landing typecheck
-      - run: bun run --cwd packages/web-landing test:components
+      - run: bun run --cwd apps/web-landing typecheck
+      - run: bun run --cwd apps/web-landing test:components
       # The site config (launch mode, the example claim) and the metrics the copy deck computes from.
-      - run: bun test packages/site packages/miner-core/src/metrics.test.ts
+      - run: bun test apps/site packages/miner-core/src/metrics.test.ts

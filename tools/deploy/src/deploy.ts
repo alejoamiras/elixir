@@ -4,7 +4,7 @@
 // initializerless Schnorr account derived from YACANA_DEPLOYER_SECRET (never logged).
 //   AZTEC_NODE_URL=… YACANA_DEPLOYER_SECRET=0x… YACANA_PORTAL=0x… [YACANA_LAUNCH_AT=<unix seconds>] \
 //     [YACANA_CONTINUE_FROM=deployments/<source>.json] [YACANA_DEPLOY_SALT=0x…] [YACANA_DEPLOY_FORCE=1] \
-//     bun packages/deploy/src/deploy.ts
+//     bun tools/deploy/src/deploy.ts
 
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -146,7 +146,7 @@ export async function deployYacana(
       )
     ).address;
     const minerArtifact = loadContractArtifact(
-      await Bun.file(resolve(repo, 'packages/contracts/target/yacana_miner-YacanaMiner.json')).json(),
+      await Bun.file(resolve(repo, 'protocol/contracts/target/yacana_miner-YacanaMiner.json')).json(),
     );
     const portal = overrides.portal;
     if (!portal || portal.isZero()) throw new Error('a portal address is required (the miner refuses zero)');

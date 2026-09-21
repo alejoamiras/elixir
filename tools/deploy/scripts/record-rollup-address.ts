@@ -2,7 +2,7 @@
 // made from now on record it themselves. One read from the record's own node, refused if the
 // node's chain id or rollup version differ from the record's.
 //
-//   bun packages/deploy/scripts/record-rollup-address.ts [deployments/<profile>.json]
+//   bun tools/deploy/scripts/record-rollup-address.ts [deployments/<profile>.json]
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';

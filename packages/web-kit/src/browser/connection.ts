@@ -1,4 +1,4 @@
-// Where the page connects. The build carries the deployment (packages/site); the user may pick
+// Where the page connects. The build carries the deployment (apps/site); the user may pick
 // another node and another Ethereum RPC, persisted in localStorage and shared by the three apps;
 // e2e builds may pin everything by query. A node is only ever used after it passed the deployment
 // check; an RPC after it answered for the portal's chain.

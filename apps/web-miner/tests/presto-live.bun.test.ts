@@ -14,7 +14,7 @@ import { PrestoWorkProver, type ProverTransition } from '../src/presto-prover.ts
 const url = process.env.PRESTO_URL;
 
 describe.skipIf(!url)('PrestoWorkProver against a headless Presto', () => {
-  const circuit = resolve(import.meta.dir, '../../work-circuit');
+  const circuit = resolve(import.meta.dir, '../../../protocol/work-circuit');
   const FIXTURE: WorkInputs = {
     domain: new Fr(1n),
     seed: new Fr(2n),

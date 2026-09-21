@@ -15,7 +15,7 @@ const playwright = [
   'node_modules/@playwright/test/cli.js',
   'test',
   '-c',
-  'packages/web-stats/playwright.visual.config.ts',
+  'apps/web-stats/playwright.visual.config.ts',
   ...process.argv.slice(2),
 ];
 /**

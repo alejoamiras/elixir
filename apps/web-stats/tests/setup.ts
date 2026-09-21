@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
 
-// The build defines these from packages/site; the component tests run without that config.
+// The build defines these from apps/site; the component tests run without that config.
 const record = {
   chainId: '31337',
   rollupVersion: '1',
