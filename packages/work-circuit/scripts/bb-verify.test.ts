@@ -1,11 +1,21 @@
 // bb exits 1 both for a proof it refuses and for an input it cannot open. A classifier that read
 // the exit status alone would count a verifier that never ran as a refused mutation.
 import { describe, expect, test } from 'bun:test';
-import { chmodSync, mkdirSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { OperationalError, verify } from './bb-verify.ts';
-import { workCircuitRoot } from './toolchain.ts';
 
+// `toolchain.ts` throws on import without the pinned toolchain, and a lane that has none still
+// reaches this file: `bun test … scripts` matches every path that contains the word. Such a lane
+// skips; the toolchain lanes set YACANA_REQUIRE_TOOLCHAIN, and there an absent toolchain fails.
+const pin = readFileSync(resolve(import.meta.dir, '../../../.aztecrc'), 'utf8').trim();
+const absent =
+  !existsSync(join(homedir(), '.aztec', 'versions', pin)) && !process.env.YACANA_REQUIRE_TOOLCHAIN;
+const { OperationalError, verify } = absent
+  ? ({} as typeof import('./bb-verify.ts'))
+  : await import('./bb-verify.ts');
+
+const workCircuitRoot = resolve(import.meta.dir, '..');
 const fixtures = resolve(workCircuitRoot, 'fixtures', 'yacana_work');
 const scratch = resolve(workCircuitRoot, 'target', 'bb-verify-test');
 mkdirSync(scratch, { recursive: true });
@@ -15,7 +25,7 @@ const files = {
   vk: join(fixtures, 'vk'),
 };
 
-describe('verify', () => {
+describe.skipIf(absent)('verify', () => {
   test('the fixture verifies; a wrong public input is a well-formed refusal', async () => {
     expect(await verify(files)).toEqual({ verified: true });
     const pi = new Uint8Array(await Bun.file(files.publicInputs).arrayBuffer());
