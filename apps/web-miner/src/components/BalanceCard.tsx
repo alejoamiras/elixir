@@ -1,11 +1,20 @@
 import { PARAMS } from '@yacana/miner-core/generated/params';
-import { Button, ExternalLink, Kpi, Skeleton, Tile, TileHeader, useTweenedNumber } from '@yacana/ui';
+import { Button, ExternalLink, Kpi, Skeleton, Tile, TileHeader, Tip, useTweenedNumber } from '@yacana/ui';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { links } from '../explorer';
 import { amount, shortAddress } from '../lib/format';
 import { mintedFresh } from '../lib/reducer';
 import { navigate } from '../routes';
 import { balanceAtom, bootAtom, claimsAtom, minerAtom, nowAtom, signInAtom } from '../state';
+
+/** The header's word on both balance tiles, saying what it promises. */
+export function PrivateTip() {
+  return (
+    <Tip tip="Nothing about this balance is public: the chain holds encrypted notes that only this account can read.">
+      private
+    </Tip>
+  );
+}
 
 /** Under the number, reserved whether or not a mint is fresh: the tile never changes height for it. */
 function MintLine() {
@@ -29,7 +38,7 @@ export function BalanceCard({ className }: { className?: string }) {
   const shown = useTweenedNumber(balance === null ? 0 : Number(amount(balance, PARAMS.DECIMALS, 2)));
   return (
     <Tile className={className}>
-      <TileHeader aside="private">balance</TileHeader>
+      <TileHeader aside={<PrivateTip />}>balance</TileHeader>
       <div className="flex flex-col gap-3">
         {opening ? (
           // The account is coming up: the shape of the balance and its line, not a number.
