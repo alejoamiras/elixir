@@ -401,7 +401,7 @@ export class Session {
       abort.signal.throwIfAborted(); // a cancel that landed as the last step settled
       if (this.attempt?.id === id) this.attempt.adopted = true;
       reservation = await this.adopt(reservation, c.record);
-      this.controller = started.controller;
+      this.adoptController(started.controller);
       this.wallet = started.wallet;
       this.master = master;
       this.record = c.record;
@@ -434,6 +434,12 @@ export class Session {
    * The account is verified open: the slot takes it. A refusal (the slot changed under a stale
    * lease) ends the attempt like any other failure; the open wallet is discarded with it.
    */
+  /** A revoke while the account was opening found no controller to tell: the one adopted hears it now. */
+  private adoptController(c: MinerController): void {
+    this.controller = c;
+    if (c.currentPresto && !this.consented()) c.revoke();
+  }
+
   private async adopt(r: Reservation | undefined, record: MasterRecord): Promise<undefined> {
     if (!r) return;
     await commit(r);
@@ -922,11 +928,14 @@ export class Session {
    * The user's Look for Presto (the card's button, the fix-it row's Retry): consent for this page
    * at the record's current revision, then a fresh probe whose answer rebuilds the prover with or
    * without the endpoint. A revoke still committing is waited for, so the click cannot capture a
-   * revision it is about to lose.
+   * revision it is about to lose; "use the browser" meanwhile moves the generation and the click is
+   * dropped.
    */
   async lookForPresto(): Promise<void> {
     if (!this.pre?.presto) return;
+    const before = this.store.get(prestoAtom).gen;
     await this.consent.settled();
+    if (this.store.get(prestoAtom).gen !== before) return;
     const rev = this.consent.read().rev;
     let gen = 0;
     this.store.set(prestoAtom, (s) => {
@@ -937,16 +946,17 @@ export class Session {
   }
 
   /**
-   * One probe, published only on its own consent generation: a revoke meanwhile bumps `gen` and
-   * the answer lands nowhere. The prover is touched only while the controller that was mining when
-   * the probe left is still mining (a Stop withdraws the interest that asked).
+   * One probe, published only on its own consent generation and while consent still stands: a
+   * revoke here bumps `gen`, one from another tab that found nothing native to tear down moves
+   * only the record, and either way the answer lands nowhere. The prover is touched only while the
+   * controller that was mining when the probe left is still mining (a Stop withdraws the interest).
    */
   private async probe(gen: number, stops: number | undefined, rebuild: boolean): Promise<void> {
     const pre = this.pre;
     const c = this.controller;
     if (!pre?.presto) return;
     const status = await probePresto(pre.presto, true).catch(() => null);
-    if (this.store.get(prestoAtom).gen !== gen) return;
+    if (this.store.get(prestoAtom).gen !== gen || !this.consented()) return;
     this.store.set(prestoAtom, (s) => ({ ...s, status, probedAt: Date.now(), looking: false }));
     if (!c || this.controller !== c || c.stopCount !== stops) return;
     const endpoint = prestoEligible(status) ? pre.presto : null;

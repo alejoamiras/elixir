@@ -137,9 +137,10 @@ export class PrestoWorkProver implements WorkProver {
   }
 
   /**
-   * A native winning proof checked against the job's own public inputs; the very proof `prove()`
-   * verified as this build's first needs no second check. False means the accelerator lied or
-   * broke: the caller flips to WASM and re-proves the nonce.
+   * A native winning proof checked against the job's own public inputs. The very object `prove()`
+   * verified as this build's first is trusted as is: that holds only because the bytes are never
+   * mutated and the mining loop hands it back with the inputs and output it was proved for. False
+   * means the accelerator lied or broke: the caller flips to WASM and re-proves the nonce.
    */
   verifyWin(inputs: WorkInputs, result: WorkResult): Promise<boolean> {
     return result.proof === this.verifiedProof ? Promise.resolve(true) : this.check(inputs, result);

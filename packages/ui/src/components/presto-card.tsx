@@ -80,7 +80,6 @@ function words(standing: PrestoStanding, site: string, needsLook: boolean): Word
   }
 }
 
-/** The row's actions: the look where it is the next step, and the way back to the browser. */
 function Actions({
   w,
   onLook,

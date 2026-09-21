@@ -3,8 +3,8 @@
 // tabs, and a permission the suite settles when it likes. Nothing reaches the fake without consent.
 import 'fake-indexeddb/auto';
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { installNodeGuard } from '@yacana/web-kit/browser/node-guard';
 import { createStore } from 'jotai';
-import { installNodeGuard } from '../../site/src/browser/node-guard.ts';
 import { type Lna, lnaAtom, type PrestoEndpoint, prestoAtom } from '../src/presto.ts';
 import { type ConsentDeps, type ConsentLock, createConsent } from '../src/presto-consent.ts';
 import { Session } from '../src/session.ts';
@@ -292,6 +292,48 @@ describe('Look and "use the browser"', () => {
     expect(b.c.log).toEqual(['revoke']);
     expect(b.c.current()).toBeNull();
     expect(b.store.get(prestoAtom).consentRev).toBeNull();
+  });
+
+  test('remembered, the probe out: a revoke from another tab before the answer, and the answer installs nothing', async () => {
+    const o = origin();
+    o.map.set('yacana.presto', JSON.stringify({ used: true, rev: 0 }));
+    const a = harness({ consent: o.tab() });
+    const b = harness({ consent: o.tab() });
+    await Promise.all([a.session.ready, b.session.ready]);
+    const held = fake.hold();
+    b.session.startMining();
+    await held.request;
+    // Nothing native stands in B yet (no status, no endpoint, no click): the record alone moves.
+    await a.session.chooseBrowser();
+    expect(b.session.consented()).toBe(false);
+    held.answer();
+    await settle();
+    expect(b.c.calls).toEqual([]);
+    expect(b.c.current()).toBeNull();
+    expect(b.store.get(prestoAtom).status).toBeNull();
+  });
+
+  test('a Look waiting on a promotion, the browser chosen meanwhile: the Look is dropped, nothing is asked', async () => {
+    const o = origin();
+    const grants: (() => void)[] = [];
+    const lock: ConsentLock = (_n, fn) =>
+      new Promise((resolve, reject) => grants.push(() => fn().then(resolve, reject)));
+    const { session, c, store, consent } = harness({ consent: o.tab(lock) });
+    await session.ready;
+    const promotion = consent.promote(0); // held: the first write in the queue
+    const look = session.lookForPresto(); // waits for it
+    const chosen = session.chooseBrowser(); // the revoke queues behind it
+    const before = fake.state.hits;
+    grants.shift()?.(); // the promotion lands; the Look resumes under a revoke still pending
+    await promotion;
+    await settle();
+    expect(fake.state.hits).toBe(before);
+    expect(store.get(prestoAtom)).toMatchObject({ consentRev: null, looking: false });
+    expect(session.consented()).toBe(false);
+    grants.shift()?.();
+    await Promise.all([look, chosen]);
+    expect(consent.read()).toEqual({ used: false, rev: 1 });
+    expect(c.calls).toEqual([]);
   });
 
   test('a held lock: the browser is chosen before the revoke commits; a Look meanwhile waits for it and consents at the new revision', async () => {

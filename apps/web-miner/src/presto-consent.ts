@@ -41,8 +41,8 @@ export interface Consent {
   /** `used: true`, only if the record's `rev` is still `atRev`: a revoke since then wins. */
   promote(atRev: number): Promise<void>;
   /**
-   * `used: false` and `rev + 1`. From the call until the write commits `read()` already says
-   * `used: false`, whatever storage holds: nothing may act on the old record meanwhile.
+   * `used: false` and `rev + 1`. From the call until the write commits `read()` already returns
+   * that record, whatever storage holds: neither memory nor a click at the old revision consents.
    */
   revoke(): Promise<void>;
   /** Resolves once every write issued so far has landed, in storage or in memory. */
@@ -132,8 +132,8 @@ export function createConsent(deps: ConsentDeps): Consent {
   return {
     read() {
       const r = stored();
-      if (revoking === 0 || !r.used) return r;
-      if (latched?.of !== r) latched = { of: r, record: { ...r, used: false } };
+      if (revoking === 0) return r;
+      if (latched?.of !== r) latched = { of: r, record: { used: false, rev: r.rev + 1 } };
       return latched.record;
     },
     promote: (atRev) => mutate((r) => (r.rev === atRev && !r.used ? { used: true, rev: r.rev } : null)),

@@ -150,7 +150,9 @@ describe('the record', () => {
     const c = createConsent({ ...o.tab(), lock: held.lock });
     expect(c.read().used).toBe(true);
     const revoke = c.revoke();
-    expect(c.read()).toEqual({ used: false, rev: 4 });
+    // Already the record the revoke will write: a Look made now captures the new revision, not the old.
+    expect(c.read()).toEqual({ used: false, rev: 5 });
+    expect(isConsented(c.read(), 4)).toBe(false);
     expect(c.read()).toBe(c.read());
     expect(stored(o.map).used).toBe(true); // storage has not moved yet
     let settled = false;
