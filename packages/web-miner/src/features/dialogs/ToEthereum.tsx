@@ -1,13 +1,14 @@
 // Bridge to Ethereum. A pasted recipient is shown in full, with its warning, because a wrong
 // address here cannot be undone; the connected wallet is the default. The dialog ends at the send:
 // the Wallet's row carries the crossing from there.
+
+import type { Crossing } from '@yacana/bridge/journal';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { ownVersionName } from '@yacana/site/browser/version-name';
+import { Alert, AlertDescription, AmountField, Stepper, Textarea } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
 import { type ComponentProps, useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
-import type { Crossing } from '../../../../bridge/src/journal.ts';
-import { PARAMS } from '../../../../miner-core/src/generated/params.ts';
-import { ownVersionName } from '../../../../site/src/browser/version-name.ts';
-import { Alert, AlertDescription, AmountField, Stepper, Textarea } from '../../../../ui/src/index.ts';
 import { type EthSnapshot, ethRefusal, reviewExit } from '../../bridge/forms';
 import { amount as fmt, shortAddress } from '../../lib/format';
 import type { Session } from '../../session';

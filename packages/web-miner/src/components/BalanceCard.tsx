@@ -1,14 +1,6 @@
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { Button, ExternalLink, Kpi, Skeleton, Tile, TileHeader, useTweenedNumber } from '@yacana/ui';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import {
-  Button,
-  ExternalLink,
-  Kpi,
-  Skeleton,
-  Tile,
-  TileHeader,
-  useTweenedNumber,
-} from '../../../ui/src/index.ts';
 import { links } from '../explorer';
 import { amount, shortAddress } from '../lib/format';
 import { navigate } from '../routes';

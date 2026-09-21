@@ -1,5 +1,5 @@
+import { Button } from '@yacana/ui';
 import { Fragment, useState } from 'react';
-import { Button } from '../../../ui/src/index.ts';
 import { copy } from '../copy';
 import { useMobile } from '../hooks';
 import { appHref, type LiveStatus } from '../state';

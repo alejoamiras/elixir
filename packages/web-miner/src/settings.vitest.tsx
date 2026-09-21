@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { ThemeProvider } from '@yacana/ui';
 import { createStore, Provider } from 'jotai';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { ThemeProvider } from '../../ui/src/index.ts';
 import type { Connection } from './config';
 import { initialPresto } from './presto';
 import { prestoWords, Settings } from './routes/Settings';

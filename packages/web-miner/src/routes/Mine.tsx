@@ -1,6 +1,6 @@
+import { TileBoundary } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
-import { TileBoundary } from '../../../ui/src/index.ts';
 import { isOldRole } from '../bridge/env';
 import { BalanceCard } from '../components/BalanceCard';
 import type { MinerController } from '../controller';

@@ -7,11 +7,11 @@ import { openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Fr } from '@aztec/aztec.js/fields';
 import { type Browser, chromium, type Route } from '@playwright/test';
+import { deployYacana, TEST_PORTAL } from '@yacana/deploy/deploy';
+import { deriveSlotTable, LAYOUTS_PATH, loadLayouts } from '@yacana/miner-core/slots';
+import { COMMITTED } from '@yacana/site/scripts/commit-artifacts';
 import { buildApp, claimPreviewPort, startPreview, waitUntilUp } from '../../../../scripts/run/preview.ts';
 import { release } from '../../../../scripts/run/registry.ts';
-import { deployYacana, TEST_PORTAL } from '../../../deploy/src/deploy.ts';
-import { deriveSlotTable, LAYOUTS_PATH, loadLayouts } from '../../../miner-core/src/slots.ts';
-import { COMMITTED } from '../../../site/scripts/commit-artifacts.ts';
 import { BOOT_MS } from '../helpers.ts';
 import {
   RECORDING_FILE,

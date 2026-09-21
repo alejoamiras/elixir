@@ -1,10 +1,10 @@
 // The bridge page as the screen shows it: the phases, a card per version with the turnstile's
 // sentences, the portal's keys, the no-bridge state; and the announcement line the shell carries.
 import { cleanup, render, screen } from '@testing-library/react';
+import type { VersionFlows } from '@yacana/bridge/portal-reader';
+import { PARAMS } from '@yacana/miner-core/generated/params';
 import { createStore, Provider } from 'jotai';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import type { VersionFlows } from '../../../bridge/src/portal-reader.ts';
-import { PARAMS } from '../../../miner-core/src/generated/params.ts';
 import type { BridgeSnapshot } from '../bridge-beat';
 import { routeFromPath } from '../routes';
 import { Bridge } from '../routes/Bridge';

@@ -1,6 +1,6 @@
-import type { DeploymentRecord } from '../../../site/src/config.ts';
-import { Button, Chip, ChipLink, shortHash } from '../../../ui/src/index.ts';
-import { W_VK_HASH } from '../../../work-circuit/src/generated/vk.ts';
+import type { DeploymentRecord } from '@yacana/site/config';
+import { Button, Chip, ChipLink, shortHash } from '@yacana/ui';
+import { W_VK_HASH } from '@yacana/work-circuit/generated/vk';
 import { commitUrl, copy, REPO } from '../copy';
 import { links } from '../explorer';
 import { Section, SectionHeading, SectionLabel } from './Section';

@@ -18,11 +18,11 @@ import {
   readTotalSupply,
   type SlotLoader,
   type StorageLayout,
-} from '../../miner-core/src/reader.ts';
-import { type Connection, expectedDeployment } from '../../site/src/browser/connection.ts';
-import { nodeClient } from '../../site/src/browser/node.ts';
-import { setNodeEndpoint } from '../../site/src/browser/node-guard.ts';
-import { chunkLoader, fetchLayouts } from '../../site/src/browser/slots.ts';
+} from '@yacana/miner-core/reader';
+import { type Connection, expectedDeployment } from '@yacana/site/browser/connection';
+import { nodeClient } from '@yacana/site/browser/node';
+import { setNodeEndpoint } from '@yacana/site/browser/node-guard';
+import { chunkLoader, fetchLayouts } from '@yacana/site/browser/slots';
 
 /** Closed epochs shown before the open one. */
 export const HISTORY = 12;

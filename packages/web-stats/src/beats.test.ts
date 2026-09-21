@@ -1,5 +1,5 @@
+import type { EpochRow } from '@yacana/miner-core/reader';
 import { describe, expect, test } from 'vitest';
-import type { EpochRow } from '../../miner-core/src/reader.ts';
 import { type BeatReads, type BeatSinks, bootBeats, pollBeats, settled, windowBeat } from './beats';
 import type { Fixed, History } from './state';
 import { WINDOW } from './window';

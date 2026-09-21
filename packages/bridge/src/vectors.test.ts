@@ -6,7 +6,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeSecretHash } from '@aztec/stdlib/hash';
-import { masterFromPrf } from '@yacana/miner-core/src/keys/derive.ts';
+import { masterFromPrf } from '@yacana/miner-core/keys/derive';
 import { type Hex, hashTypedData, recoverTypedDataAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { claimContent, exitContent, MAX_AMOUNT, retireContent, sendAheadContent } from './content.ts';

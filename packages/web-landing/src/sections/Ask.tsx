@@ -1,4 +1,4 @@
-import { Button } from '../../../ui/src/index.ts';
+import { Button } from '@yacana/ui';
 import { copy } from '../copy';
 import { useMobile } from '../hooks';
 import { appHref } from '../state';

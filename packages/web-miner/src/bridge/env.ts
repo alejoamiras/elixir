@@ -1,8 +1,8 @@
 // The two bridge blocks the build carries, parsed once per read: nothing else in the page decides
 // whether the bridge exists. Kept free of the wallet stack so a tile can ask without loading it.
 
-import type { BridgeRecord, LifecycleRecord, MigrationRecord } from '../../../bridge/src/record.ts';
-import { ownVersionName } from '../../../site/src/browser/version-name.ts';
+import type { BridgeRecord, LifecycleRecord, MigrationRecord } from '@yacana/bridge/record';
+import { ownVersionName } from '@yacana/site/browser/version-name';
 
 /** The build's portal, or null before the L1 deploy: no bridge features then. */
 export const bridgeRecord = (): BridgeRecord | null =>

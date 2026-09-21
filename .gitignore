@@ -1,6 +1,5 @@
 node_modules/
 dist/
-packages/site/dist-old/
 target/
 .run-state/
 .localnet/
@@ -9,65 +8,9 @@ target/
 *.log
 *.tsbuildinfo
 .DS_Store
-packages/web-miner/public/artifacts/
-packages/web-miner/public/crs/
-packages/web-miner/public/slots/
-packages/web-miner/public/layouts.json
-packages/web-miner/test-results/
-packages/web-miner/e2e/.peak-rss.json
-packages/web-miner/e2e/.run.json
-packages/web-miner/e2e/.dist/
-packages/web-miner/e2e/.presto-home/
-packages/web-miner/e2e/.renders/
-packages/web-miner/e2e/.report.json
-packages/web-miner/e2e/.timings.json
-packages/web-miner/e2e/.breakdown.json
-packages/web-miner/e2e/.record.json
-packages/web-miner/e2e/.witnesses.jsonl
-packages/web-stats/e2e/.record.json
-packages/web-miner/e2e/.rig-dist-*/
-packages/web-miner/e2e/.rig-report.json
-packages/web-miner/e2e/replay/.run.json
-packages/web-miner/e2e/replay/.dist/
-packages/web-miner/e2e/replay/.vite.log
-packages/web-miner/playwright-report/
 deployments/.launch-*.json
 
-# Build-time slot table (bun packages/miner-core/scripts/gen-slots.ts)
-packages/miner-core/generated/
-
-# web-stats prebuild outputs (slot chunks and the storage layouts)
-packages/web-stats/public/slots/
-packages/web-stats/public/layouts.json
-packages/web-stats/test-results/
-packages/web-stats/e2e/.run.json
-packages/web-stats/e2e/.mock.json
-packages/web-stats/e2e/.dist/
-packages/web-stats/e2e/.vite.log
-packages/web-stats/e2e/.visual.json
-packages/web-stats/e2e/.visual-dist/
-packages/web-stats/e2e/.visual.log
-
-# web-landing prebuild outputs (CRS, artifacts, slot chunks, layouts) and E2E state
-packages/web-landing/public/artifacts/
-packages/web-landing/public/crs/
-packages/web-landing/public/slots/
-packages/web-landing/public/layouts.json
-packages/web-landing/test-results/
-packages/web-landing/e2e/.run.json
-packages/web-landing/e2e/.dist/
-packages/web-landing/e2e/.dist-claim/
-packages/web-landing/e2e/.example-claim.json
-packages/web-landing/e2e/.vite.log
-
-# site assembly outputs and E2E state
-packages/site/e2e/.run.json
-packages/site/e2e/.dist/
-packages/site/e2e/.dist-old/
-packages/site/e2e/.wrangler.log
 .wrangler/
-packages/site/test-results/
 
 # Playwright MCP page snapshots (written into the cwd by the browser tool)
 .playwright-mcp/
-packages/web-stats/e2e/.visual-record.json

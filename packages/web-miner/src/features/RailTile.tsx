@@ -1,7 +1,7 @@
+import { closePreview, difficulty, escapeHatchIn, proofsPerMinute } from '@yacana/miner-core/metrics';
+import { cn, EpochRail, ExternalLink, PowerSlider, Tile, TileHeader } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
-import { closePreview, difficulty, escapeHatchIn, proofsPerMinute } from '../../../miner-core/src/metrics.ts';
-import { cn, EpochRail, ExternalLink, PowerSlider, Tile, TileHeader } from '../../../ui/src/index.ts';
 import type { MinerController } from '../controller';
 import { duration } from '../lib/format';
 import { PRESTO_SITE, prestoAtom, prestoSticky } from '../presto';

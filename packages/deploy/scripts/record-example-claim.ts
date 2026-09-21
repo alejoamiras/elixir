@@ -11,8 +11,8 @@ import {
   expectedFromStrings,
   readOpenEpochNumber,
   TABLE_EPOCHS,
-} from '../../miner-core/src/reader.ts';
-import { loadLayouts } from '../../miner-core/src/slots.ts';
+} from '@yacana/miner-core/reader';
+import { loadLayouts } from '@yacana/miner-core/slots';
 import { effectView, exampleClaimFromEffect, sponsorFeeLeaf } from '../src/example-claim.ts';
 
 const repo = resolve(import.meta.dir, '../../..');

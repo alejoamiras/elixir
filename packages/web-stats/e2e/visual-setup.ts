@@ -12,11 +12,11 @@ import { resolve } from 'node:path';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { type Browser, chromium, type Page, type Route } from '@playwright/test';
+import type { BridgeRecord } from '@yacana/bridge/record';
+import { deployYacana, TEST_PORTAL } from '@yacana/deploy/deploy';
+import { slotTableToJson } from '@yacana/miner-core/reader';
+import { deriveSlotTable, LAYOUTS_PATH, loadLayouts } from '@yacana/miner-core/slots';
 import { release } from '../../../scripts/run/registry.ts';
-import type { BridgeRecord } from '../../bridge/src/record.ts';
-import { deployYacana, TEST_PORTAL } from '../../deploy/src/deploy.ts';
-import { slotTableToJson } from '../../miner-core/src/reader.ts';
-import { deriveSlotTable, LAYOUTS_PATH, loadLayouts } from '../../miner-core/src/slots.ts';
 import { MOCK_ETH_ORIGIN, MOCK_NODE_ORIGIN } from './helpers.ts';
 import { buildApp, claimPreviewPort, mockStorage, pkg, startPreview, waitUntilUp } from './serve.ts';
 
@@ -172,7 +172,7 @@ function recordOrigin(
  */
 async function record(nodeUrl: string, l1RpcUrl: string | undefined): Promise<void> {
   // Loaded here, not at the top: the bridge deploy names the pinned forge on import, which the replaying gate on CI does not have.
-  const { deployBridgeForRun, registerForRun } = await import('../../deploy/src/bridge/run.ts');
+  const { deployBridgeForRun, registerForRun } = await import('@yacana/deploy/bridge/run');
   const bridge = l1RpcUrl ? await deployBridgeForRun(nodeUrl, l1RpcUrl) : undefined;
   const deployed = await deployYacana(nodeUrl, Fr.random(), Fr.random(), {
     initialTarget: 1n << 127n,

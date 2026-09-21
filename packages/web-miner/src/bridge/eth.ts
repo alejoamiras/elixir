@@ -3,10 +3,11 @@
 // holder makes (deposit, forward, redeem, note a transition), and the portal's reads over
 // the RPC in use, which need no wallet at all. Gas comes from the injected wallet; the redeem key's
 // signatures are made in `flows.ts`, never by the wallet.
+
+import { type ForwardArgs, yacanaPortalAbi } from '@yacana/bridge/portal';
 import { type Chain, type ContractFunctionArgs, defineChain, type Hex, parseEventLogs } from 'viem';
 import { createConfig, http, injected } from 'wagmi';
 import { getAccount, switchChain, waitForTransactionReceipt, writeContract } from 'wagmi/actions';
-import { type ForwardArgs, yacanaPortalAbi } from '../../../bridge/src/portal.ts';
 
 export interface EthSettings {
   chainId: number;
@@ -185,4 +186,4 @@ export {
   type PortalReader,
   portalReader,
   type VersionStanding,
-} from '../../../bridge/src/portal-reader.ts';
+} from '@yacana/bridge/portal-reader';

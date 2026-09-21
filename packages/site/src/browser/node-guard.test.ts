@@ -254,7 +254,7 @@ describe('node guard', () => {
 
   test('through the CRS interceptor an unpinned host fails here, not on the network', async () => {
     calls.length = 0;
-    await import('../../../web-miner/src/pinned-crs.ts');
+    await import('@yacana/web-miner/pinned-crs');
     await expect(fetch('https://crs.other-cdn.example/g1.dat')).rejects.toThrow(/blocked endpoint/);
     expect(calls).toEqual([]);
   });

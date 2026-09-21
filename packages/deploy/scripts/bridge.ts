@@ -13,9 +13,9 @@
 //                    | forward <source-record> [target-record] [--from-archive] [--batch <n>]
 //                    | note-stop <version> [<unix seconds>] | retire-node <version>   (record writes: no key, no chain)
 import { Fr } from '@aztec/aztec.js/fields';
-import { errorName } from '@yacana/bridge/src/revert.ts';
+import { errorName } from '@yacana/bridge/revert';
+import { PROFILE } from '@yacana/miner-core/generated/params';
 import { getAddress } from 'viem';
-import { PROFILE } from '../../miner-core/src/generated/params.ts';
 import { parseCliArgs } from '../src/bridge/cli.ts';
 import { forwardAll } from '../src/bridge/forward.ts';
 import { openL2 } from '../src/bridge/l2.ts';

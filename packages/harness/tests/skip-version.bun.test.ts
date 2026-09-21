@@ -5,17 +5,17 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { relative } from 'node:path';
-import { policyFor } from '@yacana/bridge/src/policy.ts';
-import { forwardArgsFromArchive, readArchive } from '@yacana/bridge/src/witness.ts';
+import { policyFor } from '@yacana/bridge/policy';
+import { forwardArgsFromArchive, readArchive } from '@yacana/bridge/witness';
+import { archivePath, forwardAll } from '@yacana/deploy/bridge/forward';
+import { type Operator, writeOpts } from '@yacana/deploy/bridge/operator';
+import { registerVersion } from '@yacana/deploy/bridge/register';
+import { versionStatus } from '@yacana/deploy/bridge/status';
+import { noteAllTransitions } from '@yacana/deploy/bridge/transition';
+import { continuationOf } from '@yacana/deploy/deploy';
+import type { WorkProver } from '@yacana/miner-core/work';
 import { repoRoot } from '../../../scripts/run/toolchain.ts';
 import { type RigNode, startUpgradeRig, type UpgradeRig } from '../../../scripts/run/upgrade-rig.ts';
-import { archivePath, forwardAll } from '../../deploy/src/bridge/forward.ts';
-import { type Operator, writeOpts } from '../../deploy/src/bridge/operator.ts';
-import { registerVersion } from '../../deploy/src/bridge/register.ts';
-import { versionStatus } from '../../deploy/src/bridge/status.ts';
-import { noteAllTransitions } from '../../deploy/src/bridge/transition.ts';
-import { continuationOf } from '../../deploy/src/deploy.ts';
-import type { WorkProver } from '../../miner-core/src/work.ts';
 import { revertName } from '../src/revert.ts';
 import {
   balanceOf,

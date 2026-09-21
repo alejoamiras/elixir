@@ -1,5 +1,5 @@
+import { Icon } from '@yacana/ui';
 import { useState } from 'react';
-import { Icon } from '../../../../ui/src/index.ts';
 import type { AccountError } from '../../state';
 import { AccountNote, noteFor, PasskeyNote } from './Notes';
 import { Consent, Primary, Quiet, QuietRow, Screen } from './Screen';

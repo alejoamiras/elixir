@@ -1,6 +1,6 @@
 // One version's standing on the portal as the operator prints it: the shared reader's flows, plus
 // the version after next (the deadline's other arm) the page never needs.
-import { type PortalReader, portalReader, type VersionFlows } from '@yacana/bridge/src/portal-reader.ts';
+import { type PortalReader, portalReader, type VersionFlows } from '@yacana/bridge/portal-reader';
 import type { Hex } from 'viem';
 import type { Operator } from './operator.ts';
 

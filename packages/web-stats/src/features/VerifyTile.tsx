@@ -1,6 +1,6 @@
-import type { DeploymentRecord } from '../../../site/src/config.ts';
-import { Chip, ChipLink, shortHash, Tile, TileHeader } from '../../../ui/src/index.ts';
-import { W_VK_HASH } from '../../../work-circuit/src/generated/vk.ts';
+import type { DeploymentRecord } from '@yacana/site/config';
+import { Chip, ChipLink, shortHash, Tile, TileHeader } from '@yacana/ui';
+import { W_VK_HASH } from '@yacana/work-circuit/generated/vk';
 import { links } from '../explorer';
 import { reproduceCommand } from '../lib/reproduce.ts';
 import { navigate, pathFor } from '../routes';

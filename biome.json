@@ -13,9 +13,8 @@
       "!**/.run-state",
       "!**/fixtures",
       "!**/generated",
-      "!packages/portal/abi",
-      "!packages/contracts/artifacts",
-      "!packages/work-circuit/artifacts",
+      "!**/abi",
+      "!**/artifacts",
       "!implementations-plan",
       "!docs/pitch",
       "!docs/**/*.html"

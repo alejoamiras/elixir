@@ -1,14 +1,14 @@
-import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { difficulty, networkRate, rateSample } from '../../../miner-core/src/metrics.ts';
-import type { EpochRow } from '../../../miner-core/src/reader.ts';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { difficulty, networkRate, rateSample } from '@yacana/miner-core/metrics';
+import type { EpochRow } from '@yacana/miner-core/reader';
 import {
   defaultNodeUrl,
   loadConnection,
   NODE_SETTINGS_HREF,
   restoreDefaultNode,
-} from '../../../site/src/browser/connection.ts';
-import { amount, duration } from '../../../site/src/browser/format.ts';
-import { difficultyLabel, ExternalLink, Kpi, NodeWayOut, StatusPill, Tile } from '../../../ui/src/index.ts';
+} from '@yacana/site/browser/connection';
+import { amount, duration } from '@yacana/site/browser/format';
+import { difficultyLabel, ExternalLink, Kpi, NodeWayOut, StatusPill, Tile } from '@yacana/ui';
 import { copy } from '../copy';
 import { links } from '../explorer';
 import { useNow } from '../hooks';

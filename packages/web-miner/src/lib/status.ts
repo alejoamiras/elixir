@@ -1,4 +1,4 @@
-import type { Status } from '../../../ui/src/index.ts';
+import type { Status } from '@yacana/ui';
 import { type MinerState, mintedFresh } from './reducer';
 
 /** One pill for the whole page: a page-side pause reads as paused, a fresh mint as minted. */

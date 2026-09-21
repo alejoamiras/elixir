@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, test } from 'bun:test';
-import type { Crossing } from '../../bridge/src/journal.ts';
-import { crossingId } from '../../bridge/src/journal.ts';
+import type { Crossing } from '@yacana/bridge/journal';
+import { crossingId } from '@yacana/bridge/journal';
 import { BRIDGE_DB, openBridgeStore, scanNextIndex } from '../src/bridge/store.ts';
 
 const PORTAL = `0x${'be'.repeat(20)}` as const;

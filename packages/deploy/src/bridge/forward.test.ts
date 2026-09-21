@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { ArchivedExit, RecordedExit } from '@yacana/bridge/src/witness.ts';
+import type { ArchivedExit, RecordedExit } from '@yacana/bridge/witness';
 import type { Deployment } from '../deploy.ts';
 import { forwardAll, MAX_BATCH, sameExit } from './forward.ts';
 import type { Operator } from './operator.ts';

@@ -3,16 +3,10 @@
 // derives — under the source version's labels for the former, this version's for the latter —
 // against the portal's events. Nothing is claimed here: each is a card with a Claim on it.
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import { advance, type Crossing, crossingId, destinationOf, type Facts } from '@yacana/bridge/journal';
+import { deriveCrossingSecrets } from '@yacana/bridge/secrets';
+import { leafIdOf } from '@yacana/bridge/signatures';
 import type { Hex } from 'viem';
-import {
-  advance,
-  type Crossing,
-  crossingId,
-  destinationOf,
-  type Facts,
-} from '../../../bridge/src/journal.ts';
-import { deriveCrossingSecrets } from '../../../bridge/src/secrets.ts';
-import { leafIdOf } from '../../../bridge/src/signatures.ts';
 import type { PortalReader } from './eth.ts';
 import { SCAN_WINDOW } from './store.ts';
 

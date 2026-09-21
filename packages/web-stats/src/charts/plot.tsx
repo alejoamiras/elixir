@@ -1,6 +1,6 @@
 import * as Plot from '@observablehq/plot';
+import { cn, useReducedMotion } from '@yacana/ui';
 import { type ComponentProps, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { cn, useReducedMotion } from '../../../ui/src/index.ts';
 import type { ChartInput, Spec } from './specs';
 
 const FADE_MS = 240;

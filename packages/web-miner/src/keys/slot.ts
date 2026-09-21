@@ -4,7 +4,7 @@
 // with a compare-and-set on the slot's revision, so a decision taken on a stale view is refused
 // rather than applied. A build before the slot lists and writes records as it always did: a record
 // it adds is unlisted here, a record it deletes leaves a slot that resolves as empty.
-import { shortAddress } from '../../../site/src/browser/format.ts';
+import { shortAddress } from '@yacana/site/browser/format';
 import { DEVICE, type MasterRecord, RECORDS, request, transaction } from './store.ts';
 
 const SLOT_KEY = 'slot';

@@ -1,10 +1,11 @@
 // The deployment record in full, against what the node says: addresses, class ids, the work
 // circuit's verifier key hash, the source commit, the launch record and the reproduce commands.
+
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import type { DeploymentRecord } from '@yacana/site/config';
+import { ExternalLink, KvRow, Tile, TileBoundary, TileHeader } from '@yacana/ui';
+import { W_VK_HASH } from '@yacana/work-circuit/generated/vk';
 import { useAtomValue } from 'jotai';
-import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import type { DeploymentRecord } from '../../../site/src/config.ts';
-import { ExternalLink, KvRow, Tile, TileBoundary, TileHeader } from '../../../ui/src/index.ts';
-import { W_VK_HASH } from '../../../work-circuit/src/generated/vk.ts';
 import { bridgeRecord } from '../bridge';
 import { l1Links, links } from '../explorer';
 import { reproduceCommand } from '../lib/reproduce.ts';

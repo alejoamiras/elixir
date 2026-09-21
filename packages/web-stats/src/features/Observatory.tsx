@@ -1,15 +1,15 @@
-import { useState } from 'react';
-import { PARAMS } from '../../../miner-core/src/generated/params.ts';
+import { PARAMS } from '@yacana/miner-core/generated/params';
 import {
   claimsPerHour,
   difficulty,
   escapeHatchIn,
   networkRate,
   scheduledClaimsPerHour,
-} from '../../../miner-core/src/metrics.ts';
-import type { EpochRow } from '../../../miner-core/src/reader.ts';
-import { amount, clockMinutes } from '../../../site/src/browser/format.ts';
-import { Button, difficultyLabel, Kpi, Tile, TileBoundary } from '../../../ui/src/index.ts';
+} from '@yacana/miner-core/metrics';
+import type { EpochRow } from '@yacana/miner-core/reader';
+import { amount, clockMinutes } from '@yacana/site/browser/format';
+import { Button, difficultyLabel, Kpi, Tile, TileBoundary } from '@yacana/ui';
+import { useState } from 'react';
 import type { Fixed } from '../state';
 import { Calculator } from './Calculator';
 import { EpochRing } from './EpochRing';

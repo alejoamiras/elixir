@@ -1,9 +1,9 @@
-import { toCsv } from '../../../miner-core/src/csv.ts';
-import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { difficulty } from '../../../miner-core/src/metrics.ts';
-import { type EpochRow, rowsToJson } from '../../../miner-core/src/reader.ts';
-import { firstEpoch } from '../../../site/src/browser/connection.ts';
-import { Button, cn, Tile, TileHeader } from '../../../ui/src/index.ts';
+import { toCsv } from '@yacana/miner-core/csv';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { difficulty } from '@yacana/miner-core/metrics';
+import { type EpochRow, rowsToJson } from '@yacana/miner-core/reader';
+import { firstEpoch } from '@yacana/site/browser/connection';
+import { Button, cn, Tile, TileHeader } from '@yacana/ui';
 import { Sk } from './Sk';
 
 const FIRST = firstEpoch();

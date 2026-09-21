@@ -1,0 +1,7 @@
+/dist-old/
+# site assembly outputs and E2E state
+/e2e/.run.json
+/e2e/.dist/
+/e2e/.dist-old/
+/e2e/.wrangler.log
+/test-results/

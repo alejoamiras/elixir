@@ -1,4 +1,4 @@
-import { cn } from '../../../ui/src/index.ts';
+import { cn } from '@yacana/ui';
 
 const R = 5;
 const C = 2 * Math.PI * R;

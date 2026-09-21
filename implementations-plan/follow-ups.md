@@ -10,3 +10,5 @@ Open items no active plan owns. Delete entries as they resolve.
 - **`bridge-vectors.json` under `protocol/`** (from monorepo-layout): `portal`'s Foundry tests read it upward from `packages/bridge/fixtures`.
 - **The `miner-core` barrel** (`src/index.ts`) has no importer outside the package.
 - **`compile` scripts call `aztec` / `aztec-nargo` from `PATH`** (`contracts`, `work-circuit`), not the pinned path.
+- **`assemble.test.ts` writes into the real `packages/site/dist`** (from monorepo-layout): two cases assemble into `PRODUCTION_OUT`, so every `bun test` leaves a stub `stats/assets/index-abc.js` in a build that is there. Assemble into a scratch folder with the production contract asked for explicitly.
+- **The cockpit's memory bound on a many-core host** (from monorepo-layout): "three power changes … memory stays bounded" fails on a 192-thread machine at the baseline commit too (+900 MiB against 300). Decide whether the bound or the slider's ceiling is the thing to change.

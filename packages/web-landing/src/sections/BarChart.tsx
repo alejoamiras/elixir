@@ -1,7 +1,7 @@
-import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { difficulty } from '../../../miner-core/src/metrics.ts';
-import type { EpochRow } from '../../../miner-core/src/reader.ts';
-import { difficultyLabel } from '../../../ui/src/index.ts';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { difficulty } from '@yacana/miner-core/metrics';
+import type { EpochRow } from '@yacana/miner-core/reader';
+import { difficultyLabel } from '@yacana/ui';
 
 /** Epochs drawn: the open one and the five closed before it. */
 export const SHOWN = 6;

@@ -3,8 +3,8 @@
 // the prototype with fake dependencies — the constructor wants IndexedDB, a jotai store and Vite's
 // env, and none of that is what these cases are about.
 import { describe, expect, test } from 'bun:test';
-import type { Crossing } from '../../bridge/src/journal.ts';
-import { markDeployment } from '../../site/src/browser/node-health.ts';
+import type { Crossing } from '@yacana/bridge/journal';
+import { markDeployment } from '@yacana/site/browser/node-health';
 import type { FactReads } from '../src/bridge/facts.ts';
 import { BridgeSession } from '../src/bridge/session.ts';
 

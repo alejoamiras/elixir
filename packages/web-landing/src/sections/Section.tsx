@@ -1,5 +1,5 @@
+import { cn } from '@yacana/ui';
 import type { ComponentProps } from 'react';
-import { cn } from '../../../ui/src/index.ts';
 import type { SectionId } from '../copy';
 
 /** A frame owns its padding and grid; the wrapper adds the rule and the scroll offset for the bar. */

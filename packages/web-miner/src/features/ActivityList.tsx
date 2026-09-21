@@ -2,18 +2,12 @@
 // once and only once — an exit, a send-ahead and a deposit are the same kind of thing here — and a
 // finished row folds after its week rather than disappearing, because a record of where money went
 // is the only account the holder has.
+
+import type { Crossing } from '@yacana/bridge/journal';
+import { MAX_RECOVERY_BYTES } from '@yacana/bridge/recovery';
+import { ActivityRow, Button, ExternalLink, type RowAction, Tile, TileHeader } from '@yacana/ui';
 import { useAtom, useAtomValue } from 'jotai';
 import { useState } from 'react';
-import type { Crossing } from '../../../bridge/src/journal.ts';
-import { MAX_RECOVERY_BYTES } from '../../../bridge/src/recovery.ts';
-import {
-  ActivityRow,
-  Button,
-  ExternalLink,
-  type RowAction,
-  Tile,
-  TileHeader,
-} from '../../../ui/src/index.ts';
 import { bridgeRecord } from '../bridge/env';
 import { type ActivityRowView, type ActivityView, activity } from '../bridge/rows';
 import { l1Links, links } from '../explorer';

@@ -1,7 +1,7 @@
+import { keysAllowed } from '@yacana/site/browser/host';
+import { Dialog, DialogContent, DialogTitle } from '@yacana/ui';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useEffect, useState } from 'react';
-import { keysAllowed } from '../../../site/src/browser/host.ts';
-import { Dialog, DialogContent, DialogTitle } from '../../../ui/src/index.ts';
 import type { MasterRecord } from '../keys/store';
 import type { OpeningStep } from '../opening-steps';
 import { navigate } from '../routes';

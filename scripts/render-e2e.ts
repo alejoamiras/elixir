@@ -7,7 +7,7 @@
 import { mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium, type Page } from '@playwright/test';
-import { MOCK_NODE_ORIGIN, mockNode, pageUrl } from '../packages/web-stats/e2e/helpers.ts';
+import { MOCK_NODE_ORIGIN, mockNode, pageUrl } from '@yacana/web-stats/e2e/helpers';
 
 const repo = resolve(import.meta.dir, '..');
 const APPS = ['landing', 'stats', 'miner'] as const;

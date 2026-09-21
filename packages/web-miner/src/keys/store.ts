@@ -6,8 +6,8 @@
 // account 0 and fails closed unless it equals the stored address — under the build's account class,
 // or, for a record made under the class before it, under that one, once (see classes.ts).
 import { getSchnorrInitializerlessAccountContractAddress } from '@aztec/accounts/schnorr';
-import { deriveAccountFields } from '../../../miner-core/src/keys/derive.ts';
-import { masterFromMnemonic, phraseFromEntropy } from '../../../miner-core/src/keys/mnemonic.ts';
+import { deriveAccountFields } from '@yacana/miner-core/keys/derive';
+import { masterFromMnemonic, phraseFromEntropy } from '@yacana/miner-core/keys/mnemonic';
 import { type AccountClasses, buildClasses, fingerprintOf } from './classes.ts';
 
 export interface MasterRecord {

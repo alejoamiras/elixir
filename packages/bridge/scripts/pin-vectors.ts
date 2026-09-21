@@ -8,7 +8,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeSecretHash } from '@aztec/stdlib/hash';
-import { masterFromPrf } from '@yacana/miner-core/src/keys/derive.ts';
+import { masterFromPrf } from '@yacana/miner-core/keys/derive';
 import { hashTypedData } from 'viem';
 import { claimContent, exitContent, retireContent, sendAheadContent } from '../src/content.ts';
 import { inboxLeaf } from '../src/inbox.ts';

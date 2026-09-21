@@ -22,7 +22,7 @@ jobs:
           - 'scripts/params-codegen.ts'
           - '.aztecrc'
           - 'toolchain.lock.json'
-          - 'scripts/run/toolchain.test.ts'
+          - 'scripts/run/toolchain*.ts'
           - 'biome.json'
           - 'bunfig.toml'
           - 'tsconfig.json'

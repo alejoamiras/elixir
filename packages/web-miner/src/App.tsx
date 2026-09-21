@@ -1,11 +1,9 @@
-import { useAtomValue } from 'jotai';
-import { type ReactNode, useCallback, useEffect, useSyncExternalStore } from 'react';
-import { proofsPerMinute } from '../../miner-core/src/metrics.ts';
-import { defaultNodeUrl, restoreDefaultNode } from '../../site/src/browser/connection.ts';
-import { shortAddress } from '../../site/src/browser/format.ts';
-import { previewNotice } from '../../site/src/browser/host.ts';
-import { bannerState, nodeHealth, subscribeNodeHealth } from '../../site/src/browser/node-health.ts';
-import { ownVersionName } from '../../site/src/browser/version-name.ts';
+import { proofsPerMinute } from '@yacana/miner-core/metrics';
+import { defaultNodeUrl, restoreDefaultNode } from '@yacana/site/browser/connection';
+import { shortAddress } from '@yacana/site/browser/format';
+import { previewNotice } from '@yacana/site/browser/host';
+import { bannerState, nodeHealth, subscribeNodeHealth } from '@yacana/site/browser/node-health';
+import { ownVersionName } from '@yacana/site/browser/version-name';
 import {
   AccountChip,
   Alert,
@@ -19,7 +17,9 @@ import {
   StatusPill,
   statusLabel,
   Toaster,
-} from '../../ui/src/index.ts';
+} from '@yacana/ui';
+import { useAtomValue } from 'jotai';
+import { type ReactNode, useCallback, useEffect, useSyncExternalStore } from 'react';
 import { isOldRole, lifecycleRecord } from './bridge/env';
 import { DesktopOnly } from './components/DesktopOnly';
 import type { Connection } from './config';

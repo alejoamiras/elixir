@@ -1,6 +1,7 @@
 // The account dialog's frame: an eyebrow, a title, one body line, then what the screen holds.
+
+import { Button, cn } from '@yacana/ui';
 import type * as React from 'react';
-import { Button, cn } from '../../../../ui/src/index.ts';
 
 export function Screen({
   eyebrow,

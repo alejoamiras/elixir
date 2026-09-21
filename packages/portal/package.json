@@ -4,6 +4,10 @@
   "private": true,
   "description": "YACA on Ethereum and the portal that moves Yacana between rollup versions and to Ethereum (Foundry)",
   "type": "module",
+  "exports": {
+    "./abi/YACA": "./abi/YACA.ts",
+    "./abi/YacanaPortal": "./abi/YacanaPortal.ts"
+  },
   "scripts": {
     "build": "bun scripts/forge.ts build",
     "test": "bun scripts/forge.ts test"

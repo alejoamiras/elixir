@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 import { PRESTO_SCHEME_CHONK, PrestoClient } from '@alejoamiras/presto-core';
 import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { BbJsWorkProver, type WorkArtifact, type WorkInputs } from '../../miner-core/src/work.ts';
+import { BbJsWorkProver, type WorkArtifact, type WorkInputs } from '@yacana/miner-core/work';
 import { acceleratorUrls, type PrestoEndpoint, type ProverKind } from '../src/presto.ts';
 import { PrestoWorkProver, type ProverTransition } from '../src/presto-prover.ts';
 
@@ -37,7 +37,7 @@ describe.skipIf(!url)('PrestoWorkProver against a headless Presto', () => {
       httpsOnly: false,
     };
     // As the Worker does: this realm's guard, if armed by another suite, admits Presto's URLs.
-    (await import('../../site/src/browser/node-guard.ts')).setAcceleratorEndpoints(
+    (await import('@yacana/site/browser/node-guard')).setAcceleratorEndpoints(
       acceleratorUrls(endpoint),
       60_000,
     );

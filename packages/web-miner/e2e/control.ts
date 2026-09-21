@@ -5,10 +5,10 @@
 //   bun e2e/control.ts <port> <record-path> <node-url> <l1-rpc-url> <archive-path>
 //   YACANA_L1_PRIVATE_KEY names the operators key (a throwaway anvil account).
 import { createAztecNodeDebugClient } from '@aztec/stdlib/interfaces/client';
+import { forwardAll } from '@yacana/deploy/bridge/forward';
+import { openOperator } from '@yacana/deploy/bridge/operator';
 import type { Hex } from 'viem';
 import { serveControl } from '../../../scripts/run/control.ts';
-import { forwardAll } from '../../deploy/src/bridge/forward.ts';
-import { openOperator } from '../../deploy/src/bridge/operator.ts';
 
 const [port, record, nodeUrl, l1RpcUrl, archive] = process.argv.slice(2);
 const key = process.env.YACANA_L1_PRIVATE_KEY as Hex | undefined;

@@ -1,11 +1,12 @@
 // The upgrade card over the cockpit. Nothing on it says "safe": a send is held, comes back, or cannot leave.
+
+import { dayOf } from '@yacana/bridge/exit-deadline';
+import { type Crossing, inFlight, type RowState } from '@yacana/bridge/journal';
+import type { MigrationRecord } from '@yacana/bridge/record';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { ownVersionName } from '@yacana/site/browser/version-name';
+import { Button, HeroCard, StatusChip, type TrailItem } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
-import { dayOf } from '../../../bridge/src/exit-deadline.ts';
-import { type Crossing, inFlight, type RowState } from '../../../bridge/src/journal.ts';
-import type { MigrationRecord } from '../../../bridge/src/record.ts';
-import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { ownVersionName } from '../../../site/src/browser/version-name.ts';
-import { Button, HeroCard, StatusChip, type TrailItem } from '../../../ui/src/index.ts';
 import { proofChip } from '../bridge/copy';
 import { lifecycleRecord, migrationRecord, nextVersionName } from '../bridge/env';
 import { amount as fmt } from '../lib/format';

@@ -1,5 +1,5 @@
-import { ownVersionName } from '../../../site/src/browser/version-name.ts';
-import { Badge, Brand, Button } from '../../../ui/src/index.ts';
+import { ownVersionName } from '@yacana/site/browser/version-name';
+import { Badge, Brand, Button } from '@yacana/ui';
 import { copy } from '../copy';
 import { appHref } from '../state';
 

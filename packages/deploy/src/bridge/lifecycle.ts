@@ -4,7 +4,7 @@
 // continuation: the deploy builds that record from the source's epochs alone.
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { LifecycleRecord } from '@yacana/bridge/src/record.ts';
+import type { LifecycleRecord } from '@yacana/bridge/record';
 import type { Deployment } from '../deploy.ts';
 
 const repo = resolve(import.meta.dir, '../../../..');

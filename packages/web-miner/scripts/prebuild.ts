@@ -3,9 +3,9 @@
 // account is open, the way the stats page does). This package's own `build` writes its `dist` for
 // local previews and the E2E; nothing deploys it — the site assembles the miner under `/mine/`.
 import { resolve } from 'node:path';
-import { copyArtifacts } from '../../site/scripts/copy-artifacts.ts';
-import { copySlots } from '../../site/scripts/copy-slots.ts';
-import { fetchCrs } from '../../site/scripts/fetch-crs.ts';
+import { copyArtifacts } from '@yacana/site/scripts/copy-artifacts';
+import { copySlots } from '@yacana/site/scripts/copy-slots';
+import { fetchCrs } from '@yacana/site/scripts/fetch-crs';
 
 const publicDir = resolve(import.meta.dir, '../public');
 await fetchCrs(publicDir);

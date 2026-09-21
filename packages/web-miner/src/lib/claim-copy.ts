@@ -1,7 +1,7 @@
 // What a win line says after "a win": the claim's step while it runs, then one of the outcomes.
 
-import { clockMinutes } from '../../../site/src/browser/format.ts';
-import type { ClaimStep, WinNote } from '../../../ui/src/index.ts';
+import { clockMinutes } from '@yacana/site/browser/format';
+import type { ClaimStep, WinNote } from '@yacana/ui';
 import { PROVING, type ProverKind } from '../presto';
 import type { ClaimNote, ClaimProgress } from './reducer';
 

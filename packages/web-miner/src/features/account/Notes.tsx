@@ -1,6 +1,6 @@
 // The notes of the account dialog: the passkey warning, the old origin's, and one per way an
 // opening fails — a line on what happened, a line on what to do; the button stays.
-import { Note } from '../../../../ui/src/index.ts';
+import { Note } from '@yacana/ui';
 import type { AccountError } from '../../state';
 
 export const PasskeyNote = () => (

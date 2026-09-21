@@ -5,8 +5,8 @@
 process.env.VITE_ROLLUP_VERSION = '5';
 
 import { describe, expect, test } from 'bun:test';
-import type { Crossing } from '../../bridge/src/journal.ts';
-import type { VersionStanding } from '../../bridge/src/portal-reader.ts';
+import type { Crossing } from '@yacana/bridge/journal';
+import type { VersionStanding } from '@yacana/bridge/portal-reader';
 import { BridgeSession } from '../src/bridge/session.ts';
 import type { BridgeView } from '../src/state.ts';
 

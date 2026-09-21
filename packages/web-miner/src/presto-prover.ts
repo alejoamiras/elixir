@@ -10,9 +10,9 @@ import {
 import type { Barretenberg } from '@aztec/bb.js';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Noir } from '@aztec/noir-noir_js';
-import { PROOF_FIELDS } from '../../miner-core/src/proof.ts';
-import type { WorkArtifact, WorkInputs, WorkProver, WorkResult } from '../../miner-core/src/work.ts';
-import { W_VK_BYTES } from '../../work-circuit/src/generated/vk.ts';
+import { PROOF_FIELDS } from '@yacana/miner-core/proof';
+import type { WorkArtifact, WorkInputs, WorkProver, WorkResult } from '@yacana/miner-core/work';
+import { W_VK_BYTES } from '@yacana/work-circuit/generated/vk';
 import { type FallbackCause, type PrestoEndpoint, type ProverKind, prestoConfig } from './presto';
 
 const TARGET: VerifierTarget = 'noir-recursive-no-zk';

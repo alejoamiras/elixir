@@ -1,8 +1,8 @@
 // A crossing's row keeps who proved its transaction for as long as it proves or claims: the
 // session's map, so a list mounted later reads it, and a new attempt starts from the promise.
 import { describe, expect, test } from 'bun:test';
+import type { Crossing } from '@yacana/bridge/journal';
 import { createStore } from 'jotai';
-import type { Crossing } from '../../bridge/src/journal.ts';
 import { BridgeSession } from '../src/bridge/session.ts';
 import type { ProverKind } from '../src/presto.ts';
 import { claimingAtom, crossingProversAtom } from '../src/state.ts';

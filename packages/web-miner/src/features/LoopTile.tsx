@@ -1,8 +1,5 @@
-import { Provider, useAtomValue, useSetAtom, useStore } from 'jotai';
-import { useEffect, useState } from 'react';
-import { createRoot } from 'react-dom/client';
-import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { difficulty, nextWinSeconds, proofsPerMinute } from '../../../miner-core/src/metrics.ts';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { difficulty, nextWinSeconds, proofsPerMinute } from '@yacana/miner-core/metrics';
 import {
   Button,
   ClaimChip,
@@ -14,7 +11,10 @@ import {
   Tile,
   TileHeader,
   useTweenedNumber,
-} from '../../../ui/src/index.ts';
+} from '@yacana/ui';
+import { Provider, useAtomValue, useSetAtom, useStore } from 'jotai';
+import { useEffect, useState } from 'react';
+import { createRoot } from 'react-dom/client';
 import type { MinerController } from '../controller';
 import { chipStep } from '../lib/claim-copy';
 import { amount, compact, durationParts } from '../lib/format';

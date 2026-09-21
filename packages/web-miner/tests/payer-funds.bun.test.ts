@@ -2,10 +2,10 @@
 // time: what matters is that either reading failing leaves the verdict unknown rather than "no
 // ETH", which would refuse a claim the wallet could have paid for.
 import { describe, expect, test } from 'bun:test';
+import { yacanaPortalAbi } from '@yacana/bridge/portal';
 import { custom, type Hex } from 'viem';
 import { anvil } from 'viem/chains';
 import { createConfig } from 'wagmi';
-import { yacanaPortalAbi } from '../../bridge/src/portal.ts';
 import type { WagmiConfig } from '../src/bridge/eth.ts';
 import { type PortalCall, payerFunds } from '../src/bridge/eth-balance.ts';
 

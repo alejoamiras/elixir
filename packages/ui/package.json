@@ -4,6 +4,11 @@
   "private": true,
   "description": "Design system shared by the three surfaces: tokens, self-hosted fonts, primitives and the signature components",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./bridge-types": "./src/bridge-types.ts",
+    "./theme.css": "./src/theme.css"
+  },
   "main": "src/index.ts",
   "scripts": {
     "test:components": "vitest run",

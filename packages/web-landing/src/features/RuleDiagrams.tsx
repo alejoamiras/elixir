@@ -2,9 +2,9 @@
 // a version's life, who may do what, the forward rule, the three bridges. Numbers come from the
 // portal's policy and the build's version; the geometry is the drawing's, prose that wraps stays
 // HTML. Every colour is a token, so the pictures follow the theme.
-import { policyFor } from '../../../bridge/src/policy.ts';
-import { PARAMS } from '../../../miner-core/src/generated/params.ts';
-import { amount } from '../../../site/src/browser/format.ts';
+import { policyFor } from '@yacana/bridge/policy';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { amount } from '@yacana/site/browser/format';
 
 export type DiagramId =
   | 'exit-limit'

@@ -1,10 +1,11 @@
 // The window's 48 epochs, one block each, width = duration, colour = what happened next: the
 // retarget controller, visible. Under it the map of every epoch since launch with the window drawn
 // over it; ‹ › page, a click or a drag on the map moves the window, ← → step, the URL keeps both.
+
+import type { EpochRow } from '@yacana/miner-core/reader';
+import { firstEpoch } from '@yacana/site/browser/connection';
+import { Badge, Button, cn } from '@yacana/ui';
 import { useEffect } from 'react';
-import type { EpochRow } from '../../../miner-core/src/reader.ts';
-import { firstEpoch } from '../../../site/src/browser/connection.ts';
-import { Badge, Button, cn } from '../../../ui/src/index.ts';
 import type { FillState } from '../history-fill';
 import { type EpochWindow, newerFrom, newestFrom, olderFrom } from '../window';
 import { EpochMap } from './EpochMap';

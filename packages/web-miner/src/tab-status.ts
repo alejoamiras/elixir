@@ -1,6 +1,6 @@
 // The tab is a companion: title and favicon report while the page is hidden. Both are set from
 // the store, so a background tab keeps reporting although nothing draws.
-import { faviconDataUrl, type MarkState } from '../../ui/src/index.ts';
+import { faviconDataUrl, type MarkState } from '@yacana/ui';
 
 export interface TabStatus {
   mark: MarkState;

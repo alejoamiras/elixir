@@ -7,7 +7,7 @@ import {
   readSlot,
   readTotalSupply,
   TABLE_EPOCHS,
-} from '../../miner-core/src/reader.ts';
+} from '@yacana/miner-core/reader';
 import type { Reader } from './chain';
 import type { Fixed } from './state';
 

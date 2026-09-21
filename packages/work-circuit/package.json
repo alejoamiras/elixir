@@ -4,6 +4,9 @@
   "private": true,
   "description": "The Noir work circuit W (Poseidon2 chain), its VK, VK hash, proof-layout manifest and fixture proofs",
   "type": "module",
+  "exports": {
+    "./generated/vk": "./src/generated/vk.ts"
+  },
   "scripts": {
     "check:determinism": "bun scripts/determinism.ts",
     "check:mutation": "bun scripts/mutation.ts",

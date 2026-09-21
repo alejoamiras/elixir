@@ -1,6 +1,6 @@
+import { loadConnection } from '@yacana/site/browser/connection';
+import { Button, Note, Progress, Stepper } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
-import { loadConnection } from '../../../../site/src/browser/connection.ts';
-import { Button, Note, Progress, Stepper } from '../../../../ui/src/index.ts';
 import { isOldRole } from '../../bridge/env';
 import {
   barShown,

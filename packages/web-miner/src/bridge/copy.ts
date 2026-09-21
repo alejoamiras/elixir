@@ -3,12 +3,12 @@
 // "safe". An exit ends with its holder's claim on Ethereum (anyone may make it); a send-ahead is
 // forwarded by Yacana, its holder or an authorized relayer, or redeemed. The only promised time is
 // the proof's, because it is the only one a contract enforces.
-import { type DeadlineReading, dayOf, deadlinePhrase } from '../../../bridge/src/exit-deadline.ts';
-import type { Crossing, RowState } from '../../../bridge/src/journal.ts';
-import { policyFor } from '../../../bridge/src/policy.ts';
-import type { ProofReading } from '../../../bridge/src/proofs.ts';
-import { revertRow } from '../../../bridge/src/revert.ts';
-import type { ChipTone, RowAction, RowLine, TrailItem } from '../../../ui/src/index.ts';
+import { type DeadlineReading, dayOf, deadlinePhrase } from '@yacana/bridge/exit-deadline';
+import type { Crossing, RowState } from '@yacana/bridge/journal';
+import { policyFor } from '@yacana/bridge/policy';
+import type { ProofReading } from '@yacana/bridge/proofs';
+import { revertRow } from '@yacana/bridge/revert';
+import type { ChipTone, RowAction, RowLine, TrailItem } from '@yacana/ui';
 import { duration } from '../lib/format';
 import { PROVING, type ProverKind } from '../presto';
 

@@ -3,10 +3,10 @@
 // and a theme switch reach the marks without a redraw. Marks carry a `className` on their group
 // and an `ariaLabel` per datum: the tests count real marks through them.
 import * as Plot from '@observablehq/plot';
-import { difficulty } from '../../../miner-core/src/metrics.ts';
-import type { EpochRow } from '../../../miner-core/src/reader.ts';
-import type { EpochRules } from '../../../miner-core/src/retarget.ts';
-import { difficultyLabel } from '../../../ui/src/index.ts';
+import { difficulty } from '@yacana/miner-core/metrics';
+import type { EpochRow } from '@yacana/miner-core/reader';
+import type { EpochRules } from '@yacana/miner-core/retarget';
+import { difficultyLabel } from '@yacana/ui';
 
 export type ChartRules = EpochRules & { REWARD: bigint; DECIMALS: number; TOKEN_SYMBOL: string };
 

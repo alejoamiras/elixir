@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
+import { hostKind, keysAllowed, previewNotice, relyingParty } from '@yacana/site/browser/host';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { hostKind, keysAllowed, previewNotice, relyingParty } from '../../site/src/browser/host.ts';
 import { queryOverridesAllowed } from './config';
 import { isDesktop } from './desktop';
 import { minerTabs, oldTabs } from './lib/tabs';

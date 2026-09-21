@@ -1,5 +1,5 @@
+import { TABLE_EPOCHS } from '@yacana/miner-core/reader';
 import { describe, expect, test } from 'vitest';
-import { TABLE_EPOCHS } from '../../miner-core/src/reader.ts';
 import { assertOpenEpoch } from './read-fixed';
 
 describe('the open epoch a node reports', () => {

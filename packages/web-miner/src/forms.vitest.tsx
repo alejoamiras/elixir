@@ -3,10 +3,10 @@
 // the receipt. The address parser itself runs Grumpkin through bb.js, which jsdom cannot host, so
 // the refusal function is stubbed here and proven in the bun test.
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { PARAMS } from '@yacana/miner-core/generated/params';
 import { createStore, Provider } from 'jotai';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { SendDialog } from './features/dialogs/Send';
 import { initialPresto, prestoAtom } from './presto';
 import type { Session } from './session';

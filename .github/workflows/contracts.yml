@@ -37,7 +37,7 @@ jobs:
           - 'scripts/params-codegen.ts'
           - '.aztecrc'
           - 'toolchain.lock.json'
-          - 'scripts/run/toolchain.test.ts'
+          - 'scripts/run/toolchain*.ts'
           - 'package.json'
           - 'bun.lock'
           - '.github/workflows/contracts.yml'

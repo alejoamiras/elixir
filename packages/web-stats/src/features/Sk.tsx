@@ -1,6 +1,6 @@
+import { Skeleton } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
 import type { ComponentProps } from 'react';
-import { Skeleton } from '../../../ui/src/index.ts';
 import { slowAtom } from '../state';
 
 /**

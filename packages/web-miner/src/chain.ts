@@ -9,8 +9,8 @@ import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { Gas } from '@aztec/stdlib/gas';
 import { type TxEffect, TxStatus } from '@aztec/stdlib/tx';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
-import { buildClaim } from '../../miner-core/src/claim.ts';
-import { readOpenEpoch, readRules } from '../../miner-core/src/epoch.ts';
+import { buildClaim } from '@yacana/miner-core/claim';
+import { readOpenEpoch, readRules } from '@yacana/miner-core/epoch';
 import type { EpochInfo } from './lib/reducer';
 import type { ProverSaid, SentTx, Turn } from './wallet';
 

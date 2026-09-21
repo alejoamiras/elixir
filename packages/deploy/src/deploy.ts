@@ -20,14 +20,14 @@ import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { TokenContract } from '@aztec-foundation/aztec-standards/artifacts/src/artifacts/Token.js';
-import type { BridgeRecord, LifecycleRecord, MigrationRecord } from '@yacana/bridge/src/record.ts';
-import { PARAMS, PROFILE } from '../../miner-core/src/generated/params.ts';
+import type { BridgeRecord, LifecycleRecord, MigrationRecord } from '@yacana/bridge/record';
+import { PARAMS, PROFILE } from '@yacana/miner-core/generated/params';
 import { carriedBridge } from './bridge-block.ts';
 
 const repo = resolve(import.meta.dir, '../../..');
 
 /** What the L1 deploy script records: the Ethereum side of one profile's bridge. */
-export type { BridgeRecord, LifecycleRecord, MigrationRecord } from '@yacana/bridge/src/record.ts';
+export type { BridgeRecord, LifecycleRecord, MigrationRecord } from '@yacana/bridge/record';
 
 export interface Deployment {
   profile: string;
@@ -264,8 +264,8 @@ export async function continuationOf(
       'YACANA_CONTINUE_FIRST_EPOCH, YACANA_CONTINUE_SEED and YACANA_CONTINUE_TARGET go together',
     );
   // The source's open epoch and its seed, straight from its public storage through the read path.
-  const { readEpochs, readOpenEpochNumber } = await import('../../miner-core/src/reader.ts');
-  const { deriveSlotTable, loadLayouts } = await import('../../miner-core/src/slots.ts');
+  const { readEpochs, readOpenEpochNumber } = await import('@yacana/miner-core/reader');
+  const { deriveSlotTable, loadLayouts } = await import('@yacana/miner-core/slots');
   const node = createAztecNodeClient(source.nodeUrl);
   const miner = AztecAddress.fromStringUnsafe(source.miner);
   const layout = (await loadLayouts()).miner;

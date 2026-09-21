@@ -90,14 +90,17 @@ test('the versioned origin: the old role under the same headers, restore only, a
   request,
 }) => {
   const r = run();
-  const build = async (base: string) => (await request.get(`${base}/build.json`)).json();
+  // Browsers resolve `*.localhost` themselves; Node asks the system, which need not know the name.
+  // The old origin is its own server on its own port, so Node reaches it as `localhost`.
+  const fromNode = (base: string) => base.replace('//v5.localhost', '//localhost');
+  const build = async (base: string) => (await request.get(`${fromNode(base)}/build.json`)).json();
   const apex = await build(r.baseURL);
   const old = await build(r.oldBaseURL);
   expect(apex).toMatchObject({ mode: 'e2e', role: 'apex', miner: r.miner });
   expect(old).toMatchObject({ mode: 'e2e', role: 'old', miner: r.miner, rollupVersion: apex.rollupVersion });
   // One policy for both origins, byte for byte.
   const headersOf = async (base: string, path: string) => {
-    const res = await request.get(`${base}${path}`);
+    const res = await request.get(`${fromNode(base)}${path}`);
     expect(res.status(), `${base}${path}`).toBe(200);
     return Object.fromEntries(POLICY.map((h) => [h, res.headers()[h]]));
   };

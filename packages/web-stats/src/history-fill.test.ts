@@ -1,7 +1,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
+import { CHUNK, type EpochRow, type SlotTable } from '@yacana/miner-core/reader';
 import { describe, expect, test } from 'vitest';
-import { CHUNK, type EpochRow, type SlotTable } from '../../miner-core/src/reader.ts';
 import type { Reader } from './chain';
 import { createFill, type FillDeps, type FillState, readTo } from './history-fill';
 import { readWindowRows } from './read-window';

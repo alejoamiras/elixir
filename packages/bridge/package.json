@@ -4,6 +4,27 @@
   "private": true,
   "description": "The bridge protocol shared by the miner app, the operator script and stats: message contents, seed-derived secrets and redeem keys, the crossing journal",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./deadline": "./src/deadline.ts",
+    "./exit-deadline": "./src/exit-deadline.ts",
+    "./exits": "./src/exits.ts",
+    "./flip": "./src/flip.ts",
+    "./inbox": "./src/inbox.ts",
+    "./journal": "./src/journal.ts",
+    "./logs": "./src/logs.ts",
+    "./policy": "./src/policy.ts",
+    "./portal": "./src/portal.ts",
+    "./portal-reader": "./src/portal-reader.ts",
+    "./proofs": "./src/proofs.ts",
+    "./queue": "./src/queue.ts",
+    "./record": "./src/record.ts",
+    "./recovery": "./src/recovery.ts",
+    "./revert": "./src/revert.ts",
+    "./secrets": "./src/secrets.ts",
+    "./signatures": "./src/signatures.ts",
+    "./witness": "./src/witness.ts"
+  },
   "main": "src/index.ts",
   "scripts": {
     "test": "bun test"
@@ -15,6 +36,7 @@
     "@aztec/l1-artifacts": "5.2.0",
     "@aztec/stdlib": "5.2.0",
     "@yacana/miner-core": "workspace:*",
+    "@yacana/portal": "workspace:*",
     "viem": "npm:@aztec/viem@2.38.2"
   }
 }

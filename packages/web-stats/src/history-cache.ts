@@ -3,8 +3,8 @@
 // the node (a node's rows never outlive a switch), the text is contiguous ranges of
 // `[epoch, target hex, openedAt, claims]`, capped, and every row is validated on the way back in —
 // any row the contract could not have written drops the cache whole.
-import { PARAMS } from '../../miner-core/src/generated/params.ts';
-import type { EpochRow } from '../../miner-core/src/reader.ts';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import type { EpochRow } from '@yacana/miner-core/reader';
 
 export const CACHE_VERSION = 'v1';
 export const MAX_ROWS = 8192;

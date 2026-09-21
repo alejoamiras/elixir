@@ -1,6 +1,6 @@
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import type { EpochRow } from '@yacana/miner-core/reader';
 import { describe, expect, test } from 'vitest';
-import { PARAMS } from '../../miner-core/src/generated/params.ts';
-import type { EpochRow } from '../../miner-core/src/reader.ts';
 import {
   type Bounds,
   cacheKey,

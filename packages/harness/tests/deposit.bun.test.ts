@@ -5,18 +5,18 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { relative } from 'node:path';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { yacanaPortalAbi } from '@yacana/bridge/src/portal.ts';
+import { yacanaPortalAbi } from '@yacana/bridge/portal';
+import { forwardAll } from '@yacana/deploy/bridge/forward';
+import type { Operator } from '@yacana/deploy/bridge/operator';
+import { closeDeposits } from '@yacana/deploy/bridge/pause';
+import { registerVersion } from '@yacana/deploy/bridge/register';
+import { versionStatus } from '@yacana/deploy/bridge/status';
+import type { WorkProver } from '@yacana/miner-core/work';
 import { createWalletClient, getContract, http, parseEventLogs } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 import { repoRoot } from '../../../scripts/run/toolchain.ts';
 import { type RigNode, startUpgradeRig, type UpgradeRig } from '../../../scripts/run/upgrade-rig.ts';
-import { forwardAll } from '../../deploy/src/bridge/forward.ts';
-import type { Operator } from '../../deploy/src/bridge/operator.ts';
-import { closeDeposits } from '../../deploy/src/bridge/pause.ts';
-import { registerVersion } from '../../deploy/src/bridge/register.ts';
-import { versionStatus } from '../../deploy/src/bridge/status.ts';
-import type { WorkProver } from '../../miner-core/src/work.ts';
 import { errorName, revertName } from '../src/revert.ts';
 import {
   balanceOf,

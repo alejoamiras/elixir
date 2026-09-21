@@ -2,7 +2,7 @@
 // chain's first epoch is held. It is the page's optional work: it runs behind the poll and behind any window the
 // visitor asked for, and it stops for the visit the moment the node throttles or goes silent —
 // the fill must never be what raises the banner. The cache carries what was read to the next visit.
-import type { EpochRow } from '../../miner-core/src/reader.ts';
+import type { EpochRow } from '@yacana/miner-core/reader';
 import type { History } from './state';
 import { WINDOW } from './window';
 

@@ -1,7 +1,7 @@
 // The epoch map's geometry, in fractions of its width: every epoch the chain has has a cell at its
 // absolute index over `[first, open]` (`first` is 0, or where a continuation started), so a page of
 // history arriving adds bars and moves none.
-import type { EpochRow } from '../../miner-core/src/reader.ts';
+import type { EpochRow } from '@yacana/miner-core/reader';
 import { WINDOW } from './window';
 
 export const MAP_HEIGHT = 18;

@@ -3,8 +3,9 @@
 // first) is the backstop: this wrapper sits over it, so a CRS request that slips past here reaches
 // an endpoint that is neither the page nor the node and is rejected, never trusting transport
 // security. Import right after the guard in every context that creates a Barretenberg instance.
+
+import lock from '@yacana/site/crs.lock.json';
 import { delMany } from 'idb-keyval';
-import lock from '../../site/crs.lock.json';
 
 const HOSTS = new Set(lock.hosts);
 const files = lock.files as Record<string, { bytes: number; sha256: string }>;

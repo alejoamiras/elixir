@@ -1,7 +1,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
+import { CHUNK, type Node, type SlotTable, type StorageLayout } from '@yacana/miner-core/reader';
 import { describe, expect, test } from 'vitest';
-import { CHUNK, type Node, type SlotTable, type StorageLayout } from '../../miner-core/src/reader.ts';
 import { HISTORY, type Reader, readLive } from './live';
 
 // Slots need no hashing here: any distinct field per epoch will do for a fake node.

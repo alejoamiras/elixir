@@ -1,4 +1,4 @@
-import type { MigrationRecord } from '../../bridge/src/record.ts';
+import type { MigrationRecord } from '@yacana/bridge/record';
 import type { Launch, Live } from './live';
 
 export type LiveStatus =

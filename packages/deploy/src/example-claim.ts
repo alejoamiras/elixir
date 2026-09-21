@@ -9,8 +9,8 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { FEE_JUICE_ADDRESS, FEE_JUICE_BALANCES_SLOT, SPONSORED_FPC_SALT } from '@aztec/constants';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/stdlib/hash';
-import { ticketNullifier } from '../../miner-core/src/proof.ts';
-import { fixedSlot, type StorageLayout } from '../../miner-core/src/reader.ts';
+import { ticketNullifier } from '@yacana/miner-core/proof';
+import { fixedSlot, type StorageLayout } from '@yacana/miner-core/reader';
 
 export interface ExampleClaim {
   miner: string;

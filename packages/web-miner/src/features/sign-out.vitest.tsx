@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { HoldButton } from '@yacana/ui';
 import { createStore, Provider } from 'jotai';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { HoldButton } from '../../../ui/src/index.ts';
 import type { MinerController } from '../controller';
 import type { MasterRecord } from '../keys/store';
 import { initial, type MinerState } from '../lib/reducer';

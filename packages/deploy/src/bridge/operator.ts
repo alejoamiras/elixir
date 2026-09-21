@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { RegistryAbi } from '@aztec/l1-artifacts/RegistryAbi';
-import { yacaAbi, yacanaPortalAbi } from '@yacana/bridge/src/portal.ts';
+import { yacaAbi, yacanaPortalAbi } from '@yacana/bridge/portal';
 import {
   type Chain,
   createPublicClient,

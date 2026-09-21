@@ -2,10 +2,10 @@
 // winning attempt of a native proof is announced only after the proof verified against the job's
 // own public inputs, and a proof that fails that check never reaches the ledger.
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { score } from '../../miner-core/src/metrics.ts';
-import { mineEpoch, type Winner } from '../../miner-core/src/miner.ts';
-import { isWinner, secretCommitment } from '../../miner-core/src/proof.ts';
-import type { WorkInputs, WorkProver, WorkResult } from '../../miner-core/src/work.ts';
+import { score } from '@yacana/miner-core/metrics';
+import { mineEpoch, type Winner } from '@yacana/miner-core/miner';
+import { isWinner, secretCommitment } from '@yacana/miner-core/proof';
+import type { WorkInputs, WorkProver, WorkResult } from '@yacana/miner-core/work';
 import type { ProverKind } from './presto';
 import type { FromWorker, MineJob } from './worker-protocol';
 

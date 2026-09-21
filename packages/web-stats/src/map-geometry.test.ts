@@ -1,6 +1,6 @@
+import type { EpochRow } from '@yacana/miner-core/reader';
+import { linkRows } from '@yacana/miner-core/reader';
 import { describe, expect, test } from 'vitest';
-import type { EpochRow } from '../../miner-core/src/reader.ts';
-import { linkRows } from '../../miner-core/src/reader.ts';
 import { barHeight, barsFor, cellW, cellX, dayTicks, epochAtX, thinTicks, windowBox } from './map-geometry';
 
 const DAY = 86_400;

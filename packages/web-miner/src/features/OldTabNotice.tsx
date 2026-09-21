@@ -2,8 +2,9 @@
 // carries; when its miner or rollup differs from this tab's build, the tab must reload before it
 // sends anything — a same-rollup redeploy is not caught by the PXE's node fingerprint, and it is
 // never "flipped". Drawn as the one-line bar with its two actions.
+
+import { Button } from '@yacana/ui';
 import { useEffect, useState } from 'react';
-import { Button } from '../../../ui/src/index.ts';
 import { servedBuild, staleTab } from '../bridge/env';
 
 export { staleTab } from '../bridge/env';

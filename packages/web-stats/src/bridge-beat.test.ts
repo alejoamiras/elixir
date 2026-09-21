@@ -1,6 +1,6 @@
+import type { VersionFlows } from '@yacana/bridge/portal-reader';
+import { PARAMS } from '@yacana/miner-core/generated/params';
 import { describe, expect, test } from 'vitest';
-import type { VersionFlows } from '../../bridge/src/portal-reader.ts';
-import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import {
   chainNow,
   exitLimitLine,

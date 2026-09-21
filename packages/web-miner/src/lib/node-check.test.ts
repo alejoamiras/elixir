@@ -1,5 +1,5 @@
+import type { NodeHealth } from '@yacana/site/browser/node-health';
 import { describe, expect, test } from 'vitest';
-import type { NodeHealth } from '../../../site/src/browser/node-health.ts';
 import { type EditState, editReducer, probeFailure, rebuildFailure, rowWords } from './node-check.ts';
 
 const A = 'https://a.example/rpc';

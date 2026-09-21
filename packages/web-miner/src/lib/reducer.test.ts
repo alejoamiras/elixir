@@ -1,5 +1,5 @@
+import { proofsPerMinute } from '@yacana/miner-core/metrics';
 import { describe, expect, test } from 'vitest';
-import { proofsPerMinute } from '../../../miner-core/src/metrics.ts';
 import { type EpochInfo, initial, MINTED_FRESH_MS, mintedFresh, reduce, SAMPLE_SPAN_MS } from './reducer';
 
 const epoch = (n: bigint, seed = 7n, target = 1n << 122n): EpochInfo => ({

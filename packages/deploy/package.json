@@ -4,6 +4,20 @@
   "private": true,
   "description": "Sandbox and testnet deployment, calibration and epoch-stats scripts",
   "type": "module",
+  "exports": {
+    "./bridge/forward": "./src/bridge/forward.ts",
+    "./bridge/l2": "./src/bridge/l2.ts",
+    "./bridge/operator": "./src/bridge/operator.ts",
+    "./bridge/pause": "./src/bridge/pause.ts",
+    "./bridge/register": "./src/bridge/register.ts",
+    "./bridge/retire": "./src/bridge/retire.ts",
+    "./bridge/run": "./src/bridge/run.ts",
+    "./bridge/status": "./src/bridge/status.ts",
+    "./bridge/transition": "./src/bridge/transition.ts",
+    "./deploy": "./src/deploy.ts",
+    "./example-claim": "./src/example-claim.ts",
+    "./scripts/l1-deploy": "./scripts/l1-deploy.ts"
+  },
   "scripts": {
     "test": "bun test"
   },
@@ -22,6 +36,7 @@
     "@aztec/stdlib": "5.2.0",
     "@aztec/wallets": "5.2.0",
     "@yacana/bridge": "workspace:*",
+    "@yacana/miner-core": "workspace:*",
     "viem": "npm:@aztec/viem@2.38.2"
   }
 }

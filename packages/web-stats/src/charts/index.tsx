@@ -1,7 +1,7 @@
 // The four charts of the observatory, one per closing fact: difficulty (log) leads; emission
 // against the schedule, duration (amber where the escape hatch closed it) and the retarget ratio
 // are its small multiples.
-import type { EpochRow } from '../../../miner-core/src/reader.ts';
+import type { EpochRow } from '@yacana/miner-core/reader';
 import { Chart } from './plot';
 import {
   type ChartRules,

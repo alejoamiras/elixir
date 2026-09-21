@@ -1,9 +1,9 @@
 // The miner's state machine, kept pure so the epoch-switch, secret-rotation and claim-outcome
 // rules are unit tested without a Worker or a chain: the controller feeds it events, it says what
 // to do next.
-import { type ClaimFailure, revertCause } from '../../../miner-core/src/claim-failure.ts';
-import { difficulty } from '../../../miner-core/src/metrics.ts';
-import type { ProofLine, Sample } from '../../../ui/src/index.ts';
+import { type ClaimFailure, revertCause } from '@yacana/miner-core/claim-failure';
+import { difficulty } from '@yacana/miner-core/metrics';
+import type { ProofLine, Sample } from '@yacana/ui';
 
 export interface EpochInfo {
   epoch: bigint;

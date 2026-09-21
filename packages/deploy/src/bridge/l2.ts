@@ -13,7 +13,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { TokenContract } from '@aztec-foundation/aztec-standards/artifacts/src/artifacts/Token.js';
-import { MINER_ARTIFACT_PATH } from '../../../miner-core/src/artifacts.ts';
+import { MINER_ARTIFACT_PATH } from '@yacana/miner-core/artifacts';
 import type { Deployment } from '../deploy.ts';
 
 export interface L2Side {

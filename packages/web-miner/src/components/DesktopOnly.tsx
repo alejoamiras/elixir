@@ -1,5 +1,5 @@
+import { Button, Mark } from '@yacana/ui';
 import { useState } from 'react';
-import { Button, Mark } from '../../../ui/src/index.ts';
 
 /** The whole miner on a phone is this one screen; the stats work anywhere. */
 export function DesktopOnly() {

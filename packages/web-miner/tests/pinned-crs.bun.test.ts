@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { afterAll, describe, expect, test } from 'bun:test';
-import lock from '../../site/crs.lock.json';
+import lock from '@yacana/site/crs.lock.json';
 
 // The fetch behind `/crs/<name>`: every request is answered here, counted with its range header.
 // `g2` (128 bytes) streams a full body of the wrong bytes and then breaks; the others fail a moment

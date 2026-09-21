@@ -2,9 +2,10 @@
 // are, a card per registered version, the portal's state and the bridge on Ethereum. The portal's
 // side comes from one read over the Ethereum RPC; the miner's side (the supply, its counters, the
 // epochs) from the observatory's own beats.
+
+import type { BridgeRecord, MigrationRecord } from '@yacana/bridge/record';
+import { Alert, AlertDescription, AlertTitle, TileBoundary } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
-import type { BridgeRecord, MigrationRecord } from '../../../bridge/src/record.ts';
-import { Alert, AlertDescription, AlertTitle, TileBoundary } from '../../../ui/src/index.ts';
 import {
   BridgeCoins,
   BridgeKpis,

@@ -1,10 +1,11 @@
 // The Ethereum wallet inside a dialog: connecting, the connected wallet as a chip, the chain the
 // bridge needs as a visible step, and the YACA the wallet holds there.
+
+import { yacaAbi } from '@yacana/bridge/portal';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { Note } from '@yacana/ui';
 import type { Hex } from 'viem';
 import { useAccount, useConnect, useConnectors, useDisconnect, useReadContract, useSwitchChain } from 'wagmi';
-import { yacaAbi } from '../../../../bridge/src/portal.ts';
-import { PARAMS } from '../../../../miner-core/src/generated/params.ts';
-import { Note } from '../../../../ui/src/index.ts';
 import { chainName } from '../../bridge/copy';
 import { bridgeRecord } from '../../bridge/env';
 import type { PayerFunds } from '../../bridge/eth-balance';

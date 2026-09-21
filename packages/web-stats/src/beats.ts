@@ -2,7 +2,7 @@
 // (the page has numbers in a few hundred milliseconds), beat two the epoch window (the strip, the
 // charts and the table). Pure over injected reads and sinks, so the order and the failure rules are
 // tested without a node.
-import type { EpochRow } from '../../miner-core/src/reader.ts';
+import type { EpochRow } from '@yacana/miner-core/reader';
 import type { Fixed, History, Lottery } from './state';
 import { type EpochWindow, WINDOW } from './window';
 
