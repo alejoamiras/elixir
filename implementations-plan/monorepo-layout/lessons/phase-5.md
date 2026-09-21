@@ -108,3 +108,30 @@ was one line: a negative `--filter` on the root component run is refused, and th
 as the script Bun runs, not as any argument (`bun test apps/site/src/assemble.ts …` had counted). Replayed red and
 restored. FAST after these and arc 1's round 4 fixes: status 0, 544 pass · 42 skip · 0 fail, after one run that
 failed on a typing slip of mine in `pathCalls` (caught by the gate) and, again, one load-sensitive Presto test.
+
+## Delivery (2026-09-21)
+
+Every loop converged (arc 1 in round 5, arc 4 and the cross-arc pass in round 4), then `gh stack submit --auto`:
+stack #60, pull requests #54 to #59. `e2e.yml` and `harness.yml` dispatched on the arc 3 and arc 4 heads.
+
+### What CI found that no local gate could
+
+The first run of the six pull requests was red twice beyond the expected Workers Builds check on arcs 3 to 5.
+
+| lane | where | cause | fix |
+|---|---|---|---|
+| `miner-core` | all six | arc 0 added `work-circuit/scripts/bb-verify.test.ts`; the lane's `bun test … scripts` matches every path containing the word, the lane installs no Aztec toolchain, and the file's import of the pinned paths throws | the test skips when the pinned version directory is absent and `YACANA_REQUIRE_TOOLCHAIN` is unset, the convention `toolchain.test.ts` already follows; shown three ways: present 6 pass, absent 6 skip, absent and required exit 1 |
+| `contracts` | arcs 0 to 2 | `artifacts:commit && git diff --exit-code`: the committed `yacana_work.json` held `hash` `9160…`, CI compiles `1072…`, the value `main` holds | arc 0 restores `main`'s file (only `hash` differs) |
+
+**A correction to earlier entries.** Arc 0's commit `2a85076`, `phase-2.md:32,149` and `phase-3.md:48` explain the artifact's
+`hash` as following the Nargo workspace's members and then the folder. Both explanations were mine and both were
+wrong: `9160…` is a value only my local compile at arcs 0 to 2 produced; CI compiles `1072…` on the old layout
+too. Why the local compile differed there is **unverified** (a stale `target/` from the sweep crates is my best
+guess, untested). The lesson is about the gate, not the hash: a committed-artifact check that goes red locally
+must be settled against a clean CI compile before the artifact is "refreshed", because refreshing turns the
+check green locally and red everywhere else.
+
+Both fixes are one commit on arc 0 (`fix(work-circuit): the artifact hash CI compiles; …`), where the defects
+were born: a required lane red on five pull requests is not the silent gap D14 accepts on the top branch. The
+five branches above were rebased onto it without conflict (`gh stack rebase --upstack --no-trunk`); the top of
+the stack differs from the pre-rebase top by that test file alone, and all 55 commits are signed.
