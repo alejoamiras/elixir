@@ -117,3 +117,9 @@ caller's own strings.**
 | 5 | material: under `BB_VERBOSE=1` bb echoes every argument before it reads one. A directory as public inputs fails first (`Failed to read from /: Is a directory`), so a VK path holding `\nProof verification failed\n` lands as a whole line with no `Unable to open file` beside it: a well-formed refusal from a verifier that never ran | **adopted**: a path holding CR or LF is operational before bb is spawned. With whole-line verdicts and paths the only caller text on stderr (codex checked the assertion's `Left`/`Right` are numeric), that closes the class. The reviewer's exact case is in the path test; `.rejects` assertions are now awaited |
 
 After the fix: the verify tests 6/6, plain and under `BB_VERBOSE=1`; FAST 509 pass · 42 skip · 0 fail.
+
+**Round 3** (same session, resumed): **converged**. *"Approve — no new material findings. Confidence: high for
+the pinned bb and reviewed call paths."* Codex probed relative paths named exactly like the refusal line, tabs,
+Unicode line separators, fake `(mem: …)` suffixes, CR/LF, `--help`/`--version` as paths, plain and verbose: every
+operational case threw. It upheld leaving verbosity alone and not listing `Failed to read`: no inspected bb path
+prints an input path alone on a line.
