@@ -147,3 +147,19 @@ success: on `1489c6c` (arc 3) and `7735211` (arc 4), whose trees differ from the
 
 Final state: #54, #55, #56 all green; #57, #58, #59 green but for `Workers Builds: yacana`, red until the
 merge-day cutover (§7 C1), reported and not fixed.
+
+## Merge day (2026-09-21, the owner present)
+
+| step | result |
+|---|---|
+| #54 squash-merged | `main` `ac10385`, verified by GitHub; production build green on the old trigger settings |
+| C1, the Workers Builds cutover | the apex Worker's two triggers, three fields each: root directory `packages/site` → `/`, build `… bun run build` → `… bun run site:build`, deploy `npx wrangler deploy` / `versions upload` → `bun run site:wrangler deploy` / `versions upload`; every call HTTP 200 and `success`, the triggers re-read after. `yacana-v5` has no triggers; no Worker named `www` exists on the account. Neither touched |
+| proof | non-production build green on the moved layout (the empty commit on arc 5, the case that was red); production build green on `6b4019f` (#55) and on `09f13e6` (#56 to #58 merged together, the first deploy from `apps/site`) |
+| after | the token file and the three throwaway clients deleted; a rollback record of the old values stays in the owner's private directory. D13's sentence in `docs/deployments.md` removed |
+
+What did not go to plan: the token arrived in the chat, not in the file, so it is in the session's transcript and
+its revocation is not optional. Its first validity window started two days in the future: every endpoint answered
+401 while `/user/tokens/verify` said `active`, so **verify does not prove a token is usable; read `not_before`**.
+The token could not list accounts (rightly); the account id came from the Workers Builds check's public link.
+`gh stack submit --auto` opens drafts, which `gh stack merge` refuses: each was marked ready first. After each
+squash merge `gh stack sync` rebased what was left; the top's tree stayed identical to the pre-merge top throughout.
