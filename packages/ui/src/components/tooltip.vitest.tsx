@@ -20,3 +20,23 @@ test('the word is dotted and focusable; focus opens the tip, blur closes it; no 
   await act(async () => word.blur());
   expect(screen.queryByRole('tooltip')).toBeNull();
 });
+
+test('in a second document the tip is portalled to the given container, never to the opener', async () => {
+  const frame = document.createElement('iframe');
+  document.body.append(frame);
+  const other = frame.contentDocument as Document;
+  const host = other.body.appendChild(other.createElement('div'));
+  render(
+    <Tip tip="The score a proof must reach to win." container={other.body}>
+      bar
+    </Tip>,
+    { container: host },
+  );
+  const word = other.querySelector('[data-slot=tip-trigger]') as HTMLElement;
+  await act(async () => word.focus());
+  expect(other.querySelector('[role=tooltip]')?.textContent).toBe('The score a proof must reach to win.');
+  expect(document.querySelector('[role=tooltip]')).toBeNull();
+  await act(async () => word.blur());
+  expect(other.querySelector('[role=tooltip]')).toBeNull();
+  frame.remove();
+});

@@ -47,6 +47,32 @@ describe('the cockpit grid', () => {
     expect(tiles[3]?.textContent).toContain('proofs, newest first');
   });
 
+  test('signed in with no upgrade announced, the upgrade card draws nothing and reserves no row', () => {
+    const store = createStore();
+    store.set(bootAtom, {
+      phase: 'ready',
+      account: '0xacc',
+      threads: 1,
+      record: {
+        v: 1,
+        id: 'k',
+        method: 'words',
+        createdAt: 0,
+        askEveryOpen: false,
+        backedUp: true,
+        account: { address: '0xacc', index: 0 },
+      },
+    });
+    const { container } = render(
+      <Provider store={store}>
+        <Mine controller={() => undefined} session={{} as never} />
+      </Provider>,
+    );
+    const cockpit = container.querySelector('[data-testid=cockpit]') as HTMLElement;
+    expect(cockpit.children).toHaveLength(4);
+    expect(cockpit.className).toContain('xl:grid-rows-[auto_auto_1fr]');
+  });
+
   test('a notice above the cockpit adds a row before the one that takes the slack', () => {
     const store = createStore();
     store.set(minerAtom, { ...initial, notice: { kind: 'offline', title: 'node away', body: '…' } });

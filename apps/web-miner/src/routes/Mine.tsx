@@ -8,14 +8,14 @@ import { BridgeProviders } from '../features/BridgeProviders';
 import { SendAheadDialog } from '../features/dialogs/SendAhead';
 import { LedgerTile } from '../features/LedgerTile';
 import { KpiTiles, LoopTile } from '../features/LoopTile';
-import { MigrationCard } from '../features/MigrationCard';
+import { MigrationCard, useMigrationShown } from '../features/MigrationCard';
 import { NoticeCard } from '../features/NoticeCard';
 import { OldApp } from '../features/OldApp';
 import { RailTile } from '../features/RailTile';
 import { usePresto } from '../features/use-presto';
 import { useTileLog } from '../lib/tile-log';
 import type { Session } from '../session';
-import { balanceAtom, bootAtom, minerAtom } from '../state';
+import { balanceAtom, bootAtom, bridgeSessionAtom, minerAtom } from '../state';
 
 /** The guided path over the cockpit: the upgrade card with the send-ahead dialog; what arrives shows in the Wallet. */
 function GuidedPath({ session }: { session: Session }) {
@@ -71,9 +71,12 @@ export function Mine({
   const ready = useAtomValue(bootAtom).phase === 'ready';
   const notice = useAtomValue(minerAtom).notice;
   const presto = usePresto(session);
+  // The upgrade card mounts under the bridge's providers and draws nothing while the upgrade is quiet.
+  const upgradeShown = useMigrationShown();
+  const bridgeOpen = useAtomValue(bridgeSessionAtom) !== null;
   // The versioned origin is one page: nothing is mined there, so no cockpit.
   if (isOldRole()) return <OldApp session={session} />;
-  const above = (notice ? 1 : 0) + (session && ready ? 1 : 0);
+  const above = (notice ? 1 : 0) + (upgradeShown && bridgeOpen && session && ready ? 1 : 0);
   return (
     <div
       className={cn(

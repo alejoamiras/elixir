@@ -3,23 +3,28 @@ import type * as React from 'react';
 import { cn } from '../lib/cn.ts';
 
 /**
- * A dotted word that explains itself on hover or focus. Each `Tip` carries its own provider, so it
- * works in a second React root (the pop-out) and in a spec without setup; nested providers are fine.
- * Invisible on touch: what a touch user needs goes in a popover, not here.
+ * A dotted word that explains itself on hover or focus. A second React root has no provider, so each
+ * `Tip` carries its own; a second document (the pop-out) needs `container` too, since the portal
+ * defaults to the opener's body. The content is never interactive, which keeps closing on the
+ * trigger's own events rather than on listeners of the wrong document. Invisible on touch: what a
+ * touch user needs goes in a popover, not here.
  */
 export function Tip({
   tip,
   side = 'top',
+  container,
   className,
   children,
   ...props
 }: Omit<React.ComponentProps<'button'>, 'children'> & {
   tip: React.ReactNode;
   side?: 'top' | 'bottom' | 'left' | 'right';
+  /** Where the tip is portalled: the body of the document the trigger lives in, when that is not the page's. */
+  container?: HTMLElement | null;
   children: React.ReactNode;
 }) {
   return (
-    <TooltipPrimitive.Provider delayDuration={250}>
+    <TooltipPrimitive.Provider delayDuration={250} disableHoverableContent>
       <TooltipPrimitive.Root>
         <TooltipPrimitive.Trigger
           type="button"
@@ -32,7 +37,7 @@ export function Tip({
         >
           {children}
         </TooltipPrimitive.Trigger>
-        <TooltipPrimitive.Portal>
+        <TooltipPrimitive.Portal container={container}>
           <TooltipPrimitive.Content
             side={side}
             sideOffset={6}

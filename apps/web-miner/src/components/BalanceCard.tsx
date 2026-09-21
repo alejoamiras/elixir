@@ -26,7 +26,7 @@ function MintLine() {
   );
 }
 
-/** The amount, "private", Send and Wallet →; signed out, the way in. The account and its wins are the Wallet's to show. */
+/** The amount, "private", Send and Wallet →; signed out, the way in. */
 export function BalanceCard({ className }: { className?: string }) {
   const boot = useAtomValue(bootAtom);
   const balance = useAtomValue(balanceAtom);

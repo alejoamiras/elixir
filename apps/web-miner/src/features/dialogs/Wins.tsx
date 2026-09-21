@@ -1,7 +1,9 @@
 // Every win this device recorded, newest first: the one place an old win's block stays findable once
 // the session's ledger is gone.
+import { PARAMS } from '@yacana/miner-core/generated/params';
 import { ExternalLink } from '@yacana/ui';
 import { links } from '../../explorer';
+import { amount } from '../../lib/format';
 import type { ClaimRecord } from '../../state';
 import { Foot, TxDialog } from './Frame';
 
@@ -40,7 +42,7 @@ export function WinsDialog({
       onOpenChange={onOpenChange}
       eyebrow="mine · this device"
       title={`${wins.length} ${wins.length === 1 ? 'win' : 'wins'}`}
-      body="Newest first. Each one minted 4 tYACA to this account, privately."
+      body={`Newest first. Each one minted ${amount(PARAMS.REWARD, PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL} to this account, privately.`}
       data-testid="wins-dialog"
     >
       <WinsList wins={wins} className="m-0 max-h-[320px] list-none overflow-y-auto p-0 font-mono text-xs" />

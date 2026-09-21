@@ -83,7 +83,6 @@ function PowerRow({ controller }: { controller: () => MinerController | undefine
   );
 }
 
-/** The epoch tile's words, each with what a first visitor asked about it. */
 export const epochTips = (rules: Rules) => {
   const n = rules.N;
   const minutes = Math.round(Number(rules.T_MAX) / 60);

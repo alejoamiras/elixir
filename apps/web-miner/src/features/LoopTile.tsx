@@ -81,7 +81,10 @@ export function PipView({ controller, onStart, win }: Controls & { win: Window }
         {epoch && (
           <span>
             epoch {epoch.epoch.toString()} · <span className="text-ink">{epoch.claims}</span> of {PARAMS.N} ·{' '}
-            <Tip tip="The score a proof must reach to win.">bar</Tip> {bar === null ? '—' : bar.toFixed(1)}
+            <Tip tip="The score a proof must reach to win." container={win.document.body}>
+              bar
+            </Tip>{' '}
+            {bar === null ? '—' : bar.toFixed(1)}
           </span>
         )}
         <span className="text-ok">
@@ -183,7 +186,6 @@ function StartControl({
   );
 }
 
-/** The three sentences a first visitor needs about the chart, behind a ?; the odds are today's bar. */
 function LoopHelp({ bar }: { bar: number | null }) {
   const odds = bar === null ? null : Math.round(bar);
   return (
