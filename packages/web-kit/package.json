@@ -33,12 +33,17 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@aztec/aztec.js": "5.2.0",
+    "@aztec/foundation": "5.2.0",
     "@yacana/bridge": "workspace:*",
     "@yacana/miner-core": "workspace:*",
     "@yacana/ui": "workspace:*",
-    "idb-keyval": "^6"
+    "idb-keyval": "^6",
+    "viem": "npm:@aztec/viem@2.38.2"
   },
   "devDependencies": {
+    "@aztec-foundation/aztec-standards": "5.2.0",
+    "@aztec/bb.js": "5.2.0",
     "@tailwindcss/vite": "^4",
     "@vitejs/plugin-react": "^6",
     "@yacana/contracts": "workspace:*",

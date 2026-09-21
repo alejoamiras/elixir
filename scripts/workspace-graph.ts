@@ -13,10 +13,20 @@ export interface Workspace {
   manifest: Manifest;
 }
 
+/** An `exports` entry: a path, or conditions and fallbacks that lead to paths. */
+export type ExportTarget = string | ExportTarget[] | { [condition: string]: ExportTarget };
+
+/** Every path an entry can resolve to, whatever the condition. */
+export function exportPaths(target: ExportTarget | undefined): string[] {
+  if (target === undefined) return [];
+  if (typeof target === 'string') return [target];
+  return (Array.isArray(target) ? target : Object.values(target)).flatMap(exportPaths);
+}
+
 export interface Manifest {
   name: string;
   main?: string;
-  exports?: Record<string, string>;
+  exports?: Record<string, ExportTarget>;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   workspaces?: string[];

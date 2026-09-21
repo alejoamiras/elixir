@@ -159,3 +159,38 @@ on the same host. So "192 threads" was at best part of the story: the failure is
 (load was 63 falling from 157 during this run; arc 1's ran at 80). The reading of arc 1 stands — the failure
 predates this work and CI is where the bound holds — and the follow-up entry gains a fact: it is a flake here, not
 a constant. **Lesson: one green run does not retire an intermittent failure; the baseline comparison did the work.**
+
+## Arc 2 codex fix loop
+
+### Round 1 (2026-09-21) — "Changes requested: two material findings"
+
+Codex (GPT-6 Astra, `high`, read-only) reviewed arc 2's diff against arc 1's head with the two guards' rules and
+plan §3.2 in the prompt. Both findings hold; both fixed.
+
+1. **Rule 3 accepted conditional exports into forbidden directories.** The guard read an `exports` target as a
+   string and turned any object into `''`, so `"./scripts/copy-slots": {"import": "./scripts/copy-slots.ts"}`
+   imported from `web-landing/src/App.tsx` passed where the string form is refused. Fix: `ExportTarget` (a path,
+   an array of fallbacks, or a map of conditions) and `exportPaths()` in `workspace-graph.ts`, every path an entry
+   can resolve to; rule 3 flags an import if any of them is not production code. Replayed codex's exact input:
+   the guard fails with `App.tsx:1 imports @yacana/web-kit/scripts/copy-slots, which is @yacana/web-kit's
+   ./scripts/copy-slots.ts: not production code`; restored, 21 pass.
+2. **`web-kit`'s manifest relied on hoisting.** `browser/node.ts` and `eth-rpc.ts` import `@aztec/aztec.js`,
+   `@aztec/foundation` and `viem` undeclared; `copy-artifacts.ts` resolved `@aztec-foundation/aztec-standards` from
+   the repo root and `vite-base.ts` read `@aztec/bb.js`'s manifest from the root `node_modules`; `contracts`
+   resolved the standards artifact through `../../deploy`, against plan §3.2. Fix: the three production imports
+   under `dependencies`, standards and bb.js under `devDependencies` (web-kit), standards under `devDependencies`
+   (contracts); both scripts resolve from `import.meta.dir`. bb.js exports no `./package.json`, so
+   `bbVersion()` resolves the package's entry and reads the first manifest above it — the earlier
+   `require.resolve('@aztec/bb.js/package.json')` attempt failed the proverless-marker bundle test with
+   `ERR_PACKAGE_PATH_NOT_EXPORTED`. Lock diff: the five declarations, nothing else; `bun install --frozen-lockfile`
+   passes.
+
+Also swept: an unused `resolve` import left in `tools/localnet/src/presto.ts` by P2.2 (Biome warning).
+
+| step | result |
+|---|---|
+| both guards | 21 pass |
+| regression replay (object-form export, then restored) | exit 1 with the rule-3 message · exit 0 |
+| `token-artifact.ts` · `copy-artifacts.ts` from their own dirs | both find the artifact, `target/` unchanged |
+| FAST (lint, six typechecks, `bun test`, components) | all ok; `bun test` 107 s |
+| `lint:actions` · web-kit typecheck | exit 0 · exit 0 |

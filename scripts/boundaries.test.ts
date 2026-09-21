@@ -5,6 +5,7 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  exportPaths,
   isProduction,
   isRelative,
   ownerOf,
@@ -113,9 +114,9 @@ function misdirected(p: Found): string | undefined {
   if (own === 0) return undefined;
   if (target === 0) return `${p.file}:${p.line} imports ${to.name}, a tool, from production code`;
   if (target > own) return `${p.file}:${p.line} imports ${to.name} (layer ${target}) from layer ${own}`;
-  const file = to.manifest.exports?.[rest.length ? `./${rest.join('/')}` : '.'];
-  const path = typeof file === 'string' ? file : '';
-  if (NOT_FOR_PRODUCTION.test(path) && !IMPORTS_SCRIPTS.has(p.file))
+  const paths = exportPaths(to.manifest.exports?.[rest.length ? `./${rest.join('/')}` : '.']);
+  const path = paths.find((f) => NOT_FOR_PRODUCTION.test(f));
+  if (path && !IMPORTS_SCRIPTS.has(p.file))
     return `${p.file}:${p.line} imports ${p.text}, which is ${to.name}'s ${path}: not production code`;
   return undefined;
 }

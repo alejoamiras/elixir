@@ -6,7 +6,7 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, openSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { type ClaimOptions, claim } from './registry.ts';
 import { repoRoot } from './toolchain.ts';

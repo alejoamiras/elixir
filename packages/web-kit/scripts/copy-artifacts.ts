@@ -5,14 +5,12 @@ import { cpSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { COMMITTED } from '@yacana/contracts/scripts/commit-artifacts';
 
-const repo = resolve(import.meta.dir, '../../..');
-
 const sources: Record<string, string> = {
   'yacana_miner-YacanaMiner.json': COMMITTED.miner,
   'yacana_work.json': COMMITTED.work,
   'token_contract-Token.json': Bun.resolveSync(
     '@aztec-foundation/aztec-standards/artifacts/target/token_contract-Token.json',
-    repo,
+    import.meta.dir,
   ),
 };
 

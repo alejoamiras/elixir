@@ -2,7 +2,8 @@
 // the dev/preview servers and in the build output, and the bb.js plumbing for the apps that prove.
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, resolve } from 'node:path';
+import { createRequire } from 'node:module';
+import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
@@ -64,12 +65,18 @@ export function siteConfig(command: 'build' | 'serve', env: NodeJS.ProcessEnv = 
     env,
     role: appRoleFrom(env.YACANA_APP_ROLE),
     sourceCommit: sourceCommit(env),
-    bbVersion: (
-      JSON.parse(readFileSync(resolve(repo, 'node_modules/@aztec/bb.js/package.json'), 'utf8')) as {
-        version: string;
-      }
-    ).version,
+    bbVersion: bbVersion(),
   });
+}
+
+/** bb.js exports no `./package.json`: the manifest is the first one above its resolved entry. */
+function bbVersion(): string {
+  let dir = dirname(createRequire(import.meta.url).resolve('@aztec/bb.js'));
+  while (!existsSync(resolve(dir, 'package.json'))) {
+    if (dirname(dir) === dir) throw new Error('@aztec/bb.js resolved outside a package');
+    dir = dirname(dir);
+  }
+  return (JSON.parse(readFileSync(resolve(dir, 'package.json'), 'utf8')) as { version: string }).version;
 }
 
 /** The mark as every app's icon; the miner swaps in its status light at runtime, the others keep this one. */
