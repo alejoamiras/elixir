@@ -1,0 +1,870 @@
+<title>Yacana Feedback Pass</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Page chrome follows the viewer's theme on Yacana's own two palettes; the boards are always the product's dark. */
+:root{--pg-ground:#f2efe9;--pg-raised:#eae6de;--pg-panel:#e2ddd3;--pg-ink:#0a0a0b;--pg-ink2:rgba(10,10,11,.7);--pg-ink3:rgba(10,10,11,.58);--pg-line:rgba(10,10,11,.13);--pg-line2:rgba(10,10,11,.24);--pg-uv:#5b3fe0;--pg-uvdim:rgba(91,63,224,.12);--pg-ok:#1f8a4c;--pg-warn:#8a5f00;--pg-bad:#c2382a;
+--sans:"Hanken Grotesk",ui-sans-serif,system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--pg-ground:#0a0a0b;--pg-raised:#111114;--pg-panel:#17171b;--pg-ink:#f2efe9;--pg-ink2:rgba(242,239,233,.68);--pg-ink3:rgba(242,239,233,.52);--pg-line:rgba(242,239,233,.11);--pg-line2:rgba(242,239,233,.2);--pg-uv:#b39dff;--pg-uvdim:rgba(140,107,255,.16);--pg-ok:#58c98b;--pg-warn:#e8b54d;--pg-bad:#e5624f}}
+:root[data-theme="dark"]{--pg-ground:#0a0a0b;--pg-raised:#111114;--pg-panel:#17171b;--pg-ink:#f2efe9;--pg-ink2:rgba(242,239,233,.68);--pg-ink3:rgba(242,239,233,.52);--pg-line:rgba(242,239,233,.11);--pg-line2:rgba(242,239,233,.2);--pg-uv:#b39dff;--pg-uvdim:rgba(140,107,255,.16);--pg-ok:#58c98b;--pg-warn:#e8b54d;--pg-bad:#e5624f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--pg-ground);color:var(--pg-ink);font:15px/1.55 var(--sans);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.pg{max-width:1200px;margin:0 auto;padding-inline:20px;padding-block:36px 120px;display:flex;flex-direction:column;gap:56px}
+.pg h1{margin:0;font-size:clamp(30px,5vw,44px);line-height:1.02;letter-spacing:-.03em;font-weight:600;text-wrap:balance}
+.pg h2{margin:0;font-size:24px;line-height:1.15;letter-spacing:-.02em;font-weight:600;text-wrap:balance}
+.pg h3{margin:0;font-size:17px;line-height:1.25;letter-spacing:-.01em;font-weight:600}
+.pg p{margin:0;max-width:72ch;color:var(--pg-ink2);text-wrap:pretty}
+.pg p b,.pg li b{color:var(--pg-ink);font-weight:600}
+.pg code{font:500 .88em var(--mono);color:var(--pg-ink)}
+.pg-eyebrow{font:500 11.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--pg-uv)}
+.pg-top{display:flex;flex-direction:column;gap:16px}
+.pg-top .lede{font-size:17px;line-height:1.5}
+.pg-tally{display:flex;flex-wrap:wrap;gap:8px 22px;font:500 12px var(--mono);color:var(--pg-ink3);letter-spacing:.04em}
+.pg-tally b{color:var(--pg-ink);font-weight:600}
+.pg-scroll{overflow-x:auto}
+.pg-map{border-collapse:collapse;width:100%;min-width:620px;font-size:13.5px}
+.pg-map th{font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--pg-ink3);text-align:left;padding:8px 14px 8px 0;border-bottom:1px solid var(--pg-line2)}
+.pg-map td{padding:8px 14px 8px 0;border-bottom:1px solid var(--pg-line);vertical-align:top;color:var(--pg-ink2)}
+.pg-map td:first-child{color:var(--pg-ink)}
+.pg-map a{font:600 12px var(--mono);color:var(--pg-uv);text-decoration:none;white-space:nowrap}
+.pg-map a:hover{text-decoration:underline}
+.pg-part{display:flex;flex-direction:column;gap:40px}
+.pg-parthead{display:flex;flex-direction:column;gap:8px;border-top:2px solid var(--pg-ink);padding-top:14px}
+.pg-dec,.pg-fix{display:flex;flex-direction:column;gap:14px;scroll-margin-top:16px}
+.pg-dh{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.pg-id{font:600 12px var(--mono);letter-spacing:.06em;color:var(--pg-uv);border:1px solid var(--pg-uv);border-radius:4px;padding:2px 7px;flex:none}
+.pg-q{margin:0;padding:0 0 0 14px;border-left:2px solid var(--pg-line2);color:var(--pg-ink3);font-size:14px;font-style:italic;max-width:78ch}
+.pg-opts{display:grid;gap:16px}
+.pg-opts.cols{grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));align-items:start}
+.pg-opts.cols2{grid-template-columns:repeat(auto-fit,minmax(min(100%,470px),1fr));align-items:start}
+.pg-opt{min-width:0;display:flex;flex-direction:column;gap:12px;border:1px solid var(--pg-line);border-radius:10px;padding:14px;background:var(--pg-raised)}
+.pg-opt.today{background:transparent;border-style:dashed;border-color:var(--pg-line2)}
+.pg-opt.on{border-color:var(--pg-uv);box-shadow:0 0 0 1px var(--pg-uv)}
+.pg-pick{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-weight:600;font-size:15px;cursor:pointer}
+.pg-pick input{accent-color:var(--pg-uv);width:16px;height:16px;margin:0}
+.pg-pick input:focus-visible{outline:2px solid var(--pg-uv);outline-offset:2px}
+.pg-rec{font:500 10.5px var(--mono);font-style:normal;letter-spacing:.1em;text-transform:uppercase;color:var(--pg-uv);background:var(--pg-uvdim);border-radius:4px;padding:3px 7px}
+.pg-done{font:600 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--pg-ok);border:1px solid var(--pg-ok);border-radius:4px;padding:2px 7px}
+.pg-open{font:600 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--pg-warn);border:1px solid var(--pg-warn);border-radius:4px;padding:2px 7px}
+.pg-tag{font:500 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--pg-ink3)}
+.pg-frame{overflow-x:auto;border-radius:10px;max-width:100%}
+.pg-cap{font:400 11.5px var(--mono);color:var(--pg-ink3);margin-top:-4px}
+.pg-pc{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:5px;font-size:13.5px;line-height:1.45;color:var(--pg-ink2)}
+.pg-pc li{position:relative;padding-left:22px}
+.pg-pc li::before{position:absolute;left:2px;top:1px;font:600 12px var(--mono)}
+.pg-pc .pro::before{content:"+";color:var(--pg-ok)}
+.pg-pc .con::before{content:"−";color:var(--pg-bad)}
+.pg-pc .how::before{content:"·";color:var(--pg-ink3)}
+.pg-ba{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:16px;align-items:start}
+.pg-ba figure{margin:0;min-width:0;display:flex;flex-direction:column;gap:8px}
+.pg-ba figcaption{font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--pg-ink3)}
+.pg-ba figcaption.after{color:var(--pg-ok)}
+.pg-bar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--pg-panel);border-top:1px solid var(--pg-line2);padding:10px 20px calc(10px + env(safe-area-inset-bottom,0px))}
+.pg-bar .in{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap}
+.pg-bar .n{font:500 12px var(--mono);color:var(--pg-ink3);white-space:nowrap}
+.pg-bar input[type=text]{flex:1;min-width:200px;height:34px;border-radius:6px;border:1px solid var(--pg-line2);background:var(--pg-ground);color:var(--pg-ink);font:500 12px var(--mono);padding:0 10px}
+.pg-bar label{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--pg-ink2);white-space:nowrap}
+.pg-bar label input{accent-color:var(--pg-uv)}
+.pg-btn{height:34px;padding:0 14px;border-radius:6px;border:1px solid var(--pg-line2);background:transparent;color:var(--pg-ink);font:600 13px var(--sans);cursor:pointer;white-space:nowrap}
+.pg-btn.solid{background:var(--pg-ink);color:var(--pg-ground);border-color:var(--pg-ink)}
+.pg-btn:focus-visible,.pg-bar input:focus-visible{outline:2px solid var(--pg-uv);outline-offset:2px}
+
+/* ── The boards: packages/ui's tokens and anatomy as plain CSS, always dark ── */
+.mock{--ground:#0a0a0b;--raised:#111114;--panel:#17171b;--panel-2:#1e1e24;--ink:#f2efe9;--ink-2:rgba(242,239,233,.64);--ink-3:rgba(242,239,233,.5);--ink-4:rgba(242,239,233,.22);--line:rgba(242,239,233,.10);--line-2:rgba(242,239,233,.18);--uv:#8c6bff;--uv-2:#b39dff;--uv-dim:rgba(140,107,255,.18);--uv-ink:#0a0a0b;--ok:#58c98b;--warn:#e8b54d;--bad:#e5624f;
+background:var(--ground);color:var(--ink);font:15px/1.55 var(--sans);padding:16px;border-radius:10px;border:1px solid rgba(242,239,233,.16);position:relative;color-scheme:dark}
+.mock.bare{padding:0;border:0;background:transparent}
+.mock p{margin:0;max-width:none;color:inherit}
+.mock a{color:var(--uv-2);text-decoration:none}
+.mock .ink2{color:var(--ink-2)}.mock .ink3{color:var(--ink-3)}.mock .ink4{color:var(--ink-4)}.mock .uv2{color:var(--uv-2)}.mock .okc{color:var(--ok)}.mock .warnc{color:var(--warn)}
+.mock .xs{font-size:12.5px;line-height:1.4}.mock .x2{font-size:11px;line-height:1.35}.mock .mono{font-family:var(--mono)}
+.mock .tile{min-width:0;border-radius:8px;border:1px solid var(--line);padding:16px 18px;background:var(--raised)}
+.mock .th{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 12px;font:500 11px/1.3 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.mock .th .aside{margin-left:auto;text-align:right;font-weight:400;letter-spacing:.04em;text-transform:none;display:inline-flex;align-items:center;gap:12px}
+.mock .th.mid{align-items:center;height:30px;margin-bottom:10px}
+.mock .lm{font:500 11px/1.3 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.mock .eyebrow{font:500 11.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--uv-2)}
+.mock .kv{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding:7px 0;font-size:13px}
+.mock .kv:first-child{border-top:0}
+.mock .kv>:first-child{color:var(--ink-2)}.mock .kv>:last-child{font-family:var(--mono);font-size:12.5px;text-align:right}
+.mock .tip{border-bottom:1px dotted var(--ink-4);cursor:help}
+.mock .kpi{display:flex;flex-direction:column;gap:4px;min-width:0}
+.mock .kpi .v{font-size:40px;line-height:1;font-weight:600;letter-spacing:-.03em;white-space:nowrap}
+.mock .kpi .v .u{margin-left:6px;font-size:.45em;font-weight:500;letter-spacing:0;color:var(--ink-3)}
+.mock .kpi .s{font-size:12.5px;line-height:1.4;color:var(--ink-3)}
+.mock .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:38px;padding:0 16px;border-radius:6px;border:1px solid var(--line-2);background:transparent;color:var(--ink);font:600 13px var(--sans);white-space:nowrap}
+.mock .btn.sm{height:30px;padding:0 12px;font-size:12.5px}
+.mock .btn.lg{height:44px;padding:0 20px;font-size:15px}
+.mock .btn.primary{border-color:var(--ink);background:var(--ink);color:var(--ground)}
+.mock .btn.uv{border-color:var(--uv);background:var(--uv);color:var(--uv-ink)}
+.mock .btn.ghost{border-color:transparent;color:var(--ink-2)}
+.mock .quiet{font-size:13px;color:var(--ink-2);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--ink-4)}
+.mock .st{display:inline-flex;align-items:center;gap:6px;border-radius:4px;border:1px solid var(--line-2);padding:4px 9px;font:500 11px/1.3 var(--mono);letter-spacing:.04em;color:var(--ink-2);white-space:nowrap}
+.mock .st i{width:5px;height:5px;background:var(--ink-3)}
+.mock .st.ok{color:var(--ok);border-color:rgba(88,201,139,.45)}.mock .st.ok i{background:var(--ok)}
+.mock .st.on{color:var(--uv-2);border-color:rgba(140,107,255,.6)}.mock .st.on i{background:var(--uv)}
+.mock .badge{display:inline-flex;align-items:center;border-radius:4px;border:1px solid var(--line);background:var(--panel);padding:3px 7px;font:400 11px/1.3 var(--mono);color:var(--ink-2);white-space:nowrap}
+.mock .alert{display:flex;align-items:center;justify-content:space-between;gap:16px;border:1px solid;border-radius:8px;padding:10px 14px;font-size:13px;line-height:1.4}
+.mock .alert.uv{color:var(--uv-2);border-color:rgba(140,107,255,.4);background:var(--uv-dim)}
+.mock .alert .btn{color:var(--ink)}
+.mock .rail{display:flex;gap:4px;margin:0 0 10px}
+.mock .rail i{flex:1;height:6px;border-radius:2px;background:var(--panel-2)}
+.mock .rail i.on{background:rgba(140,107,255,.55)}.mock .rail i.me{background:var(--uv-2)}
+.mock .slider{height:4px;border-radius:2px;background:var(--line-2);position:relative;margin:12px 0 10px}
+.mock .slider i{position:absolute;left:0;top:0;height:100%;background:var(--uv);border-radius:2px}
+.mock .slider b{position:absolute;top:-6px;width:16px;height:16px;border-radius:50%;background:var(--uv-2);border:2px solid var(--ground);margin-left:-8px}
+.mock .slider.off{opacity:.45}
+.mock .plabels{position:relative;height:18px;font:400 11px var(--mono);color:var(--ink-2)}
+.mock .plabels span{position:absolute;white-space:nowrap}
+.mock .presets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.mock .presets span{display:flex;justify-content:center;align-items:center;height:26px;border-radius:5px;border:1px solid var(--line);font:500 11px var(--mono);color:var(--ink-2)}
+.mock .presets span.on{border-color:rgba(140,107,255,.6);color:var(--uv-2);background:var(--uv-dim)}
+.mock .presto{display:flex;align-items:center;gap:12px;border:1px solid rgba(140,107,255,.4);border-radius:8px;padding:10px 12px;background:var(--uv-dim)}
+.mock .presto.dim{background:transparent;border-color:var(--line-2)}
+.mock .presto.dim .glyph{background:var(--panel-2);color:var(--uv-2)}
+.mock .presto .glyph{width:28px;height:28px;border-radius:7px;background:var(--uv);color:var(--uv-ink);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:none}
+.mock .presto b{font-size:13.5px;font-weight:600;display:block;line-height:1.3}
+.mock .presto span.l{font-size:12.5px;color:var(--ink-2);line-height:1.4;display:block}
+.mock .ask{border:1px solid var(--line-2);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:9px}
+.mock .seg{display:grid;grid-template-columns:1fr 1fr;border-radius:6px;border:1px solid var(--line-2);overflow:hidden;font-size:13px}
+.mock .seg span{padding:6px 10px;color:var(--ink-2);text-align:center}.mock .seg span.on{background:var(--ink);color:var(--ground);font-weight:600}
+.mock .dialog{width:440px;border:1px solid var(--line-2);border-radius:10px;background:var(--raised);padding:26px 26px 22px;display:flex;flex-direction:column;gap:16px;position:relative}
+.mock .dialog h4{margin:0;font-size:22px;line-height:1.2;letter-spacing:-.02em;font-weight:600}
+.mock .dialog .body{color:var(--ink-2);font-size:13px;line-height:1.5;text-wrap:pretty}
+.mock .dialog .x{position:absolute;right:16px;top:12px;color:var(--ink-3);font-size:16px}
+.mock .foot{border-top:1px solid var(--line);padding-top:12px;font-size:12.5px;line-height:1.5;color:var(--ink-3);text-wrap:pretty}
+.mock .foot b{color:var(--ink-2);font-weight:600}
+.mock .note{border:1px solid var(--line-2);border-radius:8px;padding:12px 14px;display:block;font-size:13px;line-height:1.5;color:var(--ink-2)}
+.mock .note b{display:block;margin-bottom:4px;color:var(--ink);font-weight:500;font-size:13.5px}
+.mock .note.warn{border-color:rgba(232,181,77,.5)}.mock .note.warn b{color:var(--warn)}
+/* stepper: today's geometry, reproduced */
+.mock .steps{display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
+.mock .steps.today li{position:relative;display:grid;grid-template-columns:18px 1fr auto;gap:0 12px;padding:8px 0;align-items:start;font-size:13px}
+.mock .steps.today li:not(:last-child)::after{content:"";position:absolute;top:27px;left:7.5px;height:22px;width:1.5px;background:rgba(242,239,233,.28)}
+.mock .ring{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--line-2);display:inline-flex;align-items:center;justify-content:center;margin-top:1px;flex:none}
+.mock .done>.ring,.mock .done .ring{border-color:var(--ok);background:var(--ok)}
+.mock .done .ring::after{content:"";width:8px;height:4px;border-left:1.8px solid var(--ground);border-bottom:1.8px solid var(--ground);transform:rotate(-45deg);margin-top:-2px}
+.mock .on .ring{border-color:var(--uv);box-shadow:0 0 0 3px var(--uv-dim)}
+.mock .on .ring::after{content:"";width:7px;height:7px;border-radius:50%;background:var(--uv)}
+.mock .steps .t{display:block;font-size:13px;color:var(--ink);font-weight:500;line-height:1.35}
+.mock .steps .done .t{color:var(--ink-2)}
+.mock .steps .todo .t{color:var(--ink-2);font-weight:400}
+.mock .steps .d{display:block;font-size:12.5px;color:var(--ink-3);line-height:1.45;margin-top:2px;text-wrap:pretty}
+.mock .steps .r{font:400 11.5px var(--mono);color:var(--ink-3);white-space:nowrap;margin-top:3px;text-align:right}
+.mock .steps .on .r{color:var(--uv-2)}.mock .steps .done .r{color:var(--ok)}
+/* stepper: the rail is a flex child, so it is as tall as its step */
+.mock .steps.rl li{display:grid;grid-template-columns:18px 1fr auto;gap:0 12px;font-size:13px}
+.mock .steps.rl .c{display:flex;flex-direction:column;align-items:center}
+.mock .steps.rl .c::after{content:"";flex:1;width:1.5px;min-height:12px;margin:4px 0;border-radius:1px;background:var(--line-2)}
+.mock .steps.rl li.done .c::after{background:rgba(88,201,139,.5)}
+.mock .steps.rl li:last-child .c::after{display:none}
+.mock .steps.rl .bd{padding-bottom:16px;min-width:0}
+.mock .steps.rl li:last-child .bd{padding-bottom:0}
+.mock .steps.rl .r{margin-top:2px}
+.mock .hsteps{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.mock .hsteps div{display:flex;flex-direction:column;gap:7px;font:500 11px var(--mono);color:var(--ink-3)}
+.mock .hsteps div::before{content:"";height:4px;border-radius:2px;background:var(--line-2)}
+.mock .hsteps .done{color:var(--ok)}.mock .hsteps .done::before{background:var(--ok)}
+.mock .hsteps .on{color:var(--uv-2)}.mock .hsteps .on::before{background:linear-gradient(90deg,var(--uv) 55%,var(--line-2) 55%)}
+.mock .card{border:1px solid var(--line-2);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+/* activity row */
+.mock .act{border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:grid;grid-template-columns:1fr auto;gap:8px 16px;align-items:start;background:var(--raised)}
+.mock .act.hi{border-color:var(--uv)}
+.mock .act.k{grid-template-columns:30px 1fr auto}
+.mock .act .a{font-size:15px;font-weight:600;letter-spacing:-.01em;line-height:1.2}
+.mock .act .a small{font:400 12px var(--mono);color:var(--ink-3);margin-left:4px;letter-spacing:0}
+.mock .act .l{font-size:13px;color:var(--ink-2);margin-top:2px;text-wrap:pretty}
+.mock .act .rt{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.mock .act .when{font:400 11px var(--mono);color:var(--ink-3);white-space:nowrap}
+.mock .act .full{grid-column:1/-1}
+.mock .act .more{grid-column:1/-1;border-top:1px solid var(--line);padding-top:10px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px;color:var(--ink-2)}
+.mock .trail{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font:400 11px var(--mono);color:var(--ink-3)}
+.mock .trail .arr{color:var(--ink-4)}
+.mock .dir{width:30px;height:30px;border-radius:7px;border:1px solid var(--line-2);display:inline-flex;align-items:center;justify-content:center;color:var(--ink-2)}
+.mock .dir.in{color:var(--ok);border-color:rgba(88,201,139,.4)}
+.mock .dir svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.mock .ledger{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;font:400 12.5px/1.5 var(--mono)}
+.mock .ledger li{display:flex;gap:12px;padding:2px 0;white-space:nowrap;color:var(--ink-2)}
+.mock .ledger .g{width:14px;text-align:center}
+.mock .ledger .win{color:var(--uv-2)}.mock .ledger .ok{color:var(--ok)}.mock .ledger .ep{color:var(--ink-3)}
+.mock .chartfoot{display:flex;justify-content:space-between;font:400 11px var(--mono);color:var(--ink-3);padding:0 14px 0 50px;min-height:1.3em}
+.mock svg{display:block}
+.mock svg text{font-family:var(--mono);font-size:11px;fill:var(--ink-3)}
+.mock svg .tuv{fill:var(--uv-2)}.mock svg .tink{fill:var(--ink)}
+.mock .pop{position:absolute;right:22px;top:58px;width:262px;border:1px solid var(--line-2);border-radius:8px;background:var(--panel);padding:12px 14px;display:flex;flex-direction:column;gap:7px;font-size:12.5px;line-height:1.45;color:var(--ink-2);box-shadow:0 12px 40px rgba(0,0,0,.55)}
+.mock .pop b{color:var(--ink);font-weight:600}
+.mock .tt{position:absolute;width:226px;border:1px solid var(--line-2);border-radius:6px;background:var(--panel);padding:9px 11px;font-size:12px;line-height:1.45;color:var(--ink-2);box-shadow:0 10px 30px rgba(0,0,0,.6);z-index:2}
+.mock .tt::before{content:"";position:absolute;top:-5px;left:22px;width:8px;height:8px;background:var(--panel);border-left:1px solid var(--line-2);border-top:1px solid var(--line-2);transform:rotate(45deg)}
+.mock .q{width:18px;height:18px;border-radius:50%;border:1px solid var(--line-2);display:inline-flex;align-items:center;justify-content:center;font:500 10.5px var(--mono);color:var(--ink-2)}
+.mock .bp{width:300px;border-radius:10px;background:#2a2a2f;color:#ececef;padding:14px;font:13px/1.4 system-ui,sans-serif;box-shadow:0 14px 40px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:10px}
+.mock .bp .site{font-weight:600}
+.mock .bp .btns{display:flex;justify-content:flex-end;gap:8px}
+.mock .bp .btns span{border-radius:16px;padding:5px 14px;font-weight:600;font-size:12.5px;border:1px solid #55555d;color:#a9c7ff}
+.mock .url{display:flex;align-items:center;gap:8px;border-radius:16px;background:#1c1c20;padding:6px 12px;font:12px system-ui,sans-serif;color:#b9b9c0;margin-bottom:10px}
+.mock .hdrchip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:6px;padding:5px 9px 5px 6px;font:400 11.5px var(--mono);color:var(--ink-2)}
+.mock .hdrchip i{width:16px;height:16px;border-radius:50%;background:conic-gradient(from 20deg,var(--uv),#3b2a7a,var(--uv-2),var(--uv))}
+.mock .hdrchip b{color:var(--ink);font:600 13px var(--sans)}
+.mock .delta{display:inline-flex;align-items:center;gap:5px;border-radius:4px;padding:3px 8px;font:600 11.5px var(--mono);color:var(--ok);border:1px solid rgba(88,201,139,.45);vertical-align:middle;margin-left:10px;letter-spacing:0}
+.wire{display:grid;grid-template-columns:1fr 1fr 1fr 96px;gap:5px;font:500 9.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.wire div{border:1px solid var(--line-2);border-radius:4px;padding:6px;display:flex;align-items:center;justify-content:center;text-align:center;min-height:30px}
+.wire .hot{border-color:var(--uv);color:var(--uv-2);background:var(--uv-dim)}
+.wire .hd{grid-column:1/-1;min-height:22px;justify-content:space-between;padding:0 8px}
+@media (prefers-reduced-motion:no-preference){.mock .pulse{animation:pgpulse 1.6s ease-in-out infinite}}
+@keyframes pgpulse{50%{opacity:.55}}
+</style>
+
+<div class="pg">
+
+<header class="pg-top">
+  <span class="pg-eyebrow">Yacana · /mine · after the polish arc</span>
+  <h1>Feedback pass: what changes, drawn before it's built</h1>
+  <p class="lede">Seventeen pieces of feedback. Eight need a design decision and come with options to pick from; nine are plain fixes shown before and after. Every board is drawn on the product's own tokens at real size. Nothing gets implemented until you've picked.</p>
+  <p><b>Round 2.</b> Seven decisions are picked. Redrawn for this round: D1·A with shorter copy, D5·A with the mint line under the number so it can't overflow, and D7 with two new options (C, D) that take the wins off the Wallet.</p>
+  <div class="pg-tally"><span><b>8</b> decisions, D1–D8</span><span><b>9</b> fixes, F1–F9</span><span><b>2</b> real bugs found behind the feedback (F5, F9)</span><span>pick with the radios, then copy the line in the bar below</span></div>
+  <div class="pg-scroll">
+  <table class="pg-map">
+    <thead><tr><th>The feedback</th><th>What it turned out to be</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td>The LNA pop-up appears with no explanation</td><td>The probe to 127.0.0.1 fires on the first Start mining click, beside the account dialog</td><td><a href="#d1">D1</a></td></tr>
+      <tr><td>The chart goes empty while a claim is sent</td><td>Mining pauses for the claim; the chart says nothing about it</td><td><a href="#d2">D2</a></td></tr>
+      <tr><td>The step connector is short, or pokes into the next circle</td><td>A fixed 22 px line drawn for one-line steps</td><td><a href="#d3">D3</a></td></tr>
+      <tr><td>The slider vanishes on Start; Settings lets me move it with Presto on; "connected ✦ · Get Presto ↗"</td><td>The page has no memory of Presto, and Settings never reacts to it</td><td><a href="#d4">D4</a></td></tr>
+      <tr><td>Balance wasn't the first thing I saw</td><td>It sits bottom-right, under the epoch tile</td><td><a href="#d5">D5</a></td></tr>
+      <tr><td>What is the chart measuring? Why only 4 wins? Close what?</td><td>The axis is never named; the epoch rows are in our vocabulary</td><td><a href="#d6">D6</a></td></tr>
+      <tr><td>"Wins" in the wallet footer; "139 claims · nothing about this balance is public"</td><td>A footer toggle that opens a whole tile; a sentence doing two jobs</td><td><a href="#d7">D7</a></td></tr>
+      <tr><td>"2 YACA → here · from 0x000000…0000"</td><td>Amount-first rows hide what kind of crossing it is, and a placeholder address is printed</td><td><a href="#d8">D8</a> <a href="#f9">F9</a></td></tr>
+      <tr><td>"Etherscan ↗↗"</td><td>The link component adds ↗; five callers add their own</td><td><a href="#f1">F1</a></td></tr>
+      <tr><td>"Sent from Rabby Wallet"</td><td>The wallet's name in a step that is about the deposit</td><td><a href="#f2">F2</a></td></tr>
+      <tr><td>The ledger's legend is too wordy</td><td>A settlement rule inside a glyph key</td><td><a href="#f3">F3</a></td></tr>
+      <tr><td>"eco · 4balanced · 7 max · 13"</td><td>Labels placed by thread count collide on 14 cores</td><td><a href="#f4">F4</a></td></tr>
+      <tr><td>Lighter bars appear on the chart</td><td>Translucent ticks drawn one by one; overlaps add up</td><td><a href="#f5">F5</a></td></tr>
+      <tr><td>The pop-up has a horizontal scrollbar</td><td><code>overflow-y:auto</code> turns overflow-x on too</td><td><a href="#f6">F6</a></td></tr>
+      <tr><td>"20.4 / min: 20.4 what?"</td><td>The unit is missing</td><td><a href="#f7">F7</a></td></tr>
+      <tr><td>Settings says "13 threads" twice</td><td>The tile's aside repeats the slider's readout</td><td><a href="#f8">F8</a></td></tr>
+    </tbody>
+  </table>
+  </div>
+</header>
+
+<!-- ═══════════════ DECISIONS ═══════════════ -->
+<div class="pg-part">
+<div class="pg-parthead"><span class="pg-eyebrow">Part one</span><h2>Decisions: pick one option in each</h2></div>
+
+<!-- D1 -->
+<section class="pg-dec" id="d1">
+  <div class="pg-dh"><span class="pg-id">D1</span><h2>Asking for Presto before the browser does</h2><span class="pg-done">picked A · copy trimmed</span></div>
+  <blockquote class="pg-q">"We are asking for the Presto LNA as soon as the user enters… it feels very intrusive to have an LNA without understanding why."</blockquote>
+  <p><b>What happens today.</b> <code>session.startMining()</code> probes <code>https://127.0.0.1:59834/health</code> on every Start. For a new visitor that is their first click, so the browser's local-network prompt lands beside the account dialog with no words from us. In all three options below <b>nothing touches 127.0.0.1 until the visitor clicks a button that says what will happen</b>; mining never waits for the answer; a yes is remembered, so later Starts probe silently as today. Where the browser exposes the permission (Chromium's <code>local-network-access</code>), a state that went back to "ask" brings our words back instead of a surprise.</p>
+  <div class="pg-opts cols2">
+    <article class="pg-opt today">
+      <span class="pg-tag">Today</span>
+      <div class="pg-frame"><div class="mock" style="width:470px;height:268px;overflow:hidden">
+        <div class="url">yacana.network/mine</div>
+        <div class="bp" style="position:absolute;left:28px;top:50px;z-index:2">
+          <span><span class="site">yacana.network</span> wants to</span>
+          <span>Look for and connect to any device on your local network</span>
+          <div class="btns"><span>Block</span><span>Allow</span></div>
+        </div>
+        <div class="dialog" style="position:absolute;left:150px;top:96px;width:300px;padding:18px;opacity:.55">
+          <span class="eyebrow">account</span><h4 style="font-size:18px">Start mining.</h4>
+          <span class="btn uv">Create an account</span>
+        </div>
+      </div></div>
+      <p class="pg-cap">The browser's own prompt (a stand-in; each browser words it differently), over a dialog about something else.</p>
+    </article>
+    <article class="pg-opt">
+      <span class="pg-tag">Shared by A, B and C · after the click</span>
+      <div class="pg-frame"><div class="mock" style="width:470px;display:flex;flex-direction:column;gap:10px">
+        <div class="presto"><span class="glyph">✦</span><div><b>Presto · native prover</b><span class="l">proving on this machine · <a href="#d1">About Presto ↗</a></span></div></div>
+        <div class="presto dim"><span class="glyph">✦</span><div><b>Presto didn't answer.</b><span class="l">Not installed? <a href="#d1">Get Presto ↗</a> · <span class="quiet" style="font-size:12.5px">Look again</span></span></div></div>
+        <div class="note warn"><b>Your browser blocked it.</b>Site settings › Local network access › Allow, then <span class="quiet">Look again</span>. Mining continues in the browser.</div>
+      </div></div>
+      <p class="pg-cap">Found · not found · blocked. The existing fix-it copy for every other reason stays as it is.</p>
+    </article>
+  </div>
+  <div class="pg-opts cols2">
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d1" value="A" id="d1-a"><span>A · A row under the power slider</span><em class="pg-rec">my pick</em></label>
+      <div class="pg-frame"><div class="mock" style="width:300px"><div class="tile" style="display:flex;flex-direction:column;gap:12px">
+        <div><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lm">power</span><span class="x2 mono ink3">7 threads</span></div>
+        <div class="slider"><i style="width:50%"></i><b style="left:50%"></b></div>
+        <div class="presets"><span>eco</span><span class="on">balanced</span><span>max</span></div></div>
+        <div class="ask">
+          <div style="display:flex;gap:10px;align-items:center"><span class="uv2" style="font-weight:700">✦</span><span style="font-size:13.5px;font-weight:600">Have Presto?</span></div>
+          <p class="xs ink2">Native proving, several times faster.</p>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span class="btn sm uv">Look for Presto</span><a class="xs" href="#d1">Get Presto ↗</a></div>
+          <p class="x2 ink3">Your browser will ask first. Nothing leaves your machine.</p>
+        </div>
+      </div></div></div>
+      <ul class="pg-pc">
+        <li class="pro">Never interrupts anyone. The nine visitors in ten without Presto just mine.</li>
+        <li class="pro">The explanation sits beside the button that triggers the prompt, which is where permission priming works.</li>
+        <li class="con">A Presto owner has to notice the row once. After that it is remembered.</li>
+      </ul>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d1" value="B" id="d1-b"><span>B · A dialog on the first Start</span></label>
+      <div class="pg-frame"><div class="mock bare"><div class="dialog">
+        <span class="x">×</span>
+        <div style="display:flex;flex-direction:column;gap:8px"><span class="eyebrow">Presto · optional</span><h4>Look for Presto on this computer?</h4>
+        <p class="body">Presto is a free native prover, several times faster than this tab. Mining has already started in the browser either way.</p></div>
+        <div class="note"><b>What your browser will ask</b>Whether yacana.network may connect to apps on this device. That's the check for Presto at 127.0.0.1. Nothing leaves your machine.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><span class="btn lg uv">Look for Presto</span><span class="quiet">Not now</span></div>
+        <p class="x2 mono ink3">Asked once. Settings › Mining changes it later.</p>
+      </div></div></div>
+      <ul class="pg-pc">
+        <li class="pro">What you described: our words first, then the browser's. Impossible to miss.</li>
+        <li class="con">Every new visitor gets a second dialog right after the account one, for a tool most don't have. It is the intrusion moved one step earlier.</li>
+        <li class="con">"Not now" must be remembered for good, or it nags.</li>
+      </ul>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d1" value="C" id="d1-c"><span>C · The billboard asks</span></label>
+      <div class="pg-frame"><div class="mock" style="width:560px"><div class="presto" style="padding:14px 16px;gap:14px;align-items:flex-start">
+        <span class="glyph" style="width:34px;height:34px;font-size:18px">✦</span>
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px"><div><b style="font-size:15px">Mine faster with Presto.</b><span class="l">A native prover on this computer, several times faster than the browser. Free, open source.</span></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="btn sm uv">I have Presto · connect</span><span class="btn sm">Get Presto ↗</span><span class="x2 mono ink3">not now</span></div>
+        <p class="x2 ink3">Connecting makes your browser ask to let this page reach apps on this device: that's Presto at 127.0.0.1.</p></div>
+      </div></div></div>
+      <ul class="pg-pc">
+        <li class="pro">One surface sells Presto and asks for it; first thing under the header.</li>
+        <li class="con">Today the billboard is Presto's own web component and only shows after a probe said "absent". This needs a change in <code>presto-banners</code>, or our own banner in its place.</li>
+        <li class="con">Shown before any probe, it advertises Presto to people who already run it.</li>
+      </ul>
+    </article>
+  </div>
+</section>
+
+<!-- D2 -->
+<section class="pg-dec" id="d2">
+  <div class="pg-dh"><span class="pg-id">D2</span><h2>The claim, drawn on the chart</h2><span class="pg-done">picked A</span></div>
+  <blockquote class="pg-q">"It looks like a lot of mining is happening, great graph bars, and all of a sudden empty… gbgbgbgb I—-CLAIMING——I gbgbgb."</blockquote>
+  <p><b>Why it goes empty.</b> Mining pauses while the claim proves and travels (the prover and the claim's proof would fight for memory), so for 20 to 60 s no ticks arrive and the window scrolls blank. Each board shows both states in one window: a claim that finished two minutes ago, and one running now at the right edge.</p>
+  <div class="pg-opts">
+    <article class="pg-opt today"><span class="pg-tag">Today</span>
+      <div class="pg-frame"><div class="mock" style="width:800px"><div class="tile"><div class="th mid"><span style="display:flex;gap:12px;align-items:center">live · last 3 min <span class="st on"><i></i>claiming · proving · 12 s</span></span><span class="aside"><span class="btn sm">Stop</span></span></div><div class="chart" data-c='{"gaps":true}'></div><div class="chartfoot"><span>1.98 s per proof · <span class="uv2">✦ presto</span> · 212 proofs</span><span>now</span></div></div></div></div>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d2" value="A" id="d2-a"><span>A · A labelled band between two violet bars</span><em class="pg-rec">my pick</em></label>
+      <div class="pg-frame"><div class="mock" style="width:800px"><div class="tile"><div class="th mid"><span style="display:flex;gap:12px;align-items:center">live · last 3 min <span class="st on"><i></i>claiming · proving · 12 s</span></span><span class="aside"><span class="btn sm">Stop</span></span></div><div class="chart" data-c='{"gaps":true,"claims":"A"}'></div><div class="chartfoot"><span>1.98 s per proof · <span class="uv2">✦ presto</span> · 212 proofs</span><span>now</span></div></div></div></div>
+      <ul class="pg-pc">
+        <li class="pro">Your sketch. The left bar rises from the win that caused the claim, so the story reads left to right: win, claim, mining again.</li>
+        <li class="how">Running: brighter fill, the word pulses gently (still under reduced motion), the right bar rides "now". Finished: dims, keeps its duration, scrolls away with the window. A failed claim gets the same band in amber with "didn't land".</li>
+        <li class="how">The label goes inside when the band is wide enough, otherwise above it. The step and clock stay in the header chip.</li>
+      </ul>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d2" value="B" id="d2-b"><span>B · The same band, shaded by step</span></label>
+      <div class="pg-frame"><div class="mock" style="width:800px"><div class="tile"><div class="th mid"><span style="display:flex;gap:12px;align-items:center">live · last 3 min <span class="st on"><i></i>claiming · proving · 12 s</span></span><span class="aside"><span class="btn sm">Stop</span></span></div><div class="chart" data-c='{"gaps":true,"claims":"B"}'></div><div class="chartfoot"><span>1.98 s per proof · <span class="uv2">✦ presto</span> · 212 proofs</span><span><span class="uv2">▮</span> proving <span class="uv2" style="opacity:.6">▮</span> sent <span class="uv2" style="opacity:.3">▮</span> in a block · now</span></div></div></div></div>
+      <ul class="pg-pc">
+        <li class="pro">Shows where the claim's time went: proving, waiting for a block, syncing.</li>
+        <li class="con">Three shades in a 100 px band need a legend, and the ledger line and the header chip already say the step. More ink for little new information.</li>
+      </ul>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d2" value="C" id="d2-c"><span>C · A hatched strip on the baseline</span></label>
+      <div class="pg-frame"><div class="mock" style="width:800px"><div class="tile"><div class="th mid"><span style="display:flex;gap:12px;align-items:center">live · last 3 min <span class="st on"><i></i>claiming · proving · 12 s</span></span><span class="aside"><span class="btn sm">Stop</span></span></div><div class="chart" data-c='{"gaps":true,"claims":"C"}'></div><div class="chartfoot"><span>1.98 s per proof · <span class="uv2">✦ presto</span> · 212 proofs</span><span>now</span></div></div></div></div>
+      <ul class="pg-pc">
+        <li class="pro">Quietest. The bar line and the win stay the only tall violet things on the chart.</li>
+        <li class="con">Easy to miss, which is the complaint: the gap still reads as empty at a glance.</li>
+      </ul>
+    </article>
+  </div>
+</section>
+
+<!-- D3 -->
+<section class="pg-dec" id="d3">
+  <div class="pg-dh"><span class="pg-id">D3</span><h2>The stepper</h2><span class="pg-done">picked B</span></div>
+  <blockquote class="pg-q">"The vertical bar doesn't go until the other step, and sometimes it overdoes and goes into the circle of the next step… it doesn't look very quality-good."</blockquote>
+  <p><b>The cause.</b> The connector is a pseudo-element pinned at <code>top:27px; height:22px</code>. That is right for exactly one height of step. A step with a paragraph is taller, so the line stops short; a bare one-line step is shorter, so it runs 5 px into the next ring. One component draws every money dialog and the opening checklist, so one fix lands everywhere.</p>
+  <div class="pg-opts cols2">
+    <article class="pg-opt today"><span class="pg-tag">Today · reproduced with the real geometry</span>
+      <div class="pg-frame"><div class="mock bare"><div class="dialog">
+        <span class="x">×</span><div style="display:flex;flex-direction:column;gap:8px"><span class="eyebrow">bridge · from ethereum</span><h4>Bridging 2 YACA.</h4></div>
+        <ol class="steps today">
+          <li class="done"><span class="ring"></span><span><span class="t">Sent from Rabby Wallet</span></span><span class="r"><a href="#d3">Etherscan ↗↗</a></span></li>
+          <li class="on"><span class="ring"></span><span><span class="t">Crossing to Aztec</span><span class="d">Ethereum includes the deposit, then Aztec reads it: about 12 minutes on a quiet day. Nothing to do meanwhile, and nothing is lost if you close this tab.</span></span><span class="r">a few minutes</span></li>
+          <li class="todo"><span class="ring"></span><span><span class="t">Claim here</span></span><span class="r">one tap, no fee</span></li>
+        </ol>
+        <p class="foot">You can close this. Wallet shows a <b>Claim</b> button when it arrives.</p>
+        <div><span class="btn lg primary">Done</span></div>
+      </div></div></div>
+      <p class="pg-cap">The first line runs into the second ring; the second stops a third of the way down.</p>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d3" value="A" id="d3-a"><span>A · Same look, a rail that measures itself</span></label>
+      <div class="pg-frame"><div class="mock bare"><div class="dialog">
+        <span class="x">×</span><div style="display:flex;flex-direction:column;gap:8px"><span class="eyebrow">bridge · from ethereum</span><h4>Bridging 2 YACA.</h4></div>
+        <ol class="steps rl">
+          <li class="done"><span class="c"><span class="ring"></span></span><span class="bd"><span class="t">Deposit sent</span></span><span class="r"><a href="#d3">Etherscan ↗</a></span></li>
+          <li class="on"><span class="c"><span class="ring"></span></span><span class="bd"><span class="t">Crossing to Aztec</span><span class="d">Ethereum includes the deposit, then Aztec reads it: about 12 minutes on a quiet day. Nothing to do meanwhile, and nothing is lost if you close this tab.</span></span><span class="r">a few minutes</span></li>
+          <li class="todo"><span class="c"><span class="ring"></span></span><span class="bd"><span class="t">Claim here</span></span><span class="r">one tap, no fee</span></li>
+        </ol>
+        <p class="foot">You can close this. Wallet shows a <b>Claim</b> button when it arrives.</p>
+        <div><span class="btn lg primary">Done</span></div>
+      </div></div></div>
+      <ul class="pg-pc">
+        <li class="pro">The line is a flex child of the ring's column: it is exactly as tall as its step, with a 4 px gap at both rings, at any text length. A finished step's line turns green.</li>
+        <li class="con">Still shows every step's paragraph at once in the dialogs that have several.</li>
+      </ul>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d3" value="B" id="d3-b"><span>B · A, and only the running step speaks</span><em class="pg-rec">my pick</em></label>
+      <div class="pg-frame"><div class="mock bare"><div class="dialog">
+        <span class="x">×</span><div style="display:flex;flex-direction:column;gap:8px"><span class="eyebrow">account · opening</span><h4>Opening your account.</h4></div>
+        <ol class="steps rl">
+          <li class="done"><span class="c"><span class="ring"></span></span><span class="bd"><span class="t">Passkey read</span></span><span class="r">0.8 s</span></li>
+          <li class="done"><span class="c"><span class="ring"></span></span><span class="bd"><span class="t">Prover files</span></span><span class="r">cached</span></li>
+          <li class="on"><span class="c"><span class="ring"></span></span><span class="bd"><span class="t">Syncing your private notes</span><span class="d">Your balance is private, so this browser has to find your notes itself: it reads the blocks since your last visit. A long absence takes a minute or two.</span><span style="display:block;height:4px;border-radius:2px;background:var(--line-2);margin-top:8px;overflow:hidden"><span style="display:block;height:100%;width:62%;background:var(--uv)"></span></span></span><span class="r">41 s</span></li>
+          <li class="todo"><span class="c"><span class="ring"></span></span><span class="bd"><span class="t">Ready to mine</span></span><span class="r"></span></li>
+        </ol>
+      </div></div></div>
+      <ul class="pg-pc">
+        <li class="pro">A's geometry plus one rule: a paragraph shows under the running, failed or warned step only. Finished steps fold to a line and a time; waiting ones to a title. Long dialogs stop being a wall of grey text.</li>
+        <li class="con">A finished step's explanation is gone once it passes. Nothing in today's copy needs to be read after the fact; I checked the dialogs.</li>
+      </ul>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d3" value="C" id="d3-c"><span>C · Segments across the top</span></label>
+      <div class="pg-frame"><div class="mock bare"><div class="dialog">
+        <span class="x">×</span><div style="display:flex;flex-direction:column;gap:8px"><span class="eyebrow">bridge · from ethereum</span><h4>Bridging 2 YACA.</h4></div>
+        <div class="hsteps"><div class="done">sent ✓</div><div class="on">crossing</div><div>claim</div></div>
+        <div class="card"><span style="font-size:13.5px;font-weight:600">Crossing to Aztec <span class="mono uv2" style="font-size:11.5px;font-weight:400;margin-left:6px">a few minutes</span></span><span class="xs ink3">Ethereum includes the deposit, then Aztec reads it: about 12 minutes on a quiet day. Nothing to do meanwhile, and nothing is lost if you close this tab.</span></div>
+        <p class="foot">You can close this. Wallet shows a <b>Claim</b> button when it arrives. · <a href="#d3">Etherscan ↗</a></p>
+        <div><span class="btn lg primary">Done</span></div>
+      </div></div></div>
+      <ul class="pg-pc">
+        <li class="pro">No vertical line to get wrong; the shortest dialog.</li>
+        <li class="con">Breaks past four steps (the opening checklist has up to six) and loses the per-step time column the claim dialog relies on. Two steppers to maintain instead of one.</li>
+      </ul>
+    </article>
+  </div>
+</section>
+
+<!-- D4 -->
+<section class="pg-dec" id="d4">
+  <div class="pg-dh"><span class="pg-id">D4</span><h2>Presto and the power slider</h2><span class="pg-done">picked A</span></div>
+  <blockquote class="pg-q">"I can move the CPU bars, and when I press Start mining it disappears because I have Presto… Settings allows me to move the CPU bar even when I have Presto on, and I have 'connected ✦ · Get Presto ↗', which is VERY confusing."</blockquote>
+  <p><b>The cause.</b> The slider ↔ Presto row swap follows what the Worker built, which is only known after Start's probe; the page keeps no memory between visits. Settings never looks at Presto at all: the slider is always live and the link always says "Get Presto". Both options below keep pick 6A from the polish canvas (the Presto row replaces the slider while Presto proves) and make no request before Start.</p>
+  <div class="pg-opts cols">
+    <article class="pg-opt today"><span class="pg-tag">Today · before Start, with Presto installed</span>
+      <div class="pg-frame"><div class="mock" style="width:300px"><div class="tile">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lm">power</span><span class="x2 mono ink3">13 threads</span></div>
+        <div class="slider"><i style="width:100%"></i><b style="left:100%"></b></div>
+        <div class="plabels"><span style="left:25%;transform:translateX(-50%)">eco · 4</span><span style="left:50%;transform:translateX(-50%)">balanced · 7</span><span class="uv2" style="right:0">max · 13</span></div>
+        <p class="xs ink2" style="margin-top:8px">14 cores, one stays with the page. A change applies at the next proof…</p>
+      </div></div></div>
+      <p class="pg-cap">A live control that stops mattering one click later.</p>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d4" value="A" id="d4-a"><span>A · Remember Presto</span><em class="pg-rec">my pick</em></label>
+      <div class="pg-frame"><div class="mock" style="width:300px"><div class="tile">
+        <div class="presto dim"><span class="glyph">✦</span><div><b>Presto · used last time</b><span class="l">checked again when you start · <span class="quiet" style="font-size:12.5px">use the browser</span></span></div></div>
+      </div></div></div>
+      <ul class="pg-pc">
+        <li class="pro">Once a native proof has verified, the browser remembers it. The next visit opens on a dimmed Presto row; Start lights it up. No network request before Start.</li>
+        <li class="how">If Presto doesn't answer at Start, the slider comes back with today's fix-it banner. "use the browser" forgets Presto and restores the slider.</li>
+        <li class="con">One more stored setting to clear on Sign out.</li>
+      </ul>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d4" value="B" id="d4-b"><span>B · A prover switch</span></label>
+      <div class="pg-frame"><div class="mock" style="width:300px"><div class="tile" style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lm">prover</span></div>
+        <div class="seg"><span>Browser</span><span class="on">Presto ✦</span></div>
+        <div class="presto dim"><span class="glyph">✦</span><div><b>Presto</b><span class="l">checked when you start</span></div></div>
+      </div></div></div>
+      <ul class="pg-pc">
+        <li class="pro">Explicit and remembered. Choosing "Presto ✦" the first time is also the consent click, so it can stand in for D1.</li>
+        <li class="con">A permanent control for a choice nearly everyone makes once, in the tightest tile on the page.</li>
+        <li class="con">"Presto selected, but it fell back to the browser" becomes a state the switch has to explain.</li>
+      </ul>
+    </article>
+  </div>
+  <h3 style="margin-top:6px">Settings › Mining, under either option</h3>
+  <div class="pg-ba" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr))">
+    <figure><figcaption>today</figcaption><div class="pg-frame"><div class="mock" style="width:460px"><div class="tile">
+      <div class="th"><span>mining power</span><span class="aside">13 threads</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lm">power</span><span class="x2 mono ink3">13 threads</span></div>
+      <div class="slider"><i style="width:100%"></i><b style="left:100%"></b></div>
+      <div class="plabels"><span style="left:25%;transform:translateX(-50%)">eco · 4</span><span style="left:50%;transform:translateX(-50%)">balanced · 7</span><span class="uv2" style="right:0">max · 13</span></div>
+      <p class="xs ink2" style="margin:6px 0 10px">This slider affects browser proving only; one core stays with the page.</p>
+      <div style="display:flex;justify-content:space-between;gap:16px;align-items:center;border-top:1px solid var(--line);padding-top:10px"><div><span style="font-size:13px">Presto <span style="color:var(--uv)">✦</span></span><span class="xs ink2" style="display:block">native prover, several times faster · connected ✦</span></div><a class="xs mono ink2" href="#d4" style="color:var(--ink-2)">Get Presto ↗</a></div>
+    </div></div></div></figure>
+    <figure><figcaption class="after">proposed · Presto connected</figcaption><div class="pg-frame"><div class="mock" style="width:460px"><div class="tile" style="display:flex;flex-direction:column;gap:14px">
+      <div class="th" style="margin:0"><span>mining</span></div>
+      <div class="presto"><span class="glyph">✦</span><div style="flex:1"><b>Presto is proving</b><span class="l">native, on this machine · <a href="#d4">About Presto ↗</a></span></div><span class="st on"><i></i>connected</span></div>
+      <div style="opacity:.45"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lm">browser threads</span><span class="x2 mono ink3">13</span></div>
+      <div class="slider"><i style="width:100%"></i><b style="left:100%"></b></div>
+      <div class="presets"><span>eco</span><span>balanced</span><span class="on">max</span></div></div>
+      <p class="xs ink3">Not in use while Presto proves; Presto's own speed setting decides. Yacana falls back to these threads if Presto drops out.</p>
+    </div></div></div></figure>
+    <figure><figcaption class="after">proposed · no Presto</figcaption><div class="pg-frame"><div class="mock" style="width:460px"><div class="tile" style="display:flex;flex-direction:column;gap:14px">
+      <div class="th" style="margin:0"><span>mining</span></div>
+      <div><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lm">browser threads</span><span class="x2 mono ink3">7 of 13</span></div>
+      <div class="slider"><i style="width:50%"></i><b style="left:50%"></b></div>
+      <div class="presets"><span>eco</span><span class="on">balanced</span><span>max</span></div></div>
+      <p class="xs ink3">14 cores; one stays with the page.</p>
+      <div class="presto dim"><span class="glyph">✦</span><div style="flex:1"><b>Presto</b><span class="l">a native prover, several times faster</span></div><span style="display:flex;gap:10px;align-items:center"><span class="btn sm">Look for Presto</span><a class="xs" href="#d4">Get ↗</a></span></div>
+    </div></div></div></figure>
+  </div>
+  <p class="pg-cap">One readout instead of two (F8). The slider is dimmed and not editable while Presto proves. "Get Presto" only shows when there is no Presto.</p>
+</section>
+
+<!-- D5 -->
+<section class="pg-dec" id="d5">
+  <div class="pg-dh"><span class="pg-id">D5</span><h2>Where the balance lives on Mine</h2><span class="pg-done">picked A · overflow fixed</span></div>
+  <blockquote class="pg-q">"Balance no fue lo primero que vi, y me parece que sería lo que más dopamina me genera ver crecer; quizás lo movería arriba a la derecha."</blockquote>
+  <p><b>Today</b> the balance is the last tile of the right column, under the epoch tile and the power slider; on a 900 px tall window it is below the fold. The counter-argument for leaving it: the cockpit is about the work, and the Wallet tab is about the money. I don't think that survives contact with a user who mines to watch a number grow.</p>
+  <div class="pg-opts cols">
+    <article class="pg-opt today"><span class="pg-tag">Today</span>
+      <div class="pg-frame"><div class="mock" style="width:330px"><div class="wire"><div class="hd"><span>yacana · mine wallet stats</span><span>0x22a9…</span></div><div style="grid-column:span 3;min-height:74px">your proofs</div><div style="grid-row:span 2">epoch + power</div><div>rate</div><div>next win</div><div>best</div><div style="grid-column:span 3;min-height:48px">ledger</div><div class="hot">balance</div></div></div></div>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d5" value="A" id="d5-a"><span>A · Top of the right column</span><em class="pg-rec">my pick</em></label>
+      <div class="pg-frame"><div class="mock" style="width:330px"><div class="wire"><div class="hd"><span>yacana · mine wallet stats</span><span>0x22a9…</span></div><div style="grid-column:span 3;min-height:74px">your proofs</div><div class="hot" style="min-height:74px">balance</div><div>rate</div><div>next win</div><div>best</div><div style="grid-row:span 2">epoch + power</div><div style="grid-column:span 3;min-height:48px">ledger</div></div></div></div>
+      <div class="pg-frame"><div class="mock" style="width:300px"><div class="tile">
+        <div class="th"><span>balance</span><span class="aside">private</span></div>
+        <div class="kpi"><span class="v">1,560.5<span class="u">tYACA</span></span><span class="s okc mono" style="font-size:11.5px;min-height:1.4em">+4 tYACA · just now</span></div>
+        <div style="display:flex;gap:8px;margin-top:12px"><span class="btn sm primary">Send</span><span class="btn sm ghost">Wallet →</span></div>
+      </div></div></div>
+      <ul class="pg-pc">
+        <li class="pro">Beside the chart, where the eye already is when a win lands. The number counts up (it already tweens) and a green "+4 tYACA · just now" line holds for ten seconds after each mint. The line sits under the number and its height is reserved, so nothing overflows or jumps, whatever the balance.</li>
+        <li class="con">The epoch tile moves down one row; on a short window its last rows fall under the fold instead.</li>
+      </ul>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d5" value="B" id="d5-b"><span>B · In the header, on every tab</span></label>
+      <div class="pg-frame"><div class="mock" style="width:330px"><div class="wire"><div class="hd"><span>yacana · mine wallet stats</span><span class="uv2">560.5 tyaca · 0x22a9…</span></div><div style="grid-column:span 3;min-height:74px">your proofs</div><div style="grid-row:span 3">epoch + power</div><div>rate</div><div>next win</div><div>best</div><div style="grid-column:span 3;min-height:48px">ledger</div></div></div></div>
+      <div class="pg-frame"><div class="mock" style="width:300px;display:flex;justify-content:flex-end"><span class="hdrchip"><i></i><b>560.5</b> tYACA · 0x22a9…612a</span></div></div>
+      <ul class="pg-pc">
+        <li class="pro">Visible on Mine, Wallet and Settings alike; frees a tile on the cockpit.</li>
+        <li class="con">13 px in a chip is not what "dopamine" asked for. The balance tile can't leave Mine anyway (Send lives there), so this adds a second balance rather than moving one.</li>
+      </ul>
+    </article>
+  </div>
+</section>
+
+<!-- D6 -->
+<section class="pg-dec" id="d6">
+  <div class="pg-dh"><span class="pg-id">D6</span><h2>Reading the chart and the epoch tile</h2><span class="pg-done">picked A</span></div>
+  <blockquote class="pg-q">"What's the unit of the vertical measurement? Why am I not going above the horizontal line?" · "Why is it measured in epochs and why can I only have 4 wins? Why can anyone close it? Close what? Tooltips would help."</blockquote>
+  <p><b>The gap.</b> The vertical axis is a proof's <b>score</b>, a lottery draw: a score of S comes up about once in S proofs, and a proof wins when its score reaches the bar. The chart never says the word. The epoch tile reads "wins 2 of 4" as if four were the visitor's limit; it is the whole network's round. The numbers in these boards use a bar of 38.4 so that wins are as rare as they are on a busy network.</p>
+  <div class="pg-opts">
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d6" value="A" id="d6-a"><span>A · Name things where they are, explain on hover</span><em class="pg-rec">my pick</em></label>
+      <div class="pg-opts cols2" style="grid-template-columns:minmax(0,1fr)">
+      <div class="pg-frame"><div class="mock" style="width:1090px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;align-items:start">
+        <div class="tile" style="position:relative"><div class="th mid"><span style="display:flex;gap:10px;align-items:center">live · last 3 min <span class="q">?</span></span><span class="aside"><span class="btn sm">Stop</span></span></div>
+          <div class="chart" data-c='{"explain":true}'></div><div class="chartfoot"><span>1.98 s per proof · <span class="uv2">✦ presto</span> · 212 proofs</span><span>now</span></div>
+          <div class="pop"><b>How to read this</b><span>Each tick is one proof. Its height is its <b>score</b>: pure luck, a score of S comes up about once in S proofs.</span><span>A proof that reaches <b class="uv2">the bar</b> wins 4 tYACA. Today about 1 proof in 38 does, so most ticks stay low. More proofs per minute means more draws, not taller ones.</span></div>
+        </div>
+        <div class="tile" style="position:relative">
+          <div class="th"><span class="tip">epoch 12</span><span class="aside">opened 16:07:12</span></div>
+          <div class="rail"><i class="me"></i><i class="on"></i><i></i><i></i></div>
+          <div class="kv"><span class="tip">wins this epoch</span><span>2 of 4</span></div>
+          <div class="kv"><span class="tip">the bar</span><span>38.4</span></div>
+          <div class="kv"><span>open for</span><span>3 min</span></div>
+          <div class="kv"><span class="tip">target length</span><span>5 min</span></div>
+          <div class="kv"><span class="tip">next bar if it closed now</span><span>×0.62</span></div>
+          <div class="kv"><span class="tip">reset if stuck</span><span>in 17 min</span></div>
+          <div class="tt" style="left:14px;top:92px">An epoch is a round the whole network shares. It ends after 4 wins, anyone's, and the bar resets for the next one. You can win in every round.</div>
+        </div>
+      </div></div>
+      </div>
+      <ul class="pg-pc">
+        <li class="how">Chart: the axis gets its name, the bar's caption says what reaching it means, hovering a tick shows that proof (number, score, time), and a <b>?</b> opens the three sentences above.</li>
+        <li class="how">Epoch tile: "wins" becomes "wins this epoch", "expected close" becomes "target length", "anyone can close it" becomes "reset if stuck" (after 20 min without four wins anyone may end the epoch so the bar drops; the button appears in this tile). Dotted labels carry a tooltip; the word "epoch" stays, as on /stats.</li>
+        <li class="pro">Nothing is removed for people who already read it, and every question in the feedback has an answer one hover away.</li>
+        <li class="con">Tooltips are invisible on touch; the <b>?</b> popover has to carry the essentials there.</li>
+      </ul>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d6" value="B" id="d6-b"><span>B · Say it once up front, show less</span></label>
+      <div class="pg-frame"><div class="mock" style="width:1090px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;align-items:start">
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <div class="alert uv"><span>Each tick is one proof; its height is luck. Reach the violet bar and you win 4 tYACA. The bar moves every 4 wins so that a round lasts about 5 minutes.</span><span class="btn sm">Got it</span></div>
+          <div class="tile"><div class="th mid"><span>live · last 3 min</span><span class="aside"><span class="btn sm">Stop</span></span></div><div class="chart" data-c='{"axis":true}'></div><div class="chartfoot"><span>1.98 s per proof · <span class="uv2">✦ presto</span> · 212 proofs</span><span>now</span></div></div>
+        </div>
+        <div class="tile">
+          <div class="th"><span>epoch 12</span><span class="aside">opened 16:07:12</span></div>
+          <div class="rail"><i class="me"></i><i class="on"></i><i></i><i></i></div>
+          <div class="kv"><span>wins this epoch</span><span>2 of 4</span></div>
+          <div class="kv"><span>the bar</span><span>38.4</span></div>
+          <div class="kv"><span>closes in about</span><span>2 min</span></div>
+          <div style="border-top:1px solid var(--line);padding-top:8px"><span class="quiet" style="font-size:12.5px">more about this epoch ›</span></div>
+        </div>
+      </div></div>
+      <ul class="pg-pc">
+        <li class="pro">Works on touch; a newcomer reads one sentence and is done. The tile drops to three rows, the rest behind a disclosure.</li>
+        <li class="con">The banner is a fourth thing above the chart on a first visit (notice, upgrade card, Presto). Once dismissed the explanation is gone for good. "closes in about" is a guess the tile can't honour: an epoch closes on wins, not on a clock.</li>
+      </ul>
+    </article>
+  </div>
+</section>
+
+<!-- D7 -->
+<section class="pg-dec" id="d7">
+  <div class="pg-dh"><span class="pg-id">D7</span><h2>Wallet: the wins, and the line under the balance</h2><span class="pg-open">open · two new options</span></div>
+  <blockquote class="pg-q">"The 'Wins' in the footer of wallet feels out of place. The fact that toggling it opens and closes a whole table feels even weirder." · "'139 claims · nothing about this balance is public' doesn't make much sense."</blockquote>
+  <p><b>The problem.</b> The line under the balance does two jobs (a count and a privacy claim) and the count is repeated by a link in the activity tile's footer, beside "save a recovery file", that makes a whole tile appear below. "private" is already in the tile's corner.</p>
+  <div class="pg-opts cols2">
+    <article class="pg-opt today"><span class="pg-tag">Today</span>
+      <div class="pg-frame"><div class="mock" style="width:520px;display:flex;flex-direction:column;gap:12px">
+        <div class="tile"><div class="th"><span>balance</span><span class="aside">private</span></div><div class="kpi"><span class="v">560.5<span class="u">tYACA</span></span><span class="s">139 claims · nothing about this balance is public</span></div>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><span class="btn primary">Send</span><span class="btn">Bridge to Ethereum</span><span class="btn ghost">Bridge from Ethereum</span></div></div>
+        <div class="tile"><div class="th"><span>activity</span><span class="aside">3 · newest first</span></div><p class="xs ink3">… rows …</p>
+        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);margin-top:12px;padding-top:12px"><span class="lm">wins · 139 <span class="ink4">›</span></span><span class="x2 mono ink3">advanced · save a recovery file · restore from a file</span></div></div>
+      </div></div>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d7" value="A" id="d7-a"><span>A · The wins belong to the balance</span></label>
+      <div class="pg-frame"><div class="mock" style="width:520px;display:flex;flex-direction:column;gap:12px">
+        <div class="tile"><div class="th"><span>balance</span><span class="aside"><span class="tip">private</span></span></div><div class="kpi"><span class="v">560.5<span class="u">tYACA</span></span><span class="s"><span class="quiet" style="font-size:12.5px">139 wins on this device · 556 tYACA mined ›</span></span></div>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><span class="btn primary">Send</span><span class="btn">Bridge to Ethereum</span><span class="btn ghost">Bridge from Ethereum</span></div></div>
+        <div class="dialog" style="width:auto;padding:20px 22px 18px;gap:12px"><span class="x">×</span><div style="display:flex;flex-direction:column;gap:6px"><span class="eyebrow">wallet · mined here</span><h4 style="font-size:19px">139 wins on this device.</h4></div>
+          <ol class="ledger"><li><span>2026-09-20 16:07</span><span class="ink3">epoch 412</span><span>block <a href="#d7">83,164 ↗</a></span><span class="okc">+4</span></li><li><span>2026-09-20 15:51</span><span class="ink3">epoch 409</span><span>block <a href="#d7">83,102 ↗</a></span><span class="okc">+4</span></li><li><span>2026-09-20 15:38</span><span class="ink3">epoch 407</span><span>block <a href="#d7">83,057 ↗</a></span><span class="okc">+4</span></li><li class="ep"><span>… 136 more, scrolling</span></li></ol>
+          <p class="foot">Wins from another browser aren't listed here; the balance counts them all.</p></div>
+      </div></div>
+      <ul class="pg-pc">
+        <li class="pro">One line, one job: how this balance was earned, and it opens the list in the same 440 px dialog everything else in the wallet uses. The activity footer keeps only the recovery links.</li>
+        <li class="how">"private" gets a tooltip: "Amounts and transfers are encrypted on-chain; only this account can read them."</li>
+      </ul>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d7" value="B" id="d7-b"><span>B · Mining as a row of the activity list</span></label>
+      <div class="pg-frame"><div class="mock" style="width:520px;display:flex;flex-direction:column;gap:12px">
+        <div class="tile"><div class="th"><span>balance</span><span class="aside"><span class="tip">private</span></span></div><div class="kpi"><span class="v">560.5<span class="u">tYACA</span></span></div>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><span class="btn primary">Send</span><span class="btn">Bridge to Ethereum</span><span class="btn ghost">Bridge from Ethereum</span></div></div>
+        <div class="tile"><div class="th"><span>activity</span><span class="aside">3 · newest first</span></div><p class="xs ink3" style="margin-bottom:10px">… crossings …</p>
+        <div class="act"><div><p class="a">556 <small>tYACA mined on this device</small></p><p class="l">139 wins; the last one today at 16:07.</p></div><div class="rt"><span class="st ok"><i></i>minted</span></div><div class="more"><span></span><span class="x2 mono ink3">Details</span></div></div></div>
+      </div></div>
+      <ul class="pg-pc">
+        <li class="pro">Everything that ever changed the balance is in one list, with the same Details mechanic as every row.</li>
+        <li class="con">The list's promise today is "every crossing"; a row that is a sum of 139 events is a different kind of thing pinned among them, and it sinks as crossings pile up.</li>
+      </ul>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d7" value="C" id="d7-c"><span>C · Off the Wallet; Mine's ledger keeps the list</span><em class="pg-rec">my pick</em></label>
+      <div class="pg-frame"><div class="mock" style="width:560px;display:flex;flex-direction:column;gap:12px">
+        <span class="lm">wallet</span>
+        <div class="tile"><div class="th"><span>balance</span><span class="aside"><span class="tip">private</span></span></div><div class="kpi"><span class="v">560.5<span class="u">tYACA</span></span></div>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><span class="btn primary">Send</span><span class="btn">Bridge to Ethereum</span><span class="btn ghost">Bridge from Ethereum</span></div></div>
+        <span class="lm" style="margin-top:6px">mine · the ledger tile</span>
+        <div class="tile"><div class="th"><span>proofs, newest first</span><span class="aside">★ win · ✓ minted · ✗ failed · ── epoch</span></div>
+          <ol class="ledger"><li class="ok"><span>16:08:21</span><span class="g">✓</span><span>minted in block 83,164 ↗ · 4 tYACA, privately</span></li><li class="win"><span>16:07:40</span><span class="g">★</span><span>#212 score 61.2 1.98 s a win</span></li><li><span>16:07:38</span><span class="g"></span><span>#211 score 3.4 1.97 s</span></li></ol>
+          <div style="display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);margin-top:10px;padding-top:10px" class="x2 mono ink3"><span>139 wins on this device</span><span class="quiet" style="font-size:11px">all wins ›</span></div></div>
+      </div></div>
+      <ul class="pg-pc">
+        <li class="pro">The Wallet is only money: a number, three buttons, the crossings. The wins go where wins happen; "all wins ›" opens the dialog drawn in A.</li>
+        <li class="pro">The ledger only holds this session's lines, so this is the one place an old win's block stays findable.</li>
+        <li class="con">One quiet footer line on a tile that has none today.</li>
+      </ul>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d7" value="D" id="d7-d"><span>D · Remove the list</span></label>
+      <div class="pg-frame"><div class="mock" style="width:520px"><div class="tile"><div class="th"><span>balance</span><span class="aside"><span class="tip">private</span></span></div><div class="kpi"><span class="v">560.5<span class="u">tYACA</span></span></div>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><span class="btn primary">Send</span><span class="btn">Bridge to Ethereum</span><span class="btn ghost">Bridge from Ethereum</span></div></div></div></div>
+      <ul class="pg-pc">
+        <li class="pro">Least UI. The session's wins still show in "best this epoch" and in the ledger while the tab lives.</li>
+        <li class="con">After a reload there is no way to find which block an old win landed in. The records stay in the browser's storage with nothing reading them.</li>
+      </ul>
+    </article>
+  </div>
+</section>
+
+<!-- D8 -->
+<section class="pg-dec" id="d8">
+  <div class="pg-dh"><span class="pg-id">D8</span><h2>The bridge row in the activity list</h2><span class="pg-done">picked A</span></div>
+  <blockquote class="pg-q">"'2 YACA → here · from 0x000000…0000' reads very weird, when it's just a claim. Ah, I just understood: it's a bridge from Ethereum to Aztec. We should improve the design of this card."</blockquote>
+  <p><b>The problem.</b> The row leads with the amount and leaves the kind of crossing to a small mono phrase with an arrow, so a deposit waiting for its claim reads like a mining claim. The zero address is a separate bug (F9). Both options apply to all three kinds of row: to Ethereum, from Ethereum, sent ahead.</p>
+  <div class="pg-opts">
+    <article class="pg-opt today"><span class="pg-tag">Today</span>
+      <div class="pg-frame"><div class="mock" style="width:760px"><div class="act hi"><div><p class="a">2 <small>YACA → here · from 0x000000…0000</small></p><p class="l">Arrived. Claim it into your private balance: one tap, about 5 s, no fee.</p></div><div class="rt"><span class="st ok"><i></i>arrived</span><span class="when">Sep 20 16:12</span></div><div class="trail full"><span>sent from your wallet ✓</span><span class="arr">→</span><span>crossed to Aztec ✓</span><span class="arr">→</span><span class="uv2">claim</span></div><div class="more"><span class="btn sm uv">Claim</span><span class="x2 mono ink3">Details</span></div></div></div></div>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d8" value="A" id="d8-a"><span>A · The kind leads, the amount is a signed figure</span><em class="pg-rec">my pick</em></label>
+      <div class="pg-frame"><div class="mock" style="width:760px;display:flex;flex-direction:column;gap:10px">
+        <div class="act k hi"><span class="dir in"><svg viewBox="0 0 24 24"><path d="M12 4v15M6 13l6 6 6-6"/></svg></span><div><p class="a">From Ethereum</p><p class="x2 mono ink3" style="margin-top:3px">0x90F7…b906 · Sep 20 16:12</p></div><div class="rt"><span class="a okc" style="font-size:15px;font-weight:600">+2 tYACA</span><span class="st ok"><i></i>arrived · claim it</span></div>
+          <p class="l full" style="margin:0">Arrived. Claim it into your private balance: one tap, about 5 s, no fee.</p>
+          <div class="trail full"><span>deposit sent ✓</span><span class="arr">→</span><span>crossed to Aztec ✓</span><span class="arr">→</span><span class="uv2">claim</span></div><div class="more"><span class="btn sm uv">Claim</span><span class="x2 mono ink3">Details</span></div></div>
+        <div class="act k"><span class="dir"><svg viewBox="0 0 24 24"><path d="M12 20V5M6 11l6-6 6 6"/></svg></span><div><p class="a">To Ethereum</p><p class="x2 mono ink3" style="margin-top:3px">0x90F7…b906 · Sep 19 09:40</p></div><div class="rt"><span class="a" style="font-size:15px;font-weight:600">−25 tYACA</span><span class="st on"><i></i>waiting for the epoch's proof</span></div>
+          <p class="l full" style="margin:0">Left your balance. Ethereum can release it once this epoch is proven, usually within the hour.</p></div>
+        <div class="act k"><span class="dir in"><svg viewBox="0 0 24 24"><path d="M12 4v15M6 13l6 6 6-6"/></svg></span><div><p class="a">From Ethereum</p><p class="x2 mono ink3" style="margin-top:3px">found on Ethereum · Sep 18 21:03</p></div><div class="rt"><span class="a okc" style="font-size:15px;font-weight:600">+10 tYACA</span><span class="st"><i></i>claimed</span></div></div>
+      </div></div>
+      <ul class="pg-pc">
+        <li class="pro">Reads like a bank statement: an arrow for the direction, the kind in words, a signed amount in the unit that reaches or leaves this balance. The mining-claim confusion can't happen.</li>
+        <li class="how">Third row: a deposit the page found on-chain rather than made itself has no sender on record, so it says so instead of printing a placeholder.</li>
+        <li class="con">Touches <code>ActivityRow</code>, <code>whoOf</code> and the row specs; the old origin's page shares the component and gets it too.</li>
+      </ul>
+    </article>
+    <article class="pg-opt">
+      <label class="pg-pick"><input type="radio" name="d8" value="B" id="d8-b"><span>B · Keep the anatomy, fix the phrase</span></label>
+      <div class="pg-frame"><div class="mock" style="width:760px"><div class="act hi"><div><p class="a">2 <small>YACA</small> <span class="badge" style="margin-left:6px">from Ethereum</span> <small>0x90F7…b906</small></p><p class="l">Arrived. Claim it into your private balance: one tap, about 5 s, no fee.</p></div><div class="rt"><span class="st ok"><i></i>arrived</span><span class="when">Sep 20 16:12</span></div><div class="trail full"><span>deposit sent ✓</span><span class="arr">→</span><span>crossed to Aztec ✓</span><span class="arr">→</span><span class="uv2">claim</span></div><div class="more"><span class="btn sm uv">Claim</span><span class="x2 mono ink3">Details</span></div></div></div></div>
+      <ul class="pg-pc">
+        <li class="pro">A copy change and a badge; no component work.</li>
+        <li class="con">The amount still leads and the direction is still a footnote. It fixes the sentence you tripped on, not the reason you tripped.</li>
+      </ul>
+    </article>
+  </div>
+</section>
+</div>
+
+<!-- ═══════════════ FIXES ═══════════════ -->
+<div class="pg-part">
+<div class="pg-parthead"><span class="pg-eyebrow">Part two</span><h2>Fixes: no options, just what it will look like</h2></div>
+
+<section class="pg-fix" id="f1">
+  <div class="pg-dh"><span class="pg-id">F1</span><h3>One arrow per link</h3></div>
+  <p><code>ExternalLink</code> appends its own ↗ and "(opens in a new tab)"; five callers also type one: the activity row's "Etherscan" and "claim", the deposit dialog's "Etherscan", the claim dialog's "View on Etherscan", Send's "transaction". The callers lose theirs, and a test fails any <code>ExternalLink</code> child that ends in ↗. Three hand-rolled anchors ("Get one", "the rules, on /faq", the old tab's host) move onto the component.</p>
+  <div class="pg-ba">
+    <figure><figcaption>today</figcaption><div class="pg-frame"><div class="mock" style="width:330px"><div class="trail" style="font-size:11px"><a href="#f1">Etherscan ↗↗</a><span>block 83,164 ↗</span><span>epoch 412</span><a href="#f1">claim ↗↗</a></div></div></div></figure>
+    <figure><figcaption class="after">after</figcaption><div class="pg-frame"><div class="mock" style="width:330px"><div class="trail" style="font-size:11px"><a href="#f1">Etherscan ↗</a><a href="#f1">block 83,164 ↗</a><span>epoch 412</span><a href="#f1">claim ↗</a></div></div></div></figure>
+  </div>
+</section>
+
+<section class="pg-fix" id="f2">
+  <div class="pg-dh"><span class="pg-id">F2</span><h3>"Sent from Rabby Wallet" becomes "Deposit sent"</h3></div>
+  <p>The wallet's name earns its place in the step before ("Confirm in Rabby Wallet": it tells you where to look). Once that step is done the subject is the deposit. Same change in the activity row's trail. If your objection was something else about this line, say so and I'll redraw it.</p>
+  <div class="pg-ba">
+    <figure><figcaption>today</figcaption><div class="pg-frame"><div class="mock" style="width:400px"><ol class="steps today"><li class="done" style="padding:0"><span class="ring"></span><span><span class="t">Sent from Rabby Wallet</span></span><span class="r"><a href="#f2">Etherscan ↗↗</a></span></li></ol></div></div></figure>
+    <figure><figcaption class="after">after</figcaption><div class="pg-frame"><div class="mock" style="width:400px"><ol class="steps today"><li class="done" style="padding:0"><span class="ring"></span><span><span class="t">Deposit sent</span></span><span class="r"><a href="#f2">Etherscan ↗</a></span></li></ol></div></div></figure>
+  </div>
+</section>
+
+<section class="pg-fix" id="f3">
+  <div class="pg-dh"><span class="pg-id">F3</span><h3>The ledger's legend is a glyph key, nothing more</h3></div>
+  <p>"final once its epoch is proven" is a rule about one line, so it moves to that line: a minted line reads "settling" until its epoch is proven and "final" after (it already says "final"; "settling" is new and carries the sentence as its tooltip). "claiming" leaves the legend too; it was never a glyph.</p>
+  <div class="pg-ba">
+    <figure><figcaption>today</figcaption><div class="pg-frame"><div class="mock" style="width:760px"><div class="tile"><div class="th"><span>proofs, newest first</span><span class="aside">★ win · claiming · ✓ minted, final once its epoch is proven · ✗ failed · ── epoch</span></div><ol class="ledger"><li class="ok"><span>16:08:21</span><span class="g">✓</span><span>minted in block 83,164 ↗ · 4 tYACA, privately · effects ↗</span></li><li class="win"><span>16:07:40</span><span class="g">★</span><span>#212 score 61.2 1.98 s a win</span></li><li><span>16:07:38</span><span class="g"></span><span>#211 score 3.4 1.97 s</span></li></ol></div></div></div></figure>
+    <figure><figcaption class="after">after</figcaption><div class="pg-frame"><div class="mock" style="width:760px"><div class="tile"><div class="th"><span>proofs, newest first</span><span class="aside">★ win · ✓ minted · ✗ failed · ── epoch</span></div><ol class="ledger"><li class="ok"><span>16:08:21</span><span class="g">✓</span><span>minted in block 83,164 ↗ · 4 tYACA, privately · effects ↗ <span class="ink3 tip">· settling</span></span></li><li class="win"><span>16:07:40</span><span class="g">★</span><span>#212 score 61.2 1.98 s a win</span></li><li><span>16:07:38</span><span class="g"></span><span>#211 score 3.4 1.97 s</span></li></ol></div></div></div></figure>
+  </div>
+</section>
+
+<section class="pg-fix" id="f4">
+  <div class="pg-dh"><span class="pg-id">F4 · F7</span><h3>The power slider: presets you can press, and a unit on the rate</h3></div>
+  <p>The three labels are placed at their thread count's position on the track. On 14 cores eco (4) and balanced (7) land 66 px apart and the text collides: "eco · 4balanced · 7". They become three equal buttons under the track that set the slider (today they are inert labels); the count lives in the readout only, which also gets its unit: "20.4 proofs/min".</p>
+  <div class="pg-ba">
+    <figure><figcaption>today · 14 cores, 300 px tile</figcaption><div class="pg-frame"><div class="mock" style="width:300px"><div class="tile"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lm">power</span><span class="x2 mono ink3">7 threads · 20.4 / min</span></div><div class="slider"><i style="width:50%"></i><b style="left:50%"></b></div><div class="plabels"><span style="left:25%;transform:translateX(-50%)">eco · 4</span><span class="uv2" style="left:50%;transform:translateX(-50%)">balanced · 7</span><span style="right:0">max · 13</span></div></div></div></div></figure>
+    <figure><figcaption class="after">after</figcaption><div class="pg-frame"><div class="mock" style="width:300px"><div class="tile"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lm">power</span><span class="x2 mono ink3">7 threads · 20.4 proofs/min</span></div><div class="slider"><i style="width:50%"></i><b style="left:50%"></b></div><div class="presets"><span>eco</span><span class="on">balanced</span><span>max</span></div></div></div></div></figure>
+  </div>
+</section>
+
+<section class="pg-fix" id="f5">
+  <div class="pg-dh"><span class="pg-id">F5</span><h3>The lighter bars are a drawing bug</h3></div>
+  <p>Each proof's tick is stroked on its own at 55 % opacity. With 13 threads (or Presto) proofs finish in bursts; ticks that land within 2 px of each other stack, and three stacked strokes reach 91 % opacity: a bright bar out of nowhere. Both boards below hold the same proofs. The fix strokes every tick of a frame as one path, so overlap cannot add up; nothing about the data changes.</p>
+  <div class="pg-ba" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,470px),1fr))">
+    <figure><figcaption>today</figcaption><div class="pg-frame"><div class="mock" style="width:560px"><div class="chart" data-c='{"w":528,"n":46,"clusters":"bug","seed":11}'></div></div></div></figure>
+    <figure><figcaption class="after">after</figcaption><div class="pg-frame"><div class="mock" style="width:560px"><div class="chart" data-c='{"w":528,"n":46,"clusters":"fixed","seed":11}'></div></div></div></figure>
+  </div>
+</section>
+
+<section class="pg-fix" id="f6">
+  <div class="pg-dh"><span class="pg-id">F6</span><h3>The dialog's horizontal scrollbar</h3></div>
+  <p>The account dialog sets <code>overflow-y:auto</code> so a tall checklist can scroll. CSS then computes <code>overflow-x</code> to <code>auto</code> as well, and any child a pixel too wide (a nowrap right column, a long address) raises a scrollbar. Moderate confidence on which child it is; I'll reproduce it in Playwright first. The fix is the same either way: <code>overflow-x:clip</code> on the dialog, and the stepper's right column may shrink and wrap instead of forcing its width. D3's new stepper carries the second half.</p>
+  <div class="pg-ba">
+    <figure><figcaption>today</figcaption><div class="pg-frame"><div class="mock bare"><div class="dialog" style="width:330px;padding:18px 18px 0;gap:10px"><span class="eyebrow">account · opening</span><h4 style="font-size:18px">Opening your account.</h4><p class="xs ink3">… the checklist …</p><div style="height:12px;margin:0 -18px;background:var(--panel);border-top:1px solid var(--line);position:relative"><span style="position:absolute;left:4px;top:3px;height:6px;width:82%;border-radius:3px;background:var(--ink-4)"></span></div></div></div></div></figure>
+    <figure><figcaption class="after">after</figcaption><div class="pg-frame"><div class="mock bare"><div class="dialog" style="width:330px;padding:18px;gap:10px"><span class="eyebrow">account · opening</span><h4 style="font-size:18px">Opening your account.</h4><p class="xs ink3">… the checklist …</p></div></div></div></figure>
+  </div>
+</section>
+
+<section class="pg-fix" id="f8">
+  <div class="pg-dh"><span class="pg-id">F8</span><h3>Settings says "13 threads" once</h3></div>
+  <p>The tile's corner and the slider's own label row print the same number 40 px apart. The corner goes; the row stays. Drawn in <a href="#d4" style="color:var(--pg-uv)">D4's Settings boards</a>, which replace the whole tile.</p>
+</section>
+
+<section class="pg-fix" id="f9">
+  <div class="pg-dh"><span class="pg-id">F9</span><h3>The zero address is a placeholder that leaked</h3></div>
+  <p>A deposit this browser didn't make itself (another device, or a restored journal) is found by matching its secret on-chain. The sender isn't part of that match, so <code>landing.ts</code> writes twenty zero bytes into <code>ethAddress</code> and <code>whoOf</code> prints them. The row stops printing an address it doesn't have; D8 decides what it says instead ("found on Ethereum" in option A). The field becomes optional in the journal rather than zero-filled, so nothing else can print it by accident.</p>
+  <div class="pg-ba">
+    <figure><figcaption>today</figcaption><div class="pg-frame"><div class="mock" style="width:400px"><p class="a" style="font-size:15px;font-weight:600">2 <small class="mono ink3" style="font-size:12px;font-weight:400">YACA → here · from 0x000000…0000</small></p></div></div></figure>
+    <figure><figcaption class="after">after · with D8 option B's anatomy</figcaption><div class="pg-frame"><div class="mock" style="width:400px"><p class="a" style="font-size:15px;font-weight:600">2 <small class="mono ink3" style="font-size:12px;font-weight:400">YACA</small> <span class="badge" style="margin-left:6px">from Ethereum</span></p></div></div></figure>
+  </div>
+</section>
+</div>
+
+<section class="pg-dec">
+  <div class="pg-parthead"><span class="pg-eyebrow">After you pick</span><h2>What happens next</h2></div>
+  <p>Paste the line from the bar below into the terminal, with anything you want redrawn. This touches <code>packages/ui</code> (stepper, slider, activity row, score loop, external link) and <code>packages/web-miner</code> (Presto's consent and memory, Settings, Wallet, the cockpit grid), so it goes through a blueprint before any code: the e2e shards, the replay recording and the component specs all assert on copy that changes here.</p>
+</section>
+
+</div>
+
+<div class="pg-bar" role="region" aria-label="Your picks">
+  <div class="in">
+    <span class="n" id="pg-count">0 of 8 picked</span>
+    <input type="text" id="pg-out" readonly aria-label="Your picks, to paste back">
+    <label for="pg-fixes"><input type="checkbox" id="pg-fixes"> fixes OK as drawn</label>
+    <button class="pg-btn" id="pg-rec" type="button">Use the recommended</button>
+    <button class="pg-btn solid" id="pg-copy" type="button">Copy</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ── the score loop, drawn the way score-loop.tsx draws it (calm): log axis 1…top, the bar, dim ticks, ringed wins
+  function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+  var uid=0;
+  function chart(host){
+    var o=JSON.parse(host.getAttribute('data-c')||'{}'),id=++uid;
+    var W=o.w||760,H=222,L=o.explain||o.axis?62:50,R=W-14,T=22,B=196,bar=38.4,win=61.2,top=96;
+    var y=function(s){return B-(Math.log(Math.max(1,s))/Math.log(top))*(B-T)},x=function(f){return L+f*(R-L)};
+    var r=rng(o.seed||7),n=o.n||70,gaps=o.gaps?[[.30,.48,false],[.86,1,true]]:[];
+    var inGap=function(f){return gaps.some(function(g){return f>g[0]-.004&&f<g[1]+.004})};
+    var s='<defs><pattern id="hp'+id+'" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="var(--uv)" stroke-width="2.4"/></pattern></defs>';
+    s+='<line x1="'+L+'" y1="'+B+'" x2="'+R+'" y2="'+B+'" stroke="var(--line-2)"/>';
+    // the claims, under the ticks
+    gaps.forEach(function(g){
+      if(!o.claims)return;var x0=x(g[0]),x1=x(g[1]),live=g[2],w=x1-x0;
+      if(o.claims==='C'){
+        s+='<rect x="'+x0+'" y="'+(B-6)+'" width="'+w+'" height="12" fill="url(#hp'+id+')" opacity="'+(live?.9:.45)+'"/>';
+        s+='<text x="'+(x0+w/2)+'" y="'+(B-14)+'" text-anchor="middle" style="font-size:10px">'+(live?'paused · claiming':'paused · claimed in 32 s')+'</text>';return}
+      if(o.claims==='B'){
+        var cuts=live?[1]:[.2,.62,1],ops=live?[.3]:[.3,.19,.1],p=0;
+        cuts.forEach(function(c,i){s+='<rect x="'+(x0+w*p)+'" y="'+T+'" width="'+(w*(c-p))+'" height="'+(B-T)+'" fill="var(--uv)" opacity="'+ops[i]*(live?1:.75)+'"/>';p=c});
+      } else s+='<rect x="'+x0+'" y="'+T+'" width="'+w+'" height="'+(B-T)+'" fill="var(--uv)" opacity="'+(live?.2:.09)+'"/>';
+      [x0,x1].forEach(function(xx){s+='<line x1="'+xx+'" y1="'+T+'" x2="'+xx+'" y2="'+B+'" stroke="var(--uv)" stroke-width="2" opacity="'+(live?1:.55)+'"/>'});
+      if(live)s+='<text class="tuv pulse" x="'+(x0+w/2)+'" y="'+(T+(B-T)*.62)+'" text-anchor="middle" style="font-size:10.5px;letter-spacing:.14em;font-weight:500">CLAIMING</text>';
+      else s+='<text x="'+(x0+w/2)+'" y="'+(T+(B-T)*.62)+'" text-anchor="middle" style="font-size:10.5px;letter-spacing:.14em;fill:var(--uv-2);opacity:.75">CLAIMED · 32 s</text>';
+    });
+    // ticks
+    var pts=[];
+    for(var i=0;i<n;i++){var f=(i+.15+.7*r())/n;if(inGap(f)){r();continue}var u=r();pts.push([x(f),y(Math.min(bar*.93,1/(1-u*(1-1/bar))))])}
+    if(o.clusters){[.18,.41,.63,.87].forEach(function(f,k){for(var j=0;j<3+k%2;j++)pts.push([x(f)+j*.7,y(2.2+r()*9)])})}
+    var tickAttr='stroke="var(--ink-3)" stroke-width="2" stroke-linecap="round" fill="none"';
+    if(o.clusters==='bug')pts.forEach(function(p){s+='<path d="M'+p[0].toFixed(1)+' '+B+'V'+p[1].toFixed(1)+'" '+tickAttr+' opacity=".55"/>'});
+    else s+='<path d="'+pts.map(function(p){return'M'+p[0].toFixed(1)+' '+B+'V'+p[1].toFixed(1)}).join('')+'" '+tickAttr+' opacity=".55"/>';
+    // the bar
+    s+='<path d="M'+L+' '+y(bar)+'H'+R+'" stroke="var(--uv)" stroke-width="2" fill="none"/>';
+    s+='<text class="tuv" x="'+(L-8)+'" y="'+(y(bar)+4)+'" text-anchor="end">38.4</text><text x="'+(L-8)+'" y="'+(B+4)+'" text-anchor="end">1</text>';
+    var cap=o.explain?'the bar · reach it and you win · about 1 in 38 do':'the bar · clear it to win';
+    s+='<text class="tuv" x="'+(L+8)+'" y="'+(y(bar)-9)+'" text-anchor="start">'+cap+'</text>';
+    if(o.explain||o.axis)s+='<text transform="rotate(-90 12 '+((T+B)/2)+')" x="12" y="'+((T+B)/2)+'" text-anchor="middle" style="font-size:10px;letter-spacing:.14em">SCORE · LOG SCALE</text>';
+    // wins at the head of each claim
+    gaps.forEach(function(g){var xx=x(g[0]),yy=y(win),flip=xx+120>R;
+      s+='<line x1="'+xx+'" y1="'+(yy+11)+'" x2="'+xx+'" y2="'+(y(bar)-5)+'" stroke="var(--uv-2)" stroke-width="1.5"/>';
+      s+='<circle cx="'+xx+'" cy="'+yy+'" r="5" fill="var(--uv-2)"/><circle cx="'+xx+'" cy="'+yy+'" r="9" fill="none" stroke="var(--uv-2)"/>';
+      s+='<text class="tink" x="'+(flip?xx-14:xx+14)+'" y="'+(yy+1)+'" text-anchor="'+(flip?'end':'start')+'">★ 61.2 · a win</text>'});
+    if(o.explain){var hx=x(.2),hy=y(7.3);
+      s+='<path d="M'+hx+' '+B+'V'+hy+'" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/>';
+      s+='<rect x="'+(hx+10)+'" y="'+(hy-30)+'" width="196" height="50" rx="6" fill="var(--panel)" stroke="var(--line-2)"/>';
+      s+='<text class="tink" x="'+(hx+20)+'" y="'+(hy-13)+'">#187 · score 7.3</text><text x="'+(hx+20)+'" y="'+(hy+4)+'">below the bar · 1.98 s · 16:06:41</text>'}
+    host.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" role="img" aria-label="the score loop, as proposed">'+s+'</svg>';
+  }
+  document.querySelectorAll('.chart').forEach(chart);
+
+  // ── picks
+  var KEYS=['d1','d2','d3','d4','d5','d6','d7','d8'],REC={d1:'A',d2:'A',d3:'B',d4:'A',d5:'A',d6:'A',d7:'C',d8:'A'};
+  var out=document.getElementById('pg-out'),cnt=document.getElementById('pg-count'),fx=document.getElementById('pg-fixes');
+  function render(save){
+    var n=0,parts=KEYS.map(function(k){var c=document.querySelector('input[name="'+k+'"]:checked');if(c)n++;return k.toUpperCase()+'='+(c?c.value:'?')});
+    document.querySelectorAll('.pg-opt').forEach(function(a){var i=a.querySelector(':scope > .pg-pick input');a.classList.toggle('on',!!(i&&i.checked))});
+    out.value=parts.join(' ')+' fixes='+(fx.checked?'ok':'?');cnt.textContent=n+' of 8 picked';
+    if(save)try{localStorage.setItem('yfp-picks',out.value)}catch(e){}
+  }
+  try{var prev=localStorage.getItem('yfp-picks')||'';prev.split(' ').forEach(function(p){var kv=p.split('=');if(kv[0]==='fixes')fx.checked=kv[1]==='ok';else{var el=document.getElementById(kv[0].toLowerCase()+'-'+String(kv[1]).toLowerCase());if(el)el.checked=true}})}catch(e){}
+  document.addEventListener('change',function(e){if(e.target.matches('input[type=radio],#pg-fixes'))render(true)});
+  document.getElementById('pg-rec').addEventListener('click',function(){KEYS.forEach(function(k){var el=document.getElementById(k+'-'+REC[k].toLowerCase());if(el)el.checked=true});render(true)});
+  document.getElementById('pg-copy').addEventListener('click',function(){var b=this,done=function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy'},1500)};
+    out.select();(navigator.clipboard?navigator.clipboard.writeText(out.value):Promise.reject()).then(done,function(){try{document.execCommand('copy');done()}catch(e){}})});
+  render(false);
+})();
+</script>
