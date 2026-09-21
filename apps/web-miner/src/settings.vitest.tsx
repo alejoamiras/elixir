@@ -3,14 +3,15 @@ import { ThemeProvider } from '@yacana/ui';
 import { createStore, Provider } from 'jotai';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { Connection } from './config';
-import { initialPresto } from './presto';
-import { prestoWords, Settings } from './routes/Settings';
+import { CONSENT_KEY } from './presto-consent';
+import { Settings } from './routes/Settings';
 import type { Session } from './session';
 import { bootAtom } from './state';
 
 afterEach(() => {
   cleanup();
   vi.unstubAllEnvs();
+  localStorage.removeItem(CONSENT_KEY);
 });
 // jsdom has no matchMedia; the theme provider reads it for `system`.
 beforeEach(() => {
@@ -41,6 +42,8 @@ const session = () =>
     switchNode: vi.fn(),
     setStayOpen: vi.fn(async () => {}),
     forget: vi.fn(async () => {}),
+    lookForPresto: vi.fn(async () => {}),
+    chooseBrowser: vi.fn(async () => {}),
   }) as unknown as Session;
 
 function mount(signedIn: boolean) {
@@ -70,21 +73,22 @@ function mount(signedIn: boolean) {
 }
 
 describe('Settings', () => {
-  test('the six sections in order, the slider’s sentence, Presto’s row before any probe, the about line; no diagnostics', () => {
+  test('the six sections in order, Presto’s card asking before the slider, the slider’s sentence, the about line; no diagnostics', () => {
     const { container } = mount(true);
     const headers = Array.from(container.querySelectorAll('[data-slot=tile-header]')).map(
       (h) => h.firstElementChild?.textContent,
     );
-    expect(headers).toEqual(['network', 'mining power', 'alerts', 'account', 'appearance', 'about']);
-    expect(container.textContent).toContain(
+    expect(headers).toEqual(['network', 'mining', 'alerts', 'account', 'appearance', 'about']);
+    const card = screen.getByTestId('presto-card');
+    expect(card.getAttribute('data-standing')).toBe('ask');
+    expect(
+      card.compareDocumentPosition(screen.getByRole('slider')) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByRole('slider').hasAttribute('disabled')).toBe(false);
+    expect(screen.getByTestId('power-note').textContent).toBe(
       'This slider affects browser proving only; one core stays with the page.',
     );
-    expect(screen.getByTestId('presto-standing').textContent).toBe(
-      'native prover, several times faster · checked when you start mining',
-    );
-    expect(screen.getByRole('link', { name: /Get Presto/ }).getAttribute('href')).toBe(
-      'https://presto.build',
-    );
+    expect(screen.getByTestId('presto-get').getAttribute('href')).toBe('https://presto.build');
     expect(screen.getByTestId('about-line').textContent).toContain(
       'Yacana runs in your browser. Whoever serves this page controls it; the source is public — run your own build if that matters.',
     );
@@ -134,16 +138,13 @@ describe('Settings', () => {
     expect(screen.getByTestId('node-row')).toBeTruthy();
   });
 
-  test('Presto’s words follow the probe and the prover', () => {
-    const status = { protocol: 'https', available: true, needsDownload: false, schemes: ['ultra_honk'] };
-    expect(prestoWords(initialPresto)).toBe('checked when you start mining');
-    expect(prestoWords({ ...initialPresto, status: { ...status, available: false } } as never)).toBe(
-      'not found',
+  test('Presto remembered: the card says so, the slider is shown but not in force, its sentence says why', () => {
+    localStorage.setItem(CONSENT_KEY, JSON.stringify({ used: true, rev: 0 }));
+    mount(true);
+    expect(screen.getByTestId('presto-card').getAttribute('data-standing')).toBe('remembered');
+    expect(screen.getByRole('slider').hasAttribute('disabled')).toBe(true);
+    expect(screen.getByTestId('power-note').textContent).toBe(
+      'Not in use while Presto proves; Presto’s own speed setting decides. Yacana falls back to these threads if Presto drops out.',
     );
-    expect(prestoWords({ ...initialPresto, status, active: 'presto' } as never)).toBe('connected ✦');
-    expect(prestoWords({ ...initialPresto, status, fallbackReason: 'denied' } as never)).toContain(
-      'Approve it in the Presto app',
-    );
-    expect(prestoWords({ ...initialPresto, status } as never)).toBe('found');
   });
 });

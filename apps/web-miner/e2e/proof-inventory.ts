@@ -61,10 +61,13 @@ export const INVENTORY: Readonly<Record<string, Readonly<Record<string, number>>
     'a claim with a bound public input altered is refused at proving before it is sent; restored, the same claim mints': 1,
   },
   // The claim is the page's, whichever prover found the ticket; its own proof goes to Presto too, or to
-  // WASM when Presto is cut mid-proof.
+  // WASM when Presto is cut mid-proof or consent is withdrawn. The hard deployment's titles never win.
   'presto.e2e.ts': {
+    'no request reaches Presto before the click: load, sign-in, Start, the first proof; again resuming on open': 0,
     'through Presto: the pill says ✦ presto after the first native proof, and power is Presto’s': 0,
+    'remembered: a reload opens on "used last time" and Start goes native with no click': 0,
     'a win Presto proved is verified in the browser before it shows, then claimed through Presto too; both proofs went over the wire': 1,
+    'use the browser: the next claim is proved in the page': 1,
     'Presto gone mid-proof: the claim’s transmit fails, the browser finishes it, nothing is sent twice': 1,
     'nothing answers: the billboard invites the install and the browser proves without the suffix': 0,
   },
