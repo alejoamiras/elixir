@@ -566,8 +566,9 @@ test:e2e` · pass: `cockpit.vitest.tsx` (row labels, footer count, the dialog li
 reads exactly "+4 tYACA · just now", goes after 10 s, and the tile's height is equal with and without it
 (asserted in `miner.e2e.ts`, where there is layout); a `Tip` renders inside the pop-out's root · layers: + e2e.
 
-**P8 — The Wallet, and the sweep.** The Wallet's removals, `OldApp.tsx`, the "private" tip; `CLAUDE.md`;
-`index.md`; then everything:
+**P8 ✓ — The Wallet, and the sweep.** *(The sweep found one consent leak in arc 2 — a revoke still queued when
+the witness was ready — fixed and reviewed; two spec assumptions corrected. `lessons/phase-8.md`.)* The Wallet's
+removals, `OldApp.tsx`, the "private" tip; `CLAUDE.md`; `index.md`; then everything:
 
 ```sh
 E2E_PROVERLESS=1 E2E_SHARD=cockpit bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e
