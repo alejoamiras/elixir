@@ -1,5 +1,13 @@
 import { expect, test } from './fixtures.ts';
-import { BOOT_MS, logOpening, pageUrl, run, virtualAuthenticator } from './helpers.ts';
+import {
+  BOOT_MS,
+  dialogOverflow,
+  dialogOverflowWithRight,
+  logOpening,
+  pageUrl,
+  run,
+  virtualAuthenticator,
+} from './helpers.ts';
 
 /**
  * The page first: a new visitor gets the live cockpit and no dialog; Start mining opens it with the
@@ -35,6 +43,17 @@ test('page first; a cancel mid-opening forgets the intent, a Start mining that o
   await expect(page.getByTestId('opening')).toContainText('Passkey confirmed');
   await expect(page.getByTestId('opening')).toContainText('Mining starts when this finishes.');
   await expect(page.getByTestId('phase')).toHaveText(/opening/i, { timeout: 60_000 });
+  // The checklist inside the 440 px dialog, at the narrowest desktop: no sideways scroll, in it or the page.
+  const desktop = page.viewportSize();
+  await page.setViewportSize({ width: 900, height: 720 });
+  const over = await dialogOverflow(page);
+  expect(over.page).toBeLessThanOrEqual(0);
+  expect(over.inner).toBeLessThanOrEqual(0);
+  // A reason far longer than any the page writes wraps in its cell instead of widening the dialog.
+  const long = 'the node stopped answering '.repeat(5).trim();
+  await expect(page.locator('[data-state=active] [data-slot=step-right]')).toBeVisible({ timeout: 60_000 });
+  expect(await dialogOverflowWithRight(page, long)).toBeLessThanOrEqual(0);
+  if (desktop) await page.setViewportSize(desktop);
   await cancel.click();
 
   // Back to signed out with the account staged before the wallet opened: Welcome offers it, not a new create.

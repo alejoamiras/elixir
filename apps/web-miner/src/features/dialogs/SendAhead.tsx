@@ -118,6 +118,7 @@ function How({ next, onBack }: { next: string; onBack: () => void }) {
     <>
       <Back onBack={onBack} />
       <Stepper
+        explain
         data-testid="ahead-how"
         steps={[
           {
@@ -242,7 +243,7 @@ function Sent({
             id: 'forward',
             label: `Forwarded into ${next}`,
             state: 'pending',
-            detail: `By Yacana once ${next} opens, or by you from ${next}.`,
+            right: 'by Yacana, or by you',
           },
           { id: 'claim', label: `You claim it on ${next}`, state: 'pending', right: 'one tap' },
         ]}

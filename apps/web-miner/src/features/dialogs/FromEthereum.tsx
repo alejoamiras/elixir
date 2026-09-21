@@ -206,6 +206,7 @@ function How({ onBack }: { onBack: () => void }) {
     <>
       <Back onBack={onBack} />
       <Stepper
+        explain
         data-testid="deposit-how"
         steps={[
           {

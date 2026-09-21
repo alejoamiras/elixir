@@ -213,6 +213,7 @@ function How({ onBack }: { onBack: () => void }) {
     <>
       <Back onBack={onBack} />
       <Stepper
+        explain
         data-testid="exit-how"
         steps={[
           {
@@ -294,7 +295,7 @@ function Sent({ step, onDone }: { step: Extract<Step, { kind: 'sent' }>; onDone:
             id: 'claim',
             label: 'Claim on Ethereum',
             state: 'pending',
-            detail: `With a wallet on ${chain()}; it pays the gas in ETH.`,
+            right: 'pays gas in ETH',
           },
         ]}
       />
