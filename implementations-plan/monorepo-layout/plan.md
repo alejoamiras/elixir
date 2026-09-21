@@ -502,12 +502,12 @@ resolves under the repo root · `bun run portal:build && bun run portal:test` (`
 `bun run e2e:agent -- true` (the moved `agent.sh` boots and tears down a network) · `bun
 tools/localnet/src/isolated-node.ts --smoke`.
 
-**P2.3 Remaining edges.** §3.7.
+**P2.3 ✓ Remaining edges.** §3.7.
 *Gate*: FAST · layout guard · `bun run contracts:test` · `bun run --filter '*' typecheck` completes for every
 workspace that has the script (I4) · in `tmux`: `bun run e2e:agent -- bun test packages/deploy`, asserting from the
 output that the moved live tests **ran** (pass count, zero skips for them).
 
-**P2.4 Direction and cycles.** Rules 3–4.
+**P2.4 ✓ Direction and cycles.** Rules 3–4.
 *Gate*: FAST · three deliberate regressions fail the guard: an app's production source importing `@yacana/deploy`;
 one importing another workspace's `scripts/` subpath; a same-layer production cycle.
 *Arc end*: HEAVY · `bun run rig -- flip`.

@@ -90,3 +90,53 @@ flip it, not the one that wrote it.**
 | `bun run portal:build && bun run portal:test` | ok · 74 passed |
 | `bun run e2e:agent -- true` | a network ready in 28 s, torn down |
 | `bun tools/localnet/src/isolated-node.ts --smoke` | SMOKE OK |
+
+## P2.3 Remaining edges
+
+`miner-core/src/{live,reader.live}.test.ts` → `deploy/tests/`, with history. They test a deployment (they call
+`deployYacana`), so they belong to the workspace that deploys; their ten `miner-core` imports go through the package
+name (every module was already exported), their two `deploy` imports become relative, and `miner-core` loses its
+only `devDependency`. The graph's last production-adjacent cycle (`miner-core → deploy → miner-core`, dev) is gone.
+`bridge → portal/abi` and `harness → web-miner/e2e/*` were declared in P1.2. `CLAUDE.md`'s command line for the
+live suite names `packages/deploy`; the threat-model rows say "the live suite", which is still its name.
+
+`contracts:test` failed on the first run with `Failed calling external resolver. Request timeout` after 316 s per
+test, four tests in: the TXE's oracle timing out while FAST, the live suite and the TXE shared a box at load 80. No
+Noir changed in arc 2 (the P0.1 gate ran the same suite in 36 s). Rerun alone, below. **Lesson: a suite with an
+internal timeout is a load gauge; run it alone before reading it as a failure.**
+
+### P2.3 gate (2026-09-21)
+
+| step | result |
+|---|---|
+| FAST | exit 0 · 535 pass · 42 skip · 0 fail |
+| both guards | 18 pass |
+| `bun run --filter '*' typecheck` (I4) | exit 0, every workspace with the script |
+| `bun run e2e:agent -- bun test packages/deploy` | 25 pass · 1 skip · 0 fail in 620 s; the skip is `example-claim.test.ts`'s testnet case (no testnet env), the two moved suites ran whole: five proofs, eight claims, the burst (4 accepted, 4 stale) |
+| `bun run contracts:test` | first run red on the oracle timeout above (four tests at 316 s each); alone: exit 0, **74 + 7 passed in 39 s** |
+
+## P2.4 Direction and cycles
+
+Rules 3 and 4 on the boundary guard, 21 tests now. Direction: a production file (`isProduction`) imports its own
+layer or below (`apps` 3, `packages` 2, `protocol` 1), never a `tools` workspace, and never a subpath whose export
+target sits under the owner's `scripts/`, `e2e/` or `tests/`; `site/src/assemble.ts` is the one listed importer of
+`web-kit/scripts/*`. The layer is a name table in the test until arc 3 puts the workspaces in their folders; a
+workspace missing from the table is a failure of its own. Cycles: depth-first over `dependencies`, the cycle
+reported as the names around it. Both pass on the tree as it stands, which is the point of arcs 2's first three
+phases: `apps → web-kit → {miner-core, bridge, ui}`, `site → apps + web-kit`, `bridge → miner-core, portal`.
+
+A read-only pass over the workflows' filters against the dependency closure of what each lane tests found five
+globs that only the `site ⇄ web-*` cycle had required: `site.yml`'s `web-landing`, `web-miner.yml`'s `site` and
+`web-stats`, `web-stats.yml`'s `site` and `web-miner`. Pruned. `contracts.yml` and `harness.yml` still watch the
+apps and the whole protocol beyond their closure, on purpose: they build and run them (the replay recording, the
+rig), which no `dependencies` edge says.
+
+### P2.4 gate (2026-09-21)
+
+| step | result |
+|---|---|
+| FAST | exit 0 · 535 pass · 42 skip · 0 fail |
+| regression: an app's production source importing `@yacana/deploy` | failed: `web-stats/src/beats.ts:1 imports @yacana/deploy, a tool, from production code` (and the declaration rule); reverted |
+| regression: production source importing another workspace's `scripts/` subpath | failed: `web-landing/src/App.tsx:1 imports @yacana/web-kit/scripts/copy-slots, which is @yacana/web-kit's ./scripts/copy-slots.ts: not production code`; reverted |
+| regression: a same-layer production cycle (`miner-core → bridge`) | failed: `["@yacana/bridge", "@yacana/miner-core", "@yacana/bridge"]`; reverted |
+| both guards after the prune · `lint:actions` | 21 pass · exit 0 |
