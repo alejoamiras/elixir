@@ -89,7 +89,7 @@ describe('the bridge journal store', () => {
     const mine = openBridgeStore(scope);
     const depositor = `0x${'d0'.repeat(20)}` as const;
     const base = { ...make('6')(0), kind: 3 as const };
-    const k3 = { ...base, id: crossingId(base), inboxIndex: '44', l1TxHash: '0xd1' };
+    const k3 = { ...base, id: crossingId(base), inboxIndex: '44', l1TxHash: '0xd1' as const };
     // The journal is further along than the scan's picture of the deposit, and holds the placeholder.
     await mine.put({ ...k3, state: 'minted-l2', claimTxHash: '0xc', ethAddress: UNKNOWN_ETH });
     const dep: Arrived = {
