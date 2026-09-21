@@ -53,3 +53,32 @@ by name), and no project roots an untracked file.
 | `lint:actions` | exit 0 |
 | FAST | see below |
 | FAST | all ok; `bun test` **539 pass · 42 skip · 0 fail** (537 + the two solution rules) |
+
+## Arc 4 codex fix loop
+
+### Round 1 (2026-09-21) — "One material guard gap; no current typecheck or CI coverage regression"
+
+Codex (GPT-6 Astra, `high`, read-only, session `01a0c561-6aa5-7410-a0c8-b617eabee682`) over `git diff
+1489c6c..2e02c27`, probing in memory with intercepted compiler writes.
+
+1. **Ownership was counted, not enforced.** The roots rule asked "exactly one project" and let the ambient files
+   have any number: root every `harness` file from `deploy`'s project through `files`, reduce `harness`'s own
+   project to a foreign `vite-env.d.ts`, and both rules passed while `harness`'s typecheck checked nothing. Fixed:
+   a file's one owner must be a project under its home (its workspace; `scripts` for the root scripts and the
+   root-level files — the `commitlint.config.ts` special case generalised, codex's third point), and an app's
+   `vite-env.d.ts` must be rooted by exactly its `tsconfig.app.json` and `tsconfig.tests.json`. Codex's exact
+   bypass replayed: the guard fails with `tools/harness/src/revert.ts: tools/deploy/tsconfig.json` (and the two
+   others) plus the ambient file with three owners; restored, 13 pass. **Lesson: "exactly one" is a count; a guard
+   about ownership has to name the owner.**
+2. Pre-existing, logged in `follow-ups.md`: `web-kit`'s project checks `src/browser/*` under `bun` types, so a
+   `Bun.file(…)` in a browser module passes there and is caught by the apps that import it. Not this arc's doing
+   (the root's `bun` project held the same files before).
+
+Confirmed fine by codex: 21 non-empty leaves, TypeScript 6.0.3 accepts the empty solution root over
+non-composite `noEmit` children, `--force` bypasses the up-to-date check, no stale-green mechanism in the graph, every
+lane keeps or widens its coverage, `miner-core.yml` (unfiltered) covers a change to `tsconfig.base.json`.
+
+| step | result |
+|---|---|
+| lint · layout guard | exit 0 · 13 pass |
+| codex's bypass replayed, then restored | exit 1 with the misplaced roots named · exit 0 |

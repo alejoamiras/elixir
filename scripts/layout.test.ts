@@ -415,31 +415,34 @@ describe('the typecheck solution', () => {
   const root = ts.getParsedCommandLineOfConfigFile(join(repo, 'tsconfig.json'), {}, host);
   const referenced = (root?.projectReferences ?? []).map((r) => relative(repo, r.path));
   const projects = leaves(join(repo, 'tsconfig.json'));
-  // An app's ambient module types are roots of the app and of its tests project, by name.
-  const AMBIENT_MANY = new Set(
-    ['web-miner', 'web-stats', 'web-landing'].map((a) => `apps/${a}/src/vite-env.d.ts`),
-  );
   const typescript = files.filter((f) => /\.tsx?$/.test(f) && !f.startsWith('implementations-plan/'));
+  /** The folder whose project must root the file: its workspace; `scripts` for the root scripts and root files. */
+  const home = (f: string): string =>
+    ownerOf(f, all)?.dir ??
+    (f.startsWith('scripts/') || !f.includes('/') ? 'scripts' : (f.split('/')[0] ?? ''));
+  /** The projects that may root a file: its home's, and for an app's ambient module types the app and tests projects. */
+  const expectedOwners = (f: string): string[] | undefined => {
+    const m = /^(apps\/[^/]+)\/src\/vite-env\.d\.ts$/.exec(f);
+    return m ? [`${m[1]}/tsconfig.app.json`, `${m[1]}/tsconfig.tests.json`] : undefined;
+  };
 
   test('every workspace with TypeScript, and the root scripts, is a project the root references', () => {
-    const owners = [...new Set(typescript.map((f) => ownerOf(f, all)?.dir ?? f.split('/')[0] ?? ''))];
-    // The root-level config file belongs to the scripts project.
-    const missing = owners.filter(
-      (dir) => !referenced.includes(dir === 'commitlint.config.ts' ? 'scripts' : dir),
-    );
-    expect(missing).toEqual([]);
+    const homes = [...new Set(typescript.map(home))];
+    expect(homes.filter((dir) => !referenced.includes(dir))).toEqual([]);
     expect(referenced.filter((dir) => !exists(`${dir}/tsconfig.json`))).toEqual([]);
   });
 
-  test('every tracked TypeScript file is a root file of exactly one project', () => {
+  test("every tracked TypeScript file is a root file of exactly one project, its own workspace's", () => {
     const owners = new Map<string, string[]>();
     for (const p of projects) for (const f of p.files) owners.set(f, [...(owners.get(f) ?? []), p.cfg]);
     const off = typescript
       .filter((f) => {
-        const n = owners.get(f)?.length ?? 0;
-        return AMBIENT_MANY.has(f) ? n === 0 : n !== 1;
+        const have = (owners.get(f) ?? []).sort();
+        const want = expectedOwners(f);
+        if (want) return have.join() !== want.join();
+        return have.length !== 1 || !have[0]?.startsWith(`${home(f)}/`);
       })
-      .map((f) => `${f}: ${owners.get(f)?.join(', ') ?? 'no project'}`);
+      .map((f) => `${f}: ${owners.get(f)?.join(', ') || 'no project'}`);
     expect(off).toEqual([]);
     expect([...owners.keys()].filter((f) => !files.includes(f))).toEqual([]);
   });
