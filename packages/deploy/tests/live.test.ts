@@ -16,16 +16,16 @@ import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
 import type { PrivateCallExecutionResult, TxReceipt } from '@aztec/stdlib/tx';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { TokenContract } from '@aztec-foundation/aztec-standards/artifacts/src/artifacts/Token.js';
-import { type Deployment, deployYacana, TEST_PORTAL } from '@yacana/deploy/deploy';
-import { effectView, exampleClaimFromEffect, sponsorFeeLeaf } from '@yacana/deploy/example-claim';
-import { loadMinerArtifact, loadWorkArtifact } from './artifacts.ts';
-import { buildClaim, claimGasLimits } from './claim.ts';
-import { readOpenEpoch, readRules } from './epoch.ts';
-import { PARAMS } from './generated/params.ts';
-import { mineEpoch, type Winner } from './miner.ts';
-import { DOM_NULL, deployDomain } from './proof.ts';
-import { newEpochSecret } from './secret.ts';
-import { BbJsWorkProver, type WorkProver } from './work.ts';
+import { loadMinerArtifact, loadWorkArtifact } from '@yacana/miner-core/artifacts';
+import { buildClaim, claimGasLimits } from '@yacana/miner-core/claim';
+import { readOpenEpoch, readRules } from '@yacana/miner-core/epoch';
+import { PARAMS } from '@yacana/miner-core/generated/params';
+import { mineEpoch, type Winner } from '@yacana/miner-core/miner';
+import { DOM_NULL, deployDomain } from '@yacana/miner-core/proof';
+import { newEpochSecret } from '@yacana/miner-core/secret';
+import { BbJsWorkProver, type WorkProver } from '@yacana/miner-core/work';
+import { type Deployment, deployYacana, TEST_PORTAL } from '../src/deploy.ts';
+import { effectView, exampleClaimFromEffect, sponsorFeeLeaf } from '../src/example-claim.ts';
 
 const nodeUrl = process.env.AZTEC_NODE_URL ?? '';
 const EASY_TARGET = 1n << 127n; // every other proof wins

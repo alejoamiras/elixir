@@ -5,9 +5,8 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { TokenContract } from '@aztec-foundation/aztec-standards/artifacts/src/artifacts/Token.js';
-import { deployYacana, TEST_PORTAL } from '@yacana/deploy/deploy';
-import { loadMinerArtifact } from './artifacts.ts';
-import { PARAMS } from './generated/params.ts';
+import { loadMinerArtifact } from '@yacana/miner-core/artifacts';
+import { PARAMS } from '@yacana/miner-core/generated/params';
 import {
   assertDeployment,
   expectedFromStrings,
@@ -16,8 +15,9 @@ import {
   readLottery,
   readOpenEpochNumber,
   readTotalSupply,
-} from './reader.ts';
-import { deriveSlotTable } from './slots.ts';
+} from '@yacana/miner-core/reader';
+import { deriveSlotTable } from '@yacana/miner-core/slots';
+import { deployYacana, TEST_PORTAL } from '../src/deploy.ts';
 
 const nodeUrl = process.env.AZTEC_NODE_URL ?? '';
 

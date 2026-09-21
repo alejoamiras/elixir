@@ -41,8 +41,5 @@
     "@aztec/stdlib": "5.2.0",
     "@aztec/wallets": "5.2.0",
     "@scure/bip39": "2.3.0"
-  },
-  "devDependencies": {
-    "@yacana/deploy": "workspace:*"
   }
 }
