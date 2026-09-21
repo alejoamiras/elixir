@@ -187,7 +187,7 @@ function StartControl({
 }
 
 function LoopHelp({ bar }: { bar: number | null }) {
-  const odds = bar === null ? null : Math.round(bar);
+  const odds = oddsOf(bar);
   return (
     <Popover>
       <PopoverTrigger
@@ -206,8 +206,8 @@ function LoopHelp({ bar }: { bar: number | null }) {
         <span>
           A proof that reaches <b className="font-medium text-uv-2">the bar</b> wins{' '}
           {amount(PARAMS.REWARD, PARAMS.DECIMALS)} {PARAMS.TOKEN_SYMBOL}.
-          {odds !== null && odds >= 2 ? ` Today about 1 proof in ${odds} does, so most ticks stay low.` : ''}{' '}
-          More proofs per minute means more draws, not taller ones.
+          {odds !== null ? ` Today about 1 proof in ${odds} does, so most ticks stay low.` : ''} More proofs
+          per minute means more draws, not taller ones.
         </span>
       </PopoverContent>
     </Popover>
@@ -260,11 +260,15 @@ function RateLine({ native, miner, perProof }: { native: boolean; miner: MinerSt
   );
 }
 
-/** What reaching the bar means, and how often a proof does: a score of S comes up about once in S proofs. */
+/** "About 1 proof in N reaches the bar": a score of S comes up about once in S proofs. None while they are not odds. */
+const oddsOf = (bar: number | null): number | null =>
+  bar === null || Math.round(bar) < 2 ? null : Math.round(bar);
+
+/** What reaching the bar means, and how often a proof does. */
 export const barCaption = (bar: number | null): string | undefined => {
   if (bar === null) return undefined;
-  const odds = Math.round(bar);
-  return odds < 2
+  const odds = oddsOf(bar);
+  return odds === null
     ? 'the bar · reach it and you win'
     : `the bar · reach it and you win · about 1 in ${odds} do`;
 };

@@ -1,6 +1,7 @@
 import { PARAMS } from '@yacana/miner-core/generated/params';
 import { Button, ExternalLink, Kpi, Skeleton, Tile, TileHeader, Tip, useTweenedNumber } from '@yacana/ui';
 import { useAtomValue, useSetAtom } from 'jotai';
+import { useState } from 'react';
 import { links } from '../explorer';
 import { amount, shortAddress } from '../lib/format';
 import { mintedFresh } from '../lib/reducer';
@@ -16,9 +17,16 @@ export function PrivateTip() {
   );
 }
 
-/** Under the number, reserved whether or not a mint is fresh: the tile never changes height for it. */
+/**
+ * Under the number, reserved whether or not a mint is fresh: the tile never changes height for it.
+ * The last mint is kept here: the next claim clears the miner's own (the pill's ✓ must go), and the
+ * balance's ten seconds must not end with it.
+ */
 function MintLine() {
-  const fresh = mintedFresh(useAtomValue(minerAtom).minted, useAtomValue(nowAtom));
+  const minted = useAtomValue(minerAtom).minted;
+  const [last, setLast] = useState(minted);
+  if (minted && minted !== last) setLast(minted);
+  const fresh = mintedFresh(last, useAtomValue(nowAtom));
   return (
     <span className="block min-h-[1.4em] font-mono text-[11.5px] text-ok" data-testid="mint-line">
       {fresh ? `+${amount(PARAMS.REWARD, PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL} · just now` : ''}

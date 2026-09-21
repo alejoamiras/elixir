@@ -3,13 +3,11 @@ import type * as React from 'react';
 import { cn } from '../lib/cn.ts';
 
 /**
- * A dotted word that explains itself on hover or focus; the pointer may travel onto the explanation
- * (WCAG 1.4.13). A second React root has no provider, so each `Tip` carries its own. A second
- * document (the pop-out) needs `container`: the portal defaults to the opener's body, and radix
- * tracks the pointer's travel and its release on the opener's `document`, which never hears the
- * other one — so there the tip closes on the trigger's own `pointerleave` and radix's pointer-down
- * bookkeeping is skipped, or one click would stop focus from opening it. Invisible on touch: what a
- * touch user needs goes in a popover, not here.
+ * A dotted word explained on hover or focus; hoverable (WCAG 1.4.13), invisible on touch. Each `Tip`
+ * carries its own provider (a second React root has none). In a second document (the pop-out) pass
+ * `container`: radix portals to, and listens for the pointer's travel and release on, the opener's
+ * `document` — so there the tip closes on the trigger's `pointerleave` and radix's pointer-down
+ * bookkeeping is skipped, or one click would stop focus from opening it.
  */
 export function Tip({
   tip,

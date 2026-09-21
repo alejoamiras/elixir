@@ -164,6 +164,54 @@ describe('the epoch tile and the ledger', () => {
   });
 });
 
+describe('the mint line', () => {
+  test('ten seconds from the mint, whatever the next claim does to the miner’s own ✓', () => {
+    const store = createStore();
+    store.set(bootAtom, {
+      phase: 'ready',
+      account: '0xacc',
+      threads: 1,
+      record: {
+        v: 1,
+        id: 'k',
+        method: 'words',
+        createdAt: 0,
+        askEveryOpen: false,
+        backedUp: true,
+        account: { address: '0xacc', index: 0 },
+      },
+    });
+    const minted = {
+      block: 9,
+      txHash: '0xa',
+      nullifier: '0x1',
+      noteHash: '0x2',
+      noteHashes: 1,
+      claims: [0, 1],
+      at: 1_000,
+    };
+    store.set(minerAtom, { ...initial, minted: minted as never });
+    store.set(nowAtom, 2_000);
+    const ui = () => (
+      <Provider store={store}>
+        <Mine controller={() => undefined} />
+      </Provider>
+    );
+    const { getByTestId, rerender } = render(ui());
+    expect(getByTestId('mint-line').textContent).toBe('+4 tYACA · just now');
+    // The next win's claim clears the miner's mint a second later: the balance keeps its acknowledgement.
+    act(() => {
+      store.set(minerAtom, { ...initial, minted: null });
+      store.set(nowAtom, 3_000);
+    });
+    rerender(ui());
+    expect(getByTestId('mint-line').textContent).toBe('+4 tYACA · just now');
+    act(() => store.set(nowAtom, 11_500));
+    rerender(ui());
+    expect(getByTestId('mint-line').textContent).toBe('');
+  });
+});
+
 describe('the start and stop buttons', () => {
   test('Stop stays on the cockpit while a claim is in flight', () => {
     const store = createStore();

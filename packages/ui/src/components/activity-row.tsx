@@ -16,7 +16,6 @@ function RowProgress({ value, collapsed }: { value: number | undefined; collapse
 
 const KIND_ICON = { in: ArrowDownIcon, out: ArrowUpIcon, ahead: ArrowRightIcon } as const;
 
-/** Which way the money moves, as seen from this balance: the first thing the row says. */
 function KindIcon({ kind }: { kind: RowKind }) {
   const Icon = KIND_ICON[kind];
   return (
@@ -52,7 +51,6 @@ export interface ActivityRowProps extends Omit<React.ComponentProps<'li'>, 'chil
   collapsed?: boolean;
 }
 
-/** What the row leads with: the kind and whom it is with on the left, the signed amount and its word on the right. */
 function RowHead({
   kind,
   title,
