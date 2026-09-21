@@ -451,7 +451,7 @@ right-column one-liners.
 `stepper.vitest.tsx` (one-line step, paragraph step, last done step with detail, `explain`); the opening's
 overflow assertion green, with a long failure reason; `sign-in.vitest.tsx` unchanged · layers: + e2e, real proving.
 
-**P3 — The score loop.** `dispatch` stamps `t`; spans by transition; F5; `drawSpans`; `axisTitle`, `barCaption`;
+**P3 ✓ — The score loop.** *(One deviation, seen only on a rendered frame: the bar's caption sits under the bar's left end, not above it; `lessons/phase-3.md`.)* `dispatch` stamps `t`; spans by transition; F5; `drawSpans`; `axisTitle`, `barCaption`;
 `useScoreHover` + `ScoreHoverCard`; `LoopTile` **and** `PipView` wired.
 **Gate**: fast · pass: reducer tests for winner → claimed, winner → failed, `retry`, `reconciled` (earlier span
 turns `minted`), `prover-dead`, `stop`, trim; the controller test of Fact 7's fix; model tests for `calmTicks`
