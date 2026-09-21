@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, test } from 'vitest';
 import { Tip } from './tooltip.tsx';
 
@@ -38,5 +38,13 @@ test('in a second document the tip is portalled to the given container, never to
   expect(document.querySelector('[role=tooltip]')).toBeNull();
   await act(async () => word.blur());
   expect(other.querySelector('[role=tooltip]')).toBeNull();
+  // A click there never reaches the opener's `pointerup`: focus must still open the tip afterwards.
+  await act(async () => {
+    fireEvent.pointerDown(word);
+    fireEvent.pointerUp(word);
+  });
+  await act(async () => word.focus());
+  expect(other.querySelector('[role=tooltip]')).not.toBeNull();
+  cleanup();
   frame.remove();
 });

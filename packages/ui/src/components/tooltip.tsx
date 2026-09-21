@@ -3,10 +3,12 @@ import type * as React from 'react';
 import { cn } from '../lib/cn.ts';
 
 /**
- * A dotted word that explains itself on hover or focus. A second React root has no provider, so each
- * `Tip` carries its own; a second document (the pop-out) needs `container` too, since the portal
- * defaults to the opener's body. The content is never interactive, which keeps closing on the
- * trigger's own events rather than on listeners of the wrong document. Invisible on touch: what a
+ * A dotted word that explains itself on hover or focus; the pointer may travel onto the explanation
+ * (WCAG 1.4.13). A second React root has no provider, so each `Tip` carries its own. A second
+ * document (the pop-out) needs `container`: the portal defaults to the opener's body, and radix
+ * tracks the pointer's travel and its release on the opener's `document`, which never hears the
+ * other one — so there the tip closes on the trigger's own `pointerleave` and radix's pointer-down
+ * bookkeeping is skipped, or one click would stop focus from opening it. Invisible on touch: what a
  * touch user needs goes in a popover, not here.
  */
 export function Tip({
@@ -23,12 +25,14 @@ export function Tip({
   container?: HTMLElement | null;
   children: React.ReactNode;
 }) {
+  const foreign = container != null;
   return (
-    <TooltipPrimitive.Provider delayDuration={250} disableHoverableContent>
+    <TooltipPrimitive.Provider delayDuration={250} disableHoverableContent={foreign}>
       <TooltipPrimitive.Root>
         <TooltipPrimitive.Trigger
           type="button"
           data-slot="tip-trigger"
+          onPointerDown={foreign ? (e) => e.preventDefault() : undefined}
           className={cn(
             'inline cursor-help rounded-xs bg-transparent p-0 text-left underline decoration-ink-4 decoration-dotted underline-offset-[3px] outline-none [color:inherit] [font:inherit] focus-visible:ring-2 focus-visible:ring-ring/50',
             className,
