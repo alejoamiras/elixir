@@ -37,6 +37,7 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6",
     "@yacana/deploy": "workspace:*",
+    "@yacana/localnet": "workspace:*",
     "jsdom": "^28",
     "typescript": "~6",
     "vite": "^8",

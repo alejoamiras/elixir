@@ -21,7 +21,7 @@ jobs:
           - 'packages/miner-core/**'
           # The replay recording is bound to these: a change must re-run the lane, which refuses a stale one.
           - 'packages/contracts/artifacts/**'
-          - 'scripts/run/**'
+          - 'tools/localnet/**'
           - 'packages/site/**'
           - 'packages/ui/**'
           - 'packages/web-kit/**'

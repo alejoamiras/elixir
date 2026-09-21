@@ -4,7 +4,8 @@
   "private": true,
   "description": "Privately mineable token on Aztec whose mining work is Barretenberg proving",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "tools/*"
   ],
   "scripts": {
     "artifacts:commit": "bun packages/contracts/scripts/commit-artifacts.ts",
@@ -13,18 +14,18 @@
     "contracts:compile": "bun run --cwd packages/contracts compile",
     "contracts:test": "bun run --cwd packages/contracts test",
     "deploy": "bun packages/deploy/src/deploy.ts",
-    "e2e:agent": "scripts/run/agent.sh",
+    "e2e:agent": "tools/localnet/bin/agent.sh",
     "epoch:stats": "bun packages/deploy/scripts/epoch-stats.ts",
     "launch": "bun packages/deploy/scripts/launch.ts",
-    "lint": "biome check . && sort-package-json --check package.json 'packages/*/package.json'",
+    "lint": "biome check . && sort-package-json --check package.json 'packages/*/package.json' 'tools/*/package.json'",
     "lint:actions": "actionlint",
-    "lint:fix": "biome check --write . && sort-package-json package.json 'packages/*/package.json'",
-    "lint:shell": "shellcheck scripts/run/*.sh .husky/pre-commit .husky/commit-msg",
+    "lint:fix": "biome check --write . && sort-package-json package.json 'packages/*/package.json' 'tools/*/package.json'",
+    "lint:shell": "shellcheck tools/localnet/bin/*.sh .husky/pre-commit .husky/commit-msg",
     "portal:build": "bun run --cwd packages/portal build",
     "portal:test": "bun run --cwd packages/portal test",
     "prepare": "husky",
     "record-rollup-address": "bun packages/deploy/scripts/record-rollup-address.ts",
-    "rig": "bun scripts/run/rig.ts",
+    "rig": "bun tools/localnet/src/rig.ts",
     "site:build": "bun packages/site/src/assemble.ts",
     "site:deploy": "bun run --cwd packages/site deploy",
     "site:e2e": "bun run --cwd packages/site test:e2e",

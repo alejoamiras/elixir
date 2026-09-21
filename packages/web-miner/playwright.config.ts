@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 import { RIG_ONLY } from './e2e/proof-inventory.ts';
 
-// Runs under scripts/run/agent.sh (AZTEC_NODE_URL set): global setup deploys the contracts at an
+// Runs under tools/localnet/bin/agent.sh (AZTEC_NODE_URL set): global setup deploys the contracts at an
 // easy target on that network and starts Vite on a registry-claimed port; the spec reads both
 // from e2e/.run.json. Proving in headless Chromium is slow, hence the generous timeouts.
 export default defineConfig({

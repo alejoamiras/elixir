@@ -55,6 +55,9 @@
         "@yacana/miner-core": "workspace:*",
         "viem": "npm:@aztec/viem@2.38.2",
       },
+      "devDependencies": {
+        "@yacana/localnet": "workspace:*",
+      },
     },
     "packages/harness": {
       "name": "@yacana/harness",
@@ -76,6 +79,7 @@
         "@aztec/world-state": "5.2.0",
         "@yacana/bridge": "workspace:*",
         "@yacana/deploy": "workspace:*",
+        "@yacana/localnet": "workspace:*",
         "@yacana/miner-core": "workspace:*",
         "viem": "npm:@aztec/viem@2.38.2",
       },
@@ -109,6 +113,9 @@
       "dependencies": {
         "@openzeppelin/contracts": "5.6.1",
       },
+      "devDependencies": {
+        "@yacana/localnet": "workspace:*",
+      },
     },
     "packages/site": {
       "name": "@yacana/site",
@@ -121,6 +128,7 @@
       "devDependencies": {
         "@playwright/test": "^1.62.1",
         "@yacana/deploy": "workspace:*",
+        "@yacana/localnet": "workspace:*",
         "typescript": "~6",
         "wrangler": "4.127.1",
       },
@@ -198,6 +206,7 @@
         "@types/react-dom": "^19",
         "@vitejs/plugin-react": "^6",
         "@yacana/deploy": "workspace:*",
+        "@yacana/localnet": "workspace:*",
         "jsdom": "^28",
         "typescript": "~6",
         "vite": "^8",
@@ -248,6 +257,7 @@
         "@vitejs/plugin-react": "^6",
         "@yacana/contracts": "workspace:*",
         "@yacana/deploy": "workspace:*",
+        "@yacana/localnet": "workspace:*",
         "fake-indexeddb": "6.2.5",
         "jsdom": "^28",
         "typescript": "~6",
@@ -284,6 +294,7 @@
         "@types/react-dom": "^19",
         "@vitejs/plugin-react": "^6",
         "@yacana/deploy": "workspace:*",
+        "@yacana/localnet": "workspace:*",
         "jsdom": "^28",
         "typescript": "~6",
         "vite": "^8",
@@ -296,6 +307,27 @@
       "dependencies": {
         "@aztec/bb.js": "5.2.0",
         "@aztec/noir-noir_js": "5.2.0",
+      },
+    },
+    "tools/localnet": {
+      "name": "@yacana/localnet",
+      "version": "0.0.0",
+      "dependencies": {
+        "@aztec/accounts": "5.2.0",
+        "@aztec/aztec.js": "5.2.0",
+        "@aztec/constants": "5.2.0",
+        "@aztec/ethereum": "5.2.0",
+        "@aztec/foundation": "5.2.0",
+        "@aztec/l1-artifacts": "5.2.0",
+        "@aztec/noir-contracts.js": "5.2.0",
+        "@aztec/noir-protocol-circuits-types": "5.2.0",
+        "@aztec/protocol-contracts": "5.2.0",
+        "@aztec/stdlib": "5.2.0",
+        "@aztec/world-state": "5.2.0",
+        "viem": "npm:@aztec/viem@2.38.2",
+      },
+      "devDependencies": {
+        "typescript": "~6",
       },
     },
   },
@@ -1059,6 +1091,8 @@
     "@yacana/deploy": ["@yacana/deploy@workspace:packages/deploy"],
 
     "@yacana/harness": ["@yacana/harness@workspace:packages/harness"],
+
+    "@yacana/localnet": ["@yacana/localnet@workspace:tools/localnet"],
 
     "@yacana/miner-core": ["@yacana/miner-core@workspace:packages/miner-core"],
 

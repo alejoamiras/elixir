@@ -4,11 +4,12 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { repoRoot } from './toolchain.ts';
 
 // YACANA_AGENTS_DIR overrides (tests use a throwaway dir); otherwise ~/.agents only when an
 // operator already created it, else a gitignored dir inside the repo. A project command must
 // never seed shared state into a contributor's home uninvited.
-const repoLocalAgentsDir = join(import.meta.dir, '../..', '.localnet', 'agents');
+export const repoLocalAgentsDir = join(repoRoot, '.localnet', 'agents');
 const dir = (): string => {
   if (process.env.YACANA_AGENTS_DIR) return process.env.YACANA_AGENTS_DIR;
   const host = join(homedir(), '.agents');

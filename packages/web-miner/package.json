@@ -58,6 +58,7 @@
     "@vitejs/plugin-react": "^6",
     "@yacana/contracts": "workspace:*",
     "@yacana/deploy": "workspace:*",
+    "@yacana/localnet": "workspace:*",
     "fake-indexeddb": "6.2.5",
     "jsdom": "^28",
     "typescript": "~6",

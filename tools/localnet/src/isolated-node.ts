@@ -5,8 +5,8 @@
 // during startup cannot orphan the children. Teardown kills only the groups this run owns.
 //
 //   const node = await startIsolatedNode();  …  await node.teardown();
-//   bun scripts/run/isolated-node.ts --smoke            boot → probe → teardown
-//   bun scripts/run/isolated-node.ts -- <cmd> [args…]   run <cmd> with AZTEC_NODE_URL / L1_RPC_URL set
+//   bun tools/localnet/src/isolated-node.ts --smoke            boot → probe → teardown
+//   bun tools/localnet/src/isolated-node.ts -- <cmd> [args…]   run <cmd> with AZTEC_NODE_URL / L1_RPC_URL set
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import type { EventEmitter } from 'node:events';

@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 
-// Runs under scripts/run/agent.sh (AZTEC_NODE_URL set): global setup deploys the contracts on that
+// Runs under tools/localnet/bin/agent.sh (AZTEC_NODE_URL set): global setup deploys the contracts on that
 // network and serves a production build on a registry-claimed port; the specs read e2e/.run.json.
 export default defineConfig({
   testDir: './e2e',

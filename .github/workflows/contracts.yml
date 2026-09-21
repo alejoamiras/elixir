@@ -37,7 +37,7 @@ jobs:
           - 'scripts/params-codegen.ts'
           - '.aztecrc'
           - 'toolchain.lock.json'
-          - 'scripts/run/toolchain*.ts'
+          - 'tools/localnet/**'
           - 'package.json'
           - 'bun.lock'
           - '.github/workflows/contracts.yml'
@@ -59,7 +59,7 @@ jobs:
       - run: bun run contracts:compile
       # The committed storage layouts (the read path's only view of the contracts) must match the build.
       - run: bun packages/miner-core/scripts/export-layouts.ts && git diff --exit-code
-      - run: bun test scripts/run/toolchain.test.ts
+      - run: bun test tools/localnet/src/toolchain.test.ts
         env:
           YACANA_REQUIRE_TOOLCHAIN: '1'
       - run: bun run contracts:test

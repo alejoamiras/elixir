@@ -17,7 +17,7 @@ runs:
         VERSION: ${{ steps.pin.outputs.version }}
       # The version-specific installer is fetched directly (no bootstrap, no aztec-up) and runs
       # only after its bytes match the pinned hash. Its own downloads (noirup, foundry, npm) are
-      # not pinned; scripts/run/toolchain.test.ts pins what they produced (nargo, bb, WASM).
+      # not pinned; tools/localnet/src/toolchain.test.ts pins what they produced (nargo, bb, WASM).
       run: |
         if [ ! -x "$HOME/.aztec/versions/$VERSION/bin/aztec" ]; then
           url=$(jq -r .installer.url toolchain.lock.json)

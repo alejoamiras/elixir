@@ -3,7 +3,7 @@
 # The release and every asset's SHA-256 are committed here: a checksum fetched beside the binary
 # would only guard against corruption, not against a replaced release. Every run downloads and
 # verifies the archive: a binary already in place is not trusted on the strength of its own output.
-#   scripts/run/install-presto-server.sh [dest-dir]   (default ~/.local/bin; CI passes the runner's PATH dir)
+#   tools/localnet/bin/install-presto-server.sh [dest-dir]   (default ~/.local/bin; CI passes the runner's PATH dir)
 set -euo pipefail
 
 VERSION="1.1.1"

@@ -9,9 +9,9 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { type Browser, chromium, type Route } from '@playwright/test';
 import { COMMITTED } from '@yacana/contracts/scripts/commit-artifacts';
 import { deployYacana, TEST_PORTAL } from '@yacana/deploy/deploy';
+import { buildApp, claimPreviewPort, startPreview, waitUntilUp } from '@yacana/localnet/preview';
+import { release } from '@yacana/localnet/registry';
 import { deriveSlotTable, LAYOUTS_PATH, loadLayouts } from '@yacana/miner-core/slots';
-import { buildApp, claimPreviewPort, startPreview, waitUntilUp } from '../../../../scripts/run/preview.ts';
-import { release } from '../../../../scripts/run/registry.ts';
 import { BOOT_MS } from '../helpers.ts';
 import {
   RECORDING_FILE,

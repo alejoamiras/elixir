@@ -7,8 +7,8 @@ import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Fr } from '@aztec/aztec.js/fields';
 import { type Deployment, deployYacana, TEST_PORTAL } from '@yacana/deploy/deploy';
-import { lanePortBase, runPortWindowBase } from '../../../scripts/run/port-window.ts';
-import { claim, release } from '../../../scripts/run/registry.ts';
+import { lanePortBase, runPortWindowBase } from '@yacana/localnet/port-window';
+import { claim, release } from '@yacana/localnet/registry';
 import { type E2eRun, RUN_FILE } from './run.ts';
 
 const nodeUrl = process.env.AZTEC_NODE_URL;

@@ -13,9 +13,9 @@ import { registerVersion } from '@yacana/deploy/bridge/register';
 import { versionStatus } from '@yacana/deploy/bridge/status';
 import { noteAllTransitions } from '@yacana/deploy/bridge/transition';
 import { continuationOf } from '@yacana/deploy/deploy';
+import { repoRoot } from '@yacana/localnet/toolchain';
+import { type RigNode, startUpgradeRig, type UpgradeRig } from '@yacana/localnet/upgrade-rig';
 import type { WorkProver } from '@yacana/miner-core/work';
-import { repoRoot } from '../../../scripts/run/toolchain.ts';
-import { type RigNode, startUpgradeRig, type UpgradeRig } from '../../../scripts/run/upgrade-rig.ts';
 import { revertName } from '../src/revert.ts';
 import {
   balanceOf,

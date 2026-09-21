@@ -34,8 +34,6 @@ const UNOWNED = [
   /^yacana\.params\.json$/,
   /^toolchain\.lock\.json$/,
   /^deployments\//,
-  // Run isolation is not a workspace; its importers are tests, e2e setups and scripts.
-  /^scripts\/run\//,
   // Two files the SDK does not export, read by one test of the wallet's store.
   /^node_modules\/@aztec\//,
 ];

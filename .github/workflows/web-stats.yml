@@ -24,7 +24,7 @@ jobs:
           - 'packages/bridge/**'
           - 'packages/portal/abi/**'
           - 'packages/miner-core/**'
-          - 'scripts/run/**'
+          - 'tools/localnet/**'
           - 'packages/work-circuit/**'
           - 'packages/web-miner/**'
           - 'biome.json'

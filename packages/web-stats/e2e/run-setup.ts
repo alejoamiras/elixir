@@ -8,7 +8,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { deployBridgeForRun, registerForRun } from '@yacana/deploy/bridge/run';
 import { type BridgeRecord, type Deployment, deployYacana, TEST_PORTAL } from '@yacana/deploy/deploy';
-import { release } from '../../../scripts/run/registry.ts';
+import { release } from '@yacana/localnet/registry';
 import { type E2eRun, MOCK_FILE, RUN_FILE } from './run.ts';
 import { buildApp, claimPreviewPort, mockStorage, pkg, startPreview, waitUntilUp } from './serve.ts';
 

@@ -9,8 +9,8 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { type ClaimOptions, claim } from './registry.ts';
+import { repoRoot } from './toolchain.ts';
 
-const repoRoot = resolve(import.meta.dir, '../..');
 const pin = readFileSync(join(repoRoot, '.aztecrc'), 'utf8').trim();
 
 /** The native `bb` the toolchain lock pins (the `bb` on PATH is a Node wrapper Presto cannot execute). */
@@ -54,7 +54,8 @@ export async function startPrestoServer(o: {
   home: string;
 }): Promise<PrestoLane> {
   const binary = prestoServerBinary();
-  if (!binary) throw new Error('presto-server is not installed (scripts/run/install-presto-server.sh)');
+  if (!binary)
+    throw new Error('presto-server is not installed (tools/localnet/bin/install-presto-server.sh)');
   const bb = nativeBbPath();
   if (!existsSync(bb)) throw new Error(`native bb missing at ${bb}`);
   const port = await claim({ ...o.lane, service: 'presto' });

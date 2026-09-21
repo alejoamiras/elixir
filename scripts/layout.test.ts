@@ -307,13 +307,16 @@ describe('workflows', () => {
     const problems: string[] = [];
     for (const name of ['contracts', 'work-circuit', 'portal', 'harness']) {
       const w = workflows.find((x) => x.file.endsWith(`/${name}.yml`));
-      const step = w?.steps.find((s) => s.run?.includes('scripts/run/toolchain.test.ts'));
-      if (!step) problems.push(`${name}.yml does not run scripts/run/toolchain.test.ts`);
+      const step = w?.steps.find((s) => s.run?.includes('tools/localnet/src/toolchain.test.ts'));
+      if (!step) problems.push(`${name}.yml does not run tools/localnet/src/toolchain.test.ts`);
       else if (!step.env?.YACANA_REQUIRE_TOOLCHAIN)
         problems.push(`${name}.yml: the toolchain test may skip (no YACANA_REQUIRE_TOOLCHAIN)`);
       // The resolver, not only its test: a change to how the pin is read must run the lane.
-      if (w && !w.filter.some((g) => !g.startsWith('!') && new Glob(g).match('scripts/run/toolchain.ts')))
-        problems.push(`${name}.yml: the filter does not watch scripts/run/toolchain.ts`);
+      if (
+        w &&
+        !w.filter.some((g) => !g.startsWith('!') && new Glob(g).match('tools/localnet/src/toolchain.ts'))
+      )
+        problems.push(`${name}.yml: the filter does not watch tools/localnet/src/toolchain.ts`);
     }
     expect(problems).toEqual([]);
   });

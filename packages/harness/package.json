@@ -24,6 +24,7 @@
     "@aztec/world-state": "5.2.0",
     "@yacana/bridge": "workspace:*",
     "@yacana/deploy": "workspace:*",
+    "@yacana/localnet": "workspace:*",
     "@yacana/miner-core": "workspace:*",
     "viem": "npm:@aztec/viem@2.38.2"
   },

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Every package's typecheck in one pass, one line per package; exit 1 if any fails.
 set -u
-cd "$(dirname "$0")/../.." || exit 1
+cd "$(dirname "$0")/../../.." || exit 1
 status=0
 for p in site ui web-miner web-stats web-landing miner-core deploy; do
   if [ -f "packages/$p/package.json" ] && grep -q '"typecheck"' "packages/$p/package.json"; then

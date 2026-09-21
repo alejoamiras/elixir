@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { repoRoot } from './toolchain.ts';
 
 const agentsDir = mkdtempSync(join(tmpdir(), 'yacana-registry-'));
 beforeAll(() => {
@@ -9,7 +10,7 @@ beforeAll(() => {
 });
 afterAll(() => rmSync(agentsDir, { recursive: true, force: true }));
 
-const { claim, release, rows } = await import('./registry.ts');
+const { claim, release, repoLocalAgentsDir, rows } = await import('./registry.ts');
 const base = { worktree: '/wt', base: 20000, span: 4 };
 
 describe('run registry', () => {
@@ -47,4 +48,9 @@ describe('run registry', () => {
       /no free port/,
     );
   });
+});
+
+// The in-repo fallback sits under the repository, not under this folder's grandparent.
+test('the fallback registry dir is inside the repository', () => {
+  expect(repoLocalAgentsDir).toBe(join(repoRoot, '.localnet', 'agents'));
 });

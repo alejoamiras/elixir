@@ -9,18 +9,12 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { policyFor } from '@yacana/bridge/policy';
+import { lanePortBase, runPortWindowBase } from '@yacana/localnet/port-window';
+import { claim, release } from '@yacana/localnet/registry';
+import { jsonRpcReady, killOwned, repoRoot, spawnDetached, toolchainBin } from '@yacana/localnet/toolchain';
 import { PARAMS, PROFILE } from '@yacana/miner-core/generated/params';
 import { createPublicClient, createWalletClient, type Hex, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { lanePortBase, runPortWindowBase } from '../../../scripts/run/port-window.ts';
-import { claim, release } from '../../../scripts/run/registry.ts';
-import {
-  jsonRpcReady,
-  killOwned,
-  repoRoot,
-  spawnDetached,
-  toolchainBin,
-} from '../../../scripts/run/toolchain.ts';
 import type { BridgeRecord } from '../src/deploy.ts';
 
 const portalDir = resolve(repoRoot, 'packages/portal');

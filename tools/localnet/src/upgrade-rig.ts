@@ -336,7 +336,7 @@ async function startPinnedNode(ctx: RigContext, version: RigVersion, autoProve: 
     child = spawnDetached(
       `aztec-v${version.registryIndex}`,
       'node',
-      [join(repoRoot, 'scripts/run/pinned-node.mjs')],
+      [join(import.meta.dir, 'pinned-node.mjs')],
       {
         ...ctx.genesis.env,
         AZTEC_TOOLCHAIN_ROOT: join(toolchainBin('aztec'), '..', '..'),

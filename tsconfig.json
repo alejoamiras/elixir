@@ -18,6 +18,7 @@
     "packages/*/e2e",
     "packages/*/tests",
     "scripts",
+    "tools/*/src",
     "*.ts"
   ],
   "exclude": [

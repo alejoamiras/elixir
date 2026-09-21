@@ -1,0 +1,38 @@
+{
+  "name": "@yacana/localnet",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Run isolation: the port registry, the pinned toolchain, the isolated local network and its per-worktree runner, the headless Presto, the upgrade rig",
+  "type": "module",
+  "exports": {
+    "./control": "./src/control.ts",
+    "./isolated-node": "./src/isolated-node.ts",
+    "./port-window": "./src/port-window.ts",
+    "./presto": "./src/presto.ts",
+    "./preview": "./src/preview.ts",
+    "./registry": "./src/registry.ts",
+    "./toolchain": "./src/toolchain.ts",
+    "./upgrade-rig": "./src/upgrade-rig.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@aztec/accounts": "5.2.0",
+    "@aztec/aztec.js": "5.2.0",
+    "@aztec/constants": "5.2.0",
+    "@aztec/ethereum": "5.2.0",
+    "@aztec/foundation": "5.2.0",
+    "@aztec/l1-artifacts": "5.2.0",
+    "@aztec/noir-contracts.js": "5.2.0",
+    "@aztec/noir-protocol-circuits-types": "5.2.0",
+    "@aztec/protocol-contracts": "5.2.0",
+    "@aztec/stdlib": "5.2.0",
+    "@aztec/world-state": "5.2.0",
+    "viem": "npm:@aztec/viem@2.38.2"
+  },
+  "devDependencies": {
+    "typescript": "~6"
+  }
+}

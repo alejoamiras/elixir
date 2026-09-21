@@ -8,7 +8,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
-export const repoRoot = resolve(import.meta.dir, '../..');
+export const repoRoot = resolve(import.meta.dir, '../../..');
 
 export interface Owned {
   name: string;
@@ -21,13 +21,21 @@ export interface Owned {
 
 const TAIL_LINES = 40;
 
-export function toolchainBin(name: string): string {
-  let pin = '';
+/**
+ * The pinned binary, never whatever `PATH` holds: `.aztecrc` is committed, so a pin that cannot be
+ * read is a wrong root, and running an unpinned toolchain in its place is the failure to refuse.
+ */
+export function toolchainBin(name: string, root: string = repoRoot): string {
+  const file = join(root, '.aztecrc');
+  let pin: string;
   try {
-    pin = readFileSync(join(repoRoot, '.aztecrc'), 'utf8').trim();
-  } catch {
-    return name; // no pin: whatever PATH provides
+    pin = readFileSync(file, 'utf8').trim();
+  } catch (e) {
+    throw new Error(
+      `the toolchain pin ${file} cannot be read: ${e instanceof Error ? e.message : String(e)}`,
+    );
   }
+  if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(pin)) throw new Error(`${file} does not hold a version: "${pin}"`);
   const bin = join(homedir(), '.aztec', 'versions', pin, 'bin', name);
   if (!existsSync(bin)) throw new Error(`aztec ${pin} is pinned by .aztecrc but ${bin} is missing`);
   return bin;

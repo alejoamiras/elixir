@@ -12,20 +12,20 @@ import { registerVersion } from '@yacana/deploy/bridge/register';
 import { retireOnL1, retireOnL2 } from '@yacana/deploy/bridge/retire';
 import { noteAllTransitions } from '@yacana/deploy/bridge/transition';
 import { type BridgeRecord, continuationOf } from '@yacana/deploy/deploy';
-import { e2eBuildEnv } from '@yacana/web-miner/e2e/build-env';
-import type { E2eRun } from '@yacana/web-miner/e2e/run';
-import type { Hex } from 'viem';
-import { serveControl } from '../../../scripts/run/control.ts';
-import { lanePortBase, runPortWindowBase } from '../../../scripts/run/port-window.ts';
-import { startPreview, waitUntilUp } from '../../../scripts/run/preview.ts';
-import { claim, release } from '../../../scripts/run/registry.ts';
-import { repoRoot } from '../../../scripts/run/toolchain.ts';
+import { serveControl } from '@yacana/localnet/control';
+import { lanePortBase, runPortWindowBase } from '@yacana/localnet/port-window';
+import { startPreview, waitUntilUp } from '@yacana/localnet/preview';
+import { claim, release } from '@yacana/localnet/registry';
+import { repoRoot } from '@yacana/localnet/toolchain';
 import {
   type RigNode,
   type RigVersion,
   startUpgradeRig,
   type UpgradeRig,
-} from '../../../scripts/run/upgrade-rig.ts';
+} from '@yacana/localnet/upgrade-rig';
+import { e2eBuildEnv } from '@yacana/web-miner/e2e/build-env';
+import type { E2eRun } from '@yacana/web-miner/e2e/run';
+import type { Hex } from 'viem';
 import { openUser } from '../src/user.ts';
 import { asForwarder, deployBridge, deployMiner, type MinerOnRig } from '../src/yacana.ts';
 
