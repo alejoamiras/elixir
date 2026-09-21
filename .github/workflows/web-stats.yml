@@ -18,7 +18,6 @@ jobs:
         relevant:
           - 'packages/web-stats/**'
           - '!packages/web-stats/**/*.md'
-          - 'packages/site/**'
           - 'packages/ui/**'
           - 'packages/web-kit/**'
           - 'packages/bridge/**'
@@ -26,7 +25,6 @@ jobs:
           - 'packages/miner-core/**'
           - 'tools/localnet/**'
           - 'packages/work-circuit/**'
-          - 'packages/web-miner/**'
           - 'biome.json'
           - 'bunfig.toml'
           - 'tsconfig.json'

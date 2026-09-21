@@ -78,7 +78,84 @@ function undeclared(p: Found): string | undefined {
   return `${p.file}:${p.line} imports ${name}: not in ${production ? 'dependencies' : 'any block'} of ${where}`;
 }
 
+// Until the workspaces sit in their folders, the layer comes from this table; then the folder says it.
+// `apps` 3, `packages` 2, `protocol` 1; `tools` 0 may import anything and production code may not import it.
+const LAYER: Record<string, number> = {
+  '@yacana/web-miner': 3,
+  '@yacana/web-stats': 3,
+  '@yacana/web-landing': 3,
+  '@yacana/site': 3,
+  '@yacana/miner-core': 2,
+  '@yacana/bridge': 2,
+  '@yacana/ui': 2,
+  '@yacana/web-kit': 2,
+  '@yacana/work-circuit': 1,
+  '@yacana/contracts': 1,
+  '@yacana/portal': 1,
+  '@yacana/deploy': 0,
+  '@yacana/harness': 0,
+  '@yacana/localnet': 0,
+};
+// A Bun build program that lives in `src/`: nothing it imports reaches a page.
+const IMPORTS_SCRIPTS = new Set(['packages/site/src/assemble.ts']);
+const NOT_FOR_PRODUCTION = /(^|\/)(scripts|e2e|tests)\//;
+
+/** Why a production file may not import this, or undefined. */
+function misdirected(p: Found): string | undefined {
+  const from = ownerOf(p.file, all);
+  if (!from || !isProduction(p.file)) return undefined;
+  const [scope, pkg, ...rest] = p.text.replace(/[?#].*$/, '').split('/');
+  const to = all.find((w) => w.name === `${scope}/${pkg}`);
+  if (!to || to === from) return undefined;
+  const [own, target] = [LAYER[from.name], LAYER[to.name]];
+  if (own === undefined || target === undefined)
+    return `${p.file}:${p.line}: no layer for ${from.name} or ${to.name}`;
+  if (own === 0) return undefined;
+  if (target === 0) return `${p.file}:${p.line} imports ${to.name}, a tool, from production code`;
+  if (target > own) return `${p.file}:${p.line} imports ${to.name} (layer ${target}) from layer ${own}`;
+  const file = to.manifest.exports?.[rest.length ? `./${rest.join('/')}` : '.'];
+  const path = typeof file === 'string' ? file : '';
+  if (NOT_FOR_PRODUCTION.test(path) && !IMPORTS_SCRIPTS.has(p.file))
+    return `${p.file}:${p.line} imports ${p.text}, which is ${to.name}'s ${path}: not production code`;
+  return undefined;
+}
+
+/** The first cycle in the `dependencies` graph, as the names around it, or undefined. */
+function productionCycle(): string[] | undefined {
+  const byName = new Map(all.map((w) => [w.name, w]));
+  const state = new Map<string, 'open' | 'done'>();
+  const walk = (name: string, trail: string[]): string[] | undefined => {
+    if (state.get(name) === 'done') return undefined;
+    if (state.get(name) === 'open') return [...trail.slice(trail.indexOf(name)), name];
+    state.set(name, 'open');
+    for (const dep of Object.keys(byName.get(name)?.manifest.dependencies ?? {})) {
+      if (!byName.has(dep)) continue;
+      const cycle = walk(dep, [...trail, name]);
+      if (cycle) return cycle;
+    }
+    state.set(name, 'done');
+    return undefined;
+  };
+  for (const w of all) {
+    const cycle = walk(w.name, []);
+    if (cycle) return cycle;
+  }
+  return undefined;
+}
+
 describe('workspace boundaries', () => {
+  test('every workspace has a layer', () => {
+    expect(all.map((w) => w.name).filter((n) => LAYER[n] === undefined)).toEqual([]);
+  });
+
+  test('production code imports its own layer or below, never a tool, never a scripts/, e2e/ or tests/ file', () => {
+    expect(packaged.map(misdirected).filter(Boolean)).toEqual([]);
+  });
+
+  test('the dependencies graph has no cycle', () => {
+    expect(productionCycle()).toBeUndefined();
+  });
+
   test('no path leaves its workspace', () => {
     const offenders = relative
       .filter((r) => {
