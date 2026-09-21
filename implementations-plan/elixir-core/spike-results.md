@@ -1,5 +1,12 @@
 # Phase 1 spike results — elixir-core
 
+> **A historical record.** The spike contract, the sweep crates and the `spike:*` scripts named below were removed
+> after this was written; `06b25d7` is the last revision that holds them, and the numbers are reproducible from
+> there. What is still runnable lives in `packages/work-circuit` under plain names: `prove` (was `spike:sweep`,
+> `yacana_work` only), `check:determinism`, `check:mutation`, `check:wasm`, `manifest`, and `check:proofs` for the
+> four checks in order. The gate counts (§2), the claim transaction (§3) and the ticket-cost timings (§4) have no
+> runnable successor.
+
 Machine for every number below unless stated: **homelab**, AMD Ryzen 5 5600X (6 cores / 12 threads), 30 GB RAM,
 Linux, aztec 5.2.0 (`aztec-nargo` = Noir 1.0.0-beta.25, bb 5.2.0 whose binary reports `5.2.0-nightly.20260807`),
 Bun 1.4.0. The owner's reference laptop (M4 Pro, 48 GB) proves W natively ≈1.8× faster than this box (0.63 s vs

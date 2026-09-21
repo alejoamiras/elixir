@@ -1,7 +1,0 @@
-[package]
-name = "sweep_1024"
-type = "bin"
-authors = [""]
-
-[dependencies]
-yacana_work_lib = { path = "../lib" }
