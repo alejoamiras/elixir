@@ -135,3 +135,15 @@ Both fixes are one commit on arc 0 (`fix(work-circuit): the artifact hash CI com
 were born: a required lane red on five pull requests is not the silent gap D14 accepts on the top branch. The
 five branches above were rebased onto it without conflict (`gh stack rebase --upstack --no-trunk`); the top of
 the stack differs from the pre-rebase top by that test file alone, and all 55 commits are signed.
+
+### The second CI run, on the rebased heads
+
+`miner-core` and `contracts` green on all six. One red beyond the expected Workers Builds check: `contracts` on
+arc 4 alone (run 35658061530), where `aztec-txe` died mid-run (`terminating due to uncaught exception of type
+Napi::Error`) and every later test failed with `client error (Connect)`; the same sources pass on arcs 3 and 5.
+Rerun of the failed job: success (attempt 2). `e2e.yml` and `harness.yml`, dispatched before the rebase, all four
+success: on `1489c6c` (arc 3) and `7735211` (arc 4), whose trees differ from the rebased heads by
+`bb-verify.test.ts` alone, which neither workflow runs; not dispatched again.
+
+Final state: #54, #55, #56 all green; #57, #58, #59 green but for `Workers Builds: yacana`, red until the
+merge-day cutover (§7 C1), reported and not fixed.
