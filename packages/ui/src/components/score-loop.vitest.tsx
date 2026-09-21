@@ -119,23 +119,38 @@ describe('ScoreLoop on a canvas', () => {
 
 describe('the proof under the pointer', () => {
   beforeEach(canvas);
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
 
   test('the card follows its tick through a redraw React did not ask for, and leaves with the proof', () => {
     const width = vi.spyOn(HTMLCanvasElement.prototype, 'clientWidth', 'get').mockReturnValue(662);
-    const { container, rerender } = render(<ScoreLoop calm difficulty={38.4} samples={FEW} height={230} />);
+    // The still frame's own redraw, as the browser calls it on a resize: nothing here renders React.
+    let redraw = () => {};
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(cb: () => void) {
+          redraw = cb;
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    const { container } = render(<ScoreLoop calm difficulty={38.4} samples={FEW} height={230} />);
     const canvas = container.querySelector('canvas') as HTMLCanvasElement;
     fireEvent.pointerMove(canvas, { clientX: 150 });
     const card = container.querySelector('[data-slot=score-hover]') as HTMLElement;
     expect(card.style.left).toBe('158px');
     // A wider canvas: the same proof is drawn 17 px further right, and so is its card.
     width.mockReturnValue(762);
-    rerender(<ScoreLoop calm difficulty={38.4} samples={[...FEW]} height={230} />);
+    redraw();
     expect(card.style.left).toBe('175px');
     expect(card.hidden).toBe(false);
     // Three minutes on, the proof has left the window: the card goes with it.
     vi.spyOn(performance, 'now').mockReturnValue(50_000 + 180_001);
-    rerender(<ScoreLoop calm difficulty={38.4} samples={[...FEW]} height={230} />);
+    redraw();
     expect(card.hidden).toBe(true);
   });
 
