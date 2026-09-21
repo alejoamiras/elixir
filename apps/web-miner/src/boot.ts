@@ -27,7 +27,7 @@ import { preparePasskeys } from './keys/passkey';
 import { readSlot } from './keys/slot';
 import { assertNoLegacyWalletDb, currentAddress, type MasterRecord } from './keys/store';
 import { bytesDetail, initialSteps, type OpeningStep } from './opening-steps';
-import { type PrestoEndpoint, prestoAtom, prestoEligible, prestoEndpoint } from './presto';
+import { type PrestoEndpoint, pageConsent, prestoAtom, prestoEligible, prestoEndpoint } from './presto';
 import { type PublicEpochPoll, publicEpochReader, startPublicEpoch } from './public-epoch';
 import { loadSettings } from './settings';
 import { bootAtom, crsAtom, logAtom, rulesAtom, signInAtom } from './state';
@@ -279,9 +279,26 @@ export async function switchNodeLive(o: {
 const aborted = (signal: AbortSignal): Promise<never> =>
   new Promise((_, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
 
-/** The endpoint the prover is built with: Presto's when a probe (Start mining's) has found it worth asking; the sign-in never waits for one. */
+/** The endpoint the prover is built with: Presto's when consent stands and a probe found it worth asking; the sign-in never waits for one. */
 const prestoFor = (store: Store, pre: Preflighted): PrestoEndpoint | null =>
-  prestoEligible(store.get(prestoAtom).status) ? pre.presto : null;
+  pageConsent(store).allowed() && prestoEligible(store.get(prestoAtom).status) ? pre.presto : null;
+
+/**
+ * The wallet's prover when this build looks for Presto, born local: the SDK defaults to native and
+ * reads the flag only when a proof begins; the session's mirror lifts it once consent and a live
+ * eligible Presto both stand.
+ */
+function txProverFor(pre: Preflighted): TxProver | undefined {
+  const prover = pre.presto ? new TxProver(pre.presto) : undefined;
+  prover?.setForceLocal(true);
+  return prover;
+}
+
+/** The browser prover's threads at the start: the setting, clamped — one saved on another machine may exceed this one's cores. */
+function startingThreads(): number {
+  const cores = navigator.hardwareConcurrency || 2;
+  return clampThreads(loadSettings().threads ?? Math.max(1, cores - 1), cores);
+}
 
 /** What the opening dialog needs to drive its steps and to be cancelled between them. */
 export interface OpeningOpts {
@@ -353,7 +370,7 @@ export async function startSession(
   set('notes', { state: 'active', since: Date.now() });
   let opened: OpenedWallet | undefined;
   let controller: MinerController | undefined;
-  const txProver = pre.presto ? new TxProver(pre.presto) : undefined;
+  const txProver = txProverFor(pre);
   try {
     opts.signal.throwIfAborted();
     opened = await openWallet(pre.node, pre.chainId, txProver);
@@ -393,15 +410,14 @@ export async function startSession(
       const o = opened as OpenedWallet;
       return { deployment: await attach(o), fee: o.fee, rebuilt };
     };
-    const cores = navigator.hardwareConcurrency || 2;
-    // A setting saved on another machine may exceed this one's cores: the slider's clamp applies.
-    const threads = clampThreads(loadSettings().threads ?? Math.max(1, cores - 1), cores);
+    const threads = startingThreads();
     const spawnWorker = () => new Worker(new URL('./prover.worker.ts', import.meta.url), { type: 'module' });
     controller = new MinerController({
       store,
       spawnWorker,
       threads,
       presto: prestoFor(store, pre),
+      consent: pageConsent(store),
       deployment,
       account,
       fee: opened.fee,

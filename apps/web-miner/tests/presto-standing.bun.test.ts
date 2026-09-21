@@ -88,8 +88,8 @@ const used: ConsentRecord = { used: true, rev: 0 };
 const clicked: Partial<PrestoState> = { consentRev: 0 };
 
 describe('prestoStanding', () => {
-  const standing = (s: Partial<PrestoState>, record: ConsentRecord, lna: Lna = 'granted') =>
-    prestoStanding({ ...initialPresto, ...s }, record, lna);
+  const standing = (s: Partial<PrestoState>, record: ConsentRecord, lna: Lna = 'granted', mining = true) =>
+    prestoStanding({ ...initialPresto, ...s }, record, lna, mining);
 
   test('the table over used × click × permission × status', () => {
     // Never consented: the ask, whatever the probe once said.
@@ -102,6 +102,10 @@ describe('prestoStanding', () => {
     expect(standing({ ...clicked, status: offline }, never)).toBe('absent');
     expect(standing({ ...clicked, status: eligible, fallbackReason: 'denied' }, never)).toBe('absent');
     expect(standing({ ...clicked, status: eligible, selected: 'presto' }, never)).toBe('proving');
+    // The Worker's native prover while idle: found, "proves when you start".
+    expect(standing({ ...clicked, status: eligible, selected: 'presto' }, never, 'granted', false)).toBe(
+      'found',
+    );
     // A click at a revision a revoke has moved past is no consent.
     expect(standing({ consentRev: 0, status: eligible }, { used: false, rev: 1 })).toBe('ask');
     // Remembered: before this page asked, and once it did.

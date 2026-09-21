@@ -60,10 +60,10 @@ export const expectedDeployment = (): Expected => ({
 
 /**
  * A crafted link must not point a production page at another deployment on the allowed node;
- * only an e2e build on localhost honours the query.
+ * only an e2e build on loopback (by name, or by the IPv4 address a lane binds) honours the query.
  */
 export const queryOverridesAllowed = (hostname = globalThis.location?.hostname): boolean =>
-  import.meta.env.VITE_E2E_QUERY_OVERRIDES === '1' && hostname === 'localhost';
+  import.meta.env.VITE_E2E_QUERY_OVERRIDES === '1' && (hostname === 'localhost' || hostname === '127.0.0.1');
 
 const fromQuery = (): Partial<Connection> => {
   if (!queryOverridesAllowed()) return {};

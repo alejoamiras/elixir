@@ -96,6 +96,13 @@ export const SPEC_FILES: readonly string[] = Object.keys(INVENTORY);
 /** The replay lane's tests (`e2e/replay/*.replay.ts`); sharded + `MOVED_TO_REPLAY` is the original nineteen plus the canary. */
 export const REPLAYED: Readonly<Record<string, readonly string[]>> = {
   'dialog-geometry.replay.ts': ['the account screens and their notes fit the dialog at 720 px tall'],
+  'lna.replay.ts': [
+    'the boundary is real: a secure context, targetAddressSpace, the descriptor that answers, and a fresh context reads prompt',
+    'under prompt nothing reaches Presto: load, Start, remembered or not',
+    'denied with Presto remembered: zero hits, and the card reads blocked',
+    'prompt, then Look: the request waits for a grant in the same context, and the card reads found without a reload',
+    'granted with Presto remembered: a reload probes silently, exactly once',
+  ],
   'signed-out.replay.ts': [
     'a malformed RPC payload is rejected, not acted on',
     'an old Presto answers: the update row, and Retry re-asks',

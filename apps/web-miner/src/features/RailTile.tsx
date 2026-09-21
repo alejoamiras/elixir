@@ -1,52 +1,58 @@
 import { closePreview, difficulty, escapeHatchIn, proofsPerMinute } from '@yacana/miner-core/metrics';
-import { cn, EpochRail, ExternalLink, PowerSlider, Tile, TileHeader } from '@yacana/ui';
+import { cn, EpochRail, PowerSlider, PrestoCard, Tile, TileHeader } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import type { MinerController } from '../controller';
 import { duration } from '../lib/format';
-import { PRESTO_SITE, prestoAtom, prestoSticky } from '../presto';
+import { PRESTO_SITE } from '../presto';
 import { useSettings } from '../settings';
 import { bootAtom, claimsAtom, epochAtom, minerAtom, nowAtom, rulesAtom } from '../state';
+import type { PrestoView } from './use-presto';
 
 const cores = () => navigator.hardwareConcurrency || 2;
 
 export function RailTile({
   controller,
+  presto,
   className,
 }: {
   controller: () => MinerController | undefined;
+  presto: PrestoView;
   className?: string;
 }) {
   return (
     <div className={cn('flex flex-col gap-[14px]', className)} data-testid="rail">
-      <EpochTile controller={controller} />
+      <EpochTile controller={controller} presto={presto} />
     </div>
   );
 }
 
-/** The power row while Presto is the prover the Worker built: its name, where it proves, and its site. */
-function PrestoRow() {
+/**
+ * Under the epoch rail: the slider, and Presto's card where this build looks for it. While Presto
+ * is remembered or proving the card stands alone (Presto's own speed setting decides); in every
+ * other standing the slider governs and the card is the offer, the look, or the fix.
+ */
+function PowerAndPresto({
+  controller,
+  presto,
+}: {
+  controller: () => MinerController | undefined;
+  presto: PrestoView;
+}) {
+  const native = presto.standing === 'remembered' || presto.standing === 'proving';
   return (
-    <div
-      className="flex items-center gap-3 rounded-[8px] border border-uv/40 bg-uv-dim px-3 py-2.5"
-      data-testid="presto-row"
-    >
-      <span
-        aria-hidden
-        className="inline-flex size-7 shrink-0 items-center justify-center rounded-[7px] bg-uv text-[15px] font-bold text-uv-ink"
-      >
-        ✦
-      </span>
-      <span className="flex min-w-0 flex-col">
-        <span className="text-[13.5px] font-semibold text-ink">Presto · native prover</span>
-        <span className="text-xs text-ink-2">
-          proving on this machine ·{' '}
-          <ExternalLink href={PRESTO_SITE} className="font-sans text-uv-2">
-            About Presto
-          </ExternalLink>
-        </span>
-      </span>
-    </div>
+    <>
+      {(!presto.configured || !native) && <PowerRow controller={controller} />}
+      {presto.configured && (
+        <PrestoCard
+          standing={presto.standing}
+          needsLook={presto.needsLook}
+          onLook={presto.look}
+          onUseBrowser={presto.chooseBrowser}
+          site={PRESTO_SITE}
+        />
+      )}
+    </>
   );
 }
 
@@ -78,14 +84,18 @@ function PowerRow({ controller }: { controller: () => MinerController | undefine
   );
 }
 
-function EpochTile({ controller }: { controller: () => MinerController | undefined }) {
+function EpochTile({
+  controller,
+  presto,
+}: {
+  controller: () => MinerController | undefined;
+  presto: PrestoView;
+}) {
   const epoch = useAtomValue(epochAtom);
   const rules = useAtomValue(rulesAtom);
   const now = useAtomValue(nowAtom);
   const claims = useAtomValue(claimsAtom);
   const [closing, setClosing] = useState(false);
-  // The row ↔ slider swap follows the prover the Worker settled on, never one refused proof (the pill's ✦ does).
-  const native = prestoSticky(useAtomValue(prestoAtom));
   const nowSec = BigInt(Math.floor(now / 1000));
   const hatch = epoch && rules ? escapeHatchIn(epoch.openedAt, rules.T_MAX, nowSec) : 0n;
   return (
@@ -130,7 +140,7 @@ function EpochTile({ controller }: { controller: () => MinerController | undefin
       <span className="sr-only" data-testid="epoch">
         {epoch?.epoch.toString() ?? ''}
       </span>
-      {native ? <PrestoRow /> : <PowerRow controller={controller} />}
+      <PowerAndPresto controller={controller} presto={presto} />
     </Tile>
   );
 }

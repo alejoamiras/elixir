@@ -8,10 +8,11 @@ import {
   type PrestoPhase,
   type PrestoStatus,
 } from '@alejoamiras/presto-core';
+import type { PrestoStanding } from '@yacana/ui';
 import { setAcceleratorEndpoints } from '@yacana/web-kit/browser/node-guard';
 import { atom, type createStore } from 'jotai';
 import { queryOverridesAllowed } from './config';
-import { type ConsentRecord, isConsented } from './presto-consent';
+import { type ConsentRecord, consent, isConsented } from './presto-consent';
 
 type Store = ReturnType<typeof createStore>;
 
@@ -147,10 +148,10 @@ export async function lnaState(
   return 'unknown';
 }
 
-/** Settles `lnaAtom` from the browser and keeps it current; the page calls it once. */
-export function watchLna(store: Store): void {
+/** Settles `lnaAtom` from the browser and keeps it current; the session calls it once. */
+export function watchLna(store: Store, permissions: Pick<Permissions, 'query'> | undefined): void {
   const set = (s: Lna) => store.set(lnaAtom, s);
-  void lnaState(globalThis.navigator?.permissions, set).then(set);
+  void lnaState(permissions, set).then(set);
 }
 
 /**
@@ -161,25 +162,46 @@ export function watchLna(store: Store): void {
 export const mayAsk = (consented: boolean, lna: Lna): boolean =>
   consented && (lna === 'granted' || lna === 'unknown');
 
-/** What the Presto card shows; one reading for the rail and Settings. */
-export type PrestoStanding = 'ask' | 'checking' | 'found' | 'remembered' | 'proving' | 'absent' | 'blocked';
+export type { PrestoStanding };
 
 const permissionBlocked = (status: PrestoStatus | null): boolean =>
   status?.available === false && status.reason === 'permission-blocked';
 
 /**
- * `blocked` is the browser's verdict, before anything else. Under consent: the Worker proving
- * natively, then the probe's answer (`found`: eligible and not given up on, "proves when you
- * start"; `absent`: offline or a fix-it reason), then a remembered Presto not yet asked this page.
+ * `blocked` is the browser's verdict, before anything else. Under consent: the Worker's native
+ * prover (`proving` while mining, `found` — "proves when you start" — while idle), then the probe's
+ * answer (`found`: eligible and not given up on; `absent`: offline or a fix-it reason), then a
+ * remembered Presto not yet asked this page.
  */
-export function prestoStanding(s: PrestoState, record: ConsentRecord, lna: Lna): PrestoStanding {
+export function prestoStanding(
+  s: PrestoState,
+  record: ConsentRecord,
+  lna: Lna,
+  mining: boolean,
+): PrestoStanding {
   if (lna === 'denied' || permissionBlocked(s.status)) return 'blocked';
   if (s.looking) return 'checking';
   if (!isConsented(record, s.consentRev)) return 'ask';
-  if (prestoSticky(s)) return 'proving';
+  if (prestoSticky(s)) return mining ? 'proving' : 'found';
   if (s.status) return prestoEligible(s.status) && !s.fallbackReason ? 'found' : 'absent';
   return record.used ? 'remembered' : 'ask';
 }
+
+/** What the controller asks of the page's consent, for every native message the Worker sends. */
+export interface ConsentHooks {
+  /** Native may be published and remembered: consent is in force right now. */
+  allowed(): boolean;
+  /** The Worker verified this build's first native proof: Presto is remembered, at the click's revision. */
+  promote(): void;
+  /** A native proof did not verify: whatever was remembered is taken back. */
+  forget(): void;
+}
+
+export const pageConsent = (store: Store): ConsentHooks => ({
+  allowed: () => isConsented(consent.read(), store.get(prestoAtom).consentRev),
+  promote: () => void consent.promote(store.get(prestoAtom).consentRev ?? consent.read().rev),
+  forget: () => void consent.revoke(),
+});
 
 /** Presto's site: the billboard's link and the epoch tile's "About Presto". */
 export const PRESTO_SITE = 'https://presto.build';
@@ -266,17 +288,12 @@ const clientFor = (e: PrestoEndpoint): PrestoClient => {
 
 /**
  * The page's probe: the guard of this realm learns Presto's URLs, the SDK asks `/health` (10 s
- * cache unless forced), the answer lands in the atom. Never awaited by the boot or the sign-in.
+ * cache unless forced). Only the session calls it, after consent, and publishes the answer itself
+ * so a lookup overtaken by a revoke lands nowhere. Never awaited by the boot or the sign-in.
  */
-export async function probePresto(
-  store: Store,
-  endpoint: PrestoEndpoint,
-  force = false,
-): Promise<PrestoStatus> {
+export function probePresto(endpoint: PrestoEndpoint, force = false): Promise<PrestoStatus> {
   setAcceleratorEndpoints(acceleratorUrls(endpoint), ACCELERATOR_DEADLINE_MS);
-  const status = await clientFor(endpoint).checkStatus({ forceRefresh: force });
-  store.set(prestoAtom, (s) => ({ ...s, status, probedAt: Date.now() }));
-  return status;
+  return clientFor(endpoint).checkStatus({ forceRefresh: force });
 }
 
 /**

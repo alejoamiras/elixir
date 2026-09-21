@@ -6,7 +6,7 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { createStore } from 'jotai';
 import type { Deployment, Fee } from '../src/chain.ts';
 import { MinerController } from '../src/controller.ts';
-import { PRESTO_DEFAULT, prestoAtom } from '../src/presto.ts';
+import { type ConsentHooks, PRESTO_DEFAULT, prestoAtom } from '../src/presto.ts';
 import type { FromWorker, ToWorker } from '../src/worker-protocol.ts';
 
 class FakeWorker {
@@ -29,13 +29,16 @@ class FakeWorker {
 const tick = () => new Promise((r) => setTimeout(r, 0));
 const reconfigures = (w: FakeWorker) => w.sent.filter((m) => m.type === 'reconfigure');
 
-function controller(worker: FakeWorker) {
+const OPEN: ConsentHooks = { allowed: () => true, promote() {}, forget() {} };
+
+function controller(worker: FakeWorker, consent: ConsentHooks = OPEN) {
   const store = createStore();
   const c = new MinerController({
     store,
     spawnWorker: () => worker as unknown as Worker,
     threads: 2,
     presto: PRESTO_DEFAULT,
+    consent,
     deployment: {} as Deployment,
     account: AztecAddress.fromBigIntUnsafe(11n),
     fee: {} as Fee,
@@ -100,5 +103,46 @@ describe('reconfigure for Presto', () => {
     expect(c.stopCount).toBe(2);
     c.dispose();
     expect(store.get(prestoAtom).selected).toBeNull();
+  });
+});
+
+describe('consent at the Worker boundary', () => {
+  test('nothing native is published or remembered without it; a revoke tells the Worker first; an invalid proof forgets', async () => {
+    let allowed = true;
+    const log: string[] = [];
+    const hooks: ConsentHooks = {
+      allowed: () => allowed,
+      promote: () => void log.push('promote'),
+      forget: () => void log.push('forget'),
+    };
+    const worker = new FakeWorker();
+    const { store, c } = controller(worker, hooks);
+    await c.ready();
+    expect(store.get(prestoAtom).selected).toBe('presto');
+    worker.emit({ type: 'native-verified' });
+    expect(log).toEqual(['promote']);
+    // Consent gone (another tab's revoke, say) before the Worker's messages land: none of them show.
+    allowed = false;
+    worker.emit({ type: 'native-verified' });
+    worker.emit({ type: 'prover', kind: 'presto', sticky: false });
+    worker.emit({ type: 'presto-phase', phase: 'downloading' });
+    expect(log).toEqual(['promote']);
+    expect(store.get(prestoAtom)).toMatchObject({ active: null, phase: undefined });
+    worker.emit({ type: 'ready', threads: 2, initMs: 0, prover: 'presto' });
+    expect(store.get(prestoAtom).selected).toBe('wasm');
+    c.revoke();
+    await tick();
+    expect(worker.sent.slice(-2)).toEqual([
+      { type: 'revoke' },
+      { type: 'reconfigure', threads: 2, presto: null },
+    ]);
+    expect(c.currentPresto).toBeNull();
+    // Consent back, but the Worker was never handed the endpoint again: still nothing native.
+    allowed = true;
+    worker.emit({ type: 'prover', kind: 'presto', sticky: false });
+    expect(store.get(prestoAtom).active).toBeNull();
+    worker.emit({ type: 'prover', kind: 'wasm', sticky: true, reason: 'invalid-proof' });
+    expect(log).toEqual(['promote', 'forget']);
+    c.dispose();
   });
 });

@@ -88,7 +88,10 @@ async function serve(d: ReplayDeployment, ownerPid: number): Promise<ReplayRun> 
   try {
     const log = openSync(LOG_FILE, 'w');
     buildApp(pkg, OUT_DIR, log, replayEnv(d));
-    spawned = startPreview(pkg, OUT_DIR, log, port, replayEnv(d));
+    // Bound to the IPv4 loopback: the LNA spec reaches the page by that address (its address-space
+    // override names the endpoint that served the page, and `localhost` may resolve to ::1); every
+    // other spec keeps the `localhost` URL, which Chromium connects across both loopback families.
+    spawned = startPreview(pkg, OUT_DIR, log, port, replayEnv(d), '127.0.0.1');
     const baseURL = `http://localhost:${port}`;
     if (!(await waitUntilUp(baseURL, spawned)))
       throw new Error(`vite preview did not start on ${baseURL} (see e2e/replay/.vite.log)`);
