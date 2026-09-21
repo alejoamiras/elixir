@@ -294,6 +294,24 @@ fixed and replayed, but no review has passed over those fixes. That is the scope
 guards that parse shell, YAML, TypeScript and Vitest configs by hand have a long tail of forms, and each round
 found the next one. A fourth round is the owner's call, not mine.
 
+### Round 4 (2026-09-21, authorised by the owner; session `01a0c49a-5391-7770-89fe-ea92b24a2451`): "Approve with changes". Still not converged
+
+Reviewed at the head of the stack (`5499351`), since that is what lands. Round 3's three findings: closed. Two new
+material gaps, both verified true; the fixes are on the top branch with the cross-arc ones (ledger D14).
+
+| # | the input that still passed | what changed |
+|---|---|---|
+| 1 | `await vi.importActual('@yacana/miner-core/metrics')` in a `packages/ui` spec: the extractor knew the helper and dropped its argument for not being relative, so an undeclared workspace import passed (the hoisted install resolves it) | a module-loading helper (`vi.mock`, `vi.doMock`, `vi.importActual`, `vi.importMock`, `mock.module`) keeps a `@yacana/…` argument, which then meets the declaration and export rules like any import; a fixture pins that `new URL('@yacana/…')` is not one |
+| 2 | a spec whose `vitest` import spans lines read as a Bun test (the runner was told by a one-line regular expression), and `bun test apps/web-miner` was credited with a `.vitest.tsx` Bun never discovers; excluded from the Vitest config, it ran nowhere with every check green | the runner comes from the file's import declarations (`ts.preProcessFile`), and Bun is credited only with the names it discovers (`.test.` / `.spec.`) |
+
+Replayed red and restored: the helper import (`imports @yacana/miner-core: not in any block of
+packages/ui/package.json`); the multiline import with the spec excluded (orphan: `apps/web-miner/src/forms.vitest.tsx`).
+My first replay of the second went red for a side reason, a duplicate `exclude` key of my own; corrected to extend
+the config's array, it names the one spec. It is the third regular expression over source in this loop to be
+replaced by the parser.
+
+**Status: four rounds, not converged; round 4's fixes are unreviewed. A fifth round is the owner's call.**
+
 ### The cockpit shard on a CI runner (2026-09-21, after the push)
 
 `e2e.yml` dispatched on the arc 1 head `8c8e4ba` (run 35626070297): **success**, every job — the shards `bridge`,

@@ -170,7 +170,7 @@ const testInvocations = (w: Workflow): string[][] =>
 const buildsSite = (c: string[]): boolean =>
   c.join(' ') === 'bun run site:build' ||
   (c.includes('build') && c[c.indexOf('--cwd') + 1] === 'apps/site') ||
-  c.some((word) => plain(word) === 'apps/site/src/assemble.ts');
+  (c[0] === 'bun' && plain(c[1] ?? '') === 'apps/site/src/assemble.ts');
 
 /** The workspace and everything it needs in production, through `dependencies`. */
 function closure(w: Workspace, seen = new Set<Workspace>()): Set<Workspace> {
@@ -293,10 +293,16 @@ describe('workflows', () => {
       .flatMap((w) => w.steps.flatMap(gating))
       .filter((c) => c.includes('test:components'))
       .map((c) => (c.includes('--cwd') ? (c[c.indexOf('--cwd') + 1] ?? '') : ''));
+    const forVitest = (f: string): boolean =>
+      ts
+        .preProcessFile(readFileSync(join(repo, f), 'utf8'))
+        .importedFiles.some((i) => i.fileName === 'vitest');
+    // Bun discovers `.test.` and `.spec.` names; a folder argument does not make it run any other.
     const runs = (f: string): boolean =>
-      /^import .* from 'vitest';$/m.test(readFileSync(join(repo, f), 'utf8'))
+      forVitest(f)
         ? vitestDirs.some((d) => d === '' || f.startsWith(`${d}/`)) && vitestIncludes(f)
-        : bunArgs.some((args) => args.length === 0 || args.some((a) => f.includes(a)));
+        : /[._](test|spec)\.tsx?$/.test(f) &&
+          bunArgs.some((args) => args.length === 0 || args.some((a) => f.includes(a)));
     const orphans = files
       .filter((f) => /\.(test|spec|vitest)\.tsx?$/.test(f) && !NOT_IN_A_PR_LANE.some((x) => x.test(f)))
       .filter((f) => !runs(f));
@@ -332,6 +338,7 @@ describe('workflows', () => {
       .filter((w) => !globs.some((g) => new Glob(g).match(w.dir)))
       .map((w) => w.dir);
     expect(script.endsWith(' test:components')).toBe(true);
+    expect(globs.filter((g) => g.startsWith('!'))).toEqual([]);
     expect(missed).toEqual([]);
   });
 

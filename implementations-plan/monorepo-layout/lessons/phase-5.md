@@ -98,3 +98,13 @@ load average of 540 from other sessions and `bun test` taking 169 s against its 
 `scripts/layout.test.ts` only. The rerun at load ~240: status 0, 543 pass · 42 skip · 0 fail. A bare `bun test`
 in between failed `vk-pinning.test.ts` for a reason of my own making (no `aztec-nargo` on `PATH` outside the gate
 script). Follow-up: those two Presto tests race a 5 s budget under load (`follow-ups.md`).
+
+### Round 4 (2026-09-21, authorised by the owner; same session): "no new material findings"
+
+Both round 3 findings confirmed closed; the narrowed root runner, the deleted, disabled and non-gating build are
+refused, and both alternative spellings of the build pass with complete filters and fail without the landing,
+web-kit or `deployments/**`. **The cross-arc pass converged in round 4.** Two P3 notes, both taken because each
+was one line: a negative `--filter` on the root component run is refused, and the assembler counts as a build only
+as the script Bun runs, not as any argument (`bun test apps/site/src/assemble.ts …` had counted). Replayed red and
+restored. FAST after these and arc 1's round 4 fixes: status 0, 544 pass · 42 skip · 0 fail, after one run that
+failed on a typing slip of mine in `pathCalls` (caught by the gate) and, again, one load-sensitive Presto test.

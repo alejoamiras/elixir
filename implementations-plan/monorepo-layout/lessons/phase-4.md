@@ -131,3 +131,10 @@ a fourth is the owner's call, not run here. The final cross-arc pass reviews thi
 |---|---|
 | lint · layout guard | exit 0 · 13 pass |
 | the three bypasses replayed, each restored | exit 1 ×3, each naming its finding · exit 0 ×3 |
+
+### Round 4 (2026-09-21, authorised by the owner; same session `01a0c561-6aa5-7410-a0c8-b617eabee682`): "no new material findings"
+
+Codex replayed round 3's ambient-only construction (now refused) and the neighbouring mutations: a file owned by
+no project, by two projects of one home, by an unreferenced nested config; a home that drops its tests reference;
+a workspace with no config; a root-level and a `scripts/` file outside the scripts project. None passes; the
+positive control (a config with its own files and a reference) keeps both sets. **Arc 4's loop converged in round 4.**
