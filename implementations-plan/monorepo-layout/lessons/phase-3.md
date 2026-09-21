@@ -118,3 +118,29 @@ nothing consumes it (Verify shows `W_VK_HASH`, another value).
 |---|---|
 | lint · three guards | exit 0 · 27 pass |
 | root typecheck (`protocol/*/src` back) | exit 0 |
+
+### Round 2 (2026-09-21) — "no new material findings"
+
+Codex re-derived the root-file comparison itself (242 = 242), checked the renderer's path against the three apps'
+`RUN_FILE` definitions, and swept string-built paths, regex literals, config values and comments once more: nothing
+left but the D13 line. **Arc 3's loop converged in two rounds** (`/tmp/codex-lBc8NTEF/response*.md`).
+
+## Arc 3 HEAVY+ (2026-09-21)
+
+On `7dc4d18` (the arc's head before the fix loop; the loop changed one template path, one tsconfig include and two doc
+sentences, none of which a build or an e2e reads), each e2e on its own isolated network:
+
+| step | result |
+|---|---|
+| `test:replay` | 4 passed |
+| `site:build` + bundle comparison | 651 files; **no findings**: the seven inventories identical after the folder maps, seven JavaScript chunks re-emitted (−26/+12/−16 bytes on the three pages, the Workers size-identical), `bundle-arc3.txt` and `modules-arc3/` recorded |
+| `site:e2e` | 3 passed |
+| cockpit shard, proverless | **6 passed, 1 failed**: `three power changes … memory stays bounded`, RSS 1452 → 3131 MiB (+1679 against 300, peak 3352) — the arc 1 failure on this host again (baseline commit +900, arc 1 +846/+671, arc 2 +30, CI green on arc 1's run); rerun below |
+| canary shard (real proving) | 4 passed: the tampered claim refused at proving, the untampered one mints |
+| web-stats e2e | 7 passed |
+| web-landing e2e | 5 passed |
+| `test:visual` | 8 passed (the pinned Playwright image) |
+| `bun run rig -- flip` | 1 pass, H0 in 63 s |
+| `YACANA_APP_ROLE=old bun run site:build` | `apps/site/dist-old` assembled: `_headers`, `_redirects`, `artifacts`, `assets`, `build.json`, `crs`, `index.html`, `layouts.json`, `slots`, `witnesses` |
+| `git status --porcelain` | nothing untracked but the arc's own reports |
+| cockpit shard, rerun on a fresh network | **7 passed**, RSS 1473 → 1542 MiB (+69, peak 1766): the same build, the same test, one run apart — the flake reading of arc 1 and arc 2 holds |
