@@ -57,3 +57,13 @@ prefixes are checked for a rise against the baseline while this machine's own pa
 `moduleReport` in `site/src/vite-base.ts` (page and Worker pipelines, inert without `YACANA_MODULE_REPORT`; the
 baseline manifest is byte-identical with it in place), `bundle-compare.ts`, and `modules-baseline/`: web-landing 596
 modules, web-miner 1567, its Worker 231 (16 first-party, the guard and the shim among them), web-stats 1270.
+
+### P1.1 gate (2026-09-21)
+
+| step | result |
+|---|---|
+| FAST | exit 0 · 509 pass · 42 skip · 0 fail (no test added, moved or removed) |
+| `build` of `web-miner` and `web-stats` | ok (18 s · 8 s) |
+| dev-server smoke, both apps | `/` 200 · the module 200 · 1 workspace import rewritten to `/@fs`, 0 left bare · no `Failed to resolve` · owned group gone |
+| `test:replay` | 4 passed |
+| bundle comparison (§3.10, amended) | **no findings**: 651 files, the four module inventories identical to the baseline; re-emitted scripts `mine/assets/index` +12 B, `ccip`, `lazy`, `register` +0 B (they embed the main chunk's hashed name) |

@@ -17,7 +17,7 @@ import { Observatory } from './Observatory';
 import { Strip, type StripProps, step } from './Strip';
 import { Table } from './Table';
 
-const fixture = await import('../../../miner-core/fixtures/epochs.testnet.json?raw');
+const fixture = await import('@yacana/miner-core/fixtures/epochs.testnet.json?raw');
 const rows: EpochRow[] = rowsFromJson(fixture.default);
 const RULES = {
   N: PARAMS.N,

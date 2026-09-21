@@ -457,7 +457,7 @@ after a `site:build` exits 0 without uploading.
 
 ### Arc 1: boundaries, no workspace moves
 
-**P1.1 Prove the resolution chain.** `exports` on `miner-core` and `ui`; rewrite **every** existing
+**P1.1 ✓ Prove the resolution chain.** `exports` on `miner-core` and `ui`; rewrite **every** existing
 `@yacana/miner-core/src/*.ts` specifier in the same commit (the tree never holds a specifier its map rejects). By
 hand, one import of each kind in `web-miner`/`web-stats`: a page module, the prover Worker, a Vitest spec, a `bun:test`
 file, a `?raw` JSON (`web-stats/src/features/stats.vitest.tsx`), a dynamic `import()`, and `@import

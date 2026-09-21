@@ -4,6 +4,14 @@
   "private": true,
   "description": "Platform-agnostic mining core: proof to ticket digest, retarget mirror, epoch reader, claim builder",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./fixtures/epochs.testnet.json": "./fixtures/epochs.testnet.json",
+    "./generated/params": "./src/generated/params.ts",
+    "./keys/derive": "./src/keys/derive.ts",
+    "./reader": "./src/reader.ts",
+    "./work": "./src/work.ts"
+  },
   "main": "src/index.ts",
   "scripts": {
     "test": "bun test"

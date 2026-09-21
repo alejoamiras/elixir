@@ -1,10 +1,10 @@
 import '../../site/src/browser/node-guard.ts';
 import { startCrs } from './pinned-crs';
 import './index.css';
+import { ThemeProvider } from '@yacana/ui';
 import { createStore, Provider } from 'jotai';
 import { type ReactNode, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ThemeProvider } from '../../ui/src/index.ts';
 import { App, GoneApp } from './App';
 import { isOldRole, lifecycleRecord } from './bridge/env';
 import { loadConnection } from './config';

@@ -7,8 +7,8 @@ import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/cry
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { computeSecretHash } from '@aztec/stdlib/hash';
-import { DOMAINS, SEPARATORS } from '@yacana/miner-core/src/generated/params.ts';
-import { hkdf } from '@yacana/miner-core/src/keys/derive.ts';
+import { DOMAINS, SEPARATORS } from '@yacana/miner-core/generated/params';
+import { hkdf } from '@yacana/miner-core/keys/derive';
 import { privateKeyToAccount } from 'viem/accounts';
 
 const EXIT_INFO = 'yacana.exit.v1';

@@ -3,7 +3,7 @@
 // an epoch is an hour; two hours' on the testnet); exits close 180 days after a
 // flip at the earliest; a pause is at most 30 days a call and 60 in total; a registration's launch
 // time may sit a week behind or 90 days ahead of the registration block. Set once at deployment.
-import { PARAMS } from '@yacana/miner-core/src/generated/params.ts';
+import { PARAMS } from '@yacana/miner-core/generated/params';
 
 export interface PortalPolicy {
   perHour: bigint;

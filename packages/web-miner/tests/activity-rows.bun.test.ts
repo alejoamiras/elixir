@@ -6,8 +6,8 @@ process.env.VITE_ROLLUP_VERSION = '5';
 process.env.VITE_VERSION_INDEX = '0';
 
 import { describe, expect, test } from 'bun:test';
+import { PARAMS } from '@yacana/miner-core/generated/params';
 import { type Crossing, FADE_AFTER_MS } from '../../bridge/src/journal.ts';
-import { PARAMS } from '../../miner-core/src/generated/params.ts';
 import { TAKING_LONG_AFTER_MS } from '../src/bridge/copy.ts';
 import { activity, moneyStanding } from '../src/bridge/rows.ts';
 import type { BridgeView } from '../src/state.ts';

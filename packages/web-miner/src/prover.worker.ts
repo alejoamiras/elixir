@@ -3,7 +3,7 @@ import './shims/node-globals';
 import '../../site/src/browser/node-guard.ts';
 import './pinned-crs';
 import { BackendType, Barretenberg } from '@aztec/bb.js';
-import { BbJsWorkProver, type WorkArtifact, type WorkProver } from '../../miner-core/src/work.ts';
+import { BbJsWorkProver, type WorkArtifact, type WorkProver } from '@yacana/miner-core/work';
 import { setAcceleratorEndpoints } from '../../site/src/browser/node-guard.ts';
 import { purgeCrsCache } from './pinned-crs';
 import { ACCELERATOR_DEADLINE_MS, acceleratorUrls, downloadPhases } from './presto';
