@@ -35,6 +35,7 @@
   "dependencies": {
     "@yacana/bridge": "workspace:*",
     "@yacana/miner-core": "workspace:*",
+    "@yacana/ui": "workspace:*",
     "@yacana/web-miner": "workspace:*",
     "@yacana/web-stats": "workspace:*"
   },

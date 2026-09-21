@@ -38,4 +38,3 @@ jobs:
       - run: bun run lint
       - run: bun run --cwd packages/ui typecheck
       - run: bun run --cwd packages/ui test:components
-      - run: bun test packages/ui

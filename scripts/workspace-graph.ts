@@ -1,5 +1,3 @@
-// The repository as the guards and the specifier codemod see it: the workspaces, every specifier a
-// tracked file holds with its position, and which workspace owns a path.
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { $, Glob } from 'bun';
@@ -30,7 +28,7 @@ export interface Specifier {
   /** Offsets of `text` in the file, quotes excluded. */
   start: number;
   end: number;
-  kind: 'import' | 'reference' | 'css-import';
+  kind: 'import' | 'reference' | 'css-import' | 'path-call';
 }
 
 export const readManifest = (dir: string): Manifest =>
@@ -73,6 +71,19 @@ export function scriptSpecifiers(source: string): Specifier[] {
   ];
 }
 
+// Paths the compiler does not count as imports but a bundler or a test runner follows: Vite's glob
+// import, a Worker or asset URL, a mocked module.
+const PATH_CALL =
+  /(?:import\.meta\.glob|new URL|vi\.(?:mock|doMock|importActual)|mock\.module)\(\s*(['"`])(\.\.?\/[^'"`]*)\1/g;
+
+export function pathCalls(source: string): Specifier[] {
+  return [...source.matchAll(PATH_CALL)].map((m) => {
+    const text = m[2] ?? '';
+    const start = (m.index ?? 0) + m[0].lastIndexOf(text);
+    return { text, start, end: start + text.length, kind: 'path-call' as const };
+  });
+}
+
 const CSS_IMPORT = /@import\s+(?:url\(\s*)?["']([^"']+)["']/g;
 
 export function cssImports(source: string): Specifier[] {
@@ -84,7 +95,11 @@ export function cssImports(source: string): Specifier[] {
 }
 
 export const specifiersOf = (file: string, source: string): Specifier[] =>
-  file.endsWith('.css') ? cssImports(source) : SCRIPT.test(file) ? scriptSpecifiers(source) : [];
+  file.endsWith('.css')
+    ? cssImports(source)
+    : SCRIPT.test(file)
+      ? [...scriptSpecifiers(source), ...pathCalls(source)]
+      : [];
 
 const EXTENSIONS = ['', '.ts', '.tsx', '.mts', '.mjs', '.d.ts', '/index.ts', '/index.tsx'];
 
@@ -92,12 +107,22 @@ const EXTENSIONS = ['', '.ts', '.tsx', '.mts', '.mjs', '.d.ts', '/index.ts', '/i
 export function resolveRelative(fromFile: string, specifier: string): string | undefined {
   const bare = specifier.replace(/[?#].*$/, '');
   const base = resolve(repo, dirname(fromFile), bare);
-  for (const ext of EXTENSIONS) {
-    const candidate = `${base}${ext}`;
-    if (existsSync(candidate) && statSync(candidate).isFile()) return relative(repo, candidate);
-  }
+  // `./x.js` names `x.ts` to Bun, TypeScript and Vite alike.
+  const bases = [base, base.replace(/\.js$/, ''), base.replace(/\.jsx$/, '')];
+  for (const b of new Set(bases))
+    for (const ext of EXTENSIONS) {
+      const candidate = `${b}${ext}`;
+      if (existsSync(candidate) && statSync(candidate).isFile()) return relative(repo, candidate);
+    }
   return undefined;
 }
+
+/**
+ * Where a relative specifier points whether or not a file is there: a glob's fixed prefix, a file
+ * that is gone. A boundary is about the folder reached, so this is what an owner is looked up by.
+ */
+export const reach = (fromFile: string, specifier: string): string =>
+  relative(repo, resolve(repo, dirname(fromFile), specifier.replace(/[?#].*$/, '').replace(/\*.*$/, '')));
 
 export const isRelative = (specifier: string): boolean => /^\.\.?(\/|$)/.test(specifier);
 

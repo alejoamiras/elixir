@@ -8,6 +8,7 @@ import {
   isProduction,
   isRelative,
   ownerOf,
+  reach,
   readManifest,
   repo,
   resolveRelative,
@@ -56,12 +57,14 @@ interface Found {
 const relative: Found[] = [];
 const packaged: Found[] = [];
 for (const file of scanned) {
-  // The plan folder holds one-off tools that import this graph by path; they are not shipped or run in CI.
-  if (file.startsWith('implementations-plan/')) continue;
+  // One-off tools that belong to no workspace, neither shipped nor run in CI; and this file's own fixtures.
+  if (file.startsWith('implementations-plan/') || file === 'scripts/boundaries.test.ts') continue;
   const source = readFileSync(join(repo, file), 'utf8');
   for (const s of specifiersOf(file, source)) {
     const found = { file, line: lineOf(source, s.start), text: s.text };
-    if (isRelative(s.text)) relative.push({ ...found, target: resolveRelative(file, s.text) });
+    // A file that is not there, or a glob, still reaches a folder: the boundary is judged by that.
+    if (isRelative(s.text))
+      relative.push({ ...found, target: resolveRelative(file, s.text) ?? reach(file, s.text) });
     else if (s.text.startsWith('@yacana/')) packaged.push(found);
   }
 }
@@ -85,6 +88,7 @@ describe('workspace boundaries', () => {
     const offenders = relative
       .filter((r) => {
         if (!r.target) return false;
+        if (r.target.startsWith('..')) return true;
         const from = ownerOf(r.file, all);
         const to = ownerOf(r.target, all);
         if (to === from) return false;
@@ -101,7 +105,12 @@ describe('workspace boundaries', () => {
   });
 
   test('a workspace import is declared, under dependencies when production code imports it', () => {
-    expect(packaged.map(undeclared).filter(Boolean)).toEqual([]);
+    // A listed path edge is a dependency like any other; only its spelling is excused.
+    const byPath = relative.flatMap((r) => {
+      const owner = `${r.file} → ${r.target}` in PATH_EDGES ? ownerOf(r.target ?? '', all) : undefined;
+      return owner ? [{ ...r, text: owner.name }] : [];
+    });
+    expect([...packaged, ...byPath].map(undeclared).filter(Boolean)).toEqual([]);
   });
 
   test('a workspace import names a subpath its owner exports', () => {
@@ -152,6 +161,22 @@ describe('the specifier extractor', () => {
     ]);
     // The offsets are what the codemod writes through.
     for (const s of found) expect(source.slice(s.start, s.end)).toBe(s.text);
+  });
+
+  test('sees the paths a bundler or a test runner follows though the compiler does not', () => {
+    const source = [
+      "import.meta.glob('../../x/src/*.ts');",
+      "new Worker(new URL('../../x/src/w.ts', import.meta.url));",
+      "vi.mock('../../x/src/m.ts');",
+      "mock.module('../../x/src/n.ts', () => ({}));",
+      "new URL('https://example.org');",
+    ].join('\n');
+    expect(specifiersOf('a.ts', source).map((s) => s.text)).toEqual([
+      '../../x/src/*.ts',
+      '../../x/src/w.ts',
+      '../../x/src/m.ts',
+      '../../x/src/n.ts',
+    ]);
   });
 
   test('sees a CSS @import and leaves @source alone', () => {
