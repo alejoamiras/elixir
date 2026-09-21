@@ -312,6 +312,15 @@ replaced by the parser.
 
 **Status: four rounds, not converged; round 4's fixes are unreviewed. A fifth round is the owner's call.**
 
+### Round 5 (2026-09-21, authorised by the owner; same session): "Approve", "no new material findings"
+
+Both round 4 findings closed; `vi.mock(import('@yacana/ui'))`, a direct `require` and a literal backtick import are
+extracted too, and a `.vitest.ts` file is refused by both runners' rules. Notes, not taken: a helper reached
+through destructuring or an alias, a chained `createRequire(…)('@yacana/…')` and an interpolated template import
+stay invisible (none loads a workspace today; the repository's `createRequire` calls resolve toolchain packages);
+a file importing both runners reads as Vitest's, one importing neither as Bun's (no such file exists).
+**Arc 1's loop converged in round 5**, two rounds past the protocol's stop, each authorised by the owner.
+
 ### The cockpit shard on a CI runner (2026-09-21, after the push)
 
 `e2e.yml` dispatched on the arc 1 head `8c8e4ba` (run 35626070297): **success**, every job — the shards `bridge`,
