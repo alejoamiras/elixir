@@ -459,7 +459,7 @@ turns `minted`), `prover-dead`, `stop`, trim; the controller test of Fact 7's fi
 sample); a component test with `getContext` and `clientWidth` mocked asserts one `stroke()` for the ticks and that
 the pop-out passes `spans`; hover works with reduced motion on · layers: unit, component.
 
-**P4 — Presets, then the activity row.** (a) F4 with its spec. (b) D8: `activity-row.tsx`, `bridge-types.ts`,
+**P4 ✓ — Presets, then the activity row.** (a) F4 with its spec. (b) D8: `activity-row.tsx`, `bridge-types.ts`,
 `rows.ts`, `copy.ts`, the fixtures in `bridge-primitives.vitest.tsx`, `activity-rows.bun.test.ts`,
 `gallery.vitest.tsx`. Fast layers after each.
 **Gate (arc 1's e2e)**: fast, `YACANA_APP_ROLE=old bun run site:build`, then
