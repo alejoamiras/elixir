@@ -70,3 +70,31 @@ Replays, each red and then restored: the miner's `test:components` deleted; `con
 **Lesson.** A rule's replay proves the one mutation I thought of. Both rounds' misses were the neighbouring
 mutation (narrow the script → delete it; drop the glob → narrow it), so a guard's replay set should include the
 absent and the narrowed form of whatever it requires, not only the wrong one.
+
+### Round 3 (2026-09-21): "Changes requested: two material P2 coverage bypasses remain (high confidence)"
+
+| # | Finding | Verified | Fix |
+|---|---|---|---|
+| 1 | The miner's lane runs the root `test:components`, and the guard credited every workspace to any invocation without `--cwd`, never reading the root script's `--filter`s: narrowed to `./packages/*`, the three apps' specs lose their lane with every check green | True | The root script must end in `test:components` and its filters must match every workspace that has a `vitest.config.ts` |
+| 2 | Nothing required a production build to exist, and only one spelling of it was recognised: delete the step, or respell it `bun run --cwd apps/site build` and drop its filters, and every check stayed green | True | A pull-request lane must carry a gating production build; the root script, the site's own `build` and the assembler are all read as the build, so the filter rules follow any of them; the root `site:build` must be the assembler |
+
+Replays, each red and then restored: the root runner filtered to packages only; the build step deleted; the build
+respelled through `--cwd` and as the assembler, each with the landing, web-kit and `deployments/**` dropped from the
+filter; the root `site:build` pointed at `true`. Rounds 1 and 2's eight replays are still red.
+
+Codex upheld the rest: the absent, narrowed, renamed and later-negated forms of round 2's rules are all refused, the
+landing as a declared dependency is accurate and cycle-free, D14 is acceptable with its constraint.
+
+**The loop stops here, unconverged.** Three rounds is the hard stop; every finding of the three is fixed and
+replayed, but no round came back with "no new material findings", and the round 3 fixes are unreviewed. Of the eight
+material findings, two were live CI defects (the production-build lane had stopped watching web-kit and the site's
+env file; the site's lane never watched the landing) and one a live extractor gap (unquoted CSS `url()`); the other
+five were coverage rules in `scripts/layout.test.ts` with a neighbouring mutation they did not refuse. None touched
+shipped code or the bundle. A fourth round is the owner's call.
+
+FAST after round 3's fixes: the first run failed two timing tests of the miner's Presto suite ("a Start after the
+Worker gave up on native…" and "a Stop while the probe is out…", the second at its 5 s timeout) with the host at a
+load average of 540 from other sessions and `bun test` taking 169 s against its usual 80 s; the diff touches
+`scripts/layout.test.ts` only. The rerun at load ~240: status 0, 543 pass · 42 skip · 0 fail. A bare `bun test`
+in between failed `vk-pinning.test.ts` for a reason of my own making (no `aztec-nargo` on `PATH` outside the gate
+script). Follow-up: those two Presto tests race a 5 s budget under load (`follow-ups.md`).
