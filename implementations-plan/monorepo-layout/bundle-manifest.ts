@@ -1,5 +1,3 @@
-// Every file of an assembled site with its byte size and sha256, sorted, relative to the site:
-// two manifests differ exactly where two builds differ.
 //   bun implementations-plan/monorepo-layout/bundle-manifest.ts <dist dir> <out file>
 import { readdirSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';

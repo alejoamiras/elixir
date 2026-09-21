@@ -17,10 +17,20 @@ export class OperationalError extends Error {
   readonly operational = true;
 }
 
-// The last of these is bb's limb-range assertion on a commitment coordinate.
-const MALFORMED =
-  /Deserialized point is not on the curve|Non-canonical proof element|invalid proof size|bad proof serde or parsing/;
-const REFUSED = /Proof verification failed/;
+// bb echoes a path it cannot open, and a path is the caller's text: it may hold any diagnostic, on
+// a line of its own. So an unreadable input is settled first, and a verdict is a whole line.
+const UNREADABLE = /Unable to open file/;
+const MALFORMED = [
+  /^Deserialized point is not on the curve$/,
+  /^Non-canonical proof element: value >= field modulus$/,
+  /^Proof verification failed: invalid (proof|VK) size\b/,
+  // bb's limb-range assertion on a commitment coordinate.
+  /^Reason\s*: Conversion error here usually implies some bad proof serde or parsing$/,
+];
+const REFUSED = /^Proof verification failed$/;
+
+const lines = (stderr: string): string[] =>
+  stderr.split('\n').map((l) => l.replace(/\(mem: [^)]*\)\s*$/, '').trim());
 
 interface Ran {
   exitCode: number | null;
@@ -59,10 +69,10 @@ async function run(files: VerifyFiles, bb: string): Promise<Ran> {
 export async function verify(files: VerifyFiles, bb: string = BB): Promise<Verdict> {
   const { exitCode, signal, stderr } = await run(files, bb);
   if (exitCode === 0) return { verified: true };
-  if (exitCode === 1) {
-    // A truncated proof is reported as a failed verification too: the parse errors are read first.
-    if (MALFORMED.test(stderr)) return { verified: false, wellFormed: false };
-    if (REFUSED.test(stderr)) return { verified: false, wellFormed: true };
+  if (exitCode === 1 && !UNREADABLE.test(stderr)) {
+    const said = lines(stderr);
+    if (said.some((l) => MALFORMED.some((m) => m.test(l)))) return { verified: false, wellFormed: false };
+    if (said.some((l) => REFUSED.test(l))) return { verified: false, wellFormed: true };
   }
   const last = stderr.trim().split('\n').at(-1) ?? '';
   throw new OperationalError(

@@ -90,3 +90,22 @@ not with a quiet machine.
 The identical manifest is also the first evidence that a production build is reproducible run to run on this
 machine, which the later arcs' diffs depend on. Arc 0's end is scoped to the protocol and artifact gates of P0.1
 and this manifest; the browser suites start at arc 1's end.
+
+## Codex fix loop, arc 0
+
+**Round 1** (session `01a0c45a-ba13-7bb3-ba90-08fcbf1188bf`, GPT-6 Astra at `high`): *approve with changes*, two
+material, both reproduced before fixing.
+
+| # | finding | call |
+|---|---|---|
+| 1 | material: `verify()` matched substrings, and bb echoes a path it cannot open, so a missing VK under a directory named `Proof verification failed` returned a well-formed refusal. A path holding a newline injects a whole line (my own variant, also reproduced) | **adopted**: `Unable to open file` is settled first and is always operational; verdicts match whole lines with bb's `(mem: …)` suffix stripped. Three-path regression test |
+| 2 | material: an empty VK prints `Proof verification failed: invalid VK size` and read as *well-formed* | **adopted**: listed as malformed; the well-formed refusal is now the exact line `Proof verification failed`. Regression test |
+| 3 | nit: `spike-results.md` cites removed scripts as reproduction steps | **adopted**: an archival note names `06b25d7` and maps the surviving checks |
+| 4 | nit: the lease comment claimed requests pass "untouched" (a candidate gets a deadline and `redirect: 'error'`); `bundle-manifest.ts` narrated itself | **adopted**: one accurate sentence; usage line only |
+
+Upheld: the wrong VK exchanges two complete commitments (codex decoded both as canonical points on the curve);
+D8's lease; nothing still consumes the removed components; `site:wrangler` under a hoisted install. After the
+fixes: `check:mutation` exit 0, FAST 509 pass · 42 skip · 0 fail (+2 regression tests).
+
+**Lesson: text a tool echoes back is input. Classify on a diagnostic only after ruling out the lines that carry the
+caller's own strings.**

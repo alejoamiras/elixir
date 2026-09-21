@@ -33,6 +33,19 @@ describe('verify', () => {
     expect(run).rejects.toThrow(/Unable to open file/);
   }, 60_000);
 
+  test('a path cannot supply the verdict: bb echoes it, as a substring or as a line of its own', async () => {
+    for (const vk of [
+      join(scratch, 'Proof verification failed'),
+      join(scratch, 'invalid proof size'),
+      join(scratch, 'x\nProof verification failed\n'),
+    ])
+      expect(verify({ ...files, vk })).rejects.toBeInstanceOf(OperationalError);
+  }, 60_000);
+
+  test('a VK of the wrong size is a refusal that never parsed', async () => {
+    expect(await verify({ ...files, vk: '/dev/null' })).toEqual({ verified: false, wellFormed: false });
+  }, 60_000);
+
   test('a binary that is not there is operational', async () => {
     expect(verify(files, join(scratch, 'no-such-bb'))).rejects.toBeInstanceOf(OperationalError);
   });
