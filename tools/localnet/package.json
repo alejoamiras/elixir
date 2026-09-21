@@ -16,7 +16,7 @@
   },
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -b --force"
   },
   "dependencies": {
     "@aztec/accounts": "5.2.0",

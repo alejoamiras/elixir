@@ -16,7 +16,8 @@
     "export-vk": "bun scripts/export-vk.ts",
     "manifest": "bun scripts/layout-manifest.ts",
     "prove": "bun scripts/prove.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "typecheck": "tsc -b --force"
   },
   "dependencies": {
     "@aztec/bb.js": "5.2.0",

@@ -4,10 +4,11 @@
 // exits 0. Everything here holds on the tree as it is, so it can land before any move it guards.
 import { describe, expect, test } from 'bun:test';
 import { readdirSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { Glob, YAML } from 'bun';
 import ts from 'typescript';
 import {
+  ownerOf,
   readManifest,
   repo,
   resolveRelative,
@@ -392,5 +393,54 @@ describe('sources', () => {
           .map((m) => `${f}: ${m[1]}`),
       );
     expect(missing).toEqual([]);
+  });
+});
+
+describe('the typecheck solution', () => {
+  const host: ts.ParseConfigFileHost = {
+    ...ts.sys,
+    onUnRecoverableConfigFileDiagnostic: (d) => {
+      throw new Error(ts.flattenDiagnosticMessageText(d.messageText, '\n'));
+    },
+  };
+  /** The leaf projects under a config: its own root files, or those of the projects it references. */
+  const leaves = (cfg: string): { cfg: string; files: string[] }[] => {
+    const parsed = ts.getParsedCommandLineOfConfigFile(cfg, {}, host);
+    if (!parsed) throw new Error(`${cfg}: unreadable`);
+    const refs = parsed.projectReferences ?? [];
+    if (refs.length === 0)
+      return [{ cfg: relative(repo, cfg), files: parsed.fileNames.map((f) => relative(repo, f)) }];
+    return refs.flatMap((r) => leaves(ts.resolveProjectReferencePath(r)));
+  };
+  const root = ts.getParsedCommandLineOfConfigFile(join(repo, 'tsconfig.json'), {}, host);
+  const referenced = (root?.projectReferences ?? []).map((r) => relative(repo, r.path));
+  const projects = leaves(join(repo, 'tsconfig.json'));
+  // An app's ambient module types are roots of the app and of its tests project, by name.
+  const AMBIENT_MANY = new Set(
+    ['web-miner', 'web-stats', 'web-landing'].map((a) => `apps/${a}/src/vite-env.d.ts`),
+  );
+  const typescript = files.filter((f) => /\.tsx?$/.test(f) && !f.startsWith('implementations-plan/'));
+
+  test('every workspace with TypeScript, and the root scripts, is a project the root references', () => {
+    const owners = [...new Set(typescript.map((f) => ownerOf(f, all)?.dir ?? f.split('/')[0] ?? ''))];
+    // The root-level config file belongs to the scripts project.
+    const missing = owners.filter(
+      (dir) => !referenced.includes(dir === 'commitlint.config.ts' ? 'scripts' : dir),
+    );
+    expect(missing).toEqual([]);
+    expect(referenced.filter((dir) => !exists(`${dir}/tsconfig.json`))).toEqual([]);
+  });
+
+  test('every tracked TypeScript file is a root file of exactly one project', () => {
+    const owners = new Map<string, string[]>();
+    for (const p of projects) for (const f of p.files) owners.set(f, [...(owners.get(f) ?? []), p.cfg]);
+    const off = typescript
+      .filter((f) => {
+        const n = owners.get(f)?.length ?? 0;
+        return AMBIENT_MANY.has(f) ? n === 0 : n !== 1;
+      })
+      .map((f) => `${f}: ${owners.get(f)?.join(', ') ?? 'no project'}`);
+    expect(off).toEqual([]);
+    expect([...owners.keys()].filter((f) => !files.includes(f))).toEqual([]);
   });
 });

@@ -30,7 +30,7 @@
   },
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -b --force"
   },
   "dependencies": {
     "@aztec/aztec.js": "5.2.0",

@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "test:components": "vitest run",
     "test:e2e": "bun scripts/prebuild.ts && playwright test",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b --force"
   },
   "dependencies": {
     "@aztec/aztec.js": "5.2.0",

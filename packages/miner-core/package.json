@@ -27,7 +27,8 @@
   },
   "main": "src/index.ts",
   "scripts": {
-    "test": "bun test"
+    "test": "bun test",
+    "typecheck": "tsc -b --force"
   },
   "dependencies": {
     "@aztec-foundation/aztec-standards": "5.2.0",

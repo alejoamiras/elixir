@@ -16,7 +16,7 @@
     "test:components": "vitest run",
     "test:e2e": "bun e2e/run-suite.ts",
     "test:replay": "bun e2e/replay/lane.ts",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b --force"
   },
   "dependencies": {
     "@alejoamiras/presto": "5.2.0-revision.2",
