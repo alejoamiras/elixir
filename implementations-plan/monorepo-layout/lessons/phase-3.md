@@ -64,3 +64,24 @@ each now watches. Nothing else differs across the twelve files. No file changed 
 |---|---|
 | the diff | two added lines, listed above |
 | FAST · both guards | as P3.1's (no file changed since) |
+
+## P3.3 Docs
+
+The path map over the eleven documentation files (`CLAUDE.md`, `README.md`, the three apps' READMEs, six under
+`docs/`), with two things first: arc 2's stale mentions of `packages/site/site.env` (→ `deployments/site.env`) and
+of the site files that moved to `web-kit` (`config.ts`, `headers.ts`, `browser/host.ts`), which P2.1's docs pass
+had missed in `docs/deployments.md`, `docs/upgrades.md`, `docs/threat-model.md` and two READMEs. Then by hand:
+`CLAUDE.md`'s table is "Workspaces", grouped by folder with the layer rule and the two guards named, the `site` row
+split into `apps/site` and `packages/web-kit`, `tools/localnet` naming its files; `README.md`'s layout is the four
+folders. Stale beyond paths, dropped: the landing's in-page demo (no `demo` in the landing's code, its Vitest
+asserts "no demo") from `CLAUDE.md`'s row and two command comments and the landing README's section. One line of
+`docs/deployments.md` keeps `packages/site` on purpose: the Workers Builds root directory until the cutover (D13;
+§7 C1 deletes it).
+
+### P3.3 gate (2026-09-21)
+
+| step | result |
+|---|---|
+| FAST | all ok; `bun test` 537 pass · 42 skip · 0 fail, 81 s |
+| the grep outside `implementations-plan` and `docs/deployments.md` | nothing |
+| the grep on `docs/deployments.md` | line 105 only, the D13 line (the file has no other hit, archived sections included) |
