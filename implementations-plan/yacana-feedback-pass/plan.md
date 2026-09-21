@@ -542,7 +542,7 @@ switch of behaviour ships **together with** the way to consent. Three checkpoint
 test going through the new button and `lna.replay.ts` on a real public → loopback boundary · layers: unit,
 component, replay.
 
-**P6 — Settings, memory on screen, and the proof.** Settings › Mining (F8), the remembered and proving rows;
+**P6 ✓ — Settings, memory on screen, and the proof.** *(Arc 2's codex loop found three consent races the unit suite had not; fixed and regression-tested, `lessons/phase-6.md`.)* Settings › Mining (F8), the remembered and proving rows;
 `presto.e2e.ts`: the existing titles click **Look for Presto** first; new titles (added to `proof-inventory.ts`):
 *no request reaches Presto before the click* (server.log diff and `context.on('request')`, over load → sign-in →
 Start → first proof; again with `resumeOnOpen: true`), *remembered: a reload opens on "used last time" and Start
