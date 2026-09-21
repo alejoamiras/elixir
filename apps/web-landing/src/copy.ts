@@ -14,7 +14,7 @@ const lottery = PARAMS.REVEAL_WINDOW_SECONDS > 0n;
 const MINUTES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
 const minutesWord = MINUTES[epochMinutes] ?? String(epochMinutes);
 
-export const REPO = 'https://github.com/alejoamiras/elixir';
+export const REPO = 'https://github.com/alejoamiras/yacana';
 export const LINKS = {
   github: REPO,
   docs: `${REPO}#readme`,

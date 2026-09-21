@@ -96,7 +96,7 @@ describe('the landing', () => {
     expect(screen.getByTestId('verify-chips').querySelectorAll('a[href]')).toHaveLength(2);
     expect(screen.getByTestId('chip-miner').getAttribute('href')).toContain('/contracts/instances/0x0000');
     expect(screen.getByTestId('verify-source').getAttribute('href')).toBe(
-      'https://github.com/alejoamiras/elixir',
+      'https://github.com/alejoamiras/yacana',
     );
     expect(screen.getByTestId('money-lede').textContent).toBe(copy.money.lede);
     expect(screen.queryByTestId('money-rules')).toBeNull();
