@@ -3,7 +3,7 @@
 Aztec ships a new rollup version; the Registry names it canonical (the flip); the old version keeps running for
 a while, then its operators stop it. Yacana's miner is deployed per version; balances move between versions
 through the portal (`docs/bridge.md`). This is what the operators do, in the order the upgrade rig runs it:
-`bun run rig -- migration` (`packages/harness/tests/migration.bun.test.ts`) is the executable form of the chain
+`bun run rig -- migration` (`tools/harness/tests/migration.bun.test.ts`) is the executable form of the chain
 side below, `bun run rig -- browser` the holder's side through the page, `bun run rig -- all` every case.
 
 Every write here is `bun run bridge -- <command>` with `YACANA_L1_PRIVATE_KEY` in the shell (the operators key;
@@ -17,7 +17,7 @@ the next version is deployed.
 ## Once: the bridge
 
 0. **Deploy and list.** The portal comes before its first miner (the miner trusts one portal, immutably):
-   `bun packages/deploy/scripts/l1-deploy.ts deployments/testnet.json` with `YACANA_L1_RPC_URL`,
+   `bun tools/deploy/scripts/l1-deploy.ts deployments/testnet.json` with `YACANA_L1_RPC_URL`,
    `YACANA_L1_PRIVATE_KEY`, `YACANA_REGISTRY`, `YACANA_OPERATORS` in the shell deploys YACA and the portal and,
    with no record at that path yet, writes the `bridge` block to `deployments/testnet.bridge.json`; then
    `YACANA_PORTAL=<portal> AZTEC_NODE_URL=… YACANA_DEPLOYER_SECRET=… bun run deploy` deploys the miner and folds
@@ -63,7 +63,7 @@ after the flip lands like any other once its epoch is proven (rig case H4). The 
    deployments/testnet-v5.json` and `git mv deployments/testnet.example-claim.json
    deployments/testnet-v5.example-claim.json` (any names but the live ones; the operator script takes a record
    by path, and a production build refuses an example claim of another deployment), set
-   `VITE_AZTEC_NODE_URL` in `packages/site/site.env` to V6's node (the apps' default node comes from there, not
+   `VITE_AZTEC_NODE_URL` in `deployments/site.env` to V6's node (the apps' default node comes from there, not
    from the deploy's environment), commit, then `YACANA_CONTINUE_FROM=deployments/testnet-v5.json
    YACANA_PORTAL=<portal> AZTEC_NODE_URL=<V6 node> YACANA_DEPLOYER_SECRET=… bun run deploy`: the V6 miner as
    V5's continuation (it starts at the epoch V5 left off, with V5's last target), bound to the same portal,
@@ -71,7 +71,7 @@ after the flip lands like any other once its epoch is proven (rig case H4). The 
    write over its own source, and refuses a source whose portal is not `YACANA_PORTAL`. The record's
    `continuation.firstEpoch` is where every epoch read starts (the stats page, the landing's strip,
    `epoch:stats`): a continuation has no epoch before it. Once a claim lands on
-   V6, `AZTEC_NODE_URL=<V6 node> bun packages/deploy/scripts/record-example-claim.ts <txHash>` records the
+   V6, `AZTEC_NODE_URL=<V6 node> bun tools/deploy/scripts/record-example-claim.ts <txHash>` records the
    example claim the landing shows.
 7. `YACANA_RECORD=deployments/testnet.json bun run bridge -- register`: V6 on the portal, with its miner and the
    record's launch time. Write-once; the portal accepts a launch time from a week behind to 90 days ahead of the
@@ -80,8 +80,8 @@ after the flip lands like any other once its epoch is proven (rig case H4). The 
    (`bun run site:deploy`, or the push). The old origin is V5's last build, made from the last commit that
    carried V5 in `deployments/testnet.json` (the one before step 6's move) in its own worktree so the V6
    checkout is never touched: `git worktree add ../yacana-v5 <that commit>`, then in `../yacana-v5`
-   `bun install && YACANA_APP_ROLE=old bun run site:build` (into its `packages/site/dist-old`) and, from its
-   `packages/site`, `wrangler deploy -c v5/wrangler.jsonc` (the `yacana-v5` Worker: `v5.yacana.network`). Keep
+   `bun install && YACANA_APP_ROLE=old bun run site:build` (into its `apps/site/dist-old`) and, from its
+   `apps/site`, `wrangler deploy -c v5/wrangler.jsonc` (the `yacana-v5` Worker: `v5.yacana.network`). Keep
    the worktree: steps 11 and 12 note V5's stop in it and redeploy from it; `git worktree remove ../yacana-v5`
    from the V6 checkout's root once the old origin comes down. An open V5 tab learns from `build.json`
    that it is behind and asks for a reload. The old origin restores accounts (never creates one), sends ahead
@@ -134,7 +134,7 @@ after the flip lands like any other once its epoch is proven (rig case H4). The 
 
 | step | command | rig case |
 |---|---|---|
-| deploy, fold the block | `l1-deploy.ts`, `bun run deploy` | the rig attaches the block to its records itself (`packages/harness/src/yacana.ts`, the run helper `packages/deploy/src/bridge/run.ts`) and never runs the deploy CLI; the CLI's fold from the side file ran once in the rehearsal (`docs/deployments.md`), the continuation's carry-over is unit-tested (`bridge-block.test.ts`) and **not yet exercised end to end** |
+| deploy, fold the block | `l1-deploy.ts`, `bun run deploy` | the rig attaches the block to its records itself (`tools/harness/src/yacana.ts`, the run helper `tools/deploy/src/bridge/run.ts`) and never runs the deploy CLI; the CLI's fold from the side file ran once in the rehearsal (`docs/deployments.md`), the continuation's carry-over is unit-tested (`bridge-block.test.ts`) and **not yet exercised end to end** |
 | list a forwarder | `set-forwarder` | the run helper every browser e2e uses |
 | register | `register` | every case; `skip-version.bun.test.ts` (H7: a version Yacana never registers is skipped, the send lands on the next) |
 | close deposits | `close-deposits` | `deposit.bun.test.ts` (H2: a deposit lands where it named; after the close the next is refused) |
@@ -144,4 +144,4 @@ after the flip lands like any other once its epoch is proven (rig case H4). The 
 | pause | `pause`, `pause-all`, `unpause` | `bridge.bun.test.ts` (H9: held exits, the budget charged), `migration.bun.test.ts` (`pause-all` reaches every version) |
 | forward | `forward` | `migration.bun.test.ts` (H11: a stranger refused, a wrong target held, the forwarder and the holder accepted, all from the archive with the source node gone), `bridge.bun.test.ts` (H1, H6, H10), `never-settled.bun.test.ts` (an unproven epoch forwards nothing) |
 | the holder's side | — | `browser.bun.test.ts` (V5, the flip, V6 through the page), `origin.bun.test.ts` (one passkey across the apex and the old origin) |
-| the stop, the node's retirement | `note-stop`, `retire-node` | record writes only: `packages/deploy/src/bridge/lifecycle.test.ts`; the pages' states on them are component specs (`versioned-origin.vitest.tsx`, `gallery.vitest.tsx`) |
+| the stop, the node's retirement | `note-stop`, `retire-node` | record writes only: `tools/deploy/src/bridge/lifecycle.test.ts`; the pages' states on them are component specs (`versioned-origin.vitest.tsx`, `gallery.vitest.tsx`) |

@@ -17,6 +17,7 @@ import {
   scriptSpecifiers,
   specifiersOf,
   tracked,
+  type Workspace,
   workspaces,
 } from './workspace-graph.ts';
 
@@ -24,9 +25,9 @@ import {
 const PATH_EDGES: Record<string, string> = {
   // Vite bundles a config and hands every bare specifier to the ambient Node, which nothing pins to
   // a version that strips types: what a config loads at build time is reached by path.
-  'packages/web-landing/vite.config.ts → packages/web-kit/src/vite-base.ts': 'config time',
-  'packages/web-miner/vite.config.ts → packages/web-kit/src/vite-base.ts': 'config time',
-  'packages/web-stats/vite.config.ts → packages/web-kit/src/vite-base.ts': 'config time',
+  'apps/web-landing/vite.config.ts → packages/web-kit/src/vite-base.ts': 'config time',
+  'apps/web-miner/vite.config.ts → packages/web-kit/src/vite-base.ts': 'config time',
+  'apps/web-stats/vite.config.ts → packages/web-kit/src/vite-base.ts': 'config time',
   'packages/web-kit/src/vite-base.ts → packages/ui/src/mark.ts': 'config time',
   // `/// <reference path>` takes a path, and the ambient types have no package of their own yet.
 };
@@ -79,26 +80,12 @@ function undeclared(p: Found): string | undefined {
   return `${p.file}:${p.line} imports ${name}: not in ${production ? 'dependencies' : 'any block'} of ${where}`;
 }
 
-// Until the workspaces sit in their folders, the layer comes from this table; then the folder says it.
-// `apps` 3, `packages` 2, `protocol` 1; `tools` 0 may import anything and production code may not import it.
-const LAYER: Record<string, number> = {
-  '@yacana/web-miner': 3,
-  '@yacana/web-stats': 3,
-  '@yacana/web-landing': 3,
-  '@yacana/site': 3,
-  '@yacana/miner-core': 2,
-  '@yacana/bridge': 2,
-  '@yacana/ui': 2,
-  '@yacana/web-kit': 2,
-  '@yacana/work-circuit': 1,
-  '@yacana/contracts': 1,
-  '@yacana/portal': 1,
-  '@yacana/deploy': 0,
-  '@yacana/harness': 0,
-  '@yacana/localnet': 0,
-};
+// The folder says the layer: `apps` 3, `packages` 2, `protocol` 1; `tools` 0 may import anything and
+// production code may not import it.
+const LAYER: Record<string, number> = { apps: 3, packages: 2, protocol: 1, tools: 0 };
+const layerOf = (w: Workspace): number | undefined => LAYER[w.dir.split('/')[0] ?? ''];
 // A Bun build program that lives in `src/`: nothing it imports reaches a page.
-const IMPORTS_SCRIPTS = new Set(['packages/site/src/assemble.ts']);
+const IMPORTS_SCRIPTS = new Set(['apps/site/src/assemble.ts']);
 const NOT_FOR_PRODUCTION = /(^|\/)(scripts|e2e|tests)\//;
 
 /** Why a production file may not import this, or undefined. */
@@ -108,7 +95,7 @@ function misdirected(p: Found): string | undefined {
   const [scope, pkg, ...rest] = p.text.replace(/[?#].*$/, '').split('/');
   const to = all.find((w) => w.name === `${scope}/${pkg}`);
   if (!to || to === from) return undefined;
-  const [own, target] = [LAYER[from.name], LAYER[to.name]];
+  const [own, target] = [layerOf(from), layerOf(to)];
   if (own === undefined || target === undefined)
     return `${p.file}:${p.line}: no layer for ${from.name} or ${to.name}`;
   if (own === 0) return undefined;
@@ -146,7 +133,7 @@ function productionCycle(): string[] | undefined {
 
 describe('workspace boundaries', () => {
   test('every workspace has a layer', () => {
-    expect(all.map((w) => w.name).filter((n) => LAYER[n] === undefined)).toEqual([]);
+    expect(all.filter((w) => layerOf(w) === undefined).map((w) => w.name)).toEqual([]);
   });
 
   test('production code imports its own layer or below, never a tool, never a scripts/, e2e/ or tests/ file', () => {

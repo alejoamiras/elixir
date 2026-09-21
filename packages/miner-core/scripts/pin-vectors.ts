@@ -1,5 +1,5 @@
 // Pins the cross-language vectors: every hash the contract and miner-core must agree on,
-// computed here once and written to packages/work-circuit/fixtures/vectors.json. The codegen
+// computed here once and written to protocol/work-circuit/fixtures/vectors.json. The codegen
 // turns them into Noir tests; vectors.test.ts checks miner-core against the same file. Re-run only
 // when a domain separator or a hash layout changes on purpose (that is a new deployment).
 import { resolve } from 'node:path';
@@ -17,7 +17,7 @@ import {
 import { nextSeed, nextTarget } from '../src/retarget.ts';
 
 const repo = resolve(import.meta.dir, '../../..');
-const fixture = resolve(repo, 'packages/work-circuit/fixtures/yacana_work/proof');
+const fixture = resolve(repo, 'protocol/work-circuit/fixtures/yacana_work/proof');
 const fields = proofToFields(new Uint8Array(await Bun.file(fixture).arrayBuffer()));
 const digest = await computeDigest(fields);
 const hex = (v: Fr | bigint) => `0x${(typeof v === 'bigint' ? v : v.toBigInt()).toString(16)}`;
@@ -65,6 +65,6 @@ const vectors = {
     value: hex(nextTarget(target, actual, rules)),
   },
 };
-const out = resolve(repo, 'packages/work-circuit/fixtures/vectors.json');
+const out = resolve(repo, 'protocol/work-circuit/fixtures/vectors.json');
 await Bun.write(out, `${JSON.stringify(vectors, null, 2)}\n`);
 console.log(`pinned ${Object.keys(vectors).length} vectors → ${out}`);

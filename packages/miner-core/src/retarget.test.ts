@@ -7,7 +7,7 @@ const TESTNET: EpochRules = { N: 4, EXPECTED_EPOCH_SECONDS: 300n, T_MAX: 1200n }
 const TWO_128 = 1n << 128n;
 
 describe('nextTarget mirrors the Noir retarget', () => {
-  // Same vectors as the #[test]s in packages/contracts/yacana_miner/src/retarget.nr (testnet rules).
+  // Same vectors as the #[test]s in protocol/contracts/yacana_miner/src/retarget.nr (testnet rules).
   test('parity vectors', () => {
     const t = 1n << 122n;
     expect(nextTarget(t, 300n, TESTNET)).toBe(t);

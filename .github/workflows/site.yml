@@ -16,16 +16,17 @@ jobs:
     with:
       filters: |
         relevant:
-          - 'packages/site/**'
+          - 'apps/site/**'
           - 'packages/ui/**'
           - 'packages/web-kit/**'
-          - 'packages/web-miner/**'
-          - 'packages/web-stats/**'
+          - 'apps/web-miner/**'
+          - 'apps/web-stats/**'
           - 'packages/bridge/**'
           - '!packages/**/*.md'
+          - '!apps/**/*.md'
           - 'packages/miner-core/**'
-          - 'packages/portal/**'
-          - 'packages/work-circuit/**'
+          - 'protocol/portal/**'
+          - 'protocol/work-circuit/**'
           - 'deployments/**'
           - 'biome.json'
           - 'bunfig.toml'
@@ -46,6 +47,6 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-bun
       - run: bun run lint
-      - run: bun run --cwd packages/site typecheck
+      - run: bun run --cwd apps/site typecheck
       # The production guards, the headers, the assembly's record.
-      - run: bun test packages/site
+      - run: bun test apps/site

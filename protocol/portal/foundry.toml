@@ -1,0 +1,21 @@
+[profile.default]
+src = 'src'
+test = 'test'
+script = 'script'
+out = 'out'
+libs = ['../../node_modules']
+solc_version = '0.8.30'
+evm_version = 'prague'
+optimizer = true
+optimizer_runs = 200
+# The fixed policy is set at deployment from these; the tests read the same file.
+fs_permissions = [{ access = "read", path = "../../packages/bridge/fixtures/bridge-vectors.json" }]
+remappings = [
+  "@oz/=../../node_modules/@openzeppelin/contracts/",
+  "@aztec/=src/aztec/",
+  "@aztec-test/=test/aztec/",
+]
+
+[fmt]
+line_length = 110
+tab_width = 2

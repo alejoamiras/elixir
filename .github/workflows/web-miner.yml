@@ -16,17 +16,17 @@ jobs:
     with:
       filters: |
         relevant:
-          - 'packages/web-miner/**'
-          - '!packages/web-miner/**/*.md'
+          - 'apps/web-miner/**'
+          - '!apps/web-miner/**/*.md'
           - 'packages/miner-core/**'
           # The replay recording is bound to these: a change must re-run the lane, which refuses a stale one.
-          - 'packages/contracts/artifacts/**'
+          - 'protocol/contracts/artifacts/**'
           - 'tools/localnet/**'
           - 'packages/ui/**'
           - 'packages/web-kit/**'
           - 'packages/bridge/**'
-          - 'packages/portal/abi/**'
-          - 'packages/work-circuit/**'
+          - 'protocol/portal/abi/**'
+          - 'protocol/work-circuit/**'
           - 'yacana.params.json'
           - 'scripts/params-codegen.ts'
           - 'biome.json'
@@ -48,12 +48,12 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-bun
       - run: bun run lint
-      - run: bun run --cwd packages/web-miner typecheck
+      - run: bun run --cwd apps/web-miner typecheck
       - run: bun run test:components
       # The vault, the memory store, withdraw and the lost-race recovery run under bun, not Vitest.
-      - run: bun test packages/web-miner
+      - run: bun test apps/web-miner
       # The pinned CRS must still be what the CDN serves.
-      - run: bun packages/web-kit/scripts/fetch-crs.ts packages/web-miner/public
+      - run: bun packages/web-kit/scripts/fetch-crs.ts apps/web-miner/public
 
   replay:
     name: Signed-out page against the recording
@@ -70,16 +70,16 @@ jobs:
       # Playwright's own CDN, so the source is not needed here.
       - run: grep -rl dl.google.com /etc/apt/sources.list.d /etc/apt/sources.list 2>/dev/null | xargs -r sudo rm -f
       - run: bunx playwright install --with-deps chromium
-      - run: bun run --cwd packages/web-miner test:replay
+      - run: bun run --cwd apps/web-miner test:replay
       - name: Keep the renders and, on a failure, the traces
         if: always()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: web-miner-replay
           path: |
-            packages/web-miner/e2e/.renders
-            packages/web-miner/test-results
-            packages/web-miner/e2e/replay/.vite.log
+            apps/web-miner/e2e/.renders
+            apps/web-miner/test-results
+            apps/web-miner/e2e/replay/.vite.log
           if-no-files-found: ignore
           include-hidden-files: true
           retention-days: 14

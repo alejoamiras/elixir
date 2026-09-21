@@ -16,15 +16,15 @@ jobs:
     with:
       filters: |
         relevant:
-          - 'packages/web-stats/**'
-          - '!packages/web-stats/**/*.md'
+          - 'apps/web-stats/**'
+          - '!apps/web-stats/**/*.md'
           - 'packages/ui/**'
           - 'packages/web-kit/**'
           - 'packages/bridge/**'
-          - 'packages/portal/abi/**'
+          - 'protocol/portal/abi/**'
           - 'packages/miner-core/**'
           - 'tools/localnet/**'
-          - 'packages/work-circuit/**'
+          - 'protocol/work-circuit/**'
           - 'biome.json'
           - 'bunfig.toml'
           - 'tsconfig.json'
@@ -44,10 +44,10 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-bun
       - run: bun run lint
-      - run: bun run --cwd packages/web-stats typecheck
-      - run: bun run --cwd packages/web-stats test:components
+      - run: bun run --cwd apps/web-stats typecheck
+      - run: bun run --cwd apps/web-stats test:components
       # The beats, the window, the map geometry, the cache, the fill (and one page on the wire).
-      - run: bun test packages/web-stats
+      - run: bun test apps/web-stats
       # The slot table pinned against deriveStorageSlotInMap, and the CSV / metrics on the fixture.
       - run: bun test packages/miner-core/src/reader.test.ts packages/miner-core/src/metrics.test.ts packages/miner-core/src/csv.test.ts
 
@@ -66,14 +66,14 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends unzip
       - uses: ./.github/actions/setup-bun
-      - run: bun run --cwd packages/web-stats test:visual
+      - run: bun run --cwd apps/web-stats test:visual
       - name: Keep the expected, actual and diff images
         if: failure()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: web-stats-visual
           path: |
-            packages/web-stats/test-results
-            packages/web-stats/e2e/.visual.log
+            apps/web-stats/test-results
+            apps/web-stats/e2e/.visual.log
           if-no-files-found: ignore
           retention-days: 14

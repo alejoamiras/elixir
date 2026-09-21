@@ -16,8 +16,8 @@ jobs:
     with:
       filters: |
         relevant:
-          - 'packages/work-circuit/**'
-          - '!packages/work-circuit/**/*.md'
+          - 'protocol/work-circuit/**'
+          - '!protocol/work-circuit/**/*.md'
           - 'yacana.params.json'
           - 'scripts/params-codegen.ts'
           - '.aztecrc'
@@ -45,6 +45,6 @@ jobs:
       - run: bun run lint
       # The VK is the puzzle: every embedded copy and the layout manifest must match the commit.
       - run: bun run codegen && git diff --exit-code
-      - run: bun test tools/localnet/src/toolchain.test.ts packages/work-circuit
+      - run: bun test tools/localnet/src/toolchain.test.ts protocol/work-circuit
         env:
           YACANA_REQUIRE_TOOLCHAIN: '1'

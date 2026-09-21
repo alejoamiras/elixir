@@ -72,7 +72,7 @@ describe('rename guard', () => {
 
   test('workspace packages are scoped @yacana', () => {
     const names = tracked
-      .filter((f) => /^(packages\/[^/]+\/)?package\.json$/.test(f))
+      .filter((f) => /^((apps|packages|protocol|tools)\/[^/]+\/)?package\.json$/.test(f))
       .map((f) => (JSON.parse(readFileSync(resolve(repo, f), 'utf8')) as { name: string }).name);
     expect(names).toContain('yacana');
     for (const n of names) expect(n === 'yacana' || n.startsWith('@yacana/')).toBe(true);
@@ -83,9 +83,9 @@ describe('rename guard', () => {
 // Only copy is scanned (JSX text and the string literals of user-facing messages); persistent and
 // protocol strings must never change, since renaming them would strand accounts or break sign-in.
 const COPY_ROOTS = [
-  'packages/web-miner/src',
-  'packages/web-stats/src',
-  'packages/web-landing/src',
+  'apps/web-miner/src',
+  'apps/web-stats/src',
+  'apps/web-landing/src',
   'packages/miner-core/src/claim-failure.ts',
 ];
 const COPY_EXEMPT_FILES = [

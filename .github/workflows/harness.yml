@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       cases:
-        description: Space-separated case names under packages/harness/tests (empty runs them all)
+        description: Space-separated case names under tools/harness/tests (empty runs them all)
         required: false
         default: ''
         type: string
@@ -26,12 +26,12 @@ jobs:
       filters: |
         relevant:
           - 'tools/localnet/**'
-          - 'packages/harness/**'
+          - 'tools/harness/**'
           - 'packages/bridge/**'
           - 'packages/miner-core/**'
-          - 'packages/portal/**'
-          - 'packages/contracts/**'
-          - 'packages/deploy/**'
+          - 'protocol/portal/**'
+          - 'protocol/contracts/**'
+          - 'tools/deploy/**'
           - '!**/*.md'
           - '.aztecrc'
           - 'toolchain.lock.json'

@@ -176,7 +176,7 @@ function closure(w: Workspace, seen = new Set<Workspace>()): Set<Workspace> {
   return seen;
 }
 // The tests these workflows run import the portal's generated ABI and nothing else of it.
-const WATCHED_NARROWLY: Record<string, string> = { 'packages/portal': 'packages/portal/abi/**' };
+const WATCHED_NARROWLY: Record<string, string> = { 'protocol/portal': 'protocol/portal/abi/**' };
 
 /** The whole folder, or the one listed narrower glob for a dependency. */
 function covers(filter: string[], dir: string, own: boolean): boolean {
@@ -245,7 +245,7 @@ function testGlobs(config: string): { include: string[]; exclude: string[] } | u
 
 // Suites that need a network the pull-request lanes do not boot: the rig's cases run through
 // `bun run rig`, the rest skip without their environment and run in the e2e workflow.
-const NOT_IN_A_PR_LANE = [/^packages\/harness\/tests\//];
+const NOT_IN_A_PR_LANE = [/^tools\/harness\/tests\//];
 
 describe('workflows', () => {
   test('every filter glob matches a tracked file', () => {

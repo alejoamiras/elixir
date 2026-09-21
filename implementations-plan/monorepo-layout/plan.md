@@ -514,7 +514,7 @@ one importing another workspace's `scripts/` subpath; a same-layer production cy
 
 ### Arc 3: the move
 
-**P3.1 Move and re-point.** Commit 1: `git mv` the nine workspaces, nothing else (kept separate for review only;
+**P3.1 ✓ Move and re-point.** Commit 1: `git mv` the nine workspaces, nothing else (kept separate for review only;
 squash merges do not preserve it and no gate can run on it). Commit 2: everything in arc 3's row of §3.11 except
 docs, **including the 12 workflows and `setup-presto`**: the layout guard reads them, so they move with the folders.
 `bun install`.
@@ -523,12 +523,12 @@ docs, **including the 12 workflows and `setup-presto`**: the layout guard reads 
 portal:test` · `bun run site:build` · bundle manifest unchanged (a lost `@source` shows here) · `bun run
 site:wrangler deploy --dry-run` still resolves the moved Worker config.
 
-**P3.2 Prove the CI edit is mechanical.** Apply the path map (`packages/<moved>` → new folder, `scripts/run` →
+**P3.2 ✓ Prove the CI edit is mechanical.** Apply the path map (`packages/<moved>` → new folder, `scripts/run` →
 `tools/localnet/…`) to the **baseline** workflow files with `sed` and diff the result against the edited ones; only
 differences listed in the phase's lessons entry may remain. No file changes unless the diff finds one.
 *Gate*: FAST · the diff, shown · both guards.
 
-**P3.3 Docs.** `CLAUDE.md`, `README.md`, `docs/*`, READMEs, wrangler comments.
+**P3.3 ✓ Docs.** `CLAUDE.md`, `README.md`, `docs/*`, READMEs, wrangler comments.
 *Gate*: FAST · `git grep -nE "packages/(web-miner|web-stats|web-landing|site|work-circuit|contracts|portal|deploy|harness)\b|scripts/run\b" -- ':!implementations-plan' ':!docs/deployments.md'`
 returns nothing, and the same grep on `docs/deployments.md` returns only lines under its `## Archived` headings.
 *Arc end*: HEAVY+ · `bun run rig -- flip` · `YACANA_APP_ROLE=old bun run site:build`.
@@ -607,6 +607,8 @@ either way. When the step comes up, the agent restates the token permissions unp
   wrote (no overwriting a concurrent edit).
 - Always, on success, failure or interruption: the owner revokes the token, the agent deletes the file and the
   client, and says so.
+- After the cutover: the "Until the cutover" sentence in `docs/deployments.md` (the old root directory, D13) goes,
+  in the same commit as any other record of the step.
 
 **C2. The repository rename** (after arcs 0–4 are merged, before arc 5).
 - Before: record branch protection (`gh api repos/alejoamiras/elixir/branches/main/protection`) and `gh stack view`.
@@ -720,6 +722,7 @@ path-helper package).
 | D9 | `verify()` classifies on bb's diagnostic against a closed list, not on exit status plus diagnostic as P0.1 words it | Exit status as the discriminator | bb 5.2.0 exits 1 for a refusal and for an unreadable input alike (observed, `lessons/phase-0.md` §2); an unlisted diagnostic is operational, so a new bb wording stops the run |
 | D11 | A test-only fix outside §2, as its own commit in arc 1: the assembled-site spec reaches the old origin from Node through `localhost` | Skip `site:e2e` on hosts without a `*.localhost` resolver rule; edit the host's resolver | Chromium resolves `*.localhost` itself, Node asks the host, and this one fails the lookup (`ENOTFOUND v5.localhost`), so the arc-end gate could not run; the same Worker answers on `localhost`, and the browser half of the spec still visits the named origin |
 | D12 | A test-only fix outside §2, as its own commit in arc 2: `bridge-snapshot`'s opacity check asserts on the field name and the whole figure, not on two digits | Carry a FAST gate that fails about one run in three; rerun until green | The stored JSON is a random IV and ciphertext in base64, in which `48` appears by chance (seen twice in four runs); the fix keeps the property under test (the plaintext is not at rest) and removes the coin toss |
+| D13 | P3.3's grep exempts one line of `docs/deployments.md`: "Until the cutover both triggers still hold root directory `packages/site`" keeps the old literal | Rewrite it to `apps/site` (false: the dashboard holds the old value until C1) or paraphrase the value away (a reader doing the cutover needs it exact) | The line quotes a Workers Builds setting, not a repository path; it is true until C1 and C1 deletes it (§7) |
 
 ### Audit findings: adopted
 
