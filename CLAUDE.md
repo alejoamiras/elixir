@@ -13,10 +13,10 @@ Phase 1 measurements: `implementations-plan/elixir-core/spike-results.md`.
 
 | Package | Owns |
 |---|---|
-| `packages/contracts` | Aztec contracts (Nargo workspace): `yacana_miner` and the Phase 1 spike contract `yacana_spike`; aztec-standards token as a git dep (`v5.2.0`) |
-| `packages/work-circuit` | Noir work circuit `W` (`crates/lib` + `crates/yacana_work`), the VK-embedding verifier `crates/verify_w`, generated VK / proof-layout manifest, fixture proofs, spike scripts |
+| `packages/contracts` | Aztec contracts (Nargo workspace): `yacana_miner` and `yacana_bridge_hashes`; aztec-standards token as a git dep (`v5.2.0`) |
+| `packages/work-circuit` | Noir work circuit `W` (`crates/lib` + `crates/yacana_work`), the VK-embedding verifier `crates/verify_w`, generated VK / proof-layout manifest, fixture proofs, `scripts/` (`prove.ts`, the `check:*` evidence scripts on `bb-verify.ts`'s three-way verdict, `export-vk.ts`, `layout-manifest.ts`, the pinned `toolchain.ts`) |
 | `packages/miner-core` | Platform-agnostic TS: proof → fields → ticket digest, domain separators, retarget mirror, claim builder, key derivation, `reader.ts` (node-only storage reads through the slot table), `metrics.ts`, `csv.ts`; `scripts/gen-slots.ts`; `fixtures/` (captured epoch histories) |
-| `packages/deploy` | `src/deploy.ts` (a profile's miner + token → `deployments/<profile>.json`; `YACANA_PORTAL` the portal it trusts, `YACANA_CONTINUE_FROM` a continuation), `scripts/l1-deploy.ts` (YACA + the portal through Foundry, the record's `bridge` block; `--anvil` for CI), `scripts/bridge.ts` + `src/bridge/` (the operator script: `status`, `register`, `note-transitions`, `pause`/`pause-all`/`unpause`, `close-deposits`, `set-forwarder`, `retire`, `forward` with the witness archive, `note-stop`/`retire-node` the record's lifecycle notes through `lifecycle.ts`; `run.ts` deploys the bridge for one local run), `launch.ts`, `soak.ts`, `epoch-stats.ts`, the spike drivers |
+| `packages/deploy` | `src/deploy.ts` (a profile's miner + token → `deployments/<profile>.json`; `YACANA_PORTAL` the portal it trusts, `YACANA_CONTINUE_FROM` a continuation), `scripts/l1-deploy.ts` (YACA + the portal through Foundry, the record's `bridge` block; `--anvil` for CI), `scripts/bridge.ts` + `src/bridge/` (the operator script: `status`, `register`, `note-transitions`, `pause`/`pause-all`/`unpause`, `close-deposits`, `set-forwarder`, `retire`, `forward` with the witness archive, `note-stop`/`retire-node` the record's lifecycle notes through `lifecycle.ts`; `run.ts` deploys the bridge for one local run), `launch.ts`, `soak.ts`, `epoch-stats.ts` |
 | `packages/portal` | `YACA.sol` (ERC-20, the portal its only minter) and `YacanaPortal.sol` (the turnstile: per-version cap, pause, deadline; forward, redeem, deposit, retire), `YacanaHashes.sol`, Foundry tests under `test/`, the generated ABI under `abi/` (`bun packages/portal/scripts/abi.ts`, CI diffs it); `bun run portal:build` / `portal:test` through the pinned `aztec-forge` |
 | `packages/bridge` | The crossing protocol every side shares: `content.ts` (message contents, three-way vectors with Noir and Solidity), `secrets.ts` (secrets and redeem keys from the master), `signatures.ts` (EIP-712 forward / redeem), `witness.ts` (Outbox witnesses, the archive lines), `exits.ts` (the miner's exit logs), `journal.ts` (a crossing's states and facts), `queue.ts`, `recovery.ts` (the recovery file), `portal-reader.ts` (viem reads for the page and the stats), `policy.ts` (the immutable policy from the params), `record.ts`, `deadline.ts`, `flip.ts` |
 | `packages/harness` | The upgrade rig's cases (`tests/*.bun.test.ts`: `flip` H0, `bridge` H1/H6/H9/H10, `deposit` H2, `migration` H3/H4/H6/H11, `never-settled` H5, `skip-version` H7, `browser` and `origin` through the page) on `scripts/run/upgrade-rig.ts`; `src/` the rig's user, sponsored fees, the bridge and miner deploys; `bun run rig -- <case>…\|all` |
@@ -74,10 +74,8 @@ bun run epoch:stats            # epoch history of deployments/<profile>.json fro
 bun packages/miner-core/scripts/gen-slots.ts   # the slot table the stats/landing read path fetches (packages/miner-core/generated/slots, gitignored)
 bun run --cwd packages/web-miner dev | build   # both run scripts/prebuild.ts first (pinned CRS, artifacts, slot table)
 bun scripts/run/isolated-node.ts --smoke
-bun run spike:work     # W sweep, determinism, WASM, manifest, mutation, ticket-cost (needs compiled work-circuit)
-bun run spike:gates    # Chonk gate counts of the spike contract's private functions
-BB_VERBOSE=1 LOG_LEVEL=verbose bun run spike:claim   # real claim tx on an isolated local network
-bun run spike:browser  # same claim proved in headless Chromium
+bun run --cwd packages/work-circuit check:proofs   # prove → determinism → mutation → WASM: the evidence docs/threat-model.md cites (needs compiled work-circuit); each step alone as prove, check:determinism, check:mutation, check:wasm
+bun run --cwd packages/work-circuit manifest       # the proof-layout manifest (codegen runs it)
 ```
 
 ## Conventions
@@ -87,7 +85,7 @@ bun run spike:browser  # same claim proved in headless Chromium
 - Run isolation: never hardcode ports, never kill by name. Ports come from `~/.agents/ports.md` via
   `scripts/run/registry.ts`; services run detached in their own process group; teardown kills only owned groups.
   Data dirs live under `.localnet/` (real disk, gitignored). A sandbox on 8080 belongs to someone else.
-- Long local runs (spikes, e2e) go in `tmux`; they die with the agent shell otherwise.
+- Long local runs (proof checks, e2e) go in `tmux`; they die with the agent shell otherwise.
 - Proof validity is only checked by real proving: the ACVM (nargo test, TXE, PXE simulation) accepts any bytes in
   the recursion black box. Tests about proofs must prove.
 - Comments say what the code cannot; no references to plans, phases or reviews in code.

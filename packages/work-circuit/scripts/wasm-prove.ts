@@ -1,6 +1,6 @@
 // bb.js WASM proving of W (the miner's path in a browser): timed proves with one multithreaded
 // WasmWorker backend, byte-comparison against the native proof of the same witness, and a
-// WASM verify. Requires a prior `aztec-nargo execute` + native prove (sweep.ts) for the crate.
+// WASM verify. Requires a prior `aztec-nargo execute` + native prove (prove.ts) for the crate.
 //   bun packages/work-circuit/scripts/wasm-prove.ts [--runs 3] [--threads N] [crate]
 
 import { cpus, hostname } from 'node:os';

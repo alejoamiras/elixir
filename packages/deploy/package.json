@@ -2,11 +2,9 @@
   "name": "@yacana/deploy",
   "version": "0.0.0",
   "private": true,
-  "description": "Sandbox and testnet deployment, calibration, spike and epoch-stats scripts",
+  "description": "Sandbox and testnet deployment, calibration and epoch-stats scripts",
   "type": "module",
   "scripts": {
-    "spike:browser": "bun scripts/spike-browser.ts",
-    "spike:claim": "bun scripts/spike-claim.ts",
     "test": "bun test"
   },
   "dependencies": {
@@ -25,10 +23,5 @@
     "@aztec/wallets": "5.2.0",
     "@yacana/bridge": "workspace:*",
     "viem": "npm:@aztec/viem@2.38.2"
-  },
-  "devDependencies": {
-    "playwright": "^1.62.1",
-    "vite": "^8.2.2",
-    "vite-plugin-node-polyfills": "^0.28.0"
   }
 }

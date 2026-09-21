@@ -6,7 +6,6 @@
   "type": "module",
   "scripts": {
     "compile": "aztec compile --workspace",
-    "spike:gates": "bun scripts/gates.ts",
     "pretest": "bun scripts/token-artifact.ts",
     "test": "aztec test && aztec-nargo test --package yacana_bridge_hashes"
   }

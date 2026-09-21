@@ -3,7 +3,7 @@
 
 import { resolve } from 'node:path';
 import { $ } from 'bun';
-import { BB, workCircuitRoot } from './toolchain.ts';
+import { AZTEC_NARGO, BB, workCircuitRoot } from './toolchain.ts';
 
 const args = process.argv.slice(2);
 const runsIdx = args.indexOf('--runs');
@@ -14,7 +14,7 @@ const root = workCircuitRoot;
 const bytecode = resolve(root, 'target', `${crate}.json`);
 const witness = resolve(root, 'target', `${crate}.gz`);
 const out = resolve(root, 'target', `${crate}-det`);
-await $`aztec-nargo execute --package ${crate}`.cwd(root).quiet();
+await $`${AZTEC_NARGO} execute --package ${crate}`.cwd(root).quiet();
 await $`${BB} write_vk -b ${bytecode} --scheme ultra_honk -t noir-recursive-no-zk -o ${out}`
   .cwd(root)
   .quiet();

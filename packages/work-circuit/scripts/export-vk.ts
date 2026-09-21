@@ -42,12 +42,11 @@ mkdirSync(resolve(workCircuitRoot, 'crates', 'verify_w', 'src'), { recursive: tr
 mkdirSync(resolve(workCircuitRoot, 'src', 'generated'), { recursive: true });
 // Every embedded copy of the VK is written from this one run; CI diffs them against the commit.
 await Bun.write(resolve(workCircuitRoot, 'crates', 'verify_w', 'src', 'vk.nr'), noir);
-await Bun.write(resolve(repoRoot, 'packages', 'contracts', 'yacana_spike', 'src', 'vk.nr'), noir);
 await Bun.write(resolve(repoRoot, 'packages', 'contracts', 'yacana_miner', 'src', 'vk.nr'), noir);
 await Bun.write(resolve(workCircuitRoot, 'src', 'generated', 'vk.ts'), ts);
 // The committed fixture: the proof of Prover.toml's inputs, used by the layout, digest and
 // mutation tests so they never depend on a prover being available. The proof itself is only
-// refreshed when a prove (sweep.ts) has produced one, and whatever ends up committed must verify
+// refreshed when a prove (prove.ts) has produced one, and whatever ends up committed must verify
 // under the VK exported here, or the pinned vectors describe a proof no circuit can satisfy.
 const fixtures = resolve(workCircuitRoot, 'fixtures', crate);
 mkdirSync(fixtures, { recursive: true });
@@ -61,6 +60,6 @@ const verified =
     .quiet();
 if (verified.exitCode !== 0)
   throw new Error(
-    `${fixtures}/proof does not verify under the exported VK; re-prove with sweep.ts --runs 1 ${crate}`,
+    `${fixtures}/proof does not verify under the exported VK; re-prove with prove.ts --runs 1 ${crate}`,
   );
 console.log(`W_VK_HASH = ${hash}; fixtures → ${fixtures}`);

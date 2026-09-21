@@ -9,7 +9,6 @@ target/
 *.log
 *.tsbuildinfo
 .DS_Store
-packages/deploy/browser/public/artifacts/
 packages/web-miner/public/artifacts/
 packages/web-miner/public/crs/
 packages/web-miner/public/slots/

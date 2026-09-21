@@ -1,18 +1,19 @@
-// CHAIN_LEN sweep on the native bb: gates, witness, VK, timed proves and a verify per crate.
-// Writes target/sweep.json and prints a markdown table labelled with this machine.
-//   bun packages/work-circuit/scripts/sweep.ts [--runs N] [crate…]
+// W on the native bb: gates, witness, VK, timed proves and a verify per crate. The proof it leaves
+// in target/<crate> is what export-vk.ts commits as the fixture and what the WASM check compares to.
+// Writes target/prove.json and prints a markdown table labelled with this machine.
+//   bun packages/work-circuit/scripts/prove.ts [--runs N] [crate…]
 
 import { cpus, hostname } from 'node:os';
 import { resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { $ } from 'bun';
-import { BB, workCircuitRoot } from './toolchain.ts';
+import { AZTEC_NARGO, BB, workCircuitRoot } from './toolchain.ts';
 
 const args = process.argv.slice(2);
 const runsIdx = args.indexOf('--runs');
 const runs = runsIdx >= 0 ? Number(args[runsIdx + 1]) : 3;
 const crates = args.filter((a, i) => !a.startsWith('--') && (runsIdx < 0 || i !== runsIdx + 1));
-const targets = crates.length ? crates : ['sweep_1024', 'yacana_work', 'sweep_4096'];
+const targets = crates.length ? crates : ['yacana_work'];
 
 interface Result {
   crate: string;
@@ -37,7 +38,7 @@ async function measure(crate: string): Promise<Result> {
   const out = resolve(root, 'target', crate);
   const gatesJson = await $`${BB} gates -b ${bytecode} --scheme ultra_honk`.cwd(root).quiet().json();
   const fn = gatesJson.functions[0];
-  const [, witnessMs] = await timed(() => $`aztec-nargo execute --package ${crate}`.cwd(root).quiet());
+  const [, witnessMs] = await timed(() => $`${AZTEC_NARGO} execute --package ${crate}`.cwd(root).quiet());
   const witness = resolve(root, 'target', `${crate}.gz`);
   const [, vkMs] = await timed(() =>
     $`${BB} write_vk -b ${bytecode} --scheme ultra_honk -t noir-recursive-no-zk -o ${out}`.cwd(root).quiet(),
@@ -73,7 +74,7 @@ const results: Result[] = [];
 for (const crate of targets) results.push(await measure(crate));
 const machine = `${hostname()} · ${cpus()[0]?.model ?? 'cpu'} × ${cpus().length}`;
 await Bun.write(
-  resolve(workCircuitRoot, 'target', 'sweep.json'),
+  resolve(workCircuitRoot, 'target', 'prove.json'),
   JSON.stringify({ machine, runs, results }, null, 2),
 );
 const fmt = (ms: number) => (ms / 1000).toFixed(2);
