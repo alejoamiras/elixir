@@ -77,7 +77,7 @@ Deferred by that plan's decisions (`plan.md` §5, §8):
   words-backed second factor.
 - Key rotation and account discovery: `deriveAccountFields` keeps its index parameter; the miner uses index 0 only.
 - External wallet connection for launch mode (`@aztec/wallet-sdk`): the landing links the CLI commit path.
-- Testnet soak operations: the soak driver (`packages/deploy/scripts/soak.ts`) mines from one machine with a
+- Testnet soak operations: the soak driver (`tools/deploy/scripts/soak.ts`) mines from one machine with a
   hashrate schedule; a second machine or a second deployment profile would exercise multi-miner races beyond the
   8-wallet local burst.
 

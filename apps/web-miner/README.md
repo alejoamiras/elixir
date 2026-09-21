@@ -8,12 +8,12 @@ through the sponsored FPC.
 ## Run it
 
 ```
-bun run --cwd packages/web-miner dev      # fetches the pinned CRS, copies the artifacts, starts Vite
-bun run --cwd packages/web-miner build    # same, then tsc + vite build → dist/
+bun run --cwd apps/web-miner dev      # fetches the pinned CRS, copies the artifacts, starts Vite
+bun run --cwd apps/web-miner build    # same, then tsc + vite build → dist/
 ```
 
 The page fetches the committed contract and work-circuit artifacts (`bun run artifacts:commit` refreshes
-them from a compile). Its configuration is `packages/site/site.env` plus `deployments/<profile>.json`
+them from a compile). Its configuration is `deployments/site.env` plus `deployments/<profile>.json`
 (`docs/deployments.md`); the node picked in Settings is kept in `localStorage`; `?node=&miner=&token=`
 overrides exist only in e2e builds on `localhost` (that is how the E2E points a page at an isolated network).
 
@@ -21,7 +21,7 @@ overrides exist only in e2e builds on `localhost` (that is how the E2E points a 
 
 1. Verifies the pinned CRS (`crs.lock.json`) and installs a `fetch` interceptor: bb.js's CRS downloads are
    answered from `/crs` on this origin, never from the CDN (the production CSP blocks it).
-2. Checks `crossOriginIsolated` (COOP/COEP from the one policy in `packages/site/src/headers.ts`, rendered
+2. Checks `crossOriginIsolated` (COOP/COEP from the one policy in `packages/web-kit/src/headers.ts`, rendered
    into `_headers` for production and sent by the dev and preview servers).
 3. Opens the wallet (a PXE store per rollup, an in-memory wallet DB; the key comes from a passkey's PRF or
    the twelve words, see the plan), registers the sponsored FPC, the miner and the token.
@@ -48,14 +48,14 @@ overrides exist only in e2e builds on `localhost` (that is how the E2E points a 
 
 ```
 bun run test:components                                             # Vitest: reducer, forms, shell
-bun test packages/web-miner                                         # bun: vault, kv store, withdraw review, lost-race recovery
-bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e      # Playwright in headless Chromium on an isolated network, against a production build
-E2E_SERVER=dev bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e   # same, on the dev server (readable stacks)
+bun test apps/web-miner                                         # bun: vault, kv store, withdraw review, lost-race recovery
+bun run e2e:agent -- bun run --cwd apps/web-miner test:e2e      # Playwright in headless Chromium on an isolated network, against a production build
+E2E_SERVER=dev bun run e2e:agent -- bun run --cwd apps/web-miner test:e2e   # same, on the dev server (readable stacks)
 ```
 
 ## Deploy
 
-The miner ships at `/mine/` of the assembled site (`bun run site:build` then `wrangler deploy` in `packages/site`,
+The miner ships at `/mine/` of the assembled site (`bun run site:build` then `wrangler deploy` in `apps/site`,
 a Worker serving static assets); `wrangler.jsonc` here is for local `wrangler dev` parity only.
 
 A hosted page can read this tab's secret, proofs and recipient choice — inherent to any hosted dApp; run

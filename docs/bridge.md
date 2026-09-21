@@ -1,7 +1,7 @@
 # The bridge
 
 YACA lives on one Aztec version at a time and, as an ERC-20, on Ethereum. One contract on Ethereum, the portal
-(`packages/portal/src/YacanaPortal.sol`; the token `YACA.sol` beside it, the portal its only minter), consumes what
+(`protocol/portal/src/YacanaPortal.sol`; the token `YACA.sol` beside it, the portal its only minter), consumes what
 each registered Aztec version's miner burns and mints it where it is going. Nothing crosses without a burn on one
 side and a message the other side can verify. This page is the mechanism; `docs/upgrades.md` is what the operators
 do on the day Aztec moves on; the FAQ at `/faq` says it for a holder; `/stats/bridge` shows the numbers live.
@@ -123,7 +123,7 @@ version's, the miner's consumption on the record's node.
 `deployments/<profile>.json` carries two blocks beside the deployment: `bridge` (`chainId`, `portal`, `yaca`,
 `registry`, `operators`, `l1RpcUrl`, `deployBlock`), written by the L1 deploy
 (`YACANA_L1_RPC_URL=… YACANA_L1_PRIVATE_KEY=… YACANA_REGISTRY=… YACANA_OPERATORS=… bun
-packages/deploy/scripts/l1-deploy.ts deployments/<profile>.json`) into the record, or, while no record exists
+tools/deploy/scripts/l1-deploy.ts deployments/<profile>.json`) into the record, or, while no record exists
 yet, beside it as `deployments/<profile>.bridge.json` for `bun run deploy` to fold in (a continuation carries its
 source record's block; either must name the portal the miner trusts, or the deploy refuses), and `migration`
 (`toIndex`, `announcedAt`, `expectedFlipAt`), written by hand when Aztec announces the next version. The site builds both into the apps; the Verify page shows the Ethereum side with its

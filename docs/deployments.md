@@ -60,7 +60,7 @@ Parameters (the `testnet` profile, also embedded in the contract as compile-time
 | `LAUNCH_NOTICE_SECONDS` / `REVEAL_WINDOW_SECONDS` | 0 / 0 (mainnet: 86400 / 600) |
 | Token | "Yacana Testnet" / `tYACA` |
 
-The three pages read this record through `packages/site/site.env` + `deployments/testnet.json`. The node is a
+The three pages read this record through `deployments/site.env` + `deployments/testnet.json`. The node is a
 user setting: any https node, checked against this record (chain id, rollup version, `rollupAddress`, both
 instances and classes, the bound token) before it is used, from the miner's Settings → Node; it applies at once
 (mining pauses, the account's chain view is rebuilt from the new node, mining resumes) and the stats and landing
@@ -69,21 +69,21 @@ record made before `rollupAddress` was recorded is amended once with `bun run re
 
 ### The site (`yacana.network`, a Cloudflare Worker serving static assets)
 
-One origin, three apps, assembled by `bun run site:build` into `packages/site/dist`: the landing at `/`, the miner
+One origin, three apps, assembled by `bun run site:build` into `apps/site/dist`: the landing at `/`, the miner
 at `/mine/`, the stats at `/stats/` (`/verify` rewrites to it), the CRS / artifacts / slot table once at the root,
 `_headers` (COOP, COEP, CORP, the CSP with `connect-src 'self' data: https:` — the fetch guard bounds the node in code — `Permissions-Policy`, `nosniff`,
 `no-referrer`), `_redirects` (exact deep links → each app's directory) and `build.json` (mode, commit, node
 origins, RP ID). Production builds take nothing from the process environment: a local or plaintext node origin or an RP ID
-other than `site.env`'s fails (`packages/site/src/config.ts`), `YACANA_SITE_MODE` must be one of `production`,
-`e2e`, `dev` or the build refuses to start, and a non-production mode can land neither in `packages/site/dist`
+other than `site.env`'s fails (`packages/web-kit/src/config.ts`), `YACANA_SITE_MODE` must be one of `production`,
+`e2e`, `dev` or the build refuses to start, and a non-production mode can land neither in `apps/site/dist`
 nor in a Cloudflare build (`CF_PAGES`). After a production assembly, the emitted files are checked as well
-(`packages/site/src/artifact.ts`): `build.json` must say `production`, every `_headers` must be the production
+(`apps/site/src/artifact.ts`): `build.json` must say `production`, every `_headers` must be the production
 map, and no script may name a plaintext loopback origin or carry the proverless marker (`VITE_E2E_PROVERLESS`,
 an e2e-only flag that turns off the wallet's proving). These guards sit on the supported routes —
 `site:deploy` and Workers Builds' build step both assemble first; a bare `wrangler deploy` of an existing `dist`
-is not guarded, and `packages/web-miner`'s own `build` writes `packages/web-miner/dist`, which nothing deploys.
+is not guarded, and `apps/web-miner`'s own `build` writes `apps/web-miner/dist`, which nothing deploys.
 
-`packages/site/wrangler.jsonc` is the whole deployment definition: the Worker's name (`yacana`), the custom domain
+`apps/site/wrangler.jsonc` is the whole deployment definition: the Worker's name (`yacana`), the custom domain
 (`yacana.network`, whose DNS record and certificate Cloudflare creates on the first deploy; the zone must be in the
 same account), the assets directory (`dist`) and the SPA fallback; no Worker script runs, the assets service applies
 `_headers` and `_redirects`. `workers_dev` is off (no second production origin); versions get preview URLs under
@@ -93,7 +93,7 @@ Deploy (owner, from a machine authenticated with `wrangler login`, or with `CLOU
 never in the repo):
 
 ```
-bun run site:deploy        # = bun run --cwd packages/site deploy: assemble the production site, then wrangler deploy
+bun run site:deploy        # = bun run --cwd apps/site deploy: assemble the production site, then wrangler deploy
 ```
 
 Git-triggered deploys: Workers Builds (dashboard: connect the repository) keeps two build triggers for the Worker,
@@ -102,7 +102,7 @@ folder, so the site can move without touching the dashboard): root directory `/`
 `bun install --frozen-lockfile && bun run site:build`, deploy command `bun run site:wrangler deploy` on the `main`
 trigger and `bun run site:wrangler versions upload` on the "Deploy non-production branches" trigger (`*` minus
 `main`); `site:wrangler` is the root script that runs the site's pinned wrangler from the site's folder. **Until the
-cutover** both triggers still hold root directory `packages/site`, build command
+cutover** both triggers still hold root directory `packages/site` (the site's folder before the move), build command
 `bun install --frozen-lockfile && bun run build`, and `npx wrangler deploy` / `npx wrangler versions upload`. The API
 `PATCH /accounts/{account}/builds/triggers/{trigger}` with a token holding Workers Builds Configuration edits a
 trigger without the dashboard. Bun 1.4.0 comes from the root `packageManager`, no variable needed. Every push to `main`
@@ -112,7 +112,7 @@ assembles and deploys; every other branch gets a version with a `workers.dev` pr
 
 Previews are usable for review, `/mine/` included. A host of the form `<label>` + `VITE_PREVIEW_HOST_SUFFIX`
 (`site.env`: `-yacana.alejo-amiras.workers.dev`; version ids and branch aliases both fit) is a `preview` to the
-apps (`packages/site/src/browser/host.ts`): the banner names it, and accounts may be created or restored there
+apps (`packages/web-kit/src/browser/host.ts`): the banner names it, and accounts may be created or restored there
 with the exact preview host as the WebAuthn relying party. What that means for a reviewer: use the branch alias,
 not the per-push version URL — each hostname is its own origin, with its own vault and its own passkeys (a
 passkey made on the alias cannot be used on `yacana.network`, on another preview, or, should the alias ever
@@ -133,7 +133,7 @@ stats' deep link, the miner's sign-up screen. Cloudflare
 injects its Web Analytics beacon into HTML by default; the CSP blocks it (one console error per page) and the
 promise is no trackers, so it is turned off in the Worker's Observability settings.
 
-`www.yacana.network` is a second, five-line Worker (`packages/site/www/`, `bun run --cwd packages/site deploy:www`)
+`www.yacana.network` is a second, five-line Worker (`apps/site/www/`, `bun run --cwd apps/site deploy:www`)
 that answers 301 to the apex with HSTS; its custom domain and DNS record are created by that deploy. It is never a
 second host of the site: to the apps it is an unknown host, locked like any other.
 
@@ -152,7 +152,7 @@ TLD's publication pending; Web Analytics automatic setup off.
 
 The record carries two more blocks once the bridge exists (`packages/bridge/src/record.ts`): `bridge` (`chainId`,
 `portal`, `yaca`, `registry`, `operators`, `l1RpcUrl`, `deployBlock`), written by
-`bun packages/deploy/scripts/l1-deploy.ts deployments/<profile>.json` with `YACANA_L1_RPC_URL`,
+`bun tools/deploy/scripts/l1-deploy.ts deployments/<profile>.json` with `YACANA_L1_RPC_URL`,
 `YACANA_L1_PRIVATE_KEY`, `YACANA_REGISTRY` (Aztec's Registry on that chain) and `YACANA_OPERATORS` in the shell
 (the policy comes from `yacana.params.json` through `packages/bridge/src/policy.ts`; the script amends an existing
 record and refuses one whose miner trusts another portal; with no record yet it writes the block beside it as
@@ -192,7 +192,7 @@ bridge tile against the live headroom. Every step above ran from the arc-4 branc
 apex and the `v5` custom domain are untouched.
 
 The versioned origin: a retired version's last build, assembled with `YACANA_APP_ROLE=old bun run site:build` into
-`packages/site/dist-old` and deployed to the `yacana-v5` Worker (`packages/site/v5/wrangler.jsonc`, custom domain
+`apps/site/dist-old` and deployed to the `yacana-v5` Worker (`apps/site/v5/wrangler.jsonc`, custom domain
 `v5.yacana.network`, versions at `<id>-yacana-v5.<account>.workers.dev`). It restores accounts and never creates
 one, sends ahead and exits; mining there has ended. It is kept until the version's deadline has passed
 (`docs/upgrades.md`). Its custom domain is created by its first production deploy, after the merge, never from a
