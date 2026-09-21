@@ -1,12 +1,11 @@
 import { PARAMS } from '@yacana/miner-core/generated/params';
 import { Button, ExternalLink, Kpi, Skeleton, Tile, TileHeader, Tip, useTweenedNumber } from '@yacana/ui';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { useState } from 'react';
 import { links } from '../explorer';
 import { amount, shortAddress } from '../lib/format';
-import { mintedFresh } from '../lib/reducer';
+import { MINTED_FRESH_MS } from '../lib/reducer';
 import { navigate } from '../routes';
-import { balanceAtom, bootAtom, claimsAtom, minerAtom, nowAtom, signInAtom } from '../state';
+import { balanceAtom, bootAtom, claimsAtom, nowAtom, signInAtom } from '../state';
 
 /** The header's word on both balance tiles, saying what it promises. */
 export function PrivateTip() {
@@ -19,14 +18,14 @@ export function PrivateTip() {
 
 /**
  * Under the number, reserved whether or not a mint is fresh: the tile never changes height for it.
- * The last mint is kept here: the next claim clears the miner's own (the pill's ✓ must go), and the
- * balance's ten seconds must not end with it.
+ * Read off the device's last recorded win, not the miner's `minted`: the next claim clears that one
+ * (the pill's ✓ must go), and a visit to the Wallet must not end the ten seconds either.
  */
 function MintLine() {
-  const minted = useAtomValue(minerAtom).minted;
-  const [last, setLast] = useState(minted);
-  if (minted && minted !== last) setLast(minted);
-  const fresh = mintedFresh(last, useAtomValue(nowAtom));
+  const claims = useAtomValue(claimsAtom);
+  const now = useAtomValue(nowAtom);
+  const last = claims[claims.length - 1];
+  const fresh = last !== undefined && now - last.at < MINTED_FRESH_MS;
   return (
     <span className="block min-h-[1.4em] font-mono text-[11.5px] text-ok" data-testid="mint-line">
       {fresh ? `+${amount(PARAMS.REWARD, PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL} · just now` : ''}

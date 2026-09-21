@@ -165,7 +165,7 @@ describe('the epoch tile and the ledger', () => {
 });
 
 describe('the mint line', () => {
-  test('ten seconds from the mint, whatever the next claim does to the miner’s own ✓', () => {
+  test('ten seconds from the mint, whatever the next claim does to the miner’s own ✓, across a remount', () => {
     const store = createStore();
     store.set(bootAtom, {
       phase: 'ready',
@@ -181,30 +181,23 @@ describe('the mint line', () => {
         account: { address: '0xacc', index: 0 },
       },
     });
-    const minted = {
-      block: 9,
-      txHash: '0xa',
-      nullifier: '0x1',
-      noteHash: '0x2',
-      noteHashes: 1,
-      claims: [0, 1],
-      at: 1_000,
-    };
-    store.set(minerAtom, { ...initial, minted: minted as never });
+    store.set(claimsAtom, [{ epoch: 3n, block: 9, at: 1_000 }]);
     store.set(nowAtom, 2_000);
     const ui = () => (
       <Provider store={store}>
         <Mine controller={() => undefined} />
       </Provider>
     );
-    const { getByTestId, rerender } = render(ui());
-    expect(getByTestId('mint-line').textContent).toBe('+4 tYACA · just now');
-    // The next win's claim clears the miner's mint a second later: the balance keeps its acknowledgement.
+    const first = render(ui());
+    expect(first.getByTestId('mint-line').textContent).toBe('+4 tYACA · just now');
+    // The next win's claim clears the miner's mint, and the user visits the Wallet and comes back:
+    // the balance keeps its acknowledgement through both.
     act(() => {
       store.set(minerAtom, { ...initial, minted: null });
       store.set(nowAtom, 3_000);
     });
-    rerender(ui());
+    first.unmount();
+    const { getByTestId, rerender } = render(ui());
     expect(getByTestId('mint-line').textContent).toBe('+4 tYACA · just now');
     act(() => store.set(nowAtom, 11_500));
     rerender(ui());
