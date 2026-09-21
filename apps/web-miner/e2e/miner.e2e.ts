@@ -143,10 +143,8 @@ test('first visit creates an account, mines at the easy target, claims and shows
   const balanceHeight = await tileHeight();
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
   await expect(page.getByTestId('balance')).toHaveText('4');
-  // The mint line under the number, for ten seconds, on a line the tile had reserved: no height change.
+  // The mint line under the number, on a line the tile had reserved: no height change.
   await expect(page.getByTestId('mint-line')).toHaveText('+4 tYACA · just now');
-  expect(await tileHeight()).toBe(balanceHeight);
-  await expect(page.getByTestId('mint-line')).toHaveText('', { timeout: 15_000 });
   expect(await tileHeight()).toBe(balanceHeight);
   await expect(page.getByTestId('epoch-claims')).toHaveText('1 of 4');
   expect(await loopHeight()).toBe(idleHeight);
@@ -163,6 +161,10 @@ test('first visit creates an account, mines at the easy target, claims and shows
   await page.getByTestId('stop').click({ timeout: 5 * 60_000 });
   await expect(page.getByTestId('phase')).toHaveText(/^idle/);
   await expect(page.getByTestId('claim-chip')).toHaveCount(0, { timeout: 15_000 });
+  // Each win renews the line, and at this target they keep coming: only with mining stopped does it end,
+  // ten seconds after the last one.
+  await expect(page.getByTestId('mint-line')).toHaveText('', { timeout: 15_000 });
+  expect(await tileHeight()).toBe(balanceHeight);
   // The nav reaches the stats app on the same origin.
   await expect(page.getByTestId('nav-stats')).toHaveAttribute('href', /\/stats\/$/);
   // At this easy target more than one claim can have minted before Stop landed: what the first visit
