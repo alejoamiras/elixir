@@ -387,6 +387,8 @@ Deleted: the Wallet's `WinsRow`/`WinsList`, `session.retryPresto`, `prestoWords`
   `denied` blocks, and `PermissionStatus`'s `change` fires on the transition. **Settled by an automated real
   boundary, the way Presto's own repo does it** (Fact 19): `e2e/replay/lna.replay.ts` in P5c. The evidence names
   the browser's version and the descriptor that answered; an inference never stands in for it.
+  **Confirmed in P5c (2026-09-21)** on HeadlessChrome 151, descriptor `loopback-network`, once the page was served
+  by IP (the lane's `localhost` bound `::1` alone, which no override names): `lessons/phase-5.md`.
 - I4. Under the address-space override the replay fixture behaves as Presto's harness does: the app's own origin
   loads, `route.fulfill` answers for the node never touch the network (so the gate does not apply to them), and
   only the `allow()`-ed fake Presto is a real public → loopback request. Settled by `lna.replay.ts`'s first test
@@ -482,7 +484,7 @@ layers: + e2e on the isolated network. **Then arc 1's codex loop (§10), then `g
 
 ### Arc 2 — Presto: consent, memory, revocation
 
-**P5 — The machine, and the way to say yes.** The rule cannot land without its button: the replay lane's fix-it
+**P5 ✓ — The machine, and the way to say yes.** The rule cannot land without its button: the replay lane's fix-it
 test reaches Presto through Start today (`signed-out.replay.ts:74-82`) and replay is in every fast gate. So the
 switch of behaviour ships **together with** the way to consent. Three checkpoints, the fast layers green at each:
 
