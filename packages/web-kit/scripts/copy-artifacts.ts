@@ -1,9 +1,9 @@
 // Copies the artifacts a page fetches from /artifacts into <public>/artifacts: the committed miner
 // and work-circuit artifacts (`bun run artifacts:commit`) and the token's from aztec-standards.
-//   bun packages/site/scripts/copy-artifacts.ts <public dir>
+//   bun packages/web-kit/scripts/copy-artifacts.ts <public dir>
 import { cpSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { COMMITTED } from './commit-artifacts.ts';
+import { COMMITTED } from '@yacana/contracts/scripts/commit-artifacts';
 
 const repo = resolve(import.meta.dir, '../../..');
 

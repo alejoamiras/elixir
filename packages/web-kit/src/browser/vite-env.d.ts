@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-// Every value is a build-time constant from packages/site (site.env + the deployment record).
+// Every value is a build-time constant from web-kit (deployments/site.env + the deployment record).
 interface ImportMetaEnv {
   readonly VITE_SITE_MODE: 'production' | 'e2e' | 'dev';
   readonly VITE_AZTEC_NODE_URL: string;

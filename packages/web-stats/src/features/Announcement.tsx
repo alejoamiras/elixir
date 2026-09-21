@@ -2,7 +2,7 @@
 // build's record says which Registry index comes next and when the upgrade is expected; the lead in
 // bold, the FAQ one link away.
 import type { MigrationRecord } from '@yacana/bridge/record';
-import { ownVersionName } from '@yacana/site/browser/version-name';
+import { ownVersionName } from '@yacana/web-kit/browser/version-name';
 import { FAQ_HREF } from '../routes';
 
 const migration = (): MigrationRecord | null =>

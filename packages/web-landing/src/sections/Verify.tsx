@@ -1,5 +1,5 @@
-import type { DeploymentRecord } from '@yacana/site/config';
 import { Button, Chip, ChipLink, shortHash } from '@yacana/ui';
+import type { DeploymentRecord } from '@yacana/web-kit/config';
 import { W_VK_HASH } from '@yacana/work-circuit/generated/vk';
 import { commitUrl, copy, REPO } from '../copy';
 import { links } from '../explorer';

@@ -1,1 +1,1 @@
-export * from '@yacana/site/browser/connection';
+export * from '@yacana/web-kit/browser/connection';

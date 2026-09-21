@@ -1,7 +1,7 @@
 // The slot table and the storage layouts a page reads epochs through: the chunks are generated
 // into miner-core's gitignored `generated/slots` when missing, stale or damaged, then copied under
 // <public>/slots next to a copy of the committed layouts.
-//   bun packages/site/scripts/copy-slots.ts <public dir>
+//   bun packages/web-kit/scripts/copy-slots.ts <public dir>
 import { cpSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { CHUNK, TABLE_EPOCHS } from '@yacana/miner-core/reader';

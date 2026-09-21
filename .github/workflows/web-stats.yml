@@ -20,6 +20,7 @@ jobs:
           - '!packages/web-stats/**/*.md'
           - 'packages/site/**'
           - 'packages/ui/**'
+          - 'packages/web-kit/**'
           - 'packages/bridge/**'
           - 'packages/portal/abi/**'
           - 'packages/miner-core/**'

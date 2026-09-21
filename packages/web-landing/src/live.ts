@@ -19,10 +19,10 @@ import {
   type SlotLoader,
   type StorageLayout,
 } from '@yacana/miner-core/reader';
-import { type Connection, expectedDeployment } from '@yacana/site/browser/connection';
-import { nodeClient } from '@yacana/site/browser/node';
-import { setNodeEndpoint } from '@yacana/site/browser/node-guard';
-import { chunkLoader, fetchLayouts } from '@yacana/site/browser/slots';
+import { type Connection, expectedDeployment } from '@yacana/web-kit/browser/connection';
+import { nodeClient } from '@yacana/web-kit/browser/node';
+import { setNodeEndpoint } from '@yacana/web-kit/browser/node-guard';
+import { chunkLoader, fetchLayouts } from '@yacana/web-kit/browser/slots';
 
 /** Closed epochs shown before the open one. */
 export const HISTORY = 12;

@@ -8,7 +8,7 @@ import {
   type PrestoPhase,
   type PrestoStatus,
 } from '@alejoamiras/presto-core';
-import { setAcceleratorEndpoints } from '@yacana/site/browser/node-guard';
+import { setAcceleratorEndpoints } from '@yacana/web-kit/browser/node-guard';
 import { atom, type createStore } from 'jotai';
 import { queryOverridesAllowed } from './config';
 

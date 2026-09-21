@@ -1,7 +1,7 @@
 import type { Crossing } from '@yacana/bridge/journal';
 import { PARAMS } from '@yacana/miner-core/generated/params';
-import { ownVersionName } from '@yacana/site/browser/version-name';
 import { Badge, Button, ExternalLink, Kpi, Note, Tile, TileBoundary, TileHeader } from '@yacana/ui';
+import { ownVersionName } from '@yacana/web-kit/browser/version-name';
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import { bridgeRecord, isContinuation, nextVersionName } from '../bridge/env';

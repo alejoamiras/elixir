@@ -1,7 +1,7 @@
-import '@yacana/site/browser/node-guard';
+import '@yacana/web-kit/browser/node-guard';
 import './index.css';
-import { loadConnection } from '@yacana/site/browser/connection';
 import { ThemeProvider } from '@yacana/ui';
+import { loadConnection } from '@yacana/web-kit/browser/connection';
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';

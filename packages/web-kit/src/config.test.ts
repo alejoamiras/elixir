@@ -11,7 +11,7 @@ import {
   viteDefine,
 } from './config.ts';
 
-const siteEnv = parseEnvFile(readFileSync(resolve(import.meta.dir, '../site.env'), 'utf8'));
+const siteEnv = parseEnvFile(readFileSync(resolve(import.meta.dir, '../../../deployments/site.env'), 'utf8'));
 const deployment = JSON.parse(
   readFileSync(resolve(import.meta.dir, '../../../deployments/testnet.json'), 'utf8'),
 ) as DeploymentRecord;

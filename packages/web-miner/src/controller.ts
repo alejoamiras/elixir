@@ -13,14 +13,14 @@ import { PARAMS } from '@yacana/miner-core/generated/params';
 import { difficulty } from '@yacana/miner-core/metrics';
 import { deployDomain, ticketNullifier } from '@yacana/miner-core/proof';
 import { newEpochSecret } from '@yacana/miner-core/secret';
-import { readTip } from '@yacana/site/browser/node';
+import { readTip } from '@yacana/web-kit/browser/node';
 import {
   markRead,
   nodeHealth,
   recordTip,
   subscribeNodeHealth,
   tipAgeS,
-} from '@yacana/site/browser/node-health';
+} from '@yacana/web-kit/browser/node-health';
 import type { createStore } from 'jotai';
 import { type Deployment, type Fee, readBalance, readEpoch, sendClaim, sendRoll } from './chain';
 import { chime } from './chime';

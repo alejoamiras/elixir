@@ -2,8 +2,8 @@
 // circuit's verifier key hash, the source commit, the launch record and the reproduce commands.
 
 import { PARAMS } from '@yacana/miner-core/generated/params';
-import type { DeploymentRecord } from '@yacana/site/config';
 import { ExternalLink, KvRow, Tile, TileBoundary, TileHeader } from '@yacana/ui';
+import type { DeploymentRecord } from '@yacana/web-kit/config';
 import { W_VK_HASH } from '@yacana/work-circuit/generated/vk';
 import { useAtomValue } from 'jotai';
 import { bridgeRecord } from '../bridge';

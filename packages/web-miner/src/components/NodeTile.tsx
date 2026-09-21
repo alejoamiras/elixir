@@ -1,16 +1,16 @@
 // The Aztec node's row in Settings. The health store is the row's only source of words: the tile
 // never probes on its own; the setting is saved only once the switch took.
 
-import { defaultNodeUrl, isPinnedByQuery, saveConnection } from '@yacana/site/browser/connection';
-import { parseNodeUrl } from '@yacana/site/browser/node';
+import { Button, Input, StatusChip, type Step, Stepper } from '@yacana/ui';
+import { defaultNodeUrl, isPinnedByQuery, saveConnection } from '@yacana/web-kit/browser/connection';
+import { parseNodeUrl } from '@yacana/web-kit/browser/node';
 import {
   nodeHealth,
   retryNode,
   standing,
   subscribeNodeHealth,
   tipAgeS,
-} from '@yacana/site/browser/node-health';
-import { Button, Input, StatusChip, type Step, Stepper } from '@yacana/ui';
+} from '@yacana/web-kit/browser/node-health';
 import { useAtomValue } from 'jotai';
 import { useReducer, useSyncExternalStore } from 'react';
 import {

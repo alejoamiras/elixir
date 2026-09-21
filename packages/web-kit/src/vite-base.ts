@@ -23,7 +23,7 @@ import { headerMap, renderHeaders } from './headers.ts';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const repo = resolve(here, '../../..');
-const shims = resolve(repo, 'packages/web-miner/src/shims');
+const shims = resolve(here, 'shims');
 
 export interface SiteAppOptions {
   /** The app's directory (its `src/` is the `@` alias). */
@@ -58,7 +58,7 @@ export function siteConfig(command: 'build' | 'serve', env: NodeJS.ProcessEnv = 
     claimPath && existsSync(claimPath) ? (JSON.parse(readFileSync(claimPath, 'utf8')) as ExampleClaim) : null;
   return loadSiteConfig({
     mode,
-    siteEnv: parseEnvFile(readFileSync(resolve(here, '../site.env'), 'utf8')),
+    siteEnv: parseEnvFile(readFileSync(resolve(repo, 'deployments/site.env'), 'utf8')),
     deployment,
     exampleClaim,
     env,

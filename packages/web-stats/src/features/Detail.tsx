@@ -1,8 +1,8 @@
 import { PARAMS } from '@yacana/miner-core/generated/params';
 import { difficulty, sentence } from '@yacana/miner-core/metrics';
 import type { EpochRow } from '@yacana/miner-core/reader';
-import { amount, clockMinutes, durationParts } from '@yacana/site/browser/format';
 import { Badge, difficultyLabel, Kpi, Tile, TileHeader } from '@yacana/ui';
+import { amount, clockMinutes, durationParts } from '@yacana/web-kit/browser/format';
 import { Sk } from './Sk';
 
 const RULES = { N: PARAMS.N, EXPECTED_EPOCH_SECONDS: PARAMS.EXPECTED_EPOCH_SECONDS, T_MAX: PARAMS.T_MAX };

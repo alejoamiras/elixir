@@ -1,5 +1,5 @@
-import { loadConnection } from '@yacana/site/browser/connection';
 import { Button, Note, Progress, Stepper } from '@yacana/ui';
+import { loadConnection } from '@yacana/web-kit/browser/connection';
 import { useAtomValue } from 'jotai';
 import { isOldRole } from '../../bridge/env';
 import {

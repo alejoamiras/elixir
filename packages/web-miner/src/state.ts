@@ -4,6 +4,7 @@ import type { Crossing, RowState } from '@yacana/bridge/journal';
 import type { VersionStanding } from '@yacana/bridge/portal-reader';
 import type { ProofReading } from '@yacana/bridge/proofs';
 import type { PreflightRow } from '@yacana/ui';
+import type { CrsProgress } from '@yacana/web-kit/pinned-crs';
 import { atom } from 'jotai';
 import type { BridgeSession } from './bridge/session';
 import type { SlotView } from './keys/slot';
@@ -11,7 +12,6 @@ import type { MasterRecord } from './keys/store';
 import type { EpochInfo, MinerState } from './lib/reducer';
 import { initial } from './lib/reducer';
 import type { OpeningStep, StepId } from './opening-steps';
-import type { CrsProgress } from './pinned-crs';
 import type { ProverKind } from './presto';
 
 /**

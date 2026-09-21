@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { PROVERLESS_MARKER } from '@yacana/site/config';
+import { PROVERLESS_MARKER } from '@yacana/web-kit/config';
 
 const pkg = resolve(import.meta.dir, '..');
 

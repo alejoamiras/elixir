@@ -3,7 +3,7 @@
 // guard's endpoint with it, the rebuild from the new node, mining resumed on the rebuilt view.
 import { afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { SwitchableNode } from '@yacana/site/browser/node';
+import type { SwitchableNode } from '@yacana/web-kit/browser/node';
 import { createStore } from 'jotai';
 import type { Deployment, Fee } from '../src/chain.ts';
 import { MinerController, type Rebound } from '../src/controller.ts';
@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 let boot: typeof import('../src/boot.ts');
-let guard: typeof import('@yacana/site/browser/node-guard');
+let guard: typeof import('@yacana/web-kit/browser/node-guard');
 
 class FakeWorker {
   onmessage: ((e: MessageEvent<FromWorker>) => void) | null = null;
@@ -83,7 +83,7 @@ describe('the live node switch', () => {
       configurable: true,
       writable: true,
     });
-    guard = await import('@yacana/site/browser/node-guard');
+    guard = await import('@yacana/web-kit/browser/node-guard');
     guard.installNodeGuard();
     boot = await import('../src/boot.ts');
   });

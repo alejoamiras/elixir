@@ -7,8 +7,8 @@ import type { PortalPolicy, PortalReader, VersionFlows } from '@yacana/bridge/po
 import type { MigrationRecord } from '@yacana/bridge/record';
 import { PARAMS } from '@yacana/miner-core/generated/params';
 import type { EpochRow } from '@yacana/miner-core/reader';
-import { amount, duration } from '@yacana/site/browser/format';
 import type { BarSegment, TimelineItem } from '@yacana/ui/bridge-types';
+import { amount, duration } from '@yacana/web-kit/browser/format';
 
 export interface BridgeSnapshot {
   versions: VersionFlows[];

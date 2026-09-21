@@ -1,5 +1,5 @@
-import type { DeploymentRecord } from '@yacana/site/config';
 import { Chip, ChipLink, shortHash, Tile, TileHeader } from '@yacana/ui';
+import type { DeploymentRecord } from '@yacana/web-kit/config';
 import { W_VK_HASH } from '@yacana/work-circuit/generated/vk';
 import { links } from '../explorer';
 import { reproduceCommand } from '../lib/reproduce.ts';

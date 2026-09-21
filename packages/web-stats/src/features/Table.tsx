@@ -2,8 +2,8 @@ import { toCsv } from '@yacana/miner-core/csv';
 import { PARAMS } from '@yacana/miner-core/generated/params';
 import { difficulty } from '@yacana/miner-core/metrics';
 import { type EpochRow, rowsToJson } from '@yacana/miner-core/reader';
-import { firstEpoch } from '@yacana/site/browser/connection';
 import { Button, cn, Tile, TileHeader } from '@yacana/ui';
+import { firstEpoch } from '@yacana/web-kit/browser/connection';
 import { Sk } from './Sk';
 
 const FIRST = firstEpoch();

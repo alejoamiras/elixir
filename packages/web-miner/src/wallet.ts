@@ -13,7 +13,7 @@ import type { Tx } from '@aztec/stdlib/tx';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { claimGasLimits } from '@yacana/miner-core/claim';
 import type { AccountFields } from '@yacana/miner-core/keys/derive';
-import { PROVERLESS_MARKER } from '@yacana/site/config';
+import { PROVERLESS_MARKER } from '@yacana/web-kit/config';
 import type { Fee, Node } from './chain';
 import { type FeePayer, feePayer } from './feePayer';
 import { type ProverKind, txProvingAfter } from './presto';

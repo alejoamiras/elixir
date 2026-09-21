@@ -1,6 +1,6 @@
 import { PARAMS } from '@yacana/miner-core/generated/params';
-import { firstEpoch } from '@yacana/site/browser/connection';
 import { Alert, AlertDescription, AlertTitle, Tile, TileBoundary, TileHeader } from '@yacana/ui';
+import { firstEpoch } from '@yacana/web-kit/browser/connection';
 import { useAtomValue } from 'jotai';
 import { useCallback, useEffect, useMemo } from 'react';
 import { ChartRows } from '../features/ChartRows';

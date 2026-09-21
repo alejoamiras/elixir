@@ -12,7 +12,7 @@ const LOCAL = ['http://127.0.0.1:*', 'http://localhost:*'];
 /**
  * `connect-src https:`: the node is a user setting, so the policy cannot name it. What bounds a
  * page's requests to its own origin and the chosen node is the fetch guard the apps install
- * (packages/site/src/browser/node-guard.ts), in code, in the page and in the prover Worker.
+ * (packages/web-kit/src/browser/node-guard.ts), in code, in the page and in the prover Worker.
  */
 export function contentSecurityPolicy(p: HeaderPolicy): string {
   const dev = p.mode === 'dev';

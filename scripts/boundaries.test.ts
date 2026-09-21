@@ -23,14 +23,11 @@ import {
 const PATH_EDGES: Record<string, string> = {
   // Vite bundles a config and hands every bare specifier to the ambient Node, which nothing pins to
   // a version that strips types: what a config loads at build time is reached by path.
-  'packages/web-landing/vite.config.ts → packages/site/src/vite-base.ts': 'config time',
-  'packages/web-miner/vite.config.ts → packages/site/src/vite-base.ts': 'config time',
-  'packages/web-stats/vite.config.ts → packages/site/src/vite-base.ts': 'config time',
-  'packages/site/src/vite-base.ts → packages/ui/src/mark.ts': 'config time',
+  'packages/web-landing/vite.config.ts → packages/web-kit/src/vite-base.ts': 'config time',
+  'packages/web-miner/vite.config.ts → packages/web-kit/src/vite-base.ts': 'config time',
+  'packages/web-stats/vite.config.ts → packages/web-kit/src/vite-base.ts': 'config time',
+  'packages/web-kit/src/vite-base.ts → packages/ui/src/mark.ts': 'config time',
   // `/// <reference path>` takes a path, and the ambient types have no package of their own yet.
-  'packages/web-landing/src/vite-env.d.ts → packages/site/src/browser/vite-env.d.ts': 'reference',
-  'packages/web-miner/src/vite-env.d.ts → packages/site/src/browser/vite-env.d.ts': 'reference',
-  'packages/web-stats/src/vite-env.d.ts → packages/site/src/browser/vite-env.d.ts': 'reference',
 };
 // Targets no workspace owns that a workspace may still reach by path.
 const UNOWNED = [

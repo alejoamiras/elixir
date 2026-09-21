@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "artifacts:commit": "bun packages/site/scripts/commit-artifacts.ts",
+    "artifacts:commit": "bun packages/contracts/scripts/commit-artifacts.ts",
     "bridge": "bun packages/deploy/scripts/bridge.ts",
     "codegen": "bun scripts/params-codegen.ts && bun run --cwd packages/work-circuit compile && bun run --cwd packages/work-circuit export-vk && bun run --cwd packages/work-circuit compile && bun run --cwd packages/work-circuit manifest",
     "contracts:compile": "bun run --cwd packages/contracts compile",

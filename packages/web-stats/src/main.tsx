@@ -1,9 +1,9 @@
-import '@yacana/site/browser/node-guard';
+import '@yacana/web-kit/browser/node-guard';
 import './index.css';
-import { expectedDeployment, firstEpoch, loadConnection } from '@yacana/site/browser/connection';
-import { endpointFingerprint, quietNodeReads } from '@yacana/site/browser/node-guard';
-import { markRead, nodeHealth, startNodeHealth, waitTurn } from '@yacana/site/browser/node-health';
 import { ThemeProvider } from '@yacana/ui';
+import { expectedDeployment, firstEpoch, loadConnection } from '@yacana/web-kit/browser/connection';
+import { endpointFingerprint, quietNodeReads } from '@yacana/web-kit/browser/node-guard';
+import { markRead, nodeHealth, startNodeHealth, waitTurn } from '@yacana/web-kit/browser/node-health';
 import { createStore, Provider } from 'jotai';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

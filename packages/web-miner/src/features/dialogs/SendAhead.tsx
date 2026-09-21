@@ -5,8 +5,8 @@
 import { deadlinePhrase } from '@yacana/bridge/exit-deadline';
 import type { Crossing } from '@yacana/bridge/journal';
 import { PARAMS } from '@yacana/miner-core/generated/params';
-import { ownVersionName } from '@yacana/site/browser/version-name';
 import { Alert, AlertDescription, AmountField, Note, Stepper } from '@yacana/ui';
+import { ownVersionName } from '@yacana/web-kit/browser/version-name';
 import { useAtomValue } from 'jotai';
 import { type ComponentProps, useState } from 'react';
 import { isOldRole, nextVersionName } from '../../bridge/env';
