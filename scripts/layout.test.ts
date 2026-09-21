@@ -426,21 +426,28 @@ describe('the typecheck solution', () => {
     return m ? [`${m[1]}/tsconfig.app.json`, `${m[1]}/tsconfig.tests.json`] : undefined;
   };
 
-  test('every workspace with TypeScript, and the root scripts, is a project the root references', () => {
-    const homes = [...new Set(typescript.map(home))];
+  const homes = [...new Set(typescript.map(home))];
+
+  test('the root references every workspace with TypeScript and the root scripts, and nothing else', () => {
     expect(homes.filter((dir) => !referenced.includes(dir))).toEqual([]);
+    expect(referenced.filter((dir) => !homes.includes(dir))).toEqual([]);
     expect(referenced.filter((dir) => !exists(`${dir}/tsconfig.json`))).toEqual([]);
   });
 
-  test("every tracked TypeScript file is a root file of exactly one project, its own workspace's", () => {
+  test("every tracked TypeScript file is a root file of exactly one project, reached from its workspace's", () => {
     const owners = new Map<string, string[]>();
     for (const p of projects) for (const f of p.files) owners.set(f, [...(owners.get(f) ?? []), p.cfg]);
+    // A project under the right folder is not enough: `bun run --cwd <ws> typecheck` builds what the
+    // workspace's own config reaches, so the owner must be one of those.
+    const reached = new Map(
+      homes.flatMap((h) => leaves(join(repo, h, 'tsconfig.json')).map((p) => [p.cfg, h] as const)),
+    );
     const off = typescript
       .filter((f) => {
         const have = (owners.get(f) ?? []).sort();
         const want = expectedOwners(f);
         if (want) return have.join() !== want.join();
-        return have.length !== 1 || !have[0]?.startsWith(`${home(f)}/`);
+        return have.length !== 1 || reached.get(have[0] ?? '') !== home(f);
       })
       .map((f) => `${f}: ${owners.get(f)?.join(', ') || 'no project'}`);
     expect(off).toEqual([]);

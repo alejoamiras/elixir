@@ -82,3 +82,31 @@ lane keeps or widens its coverage, `miner-core.yml` (unfiltered) covers a change
 |---|---|
 | lint · layout guard | exit 0 · 13 pass |
 | codex's bypass replayed, then restored | exit 1 with the misplaced roots named · exit 0 |
+
+### Round 2 (2026-09-21) — "One remaining P2 bypass"
+
+Folder ownership was not reachability: a nested `tools/harness/rest/tsconfig.json` rooting most of `harness`'s
+files, referenced from the root directly while `harness`'s own config kept one file, passed both rules — root CI
+still checked everything, `bun run --cwd tools/harness typecheck` checked one file. Fixed twice over: the root may
+reference nothing but the homes (a workspace with TypeScript, `scripts`), and a file's one owner must be a leaf
+reached from `${home}/tsconfig.json`. Replayed codex's construction (the nested config staged for the run):
+`+ "tools/harness/rest"` in the references rule and `tools/harness/src/sponsored.ts: tools/harness/rest/tsconfig.json`
+(+3) in the roots rule; restored, 13 pass; round 1's bypass still fails. **Lesson: "under the right folder" and
+"reached by the command" are different facts; the guard has to state the one the gate relies on.**
+
+## Arc 4 HEAVY+ (2026-09-21)
+
+On `2e02c27` (the loop's two commits change the guard alone), each e2e on its own isolated network:
+
+| step | result |
+|---|---|
+| `test:replay` | 4 passed |
+| `site:build` + bundle comparison | 651 files; **no findings** (arc 4 touches no source); `bundle-arc4.txt`, `modules-arc4/` recorded |
+| `site:e2e` | 3 passed |
+| cockpit shard, proverless | 7 passed (RSS 3321 → 3019 MiB, peak 3642: the bound held on the first run this time) |
+| canary shard (real proving) | 4 passed |
+| web-stats e2e · web-landing e2e | 7 passed · 5 passed |
+| `test:visual` | 8 passed |
+| `bun run rig -- flip` | 1 pass, H0 in 61 s |
+| `YACANA_APP_ROLE=old bun run site:build` | `apps/site/dist-old` assembled, the same ten entries as arc 3's |
+| `git status --porcelain` | nothing untracked but the arc's own reports |
