@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react';
+import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { ClaimSpan, Sample } from '../score-loop-model.ts';
 import { ScoreLoop } from './score-loop.tsx';
@@ -35,21 +35,23 @@ const at = (t: number, n: number, score = 3, win = false): Sample => ({
 });
 const FEW = [at(50_000, 1), at(110_000, 2, 61.2, true), at(199_000, 3, 5)];
 
+let drawn: ReturnType<typeof recorder>;
+const canvas = () => {
+  drawn = recorder();
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(drawn.ctx as never);
+  vi.spyOn(HTMLCanvasElement.prototype, 'clientWidth', 'get').mockReturnValue(662);
+  vi.spyOn(performance, 'now').mockReturnValue(NOW);
+  // Reduced motion: the still frame is drawn synchronously, and no frame loop runs.
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: query.includes('reduced-motion'),
+    media: query,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  })) as unknown as typeof window.matchMedia;
+};
+
 describe('ScoreLoop on a canvas', () => {
-  let drawn: ReturnType<typeof recorder>;
-  beforeEach(() => {
-    drawn = recorder();
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(drawn.ctx as never);
-    vi.spyOn(HTMLCanvasElement.prototype, 'clientWidth', 'get').mockReturnValue(662);
-    vi.spyOn(performance, 'now').mockReturnValue(NOW);
-    // Reduced motion: the still frame is drawn synchronously, and no frame loop runs.
-    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: query.includes('reduced-motion'),
-      media: query,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    })) as unknown as typeof window.matchMedia;
-  });
+  beforeEach(canvas);
   afterEach(() => vi.restoreAllMocks());
 
   const strokes = (samples: Sample[]) => {
@@ -79,6 +81,18 @@ describe('ScoreLoop on a canvas', () => {
       [447, 24, 2, 182],
     ]);
     expect(drawn.calls.fillText?.mock.calls.map((c) => c[0])).toContain('CLAIMED · 30 s');
+    // A claim that did not land keeps its duration too.
+    cleanup();
+    render(
+      <ScoreLoop
+        calm
+        difficulty={38.4}
+        samples={FEW}
+        spans={[{ ...spans[0], outcome: 'failed' }]}
+        height={230}
+      />,
+    );
+    expect(drawn.calls.fillText?.mock.calls.map((c) => c[0])).toContain("DIDN'T LAND · 30 s");
     // The band is laid before the ticks' stroke.
     const order = (name: string) => drawn.calls[name]?.mock.invocationCallOrder[0] ?? 0;
     expect(order('fillRect')).toBeLessThan(order('stroke'));
@@ -100,6 +114,29 @@ describe('ScoreLoop on a canvas', () => {
     expect(card()).toBe('#2 · score 61.2a win · 1.98 s · 16:06:41');
     fireEvent.keyDown(canvas, { key: 'Escape' });
     expect(card()).toBeUndefined();
+  });
+});
+
+describe('the proof under the pointer', () => {
+  beforeEach(canvas);
+  afterEach(() => vi.restoreAllMocks());
+
+  test('the card follows its tick through a redraw React did not ask for, and leaves with the proof', () => {
+    const width = vi.spyOn(HTMLCanvasElement.prototype, 'clientWidth', 'get').mockReturnValue(662);
+    const { container, rerender } = render(<ScoreLoop calm difficulty={38.4} samples={FEW} height={230} />);
+    const canvas = container.querySelector('canvas') as HTMLCanvasElement;
+    fireEvent.pointerMove(canvas, { clientX: 150 });
+    const card = container.querySelector('[data-slot=score-hover]') as HTMLElement;
+    expect(card.style.left).toBe('158px');
+    // A wider canvas: the same proof is drawn 17 px further right, and so is its card.
+    width.mockReturnValue(762);
+    rerender(<ScoreLoop calm difficulty={38.4} samples={[...FEW]} height={230} />);
+    expect(card.style.left).toBe('175px');
+    expect(card.hidden).toBe(false);
+    // Three minutes on, the proof has left the window: the card goes with it.
+    vi.spyOn(performance, 'now').mockReturnValue(50_000 + 180_001);
+    rerender(<ScoreLoop calm difficulty={38.4} samples={[...FEW]} height={230} />);
+    expect(card.hidden).toBe(true);
   });
 
   test('the strip too short for words takes neither a pointer nor a title', () => {

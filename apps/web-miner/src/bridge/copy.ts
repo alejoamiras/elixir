@@ -251,7 +251,7 @@ const held: Line = (c, f) => {
 const claimable: Line = (c, f) => {
   const trail =
     c.kind === 3
-      ? [st('sent from your wallet', 'done'), st('crossed to Aztec', 'done'), st('claim', 'on')]
+      ? [st('deposit sent', 'done'), st('crossed to Aztec', 'done'), st('claim', 'on')]
       : [st(`left ${f.version}`, 'done'), st('reached Ethereum', 'done'), st('claim', 'on')];
   if (f.elsewhere)
     return {
@@ -280,7 +280,7 @@ const claimable: Line = (c, f) => {
 const deposited: Line = () => ({
   chip: chip('crossing to Aztec', 'on'),
   sentence: 'Sent from your wallet; crossing to Aztec, a few minutes.',
-  trail: [st('sent from your wallet', 'done'), st('crossing to Aztec', 'on'), st('claim', 'todo')],
+  trail: [st('deposit sent', 'done'), st('crossing to Aztec', 'on'), st('claim', 'todo')],
 });
 
 const LINES: Record<RowState, Line> = {

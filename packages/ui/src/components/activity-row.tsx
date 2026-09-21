@@ -87,7 +87,7 @@ function RowHead({
   );
 }
 
-/** One crossing, the same shape whichever way it crosses; every word comes from `line`. */
+/** One crossing, the same shape whichever way it crosses. */
 export function ActivityRow({
   kind,
   title,

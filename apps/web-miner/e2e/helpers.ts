@@ -97,7 +97,6 @@ export async function openDialog(page: Page): Promise<void> {
   await expect(screen).toBeVisible({ timeout: 10_000 });
 }
 
-/** Horizontal overflow, in px, of the page and of the account dialog's own box; none is ≤ 0. */
 /**
  * The dialog's sideways overflow with the running step's right cell reading `text`. The text node's
  * data is swapped and restored inside one task: React keeps its node and no render lands between.
@@ -113,6 +112,7 @@ export const dialogOverflowWithRight = (page: Page, text: string): Promise<numbe
     return over;
   }, text);
 
+/** Horizontal overflow, in px, of the page and of the account dialog's own box; none is ≤ 0. */
 export const dialogOverflow = (page: Page): Promise<{ page: number; inner: number }> =>
   page.evaluate(() => {
     const d = document.querySelector('[data-testid=sign-in]') as HTMLElement;

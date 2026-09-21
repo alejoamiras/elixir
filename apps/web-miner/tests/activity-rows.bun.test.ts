@@ -90,6 +90,12 @@ describe('the activity reading', () => {
     });
     const here = activity([landing], view, NOW, {}, env).rows[0];
     expect([here?.kind, here?.title, here?.signed]).toEqual(['in', 'From another version', `+2 ${sym}`]);
+    // A deposit's trail says what happened, never whose wallet it was: one found from another device was not "yours".
+    const trails = ['deposited', 'claimable'].map((state) => {
+      const d = crossing(state, { kind: 3, state: state as Crossing['state'], inboxIndex: '3' });
+      return activity([d], view, NOW, {}, env).rows[0]?.line.trail[0]?.label;
+    });
+    expect(trails).toEqual(['deposit sent', 'deposit sent']);
     // A deposit found on-chain before its event was read has no sender on record, and says so.
     const found = activity(
       [crossing('d', { kind: 3, state: 'claimable', ethAddress: UNKNOWN_ETH })],

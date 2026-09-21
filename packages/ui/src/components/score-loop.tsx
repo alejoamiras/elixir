@@ -41,7 +41,7 @@ export interface ScoreLoopProps {
   spans?: readonly ClaimSpan[];
   /** Calm: the score axis's name, set vertically in the left margin. */
   axisTitle?: string;
-  /** Calm: what the bar is, written above its left end. */
+  /** Calm: what the bar is, written at its left end. */
   barCaption?: string;
   spanMs?: number;
   /**
@@ -327,7 +327,7 @@ function drawAxisTitle(f: Frame, title: string) {
 
 const spanLabel = (b: SpanBox): string => {
   if (b.live) return 'CLAIMING';
-  return b.outcome === 'failed' ? "DIDN'T LAND" : `CLAIMED · ${Math.round(b.ms / 1000)} s`;
+  return `${b.outcome === 'failed' ? "DIDN'T LAND" : 'CLAIMED'} · ${Math.round(b.ms / 1000)} s`;
 };
 
 /** The band's word: inside when it fits, else above the band against its right edge. */
@@ -612,11 +612,19 @@ function useDrawing(
   props: ScoreLoopProps,
   hover: Sample | null,
   reduced: boolean,
+  after: (d: Drawn) => void,
 ): void {
   const hidden = useHidden(props.win);
   const win = props.win;
-  const latest = React.useRef({ props, hover });
-  latest.current = { props, hover };
+  const latest = React.useRef({ props, hover, after });
+  latest.current = { props, hover, after };
+  const keep = React.useCallback(
+    (d: Drawn | undefined) => {
+      drawn.current = d ?? null;
+      if (d) latest.current.after(d);
+    },
+    [drawn],
+  );
 
   React.useEffect(() => {
     const canvas = ref.current;
@@ -627,8 +635,7 @@ function useDrawing(
     // A throw inside a frame reaches no React boundary: the loop stops and the canvas says so.
     const frameOnce = (still: boolean): boolean => {
       try {
-        drawn.current =
-          draw(canvas, latest.current.props, performance.now(), still, latest.current.hover) ?? null;
+        keep(draw(canvas, latest.current.props, performance.now(), still, latest.current.hover));
         return true;
       } catch (e) {
         console.error(e);
@@ -646,14 +653,13 @@ function useDrawing(
     };
     raf = w.requestAnimationFrame(tick);
     return () => w.cancelAnimationFrame(raf);
-  }, [ref, drawn, reduced, hidden, win]);
+  }, [ref, keep, reduced, hidden, win]);
 
   // No loop runs under reduced motion: new props or another proof under the pointer redraw the still.
   React.useEffect(() => {
     const canvas = ref.current;
-    if (canvas && reduced && !hidden)
-      drawn.current = draw(canvas, props, performance.now(), true, hover) ?? null;
-  }, [ref, drawn, props, hover, reduced, hidden]);
+    if (canvas && reduced && !hidden) keep(draw(canvas, props, performance.now(), true, hover));
+  }, [ref, keep, props, hover, reduced, hidden]);
 }
 
 type HoverHandlers = Pick<
@@ -706,26 +712,41 @@ const hoverLines = (s: Sample, difficulty: number | null): [string, string] => {
   return [head, tail.filter(Boolean).join(' · ')];
 };
 
-/** One proof, said in words beside its tick; placed by the frame that drew the tick. */
+/** Beside its tick as that frame drew it; gone once the proof has left the window. */
+function placeCard(el: HTMLElement, sample: Sample, d: Drawn) {
+  const x = xAt(d.g, sample.t);
+  el.hidden = x < d.g.left;
+  const left = x + 10 + CARD_WIDTH > d.width ? x - 10 - CARD_WIDTH : x + 10;
+  el.style.left = `${Math.round(Math.max(0, left))}px`;
+  el.style.top = `${Math.round(Math.max(0, d.yOf(sample.score) - 30))}px`;
+}
+
+/**
+ * One proof, said in words beside its tick. React renders the words; every frame drawn places the card,
+ * because the tick moves (the window scrolls, the canvas resizes) without React rendering anything.
+ */
 function ScoreHoverCard({
+  ref,
   sample,
   drawn,
   difficulty,
 }: {
+  ref: React.RefObject<HTMLDivElement | null>;
   sample: Sample;
-  drawn: Drawn;
+  drawn: React.RefObject<Drawn | null>;
   difficulty: number | null;
 }) {
-  const x = xAt(drawn.g, sample.t);
-  if (x < drawn.g.left) return null;
+  React.useLayoutEffect(() => {
+    if (ref.current && drawn.current) placeCard(ref.current, sample, drawn.current);
+  });
   const [head, tail] = hoverLines(sample, difficulty);
-  const left = x + 10 + CARD_WIDTH > drawn.width ? x - 10 - CARD_WIDTH : x + 10;
   return (
     <div
+      ref={ref}
       data-slot="score-hover"
       role="status"
       className="pointer-events-none absolute z-10 rounded-md border border-line-2 bg-panel px-2.5 py-1.5 font-mono text-2xs text-ink-3"
-      style={{ left: Math.max(0, left), top: Math.max(0, drawn.yOf(sample.score) - 30), width: CARD_WIDTH }}
+      style={{ width: CARD_WIDTH }}
     >
       <span className="block text-ink">{head}</span>
       <span className="block">{tail}</span>
@@ -737,8 +758,11 @@ export function ScoreLoop(props: ScoreLoopProps) {
   const ref = React.useRef<HTMLCanvasElement>(null);
   const reduced = useReducedMotion();
   const drawn = React.useRef<Drawn | null>(null);
+  const card = React.useRef<HTMLDivElement>(null);
   const { hover, handlers } = useScoreHover(roomy(props), props.samples, drawn);
-  useDrawing(ref, drawn, props, hover, reduced);
+  useDrawing(ref, drawn, props, hover, reduced, (d) => {
+    if (card.current && hover) placeCard(card.current, hover, d);
+  });
 
   const span = props.spanMs ?? (props.calm ? CALM_SPAN_MS : 60_000);
   const height = props.height ?? 200;
@@ -760,9 +784,7 @@ export function ScoreLoop(props: ScoreLoopProps) {
         style={{ height }}
         {...handlers}
       />
-      {hover && drawn.current && (
-        <ScoreHoverCard sample={hover} drawn={drawn.current} difficulty={props.difficulty} />
-      )}
+      {hover && <ScoreHoverCard ref={card} sample={hover} drawn={drawn} difficulty={props.difficulty} />}
       {row && (
         <div
           data-slot="score-loop-footer"
