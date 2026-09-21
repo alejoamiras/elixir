@@ -1,4 +1,4 @@
-// The spec's side of the run's control server (scripts/run/control.ts). No imports: Playwright's
+// The spec's side of the run's control server (tools/localnet/src/control.ts). No imports: Playwright's
 // loader reads this file.
 export interface Control {
   /** Warps the source node past the exit's epoch and proves it: the Outbox root is on Ethereum. */

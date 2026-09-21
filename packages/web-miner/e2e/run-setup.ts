@@ -16,16 +16,16 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { deployBridgeForRun, RUN_OPERATORS_KEY, registerForRun } from '@yacana/deploy/bridge/run';
 import { deployYacana, TEST_PORTAL } from '@yacana/deploy/deploy';
-import type { Hex } from 'viem';
-import { lanePortBase, runPortWindowBase } from '../../../scripts/run/port-window.ts';
+import { lanePortBase, runPortWindowBase } from '@yacana/localnet/port-window';
 import {
   type PrestoLane,
   prestoServerBinary,
   startPrestoServer,
   stopPrestoServer,
-} from '../../../scripts/run/presto.ts';
-import { waitUntilUp } from '../../../scripts/run/preview.ts';
-import { claim, release } from '../../../scripts/run/registry.ts';
+} from '@yacana/localnet/presto';
+import { waitUntilUp } from '@yacana/localnet/preview';
+import { claim, release } from '@yacana/localnet/registry';
+import type { Hex } from 'viem';
 import { e2eBuildEnv } from './build-env.ts';
 import { type E2eBridge, type E2eRun, type E2eServer, type RigStep, RUN_FILE, TIMINGS_FILE } from './run.ts';
 

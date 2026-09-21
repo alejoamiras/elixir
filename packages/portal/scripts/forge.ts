@@ -4,7 +4,7 @@
 //   bun scripts/forge.ts build | test [forge args…]
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { toolchainBin } from '../../../scripts/run/toolchain.ts';
+import { toolchainBin } from '@yacana/localnet/toolchain';
 
 const forge = toolchainBin('aztec-forge');
 const forgeStd = join(

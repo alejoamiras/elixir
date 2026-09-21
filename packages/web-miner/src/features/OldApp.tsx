@@ -4,8 +4,8 @@
 import { dayOf, deadlinePhrase } from '@yacana/bridge/exit-deadline';
 import type { Crossing } from '@yacana/bridge/journal';
 import { PARAMS } from '@yacana/miner-core/generated/params';
-import { ownVersionName } from '@yacana/site/browser/version-name';
 import { Button, type ChipTone, ExternalLink, Kpi, StatusChip, Tile, TileHeader } from '@yacana/ui';
+import { ownVersionName } from '@yacana/web-kit/browser/version-name';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useState } from 'react';
 import { proofChip } from '../bridge/copy';

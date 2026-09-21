@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { afterAll, describe, expect, test } from 'bun:test';
-import lock from '@yacana/site/crs.lock.json';
+import lock from '@yacana/web-kit/crs.lock.json';
 
 // The fetch behind `/crs/<name>`: every request is answered here, counted with its range header.
 // `g2` (128 bytes) streams a full body of the wrong bytes and then breaks; the others fail a moment
@@ -27,7 +27,7 @@ const crsFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   );
 }) as typeof globalThis.fetch;
 // Importing the interceptor wraps this realm's fetch (the guard suite does the same).
-const { setCrsFetchForTests, startCrs, streamVerified } = await import('../src/pinned-crs.ts');
+const { setCrsFetchForTests, startCrs, streamVerified } = await import('@yacana/web-kit/pinned-crs');
 afterAll(setCrsFetchForTests(crsFetch));
 
 const hex = (buf: ArrayBuffer) =>

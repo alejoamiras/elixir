@@ -21,12 +21,11 @@ jobs:
           - 'packages/miner-core/**'
           # The replay recording is bound to these: a change must re-run the lane, which refuses a stale one.
           - 'packages/contracts/artifacts/**'
-          - 'scripts/run/**'
-          - 'packages/site/**'
+          - 'tools/localnet/**'
           - 'packages/ui/**'
+          - 'packages/web-kit/**'
           - 'packages/bridge/**'
           - 'packages/portal/abi/**'
-          - 'packages/web-stats/**'
           - 'packages/work-circuit/**'
           - 'yacana.params.json'
           - 'scripts/params-codegen.ts'
@@ -54,7 +53,7 @@ jobs:
       # The vault, the memory store, withdraw and the lost-race recovery run under bun, not Vitest.
       - run: bun test packages/web-miner
       # The pinned CRS must still be what the CDN serves.
-      - run: bun packages/site/scripts/fetch-crs.ts packages/web-miner/public
+      - run: bun packages/web-kit/scripts/fetch-crs.ts packages/web-miner/public
 
   replay:
     name: Signed-out page against the recording

@@ -1,6 +1,6 @@
 // Bun-side E2E teardown: kills exactly the wrangler process group this run spawned, releases its port.
 import { rmSync } from 'node:fs';
-import { release } from '../../../scripts/run/registry.ts';
+import { release } from '@yacana/localnet/registry';
 import { type E2eRun, RUN_FILE } from './run.ts';
 
 const file = Bun.file(RUN_FILE);

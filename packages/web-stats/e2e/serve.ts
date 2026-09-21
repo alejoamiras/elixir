@@ -1,13 +1,13 @@
 // Bun-side pieces the two setups share: the fixture's public storage on a deployment, and the
-// build / preview / port helpers of scripts/run/preview.ts bound to this package.
+// build / preview / port helpers of tools/localnet/src/preview.ts bound to this package.
 import type { ChildProcess } from 'node:child_process';
 import { resolve } from 'node:path';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Deployment } from '@yacana/deploy/deploy';
+import * as preview from '@yacana/localnet/preview';
 import { PARAMS } from '@yacana/miner-core/generated/params';
 import { rowsFromJson } from '@yacana/miner-core/reader';
 import { deriveSlotTable, loadLayouts } from '@yacana/miner-core/slots';
-import * as preview from '../../../scripts/run/preview.ts';
 
 export const pkg = resolve(import.meta.dir, '..');
 export const FIXTURE = resolve(pkg, '../miner-core/fixtures/epochs.testnet.json');

@@ -7,8 +7,8 @@ import type { VersionFlows } from '@yacana/bridge/portal-reader';
 import type { MigrationRecord } from '@yacana/bridge/record';
 import { PARAMS } from '@yacana/miner-core/generated/params';
 import type { EpochRow } from '@yacana/miner-core/reader';
-import { firstEpoch } from '@yacana/site/browser/connection';
 import { Badge, ChipLink, Kpi, KvRow, StackedBar, Tile, TileHeader, Timeline } from '@yacana/ui';
+import { firstEpoch } from '@yacana/web-kit/browser/connection';
 import { useEffect, useId, useState } from 'react';
 import {
   type BridgeSnapshot,

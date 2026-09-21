@@ -5,7 +5,7 @@
 // redeemed any time.
 import { policyFor } from '@yacana/bridge/policy';
 import { PARAMS } from '@yacana/miner-core/generated/params';
-import { amount } from '@yacana/site/browser/format';
+import { amount } from '@yacana/web-kit/browser/format';
 import { copy } from './copy';
 import type { DiagramId } from './features/RuleDiagrams';
 

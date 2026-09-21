@@ -14,9 +14,9 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { type Browser, chromium, type Page, type Route } from '@playwright/test';
 import type { BridgeRecord } from '@yacana/bridge/record';
 import { deployYacana, TEST_PORTAL } from '@yacana/deploy/deploy';
+import { release } from '@yacana/localnet/registry';
 import { slotTableToJson } from '@yacana/miner-core/reader';
 import { deriveSlotTable, LAYOUTS_PATH, loadLayouts } from '@yacana/miner-core/slots';
-import { release } from '../../../scripts/run/registry.ts';
 import { MOCK_ETH_ORIGIN, MOCK_NODE_ORIGIN } from './helpers.ts';
 import { buildApp, claimPreviewPort, mockStorage, pkg, startPreview, waitUntilUp } from './serve.ts';
 

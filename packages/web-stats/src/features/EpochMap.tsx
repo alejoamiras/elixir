@@ -2,8 +2,8 @@
 // the day axis under it. A click centres the window on the epoch under the pointer; the box drags.
 
 import type { EpochRow } from '@yacana/miner-core/reader';
-import { firstEpoch } from '@yacana/site/browser/connection';
 import { cn } from '@yacana/ui';
+import { firstEpoch } from '@yacana/web-kit/browser/connection';
 import { memo, type PointerEvent as ReactPointerEvent, useCallback, useRef, useState } from 'react';
 import { useWidth } from '../charts/plot';
 import { barsFor, dayTicks, epochAtX, MAP_HEIGHT, type Tone, thinTicks, windowBox } from '../map-geometry';

@@ -490,11 +490,11 @@ dependency's folder; a toolchain lane without `YACANA_REQUIRE_TOOLCHAIN`) · `gi
 
 ### Arc 2: cycles out
 
-**P2.1 `web-kit`.** §3.5, with the CI lines of §3.11. I2 tried here.
+**P2.1 ✓ `web-kit`.** §3.5, with the CI lines of §3.11. I2 tried here.
 *Gate*: FAST · the layout guard (it now fails if the moved tests left CI) · `bun test packages/web-kit packages/site
 packages/contracts` · `bun run artifacts:commit && git diff --exit-code` · `bun run site:build` · bundle manifest unchanged.
 
-**P2.2 `localnet`.** §3.6, with the CI lines of §3.11.
+**P2.2 ✓ `localnet`.** §3.6, with the CI lines of §3.11.
 *Gate*: FAST · layout guard (its critical-lane rule now requires the four toolchain filters to cover
 `tools/localnet/**`) · `bunx tsc -p tools/localnet --noEmit` (the new workspace typechecks on its own declared
 dependencies) · `bun run lint:shell` · `bun run lint:actions` · `bun install --frozen-lockfile` + lock diff · unit tests: `toolchainBin` throws on an unreadable, empty and malformed pin; `registry.ts`'s fallback directory
@@ -502,12 +502,12 @@ resolves under the repo root · `bun run portal:build && bun run portal:test` (`
 `bun run e2e:agent -- true` (the moved `agent.sh` boots and tears down a network) · `bun
 tools/localnet/src/isolated-node.ts --smoke`.
 
-**P2.3 Remaining edges.** §3.7.
+**P2.3 ✓ Remaining edges.** §3.7.
 *Gate*: FAST · layout guard · `bun run contracts:test` · `bun run --filter '*' typecheck` completes for every
 workspace that has the script (I4) · in `tmux`: `bun run e2e:agent -- bun test packages/deploy`, asserting from the
 output that the moved live tests **ran** (pass count, zero skips for them).
 
-**P2.4 Direction and cycles.** Rules 3–4.
+**P2.4 ✓ Direction and cycles.** Rules 3–4.
 *Gate*: FAST · three deliberate regressions fail the guard: an app's production source importing `@yacana/deploy`;
 one importing another workspace's `scripts/` subpath; a same-layer production cycle.
 *Arc end*: HEAVY · `bun run rig -- flip`.
@@ -719,6 +719,7 @@ path-helper package).
 | D10 | The bundle gate becomes `bundle-compare.ts` with per-page and per-Worker module inventories (§3.10, amended) | Byte-identical manifests; a size tolerance; an order-preserving codemod | Identity is unattainable once Biome re-sorts ~600 rewritten imports. Codex (session `01a0c475`, high confidence) rejected a size tolerance as proof (0.1 % of the miner's chunk is 4.9 KB; the Node polyfills make a green build weak evidence against Node leakage) and asked for the module inventory, which answers "did anything new reach a page" better than a hash did. Its wider point, that re-sorting named imports can reorder transitive evaluation, is answered by an audit, not by the gate: only `node-guard`, `pinned-crs` and the Worker's shim patch globals at import, and every page entry and the Worker pin them as leading side-effect imports, which Biome never moves (`lessons/phase-1.md`) |
 | D9 | `verify()` classifies on bb's diagnostic against a closed list, not on exit status plus diagnostic as P0.1 words it | Exit status as the discriminator | bb 5.2.0 exits 1 for a refusal and for an unreadable input alike (observed, `lessons/phase-0.md` §2); an unlisted diagnostic is operational, so a new bb wording stops the run |
 | D11 | A test-only fix outside §2, as its own commit in arc 1: the assembled-site spec reaches the old origin from Node through `localhost` | Skip `site:e2e` on hosts without a `*.localhost` resolver rule; edit the host's resolver | Chromium resolves `*.localhost` itself, Node asks the host, and this one fails the lookup (`ENOTFOUND v5.localhost`), so the arc-end gate could not run; the same Worker answers on `localhost`, and the browser half of the spec still visits the named origin |
+| D12 | A test-only fix outside §2, as its own commit in arc 2: `bridge-snapshot`'s opacity check asserts on the field name and the whole figure, not on two digits | Carry a FAST gate that fails about one run in three; rerun until green | The stored JSON is a random IV and ciphertext in base64, in which `48` appears by chance (seen twice in four runs); the fix keeps the property under test (the plaintext is not at rest) and removes the coin toss |
 
 ### Audit findings: adopted
 

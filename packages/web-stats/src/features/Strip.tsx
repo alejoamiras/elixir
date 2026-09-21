@@ -3,8 +3,8 @@
 // over it; ‹ › page, a click or a drag on the map moves the window, ← → step, the URL keeps both.
 
 import type { EpochRow } from '@yacana/miner-core/reader';
-import { firstEpoch } from '@yacana/site/browser/connection';
 import { Badge, Button, cn } from '@yacana/ui';
+import { firstEpoch } from '@yacana/web-kit/browser/connection';
 import { useEffect } from 'react';
 import type { FillState } from '../history-fill';
 import { type EpochWindow, newerFrom, newestFrom, olderFrom } from '../window';

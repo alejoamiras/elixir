@@ -8,7 +8,7 @@ import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { PROOF_FIELDS } from '@yacana/miner-core/proof';
 import type { WorkArtifact, WorkInputs } from '@yacana/miner-core/work';
-import crsLock from '@yacana/site/crs.lock.json';
+import crsLock from '@yacana/web-kit/crs.lock.json';
 import { W_VK_BYTES } from '@yacana/work-circuit/generated/vk';
 import { acceleratorUrls, type PrestoEndpoint, type ProverKind } from '../src/presto.ts';
 import { PrestoWorkProver, type ProverTransition } from '../src/presto-prover.ts';
@@ -137,11 +137,11 @@ beforeAll(async () => {
   fake = fakePresto();
   // Another suite in this process may have armed the node guard over `fetch`: admit the fake as the
   // Worker admits Presto, or the SDK's requests die at the guard and every test reads as `network`.
-  const guard = await import('@yacana/site/browser/node-guard');
+  const guard = await import('@yacana/web-kit/browser/node-guard');
   guard.setAcceleratorEndpoints(acceleratorUrls(fake.endpoint), 60_000);
   // In its own process: by now `fetch` in this one may be the guard, or the miner's CRS interceptor
   // over it, and the download would be turned into a page request no one here can answer.
-  const script = resolve(pkg, '../site/scripts/fetch-crs.ts');
+  const script = resolve(pkg, '../web-kit/scripts/fetch-crs.ts');
   const fetched = Bun.spawnSync(['bun', script, resolve(pkg, 'public')], {
     stdio: ['ignore', 'pipe', 'pipe'],
   });

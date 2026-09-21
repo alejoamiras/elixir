@@ -1,5 +1,5 @@
-import type { ExampleClaim } from '@yacana/site/config';
 import { ExternalLink, KvRow, shortHash, Tile, TileHeader } from '@yacana/ui';
+import type { ExampleClaim } from '@yacana/web-kit/config';
 import { copy } from '../copy';
 import { links } from '../explorer';
 import { Section, SectionHeading, SectionLabel } from './Section';

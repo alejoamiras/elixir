@@ -1,0 +1,48 @@
+name: web-kit
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    uses: ./.github/workflows/_changes.yml
+    permissions:
+      contents: read
+      pull-requests: read
+    with:
+      filters: |
+        relevant:
+          - 'packages/web-kit/**'
+          - 'packages/bridge/**'
+          - 'packages/miner-core/**'
+          - 'packages/ui/**'
+          - 'packages/contracts/**'
+          - 'packages/portal/abi/**'
+          - '!packages/**/*.md'
+          - 'deployments/**'
+          - 'biome.json'
+          - 'bunfig.toml'
+          - 'tsconfig.json'
+          - 'package.json'
+          - 'bun.lock'
+          - '.github/workflows/web-kit.yml'
+          - '.github/actions/**'
+          - '.github/workflows/_changes.yml'
+
+  test:
+    name: Lint + config, headers and guard tests
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup-bun
+      - run: bun run lint
+      - run: bun run --cwd packages/web-kit typecheck
+      # The production guards of the env, the CSP/COOP/COEP policy, the fetch guard, the pinned CRS.
+      - run: bun test packages/web-kit

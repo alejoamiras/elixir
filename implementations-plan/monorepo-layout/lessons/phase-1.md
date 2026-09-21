@@ -293,3 +293,13 @@ dirties the build. The gate builds immediately before it compares; the test is i
 fixed and replayed, but no review has passed over those fixes. That is the scope smell the protocol names: two
 guards that parse shell, YAML, TypeScript and Vitest configs by hand have a long tail of forms, and each round
 found the next one. A fourth round is the owner's call, not mine.
+
+### The cockpit shard on a CI runner (2026-09-21, after the push)
+
+`e2e.yml` dispatched on the arc 1 head `8c8e4ba` (run 35626070297): **success**, every job — the shards `bridge`,
+`canary`, `chain`, `cockpit` and the whole suite, the stats and landing e2e, the rig's migration cases. The memory
+test that fails on this 192-thread host passes on the 4-core runner it was written for. With the baseline parity
+above, the cockpit gate for arc 1 stands on CI's run, not on a local pass. (The head was rebased afterwards onto
+arc 0's artifact-hash fix, `2a85076`; the code the run tested differs from `e378d33` by that one JSON field.)
+Arc 2's run of the same shard on this host passed (+30 MiB, `lessons/phase-2.md`): the failure is intermittent
+here, which the three arc 1 runs could not tell from a constant.

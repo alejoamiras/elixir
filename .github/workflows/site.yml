@@ -18,7 +18,7 @@ jobs:
         relevant:
           - 'packages/site/**'
           - 'packages/ui/**'
-          - 'packages/web-landing/**'
+          - 'packages/web-kit/**'
           - 'packages/web-miner/**'
           - 'packages/web-stats/**'
           - 'packages/bridge/**'

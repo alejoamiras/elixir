@@ -5,6 +5,7 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  exportPaths,
   isProduction,
   isRelative,
   ownerOf,
@@ -23,22 +24,17 @@ import {
 const PATH_EDGES: Record<string, string> = {
   // Vite bundles a config and hands every bare specifier to the ambient Node, which nothing pins to
   // a version that strips types: what a config loads at build time is reached by path.
-  'packages/web-landing/vite.config.ts → packages/site/src/vite-base.ts': 'config time',
-  'packages/web-miner/vite.config.ts → packages/site/src/vite-base.ts': 'config time',
-  'packages/web-stats/vite.config.ts → packages/site/src/vite-base.ts': 'config time',
-  'packages/site/src/vite-base.ts → packages/ui/src/mark.ts': 'config time',
+  'packages/web-landing/vite.config.ts → packages/web-kit/src/vite-base.ts': 'config time',
+  'packages/web-miner/vite.config.ts → packages/web-kit/src/vite-base.ts': 'config time',
+  'packages/web-stats/vite.config.ts → packages/web-kit/src/vite-base.ts': 'config time',
+  'packages/web-kit/src/vite-base.ts → packages/ui/src/mark.ts': 'config time',
   // `/// <reference path>` takes a path, and the ambient types have no package of their own yet.
-  'packages/web-landing/src/vite-env.d.ts → packages/site/src/browser/vite-env.d.ts': 'reference',
-  'packages/web-miner/src/vite-env.d.ts → packages/site/src/browser/vite-env.d.ts': 'reference',
-  'packages/web-stats/src/vite-env.d.ts → packages/site/src/browser/vite-env.d.ts': 'reference',
 };
 // Targets no workspace owns that a workspace may still reach by path.
 const UNOWNED = [
   /^yacana\.params\.json$/,
   /^toolchain\.lock\.json$/,
   /^deployments\//,
-  // Run isolation is not a workspace; its importers are tests, e2e setups and scripts.
-  /^scripts\/run\//,
   // Two files the SDK does not export, read by one test of the wallet's store.
   /^node_modules\/@aztec\//,
 ];
@@ -83,7 +79,84 @@ function undeclared(p: Found): string | undefined {
   return `${p.file}:${p.line} imports ${name}: not in ${production ? 'dependencies' : 'any block'} of ${where}`;
 }
 
+// Until the workspaces sit in their folders, the layer comes from this table; then the folder says it.
+// `apps` 3, `packages` 2, `protocol` 1; `tools` 0 may import anything and production code may not import it.
+const LAYER: Record<string, number> = {
+  '@yacana/web-miner': 3,
+  '@yacana/web-stats': 3,
+  '@yacana/web-landing': 3,
+  '@yacana/site': 3,
+  '@yacana/miner-core': 2,
+  '@yacana/bridge': 2,
+  '@yacana/ui': 2,
+  '@yacana/web-kit': 2,
+  '@yacana/work-circuit': 1,
+  '@yacana/contracts': 1,
+  '@yacana/portal': 1,
+  '@yacana/deploy': 0,
+  '@yacana/harness': 0,
+  '@yacana/localnet': 0,
+};
+// A Bun build program that lives in `src/`: nothing it imports reaches a page.
+const IMPORTS_SCRIPTS = new Set(['packages/site/src/assemble.ts']);
+const NOT_FOR_PRODUCTION = /(^|\/)(scripts|e2e|tests)\//;
+
+/** Why a production file may not import this, or undefined. */
+function misdirected(p: Found): string | undefined {
+  const from = ownerOf(p.file, all);
+  if (!from || !isProduction(p.file)) return undefined;
+  const [scope, pkg, ...rest] = p.text.replace(/[?#].*$/, '').split('/');
+  const to = all.find((w) => w.name === `${scope}/${pkg}`);
+  if (!to || to === from) return undefined;
+  const [own, target] = [LAYER[from.name], LAYER[to.name]];
+  if (own === undefined || target === undefined)
+    return `${p.file}:${p.line}: no layer for ${from.name} or ${to.name}`;
+  if (own === 0) return undefined;
+  if (target === 0) return `${p.file}:${p.line} imports ${to.name}, a tool, from production code`;
+  if (target > own) return `${p.file}:${p.line} imports ${to.name} (layer ${target}) from layer ${own}`;
+  const paths = exportPaths(to.manifest.exports?.[rest.length ? `./${rest.join('/')}` : '.']);
+  const path = paths.find((f) => NOT_FOR_PRODUCTION.test(f));
+  if (path && !IMPORTS_SCRIPTS.has(p.file))
+    return `${p.file}:${p.line} imports ${p.text}, which is ${to.name}'s ${path}: not production code`;
+  return undefined;
+}
+
+/** The first cycle in the `dependencies` graph, as the names around it, or undefined. */
+function productionCycle(): string[] | undefined {
+  const byName = new Map(all.map((w) => [w.name, w]));
+  const state = new Map<string, 'open' | 'done'>();
+  const walk = (name: string, trail: string[]): string[] | undefined => {
+    if (state.get(name) === 'done') return undefined;
+    if (state.get(name) === 'open') return [...trail.slice(trail.indexOf(name)), name];
+    state.set(name, 'open');
+    for (const dep of Object.keys(byName.get(name)?.manifest.dependencies ?? {})) {
+      if (!byName.has(dep)) continue;
+      const cycle = walk(dep, [...trail, name]);
+      if (cycle) return cycle;
+    }
+    state.set(name, 'done');
+    return undefined;
+  };
+  for (const w of all) {
+    const cycle = walk(w.name, []);
+    if (cycle) return cycle;
+  }
+  return undefined;
+}
+
 describe('workspace boundaries', () => {
+  test('every workspace has a layer', () => {
+    expect(all.map((w) => w.name).filter((n) => LAYER[n] === undefined)).toEqual([]);
+  });
+
+  test('production code imports its own layer or below, never a tool, never a scripts/, e2e/ or tests/ file', () => {
+    expect(packaged.map(misdirected).filter(Boolean)).toEqual([]);
+  });
+
+  test('the dependencies graph has no cycle', () => {
+    expect(productionCycle()).toBeUndefined();
+  });
+
   test('no path leaves its workspace', () => {
     const offenders = relative
       .filter((r) => {
@@ -125,6 +198,25 @@ describe('workspace boundaries', () => {
         : [`${p.file}:${p.line} imports ${p.text}: ${owner.name} does not export ${sub}`];
     });
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('export targets', () => {
+  test('every path under conditions, fallbacks and withheld branches', () => {
+    expect(exportPaths('./src/a.ts')).toEqual(['./src/a.ts']);
+    expect(exportPaths({ import: './scripts/x.ts', types: './src/x.d.ts' })).toEqual([
+      './scripts/x.ts',
+      './src/x.d.ts',
+    ]);
+    expect(exportPaths({ node: { import: './a.ts', require: ['./b.cjs', { default: './c.js' }] } })).toEqual([
+      './a.ts',
+      './b.cjs',
+      './c.js',
+    ]);
+    expect(exportPaths({ browser: null, default: './src/config.ts' })).toEqual(['./src/config.ts']);
+    expect(exportPaths([null, './src/config.ts'])).toEqual(['./src/config.ts']);
+    expect(exportPaths(null)).toEqual([]);
+    expect(exportPaths(undefined)).toEqual([]);
   });
 });
 

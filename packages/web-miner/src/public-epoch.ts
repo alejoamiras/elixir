@@ -4,9 +4,9 @@
 // the atom already holds a newer epoch, so a late public read can never overwrite fresher claims.
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { readEpochs, readOpenEpochNumber } from '@yacana/miner-core/reader';
-import { readTip } from '@yacana/site/browser/node';
-import { markRead, recordTip } from '@yacana/site/browser/node-health';
-import { chunkLoader } from '@yacana/site/browser/slots';
+import { readTip } from '@yacana/web-kit/browser/node';
+import { markRead, recordTip } from '@yacana/web-kit/browser/node-health';
+import { chunkLoader } from '@yacana/web-kit/browser/slots';
 import type { createStore } from 'jotai';
 import type { EpochInfo } from './lib/reducer';
 import { epochAtom } from './state';

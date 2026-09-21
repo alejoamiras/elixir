@@ -1,1 +1,1 @@
-/// <reference path="../../site/src/browser/vite-env.d.ts" />
+/// <reference types="@yacana/web-kit/vite-env" />

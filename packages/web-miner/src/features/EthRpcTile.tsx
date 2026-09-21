@@ -3,14 +3,14 @@
 // turns it into a field, Save checks the candidate (the portal's chain, the portal's code) and
 // takes it, a failure stays under the field with the old RPC kept.
 
-import { defaultEthRpcUrl } from '@yacana/site/browser/connection';
+import { Button, Input, StatusChip } from '@yacana/ui';
+import { defaultEthRpcUrl } from '@yacana/web-kit/browser/connection';
 import {
   ethChainName,
   ethRpcHealth,
   parseEthRpcUrl,
   subscribeEthRpcHealth,
-} from '@yacana/site/browser/eth-rpc';
-import { Button, Input, StatusChip } from '@yacana/ui';
+} from '@yacana/web-kit/browser/eth-rpc';
 import { useReducer, useSyncExternalStore } from 'react';
 import { bridgeRecord } from '../bridge/env';
 import { editReducer, saving } from '../lib/node-check';

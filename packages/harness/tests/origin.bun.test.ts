@@ -9,13 +9,13 @@ import { openSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { registerVersion } from '@yacana/deploy/bridge/register';
+import { lanePortBase, runPortWindowBase } from '@yacana/localnet/port-window';
+import { startPreview } from '@yacana/localnet/preview';
+import { claim, release } from '@yacana/localnet/registry';
+import { repoRoot } from '@yacana/localnet/toolchain';
+import { type RigNode, startUpgradeRig, type UpgradeRig } from '@yacana/localnet/upgrade-rig';
 import { e2eBuildEnv } from '@yacana/web-miner/e2e/build-env';
 import type { E2eRun } from '@yacana/web-miner/e2e/run';
-import { lanePortBase, runPortWindowBase } from '../../../scripts/run/port-window.ts';
-import { startPreview } from '../../../scripts/run/preview.ts';
-import { claim, release } from '../../../scripts/run/registry.ts';
-import { repoRoot } from '../../../scripts/run/toolchain.ts';
-import { type RigNode, startUpgradeRig, type UpgradeRig } from '../../../scripts/run/upgrade-rig.ts';
 import { deployBridge, deployMiner, type MinerOnRig } from '../src/yacana.ts';
 
 /** A child awaited without blocking this process: the rig's node logs through it and the control server answers from it. */

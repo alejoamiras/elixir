@@ -20,17 +20,17 @@ import { retireOnL1, retireOnL2 } from '@yacana/deploy/bridge/retire';
 import { versionStatus } from '@yacana/deploy/bridge/status';
 import { noteAllTransitions } from '@yacana/deploy/bridge/transition';
 import { continuationOf, type Deployment } from '@yacana/deploy/deploy';
-import { readOpenEpoch } from '@yacana/miner-core/epoch';
-import type { WorkProver } from '@yacana/miner-core/work';
-import { type Hex, parseEventLogs } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { repoRoot } from '../../../scripts/run/toolchain.ts';
+import { repoRoot } from '@yacana/localnet/toolchain';
 import {
   type RigNode,
   type RigVersion,
   startUpgradeRig,
   type UpgradeRig,
-} from '../../../scripts/run/upgrade-rig.ts';
+} from '@yacana/localnet/upgrade-rig';
+import { readOpenEpoch } from '@yacana/miner-core/epoch';
+import type { WorkProver } from '@yacana/miner-core/work';
+import { type Hex, parseEventLogs } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { errorName, revertName } from '../src/revert.ts';
 import { balanceOf, claimFromL1, mineOnce, openUser, sendAhead, type User, workProver } from '../src/user.ts';
 import { asForwarder, asStranger, deployBridge, deployMiner, type MinerOnRig } from '../src/yacana.ts';

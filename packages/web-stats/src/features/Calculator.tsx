@@ -1,7 +1,7 @@
 import { PARAMS } from '@yacana/miner-core/generated/params';
 import { calculator } from '@yacana/miner-core/metrics';
-import { amount, duration } from '@yacana/site/browser/format';
 import { Input, KvRow, Label, Sheet, SheetContent, SheetDescription, SheetTitle } from '@yacana/ui';
+import { amount, duration } from '@yacana/web-kit/browser/format';
 import { useState } from 'react';
 
 const RULES = {

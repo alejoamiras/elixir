@@ -1,5 +1,5 @@
-import { ownVersionName } from '@yacana/site/browser/version-name';
 import { Badge, Brand, Button } from '@yacana/ui';
+import { ownVersionName } from '@yacana/web-kit/browser/version-name';
 import { copy } from '../copy';
 import { appHref } from '../state';
 

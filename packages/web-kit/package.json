@@ -1,0 +1,54 @@
+{
+  "name": "@yacana/web-kit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "What the apps share below the components: the env source of truth, the Vite base, the rendered headers, the page-side node and guard, the pinned CRS, the prebuild scripts",
+  "type": "module",
+  "exports": {
+    "./browser/connection": "./src/browser/connection.ts",
+    "./browser/eth-rpc": "./src/browser/eth-rpc.ts",
+    "./browser/explorer": "./src/browser/explorer.ts",
+    "./browser/format": "./src/browser/format.ts",
+    "./browser/host": "./src/browser/host.ts",
+    "./browser/l1-explorer": "./src/browser/l1-explorer.ts",
+    "./browser/node": "./src/browser/node.ts",
+    "./browser/node-guard": "./src/browser/node-guard.ts",
+    "./browser/node-health": "./src/browser/node-health.ts",
+    "./browser/slots": "./src/browser/slots.ts",
+    "./browser/version-name": "./src/browser/version-name.ts",
+    "./config": "./src/config.ts",
+    "./crs.lock.json": "./crs.lock.json",
+    "./headers": "./src/headers.ts",
+    "./pinned-crs": "./src/pinned-crs.ts",
+    "./scripts/copy-artifacts": "./scripts/copy-artifacts.ts",
+    "./scripts/copy-slots": "./scripts/copy-slots.ts",
+    "./scripts/fetch-crs": "./scripts/fetch-crs.ts",
+    "./vite-base": "./src/vite-base.ts",
+    "./vite-env": {
+      "types": "./src/browser/vite-env.d.ts"
+    }
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@aztec/aztec.js": "5.2.0",
+    "@aztec/foundation": "5.2.0",
+    "@yacana/bridge": "workspace:*",
+    "@yacana/miner-core": "workspace:*",
+    "@yacana/ui": "workspace:*",
+    "idb-keyval": "^6",
+    "viem": "npm:@aztec/viem@2.38.2"
+  },
+  "devDependencies": {
+    "@aztec-foundation/aztec-standards": "5.2.0",
+    "@aztec/bb.js": "5.2.0",
+    "@tailwindcss/vite": "^4",
+    "@vitejs/plugin-react": "^6",
+    "@yacana/contracts": "workspace:*",
+    "typescript": "~6",
+    "vite": "^8",
+    "vite-plugin-node-polyfills": "^0.28.0"
+  }
+}

@@ -40,7 +40,7 @@ describe('a page of history on the wire', () => {
     });
     const url = `http://127.0.0.1:${server.port}`;
     // Another suite in this process may have installed the fetch guard, which has no uninstall.
-    const release = (await import('@yacana/site/browser/node-guard')).allowCandidate(url, 60_000);
+    const release = (await import('@yacana/web-kit/browser/node-guard')).allowCandidate(url, 60_000);
     try {
       const node = createAztecNodeClient(url);
       const table: SlotTable = {

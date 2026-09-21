@@ -37,7 +37,7 @@ describe.skipIf(!url)('PrestoWorkProver against a headless Presto', () => {
       httpsOnly: false,
     };
     // As the Worker does: this realm's guard, if armed by another suite, admits Presto's URLs.
-    (await import('@yacana/site/browser/node-guard')).setAcceleratorEndpoints(
+    (await import('@yacana/web-kit/browser/node-guard')).setAcceleratorEndpoints(
       acceleratorUrls(endpoint),
       60_000,
     );

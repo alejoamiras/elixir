@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { NodeProbe } from '@yacana/site/browser/node';
+import type { NodeProbe } from '@yacana/web-kit/browser/node';
 import {
   markDeployment,
   markRead,
@@ -9,7 +9,7 @@ import {
   resetNodeHealth,
   setHealthForTests,
   setTransportForTests,
-} from '@yacana/site/browser/node-health';
+} from '@yacana/web-kit/browser/node-health';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { SwitchFailed } from '../boot';
 import type { Session } from '../session';

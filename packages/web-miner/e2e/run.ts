@@ -15,7 +15,7 @@ export interface E2eRun {
   proxyB: string;
   proxyPid: number;
   vitePid: number;
-  /** The run's headless Presto (`scripts/run/presto.ts`), or null when this machine has none installed. */
+  /** The run's headless Presto (`tools/localnet/src/presto.ts`), or null when this machine has none installed. */
   prestoUrl: string | null;
   prestoPid: number | null;
   prestoHome: string | null;

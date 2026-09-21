@@ -90,8 +90,9 @@ const EXPECTED = [
   'web-stats',
 ];
 const moved = maps.map((m) => m.split('=') as [string, string]);
+// `old=new` names a folder (its files follow) or one file.
 const remap = (id: string): string =>
-  moved.reduce((s, [o, n]) => (s.startsWith(`${o}/`) ? n + s.slice(o.length) : s), id);
+  moved.reduce((s, [o, n]) => (s === o || s.startsWith(`${o}/`) ? n + s.slice(o.length) : s), id);
 const ids = (dir: string, file: string, map: boolean): Set<string> =>
   new Set(
     readFileSync(join(dir, file), 'utf8')

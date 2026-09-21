@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { hostKind, keysAllowed, previewNotice, relyingParty } from '@yacana/site/browser/host';
+import { hostKind, keysAllowed, previewNotice, relyingParty } from '@yacana/web-kit/browser/host';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { queryOverridesAllowed } from './config';
 import { isDesktop } from './desktop';

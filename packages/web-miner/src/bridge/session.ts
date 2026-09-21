@@ -51,7 +51,7 @@ import {
   readArchive,
   verifiedArchiveEntry,
 } from '@yacana/bridge/witness';
-import { nodeHealth } from '@yacana/site/browser/node-health';
+import { nodeHealth } from '@yacana/web-kit/browser/node-health';
 import type { createStore } from 'jotai';
 import {
   createPublicClient,

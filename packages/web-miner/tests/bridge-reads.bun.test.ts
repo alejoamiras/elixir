@@ -4,7 +4,7 @@
 // env, and none of that is what these cases are about.
 import { describe, expect, test } from 'bun:test';
 import type { Crossing } from '@yacana/bridge/journal';
-import { markDeployment } from '@yacana/site/browser/node-health';
+import { markDeployment } from '@yacana/web-kit/browser/node-health';
 import type { FactReads } from '../src/bridge/facts.ts';
 import { BridgeSession } from '../src/bridge/session.ts';
 

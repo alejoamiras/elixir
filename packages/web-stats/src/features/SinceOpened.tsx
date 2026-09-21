@@ -1,6 +1,6 @@
 import { PARAMS } from '@yacana/miner-core/generated/params';
-import { amount, duration } from '@yacana/site/browser/format';
 import { Kpi } from '@yacana/ui';
+import { amount, duration } from '@yacana/web-kit/browser/format';
 import { useAtomValue } from 'jotai';
 import { sinceOpenedAtom } from '../state';
 import { SK_SUB, Sk } from './Sk';

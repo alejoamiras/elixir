@@ -11,12 +11,12 @@ import type { Operator } from '@yacana/deploy/bridge/operator';
 import { closeDeposits } from '@yacana/deploy/bridge/pause';
 import { registerVersion } from '@yacana/deploy/bridge/register';
 import { versionStatus } from '@yacana/deploy/bridge/status';
+import { repoRoot } from '@yacana/localnet/toolchain';
+import { type RigNode, startUpgradeRig, type UpgradeRig } from '@yacana/localnet/upgrade-rig';
 import type { WorkProver } from '@yacana/miner-core/work';
 import { createWalletClient, getContract, http, parseEventLogs } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
-import { repoRoot } from '../../../scripts/run/toolchain.ts';
-import { type RigNode, startUpgradeRig, type UpgradeRig } from '../../../scripts/run/upgrade-rig.ts';
 import { errorName, revertName } from '../src/revert.ts';
 import {
   balanceOf,

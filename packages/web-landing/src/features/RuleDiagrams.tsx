@@ -4,7 +4,7 @@
 // HTML. Every colour is a token, so the pictures follow the theme.
 import { policyFor } from '@yacana/bridge/policy';
 import { PARAMS } from '@yacana/miner-core/generated/params';
-import { amount } from '@yacana/site/browser/format';
+import { amount } from '@yacana/web-kit/browser/format';
 
 export type DiagramId =
   | 'exit-limit'

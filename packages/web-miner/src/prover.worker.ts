@@ -1,11 +1,11 @@
 /// <reference lib="webworker" />
 import './shims/node-globals';
-import '@yacana/site/browser/node-guard';
-import './pinned-crs';
+import '@yacana/web-kit/browser/node-guard';
+import '@yacana/web-kit/pinned-crs';
 import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { BbJsWorkProver, type WorkArtifact, type WorkProver } from '@yacana/miner-core/work';
-import { setAcceleratorEndpoints } from '@yacana/site/browser/node-guard';
-import { purgeCrsCache } from './pinned-crs';
+import { setAcceleratorEndpoints } from '@yacana/web-kit/browser/node-guard';
+import { purgeCrsCache } from '@yacana/web-kit/pinned-crs';
 import { ACCELERATOR_DEADLINE_MS, acceleratorUrls, downloadPhases } from './presto';
 import { PrestoWorkProver } from './presto-prover';
 import { createProverLoop, type ProverBackend } from './prover-loop';

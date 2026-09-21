@@ -1,4 +1,4 @@
-// The miner against the run's headless Presto (scripts/run/presto.ts): native proving shown and
+// The miner against the run's headless Presto (tools/localnet/src/presto.ts): native proving shown and
 // proven, a claim whose winner came from Presto, the billboard when nothing answers — with the
 // 1280/1440 renders of each state. The old Presto's update row is the replay lane's.
 

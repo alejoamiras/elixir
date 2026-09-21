@@ -1,5 +1,5 @@
 # The upgrade rig on a runner: a rollup upgrade of the isolated local network, driven by
-# scripts/run/upgrade-rig.ts, as the PR gate for the rig's own inputs. Pull requests run the flip
+# tools/localnet/src/upgrade-rig.ts, as the PR gate for the rig's own inputs. Pull requests run the flip
 # alone (no Yacana involved); a manual dispatch names the cases to run, or runs them all.
 name: harness
 
@@ -25,7 +25,7 @@ jobs:
     with:
       filters: |
         relevant:
-          - 'scripts/run/**'
+          - 'tools/localnet/**'
           - 'packages/harness/**'
           - 'packages/bridge/**'
           - 'packages/miner-core/**'
@@ -52,7 +52,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-aztec
-      - run: bun test scripts/run/toolchain.test.ts
+      - run: bun test tools/localnet/src/toolchain.test.ts
         env:
           YACANA_REQUIRE_TOOLCHAIN: '1'
       # The flip needs no Yacana; the other cases mine, deploy and forward, so a dispatch builds

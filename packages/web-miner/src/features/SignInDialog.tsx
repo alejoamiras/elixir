@@ -1,5 +1,5 @@
-import { keysAllowed } from '@yacana/site/browser/host';
 import { Dialog, DialogContent, DialogTitle } from '@yacana/ui';
+import { keysAllowed } from '@yacana/web-kit/browser/host';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useEffect, useState } from 'react';
 import type { MasterRecord } from '../keys/store';

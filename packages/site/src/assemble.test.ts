@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
+import type { SiteConfig } from '@yacana/web-kit/config';
 import {
   type AssemblySteps,
   assemble,
@@ -13,7 +14,6 @@ import {
   REDIRECTS,
   witnessFiles,
 } from './assemble.ts';
-import type { SiteConfig } from './config.ts';
 
 /** Every app's build writes one script where Vite would; the asset copies do nothing. */
 const stubbed = (script: string): AssemblySteps => ({

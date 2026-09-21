@@ -7,16 +7,17 @@ import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { PARAMS } from '@yacana/miner-core/generated/params';
 import { deriveAccountFields } from '@yacana/miner-core/keys/derive';
 import { type ExpectedDeployment, expectedFromStrings } from '@yacana/miner-core/reader';
-import { probeNode, readTip, type SwitchableNode, switchableNode } from '@yacana/site/browser/node';
-import { endpointFingerprint, setNodeEndpoint } from '@yacana/site/browser/node-guard';
+import { clampThreads, type PreflightRow } from '@yacana/ui';
+import { probeNode, readTip, type SwitchableNode, switchableNode } from '@yacana/web-kit/browser/node';
+import { endpointFingerprint, setNodeEndpoint } from '@yacana/web-kit/browser/node-guard';
 import {
   markDeployment,
   markRead,
   recordTip,
   resetNodeHealth,
   startNodeHealth,
-} from '@yacana/site/browser/node-health';
-import { clampThreads, type PreflightRow } from '@yacana/ui';
+} from '@yacana/web-kit/browser/node-health';
+import { crsReady } from '@yacana/web-kit/pinned-crs';
 import type { createStore } from 'jotai';
 import { attachDeployment, loadArtifact, type Node, readEpochRules } from './chain';
 import type { Connection } from './config';
@@ -26,7 +27,6 @@ import { preparePasskeys } from './keys/passkey';
 import { readSlot } from './keys/slot';
 import { assertNoLegacyWalletDb, currentAddress, type MasterRecord } from './keys/store';
 import { bytesDetail, initialSteps, type OpeningStep } from './opening-steps';
-import { crsReady } from './pinned-crs';
 import { type PrestoEndpoint, prestoAtom, prestoEligible, prestoEndpoint } from './presto';
 import { type PublicEpochPoll, publicEpochReader, startPublicEpoch } from './public-epoch';
 import { loadSettings } from './settings';

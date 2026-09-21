@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import type { EpochRow } from '@yacana/miner-core/reader';
-import type { ExampleClaim } from '@yacana/site/config';
+import type { ExampleClaim } from '@yacana/web-kit/config';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { App } from './App';
 import { copy, SECTIONS } from './copy';

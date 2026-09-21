@@ -1,1 +1,1 @@
-export * from '@yacana/site/browser/format';
+export * from '@yacana/web-kit/browser/format';

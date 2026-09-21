@@ -1,8 +1,8 @@
 // Bun-side E2E teardown: kills exactly the process groups this run spawned (Vite, the proxies; Presto
 // with SIGTERM first so it ends its own bb child), releases its ports.
 import { rmSync } from 'node:fs';
-import { stopPrestoServer } from '../../../scripts/run/presto.ts';
-import { release } from '../../../scripts/run/registry.ts';
+import { stopPrestoServer } from '@yacana/localnet/presto';
+import { release } from '@yacana/localnet/registry';
 import { type E2eRun, RUN_FILE } from './run.ts';
 
 const file = Bun.file(RUN_FILE);

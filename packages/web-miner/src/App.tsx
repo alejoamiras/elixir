@@ -1,9 +1,4 @@
 import { proofsPerMinute } from '@yacana/miner-core/metrics';
-import { defaultNodeUrl, restoreDefaultNode } from '@yacana/site/browser/connection';
-import { shortAddress } from '@yacana/site/browser/format';
-import { previewNotice } from '@yacana/site/browser/host';
-import { bannerState, nodeHealth, subscribeNodeHealth } from '@yacana/site/browser/node-health';
-import { ownVersionName } from '@yacana/site/browser/version-name';
 import {
   AccountChip,
   Alert,
@@ -18,6 +13,11 @@ import {
   statusLabel,
   Toaster,
 } from '@yacana/ui';
+import { defaultNodeUrl, restoreDefaultNode } from '@yacana/web-kit/browser/connection';
+import { shortAddress } from '@yacana/web-kit/browser/format';
+import { previewNotice } from '@yacana/web-kit/browser/host';
+import { bannerState, nodeHealth, subscribeNodeHealth } from '@yacana/web-kit/browser/node-health';
+import { ownVersionName } from '@yacana/web-kit/browser/version-name';
 import { useAtomValue } from 'jotai';
 import { type ReactNode, useCallback, useEffect, useSyncExternalStore } from 'react';
 import { isOldRole, lifecycleRecord } from './bridge/env';

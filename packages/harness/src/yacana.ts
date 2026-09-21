@@ -15,11 +15,11 @@ import {
   deployYacana,
 } from '@yacana/deploy/deploy';
 import { deployL1 } from '@yacana/deploy/scripts/l1-deploy';
+import { repoRoot } from '@yacana/localnet/toolchain';
+import type { RigNode, UpgradeRig } from '@yacana/localnet/upgrade-rig';
 import { createWalletClient, getContract, type Hex, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
-import { repoRoot } from '../../../scripts/run/toolchain.ts';
-import type { RigNode, UpgradeRig } from '../../../scripts/run/upgrade-rig.ts';
 
 /** Anvil account 2: the listed forwarder, distinct from the operators (account 1) and the publisher (0). */
 export const FORWARDER_KEY: Hex = '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a';

@@ -1,4 +1,4 @@
-import type { NodeHealth } from '@yacana/site/browser/node-health';
+import type { NodeHealth } from '@yacana/web-kit/browser/node-health';
 import { describe, expect, test } from 'vitest';
 import { type EditState, editReducer, probeFailure, rebuildFailure, rowWords } from './node-check.ts';
 

@@ -4,9 +4,15 @@
   "private": true,
   "description": "Aztec contracts: yacana_miner plus the aztec-standards token as a git dependency",
   "type": "module",
+  "exports": {
+    "./scripts/commit-artifacts": "./scripts/commit-artifacts.ts"
+  },
   "scripts": {
     "compile": "aztec compile --workspace",
     "pretest": "bun scripts/token-artifact.ts",
     "test": "aztec test && aztec-nargo test --package yacana_bridge_hashes"
+  },
+  "devDependencies": {
+    "@aztec-foundation/aztec-standards": "5.2.0"
   }
 }

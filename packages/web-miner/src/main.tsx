@@ -1,5 +1,5 @@
-import '@yacana/site/browser/node-guard';
-import { startCrs } from './pinned-crs';
+import '@yacana/web-kit/browser/node-guard';
+import { startCrs } from '@yacana/web-kit/pinned-crs';
 import './index.css';
 import { ThemeProvider } from '@yacana/ui';
 import { createStore, Provider } from 'jotai';

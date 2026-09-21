@@ -1,7 +1,7 @@
 // The page's chain state over time: the boot read, then a poll a minute. A failed poll keeps the
 // last numbers and marks them unreachable; a failed boot is the error state.
-import type { Connection } from '@yacana/site/browser/connection';
-import { markRead, nodeHealth, startNodeHealth, waitTurn } from '@yacana/site/browser/node-health';
+import type { Connection } from '@yacana/web-kit/browser/connection';
+import { markRead, nodeHealth, startNodeHealth, waitTurn } from '@yacana/web-kit/browser/node-health';
 import {
   type Launch,
   type Live,

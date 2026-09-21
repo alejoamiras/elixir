@@ -1,5 +1,5 @@
 name: Setup headless Presto
-description: Install the pinned presto-server release (scripts/run/install-presto-server.sh, digest committed) and put it on PATH
+description: Install the pinned presto-server release (tools/localnet/bin/install-presto-server.sh, digest committed) and put it on PATH
 
 runs:
   using: composite
@@ -9,5 +9,5 @@ runs:
       # Downloaded and verified against the committed SHA-256 on every run: no cache, so nothing is
       # ever trusted on the strength of a binary's own version string.
       run: |
-        bash scripts/run/install-presto-server.sh "$HOME/.local/bin"
+        bash tools/localnet/bin/install-presto-server.sh "$HOME/.local/bin"
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"

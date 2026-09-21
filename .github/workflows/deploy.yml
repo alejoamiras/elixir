@@ -21,7 +21,7 @@ jobs:
           - 'packages/miner-core/**'
           - 'packages/bridge/**'
           - 'packages/portal/**'
-          - 'scripts/run/**'
+          - 'tools/localnet/**'
           - 'biome.json'
           - 'bunfig.toml'
           - 'tsconfig.json'

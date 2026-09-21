@@ -1,13 +1,13 @@
+import { Alert, AlertDescription, NodeBanner, TileBoundary } from '@yacana/ui';
 import {
   defaultNodeUrl,
   loadConnection,
   NODE_SETTINGS_HREF,
   restoreDefaultNode,
-} from '@yacana/site/browser/connection';
-import { previewNotice } from '@yacana/site/browser/host';
-import { bannerState, nodeHealth, subscribeNodeHealth } from '@yacana/site/browser/node-health';
-import { ownVersionName } from '@yacana/site/browser/version-name';
-import { Alert, AlertDescription, NodeBanner, TileBoundary } from '@yacana/ui';
+} from '@yacana/web-kit/browser/connection';
+import { previewNotice } from '@yacana/web-kit/browser/host';
+import { bannerState, nodeHealth, subscribeNodeHealth } from '@yacana/web-kit/browser/node-health';
+import { ownVersionName } from '@yacana/web-kit/browser/version-name';
 import { useSyncExternalStore } from 'react';
 import { copy } from './copy';
 import { useNow } from './hooks';

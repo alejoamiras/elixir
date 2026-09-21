@@ -7,8 +7,8 @@ import {
   scheduledClaimsPerHour,
 } from '@yacana/miner-core/metrics';
 import type { EpochRow } from '@yacana/miner-core/reader';
-import { amount, clockMinutes } from '@yacana/site/browser/format';
 import { Button, difficultyLabel, Kpi, Tile, TileBoundary } from '@yacana/ui';
+import { amount, clockMinutes } from '@yacana/web-kit/browser/format';
 import { useState } from 'react';
 import type { Fixed } from '../state';
 import { Calculator } from './Calculator';

@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, relative } from 'node:path';
-import { PROVERLESS_MARKER, type SiteConfig } from './config.ts';
-import { renderHeaders } from './headers.ts';
+import { PROVERLESS_MARKER, type SiteConfig } from '@yacana/web-kit/config';
+import { renderHeaders } from '@yacana/web-kit/headers';
 
 export class ArtifactError extends Error {}
 

@@ -2,7 +2,7 @@
 // whether the bridge exists. Kept free of the wallet stack so a tile can ask without loading it.
 
 import type { BridgeRecord, LifecycleRecord, MigrationRecord } from '@yacana/bridge/record';
-import { ownVersionName } from '@yacana/site/browser/version-name';
+import { ownVersionName } from '@yacana/web-kit/browser/version-name';
 
 /** The build's portal, or null before the L1 deploy: no bridge features then. */
 export const bridgeRecord = (): BridgeRecord | null =>

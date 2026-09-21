@@ -1,7 +1,5 @@
 // Settings. The node is changed here signed out too, so the page stays free of the sign-in dialog.
 
-import { relyingParty } from '@yacana/site/browser/host';
-import { ownVersionName } from '@yacana/site/browser/version-name';
 import {
   Button,
   ExternalLink,
@@ -16,6 +14,8 @@ import {
   TileHeader,
   useTheme,
 } from '@yacana/ui';
+import { relyingParty } from '@yacana/web-kit/browser/host';
+import { ownVersionName } from '@yacana/web-kit/browser/version-name';
 import { useAtomValue, useSetAtom } from 'jotai';
 import type * as React from 'react';
 import { useEffect, useState } from 'react';

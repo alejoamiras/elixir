@@ -6,8 +6,8 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { OutboxContract, RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
+import { type RigVersion, startUpgradeRig, type UpgradeRig } from '@yacana/localnet/upgrade-rig';
 import { foundry } from 'viem/chains';
-import { type RigVersion, startUpgradeRig, type UpgradeRig } from '../../../scripts/run/upgrade-rig.ts';
 import { sponsoredTransaction } from '../src/sponsored.ts';
 
 const enabled = process.env.YACANA_RIG === '1';

@@ -4,8 +4,8 @@
 
 import type { Crossing } from '@yacana/bridge/journal';
 import { PARAMS } from '@yacana/miner-core/generated/params';
-import { ownVersionName } from '@yacana/site/browser/version-name';
 import { Alert, AlertDescription, AmountField, Stepper, Textarea } from '@yacana/ui';
+import { ownVersionName } from '@yacana/web-kit/browser/version-name';
 import { useAtomValue } from 'jotai';
 import { type ComponentProps, useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
