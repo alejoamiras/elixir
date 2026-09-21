@@ -53,6 +53,8 @@ describe("the claim's band reaches both charts", () => {
     expect(tile?.barCaption).toMatch(/^the bar · reach it and you win · about 1 in \d+ do$/);
     expect(pip?.spans).toBe(spans);
     expect(pip?.height).toBe(48);
+    // The pop-out is a second React root: its Tip carries its own provider.
+    expect(document.querySelectorAll('[data-slot=tip-trigger]').length).toBeGreaterThan(0);
   });
 
   test('the odds are said only when they are odds', () => {

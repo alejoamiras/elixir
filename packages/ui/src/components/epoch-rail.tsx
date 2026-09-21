@@ -2,6 +2,7 @@ import type * as React from 'react';
 import { cn } from '../lib/cn.ts';
 import { Button } from './button.tsx';
 import { KvRow, TileHeader } from './tile.tsx';
+import { Tip } from './tooltip.tsx';
 
 export interface EpochRailProps {
   epoch: number;
@@ -11,6 +12,8 @@ export interface EpochRailProps {
   mine?: readonly number[];
   /** The header's right side, e.g. "opened 03:31:12". */
   aside?: React.ReactNode;
+  /** What an epoch is, on the header word. */
+  epochTip?: React.ReactNode;
   rows: readonly { label: React.ReactNode; value: React.ReactNode }[];
   /** Seconds until the escape hatch opens; ≤ 0 shows "Close the epoch". */
   hatchSeconds: number;
@@ -25,6 +28,7 @@ export function EpochRail({
   n,
   mine = [],
   aside,
+  epochTip,
   rows,
   hatchSeconds,
   onClose,
@@ -34,7 +38,7 @@ export function EpochRail({
   return (
     <div data-slot="epoch-rail" className={cn('flex flex-col gap-3', className)}>
       <TileHeader className="mb-0" aside={aside}>
-        epoch {epoch}
+        {epochTip ? <Tip tip={epochTip}>epoch {epoch}</Tip> : <>epoch {epoch}</>}
       </TileHeader>
       <div className="flex gap-1" role="img" aria-label={`${claims} of ${n} wins`}>
         {Array.from({ length: n }, (_, i) => (

@@ -1,4 +1,4 @@
-import { TileBoundary } from '@yacana/ui';
+import { cn, TileBoundary } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import { isOldRole } from '../bridge/env';
@@ -42,9 +42,19 @@ function GuidedPath({ session }: { session: Session }) {
   );
 }
 
+/** The right column is one flex column at `xl` so that, however tall it grows, the left column's rows stay packed. */
+const RIGHT = 'contents xl:flex xl:flex-col xl:gap-[14px] xl:col-start-4 xl:row-span-3';
+/** The last left row takes the slack; a card above the cockpit (a notice, the upgrade card) adds a row before it. */
+const ROWS = [
+  'xl:grid-rows-[auto_auto_1fr]',
+  'xl:grid-rows-[auto_auto_auto_1fr]',
+  'xl:grid-rows-[auto_auto_auto_auto_1fr]',
+];
+
 /**
- * The ledger and the balance tile share a wrapper so that between `md` and `xl` they stack beside the
- * rail; at `xl` it dissolves (`contents`) and the grid places them itself.
+ * The balance tops the right column, the epoch tile under it. Between `md` and `xl` the column
+ * dissolves: the rail stands beside the balance and the ledger stacked; on a phone the balance is
+ * second, right under the loop.
  */
 export function Mine({
   controller,
@@ -63,9 +73,13 @@ export function Mine({
   const presto = usePresto(session);
   // The versioned origin is one page: nothing is mined there, so no cockpit.
   if (isOldRole()) return <OldApp session={session} />;
+  const above = (notice ? 1 : 0) + (session && ready ? 1 : 0);
   return (
     <div
-      className="grid items-start gap-[14px] md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_300px]"
+      className={cn(
+        'grid items-start gap-[14px] md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_300px]',
+        ROWS[above],
+      )}
       data-signed-out={ready ? undefined : ''}
       data-testid="cockpit"
     >
@@ -82,24 +96,20 @@ export function Mine({
           className="md:col-span-2 xl:col-span-3"
         />
       </TileBoundary>
-      <TileBoundary name="rail" onError={onError} className="md:order-3 xl:order-none xl:row-span-2">
-        <RailTile
-          controller={controller}
-          presto={presto}
-          className="md:order-3 xl:order-none xl:row-span-2"
-        />
-      </TileBoundary>
+      <div className={RIGHT} data-testid="right-column">
+        <TileBoundary name="balance" onError={onError} className="md:order-3">
+          <BalanceCard className="md:order-3" />
+        </TileBoundary>
+        <TileBoundary name="rail" onError={onError} className="md:order-4 md:row-span-2">
+          <RailTile controller={controller} presto={presto} className="md:order-4 md:row-span-2" />
+        </TileBoundary>
+      </div>
       <TileBoundary name="kpis" onError={onError} className="md:col-span-2 xl:col-span-3">
         <KpiTiles className="md:col-span-2 xl:col-span-3" />
       </TileBoundary>
-      <div className="contents md:order-4 md:flex md:flex-col md:gap-[14px] xl:contents">
-        <TileBoundary name="ledger" onError={onError} className="xl:col-span-3">
-          <LedgerTile controller={controller} className="xl:col-span-3" />
-        </TileBoundary>
-        <TileBoundary name="balance" onError={onError}>
-          <BalanceCard />
-        </TileBoundary>
-      </div>
+      <TileBoundary name="ledger" onError={onError} className="md:order-5 xl:col-span-3">
+        <LedgerTile controller={controller} className="md:order-5 xl:col-span-3" />
+      </TileBoundary>
     </div>
   );
 }

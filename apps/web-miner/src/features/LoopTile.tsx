@@ -6,10 +6,14 @@ import {
   cn,
   Kpi,
   Mark,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   ScoreLoop,
   StatusPill,
   Tile,
   TileHeader,
+  Tip,
   useTweenedNumber,
 } from '@yacana/ui';
 import { Provider, useAtomValue, useSetAtom, useStore } from 'jotai';
@@ -76,8 +80,8 @@ export function PipView({ controller, onStart, win }: Controls & { win: Window }
         </span>
         {epoch && (
           <span>
-            epoch {epoch.epoch.toString()} · <span className="text-ink">{epoch.claims}</span> of {PARAMS.N} ·
-            bar {bar === null ? '—' : bar.toFixed(1)}
+            epoch {epoch.epoch.toString()} · <span className="text-ink">{epoch.claims}</span> of {PARAMS.N} ·{' '}
+            <Tip tip="The score a proof must reach to win.">bar</Tip> {bar === null ? '—' : bar.toFixed(1)}
           </span>
         )}
         <span className="text-ok">
@@ -179,6 +183,35 @@ function StartControl({
   );
 }
 
+/** The three sentences a first visitor needs about the chart, behind a ?; the odds are today's bar. */
+function LoopHelp({ bar }: { bar: number | null }) {
+  const odds = bar === null ? null : Math.round(bar);
+  return (
+    <Popover>
+      <PopoverTrigger
+        aria-label="How to read this"
+        data-testid="loop-help"
+        className="inline-flex size-[18px] items-center justify-center rounded-full border border-line-2 font-mono text-[11px] font-medium normal-case tracking-normal text-ink-3 outline-none hover:border-ink-4 hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:text-ink"
+      >
+        ?
+      </PopoverTrigger>
+      <PopoverContent className="normal-case tracking-normal" data-testid="loop-help-content">
+        <b className="font-semibold text-ink">How to read this</b>
+        <span>
+          Each tick is one proof. Its height is its <b className="font-medium text-ink">score</b>: pure luck,
+          a score of S comes up about once in S proofs.
+        </span>
+        <span>
+          A proof that reaches <b className="font-medium text-uv-2">the bar</b> wins{' '}
+          {amount(PARAMS.REWARD, PARAMS.DECIMALS)} {PARAMS.TOKEN_SYMBOL}.
+          {odds !== null && odds >= 2 ? ` Today about 1 proof in ${odds} does, so most ticks stay low.` : ''}{' '}
+          More proofs per minute means more draws, not taller ones.
+        </span>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 /** The header's left: the pill when paused; "live · since 16:05" then "live · last 3 min" while mining; else "your proofs". */
 function HeaderText({
   status,
@@ -267,6 +300,7 @@ export function LoopTile({ controller, onStart, className }: Controls & { classN
       >
         <span className="flex items-center gap-3">
           <HeaderText status={status} miner={miner} now={now} />
+          <LoopHelp bar={bar} />
           <HeaderClaim miner={miner} now={now} />
         </span>
       </TileHeader>

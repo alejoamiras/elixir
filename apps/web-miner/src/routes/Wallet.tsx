@@ -14,13 +14,14 @@ import { ClaimDialog } from '../features/dialogs/Claim';
 import { FromEthereumDialog } from '../features/dialogs/FromEthereum';
 import { SendDialog } from '../features/dialogs/Send';
 import { ToEthereumDialog } from '../features/dialogs/ToEthereum';
+import { WinsList as WinsRows } from '../features/dialogs/Wins';
 import { SignOutDialog } from '../features/SignOutDialog';
 import type { MasterRecord } from '../keys/store';
 import { amount, shortAddress } from '../lib/format';
 import { useTileLog } from '../lib/tile-log';
 import { navigate, takeIntent } from '../routes';
 import type { Session } from '../session';
-import { balanceAtom, bootAtom, bridgeAtom, claimsAtom } from '../state';
+import { balanceAtom, bootAtom, bridgeAtom, type ClaimRecord, claimsAtom } from '../state';
 
 /** The balance with its two ways out (Send, To Ethereum) and the way in (Deposit from Ethereum) beside the account. */
 export function BalanceTile({
@@ -160,7 +161,7 @@ function AccountTile({
   );
 }
 
-type Win = { epoch: bigint; block: number; at: number };
+type Win = ClaimRecord;
 
 /** "wins · 12 ›" in the activity tile's footer; open, the wins from this device list below it. */
 function WinsRow({ wins, open, onToggle }: { wins: Win[]; open: boolean; onToggle: () => void }) {
@@ -183,32 +184,7 @@ function WinsList({ wins }: { wins: Win[] }) {
       <TileHeader aside={wins.length ? `${wins.length} · newest first` : undefined}>
         wins from this device
       </TileHeader>
-      {wins.length ? (
-        <ol
-          className="m-0 max-h-[280px] list-none overflow-y-auto p-0 font-mono text-xs"
-          data-testid="claims-history"
-        >
-          {[...wins].reverse().map((c) => (
-            <li
-              key={`${c.epoch}-${c.block}`}
-              className="flex gap-4 border-t border-line py-1 first:border-t-0"
-            >
-              <span className="text-ink-2">
-                {new Date(c.at).toISOString().slice(0, 16).replace('T', ' ')}
-              </span>
-              <span>epoch {c.epoch.toString()}</span>
-              <span className="text-ink-2">
-                block{' '}
-                <ExternalLink href={links.block(c.block)} full={String(c.block)}>
-                  {c.block.toLocaleString('en-US')}
-                </ExternalLink>
-              </span>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p className="text-xs text-ink-2">nothing yet</p>
-      )}
+      <WinsRows wins={wins} className="m-0 max-h-[280px] list-none overflow-y-auto p-0 font-mono text-xs" />
     </Tile>
   );
 }

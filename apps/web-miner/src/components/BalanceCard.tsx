@@ -3,8 +3,19 @@ import { Button, ExternalLink, Kpi, Skeleton, Tile, TileHeader, useTweenedNumber
 import { useAtomValue, useSetAtom } from 'jotai';
 import { links } from '../explorer';
 import { amount, shortAddress } from '../lib/format';
+import { mintedFresh } from '../lib/reducer';
 import { navigate } from '../routes';
-import { balanceAtom, bootAtom, claimsAtom, signInAtom } from '../state';
+import { balanceAtom, bootAtom, claimsAtom, minerAtom, nowAtom, signInAtom } from '../state';
+
+/** Under the number, reserved whether or not a mint is fresh: the tile never changes height for it. */
+function MintLine() {
+  const fresh = mintedFresh(useAtomValue(minerAtom).minted, useAtomValue(nowAtom));
+  return (
+    <span className="block min-h-[1.4em] font-mono text-[11.5px] text-ok" data-testid="mint-line">
+      {fresh ? `+${amount(PARAMS.REWARD, PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL} · just now` : ''}
+    </span>
+  );
+}
 
 /** The amount, "private", Send and Wallet →; signed out, the way in. The account and its wins are the Wallet's to show. */
 export function BalanceCard({ className }: { className?: string }) {
@@ -39,6 +50,7 @@ export function BalanceCard({ className }: { className?: string }) {
               </span>
             }
             unit={PARAMS.TOKEN_SYMBOL}
+            sub={<MintLine />}
           />
         )}
         {!ready && <p className="text-xs text-ink-2">Your balance shows once you log in.</p>}
