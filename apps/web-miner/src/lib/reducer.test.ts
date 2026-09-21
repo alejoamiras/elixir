@@ -268,6 +268,60 @@ describe('miner reducer', () => {
     expect(reduce(failed, { type: 'start', epoch: epoch(1n) })[0].notice).toBeNull();
   });
 
+  test('a proof keeps what a hover says of it: its number in the epoch, its proving time, its wall clock', () => {
+    let [s] = reduce(initial, { type: 'start', epoch: epoch(0n) });
+    [s] = reduce(s, attempt(3, 100));
+    [s] = reduce(s, attempt(5, 200));
+    expect(s.samples[1]).toMatchObject({ t: 200, score: 5, n: 2, proveMs: 3000, at: 1_700_000_000_200 });
+  });
+
+  test("a claim's span opens at the win and closes however the claim ends; retry, reconciliation, a dead prover and the window's trim", () => {
+    const win = (s0: typeof initial, t: number) => {
+      let [s] = reduce(s0, attempt(70, t, true));
+      [s] = reduce(s, { type: 'winner', epoch: 0n, secretId: s.job?.secretId ?? -1, t: t + 40 });
+      return s;
+    };
+    let [s] = reduce(initial, { type: 'start', epoch: epoch(0n) });
+    s = win(s, 1_000);
+    const id = s.ledger[0]?.id ?? null;
+    // From the win, not from the message that reported it 40 ms later.
+    expect(s.claimSpans).toEqual([{ id, t0: 1_000, t1: null }]);
+    [s] = reduce(s, { type: 'stop', t: 2_000 });
+    expect(s.claimSpans[0]?.t1).toBeNull();
+    [s] = reduce(s, { type: 'claimed', reward: '4', block: 9, ...MINTED, t: 31_000 });
+    expect(s.claimSpans).toEqual([{ id, t0: 1_000, t1: 31_000, outcome: 'minted' }]);
+
+    // A failure closes it failed; the retry is a second span from the retry, not from the old win.
+    [s] = reduce(s, { type: 'start', epoch: epoch(0n) });
+    s = win(s, 40_000);
+    const second = s.ledger[0]?.id ?? null;
+    [s] = reduce(s, { type: 'failed', error: 'the node went away', kind: 'other', t: 45_000 });
+    [s] = reduce(s, { type: 'retry', t: 50_000 });
+    expect(s.claimSpans.slice(1)).toEqual([
+      { id: second, t0: 40_000, t1: 45_000, outcome: 'failed' },
+      { id: second, t0: 50_000, t1: null },
+    ]);
+    // Any path that drops the claim closes the span: here the prover dying under it.
+    [s] = reduce(s, { type: 'prover-dead', error: 'gone', t: 55_000 });
+    expect(s.claimSpans[2]).toEqual({ id: second, t0: 50_000, t1: 55_000, outcome: 'failed' });
+
+    // Found in a block after all: the transaction of the earlier span did land.
+    let [r] = reduce(initial, { type: 'start', epoch: epoch(0n) });
+    r = win(r, 1_000);
+    [r] = reduce(r, { type: 'failed', error: 'the node went away', kind: 'other', t: 9_000 });
+    [r] = reduce(r, { type: 'reconciled', t: 12_000 });
+    expect(r.claimSpans.map((c) => [c.t0, c.t1, c.outcome])).toEqual([
+      [1_000, 9_000, 'minted'],
+      [12_000, null, undefined],
+    ]);
+
+    // Spans leave with the window: three minutes after one ended, the next event drops it.
+    [s] = reduce(s, { type: 'online', t: 31_000 + SAMPLE_SPAN_MS + 1 });
+    expect(s.claimSpans.map((c) => c.t0)).toEqual([40_000, 50_000]);
+    // An event that changes nothing returns the state it was given.
+    expect(reduce(s, { type: 'included', block: 1, t: 60_000 })[0]).toBe(s);
+  });
+
   test('an abandoned prover is terminal: start is refused until the page reloads', () => {
     const [s] = reduce(initial, { type: 'start', epoch: epoch(1n) });
     const [dead, cmds] = reduce(s, { type: 'prover-dead', error: 'prover keeps crashing; reload the page' });

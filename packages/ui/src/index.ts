@@ -78,6 +78,7 @@ export { faviconDataUrl, type MarkState, markSvg } from './mark.ts';
 export {
   axis,
   barSegments,
+  type ClaimSpan,
   difficultyLabel,
   FLASH_MS,
   flash,

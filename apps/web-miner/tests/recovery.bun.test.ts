@@ -130,6 +130,11 @@ describe('lost-race recovery', () => {
     expect(store.get(minerAtom).notice).toBeNull();
     expect(store.get(minerAtom).ledger.map((l) => l.kind)).toEqual(['epoch', 'failed']);
     expect(worker.sent.filter((m) => m.type === 'mine')).toHaveLength(2);
+    // Neither the winner nor the failure is sent with a monotonic time: the chart's span has both ends
+    // only because the dispatch stamps them.
+    const [span] = store.get(minerAtom).claimSpans;
+    expect(span?.outcome).toBe('failed');
+    expect(span?.t1 ?? Number.NaN).toBeGreaterThanOrEqual(span?.t0 ?? Number.NaN);
 
     // Still blocked right after the rebuild: the honest pause, not another rebuild.
     worker.emit({ ...winner, secretId: 2 });

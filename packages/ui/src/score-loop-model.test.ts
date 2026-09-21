@@ -4,14 +4,20 @@ import {
   axisTo,
   axisTop,
   barSegments,
+  calmTicks,
   clearOf,
   difficultyLabel,
   flash,
   labelsCollide,
   marginFor,
+  nearestSample,
+  plotGeometry,
   rise,
   ScoreLoopModel,
+  spanBoxes,
+  stepSample,
   won,
+  xAt,
 } from './score-loop-model.ts';
 
 describe('ScoreLoopModel', () => {
@@ -130,4 +136,68 @@ test('a win label steps down past the labels already drawn, never past the basel
   expect(clearOf([first], { x0: 790, x1: 863, y: 345 }, 10, 396)).toBe(345);
   // No room below: the label keeps its place rather than leaving the plot.
   expect(clearOf([{ x0: 800, x1: 874, y: 390 }], { x0: 790, x1: 863, y: 390 }, 10, 396)).toBe(390);
+});
+
+describe("the plot's geometry, and what is hit-tested against it", () => {
+  // 3 minutes across 600 px: 300 ms a pixel.
+  const g = plotGeometry({ width: 662, labelWidth: 24, floor: 48, now: 200_000, spanMs: 180_000 });
+  const at = (t: number, score = 3, win = false) => ({ t, score, bar: 38.4, win });
+
+  test("the margin follows the measured label and the title's column; time maps to one x", () => {
+    expect(g).toEqual({ left: 48, right: 648, now: 200_000, span: 180_000 });
+    expect(xAt(g, 200_000)).toBe(648);
+    expect(xAt(g, 20_000)).toBe(48);
+    // A label wider than the floor allows widens the margin; a resized canvas moves only the right edge.
+    const wide = plotGeometry({
+      width: 400,
+      labelWidth: 60,
+      floor: 48,
+      now: 0,
+      spanMs: 60_000,
+      titled: true,
+    });
+    expect(wide).toMatchObject({ left: 76 + 14, right: 386 });
+  });
+
+  test('the ordinary proofs in view are one list for one path: wins and what aged out are not in it', () => {
+    const samples = [at(10_000), at(50_000), at(110_000, 61.2, true), at(199_000), at(200_400)];
+    expect(calmTicks(samples, 38.4, g).map((k) => k.s.t)).toEqual([50_000, 199_000]);
+    expect(calmTicks(samples, 38.4, g)[0]?.x).toBeCloseTo(148);
+  });
+
+  test('a claim in view is clipped to the plot; a live one rides now; one that ended before the window is gone', () => {
+    const boxes = spanBoxes(
+      [
+        { id: 1, t0: 1_000, t1: 15_000, outcome: 'minted' },
+        { id: 2, t0: 8_000, t1: 50_000, outcome: 'failed' },
+        { id: 3, t0: 170_000, t1: null },
+      ],
+      g,
+    );
+    expect(boxes.map((b) => ({ ...b, x0: Math.round(b.x0), x1: Math.round(b.x1) }))).toEqual([
+      { x0: 48, x1: 148, opened: false, live: false, outcome: 'failed', ms: 42_000 },
+      { x0: 548, x1: 648, opened: true, live: true, ms: 30_000 },
+    ]);
+  });
+
+  test('the nearest proof within reach, by the frame that was drawn: a grown window and an aged-out proof', () => {
+    const samples = [at(10_000), at(50_000), at(51_500), at(199_000)];
+    expect(nearestSample(samples, g, 150)?.t).toBe(50_000);
+    expect(nearestSample(samples, g, 152)?.t).toBe(51_500);
+    expect(nearestSample(samples, g, 300)).toBeNull();
+    // The first proof left the window: a pointer where it would have been finds nothing.
+    expect(nearestSample(samples, g, xAt(g, 10_000))).toBeNull();
+    // The calm window while it is still a minute wide: the same proof sits elsewhere, and is found there.
+    const young = { ...g, now: 60_000, span: 60_000 };
+    expect(xAt(young, 50_000)).toBe(548);
+    expect(nearestSample(samples, young, 548)?.t).toBe(50_000);
+  });
+
+  test('the arrow keys walk the proofs in view, newest first, and stop at the ends', () => {
+    const samples = [at(10_000), at(50_000), at(199_000)];
+    expect(stepSample(samples, g, null, -1)?.t).toBe(199_000);
+    expect(stepSample(samples, g, samples[2] ?? null, -1)?.t).toBe(50_000);
+    expect(stepSample(samples, g, samples[1] ?? null, -1)?.t).toBe(50_000);
+    expect(stepSample(samples, g, samples[1] ?? null, 1)?.t).toBe(199_000);
+  });
 });
