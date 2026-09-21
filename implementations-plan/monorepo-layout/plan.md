@@ -490,7 +490,7 @@ dependency's folder; a toolchain lane without `YACANA_REQUIRE_TOOLCHAIN`) · `gi
 
 ### Arc 2: cycles out
 
-**P2.1 `web-kit`.** §3.5, with the CI lines of §3.11. I2 tried here.
+**P2.1 ✓ `web-kit`.** §3.5, with the CI lines of §3.11. I2 tried here.
 *Gate*: FAST · the layout guard (it now fails if the moved tests left CI) · `bun test packages/web-kit packages/site
 packages/contracts` · `bun run artifacts:commit && git diff --exit-code` · `bun run site:build` · bundle manifest unchanged.
 
