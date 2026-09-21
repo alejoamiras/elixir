@@ -559,7 +559,7 @@ to Presto after consent and to the page after `useBrowser` · layers: + e2e with
 
 ### Arc 3 — the cockpit and the wallet, composed
 
-**P7 — Mine.** `Tip`, `Popover`; the epoch rows and tips; the `?` popover; the right column and the mint line
+**P7 ✓ — Mine.** *(The boards give one tooltip sentence; the other five are written from the rules the page reads. `lessons/phase-7.md`.)* `Tip`, `Popover`; the epoch rows and tips; the `?` popover; the right column and the mint line
 (D5); the ledger's footer and `Wins.tsx` (D7); `miner.e2e.ts` `placed()` for the new order.
 **Gate**: fast, then `E2E_PROVERLESS=1 E2E_SHARD=cockpit bun run e2e:agent -- bun run --cwd packages/web-miner
 test:e2e` · pass: `cockpit.vitest.tsx` (row labels, footer count, the dialog lists `claimsAtom`); the mint line
