@@ -170,12 +170,17 @@ describe('the specifier extractor', () => {
       "vi.mock('../../x/src/m.ts');",
       "mock.module('../../x/src/n.ts', () => ({}));",
       "new URL('https://example.org');",
+      'import.meta.glob(["../../x/src/a/*.ts", `../../x/src/b/*.ts`]);',
+      'new Worker(new URL ("../../x/src/spaced.ts", import.meta.url));',
     ].join('\n');
     expect(specifiersOf('a.ts', source).map((s) => s.text)).toEqual([
       '../../x/src/*.ts',
       '../../x/src/w.ts',
       '../../x/src/m.ts',
       '../../x/src/n.ts',
+      '../../x/src/a/*.ts',
+      '../../x/src/b/*.ts',
+      '../../x/src/spaced.ts',
     ]);
   });
 

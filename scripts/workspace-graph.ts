@@ -72,16 +72,41 @@ export function scriptSpecifiers(source: string): Specifier[] {
 }
 
 // Paths the compiler does not count as imports but a bundler or a test runner follows: Vite's glob
-// import, a Worker or asset URL, a mocked module.
-const PATH_CALL =
-  /(?:import\.meta\.glob|new URL|vi\.(?:mock|doMock|importActual)|mock\.module)\(\s*(['"`])(\.\.?\/[^'"`]*)\1/g;
+// import, a Worker or asset URL, a mocked module. Read from the syntax tree, so spacing, a list of
+// patterns or a template literal without substitutions are all the same call.
+const PATH_CALLEES = new Set([
+  'import.meta.glob',
+  'URL',
+  'vi.mock',
+  'vi.doMock',
+  'vi.importActual',
+  'vi.importMock',
+  'mock.module',
+]);
+
+const literals = (node: ts.Expression | undefined): ts.StringLiteralLike[] => {
+  if (!node) return [];
+  if (ts.isStringLiteralLike(node)) return [node];
+  return ts.isArrayLiteralExpression(node) ? node.elements.flatMap((e) => literals(e)) : [];
+};
 
 export function pathCalls(source: string): Specifier[] {
-  return [...source.matchAll(PATH_CALL)].map((m) => {
-    const text = m[2] ?? '';
-    const start = (m.index ?? 0) + m[0].lastIndexOf(text);
-    return { text, start, end: start + text.length, kind: 'path-call' as const };
-  });
+  const file = ts.createSourceFile('x.tsx', source, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX);
+  const out: Specifier[] = [];
+  const visit = (node: ts.Node): void => {
+    if (
+      (ts.isCallExpression(node) || ts.isNewExpression(node)) &&
+      PATH_CALLEES.has(node.expression.getText(file))
+    )
+      for (const lit of literals(node.arguments?.[0]))
+        if (isRelative(lit.text)) {
+          const start = lit.getStart(file) + 1;
+          out.push({ text: lit.text, start, end: start + lit.text.length, kind: 'path-call' });
+        }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return out;
 }
 
 const CSS_IMPORT = /@import\s+(?:url\(\s*)?["']([^"']+)["']/g;

@@ -33,10 +33,12 @@ const bytes = (root: string, f: string, name: string): Buffer =>
     : readFileSync(join(root, f));
 
 // This machine's paths may never appear. Generic prefixes do, inside upstream artifacts that carry
-// their builder's paths, so for those only a rise against the baseline counts.
+// their builder's paths, so for those each path is held against the baseline's: a path the baseline's
+// scripts of that name do not carry is a finding, whatever else fell away.
 const own = [homedir(), resolve('.')];
-const generic = ['/mnt/', '/Users/', '/home/', 'packages/', 'apps/', 'protocol/', 'tools/'];
-const count = (text: string, needle: string): number => text.split(needle).length - 1;
+const PATHS = /(?:\/(?:mnt|Users|home)\/|\b(?:packages|apps|protocol|tools)\/)[\w@.+/-]+/g;
+const pathsIn = (side: Buffer[]): Set<string> =>
+  new Set(side.flatMap((b) => b.toString('utf8').match(PATHS) ?? []));
 const jsDeltas: string[] = [];
 
 /** Drops one of `from` for each equal buffer in `other`: two copies against one leave one over. */
@@ -49,17 +51,15 @@ function unmatched(from: Buffer[], other: Buffer[]): Buffer[] {
   });
 }
 
-// Paths are counted over the whole group, so a chunk with no partner of its size is still read.
+// Paths are read over the whole group, so a chunk with no partner of its size is still read.
 function compareScripts(name: string, was: Buffer[], now: Buffer[]): void {
   const bySize = (x: Buffer, y: Buffer): number => x.length - y.length;
   const left = unmatched(was, now).sort(bySize);
   const right = unmatched(now, was).sort(bySize);
   for (let i = 0; i < Math.max(left.length, right.length); i++)
     jsDeltas.push(`${name}: ${left[i]?.length ?? 'none'} → ${right[i]?.length ?? 'none'}`);
-  const [textA, textB] = [left, right].map((side) => side.map((b) => b.toString('utf8')).join('\n'));
-  for (const g of generic)
-    if (count(textB ?? '', g) > count(textA ?? '', g))
-      findings.push(`"${g}" ${count(textA ?? '', g)} → ${count(textB ?? '', g)} times in ${name}`);
+  const known = pathsIn(was);
+  for (const p of pathsIn(now)) if (!known.has(p)) findings.push(`a path the baseline lacks in ${name}: ${p}`);
   for (const b of now)
     for (const leak of own) if (b.includes(leak)) findings.push(`this machine's path in ${name}`);
 }
@@ -93,6 +93,10 @@ const ids = (dir: string, file: string, map: boolean): Set<string> =>
 const reports = [...new Set([...readdirSync(baseMods), ...readdirSync(mods)])].sort();
 // No report is a build that ran without the reporter, not a build with nothing in it.
 if (!reports.length) findings.push('no module report on either side');
+// Every page and at least one Worker: a pair of trimmed report folders must not agree their way through.
+for (const page of ['web-landing', 'web-miner', 'web-stats'])
+  if (!reports.includes(`${page}.txt`)) findings.push(`no module report for ${page}`);
+if (!reports.some((r) => r.includes('.worker.'))) findings.push('no module report for any Worker');
 for (const file of reports) {
   let a: Set<string>;
   let b: Set<string>;

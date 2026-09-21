@@ -31,6 +31,7 @@ const exists = (path: string): boolean => {
 
 interface Step {
   if?: string;
+  'continue-on-error'?: boolean;
   /** The `if` of the job the step belongs to. */
   jobIf?: string;
   run?: string;
@@ -111,7 +112,7 @@ function pathArguments(words: string[]): string[] {
 function commandProblems(where: string, words: string[]): string[] {
   const read = pathArguments(words);
   const said = words.join(' ');
-  const script = words[0] === 'bun' && words[1]?.endsWith('.ts') ? words[1] : undefined;
+  const script = words[0] === 'bun' && words[1]?.endsWith('.ts') ? plain(words[1]) : undefined;
   const missing = read.filter(
     (p) => !exists(script && p !== script ? p.split('/').slice(0, 2).join('/') : p),
   );
@@ -140,12 +141,19 @@ function stepProblems(where: string, s: Step): string[] {
 // The one condition a gated job carries; any other `if`, on the job or the step, may be false.
 const CHANGES_GATE = "needs.changes.outputs.relevant == 'true'";
 const alwaysRuns = (s: Step): boolean =>
-  s.if === undefined && (s.jobIf === undefined || s.jobIf === CHANGES_GATE);
+  s.if === undefined && !s['continue-on-error'] && (s.jobIf === undefined || s.jobIf === CHANGES_GATE);
+
+/** The commands of a step that run and whose failure fails it: none after an `exit`, none before `||`. */
+function gating(s: Step): string[][] {
+  if (!alwaysRuns(s)) return [];
+  const lines = (s.run ?? '').split('\n');
+  const stop = lines.findIndex((l) => /(^|;|&&)\s*exit\b/.test(l));
+  return (stop < 0 ? lines : lines.slice(0, stop)).filter((l) => !l.includes('||')).flatMap(commands);
+}
 
 const testInvocations = (w: Workflow): string[][] =>
   w.steps
-    .filter(alwaysRuns)
-    .flatMap((s) => commands(s.run ?? ''))
+    .flatMap(gating)
     .filter((c) => c[0] === 'bun' && c[1] === 'test')
     .map((c) => c.slice(2).filter((x) => !x.startsWith('-')));
 
@@ -159,30 +167,22 @@ function closure(w: Workspace, seen = new Set<Workspace>()): Set<Workspace> {
   }
   return seen;
 }
-const takesSourceOut = (filter: string[], dir: string): boolean =>
-  filter.some(
-    (g) =>
-      g.startsWith('!') &&
-      [`${dir}/package.json`, `${dir}/src/index.ts`].some((p) => new Glob(g.slice(1)).match(p)),
-  );
-/**
- * A workflow watches the workspace it tests as the whole folder. What that workspace depends on it
- * may watch more narrowly (`portal/abi/**` for the one thing a page reads of the portal), so long as
- * the glob is under the folder and matches a file that is not a test.
- */
+// A page reads the portal's generated ABI and nothing else of it: the Solidity and the Foundry tests
+// cannot change what a page does without changing the ABI, which CI regenerates and diffs.
+const WATCHED_NARROWLY: Record<string, string> = { 'packages/portal': 'packages/portal/abi/**' };
+
+/** The whole folder, or the one listed narrower glob for a dependency. */
 function covers(filter: string[], dir: string, own: boolean): boolean {
-  if (takesSourceOut(filter, dir)) return false;
-  if (own) return filter.includes(`${dir}/**`);
-  const under = filter.filter((g) => !g.startsWith('!') && g.startsWith(`${dir}/`)).map((g) => new Glob(g));
-  return files.some((f) => !/\.(test|spec|vitest)\./.test(f) && under.some((g) => g.match(f)));
+  if (filter.includes(`${dir}/**`)) return true;
+  const narrow = WATCHED_NARROWLY[dir];
+  return !own && narrow !== undefined && filter.includes(narrow);
 }
 
 /** Run as a whole, a workspace is watched as a whole; run file by file, those files are. */
 function filterGaps(w: Workflow): string[] {
   // `bun test <paths>`, and a workspace's Vitest run, which tests the whole of it.
   const components = w.steps
-    .filter(alwaysRuns)
-    .flatMap((s) => commands(s.run ?? ''))
+    .flatMap(gating)
     .filter((c) => c.includes('test:components') && c.includes('--cwd'))
     .map((c) => c[c.indexOf('--cwd') + 1] ?? '');
   const args = [...testInvocations(w).flat(), ...components];
@@ -198,6 +198,16 @@ function filterGaps(w: Workflow): string[] {
         ...folders.map((need) => `${w.file}: runs ${t.dir}'s tests, filter lacks ${need.dir}/**`),
       ];
     });
+}
+
+/** Whether the Vitest config of the file's workspace picks the file up: an invocation alone does not. */
+function vitestIncludes(f: string): boolean {
+  const dir = all.find((w) => f.startsWith(`${w.dir}/`))?.dir;
+  if (!dir || !exists(`${dir}/vitest.config.ts`)) return false;
+  const config = readFileSync(join(repo, dir, 'vitest.config.ts'), 'utf8');
+  const include = /include:\s*\[([^\]]*)\]/.exec(config)?.[1] ?? '';
+  const globs = [...include.matchAll(/['"]([^'"]+)['"]/g)].map((m) => new Glob(m[1] ?? ''));
+  return globs.some((g) => g.match(f.slice(dir.length + 1)));
 }
 
 // Suites that need a network the pull-request lanes do not boot: the rig's cases run through
@@ -232,17 +242,27 @@ describe('workflows', () => {
     const bunArgs = lanes.flatMap(testInvocations);
     // Vitest runs through a workspace's `test:components`, or the root script over all of them.
     const vitestDirs = lanes
-      .flatMap((w) => w.steps.filter(alwaysRuns).flatMap((st) => commands(st.run ?? '')))
+      .flatMap((w) => w.steps.flatMap(gating))
       .filter((c) => c.includes('test:components'))
       .map((c) => (c.includes('--cwd') ? (c[c.indexOf('--cwd') + 1] ?? '') : ''));
     const runs = (f: string): boolean =>
-      /from 'vitest'/.test(readFileSync(join(repo, f), 'utf8'))
-        ? vitestDirs.some((d) => d === '' || f.startsWith(`${d}/`))
+      /^import .* from 'vitest';$/m.test(readFileSync(join(repo, f), 'utf8'))
+        ? vitestDirs.some((d) => d === '' || f.startsWith(`${d}/`)) && vitestIncludes(f)
         : bunArgs.some((args) => args.length === 0 || args.some((a) => f.includes(a)));
     const orphans = files
       .filter((f) => /\.(test|spec|vitest)\.tsx?$/.test(f) && !NOT_IN_A_PR_LANE.some((x) => x.test(f)))
       .filter((f) => !runs(f));
     expect(orphans).toEqual([]);
+  });
+
+  test('a filter takes nothing but documentation back out', () => {
+    const taken = workflows.flatMap((w) =>
+      w.filter
+        .filter((g) => g.startsWith('!'))
+        .flatMap((g) => files.filter((f) => !f.endsWith('.md') && new Glob(g.slice(1)).match(f)).slice(0, 1))
+        .map((f) => `${w.file}: an exclusion takes out ${f}`),
+    );
+    expect(taken).toEqual([]);
   });
 
   test("a workflow's filter names every workspace whose tests it runs, and what those depend on", () => {

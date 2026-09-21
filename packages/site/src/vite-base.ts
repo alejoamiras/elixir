@@ -6,7 +6,7 @@ import { basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import type { Plugin, UserConfig } from 'vite';
+import type { Plugin, Rollup, UserConfig } from 'vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { faviconDataUrl } from '../../ui/src/mark.ts';
 import {
@@ -97,6 +97,20 @@ const emitHeaders = (text: string): Plugin => ({
   },
 });
 
+const reported = new Map<string, string>();
+
+/** A page's report carries the app's name; a Worker's, its entry too: each is a build of its own. */
+function reportFile(name: string, chunks: Rollup.OutputChunk[]): string {
+  const entry = chunks.find((c) => c.isEntry);
+  const file = name.endsWith('.worker') && entry ? `${name}.${entry.name}` : name;
+  // Two Workers whose files share a name would share a report, and the second would erase the first.
+  const source = entry?.facadeModuleId ?? file;
+  const earlier = reported.get(file) ?? source;
+  if (earlier !== source) throw new Error(`module report ${file} names both ${earlier} and ${source}`);
+  reported.set(file, source);
+  return file;
+}
+
 /**
  * With `YACANA_MODULE_REPORT=<dir>`, lists every module that went into this bundle, one repo-relative
  * id per line: what a page or the Worker actually carries, which a hash cannot say and a successful
@@ -107,15 +121,15 @@ const moduleReport = (name: string): Plugin => ({
   generateBundle(_options, bundle) {
     const dir = process.env.YACANA_MODULE_REPORT;
     if (!dir) return;
-    const ids = new Set<string>();
-    for (const chunk of Object.values(bundle))
-      if (chunk.type === 'chunk')
-        for (const id of Object.keys(chunk.modules)) ids.add(id.replace(`${repo}/`, '').replace(/\?.*$/, ''));
-    // Every Worker is a build of its own under one config: its entry keeps the reports apart.
-    const entry = Object.values(bundle).find((c) => c.type === 'chunk' && c.isEntry)?.name;
-    const file = name.endsWith('.worker') && entry ? `${name}.${entry}` : name;
+    const chunks = Object.values(bundle).filter((c): c is Rollup.OutputChunk => c.type === 'chunk');
+    const ids = chunks.flatMap((c) =>
+      Object.keys(c.modules).map((id) => id.replace(`${repo}/`, '').replace(/\?.*$/, '')),
+    );
     mkdirSync(dir, { recursive: true });
-    writeFileSync(resolve(dir, `${file}.txt`), `${[...ids].sort().join('\n')}\n`);
+    writeFileSync(
+      resolve(dir, `${reportFile(name, chunks)}.txt`),
+      `${[...new Set(ids)].sort().join('\n')}\n`,
+    );
   },
 });
 

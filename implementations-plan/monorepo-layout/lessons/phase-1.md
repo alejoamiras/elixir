@@ -224,3 +224,44 @@ cause; I did not establish the rest and stopped there rather than try configurat
 established: the test fails on this host with or without this work, by a similar margin. The shard's other six
 tests pass on arc 1. **The cockpit gate is not green locally and is not claimed as green**; its evidence is the
 baseline parity above plus the shard on a CI runner (`e2e.yml`, dispatched on the pushed head).
+
+### Round 2 (codex, high, same session): "approve with changes"
+
+Items 7 and 8 closed. Six partly closed, each with an input that still passed, and one false pass my round-1
+fix introduced. All valid; none disputed.
+
+| # | the input that still passed | what changed |
+|---|---|---|
+| 1 | `import.meta.glob(["…"])`, `new URL ("…")`: a list and a space defeated the regex | path calls are read from the TypeScript syntax tree: a literal, a list of them, a template without substitutions |
+| 2 | `!packages/ui/src/components/**` (only two sentinel paths were tested); `packages/bridge/package.json` standing in for the folder | an exclusion may take out nothing but `.md`; a dependency is watched whole, unless listed with its reason (`portal` → `portal/abi/**`) |
+| 3, new | `bun ./packages/site/missing.ts`: the paths lost `./`, the script kept it, so the script was read as an output argument | both are compared in one spelling |
+| 4 | a Vitest file the config does not include; `exit 0; bun test …` | the workspace's `include` must match the file; commands after `exit`, before `\|\|`, or in a `continue-on-error` step do not count |
+| 5 | report folders trimmed to one page on both sides; a path dropped from one chunk paying for one added to its sibling | a report for every page and a Worker is required; paths are compared as sets against the baseline's, so a path the baseline lacks is a finding |
+| 6 | two Workers whose files share a name share a report | the build throws when one report name meets two entry modules |
+
+The stricter filter rule found four real gaps: `deploy`, `web-landing`, `web-miner` and `web-stats` watched
+`miner-core/src/**` (and `web-stats` one file of `work-circuit`), which leaves out `package.json`, where a
+workspace's exports now live. They watch the folders whole. The guard also reported itself as a Vitest file: its
+source held the text `from 'vitest'` inside a regular expression. The check reads an import line now. **Lesson:
+a guard that classifies files by their text will meet its own text.**
+
+Each input replayed, red, reverted: the seven above against the two guards (the new files staged with
+`git add -N` for the run and removed after), the two comparer inputs on synthetic folders (`a path the baseline
+lacks … /home/another-user/private.ts`; `no module report for web-landing / web-miner / any Worker`). Arc 1
+against the baseline after the changes: 651 files, seven inventories identical, no findings.
+
+On the cockpit gate codex's reading matches mine: baseline parity shows the failure predates this work,
+confidence that arc 1 adds none is moderate, and the CI run stays required.
+
+### Arc 1 HEAVY+ (2026-09-21)
+
+| step | result |
+|---|---|
+| `site:e2e` | 3 passed (after D11) |
+| web-stats e2e | 7 passed |
+| web-landing e2e | 5 passed |
+| cockpit shard, proverless | **not green here**: 6 passed, 1 failed (the memory bound; fails alike on the baseline commit, above) |
+| canary shard, real proving | 4 passed: the altered claim refused at proving, the untampered one mints |
+| bundle comparison | no findings |
+| web-stats `test:visual` | 8 passed |
+| FAST after round 2 | exit 0 · 527 pass · 42 skip · 0 fail (the first run failed lint: the reporter reached 19 on the complexity scale with the collision check in it, and was split into a helper) |

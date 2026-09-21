@@ -18,7 +18,7 @@ jobs:
         relevant:
           - 'packages/deploy/**'
           - '!packages/deploy/**/*.md'
-          - 'packages/miner-core/src/**'
+          - 'packages/miner-core/**'
           - 'packages/bridge/**'
           - 'packages/portal/**'
           - 'scripts/run/**'

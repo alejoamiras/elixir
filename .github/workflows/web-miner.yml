@@ -18,10 +18,8 @@ jobs:
         relevant:
           - 'packages/web-miner/**'
           - '!packages/web-miner/**/*.md'
-          - 'packages/miner-core/src/**'
+          - 'packages/miner-core/**'
           # The replay recording is bound to these: a change must re-run the lane, which refuses a stale one.
-          - 'packages/miner-core/fixtures/storage-layout.json'
-          - 'packages/miner-core/scripts/**'
           - 'packages/contracts/artifacts/**'
           - 'scripts/run/**'
           - 'packages/site/**'
