@@ -78,8 +78,8 @@ export const prestoEndpoint = (): PrestoEndpoint | null =>
   );
 
 export type ProverKind = 'presto' | 'wasm';
-/** Why the Worker stopped proving natively: the SDK's reason, or a native proof that did not verify. */
-export type FallbackCause = FallbackReason | 'invalid-proof';
+/** Why the Worker stopped proving natively: the SDK's reason, a native proof that did not verify, or consent withdrawn. */
+export type FallbackCause = FallbackReason | 'invalid-proof' | 'revoked';
 
 export interface PrestoState {
   /** The page's own probe; null before the first answer. */
@@ -354,6 +354,8 @@ export function noticeFor(
   s: PrestoState,
   site = globalThis.location?.hostname ?? 'this site',
 ): PrestoNotice | null {
+  // A revoke is the user's own doing: nothing to fix.
+  if (s.fallbackReason === 'revoked') return null;
   if (s.fallbackReason) return { tone: 'warn', text: causeText(s.fallbackReason, site), retry: true };
   if (s.phase === 'downloading')
     return {

@@ -31,6 +31,8 @@ export interface PrestoProverHooks {
   /** Every change of what actually proved: the page's ✦ follows this, not the construction. */
   prover: (kind: ProverKind, t: ProverTransition) => void;
   phase?: (p: PrestoPhase) => void;
+  /** This build's first native proof verified against its own inputs: what "Presto proved here" means. */
+  verified?: () => void;
 }
 
 const field = (v: Fr | bigint): string => (v instanceof Fr ? v : new Fr(v)).toString();
@@ -54,6 +56,11 @@ export class PrestoWorkProver implements WorkProver {
   private transients = 0;
   private reported: ProverKind | null = null;
   private last: ProverKind = 'wasm';
+  /**
+   * The first native proof of this build, once it verified; every later one is trusted as today
+   * (a win is still verified before it is claimed). Lives with the build: a rebuild verifies again.
+   */
+  private verifiedProof: Uint8Array | undefined;
 
   constructor(
     artifact: WorkArtifact,
@@ -91,35 +98,55 @@ export class PrestoWorkProver implements WorkProver {
       nonce: inputs.nonce.toString(),
     });
     const out = Fr.fromString(String(returnValue));
+    // A revoke that landed during the execute above: the witness never leaves.
     if (this.stuck) return { proof: await this.local(witness), out };
+    const proof = await this.native(inputs, witness, out);
+    return { proof: proof ?? (await this.local(witness)), out };
+  }
+
+  /** Presto's proof of `witness`, or null when this one is WASM's (the reason recorded). */
+  private async native(inputs: WorkInputs, witness: Uint8Array, out: Fr): Promise<Uint8Array | null> {
+    let proof: Uint8Array;
     try {
-      const { proof } = await this.backend.generateProof(witness, { verifierTarget: TARGET });
-      // The SDK checks whole fields, not W's count nor canonicity: a foreign answer never reaches the digest.
-      if (!wellFormed(proof)) {
-        this.stick('malformed-response');
-        return { proof: await this.local(witness), out };
-      }
-      this.transients = 0;
-      this.last = 'presto';
-      this.report('presto', { sticky: false });
-      return { proof, out };
+      proof = (await this.backend.generateProof(witness, { verifierTarget: TARGET })).proof;
     } catch (e) {
       if (!(e instanceof PrestoUnavailableError)) throw e;
-      if (e.reason === 'transient' && ++this.transients < TRANSIENT_LIMIT) {
+      if (e.reason === 'transient' && ++this.transients < TRANSIENT_LIMIT)
         this.report('wasm', { sticky: false });
-        return { proof: await this.local(witness), out };
-      }
-      this.stick(e.reason);
-      return { proof: await this.local(witness), out };
+      else this.stick(e.reason);
+      return null;
     }
+    // The SDK checks whole fields, not W's count nor canonicity: a foreign answer never reaches the digest.
+    if (!wellFormed(proof)) {
+      this.stick('malformed-response');
+      return null;
+    }
+    if (!this.verifiedProof) {
+      if (!(await this.check(inputs, { proof, out }))) {
+        this.stick('invalid-proof');
+        return null;
+      }
+      this.verifiedProof = proof;
+      if (!this.stuck) this.on.verified?.();
+    }
+    this.transients = 0;
+    this.last = 'presto';
+    // Revoked while the proof was out: it is used, but nothing native is announced.
+    if (!this.stuck) this.report('presto', { sticky: false });
+    return proof;
   }
 
   /**
-   * A native winning proof checked by the WASM verifier against the job's own public inputs (W's
-   * order; `out` came from the local execute), never against anything Presto said. False means the
-   * accelerator lied or broke: the caller flips to WASM and re-proves the nonce.
+   * A native winning proof checked against the job's own public inputs; the very proof `prove()`
+   * verified as this build's first needs no second check. False means the accelerator lied or
+   * broke: the caller flips to WASM and re-proves the nonce.
    */
-  async verifyWin(inputs: WorkInputs, result: WorkResult): Promise<boolean> {
+  verifyWin(inputs: WorkInputs, result: WorkResult): Promise<boolean> {
+    return result.proof === this.verifiedProof ? Promise.resolve(true) : this.check(inputs, result);
+  }
+
+  /** The WASM verifier over W's public inputs in order (`out` came from the local execute), never anything Presto said. */
+  private async check(inputs: WorkInputs, result: WorkResult): Promise<boolean> {
     const publicInputs = [
       inputs.domain,
       inputs.seed,
