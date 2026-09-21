@@ -90,22 +90,24 @@ const literals = (node: ts.Expression | undefined): ts.StringLiteralLike[] => {
   return ts.isArrayLiteralExpression(node) ? node.elements.flatMap((e) => literals(e)) : [];
 };
 
-export function pathCalls(source: string): Specifier[] {
-  const file = ts.createSourceFile('x.tsx', source, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX);
+// A `.ts` file read as TSX takes `<T>(x: T) => x` for an element and loses what follows it.
+export function pathCalls(source: string, file = 'x.ts'): Specifier[] {
+  const kind = /\.[mc]?[jt]sx$/.test(file) ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, false, kind);
   const out: Specifier[] = [];
   const visit = (node: ts.Node): void => {
     if (
       (ts.isCallExpression(node) || ts.isNewExpression(node)) &&
-      PATH_CALLEES.has(node.expression.getText(file))
+      PATH_CALLEES.has(node.expression.getText(tree))
     )
       for (const lit of literals(node.arguments?.[0]))
         if (isRelative(lit.text)) {
-          const start = lit.getStart(file) + 1;
+          const start = lit.getStart(tree) + 1;
           out.push({ text: lit.text, start, end: start + lit.text.length, kind: 'path-call' });
         }
     ts.forEachChild(node, visit);
   };
-  visit(file);
+  visit(tree);
   return out;
 }
 
@@ -123,7 +125,7 @@ export const specifiersOf = (file: string, source: string): Specifier[] =>
   file.endsWith('.css')
     ? cssImports(source)
     : SCRIPT.test(file)
-      ? [...scriptSpecifiers(source), ...pathCalls(source)]
+      ? [...scriptSpecifiers(source), ...pathCalls(source, file)]
       : [];
 
 const EXTENSIONS = ['', '.ts', '.tsx', '.mts', '.mjs', '.d.ts', '/index.ts', '/index.tsx'];

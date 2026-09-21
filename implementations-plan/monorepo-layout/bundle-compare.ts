@@ -80,6 +80,15 @@ for (const [name, files] of after) {
   else if (now.some((b) => !was.some((a) => a.equals(b)))) findings.push(`not JavaScript and differs: ${name}`);
 }
 
+const EXPECTED = [
+  'web-landing',
+  'web-miner',
+  'web-miner.worker.main.worker',
+  'web-miner.worker.prover.worker',
+  'web-miner.worker.thread.worker',
+  'web-miner.worker.worker',
+  'web-stats',
+];
 const moved = maps.map((m) => m.split('=') as [string, string]);
 const remap = (id: string): string =>
   moved.reduce((s, [o, n]) => (s.startsWith(`${o}/`) ? n + s.slice(o.length) : s), id);
@@ -93,10 +102,9 @@ const ids = (dir: string, file: string, map: boolean): Set<string> =>
 const reports = [...new Set([...readdirSync(baseMods), ...readdirSync(mods)])].sort();
 // No report is a build that ran without the reporter, not a build with nothing in it.
 if (!reports.length) findings.push('no module report on either side');
-// Every page and at least one Worker: a pair of trimmed report folders must not agree their way through.
-for (const page of ['web-landing', 'web-miner', 'web-stats'])
-  if (!reports.includes(`${page}.txt`)) findings.push(`no module report for ${page}`);
-if (!reports.some((r) => r.includes('.worker.'))) findings.push('no module report for any Worker');
+// Named here and not read from either folder: a pair of trimmed folders must not agree their way through.
+for (const name of EXPECTED)
+  if (!reports.includes(`${name}.txt`)) findings.push(`no module report for ${name}`);
 for (const file of reports) {
   let a: Set<string>;
   let b: Set<string>;

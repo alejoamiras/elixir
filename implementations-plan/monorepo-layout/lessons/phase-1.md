@@ -265,3 +265,31 @@ confidence that arc 1 adds none is moderate, and the CI run stays required.
 | bundle comparison | no findings |
 | web-stats `test:visual` | 8 passed |
 | FAST after round 2 | exit 0 · 527 pass · 42 skip · 0 fail (the first run failed lint: the reporter reached 19 on the complexity scale with the collision check in it, and was split into a helper) |
+
+### Round 3 (codex, high, same session): "approve with changes". The loop did NOT converge
+
+Four of round 2's seven closed (filters, command paths, Worker collisions, the script spelling). Three stayed
+partly closed, one of them a regression my round-2 fix introduced. All valid.
+
+| # | the input that still passed | what changed |
+|---|---|---|
+| 1, new | every file was parsed as TSX, where `<T>(x: T) => x` in a `.ts` file reads as an element and hides the calls after it | the script kind follows the file's name; the generic-arrow case is a fixture |
+| 4 | an `exclude` that removes the component specs; the old `include` kept as a comment before a narrower one; `continue-on-error` on the job | `include` and `exclude` are read from the config's syntax tree, and a file runs if the first matches and the second does not; a job's tolerance counts as its steps' |
+| 5 | the prover Worker's report removed from both folders | the seven expected reports are named in the comparer, not read from either folder |
+
+My first repair of item 4 was wrong twice before it was right: a comment-stripping regular expression took the
+`/**/` inside `'src/**/*.vitest.tsx'` for a block comment (55 false orphans), and "reject any `exclude`" met three
+real configs that carry one. **Lesson: the second regular expression over source code is the signal to use the
+parser; I had the parser imported one file away.**
+
+Replayed red and reverted: the three config and workflow inputs, the generic-arrow probe, the missing Worker
+report (`no module report for web-miner.worker.prover.worker`). Both guards 18 pass.
+
+The comparer also reported `file new: stats/assets/index-abc.js` in a build I had not touched. Not the reviewer:
+`assemble.test.ts` assembles into the real `packages/site/dist`, so a `bun test` between a build and a comparison
+dirties the build. The gate builds immediately before it compares; the test is in `follow-ups.md`.
+
+**Status of the loop: three rounds, the hard stop, without "no new material findings".** Round 3's findings are
+fixed and replayed, but no review has passed over those fixes. That is the scope smell the protocol names: two
+guards that parse shell, YAML, TypeScript and Vitest configs by hand have a long tail of forms, and each round
+found the next one. A fourth round is the owner's call, not mine.

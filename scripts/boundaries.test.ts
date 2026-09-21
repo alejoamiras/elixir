@@ -172,6 +172,8 @@ describe('the specifier extractor', () => {
       "new URL('https://example.org');",
       'import.meta.glob(["../../x/src/a/*.ts", `../../x/src/b/*.ts`]);',
       'new Worker(new URL ("../../x/src/spaced.ts", import.meta.url));',
+      'export const identity = <T>(x: T) => x;',
+      "new URL('../../x/src/after-generic.ts', import.meta.url);",
     ].join('\n');
     expect(specifiersOf('a.ts', source).map((s) => s.text)).toEqual([
       '../../x/src/*.ts',
@@ -181,6 +183,7 @@ describe('the specifier extractor', () => {
       '../../x/src/a/*.ts',
       '../../x/src/b/*.ts',
       '../../x/src/spaced.ts',
+      '../../x/src/after-generic.ts',
     ]);
   });
 

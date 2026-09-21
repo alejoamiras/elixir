@@ -6,6 +6,7 @@ import { describe, expect, test } from 'bun:test';
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Glob, YAML } from 'bun';
+import ts from 'typescript';
 import {
   readManifest,
   repo,
@@ -42,6 +43,7 @@ interface Step {
 }
 interface Job {
   if?: string;
+  'continue-on-error'?: boolean;
   uses?: string;
   with?: { filters?: string };
   steps?: Step[];
@@ -68,7 +70,13 @@ const workflows: Workflow[] = ciDir('.github/workflows').map((file) => {
     file,
     pullRequest: 'pull_request' in (doc.on ?? {}),
     filter,
-    steps: jobs.flatMap((j) => (j.steps ?? []).map((st) => ({ ...st, jobIf: j.if }))),
+    steps: jobs.flatMap((j) =>
+      (j.steps ?? []).map((st) => ({
+        ...st,
+        jobIf: j.if,
+        'continue-on-error': st['continue-on-error'] || j['continue-on-error'],
+      })),
+    ),
     jobs,
   };
 });
@@ -167,8 +175,7 @@ function closure(w: Workspace, seen = new Set<Workspace>()): Set<Workspace> {
   }
   return seen;
 }
-// A page reads the portal's generated ABI and nothing else of it: the Solidity and the Foundry tests
-// cannot change what a page does without changing the ABI, which CI regenerates and diffs.
+// The tests these workflows run import the portal's generated ABI and nothing else of it.
 const WATCHED_NARROWLY: Record<string, string> = { 'packages/portal': 'packages/portal/abi/**' };
 
 /** The whole folder, or the one listed narrower glob for a dependency. */
@@ -204,10 +211,36 @@ function filterGaps(w: Workflow): string[] {
 function vitestIncludes(f: string): boolean {
   const dir = all.find((w) => f.startsWith(`${w.dir}/`))?.dir;
   if (!dir || !exists(`${dir}/vitest.config.ts`)) return false;
-  const config = readFileSync(join(repo, dir, 'vitest.config.ts'), 'utf8');
-  const include = /include:\s*\[([^\]]*)\]/.exec(config)?.[1] ?? '';
-  const globs = [...include.matchAll(/['"]([^'"]+)['"]/g)].map((m) => new Glob(m[1] ?? ''));
-  return globs.some((g) => g.match(f.slice(dir.length + 1)));
+  const lists = testGlobs(readFileSync(join(repo, dir, 'vitest.config.ts'), 'utf8'));
+  const rel = f.slice(dir.length + 1);
+  const hit = (globs: string[]): boolean => globs.some((g) => new Glob(g).match(rel));
+  return lists !== undefined && hit(lists.include) && !hit(lists.exclude);
+}
+
+/** A literal list of strings, or nothing when the list is built any other way. */
+function literalList(node: ts.Expression): string[] | undefined {
+  if (!ts.isArrayLiteralExpression(node)) return undefined;
+  const texts = node.elements.map((e) => (ts.isStringLiteralLike(e) ? e.text : undefined));
+  return texts.every((t) => t !== undefined) ? (texts as string[]) : undefined;
+}
+
+/**
+ * The config's `include` and `exclude`, read from the syntax tree so a commented-out list is not the
+ * list. One literal `include` and at most one literal `exclude`; any other shape reads as nothing.
+ */
+function testGlobs(config: string): { include: string[]; exclude: string[] } | undefined {
+  const tree = ts.createSourceFile('vitest.config.ts', config, ts.ScriptTarget.Latest);
+  const found: Record<string, ts.Expression[]> = { include: [], exclude: [] };
+  const visit = (node: ts.Node): void => {
+    if (ts.isPropertyAssignment(node)) found[node.name.getText(tree)]?.push(node.initializer);
+    ts.forEachChild(node, visit);
+  };
+  visit(tree);
+  const [include, more] = found.include ?? [];
+  const [exclude, extra] = found.exclude ?? [];
+  if (!include || more || extra) return undefined;
+  const lists = { include: literalList(include), exclude: exclude ? literalList(exclude) : [] };
+  return lists.include && lists.exclude ? { include: lists.include, exclude: lists.exclude } : undefined;
 }
 
 // Suites that need a network the pull-request lanes do not boot: the rig's cases run through
