@@ -13,6 +13,8 @@ export interface PrestoView {
   /** False when this build looks for no Presto (`?presto=off`): no card anywhere. */
   configured: boolean;
   standing: PrestoStanding;
+  /** Presto's own speed setting decides: the browser's slider is not in force. */
+  native: boolean;
   /** Remembered, but the browser will ask before the next look. */
   needsLook: boolean;
   look: () => void;
@@ -23,7 +25,9 @@ export interface PrestoView {
 export function usePresto(session: Session | undefined): PrestoView {
   const state = useAtomValue(prestoAtom);
   const lna = useAtomValue(lnaAtom);
-  const mining = useAtomValue(minerAtom).phase === 'mining';
+  // A claim under way is proved by whoever mined: the miner has not gone back to "when you start".
+  const phase = useAtomValue(minerAtom).phase;
+  const mining = phase === 'mining' || phase === 'claiming';
   const consent = session?.consent ?? pageConsent;
   const record = useSyncExternalStore(consent.subscribe, consent.read, consent.read);
   const configured = useMemo(() => prestoEndpoint() !== null, []);
@@ -31,6 +35,7 @@ export function usePresto(session: Session | undefined): PrestoView {
   return {
     configured,
     standing,
+    native: standing === 'remembered' || standing === 'proving',
     needsLook: lna === 'prompt',
     look: () => void session?.lookForPresto(),
     chooseBrowser: isConsented(record, state.consentRev) ? () => void session?.chooseBrowser() : undefined,

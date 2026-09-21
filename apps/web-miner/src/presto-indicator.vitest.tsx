@@ -106,6 +106,12 @@ describe('the native indicator', () => {
       'https://presto.build',
     );
     expect(screen.queryByRole('slider')).toBeNull();
+    // A win's claim is still Presto's work: the card does not fall back to "proves when you start".
+    store.set(minerAtom, { ...store.get(minerAtom), phase: 'claiming' });
+    again();
+    expect(screen.getByTestId('presto-card').dataset.standing).toBe('proving');
+    expect(screen.queryByRole('slider')).toBeNull();
+    store.set(minerAtom, { ...store.get(minerAtom), phase: 'mining' });
     // One refused proof: the footer drops its ✦, the row stays (the Worker has not given up on native).
     store.set(prestoAtom, { ...consented, selected: 'presto', active: 'wasm' });
     again();

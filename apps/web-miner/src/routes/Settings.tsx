@@ -86,7 +86,6 @@ function MiningTile({
   presto: PrestoView;
   flags: React.ReactNode;
 }) {
-  const native = presto.standing === 'remembered' || presto.standing === 'proving';
   return (
     <Tile>
       <TileHeader>mining</TileHeader>
@@ -101,9 +100,15 @@ function MiningTile({
         />
       )}
       <div className="flex flex-col gap-2 pb-2.5">
-        <PowerSlider cores={cores} threads={threads} onChange={onThreads} disabled={native} />
+        <PowerSlider
+          cores={cores}
+          threads={threads}
+          onChange={onThreads}
+          disabled={presto.native}
+          label="browser threads"
+        />
         <p className="text-xs text-ink-2" data-testid="power-note">
-          {native
+          {presto.native
             ? 'Not in use while Presto proves; Presto’s own speed setting decides. Yacana falls back to these threads if Presto drops out.'
             : 'This slider affects browser proving only; one core stays with the page.'}
         </p>

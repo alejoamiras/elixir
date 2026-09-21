@@ -675,9 +675,11 @@ export class MinerController {
   /**
    * Consent withdrawn: the Worker is told first (it acts between the awaits of the proof in
    * flight), then rebuilt without the endpoint. Nothing native from it is published from here on.
+   * The revoke goes straight to the Worker, never behind `ready`: queued there, a `mine` waiting on
+   * a held initialization would reach a native prover first.
    */
   revoke(): void {
-    this.post({ type: 'revoke' });
+    this.prover.worker.postMessage({ type: 'revoke' } satisfies ToWorker);
     this.reconfigure(this.threads, null);
   }
 

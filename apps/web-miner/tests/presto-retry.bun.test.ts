@@ -48,6 +48,30 @@ function controller(worker: FakeWorker, consent: ConsentHooks = OPEN) {
   return { store, c };
 }
 
+describe('revoke', () => {
+  test('it reaches the Worker at once, ahead of a mine queued behind a held initialization', async () => {
+    // A Worker whose init never answers until told: everything posted through `ready` waits behind it.
+    class HeldWorker extends FakeWorker {
+      release: (() => void) | undefined;
+      override postMessage(m: ToWorker) {
+        this.sent.push(m);
+        if (m.type === 'init')
+          this.release = () => this.emit({ type: 'ready', threads: m.threads, initMs: 0, prover: 'presto' });
+      }
+    }
+    const worker = new HeldWorker();
+    const { c } = controller(worker);
+    c.reconfigure(4); // posted through `ready`, as a `mine` would be
+    c.revoke();
+    expect(worker.sent.map((m) => m.type)).toEqual(['init', 'revoke']);
+    worker.release?.();
+    await tick();
+    expect(worker.sent.map((m) => m.type).slice(0, 2)).toEqual(['init', 'revoke']);
+    expect(c.currentPresto).toBeNull();
+    c.dispose();
+  });
+});
+
 describe('reconfigure for Presto', () => {
   test('the same config posts nothing; force rebuilds; dropping the endpoint rebuilds on WASM', async () => {
     const worker = new FakeWorker();

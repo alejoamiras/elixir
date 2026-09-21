@@ -39,10 +39,9 @@ function PowerAndPresto({
   controller: () => MinerController | undefined;
   presto: PrestoView;
 }) {
-  const native = presto.standing === 'remembered' || presto.standing === 'proving';
   return (
     <>
-      {(!presto.configured || !native) && <PowerRow controller={controller} />}
+      {(!presto.configured || !presto.native) && <PowerRow controller={controller} />}
       {presto.configured && (
         <PrestoCard
           standing={presto.standing}

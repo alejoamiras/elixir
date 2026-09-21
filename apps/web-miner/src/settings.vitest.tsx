@@ -85,6 +85,7 @@ describe('Settings', () => {
       card.compareDocumentPosition(screen.getByRole('slider')) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(screen.getByRole('slider').hasAttribute('disabled')).toBe(false);
+    expect(screen.getByLabelText('browser threads')).toBe(screen.getByRole('slider'));
     expect(screen.getByTestId('power-note').textContent).toBe(
       'This slider affects browser proving only; one core stays with the page.',
     );
