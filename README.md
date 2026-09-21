@@ -19,8 +19,9 @@ time, clamped to [¼, 4] — Bitcoin-style difficulty without a native hash to g
 
 ## Layout
 
-Four workspace folders, each a layer; production code imports its own layer or below, and a workspace is reached
-by its `@yacana/<name>` and an exported subpath, never by a path.
+Four workspace folders, each a layer; production code imports its own layer or below (`tools/` may import
+anything), and a workspace is reached by its `@yacana/<name>` and an exported subpath, never by a path, but for
+the few config-time edges `scripts/boundaries.test.ts` lists.
 
 - `apps/` — what ships: `web-miner` (React page with an embedded wallet), `web-stats` and `web-landing` (the
   observatory and the landing), `site` (the three as one origin).

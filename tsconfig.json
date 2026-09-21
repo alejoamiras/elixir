@@ -20,6 +20,7 @@
     "packages/*/src",
     "packages/*/scripts",
     "packages/*/tests",
+    "protocol/*/src",
     "protocol/*/scripts",
     "tools/*/src",
     "tools/*/scripts",

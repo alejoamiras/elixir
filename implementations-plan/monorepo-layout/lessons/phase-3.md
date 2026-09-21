@@ -85,3 +85,36 @@ asserts "no demo") from `CLAUDE.md`'s row and two command comments and the landi
 | FAST | all ok; `bun test` 537 pass · 42 skip · 0 fail, 81 s |
 | the grep outside `implementations-plan` and `docs/deployments.md` | nothing |
 | the grep on `docs/deployments.md` | line 105 only, the D13 line (the file has no other hit, archived sections included) |
+
+## Arc 3 codex fix loop
+
+### Round 1 (2026-09-21) — "Two material findings"
+
+Codex (GPT-6 Astra, `high`, read-only, session `01a0c533-0a79-7b30-bb11-c016cb20c79c`) over `git diff
+52f457f..7dc4d18` with six named attack surfaces. Both findings real; one I had found and fixed uncommitted while
+it read.
+
+1. **A template path the map could not match.** `scripts/render-e2e.ts:19` read `` `packages/web-${app}/e2e/.run.json` ``:
+   the regex wants the whole workspace name after `packages/`, and `web-${app}` is not one. Fixed to `apps/`. A
+   second sweep for `packages/…${`, `` `packages/ `` and concatenations found nothing else that was not prose.
+   **Lesson: after a path map, grep for the *prefix* alone (`packages/`) in code, not for the names — a template
+   or a concatenation shows only there.**
+2. **Three tests lost typechecking.** The root `tsconfig.json` include I wrote in P3.1 had `protocol/*/scripts` and no
+   `protocol/*/src`, so `work-circuit/src/{proof-layout,vk-bytes,vk-pinning}.test.ts` (and `generated/vk.ts`) were
+   root files of no project. Found before the review returned by comparing the root project's file set: the
+   pre-move include over `52f457f`'s tree, mapped through the path map, against `tsc --showConfig` now — 242
+   expected, 238 present, exactly those four missing; with `protocol/*/src` added, 242 = 242 (the comparison script
+   is the regression evidence: run against the committed `tsconfig.json` it lists the four, against the fixed one
+   nothing). Arc 4's "every tracked file is a root of exactly one project" gate makes this class structural.
+3. Minor: the new `CLAUDE.md` intro and `README.md` layout stated "never by a path" and "own layer or below"
+   without the two deliberate exceptions (the config-time edges the boundary guard lists; `tools/` importing
+   anything). Qualified.
+
+Confirmed fine by codex: no other stale path across configs, hooks, actions and records; the workflow map's residue
+is exactly the two exclusion lines; all 14 workspaces keep their layer; only `hash` changed in the artifact and
+nothing consumes it (Verify shows `W_VK_HASH`, another value).
+
+| step | result |
+|---|---|
+| lint · three guards | exit 0 · 27 pass |
+| root typecheck (`protocol/*/src` back) | exit 0 |

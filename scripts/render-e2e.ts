@@ -16,7 +16,7 @@ const out = resolve(process.argv[3] ?? resolve(repo, '.run-state/renders'));
 const widths = (process.argv[4] ?? '1280,1440,1024').split(',').map(Number);
 mkdirSync(out, { recursive: true });
 
-const run = JSON.parse(readFileSync(resolve(repo, `packages/web-${app}/e2e/.run.json`), 'utf8')) as {
+const run = JSON.parse(readFileSync(resolve(repo, `apps/web-${app}/e2e/.run.json`), 'utf8')) as {
   baseURL: string;
   /** The landing's second build, with the fixture claim: the ledger's populated state is the one to show. */
   claimURL?: string;

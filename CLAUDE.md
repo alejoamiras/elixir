@@ -11,7 +11,7 @@ Phase 1 measurements: `implementations-plan/elixir-core/spike-results.md`.
 
 ## Workspaces (Bun)
 
-Four folders, one layer each, and production code imports its own layer or below: `apps/` (what ships, layer 3), `packages/` (shared TypeScript, 2), `protocol/` (Noir, Aztec and Solidity, 1) and `tools/` (operators, the rig, run isolation, 0 — anything may be imported from a tool, and no production file imports one). A workspace is reached by its `@yacana/<name>` and an exported subpath, never by a path; `scripts/boundaries.test.ts` and `scripts/layout.test.ts` hold both.
+Four folders, one layer each, and production code imports its own layer or below: `apps/` (what ships, layer 3), `packages/` (shared TypeScript, 2), `protocol/` (Noir, Aztec and Solidity, 1) and `tools/` (operators, the rig, run isolation, 0 — anything may be imported from a tool, and no production file imports one). A workspace is reached by its `@yacana/<name>` and an exported subpath, never by a path — except the config-time edges `scripts/boundaries.test.ts` lists (a Vite config loading `web-kit`'s base by path, since Vite bundles configs under the ambient Node), and `tools/` may import anything. `scripts/boundaries.test.ts` and `scripts/layout.test.ts` hold the rules.
 
 | Workspace | Owns |
 |---|---|
