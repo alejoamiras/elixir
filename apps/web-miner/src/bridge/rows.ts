@@ -1,7 +1,14 @@
 // The Wallet's one reading of the journal: the badge's count, each row's action and the money
 // buttons' reasons derive together here, so none can disagree with the rows under it.
 import { dayOf, deadlinePhrase } from '@yacana/bridge/exit-deadline';
-import { type Crossing, destinationOf, FADE_AFTER_MS, inFlight, type RowState } from '@yacana/bridge/journal';
+import {
+  type Crossing,
+  destinationOf,
+  FADE_AFTER_MS,
+  inFlight,
+  knownEth,
+  type RowState,
+} from '@yacana/bridge/journal';
 import { PARAMS } from '@yacana/miner-core/generated/params';
 import type { RowLine } from '@yacana/ui';
 import { amount as fmt, shortAddress } from '../lib/format';
@@ -69,9 +76,11 @@ const elapsedOf = (
   return state === 'proving' ? (now - c.createdAt) / 1000 : undefined;
 };
 
-/** The Ethereum party a sentence names; a redeem's recipient only once the record knows it. */
-const partyOf = (c: Crossing): string | undefined =>
-  c.kind === 2 ? (c.recipient ? shortAddress(c.recipient) : undefined) : shortAddress(c.ethAddress);
+/** The Ethereum party a sentence names; a redeem's recipient only once the record knows it, a depositor only when read. */
+const partyOf = (c: Crossing): string | undefined => {
+  const eth = c.kind === 2 ? c.recipient : knownEth(c);
+  return eth && shortAddress(eth);
+};
 
 /**
  * The standing and deadline a crossing is judged under: its own version's. A V5 send viewed on V6

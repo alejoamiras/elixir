@@ -3,7 +3,15 @@
 // derives — under the source version's labels for the former, this version's for the latter —
 // against the portal's events. Nothing is claimed here: each is a card with a Claim on it.
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { advance, type Crossing, crossingId, destinationOf, type Facts } from '@yacana/bridge/journal';
+import {
+  advance,
+  type Crossing,
+  crossingId,
+  destinationOf,
+  type Facts,
+  knownEth,
+  UNKNOWN_ETH,
+} from '@yacana/bridge/journal';
 import { deriveCrossingSecrets } from '@yacana/bridge/secrets';
 import { leafIdOf } from '@yacana/bridge/signatures';
 import type { Hex } from 'viem';
@@ -60,6 +68,8 @@ export interface Arrived {
   destination: string;
   /** A forwarded send's leaf on its source version: the one name a witnessed send answers to. */
   leaf?: { epoch: bigint; leafId: bigint };
+  /** A deposit's depositor, from its event. */
+  sender?: Hex;
   /** The record for a journal that does not hold it: created now, the event already applied. */
   crossing(now: number): Crossing;
 }
@@ -106,9 +116,10 @@ const BEFORE_ARRIVAL = new Set<Crossing['state']>([
  * through the reducer — a deposit the wallet answered after the page closed moves on from
  * `proving`, at the amount Ethereum saw — and one further along (claimed, say) is left alone.
  */
-export function landed(stored: Crossing | undefined, a: Arrived, now: number): Crossing {
-  if (!stored) return a.crossing(now);
-  if (!sameMessage(stored, a)) return stored;
+export function landed(found: Crossing | undefined, a: Arrived, now: number): Crossing {
+  if (!found) return a.crossing(now);
+  if (!sameMessage(found, a)) return found;
+  const stored = withDepositor(found, a);
   // A deposit that gave itself up is revived by its event: Ethereum had it after all.
   const given = stored.kind === 3 && stored.state === 'dropped';
   if (!given && !BEFORE_ARRIVAL.has(stored.state)) return stored;
@@ -118,6 +129,16 @@ export function landed(stored: Crossing | undefined, a: Arrived, now: number): C
       : stored;
   return advance(record, { now, ...a.fact });
 }
+
+/**
+ * A deposit recorded before the depositor was read holds the placeholder, at any state: its own event
+ * fills it in. An address the record already knows is never replaced, and no other kind is touched
+ * (a send's address is its recipient, which its witness is matched on).
+ */
+const withDepositor = (stored: Crossing, a: Arrived): Crossing =>
+  stored.kind === 3 && 'deposited' in a.fact && a.sender && !knownEth(stored)
+    ? { ...stored, ethAddress: a.sender }
+    : stored;
 
 /**
  * A message under an index the journal already holds for another message (two devices of one
@@ -138,7 +159,12 @@ export function matchArrivals(
 ): Arrived[] {
   const bySecret = new Map(candidates.map((c) => [`${c.kind}:${c.secretHash.toLowerCase()}`, c]));
   const found: Arrived[] = [];
-  const push = (c: ArrivalCandidate, amount: bigint, fact: Arrival, leaf?: Arrived['leaf']) => {
+  const push = (
+    c: ArrivalCandidate,
+    amount: bigint,
+    fact: Arrival,
+    from: Pick<Arrived, 'leaf' | 'sender'> = {},
+  ) => {
     const base = {
       kind: c.kind,
       chainId: scope.chainId,
@@ -152,7 +178,7 @@ export function matchArrivals(
       amount,
       fact,
       destination: 'forwarded' in fact ? fact.forwarded.target : c.version.toString(),
-      ...(leaf ? { leaf } : {}),
+      ...from,
       crossing: (now) =>
         advance(
           {
@@ -162,7 +188,8 @@ export function matchArrivals(
             state: 'proving',
             createdAt: now,
             updatedAt: now,
-            ethAddress: `0x${'00'.repeat(20)}`,
+            // A forwarded send found here has no Ethereum party of this account's: it was sent from Aztec.
+            ethAddress: from.sender ?? UNKNOWN_ETH,
           },
           { now, ...fact },
         ),
@@ -175,13 +202,18 @@ export function matchArrivals(
         c,
         f.amount,
         { forwarded: { txHash: f.txHash, inboxIndex: f.inboxIndex.toString(), target: f.target.toString() } },
-        { epoch: f.epoch, leafId: f.leafId },
+        { leaf: { epoch: f.epoch, leafId: f.leafId } },
       );
   }
   for (const d of arrivals.deposited) {
     const c = bySecret.get(`3:${d.secretHash.toLowerCase()}`);
     if (c && c.version === d.version)
-      push(c, d.amount, { deposited: { txHash: d.txHash, inboxIndex: d.inboxIndex.toString() } });
+      push(
+        c,
+        d.amount,
+        { deposited: { txHash: d.txHash, inboxIndex: d.inboxIndex.toString() } },
+        { sender: d.sender },
+      );
   }
   return found;
 }

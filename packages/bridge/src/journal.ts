@@ -249,6 +249,16 @@ export function rowState(c: Crossing, f: { sourceTipAt: bigint | null; covered: 
   return f.sourceTipAt > BigInt(c.expiresAt) ? 'unfinished' : 'checking';
 }
 
+/**
+ * A deposit found on Ethereum by a build that did not read the depositor carries this in its required
+ * `ethAddress` (the recovery format has no optional address). It names no one and is never shown.
+ */
+export const UNKNOWN_ETH: Hex = `0x${'00'.repeat(20)}`;
+
+/** The crossing's Ethereum address, or undefined when the record holds the placeholder. */
+export const knownEth = (c: Pick<Crossing, 'ethAddress'>): Hex | undefined =>
+  BigInt(c.ethAddress) === 0n ? undefined : c.ethAddress;
+
 /** The version a crossing lands on and is claimed from: a deposit's own, a send-ahead's target; an exit lands on Ethereum. */
 export const destinationOf = (c: Crossing): string | undefined =>
   c.kind === 3 ? c.version : c.kind === 2 ? c.target : undefined;

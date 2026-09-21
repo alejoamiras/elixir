@@ -302,6 +302,7 @@ async function readArrivals(client: PublicClient, portal: Portal, a: PortalAddre
         leafId: l.args.leafId,
       })),
     deposited: deposited.map((l) => ({
+      sender: l.args.sender,
       secretHash: l.args.secretHash,
       version: l.args.version,
       amount: l.args.amount,
