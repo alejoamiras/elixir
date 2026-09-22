@@ -163,3 +163,12 @@ its revocation is not optional. Its first validity window started two days in th
 The token could not list accounts (rightly); the account id came from the Workers Builds check's public link.
 `gh stack submit --auto` opens drafts, which `gh stack merge` refuses: each was marked ready first. After each
 squash merge `gh stack sync` rebased what was left; the top's tree stayed identical to the pre-merge top throughout.
+
+### C2, the rename, and the close (2026-09-22)
+
+The owner ran `gh repo rename` himself. Verified after it: the repository answers as `alejoamiras/yacana`; `origin`
+re-pointed (the config is the canonical clone's); the clone registry gained its row (there was none, the folder
+keeps the name `elixir`); branch protection equal to the record (signatures required, no required checks, no
+reviews); `gh stack view` resolves under the new URLs. An empty commit on arc 5: every PR workflow green and **a
+Workers Build appeared and passed, so Workers Builds follows a rename** (the plan's one unverified assumption,
+now settled). #59 merged as `f8a3664`; production green on it. Ordering as planned: C1 after arc 0, C2 after arc 4.
