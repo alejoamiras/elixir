@@ -5,10 +5,12 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  cssImports,
   exportPaths,
   isProduction,
   isRelative,
   ownerOf,
+  pathCalls,
   reach,
   readManifest,
   repo,
@@ -204,6 +206,28 @@ describe('export targets', () => {
     expect(exportPaths([null, './src/config.ts'])).toEqual(['./src/config.ts']);
     expect(exportPaths(null)).toEqual([]);
     expect(exportPaths(undefined)).toEqual([]);
+  });
+});
+
+describe('the module-helper extractor', () => {
+  test('keeps a package specifier handed to a module-loading helper, and only to one', () => {
+    const source = [
+      "await vi.importActual('@yacana/miner-core/metrics');",
+      "vi.mock('@yacana/ui', () => ({}));",
+      "new URL('@yacana/ui', base);",
+    ].join('\n');
+    expect(pathCalls(source).map((s) => s.text)).toEqual(['@yacana/miner-core/metrics', '@yacana/ui']);
+  });
+});
+
+describe('the CSS import extractor', () => {
+  test('sees quoted, url() and unquoted url() imports', () => {
+    const css = [
+      '@import "./a.css";',
+      "@import url('../b/b.css');",
+      '@import url(../../c/src/theme.css);',
+    ].join('\n');
+    expect(cssImports(css).map((s) => s.text)).toEqual(['./a.css', '../b/b.css', '../../c/src/theme.css']);
   });
 });
 

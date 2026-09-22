@@ -166,6 +166,12 @@ const testInvocations = (w: Workflow): string[][] =>
     .filter((c) => c[0] === 'bun' && c[1] === 'test')
     .map((c) => c.slice(2).filter((x) => !x.startsWith('-')));
 
+/** The production build, by the root script, the site's own, or the assembler itself. */
+const buildsSite = (c: string[]): boolean =>
+  c.join(' ') === 'bun run site:build' ||
+  (c.includes('build') && c[c.indexOf('--cwd') + 1] === 'apps/site') ||
+  (c[0] === 'bun' && plain(c[1] ?? '') === 'apps/site/src/assemble.ts');
+
 /** The workspace and everything it needs in production, through `dependencies`. */
 function closure(w: Workspace, seen = new Set<Workspace>()): Set<Workspace> {
   if (seen.has(w)) return seen;
@@ -193,9 +199,16 @@ function filterGaps(w: Workflow): string[] {
     .flatMap(gating)
     .filter((c) => c.includes('test:components') && c.includes('--cwd'))
     .map((c) => c[c.indexOf('--cwd') + 1] ?? '');
-  const args = [...testInvocations(w).flat(), ...components];
+  // A production build reads everything it assembles: it counts as running the whole site.
+  const builds = w.steps.flatMap(gating).some(buildsSite) ? ['apps/site'] : [];
+  const args = [...testInvocations(w).flat(), ...components, ...builds];
   const watched = (a: string): boolean => w.filter.some((g) => !g.startsWith('!') && new Glob(g).match(a));
-  return all
+  // The build's configuration is outside every workspace: the env file, the profile's record, the witnesses.
+  const config =
+    builds.length && !w.filter.includes('deployments/**')
+      ? [`${w.file}: runs the production build, filter lacks deployments/**`]
+      : [];
+  const gaps = all
     .filter((ws) => args.some((a) => a === ws.dir || a.startsWith(`${ws.dir}/`)))
     .flatMap((t) => {
       const whole = args.includes(t.dir);
@@ -203,9 +216,10 @@ function filterGaps(w: Workflow): string[] {
       const folders = [...closure(t)].filter((need) => !covers(w.filter, need.dir, whole && need === t));
       return [
         ...files.map((a) => `${w.file}: runs ${a}, which no filter glob matches`),
-        ...folders.map((need) => `${w.file}: runs ${t.dir}'s tests, filter lacks ${need.dir}/**`),
+        ...folders.map((need) => `${w.file}: runs ${t.dir}'s tests or build, filter lacks ${need.dir}/**`),
       ];
     });
+  return [...config, ...gaps];
 }
 
 /** Whether the Vitest config of the file's workspace picks the file up: an invocation alone does not. */
@@ -279,10 +293,16 @@ describe('workflows', () => {
       .flatMap((w) => w.steps.flatMap(gating))
       .filter((c) => c.includes('test:components'))
       .map((c) => (c.includes('--cwd') ? (c[c.indexOf('--cwd') + 1] ?? '') : ''));
+    const forVitest = (f: string): boolean =>
+      ts
+        .preProcessFile(readFileSync(join(repo, f), 'utf8'))
+        .importedFiles.some((i) => i.fileName === 'vitest');
+    // Bun discovers `.test.` and `.spec.` names; a folder argument does not make it run any other.
     const runs = (f: string): boolean =>
-      /^import .* from 'vitest';$/m.test(readFileSync(join(repo, f), 'utf8'))
+      forVitest(f)
         ? vitestDirs.some((d) => d === '' || f.startsWith(`${d}/`)) && vitestIncludes(f)
-        : bunArgs.some((args) => args.length === 0 || args.some((a) => f.includes(a)));
+        : /[._](test|spec)\.tsx?$/.test(f) &&
+          bunArgs.some((args) => args.length === 0 || args.some((a) => f.includes(a)));
     const orphans = files
       .filter((f) => /\.(test|spec|vitest)\.tsx?$/.test(f) && !NOT_IN_A_PR_LANE.some((x) => x.test(f)))
       .filter((f) => !runs(f));
@@ -302,6 +322,35 @@ describe('workflows', () => {
   test("a workflow's filter names every workspace whose tests it runs, and what those depend on", () => {
     const gaps = workflows.filter((w) => w.filter.length).flatMap(filterGaps);
     expect([...new Set(gaps)]).toEqual([]);
+  });
+
+  test('a pull-request lane builds the production site', () => {
+    const lanes = workflows.filter((w) => w.pullRequest && w.steps.flatMap(gating).some(buildsSite));
+    expect(lanes.map((w) => w.file)).not.toEqual([]);
+    expect(readManifest('.').scripts?.['site:build']).toBe('bun apps/site/src/assemble.ts');
+  });
+
+  test("the root's test:components reaches every workspace with a Vitest config", () => {
+    const script = readManifest('.').scripts?.['test:components'] ?? '';
+    const globs = [...script.matchAll(/--filter\s+(['"]?)(\S+?)\1(?=\s|$)/g)].map((m) => plain(m[2] ?? ''));
+    const missed = all
+      .filter((w) => exists(`${w.dir}/vitest.config.ts`))
+      .filter((w) => !globs.some((g) => new Glob(g).match(w.dir)))
+      .map((w) => w.dir);
+    expect(script.endsWith(' test:components')).toBe(true);
+    expect(globs.filter((g) => g.startsWith('!'))).toEqual([]);
+    expect(missed).toEqual([]);
+  });
+
+  test("a workspace's test:components runs its whole Vitest config", () => {
+    // A workspace without the script is skipped by the root's filtered run, and its specs with it.
+    const narrowed = all
+      .map((w) => ({ dir: w.dir, script: w.manifest.scripts?.['test:components'] }))
+      .filter(
+        (w) => (w.script !== undefined || exists(`${w.dir}/vitest.config.ts`)) && w.script !== 'vitest run',
+      )
+      .map((w) => `${w.dir}: test:components is ${JSON.stringify(w.script ?? null)}, not "vitest run"`);
+    expect(narrowed).toEqual([]);
   });
 
   test('the toolchain lanes require the toolchain and watch its resolver', () => {

@@ -16,12 +16,11 @@ const EXEMPT_PATHS = [
   /^bun\.lock$/,
   /^scripts\/rename-guard\.test\.ts$/,
 ];
-// Paths that legitimately keep the old name may be referenced from live files, as may the two
-// external names that predate the rename: the GitHub repository and the retired Pages project.
+// Paths that legitimately keep the old name may be referenced from live files, as may the one
+// external name that predates the rename: the retired Pages project.
 const EXEMPT_REFERENCES = [
   /implementations-plan\/elixir-[\w-]*/g,
   /deployments\/elixir-testnet-[\w.-]*/g,
-  /github\.com\/alejoamiras\/elixir/g,
   /elixir-web-miner\.pages\.dev/g,
 ];
 // Any spelling inside identifiers too (ElixirMiner, VITE_ELIXIR_MINER, deployElixir, elixir_work);

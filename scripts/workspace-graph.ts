@@ -27,6 +27,7 @@ export interface Manifest {
   name: string;
   main?: string;
   exports?: Record<string, ExportTarget>;
+  scripts?: Record<string, string>;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   workspaces?: string[];
@@ -94,6 +95,9 @@ const PATH_CALLEES = new Set([
   'mock.module',
 ]);
 
+// Of those, the ones that load a module: given a package specifier they import it, undeclared or not.
+const MODULE_CALLEES = new Set(['vi.mock', 'vi.doMock', 'vi.importActual', 'vi.importMock', 'mock.module']);
+
 const literals = (node: ts.Expression | undefined): ts.StringLiteralLike[] => {
   if (!node) return [];
   if (ts.isStringLiteralLike(node)) return [node];
@@ -106,12 +110,11 @@ export function pathCalls(source: string, file = 'x.ts'): Specifier[] {
   const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, false, kind);
   const out: Specifier[] = [];
   const visit = (node: ts.Node): void => {
-    if (
-      (ts.isCallExpression(node) || ts.isNewExpression(node)) &&
-      PATH_CALLEES.has(node.expression.getText(tree))
-    )
-      for (const lit of literals(node.arguments?.[0]))
-        if (isRelative(lit.text)) {
+    const call = ts.isCallExpression(node) || ts.isNewExpression(node) ? node : undefined;
+    const callee = call?.expression.getText(tree) ?? '';
+    if (PATH_CALLEES.has(callee))
+      for (const lit of literals(call?.arguments?.[0]))
+        if (isRelative(lit.text) || (MODULE_CALLEES.has(callee) && lit.text.startsWith('@yacana/'))) {
           const start = lit.getStart(tree) + 1;
           out.push({ text: lit.text, start, end: start + lit.text.length, kind: 'path-call' });
         }
@@ -121,11 +124,12 @@ export function pathCalls(source: string, file = 'x.ts'): Specifier[] {
   return out;
 }
 
-const CSS_IMPORT = /@import\s+(?:url\(\s*)?["']([^"']+)["']/g;
+// `@import "x"`, `@import url("x")` and the unquoted `@import url(x)`.
+const CSS_IMPORT = /@import\s+(?:url\(\s*(["']?)([^"')\s]+)\1\s*\)|(["'])([^"']+)\3)/g;
 
 export function cssImports(source: string): Specifier[] {
   return [...source.matchAll(CSS_IMPORT)].map((m) => {
-    const text = m[1] ?? '';
+    const text = m[2] ?? m[4] ?? '';
     const start = (m.index ?? 0) + m[0].indexOf(text);
     return { text, start, end: start + text.length, kind: 'css-import' as const };
   });

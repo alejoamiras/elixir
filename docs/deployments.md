@@ -97,13 +97,11 @@ bun run site:deploy        # = bun run --cwd apps/site deploy: assemble the prod
 ```
 
 Git-triggered deploys: Workers Builds (dashboard: connect the repository) keeps two build triggers for the Worker,
-and the build settings page edits only the production one, so set both. **Target state** (the settings name no
+and the build settings page edits only the production one, so set both. Both hold (the settings name no
 folder, so the site can move without touching the dashboard): root directory `/`, build command
 `bun install --frozen-lockfile && bun run site:build`, deploy command `bun run site:wrangler deploy` on the `main`
 trigger and `bun run site:wrangler versions upload` on the "Deploy non-production branches" trigger (`*` minus
-`main`); `site:wrangler` is the root script that runs the site's pinned wrangler from the site's folder. **Until the
-cutover** both triggers still hold root directory `packages/site` (the site's folder before the move), build command
-`bun install --frozen-lockfile && bun run build`, and `npx wrangler deploy` / `npx wrangler versions upload`. The API
+`main`); `site:wrangler` is the root script that runs the site's pinned wrangler from the site's folder. The API
 `PATCH /accounts/{account}/builds/triggers/{trigger}` with a token holding Workers Builds Configuration edits a
 trigger without the dashboard. Bun 1.4.0 comes from the root `packageManager`, no variable needed. Every push to `main`
 assembles and deploys; every other branch gets a version with a `workers.dev` preview URL and a branch alias

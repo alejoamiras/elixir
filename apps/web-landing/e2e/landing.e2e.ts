@@ -111,7 +111,7 @@ test('the argument in order, the hero tile from the chain, the ledger empty, not
   );
   await expect(page.getByTestId('verify-source')).toHaveAttribute(
     'href',
-    'https://github.com/alejoamiras/elixir',
+    'https://github.com/alejoamiras/yacana',
   );
   await expect(page.locator('#verify').getByRole('link')).toHaveCount(5);
   // The money table's last row has no bottom rule; the row above keeps its 1 px.
