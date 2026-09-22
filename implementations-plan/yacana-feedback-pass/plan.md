@@ -16,10 +16,9 @@ Delivered 2026-09-21 as stack #64 on GitHub: #61 (arc 1, links · stepper · loo
 #62 (arc 2, Presto by consent) ← #63 (arc 3, the balance on top, the tiles, the Wallet). All eight phases ✓;
 every arc's codex loop and the cross-arc pass converged ("no new material findings"); the sweep on the final
 tree found one consent leak (arc 2, fixed and reviewed) and two spec assumptions (`lessons/phase-8.md`).
-Not merged. **The stack sits on the pre-layout `main`**: the monorepo-layout PRs #54–#58 landed while it
-was built, so #61 conflicts with `main` (34 files at the tip, mostly path moves) and its Actions cannot run
-until it is rebased; #62 and #63 run against their stack bases. The owner decides the base: after #59 lands,
-`gh stack sync`, resolve, rerun the fast layers and the sweep with the moved commands, one codex delta round.
+The monorepo-layout PRs #54–#59 landed under the stack while it awaited review; it was rebased onto that
+layout 2026-09-22 commit by commit, the fast layers and the whole sweep rerun green, and codex reviewed the
+rebase as a diff of diffs: "no new material findings" (`lessons/phase-8.md`). Not merged.
 
 # yacana-feedback-pass — the first users' feedback, built to the approved boards
 

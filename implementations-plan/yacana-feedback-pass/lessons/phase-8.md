@@ -114,3 +114,28 @@ Rules for later:
 - **When a shard fails and the test alone passes, bisect the shard's history, not the code.** Kept traces plus
   the effect's shape (writes, notes, logs) named the closing claim in minutes; six bisect runs on commits had
   said nothing.
+
+## The rebase onto the monorepo layout (2026-09-22)
+
+`main` moved under the delivered stack by #54–#59 (flat `packages/*` → `apps/ packages/ protocol/ tools/`, every
+cross-workspace import through `@yacana/*` exports, `scripts/run` → `tools/localnet`, `site`'s browser code and
+`pinned-crs` into `web-kit`). #61 conflicted with `main` in 34 files; GitHub never computed #63's merge state.
+
+Done commit by commit (`git rebase --onto`, 40 → 39 commits: two test fixes main had made itself were dropped,
+the pre-rebase branches kept as `prelayout/arc{1,2,3}`), with three small tools: import-only conflict hunks took
+the stack's names on main's specifiers (a union where main had sorted other lines into the block), whole new files
+had their cross-workspace specifiers rewritten, the plan-folder index files kept main's entries with ours appended.
+The rest by hand: `CLAUDE.md` (main's table, our two rows ported), one harness import block, one comment.
+
+What the tools got wrong, all caught by the gates before anything was pushed: the codemod rewrote the app's own
+`../bridge/env` to `@yacana/bridge/env` (typecheck + the export map); a duplicate-then-merged import in `RailTile`
+(typecheck); `rerere` replayed a mangled multi-line resolution into `BalanceCard` (by eye — rerere was switched
+off for the rest); the ↗ scan's roots pointed at folders that no longer existed and the test passed on nothing
+(it now fails when a root scans no file); a Vitest mock reached `ScoreLoop` by file path (the boundary guard).
+The old layout's build outputs (`packages/contracts/target`) were not where the new prebuild looks: one compile.
+
+Gates on the rebased tip: fast layers green on each arc; the seven-gate sweep `ALL-GREEN`; codex (the same
+cross-arc session, round 5) compared all 99 changed files after normalising moves: "no new material findings", one
+doc nit fixed. Rule for later: **a rebase across a layout change is reviewed as a diff of diffs** (new stack vs new
+main against old stack vs old main), and every automated resolution is checked by a gate that would notice a
+dropped line — a test that scans a moved folder passes on nothing.
