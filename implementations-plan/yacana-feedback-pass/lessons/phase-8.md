@@ -139,3 +139,35 @@ cross-arc session, round 5) compared all 99 changed files after normalising move
 doc nit fixed. Rule for later: **a rebase across a layout change is reviewed as a diff of diffs** (new stack vs new
 main against old stack vs old main), and every automated resolution is checked by a gate that would notice a
 dropped line — a test that scans a moved folder passes on nothing.
+
+## Confidence checks on the rebased stack (2026-09-22)
+
+The sweep ran on the tip only; the lower arcs had fast layers. Four checks closed that gap, each lower arc in a
+throwaway worktree off its branch, the tip's worktree untouched:
+
+| Check | Tree | Result |
+|---|---|---|
+| `bun run rig -- deposit` (the harness import block merged by hand) | arc 1 | 1 pass |
+| `cockpit` shard, proverless | arc 1 | 7/7 |
+| `chain` shard, real proving | arc 1 | 9/9, then 9/9 after the move below |
+| `chain` shard, real proving | arc 2 | 11/12, then 12/12 after the move |
+| `chain` shard, real proving, a second run | tip | 12/12 |
+| PR titles within commitlint's header limit once GitHub appends ` (#61)` | #61 | shortened |
+
+Arc 2's failure was the lost race opening on the epoch's closing claim: five nullifiers where the spec expected
+four. `main`'s spec carries the same assumption; the fix had landed in arc 3 only, where the sweep found it.
+It moved to the top of arc 1, the earliest arc that runs the spec, by plumbing (`merge-tree --write-tree` and a
+signed `commit-tree` per commit, then `update-ref` with the old values), because the tip's worktree was in use
+for a manual smoke test: no checkout, and the tip's tree came out identical. Arc 1's rerun then opened on a
+closing claim too, so the fix is exercised on both arcs.
+
+CI on the pushed stack: #62 and #63 green; #61's contracts job failed when the TXE died of an uncaught native
+`Napi::Error` twenty tests in, every later test reading "Failed calling external resolver. client error
+(Connect)". The layout PRs' contracts runs failed the same way twice on 2026-09-21; a rerun of the job passed.
+
+Rules for later:
+
+- **A spec fix found on the tip is checked against every arc that runs the spec**, not only where it was found:
+  a lower arc passing once proves only that its shard's claims landed differently that time.
+- **A TXE that dies takes every later test with it**: the first failure after a native abort is the only one
+  that says anything; "Failed calling external resolver" on the rest is the resolver being gone.
