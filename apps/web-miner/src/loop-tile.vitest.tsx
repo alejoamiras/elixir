@@ -1,14 +1,15 @@
 import { cleanup, render } from '@testing-library/react';
+import type { ScoreLoopProps } from '@yacana/ui';
 import { createStore, Provider } from 'jotai';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import type { ScoreLoopProps } from '@yacana/ui';
 import { barCaption, LoopTile, PipView } from './features/LoopTile';
 import { initial } from './lib/reducer';
 import { epochAtom, minerAtom } from './state';
 
 // The chart itself is drawn on a canvas and tested in `ui`; here it only says what it was given.
 const given: ScoreLoopProps[] = [];
-vi.mock('../../ui/src/components/score-loop.tsx', () => ({
+vi.mock('@yacana/ui', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@yacana/ui')>()),
   ScoreLoop: (props: ScoreLoopProps) => {
     given.push(props);
     return null;
