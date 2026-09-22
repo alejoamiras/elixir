@@ -11,6 +11,7 @@ validation: fast layers every phase, heavy layers at arc ends
 decisions: resolved with codex inside plan scope; hard limits stay hard
 baseline: 06b25d7
 worktree: .claude/worktrees/monorepo-layout (branch worktree-monorepo-layout)
+status: closed 2026-09-22 (six PRs #54–#59 merged, C1 and C2 done, production green on f8a3664)
 ---
 
 # monorepo-layout
