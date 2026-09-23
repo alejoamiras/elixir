@@ -39,3 +39,29 @@
   stop keeping its waiters, a second boot), each failing the spec.
 - `bun run --cwd apps/web-stats test:visual` 8/8 against P2's baselines, not regenerated.
 - `bun run e2e:agent -- bun run --cwd apps/web-stats test:e2e` 7/7 (1.6 m).
+
+## Codex (arc 4a)
+Session `01a0d059-4445-72e3-b1f0-90e15cb81666` at `high`, over `5f92e6a..1371dbb`.
+
+**Round 1** — four material, one minor; each verified against the code and fixed:
+1. A disposed boot's continuation persisted the store's history, its successor's by then, under its own
+   cache key. `persist` returns once disposed; it covers the boot's path and the fill's.
+2. `stop(); start()` in one task while the boot waited on `yieldTo`: `booting` swallowed the start and the
+   unwinding boot never came back, so the page stayed loading. A start during a boot sets `bootAgain`; the
+   boot boots again on its way out when still live and not booted.
+3. A boot waiting out a cooldown had no way out: a failure landing after dispose armed a wait of up to a
+   minute, and a stop left a running wait armed. `waitTurn(signal)` (web-kit) resolves at once on abort,
+   and `stop()` aborts the instance's controller. A `live()` check before the wait, tried first, proved
+   redundant: its mutation went uncaught because the aborted signal alone arms nothing.
+4. A fill page queued behind a poll ran after a dispose, a stop or a new yield. The serial callback checks
+   `live()` and `yieldTo` when its turn comes.
+5. Comments: the header states what a stop leaves running (a batch already out finishes); the recheck
+   constant's comment went; `persist` says why it refuses.
+
+Specs: four runtime tests (13 in all); each fix's mutation fails the spec (4/4) and the nine earlier ones
+still do (9/9); web-kit's `waitTurn` spec covers the abort. On the fix: `bun run lint` 0, `bun test` 0
+(647 pass, 44 skip), `bun run typecheck` 0, `bun run test:components` 0.
+
+Found on the way: the mutation script checked a pattern only when it reached it, and a stale one stopped it
+before its restore, leaving two mutations in `runtime.ts`. The diff review caught both before the commit;
+the scripts now check every pattern first and restore in `finally`.

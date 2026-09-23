@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import type { EpochRow, Node } from '@yacana/miner-core/reader';
 import type { Connection } from '@yacana/web-kit/browser/connection';
+import { resetNodeHealth, setTransportForTests } from '@yacana/web-kit/browser/node-health';
 import { Glob } from 'bun';
 import { createStore } from 'jotai';
 import type { PublicClient } from 'viem';
@@ -30,10 +31,12 @@ const connection = (nodeUrl: string): Connection => ({
 /** A read the test lets land when it chooses. */
 function later<T>() {
   let resolve!: (v: T) => void;
-  const promise = new Promise<T>((r) => {
-    resolve = r;
+  let reject!: (e: Error) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 const fixedOf = (open: number, tag: number): Fixed =>
@@ -305,6 +308,112 @@ describe('the stats runtime', () => {
     const again = make(fakes(3), { store, node: 'http://a/' });
     again.rt.start();
     await until(() => store.get(fixedAtom)?.block.number === 3);
+  });
+
+  test('stopped and started again while the boot waits on yieldTo, it boots once the yield clears', async () => {
+    let yielding = true;
+    const f = fakes();
+    const { rt, store } = make(f, { yieldTo: () => yielding });
+    rt.start();
+    await pause(100);
+    rt.stop();
+    rt.start();
+    yielding = false;
+    await until(() => store.get(statusAtom).phase === 'ready');
+    expect(count(f.log, 'open')).toBe(1);
+  });
+
+  test("a disposed boot persists nothing: its successor's rows never land under its key", async () => {
+    const saved = new Map<string, string>();
+    const env = { ...process.env };
+    Object.assign(process.env, {
+      VITE_CHAIN_ID: '31337',
+      VITE_ROLLUP_VERSION: '1',
+      VITE_ROLLUP_ADDRESS: '0x03',
+    });
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (k: string) => saved.get(k) ?? null,
+        setItem: (k: string, v: string) => void saved.set(k, v),
+        removeItem: (k: string) => void saved.delete(k),
+      },
+    });
+    try {
+      const store = createStore();
+      const a = fakes(1, 200);
+      a.hold.fixed = later<Fixed>();
+      const first = make(a, { store, node: 'http://a/' });
+      first.rt.start();
+      await until(() => a.log.includes('fixed'));
+      first.rt.dispose();
+      const second = make(fakes(2, 200), { store, node: 'http://b/' });
+      second.rt.start();
+      await until(() => store.get(statusAtom).phase === 'ready');
+      // Rows old enough to be cached: the boot's own window is too recent.
+      await second.rt.showWindow({ from: 0, to: 47 });
+      a.hold.fixed.resolve(fixedOf(200, 1));
+      await pause(50);
+      expect([...saved.keys()]).toEqual([]);
+    } finally {
+      Reflect.deleteProperty(globalThis, 'localStorage');
+      process.env = env;
+    }
+  });
+
+  test('a boot failing into a cooldown: disposed, it arms no wait; a wait already out ends with stop', async () => {
+    try {
+      const f = fakes();
+      f.hold.open = later<Reader>();
+      const { rt } = make(f);
+      const late = await armedDuring(async () => {
+        rt.start();
+        await until(() => f.log.includes('open'));
+        setTransportForTests({
+          kind: 'throttled',
+          retryAt: Date.now() + 60_000,
+          status: 429,
+          backoffMs: 60_000,
+        });
+        rt.dispose();
+        f.hold.open?.reject(new Error('429'));
+        await pause();
+      });
+      expect(late).toEqual(NOTHING);
+      const g = fakes();
+      g.hold.open = later<Reader>();
+      const second = make(g);
+      const waiting = await armedDuring(async () => {
+        second.rt.start();
+        await until(() => g.log.includes('open'));
+        g.hold.open?.reject(new Error('429'));
+        await until(() => second.store.get(statusAtom).phase === 'error');
+        second.rt.stop();
+        await pause();
+      });
+      expect(waiting).toEqual(NOTHING);
+    } finally {
+      resetNodeHealth();
+    }
+  });
+
+  test('a fill page queued behind a poll does not start after a dispose or a yield that came meanwhile', async () => {
+    for (const cut of ['dispose', 'yield'] as const) {
+      let yielding = false;
+      const f = fakes(1, 200);
+      const { rt } = make(f, { fill: true, yieldTo: () => yielding });
+      rt.start();
+      await until(() => f.log.includes('rows 105-152'));
+      rt.stop();
+      f.hold.fixed = later<Fixed>();
+      rt.start();
+      await until(() => count(f.log, 'fixed') === 2);
+      if (cut === 'dispose') rt.dispose();
+      else yielding = true;
+      f.hold.fixed.resolve(fixedOf(200, 1));
+      await pause(50);
+      expect(f.log, cut).not.toContain('rows 57-104');
+    }
   });
 
   test("StrictMode's double effect: start, stop, start boots once and arms one of each timer", async () => {

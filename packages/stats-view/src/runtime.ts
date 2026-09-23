@@ -1,6 +1,7 @@
 // One Stats instance over the host's store: the boot, the 30 s poll, the history fill, the bridge poller
 // and the clock. It never points the fetch guard anywhere: the host sets the endpoints and hands it the
-// clients. stop() leaves nothing running (a hidden page); after dispose() nothing it started publishes.
+// clients. While stopped it arms nothing and starts nothing (a batch of reads already out runs to its end);
+// after dispose() nothing it started publishes or persists.
 import type { Node } from '@yacana/miner-core/reader';
 import { type Connection, expectedDeployment, firstEpoch } from '@yacana/web-kit/browser/connection';
 import { endpointFingerprint, quietNodeReads } from '@yacana/web-kit/browser/node-guard';
@@ -78,7 +79,6 @@ const SOURCES: StatsSources = {
   },
 };
 
-/** How often a read held back by `yieldTo` asks again. */
 const YIELD_RECHECK_MS = 1000;
 /** Nothing under 300 ms: a beat that lands first never shows a skeleton; the ones still out at 300 ms do. */
 const SLOW_MS = 300;
@@ -106,7 +106,11 @@ class Instance implements StatsRuntime {
   private active = false;
   private disposed = false;
   private booting = false;
+  /** A start() while a boot runs: that boot may be unwinding from the stop before it. */
+  private bootAgain = false;
   private booted = false;
+  /** Aborted by stop(): a boot waiting out a cooldown gives the wait up. */
+  private running = new AbortController();
   private bridgeBusy = false;
   private timers: ReturnType<typeof setInterval>[] = [];
   private slowTimer: ReturnType<typeof setTimeout> | undefined;
@@ -138,6 +142,7 @@ class Instance implements StatsRuntime {
   start(): void {
     if (this.disposed || this.active) return;
     this.active = true;
+    this.running = new AbortController();
     this.every(1000, () => this.put(nowAtom, Date.now()));
     if (!this.o.store.get(slowAtom)) this.slowTimer = setTimeout(() => this.put(slowAtom, true), SLOW_MS);
     if (this.booted) this.cadence(true);
@@ -151,6 +156,7 @@ class Instance implements StatsRuntime {
   stop(): void {
     if (!this.active) return;
     this.active = false;
+    this.running.abort();
     for (const t of this.timers) clearInterval(t);
     this.timers = [];
     clearTimeout(this.slowTimer);
@@ -237,7 +243,9 @@ class Instance implements StatsRuntime {
     },
   };
 
+  /** Never after dispose: the shared store may hold a successor's rows, which must not land under this key. */
   private persist(h: History, open: number): void {
+    if (this.disposed) return;
     const s = storage();
     if (this.key && s && !h.error) writeCache(s, this.key, h.rows, open);
   }
@@ -276,7 +284,9 @@ class Instance implements StatsRuntime {
       publish: this.publish.history,
       transport: () => nodeHealth().transport.kind,
       foreground: () => this.foreground > 0,
-      serial: this.queue.serial,
+      // A page queued behind the poll runs after it: a stop, a dispose or a yield may have come meanwhile.
+      serial: (page) =>
+        this.queue.serial(() => (this.live() && !this.o.yieldTo?.() ? page() : Promise.resolve())),
       persist: (h, open) => this.persist(h, open),
       onState: (s) => this.put(fillAtom, s),
       first: firstEpoch(),
@@ -327,10 +337,15 @@ class Instance implements StatsRuntime {
   }
 
   private boot(): void {
-    if (this.booting) return;
+    if (this.booting) {
+      this.bootAgain = true;
+      return;
+    }
     this.booting = true;
+    this.bootAgain = false;
     void this.bootSteps().finally(() => {
       this.booting = false;
+      if (this.bootAgain && this.live() && !this.booted) this.boot();
     });
   }
 
@@ -357,7 +372,7 @@ class Instance implements StatsRuntime {
     } catch (e) {
       this.put(statusAtom, { phase: 'error', message: message(e) });
       if (nodeHealth().transport.kind === 'ok') return;
-      await waitTurn();
+      await waitTurn(this.running.signal);
       if (this.live()) return this.bootSteps();
     }
   }
