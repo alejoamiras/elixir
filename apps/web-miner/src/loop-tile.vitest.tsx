@@ -1,4 +1,4 @@
-import { cleanup, render } from '@testing-library/react';
+import { act, cleanup, render } from '@testing-library/react';
 import type { ScoreLoopProps } from '@yacana/ui';
 import { createStore, Provider } from 'jotai';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
@@ -53,6 +53,28 @@ describe("the claim's band reaches both charts", () => {
     expect(tile?.barCaption).toMatch(/^the bar · reach it and you win · about 1 in \d+ do$/);
     expect(pip?.spans).toBe(spans);
     expect(pip?.height).toBe(48);
+  });
+
+  test('the pop-out is another document: its tip opens there, not in the opener', async () => {
+    const frame = document.createElement('iframe');
+    document.body.append(frame);
+    const pip = frame.contentWindow as Window;
+    render(
+      <Provider store={store()}>
+        <PipView {...controls} win={pip} />
+      </Provider>,
+      { container: pip.document.body.appendChild(pip.document.createElement('div')) },
+    );
+    const word = pip.document.querySelector('[data-slot=tip-trigger]') as HTMLElement;
+    expect(word.textContent).toBe('bar');
+    await act(async () => word.focus());
+    expect(pip.document.querySelector('[role=tooltip]')?.textContent).toBe(
+      'The score a proof must reach to win.',
+    );
+    expect(document.querySelector('[role=tooltip]')).toBeNull();
+    // Unmounted while its document still exists: React removes the portal from that body.
+    cleanup();
+    frame.remove();
   });
 
   test('the odds are said only when they are odds', () => {

@@ -6,6 +6,7 @@ import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import { bridgeRecord, isContinuation, nextVersionName } from '../bridge/env';
 import { moneyStanding } from '../bridge/rows';
+import { PrivateTip } from '../components/BalanceCard';
 import { links } from '../explorer';
 import { ActivityList } from '../features/ActivityList';
 import { WordsBackup } from '../features/account/Words';
@@ -20,12 +21,11 @@ import { amount, shortAddress } from '../lib/format';
 import { useTileLog } from '../lib/tile-log';
 import { navigate, takeIntent } from '../routes';
 import type { Session } from '../session';
-import { balanceAtom, bootAtom, bridgeAtom, claimsAtom } from '../state';
+import { balanceAtom, bootAtom, bridgeAtom } from '../state';
 
 /** The balance with its two ways out (Send, To Ethereum) and the way in (Deposit from Ethereum) beside the account. */
 export function BalanceTile({
   balance,
-  claims,
   typedWords,
   onSend,
   onToEthereum,
@@ -33,7 +33,6 @@ export function BalanceTile({
   onSettings,
 }: {
   balance: bigint | null;
-  claims: number;
   /** The account was opened by typing 12 words: an empty balance may be a mistyped word's account. */
   typedWords?: boolean;
   onSend: () => void;
@@ -46,7 +45,7 @@ export function BalanceTile({
   const money = moneyStanding(view, ownVersionName(), nextVersionName(view.canonical));
   return (
     <Tile>
-      <TileHeader aside="private">balance</TileHeader>
+      <TileHeader aside={<PrivateTip />}>balance</TileHeader>
       <Kpi
         label={<span className="sr-only">private balance</span>}
         value={
@@ -56,7 +55,6 @@ export function BalanceTile({
         }
         unit={PARAMS.TOKEN_SYMBOL}
         size="lg"
-        sub={`${claims} ${claims === 1 ? 'claim' : 'claims'} · nothing about this balance is public`}
       />
       {typedWords && balance === 0n && (
         <Note title="Expected a balance?" className="mt-4" data-testid="empty-hint">
@@ -160,59 +158,6 @@ function AccountTile({
   );
 }
 
-type Win = { epoch: bigint; block: number; at: number };
-
-/** "wins · 12 ›" in the activity tile's footer; open, the wins from this device list below it. */
-function WinsRow({ wins, open, onToggle }: { wins: Win[]; open: boolean; onToggle: () => void }) {
-  return (
-    <Button
-      variant="link"
-      className="label-mono no-underline"
-      aria-expanded={open}
-      onClick={onToggle}
-      data-testid="wins-row"
-    >
-      wins · {wins.length} <span className="text-ink-4">{open ? '‹' : '›'}</span>
-    </Button>
-  );
-}
-
-function WinsList({ wins }: { wins: Win[] }) {
-  return (
-    <Tile className="md:col-span-2" data-testid="wins-list">
-      <TileHeader aside={wins.length ? `${wins.length} · newest first` : undefined}>
-        wins from this device
-      </TileHeader>
-      {wins.length ? (
-        <ol
-          className="m-0 max-h-[280px] list-none overflow-y-auto p-0 font-mono text-xs"
-          data-testid="claims-history"
-        >
-          {[...wins].reverse().map((c) => (
-            <li
-              key={`${c.epoch}-${c.block}`}
-              className="flex gap-4 border-t border-line py-1 first:border-t-0"
-            >
-              <span className="text-ink-2">
-                {new Date(c.at).toISOString().slice(0, 16).replace('T', ' ')}
-              </span>
-              <span>epoch {c.epoch.toString()}</span>
-              <span className="text-ink-2">
-                block{' '}
-                <ExternalLink href={links.block(c.block)} full={String(c.block)}>
-                  {c.block.toLocaleString('en-US')}
-                </ExternalLink>
-              </span>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p className="text-xs text-ink-2">nothing yet</p>
-      )}
-    </Tile>
-  );
-}
-
 type Held = [Crossing | null, (c: Crossing | null) => void];
 
 /** The money dialogs on the bridge, each open on its own state; the old origin has no deposit. */
@@ -262,7 +207,6 @@ export function Wallet({ session }: { session: Session }) {
   const onError = useTileLog();
   const boot = useAtomValue(bootAtom);
   const balance = useAtomValue(balanceAtom);
-  const claims = useAtomValue(claimsAtom);
   const [intent] = useState(takeIntent);
   const [send, setSend] = useState(intent === 'send');
   const [exit, setExit] = useState(false);
@@ -270,7 +214,6 @@ export function Wallet({ session }: { session: Session }) {
   const [redeem, setRedeem] = useState<Crossing | null>(null);
   const [forward, setForward] = useState<Crossing | null>(null);
   const [signOut, setSignOut] = useState(false);
-  const [wins, setWins] = useState(false);
   // A backup opened from the sign-out dialog (here, or Welcome's before the account opened) returns
   // to the dialog once the words are confirmed.
   const [backup, setBackup] = useState<false | 'account' | 'sign-out'>(
@@ -298,7 +241,6 @@ export function Wallet({ session }: { session: Session }) {
       <TileBoundary name="balance" onError={onError}>
         <BalanceTile
           balance={balance}
-          claims={claims.length}
           typedWords={boot.typedWords}
           onSend={() => setSend(true)}
           onToEthereum={() => setExit(true)}
@@ -320,7 +262,6 @@ export function Wallet({ session }: { session: Session }) {
             session={session}
             account={account}
             continuation={isContinuation()}
-            wins={<WinsRow wins={claims} open={wins} onToggle={() => setWins((o) => !o)} />}
             on={{
               claimL1: setForward,
               forward: setForward,
@@ -332,11 +273,6 @@ export function Wallet({ session }: { session: Session }) {
             }}
           />
         </TileBoundary>
-        {wins && (
-          <TileBoundary name="wins" onError={onError} className="md:col-span-2">
-            <WinsList wins={claims} />
-          </TileBoundary>
-        )}
         <MoneyDialogs
           session={session}
           balance={balance}

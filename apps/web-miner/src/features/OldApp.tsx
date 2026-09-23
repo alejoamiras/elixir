@@ -274,7 +274,6 @@ function SignedIn({
         <ActivityList
           session={session}
           account={account}
-          wins={null}
           on={{
             claimL1: setForward,
             forward: setForward,

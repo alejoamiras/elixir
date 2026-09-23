@@ -6,9 +6,19 @@ eli5_mode: artifact
 code_review: off
 hardening: none (no new trust boundary; the one permission-shaped change narrows what the page does unasked)
 budget: "recon 2 agents (1 reuse sweep; the test-impact sweep rerun by the driver); codex at high (GPT-6 Astra); one fable audit; code-review off (owner, 2026-09-20)"
-status: drafted 2026-09-20; round-1 audits folded (codex reject → reworked, fable conditional approve → conditions folded); the final codex pass rejected twice (round 1: ten findings; round 2: seven), all folded; round 3: conditional approve, its three conditions folded; **approved by the owner 2026-09-21** (defaults accepted, A7 replaced by an automated test on Presto's technique); implementation under way since 2026-09-21 (a ✓ on a phase header means its gate passed; the evidence is in `lessons/phase-N.md`)
+status: drafted 2026-09-20; round-1 audits folded (codex reject → reworked, fable conditional approve → conditions folded); the final codex pass rejected twice (round 1: ten findings; round 2: seven), all folded; round 3: conditional approve, its three conditions folded; **approved by the owner 2026-09-21** (defaults accepted, A7 replaced by an automated test on Presto's technique); implemented 2026-09-21, all phases ✓ (the evidence is in `lessons/phase-N.md`); delivered as stack #64 (#61–#63), unmerged, awaiting a rebase onto the monorepo layout — see Outcome
 created: 2026-09-20
 ---
+
+## Outcome
+
+Delivered 2026-09-21 as stack #64 on GitHub: #61 (arc 1, links · stepper · loop · presets · activity row) ←
+#62 (arc 2, Presto by consent) ← #63 (arc 3, the balance on top, the tiles, the Wallet). All eight phases ✓;
+every arc's codex loop and the cross-arc pass converged ("no new material findings"); the sweep on the final
+tree found one consent leak (arc 2, fixed and reviewed) and two spec assumptions (`lessons/phase-8.md`).
+The monorepo-layout PRs #54–#59 landed under the stack while it awaited review; it was rebased onto that
+layout 2026-09-22 commit by commit, the fast layers and the whole sweep rerun green, and codex reviewed the
+rebase as a diff of diffs: "no new material findings" (`lessons/phase-8.md`). Not merged.
 
 # yacana-feedback-pass — the first users' feedback, built to the approved boards
 
@@ -559,15 +569,16 @@ to Presto after consent and to the page after `useBrowser` · layers: + e2e with
 
 ### Arc 3 — the cockpit and the wallet, composed
 
-**P7 — Mine.** `Tip`, `Popover`; the epoch rows and tips; the `?` popover; the right column and the mint line
+**P7 ✓ — Mine.** *(The boards give one tooltip sentence; the other five are written from the rules the page reads. `lessons/phase-7.md`.)* `Tip`, `Popover`; the epoch rows and tips; the `?` popover; the right column and the mint line
 (D5); the ledger's footer and `Wins.tsx` (D7); `miner.e2e.ts` `placed()` for the new order.
 **Gate**: fast, then `E2E_PROVERLESS=1 E2E_SHARD=cockpit bun run e2e:agent -- bun run --cwd packages/web-miner
 test:e2e` · pass: `cockpit.vitest.tsx` (row labels, footer count, the dialog lists `claimsAtom`); the mint line
 reads exactly "+4 tYACA · just now", goes after 10 s, and the tile's height is equal with and without it
 (asserted in `miner.e2e.ts`, where there is layout); a `Tip` renders inside the pop-out's root · layers: + e2e.
 
-**P8 — The Wallet, and the sweep.** The Wallet's removals, `OldApp.tsx`, the "private" tip; `CLAUDE.md`;
-`index.md`; then everything:
+**P8 ✓ — The Wallet, and the sweep.** *(The sweep found one consent leak in arc 2 — a revoke still queued when
+the witness was ready — fixed and reviewed; two spec assumptions corrected. `lessons/phase-8.md`.)* The Wallet's
+removals, `OldApp.tsx`, the "private" tip; `CLAUDE.md`; `index.md`; then everything:
 
 ```sh
 E2E_PROVERLESS=1 E2E_SHARD=cockpit bun run e2e:agent -- bun run --cwd packages/web-miner test:e2e

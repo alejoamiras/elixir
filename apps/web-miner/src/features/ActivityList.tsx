@@ -186,14 +186,11 @@ export function ActivityList({
   session,
   account,
   on,
-  wins,
   continuation = false,
 }: {
   session: Session;
   account: string;
   on: RowActions;
-  /** The collapsed wins row under the list; the ledger itself lives on Mine. */
-  wins: React.ReactNode;
   continuation?: boolean;
 }) {
   const record = bridgeRecord();
@@ -244,7 +241,6 @@ export function ActivityList({
         <Empty continuation={continuation} />
       )}
       <div className="mt-3.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-line pt-3">
-        {wins}
         <Recovery session={session} account={account} />
       </div>
       {record && (

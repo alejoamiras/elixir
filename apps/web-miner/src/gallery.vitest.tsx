@@ -97,7 +97,7 @@ const mount = (ui: ReactNode, setup: (store: ReturnType<typeof createStore>) => 
 
 const words = () => screen.getAllByTestId('crossing-word').map((w) => w.textContent);
 const on = { claimL1: () => {}, forward: () => {}, redeem: () => {}, again: () => {}, settings: () => {} };
-const list = <ActivityList session={session} account="0xacc" on={on} wins={null} />;
+const list = <ActivityList session={session} account="0xacc" on={on} />;
 
 afterEach(() => {
   cleanup();
@@ -173,7 +173,6 @@ describe('the journal, every state', () => {
       <>
         <BalanceTile
           balance={8n * ONE}
-          claims={1}
           onSend={() => {}}
           onToEthereum={() => {}}
           onDeposit={() => {}}
@@ -195,6 +194,10 @@ describe('the journal, every state', () => {
       },
     );
     expect(screen.getByTestId('money-reason').textContent).toContain("Ethereum RPC isn't answering");
+    // The Wallet is only money: no count of wins, no wins row; "private" explains itself on hover.
+    expect(container.textContent).not.toMatch(/\bclaims? ·|wins ·/);
+    expect(screen.queryByTestId('wins-row')).toBeNull();
+    expect(screen.getByText('private').getAttribute('data-slot')).toBe('tip-trigger');
     expect(words()).toEqual(['ready to claim', "can't read the upgrade"]);
     expect(screen.getByTestId('row-settings')).toBeTruthy();
     keep('journal-rpc-silent', container.innerHTML);

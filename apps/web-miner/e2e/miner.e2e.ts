@@ -74,29 +74,29 @@ test('first visit creates an account, mines at the easy target, claims and shows
   const cockpit = page.getByTestId('cockpit');
   const tracks = () => cockpit.evaluate((el) => getComputedStyle(el).gridTemplateColumns);
   const width = () => cockpit.evaluate((el) => el.getBoundingClientRect().width);
-  // The rail right of the loop and above the balance tile; the KPIs and the ledger under the loop, as wide.
+  // The balance right of the loop and the rail under it, one column; the KPIs and the ledger under the loop, as wide.
   const placed = () =>
     cockpit.evaluate((el) => {
-      const [loop, rail, kpis, stack] = Array.from(el.children) as HTMLElement[];
+      const [loop, right, kpis, ledger] = Array.from(el.children) as HTMLElement[];
       const box = (n: Element | null | undefined) => (n as Element).getBoundingClientRect();
-      const [l, r, k, ledger, key] = [
+      const [l, balance, rail, k, g] = [
         loop,
-        rail,
+        right?.firstElementChild,
+        right?.lastElementChild,
         kpis,
-        stack?.firstElementChild,
-        stack?.lastElementChild,
+        ledger,
       ].map(box);
       const near = (a: number, b: number) => Math.abs(a - b) <= 1;
       return (
-        r.left > l.right &&
-        near(r.top, l.top) &&
+        balance.left > l.right &&
+        near(balance.top, l.top) &&
+        rail.top > balance.bottom &&
+        near(rail.left, balance.left) &&
         k.top > l.bottom &&
         near(k.left, l.left) &&
         near(k.right, l.right) &&
-        ledger.top > k.bottom &&
-        near(ledger.right, l.right) &&
-        near(key.left, r.left) &&
-        key.top > r.bottom
+        g.top > k.bottom &&
+        near(g.right, l.right)
       );
     });
   expect(await tracks()).toBe('246px 246px 246px 300px');
@@ -105,10 +105,21 @@ test('first visit creates an account, mines at the easy target, claims and shows
   await page.setViewportSize({ width: 1024, height: 900 });
   const half = `${(((await width()) - 14) / 2).toString()}px`;
   expect(await tracks()).toBe(`${half} ${half}`);
+  // Between md and xl the column dissolves: the rail beside the balance, the ledger under the balance.
   expect(
     await cockpit.evaluate((el) => {
-      const [, rail, , stack] = Array.from(el.children).map((c) => c.getBoundingClientRect());
-      return rail && stack && rail.top === stack.top && rail.right <= stack.left;
+      const [, right, , ledger] = Array.from(el.children) as HTMLElement[];
+      const [balance, rail] = Array.from((right as HTMLElement).children).map((c) =>
+        c.getBoundingClientRect(),
+      );
+      const g = (ledger as HTMLElement).getBoundingClientRect();
+      return (
+        balance !== undefined &&
+        rail !== undefined &&
+        rail.top === balance.top &&
+        rail.left >= balance.right &&
+        g.top > balance.bottom
+      );
     }),
   ).toBe(true);
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -127,8 +138,14 @@ test('first visit creates an account, mines at the easy target, claims and shows
   await expect(page.getByTestId('phase')).toHaveText(/^claiming/, { timeout: 5 * 60_000 });
   await expect(page.getByTestId('claim-chip')).toContainText(/claiming · \w+/);
   expect(await loopHeight()).toBe(idleHeight);
+  const balanceTile = page.getByTestId('right-column').locator('> *').first();
+  const tileHeight = () => balanceTile.evaluate((el) => el.getBoundingClientRect().height);
+  const balanceHeight = await tileHeight();
   await expect(page.getByTestId('claims')).toHaveText('1', { timeout: 10 * 60_000 });
   await expect(page.getByTestId('balance')).toHaveText('4');
+  // The mint line under the number, on a line the tile had reserved: no height change.
+  await expect(page.getByTestId('mint-line')).toHaveText('+4 tYACA · just now');
+  expect(await tileHeight()).toBe(balanceHeight);
   await expect(page.getByTestId('epoch-claims')).toHaveText('1 of 4');
   expect(await loopHeight()).toBe(idleHeight);
   const ledger = page.getByTestId('ledger');
@@ -144,6 +161,10 @@ test('first visit creates an account, mines at the easy target, claims and shows
   await page.getByTestId('stop').click({ timeout: 5 * 60_000 });
   await expect(page.getByTestId('phase')).toHaveText(/^idle/);
   await expect(page.getByTestId('claim-chip')).toHaveCount(0, { timeout: 15_000 });
+  // Each win renews the line, and at this target they keep coming: only with mining stopped does it end,
+  // ten seconds after the last one.
+  await expect(page.getByTestId('mint-line')).toHaveText('', { timeout: 15_000 });
+  expect(await tileHeight()).toBe(balanceHeight);
   // The nav reaches the stats app on the same origin.
   await expect(page.getByTestId('nav-stats')).toHaveAttribute('href', /\/stats\/$/);
   // At this easy target more than one claim can have minted before Stop landed: what the first visit

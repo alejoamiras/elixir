@@ -1,12 +1,12 @@
 import { closePreview, difficulty, escapeHatchIn, proofsPerMinute } from '@yacana/miner-core/metrics';
-import { cn, EpochRail, PowerSlider, PrestoCard, Tile, TileHeader } from '@yacana/ui';
+import { cn, EpochRail, PowerSlider, PrestoCard, Tile, TileHeader, Tip } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import type { MinerController } from '../controller';
 import { duration } from '../lib/format';
 import { PRESTO_SITE } from '../presto';
 import { useSettings } from '../settings';
-import { bootAtom, claimsAtom, epochAtom, minerAtom, nowAtom, rulesAtom } from '../state';
+import { bootAtom, claimsAtom, epochAtom, minerAtom, nowAtom, type Rules, rulesAtom } from '../state';
 import type { PrestoView } from './use-presto';
 
 const cores = () => navigator.hardwareConcurrency || 2;
@@ -83,6 +83,19 @@ function PowerRow({ controller }: { controller: () => MinerController | undefine
   );
 }
 
+export const epochTips = (rules: Rules) => {
+  const n = rules.N;
+  const minutes = Math.round(Number(rules.T_MAX) / 60);
+  return {
+    epoch: `An epoch is a round the whole network shares. It ends after ${n} wins, anyone's, and the bar resets for the next one. You can win in every round.`,
+    wins: `Everyone's wins in this round, not yours alone. The ${n}th closes it.`,
+    bar: 'The score a proof must reach to win. A score of S comes up about once in S proofs, so the bar is also the odds.',
+    target: `How long a round should take. Closed faster, the next bar rises; slower, it drops — by up to 4× either way.`,
+    next: `The bar the next epoch would open with if the ${n}th win landed now.`,
+    reset: `After ${minutes} min without ${n} wins anyone may end the epoch, so a bar set too high cannot stall the network. The button appears here when it can.`,
+  };
+};
+
 function EpochTile({
   controller,
   presto,
@@ -97,6 +110,7 @@ function EpochTile({
   const [closing, setClosing] = useState(false);
   const nowSec = BigInt(Math.floor(now / 1000));
   const hatch = epoch && rules ? escapeHatchIn(epoch.openedAt, rules.T_MAX, nowSec) : 0n;
+  const tips = rules ? epochTips(rules) : null;
   return (
     <Tile className="flex flex-col gap-5">
       {epoch && rules ? (
@@ -106,6 +120,7 @@ function EpochTile({
           n={rules.N}
           mine={claims.filter((c) => c.epoch === epoch.epoch).map((_, i) => i)}
           aside={`opened ${new Date(Number(epoch.openedAt) * 1000).toISOString().slice(11, 19)}`}
+          epochTip={tips?.epoch}
           hatchSeconds={Number(hatch)}
           closing={closing}
           onClose={() => {
@@ -116,21 +131,27 @@ function EpochTile({
           }}
           rows={[
             {
-              label: 'wins',
+              label: <Tip tip={tips?.wins}>wins this epoch</Tip>,
               value: (
                 <span data-testid="epoch-claims">
                   {epoch.claims} of {rules.N}
                 </span>
               ),
             },
-            { label: 'bar', value: difficulty(epoch.target).toFixed(1) },
+            { label: <Tip tip={tips?.bar}>the bar</Tip>, value: difficulty(epoch.target).toFixed(1) },
             { label: 'open for', value: duration(Math.max(0, Number(nowSec - epoch.openedAt))) },
-            { label: 'expected close', value: duration(Number(rules.EXPECTED_EPOCH_SECONDS)) },
             {
-              label: 'next bar if it closed now',
+              label: <Tip tip={tips?.target}>target length</Tip>,
+              value: duration(Number(rules.EXPECTED_EPOCH_SECONDS)),
+            },
+            {
+              label: <Tip tip={tips?.next}>next bar if it closed now</Tip>,
               value: `×${closePreview(epoch.target, nowSec - epoch.openedAt, rules).toFixed(2)}`,
             },
-            { label: 'anyone can close it', value: hatch > 0n ? `in ${duration(Number(hatch))}` : 'now' },
+            {
+              label: <Tip tip={tips?.reset}>reset if stuck</Tip>,
+              value: hatch > 0n ? `in ${duration(Number(hatch))}` : 'now',
+            },
           ]}
         />
       ) : (

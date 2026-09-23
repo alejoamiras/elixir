@@ -6,10 +6,14 @@ import {
   cn,
   Kpi,
   Mark,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   ScoreLoop,
   StatusPill,
   Tile,
   TileHeader,
+  Tip,
   useTweenedNumber,
 } from '@yacana/ui';
 import { Provider, useAtomValue, useSetAtom, useStore } from 'jotai';
@@ -76,8 +80,11 @@ export function PipView({ controller, onStart, win }: Controls & { win: Window }
         </span>
         {epoch && (
           <span>
-            epoch {epoch.epoch.toString()} · <span className="text-ink">{epoch.claims}</span> of {PARAMS.N} ·
-            bar {bar === null ? '—' : bar.toFixed(1)}
+            epoch {epoch.epoch.toString()} · <span className="text-ink">{epoch.claims}</span> of {PARAMS.N} ·{' '}
+            <Tip tip="The score a proof must reach to win." container={win.document.body}>
+              bar
+            </Tip>{' '}
+            {bar === null ? '—' : bar.toFixed(1)}
           </span>
         )}
         <span className="text-ok">
@@ -179,6 +186,34 @@ function StartControl({
   );
 }
 
+function LoopHelp({ bar }: { bar: number | null }) {
+  const odds = oddsOf(bar);
+  return (
+    <Popover>
+      <PopoverTrigger
+        aria-label="How to read this"
+        data-testid="loop-help"
+        className="inline-flex size-[18px] items-center justify-center rounded-full border border-line-2 font-mono text-[11px] font-medium normal-case tracking-normal text-ink-3 outline-none hover:border-ink-4 hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:text-ink"
+      >
+        ?
+      </PopoverTrigger>
+      <PopoverContent className="normal-case tracking-normal" data-testid="loop-help-content">
+        <b className="font-semibold text-ink">How to read this</b>
+        <span>
+          Each tick is one proof. Its height is its <b className="font-medium text-ink">score</b>: pure luck,
+          a score of S comes up about once in S proofs.
+        </span>
+        <span>
+          A proof that reaches <b className="font-medium text-uv-2">the bar</b> wins{' '}
+          {amount(PARAMS.REWARD, PARAMS.DECIMALS)} {PARAMS.TOKEN_SYMBOL}.
+          {odds !== null ? ` Today about 1 proof in ${odds} does, so most ticks stay low.` : ''} More proofs
+          per minute means more draws, not taller ones.
+        </span>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 /** The header's left: the pill when paused; "live · since 16:05" then "live · last 3 min" while mining; else "your proofs". */
 function HeaderText({
   status,
@@ -225,11 +260,15 @@ function RateLine({ native, miner, perProof }: { native: boolean; miner: MinerSt
   );
 }
 
-/** What reaching the bar means, and how often a proof does: a score of S comes up about once in S proofs. */
+/** "About 1 proof in N reaches the bar": a score of S comes up about once in S proofs. None while they are not odds. */
+const oddsOf = (bar: number | null): number | null =>
+  bar === null || Math.round(bar) < 2 ? null : Math.round(bar);
+
+/** What reaching the bar means, and how often a proof does. */
 export const barCaption = (bar: number | null): string | undefined => {
   if (bar === null) return undefined;
-  const odds = Math.round(bar);
-  return odds < 2
+  const odds = oddsOf(bar);
+  return odds === null
     ? 'the bar · reach it and you win'
     : `the bar · reach it and you win · about 1 in ${odds} do`;
 };
@@ -267,6 +306,7 @@ export function LoopTile({ controller, onStart, className }: Controls & { classN
       >
         <span className="flex items-center gap-3">
           <HeaderText status={status} miner={miner} now={now} />
+          <LoopHelp bar={bar} />
           <HeaderClaim miner={miner} now={now} />
         </span>
       </TileHeader>

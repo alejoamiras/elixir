@@ -198,6 +198,10 @@ function Flipped({ version, next, ahead, balance, view, onSendAhead, onHow, clas
   );
 }
 
+/** Whether the card draws anything: Mine's grid reserves a row for it only then. */
+export const useMigrationShown = (): boolean =>
+  moment(migrationRecord(), useAtomValue(bridgeAtom).verdict.kind === 'flipped') !== 'quiet';
+
 export function MigrationCard(props: Props) {
   const view = useAtomValue(bridgeAtom);
   const journal = useAtomValue(journalAtom);

@@ -51,7 +51,7 @@ const actions = (): RowActions => ({
   settings: vi.fn(),
 });
 const list = (session: Session, on: RowActions = actions()) => (
-  <ActivityList session={session} account="0xabc" on={on} wins={null} />
+  <ActivityList session={session} account="0xabc" on={on} />
 );
 
 /** A session whose bridge records every call and resolves at once. */
@@ -381,7 +381,6 @@ describe('the balance tile', () => {
     mount(
       <BalanceTile
         balance={ONE}
-        claims={1}
         onSend={() => {}}
         onToEthereum={() => {}}
         onDeposit={() => {}}
@@ -412,7 +411,6 @@ describe('the balance tile', () => {
     const tile = (
       <BalanceTile
         balance={ONE}
-        claims={1}
         onSend={() => {}}
         onToEthereum={() => {}}
         onDeposit={() => {}}
@@ -451,7 +449,6 @@ describe('the balance tile after a typed login', () => {
     const tile = (balance: bigint, typedWords?: boolean) => (
       <BalanceTile
         balance={balance}
-        claims={0}
         typedWords={typedWords}
         onSend={() => {}}
         onToEthereum={() => {}}
