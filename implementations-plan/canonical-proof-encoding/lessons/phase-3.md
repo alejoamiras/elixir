@@ -44,3 +44,8 @@ its artifact hash and class IDs. **no new material findings** — approve". The 
   headless soak miner (`AZTEC_NODE_URL=… bun run soak -- --hours 0.25`) after `register`;
   `record-example-claim.ts <txHash>`; the class-id check of the committed artifact against the new record's
   `minerClassId`; the `docs/deployments.md` section.
+- The class-id check, ready: `getContractClassFromArtifact` over the committed artifact. The pre-fix artifact
+  (`9b190fa`) gives `0x09500c6fc6e6e2731eff89f8c8a9de63fa9915f3aa3b9752d51d7b4b9a1ad63a`, the live record's
+  `minerClassId` (the method checks out); the fixed artifact gives
+  `0x0ee9c81b4018f249a69235d41eaddda33316e5142644398df3d6f56080c5b07f`, which the new record must carry. It does not
+  match the live record, which is the availability hazard §3 describes.
