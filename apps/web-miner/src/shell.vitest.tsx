@@ -4,7 +4,7 @@ import { hostKind, keysAllowed, previewNotice, relyingParty } from '@yacana/web-
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { queryOverridesAllowed } from './config';
 import { isDesktop } from './desktop';
-import { minerTabs, oldTabs } from './lib/tabs';
+import { minerStatsTabs, minerTabs, oldTabs, statsPageOf } from './lib/tabs';
 import { navigate, pathFor, routeFromPath, useRoute } from './routes';
 import { tabTitle } from './tab-status';
 
@@ -47,17 +47,27 @@ describe('routes', () => {
 });
 
 describe('the header', () => {
-  test('Mine · Wallet · Stats ↗ · Verify ↗; the two read-only destinations open the stats app in another tab', () => {
+  test('Mine · Wallet · Stats, each a page of this app; under Stats, Overview · Bridge · Verify', () => {
     const go = vi.fn();
-    const tabs = minerTabs('wallet', go, '/stats/');
-    expect(tabs.map((t) => t.label)).toEqual(['Mine', 'Wallet', 'Stats', 'Verify']);
-    expect(tabs.map((t) => t.current ?? false)).toEqual([false, true, false, false]);
-    expect(tabs.map((t) => t.external ?? false)).toEqual([false, false, true, true]);
-    expect(tabs.map((t) => t.href)).toEqual(['/', '/wallet', '/stats/', '/stats/verify']);
-    expect(tabs.map((t) => t.icon)).toEqual(['mine', 'wallet', 'stats', 'verify']);
-    tabs[0]?.onSelect?.();
-    expect(go).toHaveBeenCalledWith('mine');
-    expect(tabs[2]?.onSelect).toBeUndefined();
+    const tabs = minerTabs('wallet', go);
+    expect(tabs.map((t) => [t.label, t.href, t.current])).toEqual([
+      ['Mine', '/', false],
+      ['Wallet', '/wallet', true],
+      ['Stats', '/stats', false],
+    ]);
+    tabs[2]?.onSelect?.();
+    expect(go).toHaveBeenLastCalledWith('stats');
+    expect(minerTabs('stats/verify', go).map((t) => t.current)).toEqual([false, false, true]);
+    expect(minerTabs('settings', go).some((t) => t.current)).toBe(false);
+    const sub = minerStatsTabs('verify', go);
+    expect(sub.map((t) => [t.label, t.href, t.current])).toEqual([
+      ['Overview', '/stats', false],
+      ['Bridge', '/stats/bridge', false],
+      ['Verify', '/stats/verify', true],
+    ]);
+    sub[1]?.onSelect?.();
+    expect(go).toHaveBeenLastCalledWith('stats/bridge');
+    expect([statsPageOf('stats/bridge'), statsPageOf('wallet')]).toEqual(['bridge', null]);
   });
 
   test('the old origin: Send ahead and the apex’s Stats ↗, no Wallet — the page is the wallet', () => {

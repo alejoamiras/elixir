@@ -10,6 +10,7 @@ import {
   NodeBanner,
   NodeWayOut,
   StatusPill,
+  SubTabs,
   statusLabel,
   Toaster,
 } from '@yacana/ui';
@@ -32,7 +33,7 @@ import { PrestoBanner } from './features/PrestoBanner';
 import { SignInDialog } from './features/SignInDialog';
 import { useHotkeys, useIntroEnds, usePauses, useResumeOnOpen } from './features/use-page-behaviour';
 import { pillStatus } from './lib/status';
-import { minerTabs, oldTabs } from './lib/tabs';
+import { minerStatsTabs, minerTabs, oldTabs, statsPageOf } from './lib/tabs';
 import { prestoAtom } from './presto';
 import { navigate, pathFor, type Route, useRoute } from './routes';
 import { Mine } from './routes/Mine';
@@ -61,7 +62,53 @@ function useTabStatus(enabled: boolean) {
 /** The banner calls the numbers stale once the controller would have paused for silence (a minute). */
 const STALE_AFTER_MS = 60_000;
 
-export function Shell({ children }: { children: ReactNode }) {
+/** "mining here · 11.8 proofs/min · 1 win" at the right of the stats' tabs, while this tab mines. */
+function MiningHere() {
+  const miner = useAtomValue(minerAtom);
+  if (miner.phase === 'idle') return null;
+  const wins = `${miner.wins} ${miner.wins === 1 ? 'win' : 'wins'}`;
+  return (
+    <span data-testid="mining-here">
+      mining here · {proofsPerMinute(miner.recent).toFixed(1)} proofs/min · {wins}
+    </span>
+  );
+}
+
+/** Overview · Bridge · Verify under the bar on the stats routes, and "mining here" at their right. */
+function StatsSubTabs({ route }: { route: Route }) {
+  const page = statsPageOf(route);
+  return (
+    page && <SubTabs aria-label="Stats pages" tabs={minerStatsTabs(page, navigate)} aside={<MiningHere />} />
+  );
+}
+
+/** The boot could not read this deployment: why, and the way to another node. */
+function BootError({
+  connection,
+  route,
+  message,
+}: {
+  connection: Connection;
+  route: Route;
+  message: string;
+}) {
+  return (
+    <Alert variant="bad" data-testid="boot-error">
+      <AlertTitle>Cannot start</AlertTitle>
+      <AlertDescription>{message}</AlertDescription>
+      {!isOldRole() && (
+        <NodeWayOut
+          className="mt-2"
+          onDefault={connection.nodeUrl === defaultNodeUrl() ? undefined : restoreDefaultNode}
+          settingsHref={route === 'settings' ? undefined : pathFor('settings')}
+        />
+      )}
+    </Alert>
+  );
+}
+
+/** `sub`: the row under the bar (the stats' tabs), outside the page's padding. */
+export function Shell({ children, sub }: { children: ReactNode; sub?: ReactNode }) {
   const route = useRoute();
   const boot = useAtomValue(bootAtom);
   const miner = useAtomValue(minerAtom);
@@ -85,7 +132,7 @@ export function Shell({ children }: { children: ReactNode }) {
         onHome={() => navigate('mine')}
         mark={miner.phase === 'idle' ? 'idle' : 'mining'}
         navLabel="miner"
-        tabs={old ? oldTabs(route, navigate) : minerTabs(route, navigate, undefined, waiting)}
+        tabs={old ? oldTabs(route, navigate) : minerTabs(route, navigate, waiting)}
         right={
           <>
             <Badge variant="net">testnet</Badge>
@@ -114,6 +161,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </>
         }
       />
+      {sub}
       <div className="flex flex-col gap-4 p-4 md:p-5">
         {notice && (
           <Alert variant="warn" data-testid="preview-banner">
@@ -158,20 +206,8 @@ export function App({ connection, session }: { connection: Connection; session: 
   const open = boot.phase === 'ready';
   const chain = open || boot.phase === 'signedOut' || boot.phase === 'opening';
   return (
-    <Shell>
-      {boot.phase === 'error' && (
-        <Alert variant="bad" data-testid="boot-error">
-          <AlertTitle>Cannot start</AlertTitle>
-          <AlertDescription>{boot.message}</AlertDescription>
-          {!isOldRole() && (
-            <NodeWayOut
-              className="mt-2"
-              onDefault={connection.nodeUrl === defaultNodeUrl() ? undefined : restoreDefaultNode}
-              settingsHref={route === 'settings' ? undefined : pathFor('settings')}
-            />
-          )}
-        </Alert>
-      )}
+    <Shell sub={<StatsSubTabs route={route} />}>
+      {boot.phase === 'error' && <BootError connection={connection} route={route} message={boot.message} />}
       {boot.phase === 'preflight' && <PreflightTile rows={boot.rows} />}
       <OldTabNotice miner={connection.miner} rollupVersion={import.meta.env.VITE_ROLLUP_VERSION} />
       {chain && route === 'mine' && !isOldRole() && <PrestoBanner onRetry={onRetry} />}
