@@ -555,7 +555,7 @@ finds no reader-facing "score", "the bar" or "target length" outside tests; `bun
 -- --update-snapshots` in the pinned image, each of the eight diffs inspected (the header's icons and the words only),
 then `bun run --cwd apps/web-stats test:visual` passes.
 
-**P3 · Presto, the mini window, Start, the recovery line.** §3.1. Gate: fast layers; `prestoDecides` table spec
+**P3 · Presto, the mini window, Start, the recovery line. ✓** §3.1. Gate: fast layers; `prestoDecides` table spec
 (`found`, `remembered`, `proving`, `absent`, `checking`, consent revoked, permission denied, the WASM fallback);
 `presto-indicator.vitest.tsx` and `settings.vitest.tsx` at `found` and back at `absent`; a hotkey spec (`[` at `found`
 changes nothing); `settings.ts` parse spec (`pipOnStart` defaults off, the old `pip` dropped); a `PipHost` spec (the

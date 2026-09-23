@@ -16,19 +16,17 @@ import {
   Tip,
   useTweenedNumber,
 } from '@yacana/ui';
-import { Provider, useAtomValue, useSetAtom, useStore } from 'jotai';
-import { useEffect, useState } from 'react';
-import { createRoot } from 'react-dom/client';
+import { useAtomValue, useStore } from 'jotai';
 import type { MinerController } from '../controller';
 import { chipStep } from '../lib/claim-copy';
 import { amount, compact, durationParts } from '../lib/format';
 import type { MinerState } from '../lib/reducer';
 import { pillStatus } from '../lib/status';
 import { difficultyCaption, emptyCaption, loopHelp, perWinSub, pipDifficultyTip } from '../lib/words';
-import { openPip, pipSupported } from '../pip';
+import { openPip, pipSupported, pipWindowAtom } from '../pip';
 import { prestoAtom } from '../presto';
-import { useSettings } from '../settings';
-import { bootAtom, epochAtom, mineIntentAtom, minerAtom, nowAtom, signInAtom } from '../state';
+import { bootAtom, epochAtom, minerAtom, nowAtom } from '../state';
+import { useStartClick } from './use-start-click';
 
 /** The user's Start goes through the session (it asks Presto beside the start); the controller alone stops. */
 type Controls = { controller: () => MinerController | undefined; onStart: () => void };
@@ -36,7 +34,7 @@ type Controls = { controller: () => MinerController | undefined; onStart: () => 
 /** The window the header names: since the start until it is three minutes old, then the last three minutes. */
 const WINDOW_MS = 180_000;
 
-/** The mini window: the state and Stop, the last minute of the loop as a strip, then rate · epoch · wins. */
+/** The mini window: the state and Stop, the last minute of the loop as a strip, your numbers, then the network's. */
 export function PipView({ controller, onStart, win }: Controls & { win: Window }) {
   const miner = useAtomValue(minerAtom);
   const epoch = useAtomValue(epochAtom);
@@ -73,58 +71,40 @@ export function PipView({ controller, onStart, win }: Controls & { win: Window }
         geometry={{ pad: 4, fontPx: 10 }}
         win={win}
       />
-      <div className="flex items-baseline justify-between gap-2 whitespace-nowrap font-mono text-[10px] text-ink-2">
-        <span>
-          <span className="font-sans text-lg font-semibold tracking-[-0.02em] text-ink">
-            {perMinute.toFixed(1)}
-          </span>{' '}
-          proofs/min{native && <span className="text-uv-2"> · native</span>}
-        </span>
-        {epoch && (
+      <div className="flex flex-col gap-[3px] font-mono text-[10px] text-ink-2" data-testid="pip-footer">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-2">
           <span>
+            <span className="font-sans text-lg font-semibold tracking-[-0.02em] text-ink">
+              {perMinute.toFixed(1)}
+            </span>{' '}
+            proofs/min{native && <span className="text-uv-2"> · native</span>}
+          </span>
+          <span className="text-ok">
+            {miner.wins} {miner.wins === 1 ? 'win' : 'wins'} ·{' '}
+            {amount(PARAMS.REWARD * BigInt(miner.wins), PARAMS.DECIMALS)} {PARAMS.TOKEN_SYMBOL}
+          </span>
+        </div>
+        {epoch && (
+          <div>
             epoch {epoch.epoch.toString()} · <span className="text-ink">{epoch.claims}</span> of {PARAMS.N}{' '}
             wins ·{' '}
             <Tip tip={pipDifficultyTip(bar)} container={win.document.body}>
               difficulty
             </Tip>{' '}
             {bar === null ? '—' : bar.toFixed(1)}
-          </span>
+          </div>
         )}
-        <span className="text-ok">
-          {miner.wins} {miner.wins === 1 ? 'win' : 'wins'} ·{' '}
-          {amount(PARAMS.REWARD * BigInt(miner.wins), PARAMS.DECIMALS)} {PARAMS.TOKEN_SYMBOL}
-        </span>
       </div>
     </div>
   );
 }
 
-function PopOut({ controller, onStart }: Controls) {
+/** Opens the mini window the shell renders into; one at a time. */
+function PopOut() {
   const store = useStore();
-  const [pip, setPip] = useState<Window | null>(null);
-  useEffect(() => {
-    if (!pip) return;
-    const root = createRoot(pip.document.body);
-    root.render(
-      <Provider store={store}>
-        <PipView controller={controller} onStart={onStart} win={pip} />
-      </Provider>,
-    );
-    const onHide = () => setPip(null);
-    pip.addEventListener('pagehide', onHide);
-    return () => {
-      pip.removeEventListener('pagehide', onHide);
-      root.unmount();
-      pip.close();
-    };
-  }, [pip, store, controller, onStart]);
+  const open = useAtomValue(pipWindowAtom) !== null;
   return (
-    <Button
-      size="sm"
-      disabled={pip !== null}
-      onClick={() => void openPip().then(setPip)}
-      data-testid="pop-out"
-    >
+    <Button size="sm" disabled={open} onClick={() => void openPip(store)} data-testid="pop-out">
       Pop out
     </Button>
   );
@@ -138,8 +118,7 @@ function StartControl({
   controller,
   onStart,
 }: Controls & { ready: boolean; opening: boolean; miner: MinerState }) {
-  const openSignIn = useSetAtom(signInAtom);
-  const setIntent = useSetAtom(mineIntentAtom);
+  const startClick = useStartClick(onStart);
   if (opening)
     return (
       <Button size="sm" variant="primary" disabled data-testid="start-opening">
@@ -148,17 +127,7 @@ function StartControl({
     );
   if (!ready)
     return (
-      <Button
-        size="sm"
-        variant="primary"
-        data-testid="sign-in-mine"
-        onClick={() => {
-          setIntent(true);
-          openSignIn(true);
-          // Start mining is the one moment Presto is asked: with no account yet, only the probe runs.
-          onStart();
-        }}
-      >
+      <Button size="sm" variant="primary" data-testid="sign-in-mine" onClick={startClick}>
         Start mining
       </Button>
     );
@@ -182,7 +151,7 @@ function StartControl({
       variant="primary"
       data-testid="start"
       disabled={miner.phase !== 'idle' || miner.proverDead}
-      onClick={onStart}
+      onClick={startClick}
     >
       Start mining
     </Button>
@@ -270,7 +239,6 @@ export function LoopTile({ controller, onStart, className }: Controls & { classN
   const epoch = useAtomValue(epochAtom);
   const now = useAtomValue(nowAtom);
   const native = useAtomValue(prestoAtom).active === 'presto';
-  const [settings] = useSettings();
   const last = miner.recent[miner.recent.length - 1];
   const perProof = useTweenedNumber(last === undefined ? 0 : last / 1000);
   const ready = boot.phase === 'ready';
@@ -283,7 +251,7 @@ export function LoopTile({ controller, onStart, className }: Controls & { classN
         className="mb-0 h-[30px] items-center"
         aside={
           <span className="flex items-center gap-3">
-            {settings.pip && pipSupported() && <PopOut controller={controller} onStart={onStart} />}
+            {pipSupported() && <PopOut />}
             <StartControl
               ready={ready}
               opening={opening}

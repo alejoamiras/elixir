@@ -30,8 +30,8 @@ export function RailTile({
 
 /**
  * Under the epoch rail: the slider, and Presto's card where this build looks for it. While Presto
- * is remembered or proving the card stands alone (Presto's own speed setting decides); in every
- * other standing the slider governs and the card is the offer, the look, or the fix.
+ * decides (found, remembered, proving) the card stands alone; in every other standing the slider
+ * governs and the card is the offer, the look, or the fix.
  */
 function PowerAndPresto({
   controller,
@@ -42,7 +42,7 @@ function PowerAndPresto({
 }) {
   return (
     <>
-      {(!presto.configured || !presto.native) && <PowerRow controller={controller} />}
+      {(!presto.configured || !presto.decides) && <PowerRow controller={controller} />}
       {presto.configured && (
         <PrestoCard
           standing={presto.standing}
