@@ -610,7 +610,7 @@ fired once, one send, the minted line, the balance and mining resuming.
 
 ### Arc 3 — the first visit and the landing
 
-**P5 · The intro strip.** §3.3. Gate: fast layers; an `IntroStrip` spec (shows on a first visit; × persists; a
+**P5 · The intro strip. ✓** §3.3. Gate: fast layers; an `IntroStrip` spec (shows on a first visit; × persists; a
 signed-out Start opens sign-in and leaves the strip until mining starts; a signed-in Start mines and dismisses; a
 throwing storage still shows it; the grid's row count follows); a cockpit e2e title (first visit shows it; dismissed
 survives a reload); the replay lane green.
