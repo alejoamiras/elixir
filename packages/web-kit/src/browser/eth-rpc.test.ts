@@ -90,6 +90,22 @@ describe('the Ethereum RPC setting', () => {
     });
   });
 
+  test('a viem client with the quiet mark and a 10 s timeout leaves the health alone; the plain one does not', async () => {
+    mod.startEthRpcHealth();
+    mod.resetEthRpcHealth();
+    const DOWN = 'https://down.example/';
+    guard.setEthRpcEndpoint(DOWN, 1_000);
+    try {
+      await expect(mod.quietEthRpcClient(DOWN, 10_000).getBlockNumber({ cacheTime: 0 })).rejects.toThrow();
+      expect(mod.ethRpcHealth()).toEqual({ kind: 'unknown' });
+      await expect(mod.ethRpcClient(DOWN).getBlockNumber({ cacheTime: 0 })).rejects.toThrow();
+      expect(mod.ethRpcHealth().kind).toBe('failed');
+    } finally {
+      guard.setEthRpcEndpoint(null, 1_000);
+      mod.resetEthRpcHealth();
+    }
+  });
+
   test('the live store follows the guard once started, and a reset forgets', async () => {
     mod.startEthRpcHealth();
     mod.startEthRpcHealth();

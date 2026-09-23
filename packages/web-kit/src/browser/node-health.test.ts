@@ -26,6 +26,7 @@ const network = async (input: RequestInfo | URL): Promise<Response> => {
 
 let guard: typeof import('./node-guard.ts');
 let health: typeof import('./node-health.ts');
+let node: typeof import('./node.ts');
 const NODE = 'https://node.example/rpc';
 // A fresh request by default: the store drops what started before the last reset or the cooldown,
 // so a test that means a stale answer passes an old `startedAt` itself.
@@ -51,6 +52,7 @@ beforeAll(async () => {
   guard.setOriginalFetch(network as typeof fetch);
   health = await import('./node-health.ts');
   health.startNodeHealth();
+  node = await import('./node.ts');
 });
 
 beforeEach(() => {
@@ -343,6 +345,28 @@ describe('the gate', () => {
     const res = await fetch('https://node.example/broken');
     expect(res.status).toBe(503);
     expect(calls).toEqual([]);
+  });
+});
+
+describe('quiet work', () => {
+  test("the quiet client's 429 opens no cooldown; the page's own client's does", async () => {
+    const LIMITED = 'https://node.example/limited';
+    guard.setNodeEndpoint(LIMITED, 1_000);
+    await expect(node.quietNodeClient(LIMITED, 10_000).getBlockNumber()).rejects.toThrow();
+    expect(health.nodeHealth().transport.kind).toBe('ok');
+    await expect(node.nodeClient(LIMITED).getBlockNumber()).rejects.toThrow();
+    expect(health.nodeHealth().transport.kind).toBe('throttled');
+  });
+
+  test('a quiet failure that started before a cooldown leaves it as it was; a quiet probe after it ends it', async () => {
+    const early = performance.now();
+    await new Promise((r) => setTimeout(r, 2));
+    health.recordOutcome(outcome({ status: 429, retryAfter: '7' }));
+    const cooling = health.nodeHealth().transport;
+    health.recordOutcome(outcome({ status: 'network', quiet: true, startedAt: early }));
+    expect(health.nodeHealth().transport).toEqual(cooling);
+    health.recordOutcome(outcome({ status: 200, quiet: true }));
+    expect(health.nodeHealth().transport.kind).toBe('ok');
   });
 });
 
