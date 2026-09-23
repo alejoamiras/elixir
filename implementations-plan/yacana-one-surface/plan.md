@@ -6,7 +6,7 @@ eli5_mode: artifact
 code_review: off
 hardening: none (no new trust boundary; the hosted Stats reads only what the miner's guard already admits — the realm it joins is recorded in §4)
 budget: "recon 3 agents (Stats mapper, miner sweep, landing and Stats sweep); codex at high (GPT-6 Astra); the Claude leg on Opus 5.5 (the owner prefers it to Fable); code-review off (owner, 2026-09-23)"
-status: drafted 2026-09-23; round-1 audits folded (codex reject, Opus conditional approve); final codex pass rounds 1–2 reject → folded; round 3 pending
+status: awaiting owner approval (2026-09-23); round-1 audits folded (codex reject, Opus conditional approve); final codex pass approve on round 3
 created: 2026-09-23
 ---
 
@@ -728,7 +728,12 @@ error), all adopted (L28–L36); `recon.md` corrected on dynamic imports.
 partial, one not; blocking: unbounded pre-send retries, a still-claimable ticket's secret dropped at expiry, revert
 recovery bypassed by the closed-epoch path. Five findings (r2-12 to r2-16), all verified and adopted (L37–L41).
 
-**Final pass, round 3:** pending — the same session, resumed on this revision.
+**Final pass, round 3** (the same session, on `bb8c9db`): **approve** — r2-12 to r2-16 and round 1's partials (3, 4,
+6, 7) resolved; no new material defect ("the recovery model now distinguishes attempt budget, ticket eligibility,
+submission fate and permission to resume"). Confidence high at plan level; P4, P7 and P8 must prove the code.
+
+**Disputed, still open:** none. Rejected with reasons: a hosted screenshot gate (L17), refusing an in-flight send on
+Stop (L31).
 
 ## 10. Post-implementation (self-contained — the implementing session executes this from here)
 
@@ -765,6 +770,9 @@ gate; `LESSONS_FILE=implementations-plan/yacana-one-surface/lessons/phase-N.md` 
 failures on one step (five under `/loop`) → stop and reassess with codex.
 
 ## Seeds (draft — finalized after approval)
+
+ELI5 (the approval page): https://claude.ai/artifact/W3C8DvD83nd9W56Aw7RU2u — source
+`implementations-plan/yacana-one-surface/eli5.html` (gitignored); republish that file to keep the URL.
 
 Recommended: `/goal` (completion is visible in the transcript).
 
