@@ -64,7 +64,7 @@ export interface Fore {
   sent: boolean;
   /** Attempts come by themselves; not after a failure nobody recognised. */
   auto: boolean;
-  /** Stop: no attempt and no resume until Start or Retry. */
+  /** Stop: nothing is attempted until Start or Retry, and only Start mines again. */
   held: boolean;
   /** Start or Retry asked for one more attempt, even past the three. */
   more: boolean;

@@ -418,6 +418,8 @@ export class MinerController {
     this.stopAfterClaim = false;
     if (this.pausedBy.size) {
       this.resumeWhenClear = true;
+      // The release restarts nothing a win waits on: the user's Start is heard now, its attempt waits for the release.
+      if (user && this.store.get(minerAtom).recovery.fore) this.dispatch({ type: 'retry', at: Date.now() });
       return;
     }
     if (this.unread) return void this.readRebuilt();
@@ -645,9 +647,11 @@ export class MinerController {
 
   /**
    * Mining goes on after a settled win, on the epoch open now: only after a good read (the atom may still
-   * hold the epoch that closed), and not past a Stop meanwhile.
+   * hold the epoch that closed), and never after a Stop since the last start — a Retry claims the win, only
+   * Start mines again.
    */
   private resume() {
+    if (this.stopAfterClaim) return;
     const stops = this.stops;
     void this.refresh().then(
       () => {
@@ -1123,7 +1127,7 @@ export class MinerController {
     this.end(rec, hash);
     const m = this.store.get(minerAtom);
     const waited = fore && m.recovery.fore !== null && !m.recovery.fore.held;
-    this.stopAfterClaim = !(m.phase === 'mining' || waited);
+    if (!(m.phase === 'mining' || waited)) this.stopAfterClaim = true;
     await this.claimFailed(new Error(`claim ${short(hash)} reverted in a block`), rec.epoch, {
       lineId: rec.lineId,
       closed,

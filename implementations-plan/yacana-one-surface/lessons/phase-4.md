@@ -83,4 +83,24 @@ Found by the new switch spec: `boot.ts` calls `endSwitch()` and `release('switch
 second's check was swallowed by the first (blocked) one still settling, so after a switch nothing re-armed
 the recovery. A check asked for while one runs now runs once after it.
 
+**Round 2**: two material; both reproduced, both fixed with specs that fail with the fix reverted.
+1. Retry after a Stop: a Retry whose attempt minted left mining stopped, one found landed resumed it. Codex
+   proposed clearing the Stop on Retry. Not taken: the plan resumes the waiting win's mining "only if the
+   user has not stopped since", and the canary pins "the Stop pressed earlier holds" after a Retry. The
+   adoption path was the odd one: `resume()` now refuses after a Stop since the last start, like
+   `resumeAfterClaim`. Retry claims the win; only Start mines again.
+2. Start during a page pause lost its attempt: `start()` kept only `resumeWhenClear`, and the release's
+   `start(false)` leaves a waiting win alone. A user Start on a waiting win now reaches the reducer at once
+   (`retry`); the check it asks for is blocked until the release, which runs it.
+
+Found beside finding 1: `revertOf` assigned `stopAfterClaim` from the phase, so Stop, Retry, then the waiting
+win's send reverting cleared the Stop and the rebuild resumed mining. It now only ever sets the flag.
+
+The shard pass on 9aa66aa was stopped after cockpit (7/7) to take round 2. The stop leaked processes: the
+tmux pane's loop moved to the next shard after Ctrl-C (the runner exits 130 and bash went on), and killing
+the loop hung up the pane, so the bridge run died by SIGHUP before its teardown. Its orphans (an anvil on
+its registry port, a headless Presto, a `vite preview` and a node proxy from the 19:28 run, and an `anvil`
+on 8545 whose cwd was this worktree, started in the run's boot second) were killed by process group after
+checking cwd, parent and registry row. The local loop that runs the shards now stops on 130.
+
 ## Gate

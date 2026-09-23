@@ -989,6 +989,75 @@ describe('claim recovery', () => {
       expect([node.attempts, mines(), phase()]).toEqual([1, 1, 'idle']);
       expect(await c.retryPendingClaim()).toBe(true);
       await settle(() => noteOf(id)?.outcome === 'minted');
+      await sleep(100);
+      expect([mines(), phase()]).toEqual([1, 'idle']);
+      c.dispose();
+    },
+    T,
+  );
+
+  test(
+    'Stop, then Retry, then the win is found landed: adopted, and mining stays stopped as when it mints',
+    async () => {
+      node.plans = [{ receipts: [{ block: 5 }, 'pending'] }];
+      const c = await boot();
+      const id = win();
+      await settle(() => textOf(id) === lostLine);
+      c.stop();
+      expect(await c.retryPendingClaim()).toBe(true);
+      node.script(hashOf(1), [{ block: 9 }]);
+      await settle(() => noteOf(id)?.outcome === 'minted');
+      await sleep(100);
+      expect([mines(), phase(), node.sent.length]).toEqual([1, 'idle', 1]);
+      c.dispose();
+    },
+    T,
+  );
+
+  test(
+    'Stop, Retry, then the waiting win’s send reverts: the view is rebuilt, mining stays stopped',
+    async () => {
+      let recovered = 0;
+      node.plans = [{ receipts: [{ block: 5 }, 'pending'] }];
+      const c = await boot({
+        recover: async () => {
+          recovered++;
+          return { deployment: node.deployment(), fee, rebuilt: true };
+        },
+      });
+      const id = win();
+      await settle(() => textOf(id) === lostLine);
+      c.stop();
+      expect(await c.retryPendingClaim()).toBe(true);
+      node.script(hashOf(1), [{ block: 9, reverted: true }]);
+      await settle(() =>
+        store
+          .get(minerAtom)
+          .ledger.some((l) => l.kind === 'epoch' && l.text === 'chain view rebuilt · notes recovered'),
+      );
+      await sleep(100);
+      expect([recovered, mines(), phase()]).toEqual([1, 1, 'idle']);
+      c.dispose();
+    },
+    T,
+  );
+
+  test(
+    'Stop with a win waiting, a pause, then Start: the Start is kept, its attempt runs at the release, then mining',
+    async () => {
+      node.plans = [{ before: PRUNED }, { receipts: [{ block: 5 }] }];
+      const c = await boot({ delay: (ms) => ms / 50 });
+      const id = win();
+      await settle(() => noteOf(id)?.recover === 'anchor-pruned');
+      c.stop();
+      c.pause('offline');
+      c.start();
+      await sleep(150);
+      expect([node.attempts, phase()]).toEqual([1, 'idle']);
+      c.release('offline');
+      await settle(() => noteOf(id)?.outcome === 'minted');
+      expect(node.attempts).toBe(2);
+      await settle(() => mines() === 2);
       c.dispose();
     },
     T,
