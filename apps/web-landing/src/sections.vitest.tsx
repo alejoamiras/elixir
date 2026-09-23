@@ -205,8 +205,9 @@ describe('the flywheel', () => {
     expect(Array.from(ring.querySelectorAll('[data-step]'), (e) => e.getAttribute('data-step'))).toEqual(
       order,
     );
-    expect(ring.getAttribute('aria-label')).toBe(copy.why.loop);
-    const at = order.map((n) => copy.why.loop.indexOf(n));
+    // The label carries every step whole, in ring order: the list that reads them is hidden from md up.
+    const label = ring.getAttribute('aria-label') ?? '';
+    const at = copy.why.steps.flatMap((s) => [s.n, s.title, s.body]).map((t) => label.indexOf(t));
     expect(at.every((i, k) => i >= 0 && (k === 0 || i > (at[k - 1] as number)))).toBe(true);
     const list = screen.getByTestId('why-steps');
     expect(list.className).toContain('md:hidden');

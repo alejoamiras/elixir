@@ -1,5 +1,4 @@
-// Why the work is a proof: the loop between How and Verify. From md up the four steps sit on a ring as
-// HTML over the drawing, so their prose wraps; below md they are How's numbered list.
+// The steps are HTML over the drawing, not SVG text: their prose wraps as the ring scales.
 import { Tile } from '@yacana/ui';
 import { copy } from '../copy';
 import { Section, SectionHeading, SectionLabel } from './Section';
@@ -51,7 +50,7 @@ function Ring() {
           </div>
         ))}
       </div>
-      <p className="absolute top-1/2 left-1/2 w-[34%] -translate-x-1/2 -translate-y-1/2 text-center font-mono text-label leading-[1.5] text-ink-3">
+      <p className="absolute top-1/2 left-1/2 w-[30%] -translate-x-1/2 -translate-y-1/2 text-center font-mono text-label leading-[1.5] text-ink-3">
         {w.core}
       </p>
     </div>

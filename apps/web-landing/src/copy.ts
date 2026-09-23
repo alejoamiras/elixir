@@ -14,6 +14,25 @@ const lottery = PARAMS.REVEAL_WINDOW_SECONDS > 0n;
 const MINUTES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
 const minutesWord = MINUTES[epochMinutes] ?? String(epochMinutes);
 
+const WHY_STEPS = [
+  { n: 'earn', title: 'Miners want more wins', body: 'More proofs a minute, more draws.' },
+  {
+    n: 'optimize',
+    title: 'So they prove faster',
+    body: 'Native provers like Presto, leaner WASM, better hardware.',
+  },
+  {
+    n: 'upstream',
+    title: 'Barretenberg gets faster',
+    body: 'Speedups that land upstream reach every Aztec prover.',
+  },
+  {
+    n: 'grow',
+    title: 'Aztec gets cheaper to use',
+    body: 'Quicker private transactions draw more people, and more miners.',
+  },
+] as const;
+
 export const REPO = 'https://github.com/alejoamiras/yacana';
 export const LINKS = {
   github: REPO,
@@ -130,27 +149,10 @@ export const copy = {
     label: 'why proving',
     heading: 'The race to mine is a race to make Aztec fast.',
     lede: 'Mining runs Barretenberg, the prover behind every Aztec transaction. Miners earn more by proving faster, and every speedup that lands in Barretenberg makes Aztec faster and cheaper for everyone.',
-    steps: [
-      { n: 'earn', title: 'Miners want more wins', body: 'More proofs a minute, more draws.' },
-      {
-        n: 'optimize',
-        title: 'So they prove faster',
-        body: 'Native provers like Presto, leaner WASM, better hardware.',
-      },
-      {
-        n: 'upstream',
-        title: 'Barretenberg gets faster',
-        body: 'Speedups that land upstream reach every Aztec prover.',
-      },
-      {
-        n: 'grow',
-        title: 'Aztec gets cheaper to use',
-        body: 'Quicker private transactions draw more people, and more miners.',
-      },
-    ],
+    steps: WHY_STEPS,
     core: `The difficulty keeps issuance at ${PARAMS.N} wins every ${epochMinutes} min, however fast proving gets.`,
-    /** The ring's label for a screen reader: the four steps in ring order. */
-    loop: 'A loop in four steps: earn (miners want more wins), optimize (so they prove faster), upstream (Barretenberg gets faster), grow (Aztec gets cheaper to use), then back to earn.',
+    /** The ring as a screen reader hears it: every step whole, in ring order. */
+    loop: `A loop in four steps. ${WHY_STEPS.map((s, i) => `${i + 1}, ${s.n}: ${s.title}. ${s.body}`).join(' ')} Then back to ${WHY_STEPS[0].n}.`,
   },
   verify: {
     heading: 'See for yourself.',
