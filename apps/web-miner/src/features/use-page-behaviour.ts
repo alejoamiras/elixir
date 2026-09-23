@@ -1,6 +1,3 @@
-// What the page does on its own: keyboard, the battery and hidden-tab pauses, resume on open, the
-// first visit's strip put away.
-
 import { clampThreads } from '@yacana/ui';
 import { useAtomValue, useStore } from 'jotai';
 import { useEffect } from 'react';
