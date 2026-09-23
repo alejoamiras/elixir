@@ -310,7 +310,7 @@ describe('the stats runtime', () => {
     await until(() => store.get(fixedAtom)?.block.number === 3);
   });
 
-  test('stopped and started again while the boot waits on yieldTo, it boots once the yield clears', async () => {
+  test('stopped and started again while its reads wait on yieldTo, the boot and the bridge read once it clears', async () => {
     let yielding = true;
     const f = fakes();
     const { rt, store } = make(f, { yieldTo: () => yielding });
@@ -319,8 +319,8 @@ describe('the stats runtime', () => {
     rt.stop();
     rt.start();
     yielding = false;
-    await until(() => store.get(statusAtom).phase === 'ready');
-    expect(count(f.log, 'open')).toBe(1);
+    await until(() => store.get(statusAtom).phase === 'ready' && store.get(bridgeAtom).phase === 'ready');
+    expect([count(f.log, 'open'), count(f.log, 'bridge')]).toEqual([1, 1]);
   });
 
   test("a disposed boot persists nothing: its successor's rows never land under its key", async () => {

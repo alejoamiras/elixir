@@ -380,8 +380,13 @@ class Instance implements StatsRuntime {
   private async readBridge(): Promise<void> {
     if (!this.bridgeRead || this.bridgeBusy) return;
     this.bridgeBusy = true;
+    if (!(await this.free())) {
+      this.bridgeBusy = false;
+      // The stop that cancelled this wait may have been followed at once by a start that found it busy.
+      if (this.live()) void this.readBridge();
+      return;
+    }
     try {
-      if (!(await this.free())) return;
       const snapshot = await this.bridgeRead();
       this.put(bridgeAtom, { phase: 'ready', snapshot, unreachable: false });
     } catch (e) {

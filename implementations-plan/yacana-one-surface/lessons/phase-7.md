@@ -65,3 +65,9 @@ still do (9/9); web-kit's `waitTurn` spec covers the abort. On the fix: `bun run
 Found on the way: the mutation script checked a pattern only when it reached it, and a stale one stopped it
 before its restore, leaving two mutations in `runtime.ts`. The diff review caught both before the commit;
 the scripts now check every pattern first and restore in `finally`.
+
+**Round 2** — "no new material findings" (verbatim). The four fixes hold (its focused runtime and node-health
+run: 35/35). One minor, fixed: a synchronous `stop(); start()` while the bridge's first read waited on
+`yieldTo` left the bridge loading until the 30 s tick (the new start found it busy, the cancelled wait
+cleared the flag and went home). A cancelled wait now reads again when the instance is live by then. The
+stop/start spec asks for the bridge too; its mutation fails it.
