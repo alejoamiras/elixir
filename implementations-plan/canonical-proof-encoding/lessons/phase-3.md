@@ -15,3 +15,32 @@ with the plan, the lessons and the two rules. Started while Phase 2's recordings
 regenerated artifact, the replay recording and the lessons): "The Phase 2 condition is met (high confidence).
 Proving measurements and calculations check out; the artifact matches the compiled output, and the replay matches
 its artifact hash and class IDs. **no new material findings** — approve". The loop converged in two rounds.
+
+## Delivery (§8)
+
+- Before the push: `bun test` 590 pass / 0 fail and `bun run lint` exit 0 with the toolchain on `PATH` (a bare
+  `bun test` without the prefix fails `vk-pinning.test.ts` on `aztec-nargo` not found: Fact 10, not a regression);
+  `bun run lint:actions` exit 0.
+- Branch pushed; PR #66 opened after the loop converged.
+
+## A1 — the testnet relaunch: blocked on keys
+
+- The owner authorized sourcing the `.env` files under `~/projects/nulo` (2026-09-23). On this machine
+  (`mainframe`) there are none: the clone and its three worktrees (`azguard-attribution`, `tools-extraction`,
+  `vitest-5-bump`) hold only `.env.example` templates, and `~/Projects/nulo` does not exist. The 2026-09-13
+  relaunch read `~/Projects/nulo/packages/bridge-core/.env` on another machine. A wider search for key files was
+  refused by auto mode's classifier as credential exploration; nothing was worked around.
+- Ready, not run: a scratchpad wrapper, `relaunch.sh <env-file> check|l1|miner|register`, sourcing the file into
+  its own process only (nulo's names: `PRIVATE_KEY`, the Sepolia operators EOA; `BRIDGE_DEPLOYER_SECRET_TESTNET`).
+  - `check` prints only the derived signer address, to match the old record's operators
+    (`0xFcc2238319aC360e985f1736aBB3df6251DAF6F5`).
+  - `l1` runs `l1-deploy.ts` against the public Sepolia node (the record keeps only that origin, so no keyed URL can
+    enter it), with the registry and operators from the old record.
+  - `miner` runs `bun run deploy` with the new portal.
+  - `register` runs register, `set-forwarder` for the relayer `0x6792D5eb75e1F025438349d454AC91378d9F8bac`, and
+    `status`.
+- Around it, without keys: the `git mv` of `testnet.json`, `testnet.example-claim.json` and
+  `witnesses/testnet.jsonl` to `testnet-2026-09-13.*` before `l1`; the real claim from a throwaway account with the
+  headless soak miner (`AZTEC_NODE_URL=… bun run soak -- --hours 0.25`) after `register`;
+  `record-example-claim.ts <txHash>`; the class-id check of the committed artifact against the new record's
+  `minerClassId`; the `docs/deployments.md` section.
