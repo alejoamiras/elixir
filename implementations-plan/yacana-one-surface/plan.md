@@ -615,7 +615,7 @@ signed-out Start opens sign-in and leaves the strip until mining starts; a signe
 throwing storage still shows it; the grid's row count follows); a cockpit e2e title (first visit shows it; dismissed
 survives a reload); the replay lane green.
 
-**P6 · The landing and the flywheel.** §3.3. Gate: fast layers; a `Why` spec (four steps in ring order, the list below
+**P6 · The landing and the flywheel. ✓** §3.3. Gate: fast layers; a `Why` spec (four steps in ring order, the list below
 `md`, the label, its test id); `sections.vitest.tsx` updated; `landing.e2e.ts` with the `why` section and the "Why"
 anchor; `grep -rn "20 MB"` and `grep -rn "no gas"` over the landing's copy files find nothing, the reassurance
 line is the approved text, and no reader-facing string in `copy.ts` says "testnet" (the bar's button reads "Open the
