@@ -548,7 +548,7 @@ inventory).
 **P1 · Lucide icons. ✓** §3.1. Gate: fast layers; `header.vitest.tsx` asserts each tab's Lucide glyph instead of counting
 paths, and `shell.vitest.tsx`'s old-origin case asserts the same glyphs on `oldTabs`. Layers: lint, typecheck, unit.
 
-**P2 · One word: difficulty.** §3.1, every row of `Words-Deck` and `Words-Tiles`, Stats' "wins". Gate: fast layers with
+**P2 · One word: difficulty. ✓** §3.1, every row of `Words-Deck` and `Words-Tiles`, Stats' "wins". Gate: fast layers with
 the moved specs (`cockpit.vitest.tsx`, `loop-tile.vitest.tsx`, `ui` `score-loop.vitest.tsx`, `tooltip.vitest.tsx`,
 `signature.vitest.tsx`, the `metrics` tests, Stats' vitest); `grep -rn` over `apps/web-miner/src` and `packages/ui/src`
 finds no reader-facing "score", "the bar" or "target length" outside tests; `bun run --cwd apps/web-stats test:visual

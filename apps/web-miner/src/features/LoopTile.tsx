@@ -24,6 +24,7 @@ import { chipStep } from '../lib/claim-copy';
 import { amount, compact, durationParts } from '../lib/format';
 import type { MinerState } from '../lib/reducer';
 import { pillStatus } from '../lib/status';
+import { difficultyCaption, emptyCaption, loopHelp, perWinSub, pipDifficultyTip } from '../lib/words';
 import { openPip, pipSupported } from '../pip';
 import { prestoAtom } from '../presto';
 import { useSettings } from '../settings';
@@ -65,6 +66,7 @@ export function PipView({ controller, onStart, win }: Controls & { win: Window }
         difficulty={bar}
         samples={miner.samples}
         spans={miner.claimSpans}
+        barCaption={difficultyCaption(bar)}
         winAt={miner.winAt}
         height={48}
         spanMs={60_000}
@@ -80,9 +82,10 @@ export function PipView({ controller, onStart, win }: Controls & { win: Window }
         </span>
         {epoch && (
           <span>
-            epoch {epoch.epoch.toString()} · <span className="text-ink">{epoch.claims}</span> of {PARAMS.N} ·{' '}
-            <Tip tip="The score a proof must reach to win." container={win.document.body}>
-              bar
+            epoch {epoch.epoch.toString()} · <span className="text-ink">{epoch.claims}</span> of {PARAMS.N}{' '}
+            wins ·{' '}
+            <Tip tip={pipDifficultyTip(bar)} container={win.document.body}>
+              difficulty
             </Tip>{' '}
             {bar === null ? '—' : bar.toFixed(1)}
           </span>
@@ -187,7 +190,7 @@ function StartControl({
 }
 
 function LoopHelp({ bar }: { bar: number | null }) {
-  const odds = oddsOf(bar);
+  const { height, reach } = loopHelp(bar);
   return (
     <Popover>
       <PopoverTrigger
@@ -200,14 +203,14 @@ function LoopHelp({ bar }: { bar: number | null }) {
       <PopoverContent className="normal-case tracking-normal" data-testid="loop-help-content">
         <b className="font-semibold text-ink">How to read this</b>
         <span>
-          Each tick is one proof. Its height is its <b className="font-medium text-ink">score</b>: pure luck,
-          a score of S comes up about once in S proofs.
+          {height[0]}
+          <b className="font-medium text-ink">{height[1]}</b>
+          {height[2]}
         </span>
         <span>
-          A proof that reaches <b className="font-medium text-uv-2">the bar</b> wins{' '}
-          {amount(PARAMS.REWARD, PARAMS.DECIMALS)} {PARAMS.TOKEN_SYMBOL}.
-          {odds !== null ? ` Today about 1 proof in ${odds} does, so most ticks stay low.` : ''} More proofs
-          per minute means more draws, not taller ones.
+          {reach[0]}
+          <b className="font-medium text-uv-2">{reach[1]}</b>
+          {reach[2]}
         </span>
       </PopoverContent>
     </Popover>
@@ -260,19 +263,6 @@ function RateLine({ native, miner, perProof }: { native: boolean; miner: MinerSt
   );
 }
 
-/** "About 1 proof in N reaches the bar": a score of S comes up about once in S proofs. None while they are not odds. */
-const oddsOf = (bar: number | null): number | null =>
-  bar === null || Math.round(bar) < 2 ? null : Math.round(bar);
-
-/** What reaching the bar means, and how often a proof does. */
-export const barCaption = (bar: number | null): string | undefined => {
-  if (bar === null) return undefined;
-  const odds = oddsOf(bar);
-  return odds === null
-    ? 'the bar · reach it and you win'
-    : `the bar · reach it and you win · about 1 in ${odds} do`;
-};
-
 /** The header row is a fixed-height status line with the claim's chip; the stepper lives in the rail. */
 export function LoopTile({ controller, onStart, className }: Controls & { className?: string }) {
   const boot = useAtomValue(bootAtom);
@@ -315,15 +305,12 @@ export function LoopTile({ controller, onStart, className }: Controls & { classN
         difficulty={bar}
         samples={miner.samples}
         spans={miner.claimSpans}
-        axisTitle="score · log scale"
-        barCaption={barCaption(bar)}
+        axisTitle="difficulty reached · log scale"
+        barCaption={difficultyCaption(bar)}
         winAt={miner.winAt}
         since={miner.sinceT ?? undefined}
         height={230}
-        placeholder={[
-          'Your proofs draw here once you start.',
-          `The bar is ${bar === null ? '—' : bar.toFixed(1)} · clear it to win`,
-        ]}
+        placeholder={['Your proofs draw here once you start.', emptyCaption(bar)]}
         footer={<RateLine native={native} miner={miner} perProof={perProof} />}
       />
     </Tile>
@@ -339,8 +326,7 @@ const nextWin = (target: bigint, perMinute: number): [string, string] | null => 
 /** Signed out the values are dashes and the subs say what would fill them. */
 function kpiSubs(
   ready: boolean,
-  hasEpoch: boolean,
-  bar: number,
+  bar: number | null,
   miner: MinerState,
 ): { rate: string; next: string; best: string } {
   if (ready)
@@ -349,14 +335,7 @@ function kpiSubs(
       next: 'could be now, could be 3× longer',
       best: `${miner.wins} ${miner.wins === 1 ? 'win' : 'wins'} · ${amount(PARAMS.REWARD * BigInt(miner.wins), PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL} this session`,
     };
-  const perWin = Math.max(1, Math.round(bar));
-  return {
-    rate: 'starts with mining',
-    next: hasEpoch
-      ? `the bar is ${bar.toFixed(1)} · about ${perWin} ${perWin === 1 ? 'proof' : 'proofs'} per win`
-      : 'the bar is not read yet',
-    best: '',
-  };
+  return { rate: 'starts with mining', next: perWinSub(bar), best: '' };
 }
 
 export function KpiTiles({ className }: { className?: string }) {
@@ -364,9 +343,9 @@ export function KpiTiles({ className }: { className?: string }) {
   const epoch = useAtomValue(epochAtom);
   const ready = useAtomValue(bootAtom).phase === 'ready';
   const perMinute = useTweenedNumber(proofsPerMinute(miner.recent));
-  const bar = epoch ? difficulty(epoch.target) : 1;
+  const bar = epoch ? difficulty(epoch.target) : null;
   const next = ready && epoch ? nextWin(epoch.target, proofsPerMinute(miner.recent)) : null;
-  const subs = kpiSubs(ready, epoch !== null, bar, miner);
+  const subs = kpiSubs(ready, bar, miner);
   return (
     <div className={cn('grid grid-cols-3 gap-[14px]', className)} data-testid="kpi-tiles">
       <Tile>
@@ -398,9 +377,9 @@ export function KpiTiles({ className }: { className?: string }) {
       <Tile>
         <Kpi
           size="lg"
-          label="best this epoch"
+          label="best difficulty this epoch"
           value={ready && miner.best !== null ? miner.best.toFixed(1) : '—'}
-          unit={ready && epoch ? `of ${bar.toFixed(1)}` : undefined}
+          unit={ready && bar !== null ? `of ${bar.toFixed(1)}` : undefined}
           sub={subs.best || undefined}
         />
       </Tile>
