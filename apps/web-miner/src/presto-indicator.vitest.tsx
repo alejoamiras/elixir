@@ -83,9 +83,11 @@ describe('the native indicator', () => {
     expect(screen.getByTestId('phase').getAttribute('data-prover')).toBe('wasm');
   });
 
-  test("the footer's ✦ follows what proved; the epoch tile's Presto row replaces the slider on the sticky state alone", () => {
+  test("the footer's ✦ follows what proved; the epoch tile's Presto card replaces the slider on the sticky state alone", () => {
     const store = mining();
-    store.set(prestoAtom, { ...initialPresto, selected: 'presto', active: 'presto' });
+    // Consented by this page's click at the record's revision (the page has no record: revision 0).
+    const consented = { ...initialPresto, consentRev: 0 };
+    store.set(prestoAtom, { ...consented, selected: 'presto', active: 'presto' });
     const { rerender } = render(
       <Provider store={store}>
         <Mine controller={() => undefined} />
@@ -98,20 +100,33 @@ describe('the native indicator', () => {
         </Provider>,
       );
     expect(screen.getByTestId('rate-line').textContent).toBe('0.8 s per proof · ✦ presto · 12 proofs');
-    expect(screen.getByTestId('presto-row').textContent).toContain('proving on this machine');
+    expect(screen.getByTestId('presto-card').dataset.standing).toBe('proving');
+    expect(screen.getByTestId('presto-card').textContent).toContain('proving on this machine');
     expect(screen.getByRole('link', { name: /About Presto/ }).getAttribute('href')).toBe(
       'https://presto.build',
     );
     expect(screen.queryByRole('slider')).toBeNull();
+    // A win's claim is still Presto's work: the card does not fall back to "proves when you start".
+    store.set(minerAtom, { ...store.get(minerAtom), phase: 'claiming' });
+    again();
+    expect(screen.getByTestId('presto-card').dataset.standing).toBe('proving');
+    expect(screen.queryByRole('slider')).toBeNull();
+    store.set(minerAtom, { ...store.get(minerAtom), phase: 'mining' });
     // One refused proof: the footer drops its ✦, the row stays (the Worker has not given up on native).
-    store.set(prestoAtom, { ...initialPresto, selected: 'presto', active: 'wasm' });
+    store.set(prestoAtom, { ...consented, selected: 'presto', active: 'wasm' });
     again();
     expect(screen.getByTestId('rate-line').textContent).toBe('0.8 s per proof · 12 proofs');
-    expect(screen.getByTestId('presto-row')).toBeTruthy();
-    // The Worker's sticky verdict: the slider and its line are back.
-    store.set(prestoAtom, { ...initialPresto, selected: 'presto', active: 'wasm', fallbackReason: 'denied' });
+    expect(screen.getByTestId('presto-card').dataset.standing).toBe('proving');
+    // The Worker's sticky verdict: the slider and its line are back, the card says what happened.
+    store.set(prestoAtom, {
+      ...consented,
+      status: { available: true, needsDownload: false, schemes: ['ultra_honk'], protocol: 'https' },
+      selected: 'presto',
+      active: 'wasm',
+      fallbackReason: 'denied',
+    });
     again();
-    expect(screen.queryByTestId('presto-row')).toBeNull();
+    expect(screen.getByTestId('presto-card').dataset.standing).toBe('absent');
     expect((screen.getByRole('slider') as HTMLInputElement).disabled).toBe(false);
     expect(screen.getByTestId('power-caption').textContent).toContain('one stays with the page');
     // The header names the window from the start until it is three minutes old.

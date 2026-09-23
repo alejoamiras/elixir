@@ -26,7 +26,14 @@ import { type Deployment, type Fee, readBalance, readEpoch, sendClaim, sendRoll 
 import { chime } from './chime';
 import { amount } from './lib/format';
 import { type Command, type Event, type MinerState, reduce } from './lib/reducer';
-import { type PrestoEndpoint, type ProverKind, prestoAtom, prestoSticky, txProvingAtom } from './presto';
+import {
+  type ConsentHooks,
+  type PrestoEndpoint,
+  type ProverKind,
+  prestoAtom,
+  prestoSticky,
+  txProvingAtom,
+} from './presto';
 import { settingsAtom } from './settings';
 import { balanceAtom, claimsAtom, epochAtom, logAtom, minerAtom } from './state';
 import type { FromWorker, MineJob, ToWorker } from './worker-protocol';
@@ -71,6 +78,8 @@ export interface MinerOptions {
   threads: number;
   /** Presto's endpoint when the page's probe found it worth asking; null proves in WASM as before. */
   presto?: PrestoEndpoint | null;
+  /** Consent as it stands at each native message: nothing native is published or remembered without it. */
+  consent: ConsentHooks;
   deployment: Deployment;
   account: AztecAddress;
   fee: Fee;
@@ -129,6 +138,7 @@ export class MinerController {
   private readonly spawnWorker: () => Worker;
   private threads: number;
   private presto: PrestoEndpoint | null;
+  private readonly consent: ConsentHooks;
   private d: Deployment;
   private readonly account: AztecAddress;
   private fee: Fee;
@@ -201,6 +211,7 @@ export class MinerController {
     this.spawnWorker = o.spawnWorker;
     this.threads = o.threads;
     this.presto = o.presto ?? null;
+    this.consent = o.consent;
     this.d = o.deployment;
     this.account = o.account;
     this.fee = o.fee;
@@ -572,10 +583,17 @@ export class MinerController {
     }
   }
 
+  /**
+   * Behind `ready`. A native config is judged again when it is sent, not when it was queued: a
+   * revoke meanwhile must not be undone by a rebuild that was already waiting.
+   */
   private post(m: ToWorker) {
     const prover = this.prover;
     void prover.ready.then(
-      () => prover.worker.postMessage(m),
+      () =>
+        prover.worker.postMessage(
+          m.type === 'reconfigure' && m.presto && !this.nativeAllowed() ? { ...m, presto: null } : m,
+        ),
       () => {},
     );
   }
@@ -615,18 +633,31 @@ export class MinerController {
       case 'error':
         if (this.generations === this.prover.generation) this.replaceProver(`worker: ${m.message}`);
         return;
+      default:
+        this.onProverMessage(m);
+    }
+  }
+
+  /** What the Worker says of its prover; nothing native passes without consent. */
+  private onProverMessage(
+    m: Extract<FromWorker, { type: 'ready' | 'prover' | 'presto-phase' | 'native-verified' }>,
+  ) {
+    switch (m.type) {
       case 'ready':
-        // A fresh prover: whatever the previous one settled on is gone with it.
+        // A fresh prover: whatever the previous one settled on is gone with it. A native one built
+        // before a revoke reached the Worker is already forced local there: WASM is the truth.
         this.store.set(prestoAtom, (s) => ({
           ...s,
-          selected: m.prover,
+          selected: m.prover === 'presto' && !this.nativeAllowed() ? 'wasm' : m.prover,
           active: null,
           phase: undefined,
           fallbackReason: undefined,
         }));
         return;
       case 'prover':
+        if (m.kind === 'presto' && !this.nativeAllowed()) return;
         if (m.sticky) this.log(`proving in the browser from now on: ${m.reason}`);
+        if (m.sticky && m.reason === 'invalid-proof') this.consent.forget();
         this.store.set(prestoAtom, (s) => ({
           ...s,
           active: m.kind,
@@ -635,9 +666,28 @@ export class MinerController {
         }));
         return;
       case 'presto-phase':
-        this.store.set(prestoAtom, (s) => ({ ...s, phase: m.phase }));
+        if (this.nativeAllowed()) this.store.set(prestoAtom, (s) => ({ ...s, phase: m.phase }));
+        return;
+      case 'native-verified':
+        if (this.nativeAllowed()) this.consent.promote();
         return;
     }
+  }
+
+  /** Native may be shown and remembered: the Worker was handed Presto, and consent still stands. */
+  private nativeAllowed(): boolean {
+    return this.presto !== null && this.consent.allowed();
+  }
+
+  /**
+   * Consent withdrawn: the Worker is told first (it acts between the awaits of the proof in
+   * flight), then rebuilt without the endpoint. Nothing native from it is published from here on.
+   * The revoke goes straight to the Worker, never behind `ready`: queued there, a `mine` waiting on
+   * a held initialization would reach a native prover first.
+   */
+  revoke(): void {
+    this.prover.worker.postMessage({ type: 'revoke' } satisfies ToWorker);
+    this.reconfigure(this.threads, null);
   }
 
   private async submit() {

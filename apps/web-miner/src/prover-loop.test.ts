@@ -28,6 +28,9 @@ function fakeBackend(winAtNonce?: bigint) {
     async destroy() {
       calls.push('destroy');
     },
+    revoke() {
+      calls.push('revoke');
+    },
     async mine(j, keepGoing) {
       mined.push({ startNonce: j.startNonce, secret: j.secret });
       for (let nonce = j.startNonce; ; nonce++) {
@@ -86,6 +89,21 @@ describe('prover loop', () => {
     loop.handle({ type: 'mine', job: { ...job(7n), secretId: 2 } });
     await tick();
     expect(f.mined[1]).toEqual({ startNonce: 7n, secret: '0x3' });
+  });
+
+  test('a revoke reaches the backend between the awaits of the proof in flight; a reconfigure waits for it', async () => {
+    const f = fakeBackend();
+    const loop = createProverLoop(f.backend, () => {});
+    loop.handle({ type: 'init', threads: 2, presto: null });
+    loop.handle({ type: 'mine', job: job() });
+    await tick();
+    loop.handle({ type: 'reconfigure', threads: 2, presto: null });
+    loop.handle({ type: 'revoke' });
+    expect(f.calls).toEqual(['init 2', 'revoke']);
+    f.prove();
+    await tick();
+    await tick();
+    expect(f.calls).toEqual(['init 2', 'revoke', 'destroy', 'init 2']);
   });
 
   test('a thread count for the next WASM build reaches the backend without a rebuild', async () => {

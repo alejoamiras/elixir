@@ -6,6 +6,7 @@ import {
   KvRow,
   Label,
   PowerSlider,
+  PrestoCard,
   Segmented,
   Switch,
   type Theme,
@@ -26,10 +27,11 @@ import type { MinerController } from '../controller';
 import { links } from '../explorer';
 import { EthRpcTile } from '../features/EthRpcTile';
 import { SignOutDialog } from '../features/SignOutDialog';
+import { type PrestoView, usePresto } from '../features/use-presto';
 import { apexHost, FAQ_HREF } from '../lib/apex';
 import { shortAddress } from '../lib/format';
 import { useTileLog } from '../lib/tile-log';
-import { noticeFor, PRESTO_SITE, type PrestoState, prestoAtom } from '../presto';
+import { PRESTO_SITE } from '../presto';
 import { navigate } from '../routes';
 import type { Session } from '../session';
 import { type BooleanSetting, useSettings } from '../settings';
@@ -67,58 +69,50 @@ const THEMES: { value: Theme; label: string }[] = [
   { value: 'system', label: 'System' },
 ];
 
-/** Presto's standing in a few words: nothing is asked before Start mining, so the row says so. */
-export const prestoWords = (p: PrestoState): string => {
-  if (!p.status) return 'checked when you start mining';
-  if (p.active === 'presto') return 'connected ✦';
-  const notice = noticeFor(p);
-  if (notice) return notice.text;
-  // Under HTTPS-only an installed Presto with encryption off answers nothing: absent is the honest word.
-  if (!p.status.available) return 'not found';
-  return 'found';
-};
-
-function PrestoRow() {
-  const presto = useAtomValue(prestoAtom);
-  return (
-    <div className="flex items-center justify-between gap-4 border-t border-line py-2.5">
-      <div className="flex flex-col gap-1">
-        <span className="text-ink">
-          Presto <span className="text-uv">✦</span>
-        </span>
-        <span className="text-xs text-ink-2" data-testid="presto-standing">
-          native prover, several times faster · {prestoWords(presto)}
-        </span>
-      </div>
-      <ExternalLink href={PRESTO_SITE} className="shrink-0 text-xs text-ink-2">
-        Get Presto
-      </ExternalLink>
-    </div>
-  );
-}
-
-/** The browser prover's threads; Presto decides its own, so the slider says what it affects. */
+/**
+ * Presto first, then the browser prover's threads: while Presto is remembered or proving the slider
+ * is shown but not in force (Presto's own speed setting decides), and says what it is for.
+ */
 function MiningTile({
   cores,
   threads,
   onThreads,
+  presto,
   flags,
 }: {
   cores: number;
   threads: number;
   onThreads: (t: number) => void;
+  presto: PrestoView;
   flags: React.ReactNode;
 }) {
   return (
     <Tile>
-      <TileHeader aside={`${threads} threads`}>mining power</TileHeader>
+      <TileHeader>mining</TileHeader>
+      {presto.configured && (
+        <PrestoCard
+          standing={presto.standing}
+          needsLook={presto.needsLook}
+          onLook={presto.look}
+          onUseBrowser={presto.chooseBrowser}
+          site={PRESTO_SITE}
+          className="mb-3"
+        />
+      )}
       <div className="flex flex-col gap-2 pb-2.5">
-        <PowerSlider cores={cores} threads={threads} onChange={onThreads} />
-        <p className="text-xs text-ink-2">
-          This slider affects browser proving only; one core stays with the page.
+        <PowerSlider
+          cores={cores}
+          threads={threads}
+          onChange={onThreads}
+          disabled={presto.native}
+          label="browser threads"
+        />
+        <p className="text-xs text-ink-2" data-testid="power-note">
+          {presto.native
+            ? 'Not in use while Presto proves; Presto’s own speed setting decides. Yacana falls back to these threads if Presto drops out.'
+            : 'This slider affects browser proving only; one core stays with the page.'}
         </p>
       </div>
-      <PrestoRow />
       {flags}
     </Tile>
   );
@@ -235,6 +229,7 @@ export function Settings({
   const [ethRpcUrl, setEthRpcUrl] = useState(session.ethRpcUrl);
   const cores = navigator.hardwareConcurrency || 2;
   const threads = s.threads ?? Math.max(1, cores - 1);
+  const presto = usePresto(session);
   useEffect(() => setTheme(s.theme), [s.theme, setTheme]);
   // Notifications need the browser's permission, asked for on the toggle (a user gesture).
   const toggle = async (k: BooleanSetting, v: boolean) => {
@@ -285,6 +280,7 @@ export function Settings({
           <MiningTile
             cores={cores}
             threads={threads}
+            presto={presto}
             onThreads={(t) => {
               set({ threads: t });
               controller()?.reconfigure(t);

@@ -12,6 +12,7 @@ import { MigrationCard } from '../features/MigrationCard';
 import { NoticeCard } from '../features/NoticeCard';
 import { OldApp } from '../features/OldApp';
 import { RailTile } from '../features/RailTile';
+import { usePresto } from '../features/use-presto';
 import { useTileLog } from '../lib/tile-log';
 import type { Session } from '../session';
 import { balanceAtom, bootAtom, minerAtom } from '../state';
@@ -59,6 +60,7 @@ export function Mine({
   const onError = useTileLog();
   const ready = useAtomValue(bootAtom).phase === 'ready';
   const notice = useAtomValue(minerAtom).notice;
+  const presto = usePresto(session);
   // The versioned origin is one page: nothing is mined there, so no cockpit.
   if (isOldRole()) return <OldApp session={session} />;
   return (
@@ -81,7 +83,11 @@ export function Mine({
         />
       </TileBoundary>
       <TileBoundary name="rail" onError={onError} className="md:order-3 xl:order-none xl:row-span-2">
-        <RailTile controller={controller} className="md:order-3 xl:order-none xl:row-span-2" />
+        <RailTile
+          controller={controller}
+          presto={presto}
+          className="md:order-3 xl:order-none xl:row-span-2"
+        />
       </TileBoundary>
       <TileBoundary name="kpis" onError={onError} className="md:col-span-2 xl:col-span-3">
         <KpiTiles className="md:col-span-2 xl:col-span-3" />

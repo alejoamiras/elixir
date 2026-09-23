@@ -41,6 +41,7 @@ export { NodeWayOut } from './components/node-way-out.tsx';
 export { Note, type NoteTone } from './components/note.tsx';
 export { clampThreads, PowerSlider, powerLabels, powerRange } from './components/power-slider.tsx';
 export { Preflight, type PreflightRow } from './components/preflight.tsx';
+export { PrestoCard, type PrestoCardProps, type PrestoStanding } from './components/presto-card.tsx';
 export { Progress } from './components/progress.tsx';
 export {
   LEDGER_WINDOW,

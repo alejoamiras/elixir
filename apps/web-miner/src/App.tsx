@@ -137,7 +137,8 @@ export function App({ connection, session }: { connection: Connection; session: 
   const controller = useCallback(() => session.controller, [session]);
   // Stable: the loop tile's controls hand `onStart` to the picture-in-picture window, which a new identity would close.
   const onStart = useCallback(() => session.startMining(), [session]);
-  const onRetry = useCallback(() => void session.retryPresto(), [session]);
+  // The fix-it row's Retry is a Look: one entry point consents and probes.
+  const onRetry = useCallback(() => void session.lookForPresto(), [session]);
   // The wallet is the account's page: signed out (a sign-out reloads here), the cockpit is the page.
   // On the old origin the page is the wallet: a V5 bookmark of `/wallet` lands on it.
   useEffect(() => {

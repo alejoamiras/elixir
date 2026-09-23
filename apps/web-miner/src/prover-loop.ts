@@ -13,6 +13,8 @@ export interface ProverBackend {
   mine(job: MineJob, onAttempt: (nonce: bigint) => boolean): Promise<boolean>;
   /** The thread count a WASM prover built later (a fallback) uses; nothing is rebuilt now. */
   threads?(threads: number): void;
+  /** Consent withdrawn: no native request may start from here, whatever is running or building. */
+  revoke?(): void;
 }
 
 const errorMessage = (err: unknown): FromWorker => ({
@@ -27,6 +29,34 @@ const stoppedMessage = (job: MineJob, nextNonce: bigint): FromWorker => ({
   nextNonce,
 });
 
+/** Rebuilds run one at a time; requests during one coalesce into a last rebuild at the latest config. */
+function rebuilder(backend: ProverBackend) {
+  let pending: ProverConfig | undefined;
+  let running: Promise<void> | undefined;
+  return {
+    /** The rebuild under way, if any. */
+    get running() {
+      return running;
+    },
+    rebuild(config: ProverConfig): Promise<void> {
+      pending = config;
+      running ??= (async () => {
+        try {
+          while (pending !== undefined) {
+            const c = pending;
+            pending = undefined;
+            await backend.destroy();
+            await backend.init(c);
+          }
+        } finally {
+          running = undefined;
+        }
+      })();
+      return running;
+    },
+  };
+}
+
 export function createProverLoop(backend: ProverBackend, post: (m: FromWorker) => void) {
   /** The job that owns the loop: waiting for a rebuild, mining, or rebuilding after it stopped. */
   let current: MineJob | undefined;
@@ -36,28 +66,10 @@ export function createProverLoop(backend: ProverBackend, post: (m: FromWorker) =
   let userStopped = false;
   /** A reconfigure that arrived while proving: applied, whole, once the proof in flight is done. */
   let reconfigureTo: ProverConfig | undefined;
-  let pendingConfig: ProverConfig | undefined;
-  let rebuilding: Promise<void> | undefined;
+  const builds = rebuilder(backend);
+  const rebuild = builds.rebuild;
 
   const fail = (err: unknown) => post(errorMessage(err));
-
-  /** Rebuilds run one at a time; requests during one coalesce into a last rebuild at the latest config. */
-  const rebuild = (config: ProverConfig): Promise<void> => {
-    pendingConfig = config;
-    rebuilding ??= (async () => {
-      try {
-        while (pendingConfig !== undefined) {
-          const c = pendingConfig;
-          pendingConfig = undefined;
-          await backend.destroy();
-          await backend.init(c);
-        }
-      } finally {
-        rebuilding = undefined;
-      }
-    })();
-    return rebuilding;
-  };
 
   const stopped = (job: MineJob, nextNonce: bigint) => post(stoppedMessage(job, nextNonce));
 
@@ -87,7 +99,7 @@ export function createProverLoop(backend: ProverBackend, post: (m: FromWorker) =
 
   async function run(job: MineJob): Promise<void> {
     current = job;
-    if (rebuilding) await rebuilding;
+    if (builds.running) await builds.running;
     if (!stillOwner(job)) return;
     stopRequested = false;
     mining = true;
@@ -130,6 +142,9 @@ export function createProverLoop(backend: ProverBackend, post: (m: FromWorker) =
           return;
         case 'threads':
           backend.threads?.(m.threads);
+          return;
+        case 'revoke':
+          backend.revoke?.();
           return;
         case 'crash':
           // Test hook: an uncaught exception inside the Worker, which the page sees as `onerror`.

@@ -10,6 +10,9 @@ import { MinerController, type Rebound } from '../src/controller.ts';
 import { balanceAtom, epochAtom, minerAtom } from '../src/state.ts';
 import type { FromWorker, ToWorker } from '../src/worker-protocol.ts';
 
+/** Consent as the controller tests need it: in force, with nothing to remember. */
+const OPEN = { allowed: () => true, promote() {}, forget() {} };
+
 /**
  * Controllers a test makes, disposed with it: an undisposed one keeps polling the node after its
  * test is over, and its errors land on whichever file bun runs next.
@@ -120,6 +123,7 @@ describe('the live node switch', () => {
       fee,
       chainId: 1n,
       rollupVersion: 1n,
+      consent: OPEN,
       recover: async () => {
         events.push('rebuild');
         return { deployment: rebuilt, fee, rebuilt: true } satisfies Rebound;
@@ -169,6 +173,7 @@ describe('the live node switch', () => {
       fee,
       chainId: 1n,
       rollupVersion: 1n,
+      consent: OPEN,
       recover: async () => ({ deployment: rebuilt, fee, rebuilt: true }) satisfies Rebound,
     });
     await controller.ready();
@@ -196,6 +201,7 @@ describe('the live node switch', () => {
       fee,
       chainId: 1n,
       rollupVersion: 1n,
+      consent: OPEN,
       recover: async () => ({ deployment: rebuilt, fee, rebuilt: true }) satisfies Rebound,
     });
     await controller.ready();
@@ -227,6 +233,7 @@ describe('the live node switch', () => {
         fee,
         chainId: 1n,
         rollupVersion: 1n,
+        consent: OPEN,
         recover,
       });
     // Neither node rebuilds: the switch rejects with `kept: false` and the prover is given up.
@@ -290,6 +297,7 @@ describe('the live node switch', () => {
       fee,
       chainId: 1n,
       rollupVersion: 1n,
+      consent: OPEN,
       recover: async () =>
         ({ deployment: fakeDeployment(async () => 9n), fee, rebuilt: true }) satisfies Rebound,
     });
@@ -334,6 +342,7 @@ describe('the live node switch', () => {
       fee,
       chainId: 1n,
       rollupVersion: 1n,
+      consent: OPEN,
       recover: async () =>
         ({ deployment: fakeDeployment(async () => 9n), fee, rebuilt: true }) satisfies Rebound,
     });

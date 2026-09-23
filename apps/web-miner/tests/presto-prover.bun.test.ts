@@ -76,10 +76,12 @@ const api = () =>
 
 function prover(endpoint: PrestoEndpoint) {
   const transitions: { kind: ProverKind; t: ProverTransition }[] = [];
+  const counts = { verified: 0 };
   const p = new PrestoWorkProver(artifact, api, endpoint, {
     prover: (kind, t) => transitions.push({ kind, t }),
+    verified: () => counts.verified++,
   });
-  return { p, transitions };
+  return { p, transitions, counts };
 }
 
 const pkg = resolve(import.meta.dir, '..');
@@ -181,10 +183,12 @@ describe('PrestoWorkProver', () => {
     fake.script.push('fixture');
     const { p } = prover(fake.endpoint);
     try {
-      const result = await p.prove(FIXTURE);
+      // A copy of the bytes: `prove()` already verified this build's first proof, and would trust the object itself.
+      const proved = await p.prove(FIXTURE);
+      const result = { ...proved, proof: new Uint8Array(proved.proof) };
       const t0 = performance.now();
       expect(await p.verifyWin(FIXTURE, result)).toBe(true);
-      console.log(`first verifyWin (WASM init + VK) ${(performance.now() - t0).toFixed(0)} ms`);
+      console.log(`verifyWin of a copy ${(performance.now() - t0).toFixed(0)} ms`);
       const flipped = new Uint8Array(result.proof);
       flipped[100] ^= 1;
       expect(await p.verifyWin(FIXTURE, { ...result, proof: flipped })).toBe(false);
@@ -272,4 +276,87 @@ describe('PrestoWorkProver', () => {
       await p.destroy();
     }
   }, 180_000);
+});
+
+describe('the first native proof of a build', () => {
+  test('is verified once and reported; later proofs are not; a win on that very proof needs no second check; a new build verifies again', async () => {
+    fake.script.push('fixture', 'fixture', 'fixture');
+    const { p, transitions, counts } = prover(fake.endpoint);
+    try {
+      const first = await p.prove(FIXTURE);
+      expect(counts.verified).toBe(1);
+      const second = await p.prove(FIXTURE);
+      expect(counts.verified).toBe(1);
+      expect(transitions).toEqual([{ kind: 'presto', t: { sticky: false } }]);
+      // Identity, not bytes: the object `prove()` verified is trusted as is; a copy goes through the verifier.
+      expect(await p.verifyWin({ ...FIXTURE, nonce: 5n }, first)).toBe(true);
+      expect(await p.verifyWin({ ...FIXTURE, nonce: 5n }, second)).toBe(false);
+    } finally {
+      await p.destroy();
+    }
+    const rebuilt = prover(fake.endpoint);
+    try {
+      await rebuilt.p.prove(FIXTURE);
+      expect(rebuilt.counts.verified).toBe(1);
+    } finally {
+      await rebuilt.p.destroy();
+    }
+  }, 240_000);
+
+  test('one that does not verify: sticky as invalid, the same witness proved in WASM, no further request', async () => {
+    const bad = new Uint8Array(fixtureProof);
+    bad[100] ^= 1;
+    fake.script.push({ status: 200, body: { proof: b64(bad), public_inputs: b64(fixtureInputs) } });
+    const { p, transitions, counts } = prover(fake.endpoint);
+    try {
+      const before = fake.proves().length;
+      const r = await p.prove(FIXTURE);
+      expect(Buffer.from(r.proof).equals(Buffer.from(bad))).toBe(false);
+      expect(await p.verifyWin(FIXTURE, r)).toBe(true); // WASM's proof of the same inputs
+      expect(counts.verified).toBe(0);
+      expect(transitions).toEqual([{ kind: 'wasm', t: { sticky: true, reason: 'invalid-proof' } }]);
+      await p.prove(FIXTURE);
+      expect(fake.proves().length - before).toBe(1);
+      expect(p.lastProver).toBe('wasm');
+    } finally {
+      await p.destroy();
+    }
+  }, 240_000);
+
+  test('a revoke while the witness is being prepared: it never leaves, and nothing native is announced', async () => {
+    const { p, transitions, counts } = prover(fake.endpoint);
+    try {
+      const before = fake.proves().length;
+      const proving = p.prove(FIXTURE);
+      p.forceLocal('revoked');
+      const r = await proving;
+      expect(r.proof.length).toBe(PROOF_FIELDS * 32);
+      await p.prove(FIXTURE);
+      expect(fake.proves().length - before).toBe(0);
+      expect(transitions).toEqual([{ kind: 'wasm', t: { sticky: true, reason: 'revoked' } }]);
+      expect(counts.verified).toBe(0);
+    } finally {
+      await p.destroy();
+    }
+  }, 240_000);
+
+  test('a revoke still queued as a message when the witness is ready: the queue gets its turn first', async () => {
+    fake.script.push({ status: 200, body: { proof: b64(fixtureProof), public_inputs: b64(fixtureInputs) } });
+    const { p } = prover(fake.endpoint);
+    try {
+      await p.prove(FIXTURE); // warm: the next execute has nothing left to load
+      const before = fake.proves().length;
+      // As the Worker receives it: a task, not a call, behind whatever runs now.
+      const { port1, port2 } = new MessageChannel();
+      port1.onmessage = () => p.forceLocal('revoked');
+      const proving = p.prove(FIXTURE);
+      port2.postMessage(null);
+      await proving;
+      port1.close();
+      expect(fake.proves().length - before).toBe(0);
+      expect(p.lastProver).toBe('wasm');
+    } finally {
+      await p.destroy();
+    }
+  }, 240_000);
 });

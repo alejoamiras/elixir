@@ -27,6 +27,12 @@ export type ToWorker =
   | ({ type: 'reconfigure' } & ProverConfig)
   /** The browser prover's thread count for its next build, without rebuilding what proves now. */
   | { type: 'threads'; threads: number }
+  /**
+   * Consent withdrawn: acted on at once, between the awaits of a proof in flight, unlike a
+   * `reconfigure` (queued behind it). The guard forgets Presto's URLs, the prover is WASM for good
+   * and a build under way ends in WASM; a `reconfigure` without the endpoint follows.
+   */
+  | { type: 'revoke' }
   | { type: 'crash' };
 
 export type FromWorker =
@@ -34,6 +40,8 @@ export type FromWorker =
   | { type: 'ready'; threads: number; initMs: number; prover: ProverKind }
   /** What actually proved the last proof changed; `sticky` means WASM until the next rebuild. */
   | { type: 'prover'; kind: ProverKind; sticky: boolean; reason?: FallbackCause }
+  /** This build's first native proof verified in the Worker against its own inputs. */
+  | { type: 'native-verified' }
   | { type: 'presto-phase'; phase: PrestoPhase }
   | {
       type: 'attempt';

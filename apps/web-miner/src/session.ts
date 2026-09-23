@@ -19,7 +19,7 @@ import {
 import { duration } from '@yacana/web-kit/browser/format';
 import { keysAllowed, relyingParty } from '@yacana/web-kit/browser/host';
 import { type NodeProbe, probeNode } from '@yacana/web-kit/browser/node';
-import { setEthRpcEndpoint } from '@yacana/web-kit/browser/node-guard';
+import { setAcceleratorEndpoints, setEthRpcEndpoint } from '@yacana/web-kit/browser/node-guard';
 import { nodeHealth, resetL1, waitTurn } from '@yacana/web-kit/browser/node-health';
 import { CrsPinError } from '@yacana/web-kit/pinned-crs';
 import type { createStore } from 'jotai';
@@ -77,13 +77,18 @@ import {
 import { type L1Sampler, startL1Sampler } from './l1-sampler';
 import { initialSteps, keyStepLabel, type OpeningStep, type StepId } from './opening-steps';
 import {
+  initialPresto,
+  lnaAtom,
+  mayAsk,
   type ProverKind,
   prestoAtom,
   prestoEligible,
   prestoProvesTx,
   probePresto,
   txProvingAtom,
+  watchLna,
 } from './presto';
+import { type Consent, isConsented, consent as pageConsent } from './presto-consent';
 import { loadSettings, saveSettings } from './settings';
 import {
   type AccountError,
@@ -162,6 +167,8 @@ const turnOf = (d: Deployment): NonNullable<Deployment['turn']> => {
 export class Session {
   private pre: Preflighted | undefined;
   controller: MinerController | undefined;
+  /** The page's consent record (injected in tests); the hooks read it through here. */
+  readonly consent: Consent;
   /** One node switch at a time: a tile remount must not start a second against the same account. */
   private switching: Promise<void> | undefined;
   private switchingUrl: string | undefined;
@@ -207,18 +214,25 @@ export class Session {
   constructor(
     private readonly store: Store,
     private readonly connection: Connection,
-    // Injectable for tests: the real ones open the wallet / run the preflight against a node / touch WebAuthn.
+    // Injectable for tests: the real ones open the wallet / run the preflight against a node / touch
+    // WebAuthn / read the page's storage and the browser's permission.
     deps: {
       startImpl?: typeof startSession;
       preflightImpl?: typeof preflight;
       createPasskey?: typeof createPasskey;
       assertPasskey?: typeof assertPasskey;
+      consent?: Consent;
+      permissions?: Pick<Permissions, 'query'>;
     } = {},
   ) {
     this.startImpl = deps.startImpl ?? startSession;
     this.preflightImpl = deps.preflightImpl ?? preflight;
     this.createPasskey = deps.createPasskey ?? createPasskey;
     this.assertPasskey = deps.assertPasskey ?? assertPasskey;
+    this.consent = deps.consent ?? pageConsent;
+    this.consent.subscribe(() => this.onConsentChange());
+    watchLna(store, deps.permissions ?? globalThis.navigator?.permissions);
+    store.sub(lnaAtom, () => this.onLnaChange());
     this.ethRpc = connection.ethRpcUrl;
     // The guard admits the RPC in use from the first request. L1 is the record's: a build without a
     // portal never asks it, unless an e2e page pins an RPC of its own.
@@ -387,7 +401,7 @@ export class Session {
       abort.signal.throwIfAborted(); // a cancel that landed as the last step settled
       if (this.attempt?.id === id) this.attempt.adopted = true;
       reservation = await this.adopt(reservation, c.record);
-      this.controller = started.controller;
+      this.adoptController(started.controller);
       this.wallet = started.wallet;
       this.master = master;
       this.record = c.record;
@@ -414,6 +428,12 @@ export class Session {
       master?.fill(0);
       await discard();
     }
+  }
+
+  /** A revoke while the account was opening found no controller to tell: the one adopted hears it now. */
+  private adoptController(c: MinerController): void {
+    this.controller = c;
+    if (c.currentPresto && !this.consented()) c.revoke();
   }
 
   /**
@@ -704,19 +724,25 @@ export class Session {
   }
 
   /**
-   * The wallet's prover goes to Presto only while the page's own probe says it serves the kernel's
-   * scheme and the Worker has not given up on it (sticky): what the pre-proof line promises is what
-   * the SDK is allowed, and a denied or dead Presto is not sent a witness per proof. Who actually
-   * proves is told to the transaction's own turn (`wallet.ts`).
+   * The wallet's prover goes to Presto only under consent, and while the page's own probe says it
+   * serves the kernel's scheme and the Worker has not given up on it (sticky): what the pre-proof
+   * line promises is what the SDK is allowed, and a denied or dead Presto is not sent a witness per
+   * proof. Who actually proves is told to the transaction's own turn (`wallet.ts`).
    */
   private bindTxProver(prover: TxProver | undefined): void {
     this.unsubTxProver?.();
     this.unsubTxProver = undefined;
     this.store.set(txProvingAtom, null);
     if (!prover) return;
-    const mirror = () => prover.setForceLocal(!prestoProvesTx(this.store.get(prestoAtom)));
+    const mirror = () =>
+      prover.setForceLocal(!(this.consented() && prestoProvesTx(this.store.get(prestoAtom))));
     mirror();
-    this.unsubTxProver = this.store.sub(prestoAtom, mirror);
+    const offStore = this.store.sub(prestoAtom, mirror);
+    const offConsent = this.consent.subscribe(mirror);
+    this.unsubTxProver = () => {
+      offStore();
+      offConsent();
+    };
   }
 
   private closeBridge(): void {
@@ -845,43 +871,136 @@ export class Session {
   }
 
   /**
-   * The user's Start: mining begins now; Presto is asked afresh in the background and an answer that
-   * changes its eligibility rebuilds the prover at the next nonce. The automatic resumes (after a
-   * claim, an expired claim) never come through here.
+   * The user's Start: mining begins now; with Presto consented to and the browser not about to
+   * prompt, it is asked afresh in the background and an answer that changes its eligibility rebuilds
+   * the prover at the next nonce. The automatic resumes (after a claim, an expired claim) never come
+   * through here.
    */
   startMining(): void {
     // The versioned origin's build mines nothing, nor does a version flipped away from: every
     // Start — a button, a key, a setting, the resume on open — is inert.
     if (isOldRole() || this.store.get(bridgeAtom).verdict.kind === 'flipped') return;
-    const c = this.controller;
-    c?.start();
-    // A Start after the Worker gave up on native brings it back: only a rebuild can, and the config
-    // is unchanged, so it has to be forced. An ordinary Start keeps its warm backend.
-    void this.reprobePresto({ rebuild: this.store.get(prestoAtom).fallbackReason !== undefined });
+    this.controller?.start();
+    void this.autoProbe();
   }
 
-  /** The fix-it row's Retry: a fresh probe, then the prover rebuilt with the endpoint — never a start. */
-  async retryPresto(): Promise<void> {
-    await this.reprobePresto({ rebuild: true });
+  /** Whether this build looks for Presto at all (`?presto=off` and the old role do not). */
+  get looksForPresto(): boolean {
+    return this.pre?.presto != null;
+  }
+
+  /** Presto may be transmitted to right now: remembered here, or this page's Look at the current revision. */
+  consented(): boolean {
+    return isConsented(this.consent.read(), this.store.get(prestoAtom).consentRev);
+  }
+
+  /** Resolves once the browser has said where it stands on loopback; never on a timer. */
+  private lnaSettled(): Promise<void> {
+    if (this.store.get(lnaAtom) !== 'pending') return Promise.resolve();
+    return new Promise((resolve) => {
+      const off = this.store.sub(lnaAtom, () => {
+        if (this.store.get(lnaAtom) === 'pending') return;
+        off();
+        resolve();
+      });
+    });
   }
 
   /**
-   * A fresh answer from Presto (the SDK's cache skipped). One that changes eligibility rebuilds the
-   * prover; `rebuild` does so under an unchanged one, which is what brings native back after the
-   * Worker gave up on it. A Stop that landed while the probe was out withdraws the interest that
-   * asked for it: the answer then changes nothing.
+   * Start's probe, when it may run without a prompt: it waits for the permission to settle, then
+   * rechecks everything it stands on — consent, the permission, the same consent generation, the
+   * same controller with no Stop since — right before it transmits. A Start after the Worker gave
+   * up on native brings it back: only a rebuild can, and the config is unchanged, so it is forced.
    */
-  private async reprobePresto(o: { rebuild: boolean }): Promise<void> {
-    const pre = this.pre;
-    if (!pre?.presto) return;
+  private async autoProbe(): Promise<void> {
+    if (!this.pre?.presto || !this.consented()) return;
     const c = this.controller;
     const stops = c?.stopCount;
-    const status = await probePresto(this.store, pre.presto, true).catch(() => null);
-    // Disposed, replaced or stopped while the probe was out: nothing to act on.
+    const gen = this.store.get(prestoAtom).gen;
+    await this.lnaSettled();
+    if (!mayAsk(this.consented(), this.store.get(lnaAtom))) return;
+    if (this.store.get(prestoAtom).gen !== gen || this.controller !== c || c?.stopCount !== stops) return;
+    const rebuild = this.store.get(prestoAtom).fallbackReason !== undefined;
+    await this.probe(gen, stops, rebuild);
+  }
+
+  /**
+   * The user's Look for Presto (the card's button, the fix-it row's Retry): consent for this page
+   * at the record's current revision, then a fresh probe whose answer rebuilds the prover with or
+   * without the endpoint. A revoke still committing is waited for, so the click cannot capture a
+   * revision it is about to lose; "use the browser" meanwhile moves the generation and the click is
+   * dropped.
+   */
+  async lookForPresto(): Promise<void> {
+    if (!this.pre?.presto) return;
+    const before = this.store.get(prestoAtom).gen;
+    await this.consent.settled();
+    if (this.store.get(prestoAtom).gen !== before) return;
+    const rev = this.consent.read().rev;
+    let gen = 0;
+    this.store.set(prestoAtom, (s) => {
+      gen = s.gen + 1;
+      return { ...s, consentRev: rev, looking: true, gen };
+    });
+    await this.probe(gen, this.controller?.stopCount, true);
+  }
+
+  /**
+   * One probe, published only on its own consent generation and while consent still stands: a
+   * revoke here bumps `gen`, one from another tab that found nothing native to tear down moves
+   * only the record, and either way the answer lands nowhere. The prover is touched only while the
+   * controller that was mining when the probe left is still mining (a Stop withdraws the interest).
+   */
+  private async probe(gen: number, stops: number | undefined, rebuild: boolean): Promise<void> {
+    const pre = this.pre;
+    const c = this.controller;
+    if (!pre?.presto) return;
+    const status = await probePresto(pre.presto, true).catch(() => null);
+    if (this.store.get(prestoAtom).gen !== gen || !this.consented()) return;
+    this.store.set(prestoAtom, (s) => ({ ...s, status, probedAt: Date.now(), looking: false }));
     if (!c || this.controller !== c || c.stopCount !== stops) return;
     const endpoint = prestoEligible(status) ? pre.presto : null;
-    if (endpoint) c.reconfigure(c.currentThreads, endpoint, { force: o.rebuild });
+    if (endpoint) c.reconfigure(c.currentThreads, endpoint, { force: rebuild });
     else if (c.currentPresto) c.reconfigure(c.currentThreads, null);
+  }
+
+  /**
+   * "Use the browser": consent withdrawn, local first. Everything native in this page is torn down
+   * synchronously, then the record's revoke is awaited; the record already reads as no consent from
+   * the call. Other tabs learn through the `storage` event and tear their own down.
+   */
+  async chooseBrowser(): Promise<void> {
+    this.withdrawNative();
+    await this.consent.revoke().catch(() => {});
+  }
+
+  /** The synchronous teardown: the atom (keeping `gen`), the page guard, the wallet's prover, the Worker. */
+  private withdrawNative(): void {
+    this.store.set(prestoAtom, (s) => ({ ...initialPresto, gen: s.gen + 1 }));
+    setAcceleratorEndpoints(null, 0);
+    this.started?.txProver?.setForceLocal(true);
+    this.controller?.revoke();
+  }
+
+  /**
+   * The browser answering late: a Look made under `prompt` is held by the prompt until the SDK's
+   * deadline and reads as absent; the grant that follows (the bubble, or site settings) fires
+   * `change`, and the click already given is asked again — no reload, no second click.
+   */
+  private onLnaChange(): void {
+    const p = this.store.get(prestoAtom);
+    if (this.store.get(lnaAtom) !== 'granted' || p.consentRev === null || p.looking || !this.consented())
+      return;
+    if (p.status && prestoEligible(p.status)) return;
+    this.store.set(prestoAtom, (s) => ({ ...s, looking: true }));
+    void this.probe(p.gen, this.controller?.stopCount, true);
+  }
+
+  /** A change of the record from anywhere: with consent gone and something native still standing, tear it down. */
+  private onConsentChange(): void {
+    if (this.consented()) return;
+    const p = this.store.get(prestoAtom);
+    if (p.consentRev !== null || p.status !== null || this.controller?.currentPresto) this.withdrawNative();
   }
 
   /** Whether anything on the chain or in the wallet knows the recipient as a contract. */

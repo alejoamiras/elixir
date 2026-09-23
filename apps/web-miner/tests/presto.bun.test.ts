@@ -124,6 +124,8 @@ describe('the fix-it row', () => {
     expect(text('scheme-unsupported')).toContain('needs an update');
     expect(text('network')).toContain('stopped answering');
     expect(text('cooldown')).toContain('cooldown');
+    // The user's own revoke is nothing to fix.
+    expect(noticeFor({ ...initialPresto, fallbackReason: 'revoked' }, site)).toBeNull();
   });
 });
 

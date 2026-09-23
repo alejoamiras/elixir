@@ -34,9 +34,11 @@ test('a malformed RPC payload is rejected, not acted on', async ({ page, replay 
 });
 
 /** An old Presto: answers health without the UltraHonk route; the second answer has it. */
-function oldPresto(): Promise<{ server: Server; port: number; upgrade: () => void }> {
+function oldPresto(): Promise<{ server: Server; port: number; upgrade: () => void; hits: () => number }> {
   let schemes = ['chonk'];
+  let hits = 0;
   const server = createServer((req, res) => {
+    hits++;
     res.setHeader('access-control-allow-origin', '*');
     res.setHeader('access-control-allow-private-network', 'true');
     if (req.method === 'OPTIONS') return void res.writeHead(204).end();
@@ -55,6 +57,7 @@ function oldPresto(): Promise<{ server: Server; port: number; upgrade: () => voi
         upgrade: () => {
           schemes = ['chonk', 'ultra_honk'];
         },
+        hits: () => hits,
       });
     }),
   );
@@ -68,14 +71,18 @@ test('an old Presto answers: the update row, and Retry re-asks', async ({ page, 
   try {
     await page.goto(replay.url({ presto: String(fake.port) }));
     await expect(page.getByTestId('cockpit')).toBeVisible({ timeout: BOOT_MS });
-    // Presto is asked at Start mining alone: the cockpit's ready shows nothing of it.
+    // Nothing asks Presto before the click: not the boot, not Start. The card offers the look.
     const notice = page.getByTestId('presto-notice');
     await expect(notice).toHaveCount(0);
     await page.getByTestId('sign-in-mine').click();
     await expect(page.getByTestId('key-screen')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('key-screen')).toHaveCount(0);
+    await expect(page.getByTestId('presto-card')).toHaveAttribute('data-standing', 'ask');
+    expect(fake.hits()).toBe(0);
+    await page.getByTestId('presto-look').click();
     await expect(notice).toContainText('needs an update', { timeout: 60_000 });
+    expect(fake.hits()).toBeGreaterThan(0);
     await expect(page.getByTestId('presto-billboard')).toHaveCount(0);
     await render(page, 'row');
     fake.upgrade();

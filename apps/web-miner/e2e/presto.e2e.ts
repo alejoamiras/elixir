@@ -1,11 +1,14 @@
-// The miner against the run's headless Presto (tools/localnet/src/presto.ts): native proving shown and
-// proven, a claim whose winner came from Presto, the billboard when nothing answers — with the
-// 1280/1440 renders of each state. The old Presto's update row is the replay lane's.
+// The miner against the run's headless Presto (tools/localnet/src/presto.ts): nothing reaches it before the
+// card's click, native proving shown and proven after it, a claim whose winner came from Presto, the
+// memory of a yes, the way back to the browser, the billboard when nothing answers — with the 1280/1440
+// renders of each state. The old Presto's update row is the replay lane's.
 
-import { mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import type { BrowserContext } from '@playwright/test';
 import { expect, type Page, test } from './fixtures.ts';
-import { bootPage, pageUrl, run } from './helpers.ts';
+import { bootPage, pageUrl, passKeyScreen, run } from './helpers.ts';
+import type { E2eRun } from './run.ts';
 
 const RENDERS = resolve(import.meta.dirname, '.renders');
 mkdirSync(RENDERS, { recursive: true });
@@ -19,6 +22,65 @@ async function render(page: Page, name: string): Promise<void> {
   await page.setViewportSize({ width: 1280, height: 720 });
 }
 
+const card = (page: Page) => page.getByTestId('presto-card');
+const REMEMBERED = () => localStorage.setItem('yacana.presto', JSON.stringify({ used: true, rev: 0 }));
+
+/**
+ * What reached Presto: the server's own log (the run's, shared with earlier specs: only what it gains
+ * from here on counts) and every request the browser made to its port, Worker traffic where Playwright
+ * reports it. Two witnesses, because Playwright does not see all of a Worker's fetches.
+ */
+function reaching(r: E2eRun, context: BrowserContext) {
+  const logFile = r.prestoHome ? resolve(r.prestoHome, 'server.log') : null;
+  const log = () => (logFile && existsSync(logFile) ? readFileSync(logFile, 'utf8') : '');
+  const port = r.prestoUrl ? new URL(r.prestoUrl).port : null;
+  const before = log().length;
+  const requests: string[] = [];
+  context.on('request', (req) => {
+    const u = new URL(req.url());
+    if (u.port === port && u.hostname === '127.0.0.1') requests.push(`${req.method()} ${u.pathname}`);
+  });
+  return { requests, gained: () => log().slice(before) };
+}
+
+/** The card's consent: Look for Presto, and the answer it draws. */
+async function look(page: Page): Promise<void> {
+  await page.getByTestId('presto-look').click();
+  await expect(card(page)).toHaveAttribute('data-standing', 'found', { timeout: 60_000 });
+}
+
+test('no request reaches Presto before the click: load, sign-in, Start, the first proof; again resuming on open', async ({
+  page,
+}) => {
+  const r = run();
+  test.skip(!r.prestoUrl, 'presto-server is not installed on this machine');
+  const seen = reaching(r, page.context());
+  const auth = await bootPage(page, pageUrl(r, { presto: 'on', miner: r.hardMiner, token: r.hardToken }));
+  await expect(card(page)).toHaveAttribute('data-standing', 'ask');
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('phase')).toHaveText(/^mining/);
+  await expect(page.getByTestId('rate-line')).toBeVisible({ timeout: 3 * 60_000 });
+  await expect(page.getByTestId('native')).toHaveCount(0);
+  expect(seen.requests).toEqual([]);
+  expect(seen.gained()).toBe('');
+  // Resume on open: the page's own Start on the next load asks no more than the button did.
+  await page.getByTestId('stop').click();
+  await expect(page.getByTestId('phase')).toHaveText(/^idle/, { timeout: 60_000 });
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('yacana.settings') ?? '{}');
+    localStorage.setItem('yacana.settings', JSON.stringify({ ...s, resumeOnOpen: true }));
+  });
+  await page.reload();
+  await passKeyScreen(page);
+  await expect(page.getByTestId('phase')).toHaveText(/^mining/, { timeout: 3 * 60_000 });
+  await expect(page.getByTestId('rate-line')).toBeVisible({ timeout: 3 * 60_000 });
+  await expect(card(page)).toHaveAttribute('data-standing', 'ask');
+  expect(seen.requests).toEqual([]);
+  expect(seen.gained()).toBe('');
+  await page.getByTestId('stop').click();
+  await auth.remove();
+});
+
 test('through Presto: the pill says ✦ presto after the first native proof, and power is Presto’s', async ({
   page,
 }) => {
@@ -28,16 +90,43 @@ test('through Presto: the pill says ✦ presto after the first native proof, and
   const auth = await bootPage(page, pageUrl(r, { presto: 'on', miner: r.hardMiner, token: r.hardToken }));
   await expect(page.getByTestId('presto-billboard')).toHaveCount(0);
   await expect(page.getByTestId('presto-notice')).toHaveCount(0);
+  await look(page);
+  await expect(card(page)).toContainText('proves when you start');
   await page.getByTestId('start').click();
   await expect(page.getByTestId('phase')).toHaveText(/^mining/);
   // Native only once a native proof came back, never on construction.
   await expect(page.getByTestId('native')).toBeVisible({ timeout: 3 * 60_000 });
   await expect(page.getByTestId('phase')).toHaveAttribute('data-prover', 'presto');
   await expect(page.getByTestId('rate-line')).toContainText('✦ presto');
-  // The epoch tile's power row is Presto's while the Worker proves natively: no slider in the cockpit.
-  await expect(page.getByTestId('presto-row')).toContainText('proving on this machine');
+  // The epoch tile's power is Presto's while the Worker proves natively: no slider in the cockpit.
+  await expect(card(page)).toHaveAttribute('data-standing', 'proving');
+  await expect(card(page)).toContainText('proving on this machine');
   await expect(page.getByRole('slider')).toHaveCount(0);
   await render(page, 'native');
+  await page.getByTestId('stop').click();
+  await expect(page.getByTestId('phase')).toHaveText(/^idle/, { timeout: 60_000 });
+  await auth.remove();
+});
+
+test('remembered: a reload opens on "used last time" and Start goes native with no click', async ({
+  page,
+}) => {
+  const r = run();
+  test.skip(!r.prestoUrl, 'presto-server is not installed on this machine');
+  // The browser has said it will not prompt, and an earlier visit said yes: the one case that probes by itself.
+  await page.context().grantPermissions(['local-network-access'], { origin: new URL(r.baseURL).origin });
+  await page.context().addInitScript(REMEMBERED);
+  const seen = reaching(r, page.context());
+  const auth = await bootPage(page, pageUrl(r, { presto: 'on', miner: r.hardMiner, token: r.hardToken }));
+  await expect(card(page)).toHaveAttribute('data-standing', 'remembered');
+  await expect(card(page)).toContainText('used last time');
+  await expect(page.getByTestId('presto-look')).toHaveCount(0);
+  expect(seen.requests).toEqual([]);
+  expect(seen.gained()).toBe('');
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('native')).toBeVisible({ timeout: 3 * 60_000 });
+  await expect(card(page)).toHaveAttribute('data-standing', 'proving');
+  await render(page, 'remembered');
   await page.getByTestId('stop').click();
   await expect(page.getByTestId('phase')).toHaveText(/^idle/, { timeout: 60_000 });
   await auth.remove();
@@ -57,13 +146,10 @@ test('a win Presto proved is verified in the browser before it shows, then claim
     if (res.url() === proveUrl) proves.push(res.status());
     if (res.url() === `${r.prestoUrl}/prove`) txProves.push(res.status());
   });
-  // The server's log is the run's, and an earlier spec has already proved through it: only what it
-  // gains from here on is this test's evidence.
-  const logFile = r.prestoHome ? resolve(r.prestoHome, 'server.log') : null;
-  const logRead = () => (logFile ? readFileSync(logFile, 'utf8') : '');
-  const logBefore = logRead().length;
+  const seen = reaching(r, page.context());
   await bootPage(page, pageUrl(r, { presto: 'on' }));
   const proverless = await page.evaluate(() => window.yacana?.proverless === true);
+  await look(page);
   await page.getByTestId('start').click();
   await expect(page.getByTestId('native')).toBeVisible({ timeout: 3 * 60_000 });
   // The easy target wins every other proof: the win was verified in WASM before it showed, then claimed.
@@ -79,8 +165,42 @@ test('a win Presto proved is verified in the browser before it shows, then claim
   expect(prover).toBe('presto');
   // The HTTP evidence, independent of the Worker's own messages: a 200 on the route as Playwright saw
   // it from the Worker, or, where it sees no Worker traffic, a proof the server finished during it.
-  const sinceStart = logRead().slice(logBefore);
-  expect(proves.includes(200) || /UltraHonk prove finished.*ok\S*=\S*true/.test(sinceStart)).toBe(true);
+  expect(proves.includes(200) || /UltraHonk prove finished.*ok\S*=\S*true/.test(seen.gained())).toBe(true);
+  await page.getByTestId('stop').click();
+  await expect(page.getByTestId('phase')).toHaveText(/^idle/, { timeout: 60_000 });
+});
+
+test('use the browser: the next claim is proved in the page', async ({ page }) => {
+  const r = run();
+  test.skip(!r.prestoUrl, 'presto-server is not installed on this machine');
+  let afterClick = false;
+  const late: string[] = [];
+  page.on('request', (req) => {
+    if (afterClick && req.method() === 'POST' && req.url().startsWith(`${r.prestoUrl}/prove`))
+      late.push(req.url());
+  });
+  await bootPage(page, pageUrl(r, { presto: 'on' }));
+  const proverless = await page.evaluate(() => window.yacana?.proverless === true);
+  await look(page);
+  await page.getByTestId('start').click();
+  await expect(page.getByTestId('native')).toBeVisible({ timeout: 3 * 60_000 });
+  await page.getByTestId('presto-use-browser').click();
+  afterClick = true;
+  // Consent is gone at once: the card asks again, the suffix leaves with the next proof, the slider is back.
+  await expect(card(page)).toHaveAttribute('data-standing', 'ask');
+  await expect(page.getByTestId('native')).toHaveCount(0, { timeout: 3 * 60_000 });
+  await expect(page.getByRole('slider')).toBeEnabled();
+  // The next win's claim is the page's own; a proverless build proves no transaction, so the line skips.
+  if (!proverless)
+    await expect(page.getByTestId('ledger')).toContainText('claiming: proving in your browser, about 20 s', {
+      timeout: 5 * 60_000,
+    });
+  // A win found in the browser, minted: a claim Presto had in flight at the click may land first.
+  await expect
+    .poll(() => page.evaluate(() => window.yacana?.controller()?.lastClaim?.prover), { timeout: 10 * 60_000 })
+    .toBe('wasm');
+  // Nothing native was started after the click: no mining proof, no transaction proof.
+  expect(late).toEqual([]);
   await page.getByTestId('stop').click();
   await expect(page.getByTestId('phase')).toHaveText(/^idle/, { timeout: 60_000 });
 });
@@ -99,6 +219,7 @@ test('Presto gone mid-proof: the claim’s transmit fails, the browser finishes 
   });
   await bootPage(page, pageUrl(r, { presto: 'on' }));
   const proverless = await page.evaluate(() => window.yacana?.proverless === true);
+  await look(page);
   await page.getByTestId('start').click();
   await expect(page.getByTestId('native')).toBeVisible({ timeout: 3 * 60_000 });
   // A proverless build never transmits: the claim mints with nothing to cut.
@@ -124,11 +245,15 @@ test('nothing answers: the billboard invites the install and the browser proves 
     pageUrl(r, { presto: String(r.closedPort), miner: r.hardMiner, token: r.hardToken }),
   );
   const billboard = page.getByTestId('presto-billboard');
-  // Nothing asks Presto before Start mining: no billboard, no row on the cockpit's ready.
+  // Nothing asks Presto before the click: no billboard on the cockpit's ready, none on Start either.
   await expect(page.getByTestId('cockpit')).toBeVisible();
   await expect(billboard).toHaveCount(0);
   await page.getByTestId('start').click();
   await expect(page.getByTestId('phase')).toHaveText('mining');
+  await expect(page.getByTestId('rate-line')).toBeVisible({ timeout: 3 * 60_000 });
+  await expect(billboard).toHaveCount(0);
+  await page.getByTestId('presto-look').click();
+  await expect(card(page)).toHaveAttribute('data-standing', 'absent', { timeout: 60_000 });
   await expect(billboard).toBeVisible({ timeout: 60_000 });
   await expect(billboard.getByText('Fast proofs')).toBeVisible();
   // The element resolves its `href` through `new URL()`, which spells the origin with a trailing slash.
@@ -138,7 +263,6 @@ test('nothing answers: the billboard invites the install and the browser proves 
   );
   await expect(page.getByTestId('presto-notice')).toHaveCount(0);
   await render(page, 'billboard');
-  await expect(page.getByTestId('rate-line')).toBeVisible({ timeout: 3 * 60_000 });
   await expect(page.getByTestId('rate-line')).not.toContainText('presto');
   await expect(page.getByTestId('native')).toHaveCount(0);
   await expect(page.getByRole('slider')).toBeEnabled();

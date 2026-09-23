@@ -9,6 +9,9 @@ import { MinerController, type Rebound } from '../src/controller.ts';
 import { balanceAtom, minerAtom } from '../src/state.ts';
 import type { FromWorker, ToWorker } from '../src/worker-protocol.ts';
 
+/** Consent as the controller tests need it: in force, with nothing to remember. */
+const OPEN = { allowed: () => true, promote() {}, forget() {} };
+
 class FakeWorker {
   onmessage: ((e: MessageEvent<FromWorker>) => void) | null = null;
   onerror: ((e: ErrorEvent) => void) | null = null;
@@ -102,6 +105,7 @@ describe('lost-race recovery', () => {
       fee,
       chainId: 1n,
       rollupVersion: 1n,
+      consent: OPEN,
       recover,
       readDeadlineMs,
     });
