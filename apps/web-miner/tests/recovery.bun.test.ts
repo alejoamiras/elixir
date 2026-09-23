@@ -1042,6 +1042,45 @@ describe('claim recovery', () => {
     T,
   );
 
+  test.each([
+    ['rebuilt', true],
+    ['reopened', true],
+    ['rebuilt', false],
+    ['reopened', false],
+  ] as const)(
+    'Retry on a waiting win whose check finds a watched one reverted (view %s, Stop first: %p): mining comes back only without a Stop',
+    async (view, stopFirst) => {
+      node.plans = [
+        { receipts: [{ block: 5 }, 'pending'] },
+        { before: new Error('Circuit execution failed: x') },
+        { receipts: [{ block: 12 }] },
+      ];
+      const c = await boot({
+        recover: async () => ({ deployment: node.deployment(), fee, rebuilt: view === 'rebuilt' }),
+        delay: (ms) => ms / 10,
+      });
+      const a = win();
+      await settle(() => textOf(a) === lostLine);
+      node.latest.open = 4n;
+      await settle(() => mines() === 2 && phase() === 'mining');
+      const b = win({ ...WIN2, secretId: 2 });
+      await settle(() => actionOf(b) === 'Retry');
+      if (stopFirst) c.stop();
+      node.script(hashOf(1), [{ block: 9, reverted: true }]);
+      expect(await c.retryPendingClaim()).toBe(true);
+      // The reopened view waits out finality; its timer's release is what the test stands in for.
+      if (view === 'reopened') {
+        await settle(() => store.get(minerAtom).notice?.kind === 'paused');
+        c.release('lost-race');
+      }
+      await settle(() => noteOf(b)?.outcome === 'minted');
+      await sleep(100);
+      expect([mines(), phase(), node.attempts]).toEqual(stopFirst ? [2, 'idle', 3] : [3, 'mining', 3]);
+      c.dispose();
+    },
+    T,
+  );
+
   test(
     'Stop with a win waiting, a pause, then Start: the Start is kept, its attempt runs at the release, then mining',
     async () => {

@@ -103,4 +103,19 @@ its registry port, a headless Presto, a `vite preview` and a node proxy from the
 on 8545 whose cwd was this worktree, started in the run's boot second) were killed by process group after
 checking cwd, parent and registry row. The local loop that runs the shards now stops on 130.
 
+**Round 3**: one material; reproduced, fixed with a spec that fails with the fix reverted. Codex withdrew
+its round-2 recommendation (clearing the Stop on Retry) against the plan and the canary.
+- The Stop was one flag that any rebuild's end and the finality pause consumed: a watched win's revert,
+  rebuilt during the Retry's check of another win, spent the Stop, and that win's mint then resumed mining.
+  The Stop (`stopped`) is now cleared by Start alone; "this rebuild interrupted no mining" is its own flag
+  (`idleRebuild`), spent by that rebuild's end. The spec runs the four cases (view rebuilt or reopened,
+  Stop or not).
+- The shard pass on b26e81b was stopped during cockpit to take this round. The loop now stops on 130, but the
+  interrupted Playwright run skipped its global teardown and left its headless Presto, `vite preview` and
+  node proxy; killed by group after the same ownership checks.
+
+Three material rounds in a row, all in one family (what a Stop means to the page's automatic resumes), each
+smaller than the last (8, then 2 and one found beside them, then 1). Surfaced to the owner here and in the
+final report.
+
 ## Gate
