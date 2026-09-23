@@ -5,7 +5,23 @@ import type { Connection } from '@yacana/web-kit/browser/connection';
 import { Component, lazy, type ReactNode, Suspense, useState } from 'react';
 import { redeployed, servedBuild } from '../bridge/env';
 
-const load = () => import('../routes/Stats');
+type StatsModule = typeof import('../routes/Stats');
+
+/** The chunk a failed import names: Chromium and Firefox put its URL in the message, WebKit does not. */
+const failedChunk = (e: unknown): string | undefined =>
+  /dynamically imported module: (\S+)/i.exec(e instanceof Error ? e.message : '')?.[1];
+
+// The document keeps a failed module fetch for good (its module map answers every later import() of
+// that URL without the network), so a retry asks for the chunk under a URL of its own.
+let failed: string | undefined;
+const load = (attempt: number): Promise<StatsModule> =>
+  (failed
+    ? (import(/* @vite-ignore */ `${failed.split('?')[0]}?retry=${attempt}`) as Promise<StatsModule>)
+    : import('../routes/Stats')
+  ).catch((e: unknown) => {
+    failed ??= failedChunk(e);
+    throw e;
+  });
 
 class LoadBoundary extends Component<
   { onRetry: () => void; children: ReactNode },
@@ -24,21 +40,24 @@ class LoadBoundary extends Component<
   render(): ReactNode {
     if (!this.state.failed) return this.props.children;
     const gone = this.state.redeployed;
+    const retry = !gone && failed !== undefined;
     return (
       <Alert variant="bad" data-testid="stats-unavailable" data-redeployed={gone || undefined}>
         <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
           <span>
             {gone
               ? 'Yacana has been updated since this tab opened: Stats opens after a reload, which stops mining.'
-              : 'Stats could not be fetched. Mining goes on.'}
+              : retry
+                ? 'Stats could not be fetched. Mining goes on.'
+                : 'Stats could not be fetched. Mining goes on; this browser fetches it again only on a reload, which stops mining.'}
           </span>
           <Button
             size="sm"
             variant="danger"
-            onClick={gone ? () => location.reload() : this.props.onRetry}
+            onClick={retry ? this.props.onRetry : () => location.reload()}
             data-testid="stats-retry"
           >
-            {gone ? 'Reload to open Stats' : 'Try again'}
+            {retry ? 'Try again' : 'Reload to open Stats'}
           </Button>
         </AlertDescription>
       </Alert>
@@ -47,11 +66,14 @@ class LoadBoundary extends Component<
 }
 
 export function StatsRoute({ page, connection }: { page: StatsTab; connection: Connection }) {
-  // A fresh import() per attempt: React.lazy keeps a rejected load for good.
-  const [attempt, setAttempt] = useState(() => ({ n: 0, Stats: lazy(load) }));
+  // React.lazy keeps a rejected load for good: each attempt is a lazy of its own.
+  const [attempt, setAttempt] = useState(() => ({ n: 0, Stats: lazy(() => load(0)) }));
   const { Stats } = attempt;
   return (
-    <LoadBoundary key={attempt.n} onRetry={() => setAttempt(({ n }) => ({ n: n + 1, Stats: lazy(load) }))}>
+    <LoadBoundary
+      key={attempt.n}
+      onRetry={() => setAttempt(({ n }) => ({ n: n + 1, Stats: lazy(() => load(n + 1)) }))}
+    >
       <Suspense fallback={null}>
         <Stats page={page} connection={connection} />
       </Suspense>
