@@ -4,6 +4,7 @@ import { clampThreads } from '@yacana/ui';
 import { useAtomValue, useStore } from 'jotai';
 import { useEffect } from 'react';
 import type { MinerController } from '../controller';
+import { introAtom } from '../intro';
 import { offersStop } from '../lib/reducer';
 import { lnaAtom, prestoAtom, prestoDecides } from '../presto';
 import type { Consent } from '../presto-consent';
@@ -105,6 +106,18 @@ export function usePauses(controller: () => MinerController | undefined, setting
     });
     return () => battery?.removeEventListener('chargingchange', apply);
   }, [controller, settings.pauseOnBattery]);
+}
+
+/** Mining that runs puts the first visit's strip away for good, whichever page it starts on. */
+export function useIntroEnds() {
+  const store = useStore();
+  useEffect(() => {
+    const end = () => {
+      if (store.get(minerAtom).phase === 'mining' && store.get(introAtom)) store.set(introAtom);
+    };
+    end();
+    return store.sub(minerAtom, end);
+  }, [store]);
 }
 
 /** After the first Start the page may resume by itself; never on a first visit. The session's Start, so its refusals hold. */
