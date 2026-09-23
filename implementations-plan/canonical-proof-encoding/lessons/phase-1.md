@@ -41,3 +41,10 @@
 
 `bb gates --scheme chonk` per private function of the compiled artifact; `log n` from the first field of `claim`'s
 VK. I1 predicted ≈ 2.2k: measured 2,170 for 72 coordinates, ≈ 30 gates each.
+
+## Gate
+
+The Phase 1 gate, verbatim from plan.md §5, run as one bash script (the worktree guard refuses a heredoc here, so
+the same text ran from a scratch file): exit 0, `PHASE 1 GATE PASSED`. 8081 free; codegen clean; `aztec test` 83 +
+7 passed with the nine new names present; layouts clean; 23 work-circuit and toolchain tests passed under
+`YACANA_REQUIRE_TOOLCHAIN=1` (tests 10 and 11 cannot skip); lint clean.

@@ -353,7 +353,7 @@ per accepted proof up to the unconstrained-witness class.
 
 ## 5. Phases
 
-### Phase 1 — The check, its generated offsets and its tests
+### Phase 1 — The check, its generated offsets and its tests ✓
 
 Steps:
 1. Baseline: two canary runs on the untouched tree (`E2E_SHARD=canary …`, in tmux). From each run's Playwright JSON
