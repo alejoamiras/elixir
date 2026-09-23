@@ -118,4 +118,14 @@ Three material rounds in a row, all in one family (what a Stop means to the page
 smaller than the last (8, then 2 and one found beside them, then 1). Surfaced to the owner here and in the
 final report.
 
-## Gate
+**Round 4** on 9075dbb — **"no new material findings"** (converged). Codex attacked the split (a rebuild started
+while `idleRebuild` is set, a failed rebuilt-view read that Start reads again, a node switch during an idle
+rebuild) with 13 targeted tests and in-memory probes: no premature attempt, no unsolicited mining, no stranded
+resume.
+
+## Gate (2026-09-23, on 9075dbb)
+- Fast layers: lint 0 · `bun test` 0 (633 pass, 44 skip, 0 fail) · typecheck 0 · `test:components` 0 (ui 87,
+  landing 14, stats 84, miner 148) · replay 0 (9 passed). `recovery.bun.test.ts` 47/47.
+- Miner shards: cockpit 7/7 · chain 14/14 (both claim-recovery titles; Presto headless beside it) · bridge
+  1/1 · canary 5/5 on real proving (the pruned anchor fails the first attempt at simulation, before
+  anything is proved; the retry's one claim proof and one send mint).
