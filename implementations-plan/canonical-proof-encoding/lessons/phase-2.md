@@ -25,5 +25,12 @@ the generated proof!`), the restored claim minted, all four shard specs passed.
 | mean | 10,656 ms | 11,603 ms (**+8.9 %**) |
 
 Below the +15 % line I2 set for surfacing, on the mean. The spread is wide (run 1 +0.5 %, run 2 +16 % against the
-baseline mean) with two samples a side on a shared machine; the gate's own canary run below is a third after-fix
-sample.
+baseline mean) with two samples a side on a shared machine. The gate's own canary run is a third after-fix sample:
+**10,975 ms** (+3.0 %); over the three, the after-fix mean is 11,393 ms (**+6.9 %**).
+
+## Gate
+
+The Phase 2 gate, verbatim from plan.md §5, run as one bash script from a scratch file: exit 0,
+`PHASE 2 GATE PASSED`. Codegen and the artifact clean after a fresh compile and `artifacts:commit`; replay 9
+passed; the canary shard 4 passed (the tampered claim refused at proving, the restored claim minted); typecheck
+and lint clean; `bun test` 590 pass, 42 skip, 0 fail (632 tests, 122 files); actionlint clean.

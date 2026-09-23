@@ -401,7 +401,7 @@ Pass criteria:
 
 Layers: lint · Noir unit (pure) · Noir integration (TXE) · TS unit · codegen and layout freshness.
 
-### Phase 2 — Artifacts, docs, real proving
+### Phase 2 — Artifacts, docs, real proving ✓
 
 Steps:
 1. `bun run artifacts:commit`, then commit.
