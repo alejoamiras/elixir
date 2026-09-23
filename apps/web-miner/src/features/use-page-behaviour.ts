@@ -28,10 +28,7 @@ const interactive = (t: EventTarget | null) =>
       'input, textarea, select, button, a, [role="button"], [contenteditable], [role="dialog"], [role="alertdialog"]',
     ) !== null);
 
-/**
- * Space is the Start button's own action (`onStart`: it also re-asks Presto, and opens no window: a key
- * is not the click the mini window needs), Stop when mining.
- */
+/** Space is the Start button's own action (`onStart`: it also re-asks Presto; only a click opens the mini window), Stop when mining. */
 export function useHotkeys(
   controller: () => MinerController | undefined,
   onStart: () => void,

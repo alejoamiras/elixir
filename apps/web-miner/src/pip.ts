@@ -37,6 +37,25 @@ export function copyStyles(from: Document, to: Document): void {
   to.documentElement.className = from.documentElement.className;
 }
 
+/**
+ * Follows the window's life from before it is published, so a close that comes first is not missed:
+ * `pagehide` clears the atom, and the page's theme class is carried over while it stays open.
+ */
+function track(store: Store, from: Document, pip: Window): void {
+  const theme = new MutationObserver(() => {
+    pip.document.documentElement.className = from.documentElement.className;
+  });
+  theme.observe(from.documentElement, { attributes: true, attributeFilter: ['class'] });
+  pip.addEventListener(
+    'pagehide',
+    () => {
+      theme.disconnect();
+      if (store.get(pipWindowAtom) === pip) store.set(pipWindowAtom, null);
+    },
+    { once: true },
+  );
+}
+
 let pending: Promise<Window | null> | null = null;
 
 /**
@@ -46,7 +65,8 @@ let pending: Promise<Window | null> | null = null;
  */
 export function openPip(store: Store, w: Window = window): Promise<Window | null> {
   const open = store.get(pipWindowAtom);
-  if (open) return Promise.resolve(open);
+  if (open && !open.closed) return Promise.resolve(open);
+  if (open) store.set(pipWindowAtom, null);
   if (pending) return pending;
   const api = (w as unknown as { documentPictureInPicture?: PipApi }).documentPictureInPicture;
   if (!api || w.navigator.userActivation?.isActive === false) return Promise.resolve(null);
@@ -58,7 +78,9 @@ export function openPip(store: Store, w: Window = window): Promise<Window | null
   }
   pending = request
     .then((pip) => {
+      if (pip.closed) return null;
       copyStyles(w.document, pip.document);
+      track(store, w.document, pip);
       store.set(pipWindowAtom, pip);
       return pip;
     })

@@ -1,10 +1,9 @@
 // The miner's sentences about how hard a win is. One word, difficulty: at difficulty D about one proof in D
 // wins, and a proof's height is the difficulty it reached.
 import { PARAMS } from '@yacana/miner-core/generated/params';
+import { difficultyLabel } from '@yacana/ui/score-loop-model';
 import type { Rules } from '../state';
 import { amount, duration } from './format';
-
-const fixed = (d: number): string => d.toFixed(1);
 
 /** "About 1 proof in N": difficulty D comes up about once in D proofs. None below 2, where it is not odds. */
 export const oddsOf = (d: number | null): number | null =>
@@ -21,7 +20,7 @@ export const epochTips = (rules: Rules, d: number | null) => {
     difficulty:
       d === null || odds === null
         ? 'How hard a win is right now. At difficulty D, about one proof in D wins.'
-        : `How hard a win is right now. At difficulty ${fixed(d)}, about one proof in ${odds} wins.`,
+        : `How hard a win is right now. At difficulty ${difficultyLabel(d)}, about one proof in ${odds} wins.`,
     expected: `The network aims for ${n} wins every ${duration(Number(rules.EXPECTED_EPOCH_SECONDS))}. If an epoch closes faster, more people are mining than the difficulty assumed, so it rises for the next epoch; slower, and it falls. It moves at most 4× either way.`,
     next: `The difficulty the next epoch would open with if the ${n}th win landed now.`,
     reset: `After ${minutes} min without ${n} wins anyone may end the epoch, so a difficulty set too high cannot stall the network. The button appears here when it can.`,
@@ -30,7 +29,7 @@ export const epochTips = (rules: Rules, d: number | null) => {
 
 /** "147.8 (×2.31)": the difficulty the next epoch would open with, and its ratio to this one. */
 export const nextDifficulty = (d: number, ratio: number): string =>
-  `${fixed(d * ratio)} (×${ratio.toFixed(2)})`;
+  `${difficultyLabel(d * ratio)} (×${ratio.toFixed(2)})`;
 
 /** The chart's "How to read this", each paragraph as [before, the term set in bold, after]. */
 export const loopHelp = (d: number | null) => {
@@ -53,24 +52,23 @@ export const loopHelp = (d: number | null) => {
 export const difficultyCaption = (d: number | null): string | undefined => {
   if (d === null) return undefined;
   const odds = oddsOf(d);
-  const head = `difficulty ${fixed(d)} · reach it and you win`;
+  const head = `difficulty ${difficultyLabel(d)} · reach it and you win`;
   return odds === null ? head : `${head} · about 1 in ${odds} do`;
 };
 
-/** The empty chart's second line. */
 export const emptyCaption = (d: number | null): string =>
-  `Difficulty is ${d === null ? '—' : fixed(d)} · a proof that reaches it wins`;
+  `Difficulty is ${d === null ? '—' : difficultyLabel(d)} · a proof that reaches it wins`;
 
 /** The signed-out KPI's sub, before the rate means anything. */
 export const perWinSub = (d: number | null): string => {
   if (d === null) return 'difficulty not read yet';
   const perWin = Math.max(1, Math.round(d));
-  return `difficulty ${fixed(d)} · about ${perWin} ${perWin === 1 ? 'proof' : 'proofs'} per win`;
+  return `difficulty ${difficultyLabel(d)} · about ${perWin} ${perWin === 1 ? 'proof' : 'proofs'} per win`;
 };
 
 /** The ledger's epoch line; `ratio` is the difficulty's move at the retarget, when it was seen. */
 export const epochOpened = (epoch: bigint, d: number, ratio?: number): string =>
-  `epoch ${epoch} opened · difficulty ${fixed(d)}${ratio === undefined ? '' : ` (×${ratio.toFixed(2)})`}`;
+  `epoch ${epoch} opened · difficulty ${difficultyLabel(d)}${ratio === undefined ? '' : ` (×${ratio.toFixed(2)})`}`;
 
 /** The mini window's tip on the word. */
 export const pipDifficultyTip = (d: number | null): string => {

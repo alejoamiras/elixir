@@ -4,6 +4,7 @@ import {
   Button,
   ClaimChip,
   cn,
+  difficultyLabel,
   Kpi,
   Mark,
   Popover,
@@ -42,6 +43,8 @@ export function PipView({ controller, onStart, win }: Controls & { win: Window }
   const native = useAtomValue(prestoAtom).active === 'presto';
   const perMinute = useTweenedNumber(proofsPerMinute(miner.recent));
   const bar = epoch ? difficulty(epoch.target) : null;
+  const opening = useAtomValue(bootAtom).phase === 'opening';
+  const startClick = useStartClick(onStart);
   return (
     <div className="flex h-full flex-col justify-between bg-ground p-3 text-ink">
       <div className="flex items-center justify-between">
@@ -54,7 +57,13 @@ export function PipView({ controller, onStart, win }: Controls & { win: Window }
             Stop
           </Button>
         ) : (
-          <Button size="sm" variant="primary" disabled={miner.phase !== 'idle'} onClick={onStart}>
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={opening || miner.phase !== 'idle'}
+            onClick={startClick}
+            data-testid="pip-start"
+          >
             Start
           </Button>
         )}
@@ -91,7 +100,7 @@ export function PipView({ controller, onStart, win }: Controls & { win: Window }
             <Tip tip={pipDifficultyTip(bar)} container={win.document.body}>
               difficulty
             </Tip>{' '}
-            {bar === null ? '—' : bar.toFixed(1)}
+            {bar === null ? '—' : difficultyLabel(bar)}
           </div>
         )}
       </div>
@@ -346,8 +355,8 @@ export function KpiTiles({ className }: { className?: string }) {
         <Kpi
           size="lg"
           label="best difficulty this epoch"
-          value={ready && miner.best !== null ? miner.best.toFixed(1) : '—'}
-          unit={ready && bar !== null ? `of ${bar.toFixed(1)}` : undefined}
+          value={ready && miner.best !== null ? difficultyLabel(miner.best) : '—'}
+          unit={ready && bar !== null ? `of ${difficultyLabel(bar)}` : undefined}
           sub={subs.best || undefined}
         />
       </Tile>

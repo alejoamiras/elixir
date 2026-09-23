@@ -7,8 +7,7 @@ import { PipView } from './LoopTile';
 
 /**
  * Renders the mini window's view into it while one is open, whatever the route: mounted once by the
- * shell, so moving between pages neither closes the window nor empties it. The window's own close
- * clears the atom.
+ * shell, so moving between pages neither closes the window nor empties it.
  */
 export function PipHost({
   controller,
@@ -27,14 +26,7 @@ export function PipHost({
         <PipView controller={controller} onStart={onStart} win={pip} />
       </Provider>,
     );
-    const onHide = () => {
-      if (store.get(pipWindowAtom) === pip) store.set(pipWindowAtom, null);
-    };
-    pip.addEventListener('pagehide', onHide);
-    return () => {
-      pip.removeEventListener('pagehide', onHide);
-      root.unmount();
-    };
+    return () => root.unmount();
   }, [pip, store, controller, onStart]);
   return null;
 }

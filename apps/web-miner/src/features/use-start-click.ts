@@ -5,11 +5,8 @@ import { settingsAtom } from '../settings';
 import { bootAtom, mineIntentAtom, signInAtom } from '../state';
 
 /**
- * What every Start button's click does. Signed in: the mini window first when the setting asks for it
- * (synchronously, while the click's activation lasts), then mining whatever became of the window.
- * Signed out: the intent to mine, the sign-in, and Presto's probe; mining begins after the ceremony,
- * outside the click, so that first Start cannot open the window. The keys and the resume on open call
- * `onStart` directly.
+ * Every Start button's click. Signed in: the mini window when the setting asks (requested inside the click's
+ * activation, never awaited), then mining. Signed out: the intent, the sign-in and Presto's probe.
  */
 export function useStartClick(onStart: () => void): () => void {
   const store = useStore();

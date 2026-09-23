@@ -1,5 +1,5 @@
 import { closePreview, difficulty, escapeHatchIn, proofsPerMinute } from '@yacana/miner-core/metrics';
-import { cn, EpochRail, PowerSlider, PrestoCard, Tile, TileHeader, Tip } from '@yacana/ui';
+import { cn, difficultyLabel, EpochRail, PowerSlider, PrestoCard, Tile, TileHeader, Tip } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
 import { useState } from 'react';
 import type { MinerController } from '../controller';
@@ -129,7 +129,7 @@ function EpochTile({
             },
             {
               label: <Tip tip={tips?.difficulty}>difficulty</Tip>,
-              value: difficulty(epoch.target).toFixed(1),
+              value: difficultyLabel(difficulty(epoch.target)),
             },
             { label: 'open for', value: duration(Math.max(0, Number(nowSec - epoch.openedAt))) },
             {
