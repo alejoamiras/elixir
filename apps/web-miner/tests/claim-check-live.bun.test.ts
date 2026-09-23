@@ -7,7 +7,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { TxHash } from '@aztec/stdlib/tx';
 import type { Deployment } from '../src/chain.ts';
-import { absentAt, canMint, carrier, checkpointedAt, fate } from '../src/claim-check.ts';
+import { absentAt, canMint, carrier, fate, tipAt } from '../src/claim-check.ts';
 
 const url = process.env.AZTEC_NODE_URL;
 
@@ -21,8 +21,10 @@ describe.skipIf(!url)('the claim checks on a live node', () => {
     },
   } as unknown as Deployment;
 
-  test('reads pinned to the checkpointed tip answer: its time, an absent nullifier, the miner slots', async () => {
-    expect(await checkpointedAt(d)).toBeGreaterThan(0);
+  test('reads pinned to a tip answer: the time at each, an absent nullifier, the miner slots', async () => {
+    const checkpointed = await tipAt(d, 'checkpointed');
+    expect(checkpointed).toBeGreaterThan(0);
+    expect(await tipAt(d, 'latest')).toBeGreaterThanOrEqual(checkpointed as number);
     expect(await absentAt(d, Fr.random().toString(), 'checkpointed')).toBe(true);
     expect(await canMint(d, 0n, 'checkpointed')).toBe(true);
     expect(await canMint(d, 0n, 'latest')).toBe(true);

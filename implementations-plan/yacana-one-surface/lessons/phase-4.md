@@ -52,4 +52,35 @@
 - The first shard run was stopped after the two new chain titles passed (pruned anchor 30.3 s, lost effects
   29.9 s) to take this fix; the gate below is on the fixed tree.
 
+## Shards on 5445851
+chain 14/14 (the two new titles 40.8 s and 34.3 s), cockpit 7/7, bridge 1/1, canary 4/5: the tamper case's
+regex still expected the old log line `claim failed (other)`; P4 writes `claim failed (other, attempt 1)`. The
+new canary title (pruned anchor under the real prover) passed in 49.0 s.
+
+## Codex (arc 2)
+Session `01a0cfc6-da16-7d22-9f35-737f9ae715d5`, effort `high`.
+
+**Round 1**: six material, two minor; each checked against the code, each fixed with a spec that fails with
+the fix reverted (8/8 in a mutation run).
+1. A pause that came while a check read did not stop the attempt the check found due (`blocked` was read
+   only when the check began): `checked` carries `blocked`, and the attempt waits for `unblocked`.
+2. A Stop during a watched win's revert recovery was undone by the rebuild (the phase was `mining`, so
+   `stopAfterClaim` stayed down): every Stop sets it. Found beside it: the revert's epoch read sat between
+   the claim wait and the failure, so a win found in that gap would claim beside the rebuild; the read now
+   comes first, and a pause defers the revert as a switch does.
+3. The resume after a released win started on the closed epoch when its read failed: it waits for a good
+   read (the next poll's), unless a Stop came between.
+4. A switch during a watched win's checkpointed read consumed the watch without its line, which then said
+   "checking" forever: the decision and its line go out together or not at all.
+5. Liveness read the browser clock, so a clock ahead sent the win again beside a pending send: the latest
+   block's time decides. A send the wallet did not see has no expiry and stays live while pending (the old
+   fallback, browser time plus the TTL, could be early).
+6. Space started an attempt where the button said Stop: `offersStop` is the one predicate for both.
+7. (minor) Reads past their deadline outlived the drain: tracked in `inflightRead`.
+8. (minor) Two comments rewritten.
+
+Found by the new switch spec: `boot.ts` calls `endSwitch()` and `release('switch')` back to back, and the
+second's check was swallowed by the first (blocked) one still settling, so after a switch nothing re-armed
+the recovery. A check asked for while one runs now runs once after it.
+
 ## Gate

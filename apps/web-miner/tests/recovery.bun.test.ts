@@ -303,7 +303,9 @@ const EXPIRED = new Error('Invalid tx: Invalid expiration timestamp');
  * the nullifier tree, and blocks gone or served without their effects.
  */
 class FakeNode {
-  latest = { open: 3n, retired: false };
+  latest = { open: 3n, retired: false, time: nowS() };
+  /** The page's reads of the open epoch fail while set; the checks' storage reads still answer. */
+  epochDown = false;
   checkpointed = { open: 3n, retired: false, time: nowS(), leaves: new Map<string, number>() };
   /** Nullifiers at the latest tip beyond those of the sends in blocks. */
   leaves = new Map<string, number>();
@@ -423,9 +425,9 @@ class FakeNode {
     return [block === undefined ? undefined : { l2BlockNumber: block, l2BlockHash: undefined, data: 0n }];
   }
 
-  async getBlock(n: number | 'checkpointed', opts?: { includeTransactions?: boolean }) {
-    if (n === 'checkpointed')
-      return { header: { globalVariables: { timestamp: BigInt(this.checkpointed.time) } } };
+  async getBlock(n: number | 'latest' | 'checkpointed', opts?: { includeTransactions?: boolean }) {
+    if (n === 'latest' || n === 'checkpointed')
+      return { header: { globalVariables: { timestamp: BigInt(this[n].time) } } };
     if (this.missing.has(n)) return undefined;
     const header = { globalVariables: { blockNumber: n } };
     // The effects come only on request, as the node's block responses carry them.
@@ -449,6 +451,11 @@ class FakeNode {
     return { slotDuration: 36, epochDuration: 32, proofSubmissionEpochs: 1 };
   }
 
+  /** No tip for the poll's sample beside its refresh: the page-wide health store stays out of these tests. */
+  async getCheckpointNumber(): Promise<number> {
+    throw new Error('no tip here');
+  }
+
   deployment(): Deployment {
     const lazy = (v: () => unknown) => ({ simulate: async () => ({ result: v() }) });
     return {
@@ -457,7 +464,11 @@ class FakeNode {
         address: MINER,
         artifact: { storageLayout: { open_epoch: { slot: OPEN_SLOT }, retired: { slot: RETIRED_SLOT } } },
         methods: {
-          open_epoch: () => lazy(() => this.latest.open),
+          open_epoch: () =>
+            lazy(() => {
+              if (this.epochDown) throw new Error('fetch failed');
+              return this.latest.open;
+            }),
           epoch_params: () => sim({ target: 1n << 122n, seed: 7n, opened_at: 0n }),
           claims_in: () => sim(1n),
           claim: (_epoch: bigint, nonce: bigint) => ({ send: () => this.submit(nonce) }),
@@ -508,7 +519,9 @@ describe('claim recovery', () => {
     });
   });
 
-  const boot = async (o: { recover?: () => Promise<Rebound>; delay?: (ms: number) => number } = {}) => {
+  const boot = async (
+    o: { recover?: () => Promise<Rebound>; delay?: (ms: number) => number; deadline?: number } = {},
+  ) => {
     const controller = new MinerController({
       store,
       spawnWorker: () => worker as unknown as Worker,
@@ -521,6 +534,7 @@ describe('claim recovery', () => {
       consent: OPEN,
       recover: o.recover ?? (async () => ({ deployment: node.deployment(), fee, rebuilt: true })),
       recoveryDelay: o.delay ?? ((ms) => ms / 1000),
+      readDeadlineMs: o.deadline,
     });
     await controller.ready();
     await controller.begin();
@@ -1093,6 +1107,153 @@ describe('claim recovery', () => {
       c.release('hidden');
       await sleep(150);
       expect([node.attempts, mines(), phase()]).toEqual([1, 1, 'idle']);
+      c.dispose();
+    },
+    T,
+  );
+
+  test(
+    'a pause that comes while a check reads: the attempt it finds due waits for the release',
+    async () => {
+      node.plans = [{ before: PRUNED }, { receipts: [{ block: 5 }] }];
+      const release = node.hold('getPublicStorageAt@latest');
+      const c = await boot();
+      const id = win();
+      await settle(() => node.waiting.has('getPublicStorageAt@latest'));
+      c.pause('bridge');
+      release();
+      await sleep(150);
+      expect([node.attempts, phase()]).toEqual([1, 'idle']);
+      c.release('bridge');
+      await settle(() => noteOf(id)?.outcome === 'minted');
+      expect(node.attempts).toBe(2);
+      c.dispose();
+    },
+    T,
+  );
+
+  test(
+    'Stop while a watched win’s revert rebuilds the view: the rebuild finishes, mining stays stopped',
+    async () => {
+      const rebuild = gate();
+      let recovered = 0;
+      node.plans = [{ receipts: [{ block: 5 }, 'pending'] }];
+      const c = await boot({
+        recover: async () => {
+          recovered++;
+          await rebuild.shut;
+          return { deployment: node.deployment(), fee, rebuilt: true };
+        },
+      });
+      const old = win();
+      await settle(() => textOf(old) === lostLine);
+      node.latest.open = 4n;
+      await settle(() => mines() === 2 && phase() === 'mining');
+      node.script(hashOf(1), [{ block: 9, reverted: true }]);
+      await settle(() => recovered === 1);
+      c.stop();
+      rebuild.open();
+      await settle(() =>
+        store
+          .get(minerAtom)
+          .ledger.some((l) => l.kind === 'epoch' && l.text === 'chain view rebuilt · notes recovered'),
+      );
+      await sleep(100);
+      expect([mines(), phase()]).toEqual([2, 'idle']);
+      c.dispose();
+    },
+    T,
+  );
+
+  test(
+    'the resume after a win let go reads first: a failed read mines nothing on the closed epoch, the next good poll resumes on the open one',
+    async () => {
+      node.plans = [{ before: PRUNED }, { before: PRUNED }, { before: PRUNED }];
+      const c = await boot();
+      const id = win();
+      await settle(() => textOf(id) === spent);
+      node.epochDown = true;
+      node.latest.open = 4n;
+      await settle(() => textOf(id) === 'checking the chain for your claim');
+      await sleep(150);
+      expect(mines()).toBe(1);
+      node.epochDown = false;
+      await (c as unknown as { poll(): Promise<void> }).poll();
+      await settle(() => mines() === 2);
+      expect(minedEpoch()).toBe(4n);
+      c.dispose();
+    },
+    T,
+  );
+
+  test(
+    'a switch while a check decides a watched win: nothing is decided across it, and the next check says not claimed',
+    async () => {
+      node.plans = [{ before: PRUNED }, { before: PRUNED }, { before: PRUNED }];
+      const c = await boot();
+      const id = win();
+      await settle(() => textOf(id) === spent);
+      node.latest.open = 4n;
+      await settle(() => mines() === 2 && textOf(id) === 'checking the chain for your claim');
+      const release = node.hold('getPublicStorageAt@checkpointed');
+      node.checkpointed.open = 4n;
+      await settle(() => node.waiting.has('getPublicStorageAt@checkpointed'));
+      c.pause('switch');
+      const drained = c.drain();
+      release();
+      await drained;
+      expect(textOf(id)).toBe('checking the chain for your claim');
+      c.endSwitch();
+      c.release('switch');
+      await settle(() => textOf(id) === 'not claimed: the epoch closed before the claim went out');
+      c.dispose();
+    },
+    T,
+  );
+
+  test(
+    'a browser clock ahead of the chain: a send pending before its expiry in chain time is never sent again',
+    async () => {
+      const t0 = nowS();
+      node.plans = [
+        { receipts: [{ block: 5 }, 'pending'], expiresAt: t0 + 600 },
+        { receipts: [{ block: 8 }] },
+      ];
+      const c = await boot();
+      const real = Date.now;
+      Date.now = () => real() + 20 * 60_000;
+      try {
+        const id = win();
+        await settle(() => textOf(id) === lostLine);
+        await sleep(200);
+        expect([node.attempts, node.sent.length]).toEqual([1, 1]);
+      } finally {
+        Date.now = real;
+      }
+      c.dispose();
+    },
+    T,
+  );
+
+  test(
+    'a check’s read past its deadline counts as unknown; a switch still drains the read itself',
+    async () => {
+      node.plans = [{ receipts: [{ block: 5 }, 'pending'] }];
+      const c = await boot({ deadline: 50 });
+      const id = win();
+      await settle(() => textOf(id) === lostLine);
+      const release = node.hold('findLeavesIndexes@latest');
+      await settle(() => node.waiting.has('findLeavesIndexes@latest'));
+      await sleep(100);
+      c.pause('switch');
+      let drained = false;
+      const drain = c.drain().then(() => {
+        drained = true;
+      });
+      await sleep(150);
+      expect(drained).toBe(false);
+      release();
+      await drain;
       c.dispose();
     },
     T,

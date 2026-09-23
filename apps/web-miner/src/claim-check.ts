@@ -88,10 +88,10 @@ export async function canMint(d: Deployment, epoch: bigint, tip: Tip): Promise<b
   }
 }
 
-/** The checkpointed tip's time (unix s): a send past its expiry there can no longer land. */
-export async function checkpointedAt(d: Deployment): Promise<number | 'unknown'> {
+/** The time (unix s) of the block at `tip`: a send past its expiry there can land in no later block. */
+export async function tipAt(d: Deployment, tip: Tip): Promise<number | 'unknown'> {
   try {
-    const block = await d.node.getBlock('checkpointed');
+    const block = await d.node.getBlock(tip);
     return block ? Number(block.header.globalVariables.timestamp) : 'unknown';
   } catch {
     return 'unknown';

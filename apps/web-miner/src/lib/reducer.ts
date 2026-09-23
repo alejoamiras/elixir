@@ -236,8 +236,11 @@ type EventBody =
   | { type: 'due'; blocked: boolean }
   /** A pause or a switch ended: the check it held runs now. */
   | { type: 'unblocked' }
-  /** A check: the verdict on the waiting win (none while its attempt runs), and whether sends are watched. */
-  | ({ type: 'checked'; verdict?: Verdict; watching: boolean } & Partial<Clock>)
+  /**
+   * A check: the verdict on the waiting win (none while its attempt runs), whether sends are watched, and
+   * whether a pause or a switch came meanwhile (its attempt then waits for `unblocked`).
+   */
+  | ({ type: 'checked'; verdict?: Verdict; watching: boolean; blocked?: boolean } & Partial<Clock>)
   /** A watched win that did not mint, as the checkpointed tip says. */
   | ({ type: 'not-minted'; lineId: number | null; sent: boolean; watching: boolean } & Partial<Clock>)
   /** A recorded win found in a block: its line ✓ and the win counted once; the claim in hand is untouched. */
@@ -316,7 +319,7 @@ function outcomeLine(state: MinerState, lineId: number | null, note: ClaimNote, 
 function startJob(state: MinerState, epoch: EpochInfo): [MinerState, Command[]] {
   const secretId = state.secretId + 1;
   const job = { epoch: epoch.epoch, seed: epoch.seed, target: epoch.target, secretId };
-  // Start rotates the secret and drops the retained claim: no line may offer to send it again.
+  // Mining starts only with no win waiting: no line may still offer Retry.
   const ledger = withoutRetry(state.ledger);
   return [{ ...state, phase: 'mining', job, secretId, notice: null, ledger }, [{ type: 'mine', ...job }]];
 }
@@ -647,7 +650,7 @@ function checked(state: MinerState, e: Extract<Event, { type: 'checked' }>): [Mi
   };
   if (!f || !e.verdict) return schedule(next);
   if (e.verdict === 'closed' || e.verdict === 'not-minted') return released(next, f, e.verdict);
-  if (e.verdict === 'open' && !f.held && (f.more || (f.auto && f.attempts < TRIES)))
+  if (e.verdict === 'open' && !e.blocked && !f.held && (f.more || (f.auto && f.attempts < TRIES)))
     return tryAgain(next, f, e.at);
   const note = lineAfterCheck(f, e.verdict);
   return schedule(note ? { ...next, ledger: noteLine(next, f.lineId, note) } : next);
@@ -698,6 +701,10 @@ export const attemptScheduled = (m: MinerState): boolean => {
   const f = m.recovery.fore;
   return m.phase === 'idle' && f !== null && !f.held && (f.more || (f.auto && f.attempts < TRIES));
 };
+
+/** Where the cockpit's button says Stop, and Space stops: mining, a claim in flight, an attempt on its way. */
+export const offersStop = (m: MinerState): boolean =>
+  m.phase === 'mining' || m.phase === 'claiming' || attemptScheduled(m);
 
 /**
  * The claims on the chart, kept by what happened to `claim` rather than by event name, so every path that

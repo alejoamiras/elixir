@@ -33,7 +33,7 @@ test('a claim with a bound public input altered is refused at proving before it 
   const failure = log.find((l) => l.includes('claim failed'));
   console.log(`[canary] ${failure}`);
   expect(log.some((l) => l.includes('a bound public input altered'))).toBe(true);
-  expect(failure).toMatch(/claim failed \(other\)/);
+  expect(failure).toMatch(/claim failed \(other, attempt 1\)/);
   expect(failure).toMatch(REFUSED_AT_PROVING);
   expect(failure).not.toMatch(
     /Circuit execution failed|assertion failed|epoch is not open|ticket above target|reverted|expired/,
@@ -52,8 +52,8 @@ test('a claim with a bound public input altered is refused at proving before it 
   );
 });
 
-// Under the real prover the retry is a second real proof of the claim: the pruned anchor fails the
-// first attempt at simulation, before anything is proved, so the one proof and the one send are the retry's.
+// The pruned anchor fails the first attempt at simulation, before anything is proved: the one claim
+// proof and the one send are the retry's.
 test('a pruned anchor under the real prover: the win is proved again, sent once, mints, and mining resumes', async ({
   page,
   proofMeter,
