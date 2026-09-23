@@ -71,3 +71,5 @@ run: 35/35). One minor, fixed: a synchronous `stop(); start()` while the bridge'
 `yieldTo` left the bridge loading until the 30 s tick (the new start found it busy, the cancelled wait
 cleared the flag and went home). A cancelled wait now reads again when the instance is live by then. The
 stop/start spec asks for the bridge too; its mutation fails it.
+
+**Round 3** (over 1ec094c) — "no new material findings" (verbatim). Converged.
