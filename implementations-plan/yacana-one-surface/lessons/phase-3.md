@@ -35,3 +35,33 @@
 - `E2E_PROVERLESS=1 … test:e2e -- e2e/miner.e2e.ts --grep "the mini window"`: 1 passed (Pop out with the page
   fonts; two rows inside 360 px; open across /mine → /mine/wallet → /mine; with the setting on, Start opens it and
   mines, Stop from the window; with `requestWindow` refused, Start still mines).
+
+## Arc 1 gate (2026-09-23, on 26ebfa4)
+- Fast layers as above. Miner shards: cockpit 7/7, chain 12/12 (Presto headless beside it), bridge 1/1, canary 4/4
+  on real proving (the tampered claim refused at proving, then minted; 6.5 min). Stats: `test:e2e` 0,
+  `test:visual` 0 on the eight regenerated baselines.
+- A shard's build and the replay lane both write `apps/web-miner/test-results`: the replay lane (Playwright
+  wipes its output dir at start) must never run while a miner shard does; sources may change once a shard's
+  tests are running (they serve a finished build).
+
+## Codex, arc 1 (GPT-6 Astra, high; session 01a0cf70-8a8f-7481-92b0-353be148fa38)
+Round 1 on 26ebfa4 — "Material findings remain". All six verified against the code:
+1. material, fixed — the mini window's Start called `onStart` directly: signed out (Pop out is now always offered)
+   it only probed Presto. Now `useStartClick`, disabled while an account opens; a spec clicks it signed out.
+2. material, fixed — `pagehide` was attached by `PipHost`'s passive effect after the atom was set: a close in
+   between left a dead window in the atom. `openPip` now attaches it (with the theme observer) before publishing,
+   refuses a window already closed and drops a closed one it finds in the atom; specs for both.
+3. minor, fixed — the window kept the theme it opened with; now a MutationObserver carries the class over.
+4. minor, fixed — plan §3.1 says the next difficulty goes through `difficultyLabel`; `words.ts` wrote
+   `toFixed(1)`. `@yacana/ui` exports its pure `score-loop-model` so `words.ts` (and through it the reducer) stays
+   free of React; the rail, the KPI and the window's footer take the same label.
+5. minor, fixed — the dormant `Marks` chip said "claims".
+6. minor, fixed — the hotkeys comment claimed a key cannot grant activation (it can: keydown is an
+   activation-triggering event); now it states the policy. `use-start-click.ts`'s paragraph cut to its constraint;
+   `words.ts`'s name-restating comment removed.
+Fast layers on c62512a: lint 0, `bun test` 0 (589 pass), typecheck 0, components 0 (miner 144).
+Round 2 on c62512a — **"no new material findings"** (converged). One minor, fixed: the spec's iframes and their
+theme observers outlived each test, and the theme case passed with `theme.disconnect()` deleted; the frames now close
+(pagehide) and leave after each test, and the case asserts the class stops following after the close (checked: it
+fails with the disconnect removed). Codex also confirmed `{ once: true }` on the window's own `pagehide` (the opener's
+navigation closes the window per the Document PiP spec) and the new export against `scripts/boundaries.test.ts`.

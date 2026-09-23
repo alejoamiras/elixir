@@ -18,12 +18,24 @@ beforeEach(() =>
     removeEventListener: () => {},
   })),
 );
-afterEach(cleanup);
+
+const frames: HTMLIFrameElement[] = [];
+afterEach(() => {
+  cleanup();
+  // Each window closes as a real one would, so no observer of a past test sees the next one's changes.
+  for (const f of frames.splice(0)) {
+    act(() => {
+      f.contentWindow?.dispatchEvent(new Event('pagehide'));
+    });
+    f.remove();
+  }
+});
 
 /** Another document to render into, standing in for the Picture-in-Picture window. */
 function frame(): Window {
   const f = document.createElement('iframe');
   document.body.append(f);
+  frames.push(f);
   return f.contentWindow as Window;
 }
 
@@ -109,7 +121,7 @@ describe('openPip', () => {
     ).toBe(second);
   });
 
-  test("the page's theme follows into the open window", async () => {
+  test("the page's theme follows into the open window, and stops following once it closes", async () => {
     const store = createStore();
     const pip = frame();
     await openPip(
@@ -119,7 +131,10 @@ describe('openPip', () => {
     document.documentElement.className = 'light';
     await new Promise((r) => setTimeout(r, 0));
     expect(pip.document.documentElement.className).toBe('light');
+    pip.dispatchEvent(new Event('pagehide'));
     document.documentElement.className = '';
+    await new Promise((r) => setTimeout(r, 0));
+    expect(pip.document.documentElement.className).toBe('light');
   });
 
   test('one window: a second call while the first is pending gets the same promise, then the open window', async () => {
