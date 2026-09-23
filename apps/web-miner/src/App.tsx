@@ -31,6 +31,7 @@ import { PipHost } from './features/PipHost';
 import { PreflightTile } from './features/PreflightTile';
 import { PrestoBanner } from './features/PrestoBanner';
 import { SignInDialog } from './features/SignInDialog';
+import { StatsRoute } from './features/StatsRoute';
 import { useHotkeys, useIntroEnds, usePauses, useResumeOnOpen } from './features/use-page-behaviour';
 import { pillStatus } from './lib/status';
 import { minerStatsTabs, minerTabs, oldTabs, statsPageOf } from './lib/tabs';
@@ -193,12 +194,14 @@ export function App({ connection, session }: { connection: Connection; session: 
   useEffect(() => {
     if ((boot.phase === 'signedOut' || isOldRole()) && route === 'wallet') navigate('mine');
   }, [boot.phase, route]);
-  // Settings stays reachable signed out (the node is changed there); everywhere else the sign-in
-  // sits over the cockpit, and the page's keys are its while it shows.
-  const dialogShowing =
-    route !== 'settings' && (boot.phase === 'opening' || (boot.phase === 'signedOut' && signIn));
+  // Settings stays reachable signed out (the node is changed there), and Stats reads without an
+  // account; everywhere else the sign-in sits over the cockpit, and the page's keys are its while it
+  // shows. On Stats the keys are the browser's: Space scrolls.
+  const statsPage = statsPageOf(route);
+  const signInHere = route !== 'settings' && !statsPage;
+  const dialogShowing = signInHere && (boot.phase === 'opening' || (boot.phase === 'signedOut' && signIn));
   useTabStatus(settings.tabStatus);
-  useHotkeys(controller, onStart, session.consent, !dialogShowing);
+  useHotkeys(controller, onStart, session.consent, !dialogShowing && !statsPage);
   usePauses(controller, settings);
   useResumeOnOpen(onStart);
   useIntroEnds();
@@ -214,7 +217,8 @@ export function App({ connection, session }: { connection: Connection; session: 
       {chain && route === 'mine' && <Mine controller={controller} onStart={onStart} session={session} />}
       {open && route === 'wallet' && <Wallet session={session} />}
       {route === 'settings' && <Settings connection={connection} controller={controller} session={session} />}
-      {route !== 'settings' && <SignInDialog session={session} />}
+      {statsPage && <StatsRoute page={statsPage} connection={connection} />}
+      {signInHere && <SignInDialog session={session} />}
       <PipHost controller={controller} onStart={onStart} />
       <Toaster />
     </Shell>

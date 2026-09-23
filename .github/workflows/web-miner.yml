@@ -23,6 +23,7 @@ jobs:
           - 'protocol/contracts/artifacts/**'
           - 'tools/localnet/**'
           - 'packages/ui/**'
+          - 'packages/stats-view/**'
           - 'packages/web-kit/**'
           - 'packages/bridge/**'
           - 'protocol/portal/abi/**'

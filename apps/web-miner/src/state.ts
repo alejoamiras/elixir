@@ -91,6 +91,15 @@ export const signInAtom = atom(false);
 export const mineIntentAtom = atom(false);
 export const nowAtom = atom(Date.now());
 
+/** The node and the Ethereum RPC the guard admits, and whether a node switch is moving them. */
+export interface Endpoints {
+  nodeUrl: string;
+  ethRpcUrl: string;
+  switching: boolean;
+}
+/** Null until the session exists; a view reading beside the page's own follows it (hosted Stats). */
+export const endpointsAtom = atom<Endpoints | null>(null);
+
 /** The open account's crossings, newest first; empty until the bridge session lists them. */
 export const journalAtom = atom<Crossing[]>([]);
 
