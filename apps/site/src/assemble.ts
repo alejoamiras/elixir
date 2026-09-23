@@ -68,7 +68,15 @@ export function witnessFiles(repoDir: string): { to: string; lines: string[] }[]
  * `_redirects` before static assets (a wildcard would shadow the app's bundle) and turns an
  * `.html` target into a canonical 308.
  */
-const MINER_LINKS: Record<Exclude<MinerRoute, 'mine'>, true> = { wallet: true, settings: true };
+const MINER_LINKS: Record<Exclude<MinerRoute, 'mine'>, true> = {
+  wallet: true,
+  settings: true,
+  stats: true,
+  'stats/bridge': true,
+  'stats/verify': true,
+};
+/** The old origin's miner has no stats pages. */
+const OLD_LINKS = ['wallet', 'settings'] as const satisfies readonly (keyof typeof MINER_LINKS)[];
 const STATS_LINKS: Record<Exclude<StatsRoute, 'stats'>, true> = { verify: true, bridge: true };
 export const REDIRECTS = [
   ...Object.keys(MINER_LINKS).map((r) => `/mine/${r} /mine/ 200`),
@@ -79,7 +87,7 @@ export const REDIRECTS = [
 export const OLD_REDIRECTS = [
   '/mine / 200',
   '/mine/ / 200',
-  ...Object.keys(MINER_LINKS).flatMap((r) => [`/mine/${r} / 200`, `/${r} / 200`]),
+  ...OLD_LINKS.flatMap((r) => [`/mine/${r} / 200`, `/${r} / 200`]),
 ];
 export const redirectsFor = (role: AppRole): readonly string[] =>
   role === 'old' ? OLD_REDIRECTS : REDIRECTS;

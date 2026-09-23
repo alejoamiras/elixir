@@ -15,13 +15,21 @@ afterEach(() => {
 });
 
 describe('routes', () => {
-  test('three routes under the base; anything else is the cockpit', () => {
-    expect(routeFromPath('/')).toBe('mine');
-    expect(routeFromPath('/wallet')).toBe('wallet');
-    expect(routeFromPath('/settings/')).toBe('settings');
-    expect(routeFromPath('/nonsense')).toBe('mine');
+  test('six routes under the base, read from two segments; anything else is the cockpit', () => {
+    for (const r of ['mine', 'wallet', 'settings', 'stats', 'stats/bridge', 'stats/verify'] as const)
+      expect(routeFromPath(pathFor(r)), r).toBe(r);
     expect(pathFor('mine')).toBe('/');
-    expect(pathFor('wallet')).toBe('/wallet');
+    expect(pathFor('stats/verify')).toBe('/stats/verify');
+    expect(routeFromPath('/settings/')).toBe('settings');
+    expect(routeFromPath('/stats/bridge/')).toBe('stats/bridge');
+    expect(routeFromPath('/stats/nowhere')).toBe('stats');
+    expect(routeFromPath('/nonsense')).toBe('mine');
+  });
+
+  test('on the old origin the stats paths are the cockpit', () => {
+    vi.stubEnv('VITE_APP_ROLE', 'old');
+    for (const p of ['/stats', '/stats/bridge', '/stats/verify']) expect(routeFromPath(p), p).toBe('mine');
+    expect(routeFromPath('/wallet')).toBe('wallet');
   });
 
   test('useRoute follows navigate() and popstate', () => {

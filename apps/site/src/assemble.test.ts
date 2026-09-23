@@ -105,12 +105,15 @@ describe('assembly', () => {
     expect(REDIRECTS).toEqual([
       '/mine/wallet /mine/ 200',
       '/mine/settings /mine/ 200',
+      '/mine/stats /mine/ 200',
+      '/mine/stats/bridge /mine/ 200',
+      '/mine/stats/verify /mine/ 200',
       '/stats/verify /stats/ 200',
       '/stats/bridge /stats/ 200',
       '/verify /stats/ 200',
     ]);
     for (const rule of REDIRECTS) expect(rule).toMatch(/^\/[a-z/]+ \/(mine|stats)\/ 200$/);
-    // The old origin: the version's bookmarks from its apex days land on the one app.
+    // The old origin: the version's bookmarks from its apex days land on the one app, which has no stats.
     expect(OLD_REDIRECTS).toEqual([
       '/mine / 200',
       '/mine/ / 200',
