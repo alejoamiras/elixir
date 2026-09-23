@@ -17,7 +17,6 @@ export const apexHost = (): string => new URL(apexOrigin()).host;
 /** The stats app: beside this one on the apex, on the apex alone from the old origin. */
 export const statsHref = isOldRole() ? `${apexOrigin()}/stats/` : `${root}stats/`;
 
-/** How it works, on the landing: the first visit's strip points there. */
 export const HOW_HREF = `${root}#how`;
 
 /** The FAQ on the landing: served by the apex's root SPA fallback, which the old origin has not. */

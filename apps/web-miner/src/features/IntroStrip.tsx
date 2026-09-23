@@ -1,4 +1,3 @@
-// A first visit's strip over the cockpit: what Yacana is, the way to start, and the landing's How.
 import { PARAMS } from '@yacana/miner-core/generated/params';
 import { Button, cn } from '@yacana/ui';
 import { useSetAtom } from 'jotai';

@@ -1,14 +1,19 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { createStore, Provider } from 'jotai';
+import { anvil } from 'viem/chains';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { createConfig, http } from 'wagmi';
+import type { BridgeSession } from '../bridge/session';
 import { INTRO_KEY, parseIntro } from '../intro';
 import { Mine } from '../routes/Mine';
-import { bootAtom, mineIntentAtom, minerAtom, signInAtom } from '../state';
+import type { Session } from '../session';
+import { bootAtom, bridgeSessionAtom, mineIntentAtom, minerAtom, signInAtom } from '../state';
 import { useIntroEnds } from './use-page-behaviour';
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
   localStorage.clear();
 });
 // jsdom has no matchMedia; the score loop's reduced-motion hook reads it.
@@ -119,6 +124,45 @@ describe('the first visit’s strip', () => {
       parseIntro('not json'),
       parseIntro('{"dismissed":true}'),
     ]).toEqual([false, false, false, false, true]);
+  });
+
+  test('a dismissal in another tab puts it away here; a foreign value does not', () => {
+    mount();
+    const from = (newValue: string) =>
+      act(() => void window.dispatchEvent(new StorageEvent('storage', { key: INTRO_KEY, newValue })));
+    from('{"dismissed":"yes"}');
+    expect(screen.getByTestId('intro')).toBeTruthy();
+    from('{"dismissed":true}');
+    expect(screen.queryByTestId('intro')).toBeNull();
+  });
+});
+
+describe('the strip in the cockpit’s rows', () => {
+  test('the strip, a notice and the upgrade card: each its own row before the one that takes the slack', () => {
+    const now = Math.floor(Date.now() / 1000);
+    vi.stubEnv(
+      'VITE_MIGRATION',
+      JSON.stringify({
+        toIndex: '1',
+        announcedAt: String(now - 86_400),
+        expectedFlipAt: String(now + 2 * 86_400),
+      }),
+    );
+    const store = createStore();
+    store.set(bootAtom, READY);
+    const config = createConfig({ chains: [anvil], transports: { [anvil.id]: http('http://127.0.0.1:9') } });
+    store.set(bridgeSessionAtom, { config } as unknown as BridgeSession);
+    store.set(minerAtom, {
+      ...store.get(minerAtom),
+      notice: { kind: 'offline', title: 'node away', body: '…' },
+    });
+    render(
+      <Provider store={store}>
+        <Mine controller={() => undefined} session={{} as Session} />
+      </Provider>,
+    );
+    expect(screen.getByTestId('migration-card')).toBeTruthy();
+    expect(rows()).toContain('xl:grid-rows-[auto_auto_auto_auto_auto_1fr]');
   });
 
   test('with a notice and the strip, each takes its own row before the one that takes the slack', () => {
