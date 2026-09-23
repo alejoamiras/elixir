@@ -21,7 +21,7 @@ sweep, a landing and Stats sweep) plus the driver's own checks of the contract, 
 | Stats boot | `apps/web-stats/src/main.tsx:169-201` (reader, beats, a 30 s poll with the history fill, the bridge poller) | build new: a runtime a host starts and stops; the setters leave it |
 | Stats router | `apps/web-stats/src/routes.ts` | discard for the hosted case; the miner's router grows the stats routes |
 | Route rewrites | `apps/site/src/assemble.ts:71-77` (`MINER_LINKS: Record<Exclude<MinerRoute,'mine'>, true>`) | reuse-as-is if the miner's `Route` gains path-shaped members (`'stats/bridge'` expands to `/mine/stats/bridge /mine/ 200`) |
-| Code splitting | none — searched `React.lazy`, `lazy(`, `import(` in `apps/*/src` and `packages/web-kit/src`; `manualChunks` repo-wide | build new: the first `React.lazy` route |
+| Code splitting | dynamic `import()` exists (`features/PrestoBanner.tsx:18`, `bridge/flows.ts:99`); no `React.lazy` route and no `manualChunks` (searched `React.lazy`, `lazy(` in `apps/*/src` and `packages/web-kit/src`; `manualChunks` repo-wide) | build new: the first `React.lazy` route |
 | Nullifier lookup ("did my claim land?") | `apps/web-miner/src/bridge/session.ts:856-865` (`findLeavesIndexes('latest', NULLIFIER_TREE, [nullifier])`), `ticketNullifier()` (`packages/miner-core/src/proof.ts:51-53`, siloed) | reuse-as-is |
 | Sent-claim reconciliation | `controller.ts` `retryOnce` (787-815), `adopt` (823-845), `fate` (851-863) | reuse-as-is; auto-recovery schedules it |
 | Retry gating | `retryEligible` (`tests/retry-eligible.bun.test.ts`) | reuse-as-is |

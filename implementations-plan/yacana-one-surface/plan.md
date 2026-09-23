@@ -6,7 +6,7 @@ eli5_mode: artifact
 code_review: off
 hardening: none (no new trust boundary; the hosted Stats reads only what the miner's guard already admits — the realm it joins is recorded in §4)
 budget: "recon 3 agents (Stats mapper, miner sweep, landing and Stats sweep); codex at high (GPT-6 Astra); the Claude leg on Opus 5.5 (the owner prefers it to Fable); code-review off (owner, 2026-09-23)"
-status: drafted 2026-09-23; round-1 audits folded (codex reject → reworked; Opus conditional approve → its six conditions folded); final codex pass pending
+status: drafted 2026-09-23; round-1 audits folded (codex reject, Opus conditional approve); final codex pass round 1 reject → folded; round 2 pending
 created: 2026-09-23
 ---
 
@@ -47,7 +47,7 @@ Done means:
 | Pop-out | **A** — 360 × 216, two lines: the user's numbers, then the network's | `Fix-Popout` |
 | Recovery line | "save a recovery file · restore from a file · 2 crossings saved" | `Fix-Restore` |
 | Mini-window setting | **A** — Pop out always shown; a setting, "Open the mini window when mining starts", opens it with the Start click | `Fix-Mini` |
-| Claims | **A** — up to three tries in about three minutes while mining waits, then today's Retry; Start retries a pending win first | `Recover` |
+| Claims | **A** — up to three sends while mining waits (5 s, then 30 s apart; a pending send waits for inclusion as today's claim does), then today's Retry; Start retries a pending win first | `Recover` |
 | Icons | Lucide at stroke 1.5: `Pickaxe`, `Wallet`, `ChartColumn`, `ShieldCheck`, `Settings`, `FingerprintPattern` | `Icons` |
 | Landing | hero headline kept ("audience" rejected); no download size; no testnet talk; the rest as drawn | `Landing-Copy` |
 | Flywheel section | **A** — the loop: earn → optimize → upstream → grow, around "The difficulty keeps issuance at 4 wins every 5 min, however fast proving gets." (owner, 2026-09-23) | `Fly-A` |
@@ -117,60 +117,80 @@ after the passkey ceremony, outside the click's activation.
 
 ### 3.2 Claims that recover by themselves (arc 2)
 
-The pieces exist (`fate`, `adopt`, `retryEligible`, `ticketNullifier`, the nullifier lookup); the rules move into the
-reducer, where they are unit-tested, and the controller keeps one timer.
+The pieces exist (`fate`, `adopt`, `retryEligible`, `ticketNullifier`, the nullifier lookup, the wallet's per-send
+expiry). The schedule moves into the reducer (`recovery` in `MinerState`, a `retry-in` command, one controller timer),
+where it is unit-tested; the controller does the reads and reports what it found as events.
 
 **Kinds** (`packages/miner-core/src/claim-failure.ts`), all three out of today's `'other'`:
-- `'anchor-pruned'` — the node's "Block hash … not found when resolving query … possibly a reorg has occurred": the
-  PXE's anchor block went away while the claim was being proved;
+- `'anchor-pruned'` — the node's "Block hash … not found when resolving query … possibly a reorg has occurred"
+  (`node_world_state_queries.js:263-265` of the pinned node: any world-state query pinned to a block hash the node no
+  longer has): the PXE's anchor block went away while the claim was being built;
 - `'lost'` — our "no effects for 0x…" (`chain.ts:127`, its text a constant both sides share): the claim was seen in a
   proposed block, which was pruned before its effects were read;
 - `'landed-elsewhere'` — the node's refusal of a transaction whose nullifier already exists (its text captured from a
-  real refusal on the isolated network, in the fixture): an earlier send of this claim landed.
-Any other `'other'` keeps today's manual Retry: an unrecognized failure is not retried blind.
+  real refusal on the isolated network, in the fixture): another send of this claim landed.
+Any other `'other'` keeps today's manual Retry: an unrecognized failure is not retried blind. `failureNote` gives the
+three kinds Retry (`reducer.ts:387`); without it they would halt mining with no way on.
 
-**The record.** `submit()` retains the ticket for the three kinds as it does for `'other'` today
-(`controller.ts:731`), and `failureNote` gives them Retry (`reducer.ts:387`) — moved out of `'other'` without both,
-mining would halt with nothing retained and no Retry. The record keeps **every transaction hash this claim has sent**
-(not only the last), the original's expiry, and the try count. The reducer carries `recovery: { tries, reason, nextAt }` for the line.
+**The record.** A win that fails to claim becomes a record the controller keeps apart from the secret:
+`{ epoch, lineId, digest, nullifier, submissions: { hash, expiresAt }[], sends }`. `submissions` is append-only: every
+send is recorded when it leaves (`sendObserver`, `wallet.ts:83`), with its own expiry — the wallet's `SentTx.expiresAt`,
+or the send time plus `CLAIM_TTL_SECONDS` (600 s, `params.nr:5`) when the wallet did not see it (the anchor precedes
+the send, so that bound is late, never early). No later attempt's classification clears a record that has
+submissions (today `controller.ts:731` keeps only `'other'`, and `:902` resumes past `'refused'` and `'expired'`): it
+ends only when it is resolved. The secret stays in `secrets` and goes as soon as the claim can no longer be sent: when
+the record resolves, or when the epoch atom shows the claim's epoch closed (no new timer). The `'mine'` command keeps
+clearing the secrets (`controller.ts:555`) and stops clearing a record with submissions (`:557`).
 
-**The rules**, in order, each time a retry is due (the timer, Start, or Retry):
-1. **Defer, don't cancel.** Paused, switching or disposed → nothing now; the controller re-arms the timer on release
-   and when a switch ends. Single-flight as today (`retrying`).
-2. **Reconcile before anything is sent.** For each recorded hash, `fate`: in a block → adopt; reverted → today's
-   revert recovery (stale → the delivery-blocked wait), and no more automatic sends.
-3. **The nullifier decides.** Then `findLeavesIndexes('latest', NULLIFIER_TREE, [ticketNullifier])`: present means the
-   claim landed — in a transaction whose hash we may not hold — so its block is read (`DataInBlock.l2BlockNumber`,
-   `getBlock`), the effect carrying the nullifier is found, and the claim is adopted from it.
-4. **Unknown waits.** A hash the node cannot place yet (`unknown`) is checked again in 15 s without a send; checks do
-   not count as tries. A pending transaction is waiting, not failing. The wait is bounded: a claim expires 600 s after
-   its anchor (`CLAIM_TTL_SECONDS`, `params.nr:5`, set at `main.nr:201`), and a closed epoch turns it into a watch
-   (rule 6); Stop ends it.
-5. **Resend only when it can still mint.** Nothing landed and no hash is alive: read the open epoch now (not the
-   10 s-old atom); open and tries remaining → prove and send again, appending its hash; the line says which try.
-6. **A closed epoch stops sends, not checks.** When the claim's epoch is no longer open: a claim that never went out
-   is discarded with today's "not claimed: the epoch closed before the claim went out"; one with hashes that may still
-   land (unexpired) becomes a **watch** — hash-only, no secret, checked on the same schedule until each hash lands,
-   reverts or expires — and mining resumes beside it. The watch is its own record, not `retained` (the `'mine'`
-   command clears that, `controller.ts:557`), and its adoption settles without resuming anything. The fourth claim
-   closes its own epoch (`main.nr:236`), so "closed" never means "lost".
-7. **Three sends.** Try 2 comes 5 s after the first failure, try 3 30 s after the second; after the third the line is
-   the canvas's "couldn’t claim after 3 tries: the node keeps dropping blocks · the win stays claimable until epoch 57
-   closes" with Retry. A manual Retry or Start is one more try whenever the epoch is open.
-8. **Adoption settles once.** Today `adopt` awaits `minted()`, which ends in `resumeAfterClaim()`, and only then
-   clears `retained` (`controller.ts:768,839-840`): a resume that meets the still-retained claim would join its own
-   retry. Settlement and resumption split: the retained record is consumed before settling; a settlement that fails
-   re-retains it (hashes kept); mining resumes exactly once, after settlement.
+**Resolved** means one of:
+- **minted** — a submission's block carries the claim's nullifier, or the nullifier is in the tree and the block it
+  names carries it (`findLeavesIndexes` → `DataInBlock.l2BlockNumber` → `getBlock(n, { includeTransactions: true })`;
+  effects are off by default, `block_response.d.ts:12`);
+- **reverted** — a submission reverted in a block and every other submission is resolved or dead: today's revert
+  recovery (stale → the delivery-blocked wait), and no automatic send after it;
+- **not minted** — the nullifier is absent at the `checkpointed` tip and nothing recorded can mint there any more: every
+  submission has expired at that tip, or the claim's epoch is closed there, or the version is retired there (a claim
+  for a closed epoch can only revert, `main.nr:230-233`). Decided at `checkpointed`, not `latest`: a proposed block can
+  be pruned, which is this feature's whole problem.
+Anything else — an `unknown` fate, a node error, a nullifier whose block or body is missing or does not carry it — is
+**unresolved**: checked again, never a reason to send or to discard.
 
-**Start and Stop.** Start with a retained claim: epoch open → rule 2 onward now, mining waits (canvas A); epoch closed
-→ rule 6, then mining starts. Stop during recovery cancels the scheduled sends and any resume; a try already proving
-finishes (a proof cannot be interrupted), and its failure leaves the Retry line. A generation counter, bumped by
-dispose, a switch and Stop, is re-checked after every `await` of the recovery path; a stale continuation does nothing.
-The `'mine'` command is unchanged: under A, mining never runs beside a claim that still needs its secret.
+**One check**, in order, each time one is due (the timer, Start, Retry); single-flight as today (`retrying`):
+1. Paused, switching or disposed → nothing now; the controller re-arms the timer on release and when a switch ends.
+2. Every submission through `fate`; then the nullifier at `latest`. Minted → settle (below).
+3. The claim's epoch, read now (`epochClosedSince`, not the 10 s-old atom). Closed → the secret goes; the record
+   resolves as not minted once the `checkpointed` tip agrees, and until then it is a **watch**: no secret, no send,
+   checked every 15 s, then every 60 s after five checks, and mining resumes beside it.
+4. Reverted with the rest resolved or dead → the revert recovery. A stale revert ends every automatic send.
+5. A submission still pending and unexpired → check again in 15 s, no send. Waiting is not failing.
+6. Secret held, epoch open, fewer than three automatic sends → prove and send again; the line names the try.
+7. Three automatic sends done → the canvas's "couldn’t claim after 3 tries: the node keeps dropping blocks · the win
+   stays claimable until epoch 57 closes" with Retry; the record keeps being checked (15 s, then 60 s) until resolved.
+   A manual Retry or Start is one more send whenever the epoch is open.
+Sends are spaced 5 s after the first failure and 30 s after the second; each send's wait for inclusion is today's
+(`chain.ts:95`), so a pending send can hold mining longer than the gaps suggest (Ask 5).
+
+**Settling once.** A minted record settles through a new event, `adopted { lineId, block, txHash, nullifier, … }`: it
+marks the record's own win line ✓, counts the win and the device's history once (keyed by the nullifier), and leaves
+`phase`, `job` and `claim` alone. Today's `claimed` resets them (`reducer.ts:347-362`) and `reconciled` needs `idle`
+(`:494`), which is right for the claim in hand and wrong for a watch settling beside a newer claim. The record is
+consumed before settling and restored with its submissions if settling fails; mining resumes exactly once, after it
+(today `adopt` resumes inside `minted()` before it clears `retained`, `controller.ts:768,839-840`).
+
+**Start, Stop, switches.** Start with a record whose secret is held → the check runs now and mining waits (canvas A);
+with a watch → mining starts and the watch goes on. While a send is scheduled the cockpit shows **Stop** (today idle
+shows Start, `LoopTile.tsx:176`): Stop cancels the scheduled sends and any resume, and leaves Retry. A send already
+under way finishes and settles its bookkeeping as today's claim does (`tests/recovery.bun.test.ts:254`) — the proof
+and the send are one await (`chain.ts:113`), so a check after it cannot unsend. A generation counter (bumped by Stop,
+a switch and dispose) guards what is scheduled next — sends and resumes — never the recording of a submission or the
+phase settling to idle, which `claimSettled()` and the node switch wait on (`controller.ts:945-951`). A switch drains a
+send in flight, as it drains a claim today.
 
 **Lines** (`lib/claim-copy.ts`): the canvas's `Recover` A — "the node dropped the block it was reading · proving
 again, try 2 of 3", "the node lost sight of it · checking the chain for your claim", "it didn’t land · sending again,
-try 2 of 3", the three-tries line above; the running and minted lines are today's.
+try 2 of 3", the three-tries line; a watch keeps "checking the chain for your claim"; a record resolved as not minted
+says today's "not claimed: the epoch closed before the claim went out" when nothing was sent, and "not claimed: the
+epoch closed before the claim landed" otherwise; the running and minted lines are today's.
 
 **Out of scope:** `syncChainTip: 'checkpointed'` (a staler anchor, a slower claim and more "epoch is not open"
 refusals in exchange for fewer pruned anchors) — a follow-up to measure on the testnet.
@@ -208,13 +228,14 @@ the three pages, and their specs. Its public surface is small:
     store: Store;                 // the host's jotai store
     connection: Connection;       // the endpoints this instance reads; a switch makes a new instance
     node: Node;                   // the client it reads through
+    eth?: PublicClient;           // the L1 client for the bridge page (when the build has a bridge record)
     fill: boolean;                // the background history fill (the public page only)
     onFresh?: () => void;         // a chain read landed (the public page: node-health's markRead)
-    yieldTo?: () => boolean;      // skip a tick while true (hosted: a claim in flight, a node cooldown)
+    yieldTo?: () => boolean;      // no new read starts while true (hosted: a claim in flight, a node cooldown)
   }
   interface StatsRuntime {
-    start(): void;                // idempotent: boot once, then the poll, the bridge poller, the clock
-    stop(): void;                 // timers cleared, instance kept (a hidden route)
+    start(): void;                // idempotent: active; boot once, then the poll, the bridge poller, the clock
+    stop(): void;                 // inactive: timers cleared, no boot step or timer until start() (a hidden route)
     dispose(): void;              // generation invalidated: nothing it started publishes again
     showWindow(w: EpochWindow): Promise<void>;
     poll(): Promise<void>;
@@ -222,10 +243,14 @@ the three pages, and their specs. Its public surface is small:
   function createStatsRuntime(o: StatsRuntimeOptions): StatsRuntime;
   ```
   It is `main.tsx`'s boot without the page. It never calls `setNodeEndpoint` or `setEthRpcEndpoint` (the moved
-  `openReader` and `startBridge` lose their setter calls). The serial queue, the boot retry and every timer belong to
-  the instance; each publication and each timer installation checks the instance's generation, so a disposed or
-  superseded instance — a switch, a StrictMode double effect, a boot waiting out a cooldown — cannot write into the
-  store.
+  `openReader` and `startBridge` lose their setter calls, and `startBridge` reads through `eth`). The serial queue,
+  the boot retry and every timer belong to the instance. Each publication checks the generation; each boot step and
+  each timer installation checks the generation and the active flag (today's boot installs its interval after its
+  awaits unconditionally, `web-stats/src/main.tsx:169-184`), so a disposed, superseded or hidden instance — a switch,
+  a StrictMode double effect, a boot waiting out a cooldown — neither writes into the store nor wakes itself up.
+  `yieldTo` is checked before every read the runtime starts — boot, a window, the bridge, a poll batch — not only at
+  ticks (today `showWindow` and the bridge's first read start on their own, `main.tsx:99`, `bridge.ts:134`); a window
+  asked for meanwhile is queued and read when the yield clears, never dropped.
 - `@yacana/stats-view/pages`: `StatsPages({ page, connection, onWindow, wayOut })` — the page bodies, the
   `Announcement` line, and the error card when the deployment cannot be read (`wayOut` is the host's link to its node
   setting); `SubNav` (Overview · Bridge · Verify, with an `aside` slot); a host context with `pathFor(page)`,
@@ -250,19 +275,26 @@ pin applies, the Ethereum slot (10 s); creates the store, the node client and th
 - **Endpoints you can react to.** The session publishes `endpointsAtom = { nodeUrl, ethRpcUrl, switching }` wherever
   a guard slot changes: `switchNode` (start, success, rollback) and `switchEthRpc`. Today nothing reactive holds them:
   `App` gets the boot-time `connection` (`main.tsx:53,104`) and the session's URLs are plain getters.
-- **The hosted runtime.** `routes/Stats.tsx` is loaded with `React.lazy` and holds one runtime per endpoint pair:
-  created when a stats route shows and `switching` is false, `stop()`ped when the route is left, `dispose()`d and
-  replaced when the pair changes. Its options: `fill: false`, no `onFresh` (hosted reads never mark the miner's node
-  fresh), `yieldTo` = a claim in flight or `nodeHealth().transport.kind !== 'ok'`, and `node` = a hosted client on its own JSON-RPC
-  transport (`createAztecNodeClient` takes one; the SDK's `defaultFetch` builds each `init` itself and passes neither),
-  whose every request carries a 10 s `AbortSignal` (the guard merges it with its own deadline,
-  `node-guard.ts:157-162`) and a per-request **quiet** marker on its `init`.
+- **The hosted runtime.** `routes/Stats.tsx` is loaded with `React.lazy`. Its module scope — loaded once, kept after
+  the component unmounts — owns one runtime per endpoint pair and subscribes to `endpointsAtom`: when `switching`
+  turns true the runtime is `dispose()`d synchronously, shown or hidden; after the switch ends (success or rollback,
+  even to the same pair) the next showing creates a fresh one. The component calls `start()` on mount and `stop()` on
+  unmount. Options: `fill: false`; no `onFresh` (hosted reads never mark the miner's node fresh); `yieldTo` = a claim
+  in flight or `coolingDown(nodeHealth().transport)` (`node-health.ts:135`); `node` = a hosted client on its own
+  JSON-RPC transport (`createAztecNodeClient` takes one; the SDK's `defaultFetch` builds each `init` itself and passes
+  neither), whose every request carries a 10 s `AbortSignal` (the guard merges it with its own deadline,
+  `node-guard.ts:157-162`) and a per-request **quiet** marker on its `init`; `eth` = a viem client whose transport
+  carries the same marker and a 10 s timeout.
 - **The guard's one change.** `nodeRequest` marks a request quiet when `quietNodeReads` is active **or** the request's
   `init` carries the marker. Today quiet is a page-wide counter (`node-guard.ts:134-142,242`) that only web-stats' history
   fill enters (`web-stats/src/main.tsx:122-125`): wrapping hosted reads in it would make a claim sent meanwhile quiet
   too, and leaving them loud lets Stats' ordinary failures open the cooldown that answers every node request — the
   miner's `sendTx` included — with a synthetic 429 (`node-guard.ts:238-239`). Marked per request, hosted reads can
-  do neither.
+  do neither. The Ethereum path honours the same marker (today its outcomes are always loud, `node-guard.ts:255`) and
+  RPC health skips quiet outcomes (`eth-rpc.ts:92`), so Stats cannot mark the miner's RPC failed either.
+- **Node health's one change.** A quiet outcome that started before the cooldown opened is ignored, as an early
+  success already is (`node-health.ts:143,147`): a slow optional read cannot extend a cooldown the miner's own request
+  opened, and the probe that ends a cooldown, started after it, still counts.
 - **Failure.** An error boundary around the lazy route: a failed import shows a card with "Try again" (a fresh
   `import()`); after a redeploy has replaced the chunk, "Reload to open Stats" (the card says mining stops). The cockpit,
   the Worker and the mini window are outside the boundary. The chunk is loaded only when Stats is first opened.
@@ -276,18 +308,20 @@ pin applies, the Ethereum slot (10 s); creates the store, the node client and th
   status owns it).
 - **The chunk stays out of the first paint.** `moduleReport` (`vite-base.ts:136-151`) also writes, per chunk, its
   modules and its static and dynamic imports; `apps/web-miner/scripts/check-chunks.ts` walks the entry's static
-  imports and fails if `@yacana/stats-view` or `@observablehq/plot` is reachable, and prints the stats chunk's size.
+  imports and fails if a module under `packages/stats-view/` or `node_modules/@observablehq/plot/` is reachable (the
+  report's ids are repo-relative paths, `vite-base.ts:143`), and prints the stats chunk's size.
   It runs in the arc gate and in `web-miner.yml` after the replay job's build.
 
 ### 3.5 Data and control flow (the two critical paths)
 
 1. `/mine/stats` while mining: the tab's `onSelect` → `navigate('stats')` → `pushState` + `NAVIGATE` → `useRoute` →
-   the lazy chunk loads once → a runtime for the current endpoints starts → reads through the hosted client (10 s,
-   quiet) → atoms → tiles. The controller, the Worker, the mini window and the claim path never notice; a tick is
-   skipped while a claim is in flight or the node is cooling down.
-2. A claim the node loses: `submit()` → `sent.wait()` throws "no effects for" → `'lost'`, retained with its hash →
-   5 s → `fate`: re-included → adopted ✓; `dropped` → the nullifier: present → its block → adopted ✓; absent and the
-   epoch open → try 2; `unknown` → checked again in 15 s; the epoch closed with the hash alive → a watch, mining resumes.
+   the lazy chunk loads once → the runtime for the current endpoints starts → reads through the hosted clients (10 s,
+   quiet) → atoms → tiles. The controller, the Worker, the mini window and the claim path never notice; no read starts
+   while a claim is in flight or the node is cooling down.
+2. A claim the node loses: `submit()` → `sent.wait()` throws "no effects for" → `'lost'`, a record with its
+   submission → 5 s → `fate`: in a block → adopted ✓; `dropped` → the nullifier at `latest`: present → its block, with
+   transactions → adopted ✓; absent and the epoch open → send 2, recorded beside the first; pending → checked again in
+   15 s; the epoch closed → the secret goes, a watch until the `checkpointed` tip decides, mining resumes.
 
 ### 3.6 File-level change map
 
@@ -296,11 +330,11 @@ pin applies, the Ethereum slot (10 s); creates the store, the node client and th
 | P1 | — | `ui/src/components/icons.tsx`, `header.vitest.tsx` | the hand-drawn paths |
 | P2 | `web-miner/src/lib/words.ts` | `RailTile.tsx`, `LoopTile.tsx`, `LedgerTile.tsx`, `ui/…/score-loop.tsx`, `ui/…/proof-line.tsx`, web-stats `Table.tsx`, `Detail.tsx`, `Observatory.tsx`, `charts/specs.ts`, `miner-core/src/metrics.ts`, their specs, the eight Stats baselines | — |
 | P3 | `features/PipHost.tsx`, `features/use-start-click.ts` | `use-presto.ts`, `RailTile.tsx`, `Settings.tsx`, `use-page-behaviour.ts`, `pip.ts`, `LoopTile.tsx`, `App.tsx`, `settings.ts`, `ActivityList.tsx`, the Presto, pop-out and settings specs | `PopOut`'s window ownership |
-| P4 | `e2e/claim-recovery.e2e.ts` | `miner-core/src/claim-failure.ts` (+test), `controller.ts`, `chain.ts`, `lib/reducer.ts` (+test), `lib/claim-copy.ts`, `tests/recovery.bun.test.ts`, `tests/claim-lines.bun.test.ts`, `e2e/fixtures.ts`, `e2e/shards.json`, `e2e/proof-inventory.ts`, `tests/e2e-inventory.bun.test.ts` | — |
+| P4 | `e2e/claim-recovery.e2e.ts` | `miner-core/src/claim-failure.ts` (+test), `controller.ts`, `chain.ts`, `lib/reducer.ts` (+test), `lib/claim-copy.ts`, `features/LoopTile.tsx` and `PipView` (Stop while a send is scheduled), `tests/recovery.bun.test.ts`, `tests/claim-lines.bun.test.ts`, `e2e/fixtures.ts`, `e2e/canary.e2e.ts`, `e2e/shards.json`, `e2e/proof-inventory.ts`, `tests/e2e-inventory.bun.test.ts` | — |
 | P5 | `features/IntroStrip.tsx`, `intro.ts`, their spec | `routes/Mine.tsx`, the cockpit e2e spec, `e2e/proof-inventory.ts`, `tests/e2e-inventory.bun.test.ts`, the replay specs the strip moves | — |
 | P6 | `web-landing/src/sections/Why.tsx` (+spec) | `copy.ts`, `faq-copy.ts`, `App.tsx`, `HeroLive.tsx`, `BarChart.tsx`, `sections.vitest.tsx`, `e2e/landing.e2e.ts`, `web-miner/…/PreflightTile.tsx` | — |
 | P7 | `packages/stats-view/**`, `web-kit/src/browser/navigation.ts` | web-stats `main.tsx`, `App.tsx`, `routes.ts`, `index.css`; web-miner `routes.ts`, `index.css`; root `package.json`, `tsconfig.json`, `bun.lock`; the CI filters and test invocations the layout guard names | the moved web-stats modules |
-| P8 | `web-miner/src/routes/Stats.tsx`, `ui/src/components/site-tabs.ts`, `web-miner/scripts/check-chunks.ts`, `e2e/stats-host.e2e.ts` | web-miner `routes.ts`, `App.tsx`, `session.ts` (`endpointsAtom`), `lib/tabs.ts`, `use-page-behaviour.ts`; `web-kit/src/browser/node-guard.ts` (the per-request marker); `web-kit/src/vite-base.ts` (`moduleReport`); web-stats `App.tsx`; `site/src/assemble.ts` (+test), `site/e2e/site.e2e.ts`, web-stats `e2e/stats.e2e.ts`, the eight baselines, `e2e/shards.json`, `e2e/proof-inventory.ts`, `tests/e2e-inventory.bun.test.ts`, `.github/workflows/web-miner.yml` | `minerTabs`' external Stats and Verify |
+| P8 | `web-miner/src/routes/Stats.tsx`, `ui/src/components/site-tabs.ts`, `web-miner/scripts/check-chunks.ts`, `e2e/stats-host.e2e.ts` | web-miner `routes.ts`, `App.tsx`, `session.ts` (`endpointsAtom`), `lib/tabs.ts`, `use-page-behaviour.ts`; `web-kit/src/browser/node-guard.ts` (the per-request marker, both paths), `node-health.ts` (early quiet outcomes), `eth-rpc.ts` (quiet outcomes skipped); `web-kit/src/vite-base.ts` (`moduleReport`); web-stats `App.tsx`; `site/src/assemble.ts` (+test), `site/e2e/site.e2e.ts`, web-stats `e2e/stats.e2e.ts`, the eight baselines, `e2e/shards.json`, `e2e/proof-inventory.ts`, `tests/e2e-inventory.bun.test.ts`, `.github/workflows/web-miner.yml` | `minerTabs`' external Stats and Verify |
 
 ### 3.7 Trade-offs and alternatives not taken
 
@@ -309,7 +343,8 @@ pin applies, the Ethereum slot (10 s); creates the store, the node client and th
 - **Nested routes**: cleaner types, a second rewrite mechanism.
 - **An iframe of `/stats`**: two React roots and two runtimes on one page.
 - **Retrying every `'other'`**: a circuit error would be proved again three times for nothing.
-- **Keep mining during recovery** (the canvas's B): the owner picked A; under A the `'mine'` command needs no change.
+- **Keep mining during recovery** (the canvas's B): the owner picked A. Mining waits while the secret is held; only a
+  watch (no secret) runs beside it, which is why the `'mine'` command stops clearing a record with submissions.
 - **Reusing the `pip` key**: would open a window on every Start for everyone who only wanted the button.
 - **A screenshot gate for hosted Stats**: its pages are the components `/stats`' gate already pins; the hosted chrome
   (the bar, the sub-tabs, the aside) is covered by component specs and a computed-style check in the e2e.
@@ -327,20 +362,23 @@ pin applies, the Ethereum slot (10 s); creates the store, the node client and th
   with Stats open (the host's e2e asserts it). Hosted Stats reads only the node and RPC the miner already admits; a
   switch disposes and replaces the runtime rather than widening the guard. The guard's one change is additive: a
   request may declare itself quiet; nothing can declare another request quiet.
-- **Node health.** Hosted reads are quiet request by request (no cooldown from Stats), carry a 10 s deadline (no
-  abandoned reads piling up behind the miner's 120 s slot), never mark the node fresh, and skip their ticks during a
-  claim or a cooldown.
+- **Node and RPC health.** Hosted reads are quiet request by request on both paths (no cooldown and no failed RPC from
+  Stats), carry a 10 s deadline (no abandoned reads piling up behind the miner's 120 s slot), never mark the node
+  fresh, cannot extend a cooldown they predate, and do not start during a claim or a cooldown.
 - **Claims.** A second send never mints twice: the nullifier is a function of the ticket (`main.nr:221`), and a send
   after a landing is refused for its duplicate nullifier (then adopted, §3.2). Not free in every case: a claim whose
   epoch closes between its anchor and its inclusion reverts in public (`main.nr:231-233`), the sponsor pays, and the
   account's claims wait for L1 finality (`claim-failure.ts:2-5`). Automatic sends come later in the epoch, where that
   is likelier, so each one reads the open epoch fresh, a stale revert ends the automatic sends (a spec), and there are
-  at most three. Single-flight, a generation re-checked after every `await`, secrets in memory only and no longer than
-  the claim can be sent. The nullifier lookup tells the node nothing it did not learn when it received the claim.
+  at most three. No later failure erases an earlier submission, so a landed claim is never reported lost; "not
+  minted" is decided only at the `checkpointed` tip. Single-flight; a generation guards what is scheduled, never the
+  bookkeeping of a send already made. The secret stays in memory only, and only while the claim can still be sent:
+  it goes when the record resolves or its epoch closes. The nullifier lookup tells the node nothing it did not learn
+  when it received the claim.
 - **Realm and supply chain.** No new npm package (`@observablehq/plot`, its `d3` and `lucide-react` are already locked,
   `bunfig.toml:3`'s 7-day `minimumReleaseAge`, frozen CI installs). Hosting still widens their reach: loaded, they run
-  beside the unsealed key and the guard (`Symbol.for`). The chunk is therefore strictly lazy — only a visitor who opens
-  Stats loads it — and `check-chunks.ts` keeps it out of the entry.
+  beside the open account's keys and the guard (`Symbol.for`). The chunk is therefore strictly lazy — only a visitor
+  who opens Stats loads it — and `check-chunks.ts` keeps it out of the entry.
 - **Least privilege.** No new CI permission; `web-miner.yml`'s chunk check runs under its existing `contents: read`.
 - **Cryptography.** None new; `ticketNullifier` (Poseidon2 via `@aztec/foundation`, pinned) reused.
 - **Input validation.** `yacana.intro` and `pipOnStart` parsed with safe defaults; URL state keeps its integer checks.
@@ -397,6 +435,26 @@ pin applies, the Ethereum slot (10 s); creates the store, the node client and th
 26. The history fill is the only quiet reader today (`web-stats/src/main.tsx:122-125`); the miner has none.
 27. `adopt` resumes mining (through `minted()`) before it clears `retained` (`controller.ts:768,839-840`); the `'mine'`
     command clears `retained` (`:557`).
+28. The pruned-anchor error is the node's answer to any world-state query pinned to a block hash it no longer has
+    (`node_world_state_queries.js:263-265` in the pinned 5.2.0 node); the claim's simulation makes such queries,
+    among them the contract's historical reads of `open_epoch` and `retired` (`main.nr:182-196`), which the PXE serves
+    with `getPublicDataWitness` at the anchor's hash (`@aztec/pxe` `utility_execution_oracle.js:209-210`) and caches
+    per hash (`caching_aztec_node.js:41`).
+29. `getBlock` returns effects only with `{ includeTransactions: true }` (`block_response.d.ts:12`); a block parameter
+    takes the tags `latest`, `proposed`, `checkpointed`, `proven` and `finalized` (`block_parameter.d.ts:5-12`).
+30. Each send's expiry and anchor are observed as it leaves (`wallet.ts:27-32,83`); `sendClaim` reports the expiry,
+    undefined when the wallet's last send was another's (`chain.ts:116-119`).
+31. `claimed` resets `phase`, `job` and `claim` (`reducer.ts:347-362`); `reconciled` acts only while idle (`:494`).
+32. Stop during a claim lets it finish (`controller.ts:377-383`, `tests/recovery.bun.test.ts:254`); idle shows Start
+    (`LoopTile.tsx:176`); `claimSettled()` waits on `claiming` and `recovering` (`controller.ts:945-951`); a claim's
+    proof and send are one await (`chain.ts:113`); a `SendHook` can refuse a send before it leaves (`wallet.ts:34-35`).
+33. Quiet outcomes are ignored only while the transport is ok (`node-health.ts:143`), early successes during a cooldown
+    always (`:147`); Ethereum outcomes are always loud (`node-guard.ts:255`) and feed RPC health (`eth-rpc.ts:92`);
+    the L1 client is viem's `http` transport (`eth-rpc.ts:20`).
+34. web-stats' boot installs its interval after its awaits unconditionally (`main.tsx:169-184`); `showWindow` and the
+    bridge's first read start on their own (`main.tsx:99`, `bridge.ts:134`).
+35. Shards select files, not titles (`e2e/run-suite.ts:39`), each file in exactly one shard
+    (`tests/e2e-inventory.bun.test.ts:21`); the node's JSON-RPC methods are `aztec_`-prefixed (`e2e/fixtures.ts:44`).
 
 ### Inferences (unverified — attack these)
 1. The Stats chunk is small beside the miner's bb.js and circuit chunks; P8 prints its size.
@@ -407,15 +465,28 @@ pin applies, the Ethereum slot (10 s); creates the store, the node client and th
 4. `navigator.userActivation.isActive` is true inside the click handler before any `await`, and `requestWindow` called
    there opens the window (the existing Pop out precedent works this way).
 5. The replay recording needs no re-record: the strip changes the page, not the node traffic.
-6. The claim's pre-send anchor read that fails in production can be targeted in e2e by its JSON-RPC method (P4 lists
-   the claim's node calls to pick it).
+6. One injected `aztec_getPublicDataWitness` failure reaches the controller as the node's text (the PXE neither
+   swallows nor retries it); P4's gate asserts the transition it causes, so a wrong guess fails loudly.
+7. viem's `http` transport passes `fetchOptions` (or a `fetchFn`) into each request's `init` and honours `timeout`;
+   P8's guard spec proves it with a real client.
+8. A checkpoint reaches L1 within minutes, so a watch resolves within minutes of its epoch closing. A missed proof
+   that prunes a checkpoint after that is out of scope: the balance, which the PXE syncs, stays right; only the win
+   line could be wrong.
 
 ### Asks (for the approval)
 1. **The live download progress** ("13.0 of 20 MB" while the proving keys download) — keep it (it measures; the
    plan's default) or remove it too ("no download size anywhere").
-2. **"no gas on testnet"** in the landing's reassurance line, which the canvas kept although "no testnet talk" — keep as
-   drawn, say "no gas", or drop the gas clause.
+2. **"no gas on testnet"** in the landing's reassurance line, which the canvas kept although "no testnet talk" — the
+   plan's default drops the gas clause ("no gas" alone may stop being true on mainnet, where sponsorship is
+   undecided); or keep as drawn, or say "no gas".
 3. Confirm the defaults of §2.
+4. `/harden` after delivery — the plan's default is no (no new trust boundary; the realm change is recorded in §4).
+5. **Timing.** The canvas said "about three minutes"; the gaps between sends are 5 s and 30 s, but each send waits for
+   inclusion as today's claim does (up to 15 min, `chain.ts:95`), and a pending send is waited on rather than
+   duplicated — mining can wait longer than three minutes. Default: accept, with the canvas's lines unchanged.
+6. **Signed-out Start and the mini window.** A visitor who starts mining signed out gets the window from their next
+   Start, not the first: mining begins after the passkey ceremony, outside the click's activation (§3.1). Default:
+   accept, with the setting's hint as written.
 
 ## 6. Phases with validation gates
 
@@ -471,21 +542,36 @@ the two-line footer fits 360 px with no horizontal overflow (measured in the win
 ### Arc 2 — claims that recover by themselves
 
 **P4 · Classify, record, reconcile, schedule.** §3.2. Gate: fast layers; `claim-failure.test.ts` with the owner's two
-messages and the captured duplicate-nullifier refusal; `reducer.test.ts` for the recovery state (tries, deferral
-on pause and switch, the three-tries line, Start's cases, Stop); `tests/recovery.bun.test.ts` on a fake node and
-Worker: (a) `anchor-pruned` → proved again → minted, one send; (b) `lost` → `fate` re-included → adopted, no send;
-(c) `lost` → `dropped`, nullifier present → the block read, adopted, no send; (d) `dropped`, nullifier absent, epoch
-open → one resend with both hashes recorded; (e) the original lands after the resend → adopted, the resend's refusal
-adopted too; (f) the fourth claim's effects missing, its epoch closed by it → adopted, never "not claimed";
-(g) epoch closed, a hash alive → a watch, mining resumes, the watch adopts; (h) a stale revert mid-recovery → no more
-automatic sends; (i) a pause at try 2 → deferred, resumed on release; (j) three failed sends → the Retry line;
-(k) Start with a retained claim, epoch open → the claim first, mining once, after it settles; (l) Stop mid-recovery →
-nothing further sent; (m) dispose or a switch during each `await` → nothing happens after it; (n) an unrecognized
-`'other'` → no automatic try. `claim-lines.bun.test.ts` for every new line. `e2e/claim-recovery.e2e.ts` (`chain`):
-the claim's first pre-send anchor read answers with the node's pruned-anchor error → the claim is proved again and
-mints with one send; the first effect-bearing receipt comes back without effects → the claim is adopted, no second
-send. One real-proving title in `canary`: the pruned-anchor case, asserting one send, the minted line, the balance and
-mining resuming.
+messages and the captured duplicate-nullifier refusal; `reducer.test.ts` for the schedule (sends, gaps, deferral on
+pause and switch, the three-tries line, Stop while a send is scheduled, `adopted` beside a newer claim leaving its
+`phase`, `job` and `claim` alone); `tests/recovery.bun.test.ts` on a fake node with SDK-shaped receipts and block
+responses (`getBlock` without `includeTransactions` returns no body) and a fake Worker:
+- (a) `anchor-pruned` → proved again → minted, one send; (b) `lost` → `fate` in a block → adopted, no send;
+  (c) `lost` → `dropped`, nullifier present → its block read with transactions → adopted, no send;
+- (d) `dropped`, nullifier absent, epoch open → one resend, both submissions recorded with their own expiries;
+  (e) the original lands after the resend → adopted; the resend's duplicate refusal settles nothing twice;
+- (f) the resend refused at simulation ("epoch is not open") while the original lands and closes the epoch → the record
+  survives the refusal, the original is adopted, never "not claimed";
+- (g) the fourth claim's effects missing, its epoch closed by it → adopted;
+- (h) a submission pending past the first's expiry keeps the record open; the record resolves as not minted only when
+  the `checkpointed` tip shows the epoch closed or every submission expired, with the nullifier absent;
+- (i) the nullifier present but its block missing, or the body without it → unresolved: no send, no discard;
+- (j) epoch closed while unresolved → the secret goes, a watch, mining resumes; the watch adopts while a newer claim is
+  in flight → the old line ✓, the newer claim untouched, the win counted once, a second adoption ignored;
+- (k) a stale revert → no automatic send after it; a revert with another submission unresolved waits for it;
+- (l) a pause at send 2 → deferred, resumed on release; (m) three failed sends → the Retry line, checks continue;
+- (n) Start with a record whose secret is held → the check first, mining once, after it settles; with a watch →
+  mining starts at once;
+- (o) Stop while a send is scheduled → nothing sent, Retry stays; Stop while a send is under way → it sends, settles
+  to idle, nothing resumes; a node switch while a send is under way → the switch waits for it, then proceeds;
+- (p) dispose, Stop or a switch at each `await` of a check → nothing new is scheduled, and the phase still settles;
+- (q) an unrecognized `'other'` → no automatic try; (r) the `'mine'` command after a watch → the watch survives.
+`claim-lines.bun.test.ts` for every new line. `e2e/claim-recovery.e2e.ts` (`chain`): one `aztec_getPublicDataWitness`
+whose block parameter is a hash answers with the node's pruned-anchor text → the fault fired exactly once, the same
+ticket's line shows "proving again, try 2 of 3", one send, minted; the claim's first receipt read with effects answers
+without them → the line shows "checking the chain for your claim", the claim is adopted, no second send. In
+`e2e/canary.e2e.ts` (the canary shard's file), one real-proving title: the pruned-anchor case, asserting the fault
+fired once, one send, the minted line, the balance and mining resuming.
 
 **Arc 2 gate:** fast layers; the four shards.
 
@@ -506,9 +592,10 @@ anchor; `grep -rn "20 MB"` over the copy files finds nothing; `external-link-arr
 
 **P7 · The package, web-stats as its shell.** §3.4. A pure move: nothing on `/stats` changes. Gate: fast layers (the
 layout and boundaries guards accept the package; its Vitest runs in `test:components` and in CI); a runtime spec
-(no setter called; `fill: false` never enters `quietNodeReads`; `yieldTo` skips ticks; `start`/`stop` idempotent;
-after `dispose` a delayed boot, a late poll and a late bridge read publish nothing; A → B → A endpoints; StrictMode's
-double effect); `bun run --cwd apps/web-stats test:visual` passes against P2's baselines **without** regenerating;
+(no setter called; `fill: false` never enters `quietNodeReads`; while `yieldTo` holds, no boot, window, bridge or poll
+read starts, and a window asked for meanwhile is read once it clears; `start`/`stop` idempotent; `stop()` during a
+boot's awaits and during a cooldown wait → no timer installed, and `start()` resumes the boot; after `dispose` a
+delayed boot, a late poll and a late bridge read publish nothing; A → B → A endpoints; StrictMode's double effect); `bun run --cwd apps/web-stats test:visual` passes against P2's baselines **without** regenerating;
 `bun run e2e:agent -- bun run --cwd apps/web-stats test:e2e`.
 
 **Arc 4a gate:** P7's gate.
@@ -518,13 +605,18 @@ double effect); `bun run --cwd apps/web-stats test:visual` passes against P2's b
 **P8 · Routes, runtime, guard, bar, chunk.** §3.4. Gate: fast layers; a `routes` spec (the six routes round-trip;
 under the old role the stats paths resolve to `mine`);
 an `assemble` spec (`REDIRECTS` has the three stats rewrites, `OLD_REDIRECTS` none); a guard spec (a marked request is
-quiet while an unmarked one alongside is not; a marked request's failure opens no cooldown); a `siteTabs` spec;
+quiet while an unmarked one alongside is not; a marked request's failure opens no cooldown; a marked Ethereum request
+leaves RPC health alone, through a real viem client with the marker and a 10 s timeout); a node-health spec (a quiet
+failure that started before a cooldown does not extend it; the probe started after it still ends it); a host spec
+(`switching` disposes the runtime synchronously, shown or hidden; a rollback to the same pair gets a fresh one); a
+`siteTabs` spec;
 `YACANA_MODULE_REPORT=<dir> bun run --cwd apps/web-miner build` then `bun apps/web-miner/scripts/check-chunks.ts <dir>`;
 `e2e/stats-host.e2e.ts` (`cockpit`): while mining, open Stats → Bridge → Verify → back — proofs keep counting, the page
 never reloads (a window marker survives), the mini window stays open, the guard's slots unchanged, back/forward
 restore the sub-page, a tile's Tailwind class has its computed style, Space scrolls the page; a node switch while on
-Stats → the new runtime reads the new node, no blocked-endpoint error; the stats chunk answering 404 → the boundary
-card, mining continues; `stats.e2e.ts`'s bar labels; `site.e2e.ts` serves the three paths cross-origin isolated; the
+Stats → the new runtime reads the new node, no blocked-endpoint error; an RPC switch with a hosted bridge read held
+open → the old read changes nothing; Stats opened during a claim → its reads start after the claim settles; the stats
+chunk answering 404 → the boundary card, mining continues; `stats.e2e.ts`'s bar labels; `site.e2e.ts` serves the three paths cross-origin isolated; the
 eight baselines regenerated (the bar and the sub-tabs) and each diff inspected.
 
 **Arc 4b gate:** everything once on the stack's top: fast layers; the four shards; web-stats e2e and visual;
@@ -576,6 +668,15 @@ converges. Then `gh stack submit --auto` (drafts), `gh pr edit` bodies (ending w
 | L25 | Flywheel section A (the loop) | owner, 2026-09-23 | B (three facts) | owner's pick |
 | L26 | The old origin's change gated by specs (its router, `OLD_REDIRECTS`) | Opus 13 | the rig's `origin` case per arc (boots an upgrading network for a route map) | adopted |
 | L27 | Start after three failed sends is one more try while the epoch is open | canvas A | discarding the win on Start (the behaviour the owner reported) | adopted |
+| L28 | Submissions append-only; no later classification clears a record that has any | final codex 2 | today's clear on `refused`/`expired` (loses a landed claim's identity) | adopted |
+| L29 | Each submission keeps its own expiry; "not minted" is decided at the `checkpointed` tip | final codex 3, 6 | the original's expiry alone; deciding at `latest` (pruned blocks) or `proven` (tens of minutes of "checking") | adopted |
+| L30 | A watch settles through `adopted`, which leaves the active claim alone | final codex 4 | reusing `claimed` (resets `phase`, `job`, `claim`) | adopted |
+| L31 | Stop cancels scheduled sends; a send under way finishes and settles; the generation guards scheduling only | final codex 5 | refusing an in-flight send through the `SendHook` (a wasted proof; today's claim finishes too); "a stale continuation does nothing" (leaves `claiming` forever) | adopted |
+| L32 | The runtime lives in the lazy module's scope; an active flag gates boot steps and timers; `switching` disposes at once | final codex 7 | a runtime held by the route component (lost on unmount) | adopted |
+| L33 | `yieldTo` gates every read the runtime starts; windows deferred, never dropped | final codex 8 | skipping ticks only | adopted |
+| L34 | Quiet on the Ethereum path; a quiet outcome older than the cooldown is ignored | final codex 9 | node-only marking | adopted |
+| L35 | The e2e fault on `aztec_getPublicDataWitness` with a hash parameter, asserting the fault and the transition; the real-proving title in `canary.e2e.ts` | final codex 10 | an undiscovered target; a title the canary shard does not run | adopted |
+| L36 | Timing and signed-out mini window surfaced as Asks 5 and 6 | final codex 11 | leaving them implicit | owner at approval |
 
 ## 9. Audit verdicts
 
@@ -590,7 +691,12 @@ converges. Then `gh stack submit --auto` (drafts), `gh pr edit` bodies (ending w
   no stats routes on the old origin. All six folded (L2, L4–L7, L9, L11, L18, L26), with its findings on the hotkeys (L13),
   the sponsor cost (§4), the realm (§4, L11), Tailwind (L17), the gates (L12, L15, L16) and the arc split (L14).
 
-**Final pass:** pending — a fresh codex session on this plan and the ledger.
+**Final pass, round 1** (a fresh codex session, GPT-6 Astra at high): **reject** — blocking: recovery could lose
+earlier submissions, a watch's settlement could corrupt the active claim, and cancellation clashed with the send and
+drain lifecycle. Eleven findings, each verified against the code (and the pinned node's source for the pruned-anchor
+error), all adopted (L28–L36); `recon.md` corrected on dynamic imports.
+
+**Final pass, round 2:** pending — the same session, resumed on this revision.
 
 ## 10. Post-implementation (self-contained — the implementing session executes this from here)
 
