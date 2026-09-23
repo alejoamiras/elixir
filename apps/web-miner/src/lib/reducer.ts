@@ -3,7 +3,7 @@
 // to do next.
 import { type ClaimFailure, revertCause } from '@yacana/miner-core/claim-failure';
 import { difficulty } from '@yacana/miner-core/metrics';
-import type { ProofLine, Sample } from '@yacana/ui';
+import type { ClaimSpan, ProofLine, Sample } from '@yacana/ui';
 
 export interface EpochInfo {
   epoch: bigint;
@@ -99,6 +99,8 @@ export interface MinerState {
   best: number | null;
   /** Every attempt of the last SAMPLE_SPAN_MS, oldest first (the score loop). */
   samples: Sample[];
+  /** The claims of the same window, oldest first, on the samples' clock: the chart draws them under the ticks. */
+  claimSpans: ClaimSpan[];
   /** performance.now() of the last winning proof, for the bar flash. */
   winAt: number | null;
   /** When the user's Start began this run of mining (wall clock; the chart's clock); null once stopped. */
@@ -129,6 +131,7 @@ export const initial: MinerState = {
   recent: [],
   best: null,
   samples: [],
+  claimSpans: [],
   winAt: null,
   since: null,
   sinceT: null,
@@ -149,7 +152,10 @@ export interface Clock {
   t: number;
 }
 
-export type Event =
+/** `t` is stamped by the controller's dispatch on every event that comes without one. */
+export type Event = EventBody & { t?: number };
+
+type EventBody =
   | ({ type: 'start'; epoch: EpochInfo } & Partial<Clock>)
   | { type: 'stop' }
   | ({ type: 'epoch'; epoch: EpochInfo; difficultyRatio?: number } & Partial<Clock>)
@@ -232,7 +238,16 @@ function attempt(state: MinerState, e: Extract<Event, { type: 'attempt' }>): Min
   const best = state.best === null || e.score > state.best ? e.score : state.best;
   const samples = [
     ...state.samples.filter((s) => e.t - s.t <= SAMPLE_SPAN_MS),
-    { t: e.t, score: e.score, bar: e.bar, win: e.win, ...(e.epoch !== undefined && { epoch: e.epoch }) },
+    {
+      t: e.t,
+      score: e.score,
+      bar: e.bar,
+      win: e.win,
+      ...(e.epoch !== undefined && { epoch: e.epoch }),
+      n: tickets,
+      proveMs: e.proveMs,
+      at: e.at,
+    },
   ];
   const l: ProofLine = e.win
     ? { kind: 'win', time: clock(e.at), n: tickets, score: e.score, proveMs: e.proveMs }
@@ -414,7 +429,39 @@ function failed(state: MinerState, e: Extract<Event, { type: 'failed' }>): [Mine
   return [{ ...base, phase: 'idle' }, [{ type: 'halt' }]];
 }
 
+/**
+ * The claims on the chart, kept by what happened to `claim` rather than by event name, so every path that
+ * ends a claim closes its span: null → a claim opens one (from the win, when a win caused it), a claim →
+ * null closes it (`minted` only for `claimed`). A reconciliation also settles the earlier span of the same
+ * win, whose transaction did land. Spans leave with the samples' window.
+ */
+function spansAfter(prev: MinerState, next: MinerState, event: Event): ClaimSpan[] {
+  const t = event.t;
+  // No clock, no span: the reducer reads no time of its own, and the controller stamps every event.
+  if (t === undefined) return next.claimSpans;
+  let spans = next.claimSpans;
+  if (prev.claim === null && next.claim !== null) {
+    const id = next.claim.lineId;
+    const earlier = event.type === 'reconciled' && id !== null;
+    spans = [
+      ...spans.map((c) => (earlier && c.id === id ? { ...c, outcome: 'minted' as const } : c)),
+      { id, t0: event.type === 'winner' ? (next.winAt ?? t) : t, t1: null },
+    ];
+  } else if (prev.claim !== null && next.claim === null) {
+    const outcome = event.type === 'claimed' ? ('minted' as const) : ('failed' as const);
+    spans = spans.map((c) => (c.t1 === null ? { ...c, t1: t, outcome } : c));
+  }
+  const kept = spans.filter((c) => c.t1 === null || t - c.t1 <= SAMPLE_SPAN_MS);
+  return kept.length === spans.length ? spans : kept;
+}
+
 export function reduce(state: MinerState, event: Event): [MinerState, Command[]] {
+  const [next, commands] = step(state, event);
+  const claimSpans = spansAfter(state, next, event);
+  return [claimSpans === next.claimSpans ? next : { ...next, claimSpans }, commands];
+}
+
+function step(state: MinerState, event: Event): [MinerState, Command[]] {
   switch (event.type) {
     case 'start': {
       if (state.phase !== 'idle' || state.proverDead) return [state, []];

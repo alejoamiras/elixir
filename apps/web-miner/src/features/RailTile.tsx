@@ -66,7 +66,9 @@ function PowerRow({ controller }: { controller: () => MinerController | undefine
         cores={cores()}
         threads={threads}
         onChange={setThreads}
-        readout={miner.phase === 'mining' ? `${proofsPerMinute(miner.recent).toFixed(1)} / min` : undefined}
+        readout={
+          miner.phase === 'mining' ? `${proofsPerMinute(miner.recent).toFixed(1)} proofs/min` : undefined
+        }
       />
       <p className="text-xs text-ink-2" data-testid="power-caption">
         {cores()} cores, one stays with the page. A change applies at the next proof; the rate readout follows

@@ -3,7 +3,7 @@
 // redeem one as YACA for the connected account. The wallet's ETH is read before it is asked; a
 // portal refusal is said in the row's own words.
 
-import type { Crossing } from '@yacana/bridge/journal';
+import { type Crossing, knownEth } from '@yacana/bridge/journal';
 import { PARAMS } from '@yacana/miner-core/generated/params';
 import { Alert, AlertDescription, ExternalLink, Note, Stepper } from '@yacana/ui';
 import { useAtomValue } from 'jotai';
@@ -58,7 +58,7 @@ const explain = (e: unknown, c: Crossing, flipped: boolean, pausedUntil: bigint 
     flipped,
     pausedUntil,
     money: `${fmt(BigInt(c.amount), PARAMS.DECIMALS)} YACA`,
-    who: shortAddress(c.ethAddress),
+    who: knownEth(c) && shortAddress(c.ethAddress),
     chain: chain(),
   }) ?? firstLine(e);
 
@@ -108,7 +108,7 @@ function Progress({ kind, step, crossing }: { kind: Kind; step: Step; crossing: 
             state: 'done',
             right: tx ? (
               <ExternalLink href={l1Links.tx(tx)} full={tx}>
-                View on Etherscan ↗
+                View on Etherscan
               </ExternalLink>
             ) : undefined,
             detail:

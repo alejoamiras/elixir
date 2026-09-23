@@ -1,11 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { Crossing } from '@yacana/bridge/journal';
+import { type Crossing, knownEth, UNKNOWN_ETH } from '@yacana/bridge/journal';
 import { deriveCrossingSecrets } from '@yacana/bridge/secrets';
 import type { Arrivals, Arrived } from '../src/bridge/landing.ts';
 import { arrivalCandidates, landed, matchArrivals, twinOf } from '../src/bridge/landing.ts';
 
 const PORTAL = `0x${'be'.repeat(20)}` as const;
+const DEPOSITOR = `0x${'d0'.repeat(20)}` as const;
 const master = new Uint8Array(32).map((_, i) => i);
 const scope = { chainId: 31337n, portal: EthAddress.fromString(PORTAL) };
 const hash = async (version: bigint, index: number) =>
@@ -62,9 +63,23 @@ describe('the landing scan', () => {
         },
       ],
       deposited: [
-        { secretHash: await hash(6n, 0), version: 6n, amount: 3n, inboxIndex: 44n, txHash: '0xd1' },
+        {
+          sender: DEPOSITOR,
+          secretHash: await hash(6n, 0),
+          version: 6n,
+          amount: 3n,
+          inboxIndex: 44n,
+          txHash: '0xd1',
+        },
         // A deposit into another version under our label is not ours here.
-        { secretHash: await hash(6n, 2), version: 5n, amount: 3n, inboxIndex: 45n, txHash: '0xd2' },
+        {
+          sender: DEPOSITOR,
+          secretHash: await hash(6n, 2),
+          version: 5n,
+          amount: 3n,
+          inboxIndex: 45n,
+          txHash: '0xd2',
+        },
       ],
     };
     const here = { chainId: '31337', portal: PORTAL, current: 6n };
@@ -101,7 +116,14 @@ describe('the landing scan', () => {
       {
         forwarded: [],
         deposited: [
-          { secretHash: await hash(6n, 0), version: 6n, amount: 3n, inboxIndex: 77n, txHash: '0xd9' },
+          {
+            sender: DEPOSITOR,
+            secretHash: await hash(6n, 0),
+            version: 6n,
+            amount: 3n,
+            inboxIndex: 77n,
+            txHash: '0xd9',
+          },
         ],
       },
       candidates,
@@ -175,5 +197,57 @@ describe('the landing scan', () => {
     // The next window starts where this one ended.
     const later = await arrivalCandidates(master, scope, { sources: [], current: 6n }, 3, 3);
     expect(later.map((x) => x.index)).toEqual([3, 4, 5]);
+  });
+
+  test('a deposit carries its depositor; a row recorded without one learns it from its own event, at any state', async () => {
+    const candidates = await arrivalCandidates(master, scope, { sources: [5n], current: 6n }, 3);
+    const here = { chainId: '31337', portal: PORTAL, current: 6n };
+    const [send, dep] = matchArrivals(
+      {
+        forwarded: [
+          {
+            secretHash: await hash(5n, 1),
+            source: 5n,
+            target: 6n,
+            amount: 7n,
+            inboxIndex: 41n,
+            txHash: '0xf1',
+            epoch: 3n,
+            leafId: 2n,
+          },
+        ],
+        deposited: [
+          {
+            sender: DEPOSITOR,
+            secretHash: await hash(6n, 0),
+            version: 6n,
+            amount: 3n,
+            inboxIndex: 44n,
+            txHash: '0xd1',
+          },
+        ],
+      },
+      candidates,
+      here,
+    ) as [Arrived, Arrived];
+    const fresh = dep.crossing(1_000);
+    expect(fresh.ethAddress).toBe(DEPOSITOR);
+    expect(knownEth(send.crossing(1_000))).toBeUndefined();
+
+    // Past the arrival, where every row an earlier build zero-filled already is: only the address moves.
+    const old: Crossing = { ...fresh, ethAddress: UNKNOWN_ETH, state: 'minted-l2', claimTxHash: '0xc' };
+    expect(landed(old, dep, 2_000)).toEqual({ ...old, ethAddress: DEPOSITOR });
+    // Before it, the heal rides along with the event.
+    const early: Crossing = { ...fresh, ethAddress: UNKNOWN_ETH, state: 'proving', inboxIndex: undefined };
+    expect(landed(early, dep, 2_000)).toMatchObject({ state: 'deposited', ethAddress: DEPOSITOR });
+    // An address the record knows is never replaced, and a row that needs nothing is the same object.
+    const mine: Crossing = { ...old, ethAddress: `0x${'11'.repeat(20)}` };
+    expect(landed(mine, dep, 2_000)).toBe(mine);
+    // Another message under the index is not this row's event.
+    const twin: Crossing = { ...old, inboxIndex: '99' };
+    expect(landed(twin, dep, 2_000)).toBe(twin);
+    // A send is never given a depositor: its address is the recipient its witness is matched on.
+    const sent: Crossing = { ...send.crossing(1_000), state: 'minted-l2' };
+    expect(landed(sent, send, 2_000)).toBe(sent);
   });
 });

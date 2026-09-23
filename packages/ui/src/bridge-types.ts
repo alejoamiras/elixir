@@ -33,6 +33,9 @@ export interface BarSegment {
   color: string;
 }
 
+/** A crossing as this balance sees it: money in, money out to Ethereum, money sent ahead to the next version. */
+export type RowKind = 'in' | 'out' | 'ahead';
+
 export type RowAction = 'claim' | 'claim-l1' | 'forward' | 'redeem' | 'again' | 'settings';
 
 /**

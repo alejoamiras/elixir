@@ -251,7 +251,7 @@ const held: Line = (c, f) => {
 const claimable: Line = (c, f) => {
   const trail =
     c.kind === 3
-      ? [st('sent from your wallet', 'done'), st('crossed to Aztec', 'done'), st('claim', 'on')]
+      ? [st('deposit sent', 'done'), st('crossed to Aztec', 'done'), st('claim', 'on')]
       : [st(`left ${f.version}`, 'done'), st('reached Ethereum', 'done'), st('claim', 'on')];
   if (f.elsewhere)
     return {
@@ -280,7 +280,7 @@ const claimable: Line = (c, f) => {
 const deposited: Line = () => ({
   chip: chip('crossing to Aztec', 'on'),
   sentence: 'Sent from your wallet; crossing to Aztec, a few minutes.',
-  trail: [st('sent from your wallet', 'done'), st('crossing to Aztec', 'on'), st('claim', 'todo')],
+  trail: [st('deposit sent', 'done'), st('crossing to Aztec', 'on'), st('claim', 'todo')],
 });
 
 const LINES: Record<RowState, Line> = {
@@ -407,11 +407,4 @@ export const rowLine = (c: Crossing, f: RowFacts): RowLine =>
 export const revertLine = (e: unknown, c: Crossing, f: Omit<RowFacts, 'state'>): string | undefined => {
   const state = revertRow(e);
   return state ? rowLine(c, { ...f, state }).sentence : undefined;
-};
-
-/** Where a crossing goes, beside its amount: the direction and the party at the other end. */
-export const whoOf = (c: Crossing, short: (a: string) => string, target: string): string => {
-  if (c.kind === 1) return `→ Ethereum · ${short(c.ethAddress)}`;
-  if (c.kind === 3) return `→ here · from ${short(c.ethAddress)}`;
-  return `→ ${target}`;
 };

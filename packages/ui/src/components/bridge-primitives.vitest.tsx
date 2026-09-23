@@ -79,10 +79,10 @@ describe('the activity row', () => {
     render(
       <ul>
         <ActivityRow
-          amount="8.00"
-          unit="tYACA"
-          direction="→ Ethereum · 0x9f3a…21c0"
-          when="18:52 · Sep 11"
+          kind="out"
+          title="To Ethereum"
+          meta="0x9f3a…21c0 · 18:52 · Sep 11"
+          signed="−8.00 tYACA"
           line={line}
           onAction={onAction}
           details={<a href="#e">Etherscan ↗</a>}
@@ -93,8 +93,12 @@ describe('the activity row', () => {
     const row = screen.getByTestId('row');
     // A row that waits for the user is the one drawn in colour.
     expect(row.getAttribute('data-state')).toBe('ok');
-    expect(row.textContent).toContain('8.00');
-    expect(row.textContent).toContain('18:52 · Sep 11');
+    // The kind leads; the amount is a signed figure on the right, green only when it comes in.
+    expect(screen.getByTestId('row-title').textContent).toBe('To Ethereum');
+    expect(screen.getByTestId('row-amount').textContent).toBe('−8.00 tYACA');
+    expect(screen.getByTestId('row-amount').className).not.toContain('text-ok');
+    expect(row.querySelector('[data-slot=row-kind]')?.getAttribute('data-kind')).toBe('out');
+    expect(row.textContent).toContain('0x9f3a…21c0 · 18:52 · Sep 11');
     expect(screen.getByTestId('crossing-word').textContent).toBe('ready to claim');
     expect(screen.getByTestId('row-line').textContent).toMatch(/^Ready\./);
     expect(row.querySelector('[data-variant="inline"]')).toBeTruthy();
@@ -123,19 +127,19 @@ describe('the activity row', () => {
     render(
       <ul>
         <ActivityRow
-          amount="3.50"
-          unit="tYACA"
-          direction="→ V6"
-          when="Sep 14"
+          kind="ahead"
+          title="Sent ahead to V6"
+          meta="Sep 14"
+          signed="−3.50 tYACA"
           line={line}
           onAction={onAction}
           data-testid="row"
         />
         <ActivityRow
-          amount="0.50"
-          unit="YACA"
-          direction="→ here"
-          when="Sep 1"
+          kind="in"
+          title="From Ethereum"
+          meta="found on Ethereum · Sep 1"
+          signed="+0.50 tYACA"
           line={line}
           collapsed
           data-testid="old"
@@ -150,7 +154,8 @@ describe('the activity row', () => {
     fireEvent.click(screen.getByTestId('row-redeem'));
     expect(onAction).toHaveBeenCalledWith('redeem');
     const old = screen.getByTestId('old');
-    expect(old.textContent).toContain('0.50');
+    expect(old.textContent).toContain('From Ethereum');
+    expect(old.querySelector('[data-testid=row-amount]')?.className).toContain('text-ok');
     expect(old.textContent).not.toContain('Held on Ethereum');
     expect(old.querySelector('[data-slot="trail"]')).toBeNull();
   });

@@ -18,7 +18,7 @@ export const powerLabels = (cores: number): { eco: number; balanced: number; max
   return { eco: Math.max(1, Math.ceil(max / 4)), balanced: Math.max(1, Math.ceil(max / 2)), max };
 };
 
-/** On few cores two labels share a value; they share a position too, or they would overlap. */
+/** On few cores two presets share a value; they share a button too. */
 const mergedLabels = (labels: ReturnType<typeof powerLabels>): { names: string; threads: number }[] => {
   const byThreads = new Map<number, string[]>();
   for (const k of ['eco', 'balanced', 'max'] as const)
@@ -31,14 +31,17 @@ export function PowerSlider({
   threads,
   onChange,
   readout,
+  label = 'power',
   disabled,
   className,
 }: {
   cores: number;
   threads: number;
   onChange: (threads: number) => void;
-  /** The measured rate, e.g. "18.4 / min"; the readout is never a prediction. */
+  /** The measured rate, e.g. "18.4 proofs/min"; the readout is never a prediction. */
   readout?: React.ReactNode;
+  /** What the threads are, where "power" alone would not say (Settings: "browser threads"). */
+  label?: string;
   /** The setting is kept but not in force (another prover decides the threads): shown dimmed, not editable. */
   disabled?: boolean;
   className?: string;
@@ -46,7 +49,7 @@ export function PowerSlider({
   const { min, max } = powerRange(cores);
   const labels = powerLabels(cores);
   const value = clampThreads(threads, cores);
-  const pct = (t: number) => (max === min ? 0 : ((t - min) / (max - min)) * 100);
+  const presets = mergedLabels(labels);
   const id = React.useId();
   return (
     <div
@@ -56,7 +59,7 @@ export function PowerSlider({
     >
       <div className="flex items-baseline justify-between gap-3">
         <label htmlFor={id} className="label-mono">
-          power
+          {label}
         </label>
         <span className="font-mono text-2xs tracking-[0.04em] text-ink-3">
           {value} {value === 1 ? 'thread' : 'threads'}
@@ -75,22 +78,28 @@ export function PowerSlider({
         aria-valuetext={`${value} of ${max} threads`}
         className="w-full accent-uv disabled:cursor-not-allowed"
       />
-      <div className="relative h-8 font-mono text-2xs text-ink-2" aria-hidden>
-        {mergedLabels(labels).map(({ names, threads: t }) => {
-          const at = pct(t);
-          const edge = at <= 0 ? 'left-0' : at >= 100 ? 'right-0' : '-translate-x-1/2';
-          return (
-            <span
-              key={names}
-              data-slot="power-label"
-              data-on={t === value ? '' : undefined}
-              className={cn('absolute whitespace-nowrap', edge, t === value && 'text-uv-2')}
-              style={edge === '-translate-x-1/2' ? { left: `${at}%` } : undefined}
-            >
-              {names} · {t}
-            </span>
-          );
-        })}
+      {/* Placed at their value on the track, two presets a few threads apart printed over each other. */}
+      <div
+        className="grid gap-1.5"
+        style={{ gridTemplateColumns: `repeat(${presets.length}, minmax(0, 1fr))` }}
+      >
+        {presets.map(({ names, threads: t }) => (
+          <button
+            key={names}
+            type="button"
+            data-slot="power-preset"
+            data-on={t === value ? '' : undefined}
+            aria-pressed={t === value}
+            disabled={disabled}
+            onClick={() => onChange(t)}
+            className={cn(
+              'h-[26px] rounded-[5px] border border-line font-mono text-[11px] font-medium text-ink-2 outline-none hover:border-line-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none',
+              t === value && 'border-uv/60 bg-uv-dim text-uv-2 hover:border-uv/60 hover:text-uv-2',
+            )}
+          >
+            {names}
+          </button>
+        ))}
       </div>
     </div>
   );

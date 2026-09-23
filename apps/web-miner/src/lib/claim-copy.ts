@@ -57,8 +57,17 @@ export function winNote(
   return { text: ended(c), tone: 'warn', ...(c.retry && { action: 'Retry' }) };
 }
 
-/** A minted line's settlement, after the block: final once its epoch is proven, or pruned with it. */
-export const settlementSuffix = (
-  settled: 'pending' | 'settled' | 'pruned' | undefined,
-): string | undefined =>
-  settled === 'settled' ? 'final' : settled === 'pruned' ? 'pruned: its epoch was never proven' : undefined;
+type Settlement = 'pending' | 'settled' | 'pruned' | undefined;
+
+/** A minted line's settlement, after the block: settling until its epoch is proven, then final, or pruned with it. */
+export const settlementSuffix = (settled: Settlement): string | undefined =>
+  settled === 'pending'
+    ? 'settling'
+    : settled === 'settled'
+      ? 'final'
+      : settled === 'pruned'
+        ? 'pruned: its epoch was never proven'
+        : undefined;
+
+export const settlementTitle = (settled: Settlement): string | undefined =>
+  settled === 'pending' ? 'Final once its epoch is proven.' : undefined;

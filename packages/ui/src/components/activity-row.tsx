@@ -1,6 +1,7 @@
+import { ArrowDownIcon, ArrowRightIcon, ArrowUpIcon } from 'lucide-react';
 import type * as React from 'react';
 import { useState } from 'react';
-import type { RowAction, RowLine } from '../bridge-types.ts';
+import type { RowAction, RowKind, RowLine } from '../bridge-types.ts';
 import { cn } from '../lib/cn.ts';
 import { Button } from './button.tsx';
 import { Progress } from './progress.tsx';
@@ -13,12 +14,34 @@ function RowProgress({ value, collapsed }: { value: number | undefined; collapse
   return <Progress value={value * 100} className="col-span-full" data-testid="row-progress" />;
 }
 
-export interface ActivityRowProps extends Omit<React.ComponentProps<'li'>, 'children' | 'onClick'> {
-  amount: React.ReactNode;
-  unit: React.ReactNode;
-  /** Where it goes and with whom: "→ Ethereum · 0x90F7…b906", in small mono beside the amount. */
-  direction: React.ReactNode;
-  when: React.ReactNode;
+const KIND_ICON = { in: ArrowDownIcon, out: ArrowUpIcon, ahead: ArrowRightIcon } as const;
+
+/** Which way the money moves, as seen from this balance: the first thing the row says. */
+function KindIcon({ kind }: { kind: RowKind }) {
+  const Icon = KIND_ICON[kind];
+  return (
+    <span
+      aria-hidden
+      data-slot="row-kind"
+      data-kind={kind}
+      className={cn(
+        'inline-flex size-[30px] items-center justify-center rounded-[7px] border',
+        kind === 'in' ? 'border-ok/40 text-ok' : 'border-line-2 text-ink-2',
+      )}
+    >
+      <Icon className="size-[15px]" strokeWidth={1.8} />
+    </span>
+  );
+}
+
+export interface ActivityRowProps extends Omit<React.ComponentProps<'li'>, 'children' | 'onClick' | 'title'> {
+  kind: RowKind;
+  /** The kind in words: "From Ethereum", "To Ethereum", "Sent ahead to V6". */
+  title: React.ReactNode;
+  /** Small mono under the title: the other party when one is known, and when. */
+  meta: React.ReactNode;
+  /** The amount as this balance sees it: "+2 tYACA", "−25 tYACA". */
+  signed: React.ReactNode;
   line: RowLine;
   onAction?: (kind: RowAction) => void;
   /** What Details opens: the links, the deadline, the recovery file. */
@@ -29,12 +52,47 @@ export interface ActivityRowProps extends Omit<React.ComponentProps<'li'>, 'chil
   collapsed?: boolean;
 }
 
-/** One crossing, the same shape whichever way it crosses; every word comes from `line`. */
+/** What the row leads with: the kind and whom it is with on the left, the signed amount and its word on the right. */
+function RowHead({
+  kind,
+  title,
+  meta,
+  signed,
+  chip,
+}: Pick<ActivityRowProps, 'kind' | 'title' | 'meta' | 'signed'> & { chip: RowLine['chip'] }) {
+  return (
+    <>
+      <KindIcon kind={kind} />
+      <div className="min-w-0">
+        <p className="m-0 text-[15px] font-semibold leading-[1.2] tracking-[-0.01em]" data-testid="row-title">
+          {title}
+        </p>
+        <p className="mt-[3px] font-mono text-2xs text-ink-3">{meta}</p>
+      </div>
+      <div className="flex flex-col items-end gap-2">
+        <span
+          className={cn(
+            'whitespace-nowrap text-[15px] font-semibold leading-[1.2] tracking-[-0.01em] tabular-nums',
+            kind === 'in' && 'text-ok',
+          )}
+          data-testid="row-amount"
+        >
+          {signed}
+        </span>
+        <StatusChip tone={chip.tone} data-testid="crossing-word">
+          {chip.word}
+        </StatusChip>
+      </div>
+    </>
+  );
+}
+
+/** One crossing, the same shape whichever way it crosses. */
 export function ActivityRow({
-  amount,
-  unit,
-  direction,
-  when,
+  kind,
+  title,
+  meta,
+  signed,
   line,
   onAction,
   details,
@@ -51,31 +109,21 @@ export function ActivityRow({
       data-slot="activity-row"
       data-state={line.chip.tone}
       className={cn(
-        'grid grid-cols-[1fr_auto] items-start gap-x-4 gap-y-2 rounded-[8px] border bg-raised px-3.5 py-3',
+        'grid grid-cols-[30px_1fr_auto] items-start gap-x-3.5 gap-y-2 rounded-[8px] border bg-raised px-3.5 py-3',
         needsUser ? 'border-uv' : 'border-line',
         className,
       )}
       {...props}
     >
-      <div className="min-w-0">
-        <p className="m-0 text-[15px] font-semibold leading-[1.2] tracking-[-0.01em]">
-          {amount}{' '}
-          <small className="font-mono text-xs font-normal tracking-normal text-ink-3">
-            {unit} {direction}
-          </small>
+      <RowHead kind={kind} title={title} meta={meta} signed={signed} chip={line.chip} />
+      {!collapsed && (
+        <p
+          className="col-span-full m-0 text-pretty text-[13px] leading-[1.45] text-ink-2"
+          data-testid="row-line"
+        >
+          {line.sentence}
         </p>
-        {!collapsed && (
-          <p className="mt-0.5 text-pretty text-[13px] leading-[1.45] text-ink-2" data-testid="row-line">
-            {line.sentence}
-          </p>
-        )}
-      </div>
-      <div className="flex flex-col items-end gap-2">
-        <StatusChip tone={line.chip.tone} data-testid="crossing-word">
-          {line.chip.word}
-        </StatusChip>
-        <span className="whitespace-nowrap font-mono text-2xs text-ink-3">{when}</span>
-      </div>
+      )}
       <RowProgress value={line.progress} collapsed={collapsed} />
       {!collapsed && line.trail.length > 0 && (
         <Trail items={line.trail} variant="inline" className="col-span-full mt-0.5" />

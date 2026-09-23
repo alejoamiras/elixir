@@ -1,7 +1,8 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, test } from 'bun:test';
 import type { Crossing } from '@yacana/bridge/journal';
-import { crossingId } from '@yacana/bridge/journal';
+import { crossingId, UNKNOWN_ETH } from '@yacana/bridge/journal';
+import { type Arrived, landed } from '../src/bridge/landing.ts';
 import { BRIDGE_DB, openBridgeStore, scanNextIndex } from '../src/bridge/store.ts';
 
 const PORTAL = `0x${'be'.repeat(20)}` as const;
@@ -82,6 +83,27 @@ describe('the bridge journal store', () => {
     expect((await mine.get(c.id))?.txHash).toBe('0x1');
     await mine.put({ ...updated, state: 'dropped' });
     expect((await mine.get(c.id))?.state).toBe('dropped');
+  });
+
+  test("a deposit's event fills in the depositor on the record as stored, not as the scan last saw it", async () => {
+    const mine = openBridgeStore(scope);
+    const depositor = `0x${'d0'.repeat(20)}` as const;
+    const base = { ...make('6')(0), kind: 3 as const };
+    const k3 = { ...base, id: crossingId(base), inboxIndex: '44', l1TxHash: '0xd1' as const };
+    // The journal is further along than the scan's picture of the deposit, and holds the placeholder.
+    await mine.put({ ...k3, state: 'minted-l2', claimTxHash: '0xc', ethAddress: UNKNOWN_ETH });
+    const dep: Arrived = {
+      id: k3.id,
+      amount: 1n,
+      fact: { deposited: { txHash: '0xd1', inboxIndex: '44' } },
+      destination: '6',
+      sender: depositor,
+      crossing: () => ({ ...k3, state: 'deposited', ethAddress: depositor }),
+    };
+    const { crossing, added } = await mine.adopt(dep.crossing(9), (stored) => landed(stored, dep, 9));
+    expect(added).toBe(false);
+    expect(crossing).toMatchObject({ state: 'minted-l2', claimTxHash: '0xc', ethAddress: depositor });
+    expect(await mine.get(k3.id)).toEqual(crossing);
   });
 
   test('a version-1 journal keyed by id alone comes through the upgrade', async () => {

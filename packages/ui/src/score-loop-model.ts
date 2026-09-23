@@ -10,6 +10,21 @@ export interface Sample {
   win?: boolean;
   /** The epoch the proof was scored in, for the tick where the bar stepped. */
   epoch?: number;
+  /** What a hover says of the proof: its number in the epoch, its proving time, its wall clock (ms). */
+  n?: number;
+  proveMs?: number;
+  at?: number;
+}
+
+/**
+ * A claim on the samples' clock, from the win to its end: open while `t1` is null. `id` is the win line it
+ * annotates (null when the win came without one), which is how a later reconciliation finds it.
+ */
+export interface ClaimSpan {
+  id: number | null;
+  t0: number;
+  t1: number | null;
+  outcome?: 'minted' | 'failed';
 }
 
 const barOf = (s: Sample, difficulty: number | null): number | null => s.bar ?? difficulty;
@@ -90,6 +105,112 @@ export const labelsCollide = (yBar: number, yBase: number, fontPx: number): bool
 /** The left margin a right-aligned axis label needs: its measured width plus the gap on both sides, never under the floor. */
 export const marginFor = (labelWidth: number, floor: number, gap = 8): number =>
   Math.max(floor, Math.ceil(labelWidth) + 2 * gap);
+
+/** The plot's x axis as one frame drew it: what a pointer is hit-tested against. */
+export interface PlotGeometry {
+  left: number;
+  right: number;
+  now: number;
+  span: number;
+}
+
+/** The axis title is set vertically in the margin and needs its own column. */
+export const TITLE_COLUMN = 14;
+
+/**
+ * `labelWidth` is the canvas's measured width of the widest axis label and `now` the frame's time: both come
+ * in, so the function stays pure.
+ */
+export const plotGeometry = (g: {
+  width: number;
+  labelWidth: number;
+  floor: number;
+  now: number;
+  spanMs: number;
+  titled?: boolean;
+}): PlotGeometry => ({
+  left: marginFor(g.labelWidth, g.floor) + (g.titled ? TITLE_COLUMN : 0),
+  right: g.width - 14,
+  now: g.now,
+  span: g.spanMs,
+});
+
+/** A time on the samples' clock to its pixel; outside [left, right] when outside the window. */
+export const xAt = (g: PlotGeometry, t: number): number =>
+  g.left + (1 - (g.now - t) / g.span) * (g.right - g.left);
+
+const inWindow = (g: PlotGeometry, t: number): boolean => g.now - t <= g.span && g.now - t >= 0;
+
+/** Calm: the ordinary proofs in view, oldest first. Drawn as one path, so ticks that overlap cannot add up. */
+export const calmTicks = (
+  samples: readonly Sample[],
+  difficulty: number | null,
+  g: PlotGeometry,
+): { x: number; s: Sample }[] =>
+  samples.filter((s) => inWindow(g, s.t) && !won(s, difficulty)).map((s) => ({ x: xAt(g, s.t), s }));
+
+export interface SpanBox {
+  x0: number;
+  x1: number;
+  /** The claim began inside the window: its left edge is the win, not the plot's. */
+  opened: boolean;
+  /** Still running: its right edge rides "now". */
+  live: boolean;
+  outcome?: ClaimSpan['outcome'];
+  /** How long the claim has taken, or took. */
+  ms: number;
+}
+
+/** The claims in view, clipped to the plot; one that ended before the window began is gone. */
+export const spanBoxes = (spans: readonly ClaimSpan[], g: PlotGeometry): SpanBox[] =>
+  spans.flatMap((c) => {
+    const end = c.t1 ?? g.now;
+    const x1 = Math.min(g.right, xAt(g, end));
+    if (x1 <= g.left || c.t0 > g.now) return [];
+    return [
+      {
+        x0: Math.max(g.left, xAt(g, c.t0)),
+        x1,
+        opened: xAt(g, c.t0) >= g.left,
+        live: c.t1 === null,
+        ...(c.outcome && { outcome: c.outcome }),
+        ms: Math.max(0, end - c.t0),
+      },
+    ];
+  });
+
+/** The proof in view nearest to `x`, within `reach` pixels of it; null when none is. */
+export function nearestSample(
+  samples: readonly Sample[],
+  g: PlotGeometry,
+  x: number,
+  reach = 10,
+): Sample | null {
+  let best: Sample | null = null;
+  let distance = reach;
+  for (const s of samples) {
+    if (!inWindow(g, s.t)) continue;
+    const d = Math.abs(xAt(g, s.t) - x);
+    if (d <= distance) {
+      best = s;
+      distance = d;
+    }
+  }
+  return best;
+}
+
+/** The proof one step older (-1) or newer (+1) than `from` among those in view; the newest when `from` is none of them. */
+export function stepSample(
+  samples: readonly Sample[],
+  g: PlotGeometry,
+  from: Sample | null,
+  by: -1 | 1,
+): Sample | null {
+  const seen = samples.filter((s) => inWindow(g, s.t));
+  const i = from === null ? -1 : seen.findIndex((s) => s.t === from.t);
+  if (i < 0) return seen[seen.length - 1] ?? null;
+  return seen[Math.min(seen.length - 1, Math.max(0, i + by))] ?? null;
+}
 
 export interface LabelBox {
   x0: number;

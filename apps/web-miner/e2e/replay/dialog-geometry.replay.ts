@@ -1,4 +1,4 @@
-import { openDialog, virtualAuthenticator } from '../helpers.ts';
+import { dialogOverflow, openDialog, virtualAuthenticator } from '../helpers.ts';
 import { expect, type Page, test } from './fixtures.ts';
 
 /**
@@ -7,18 +7,13 @@ import { expect, type Page, test } from './fixtures.ts';
  * it, its bottom inside the viewport, and the screen's primary reachable by the dialog's scroll.
  */
 async function fits(page: Page, primary: string) {
+  const over = await dialogOverflow(page);
   const box = await page.evaluate(() => {
-    const d = document.querySelector('[data-testid=sign-in]') as HTMLElement;
-    const r = d.getBoundingClientRect();
-    return {
-      page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      inner: d.scrollWidth - d.clientWidth,
-      width: Math.round(r.width),
-      bottom: r.bottom,
-    };
+    const r = (document.querySelector('[data-testid=sign-in]') as HTMLElement).getBoundingClientRect();
+    return { width: Math.round(r.width), bottom: r.bottom };
   });
-  expect(box.page).toBeLessThanOrEqual(0);
-  expect(box.inner).toBeLessThanOrEqual(0);
+  expect(over.page).toBeLessThanOrEqual(0);
+  expect(over.inner).toBeLessThanOrEqual(0);
   expect(box.width).toBe(440);
   expect(box.bottom).toBeLessThanOrEqual(720);
   const button = page.getByTestId(primary);

@@ -32,7 +32,7 @@ type Controls = { controller: () => MinerController | undefined; onStart: () => 
 const WINDOW_MS = 180_000;
 
 /** The mini window: the state and Stop, the last minute of the loop as a strip, then rate · epoch · wins. */
-function PipView({ controller, onStart, win }: Controls & { win: Window }) {
+export function PipView({ controller, onStart, win }: Controls & { win: Window }) {
   const miner = useAtomValue(minerAtom);
   const epoch = useAtomValue(epochAtom);
   const now = useAtomValue(nowAtom);
@@ -60,6 +60,7 @@ function PipView({ controller, onStart, win }: Controls & { win: Window }) {
         calm
         difficulty={bar}
         samples={miner.samples}
+        spans={miner.claimSpans}
         winAt={miner.winAt}
         height={48}
         spanMs={60_000}
@@ -224,6 +225,15 @@ function RateLine({ native, miner, perProof }: { native: boolean; miner: MinerSt
   );
 }
 
+/** What reaching the bar means, and how often a proof does: a score of S comes up about once in S proofs. */
+export const barCaption = (bar: number | null): string | undefined => {
+  if (bar === null) return undefined;
+  const odds = Math.round(bar);
+  return odds < 2
+    ? 'the bar · reach it and you win'
+    : `the bar · reach it and you win · about 1 in ${odds} do`;
+};
+
 /** The header row is a fixed-height status line with the claim's chip; the stepper lives in the rail. */
 export function LoopTile({ controller, onStart, className }: Controls & { className?: string }) {
   const boot = useAtomValue(bootAtom);
@@ -264,6 +274,9 @@ export function LoopTile({ controller, onStart, className }: Controls & { classN
         calm
         difficulty={bar}
         samples={miner.samples}
+        spans={miner.claimSpans}
+        axisTitle="score · log scale"
+        barCaption={barCaption(bar)}
         winAt={miner.winAt}
         since={miner.sinceT ?? undefined}
         height={230}

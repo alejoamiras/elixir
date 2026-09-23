@@ -54,7 +54,7 @@ function Details({ r }: { r: ActivityRowView }) {
     <>
       {c.l1TxHash && (
         <ExternalLink href={l1Links.tx(c.l1TxHash)} full={c.l1TxHash}>
-          Etherscan ↗
+          Etherscan
         </ExternalLink>
       )}
       {c.block !== undefined && (
@@ -65,7 +65,7 @@ function Details({ r }: { r: ActivityRowView }) {
       {c.epoch !== undefined && <span>epoch {c.epoch}</span>}
       {c.claimTxHash && (
         <ExternalLink href={links.tx(c.claimTxHash)} full={c.claimTxHash}>
-          claim ↗
+          claim
         </ExternalLink>
       )}
       {r.deadline && <span>can leave {r.deadline}</span>}
@@ -95,10 +95,10 @@ function Row({
   };
   return (
     <ActivityRow
-      amount={r.amount}
-      unit={r.unit}
-      direction={r.direction}
-      when={r.when}
+      kind={r.kind}
+      title={r.title}
+      meta={r.meta}
+      signed={r.signed}
       line={r.line}
       collapsed={r.collapsed}
       onAction={act}

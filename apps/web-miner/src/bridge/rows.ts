@@ -1,28 +1,68 @@
 // The Wallet's one reading of the journal: the badge's count, each row's action and the money
 // buttons' reasons derive together here, so none can disagree with the rows under it.
 import { dayOf, deadlinePhrase } from '@yacana/bridge/exit-deadline';
-import { type Crossing, destinationOf, FADE_AFTER_MS, inFlight, type RowState } from '@yacana/bridge/journal';
+import {
+  type Crossing,
+  destinationOf,
+  FADE_AFTER_MS,
+  inFlight,
+  knownEth,
+  type RowState,
+} from '@yacana/bridge/journal';
 import { PARAMS } from '@yacana/miner-core/generated/params';
-import type { RowLine } from '@yacana/ui';
+import type { RowKind, RowLine } from '@yacana/ui';
 import { amount as fmt, shortAddress } from '../lib/format';
 import type { ProverKind } from '../presto';
 import type { BridgeView, VersionFacts } from '../state';
-import { chainName, rowLine, stamp, takingLong, whoOf } from './copy';
+import { chainName, rowLine, stamp, takingLong } from './copy';
 import { isOldRole, lifecycleRecord, nextVersionName, versionNameOf } from './env';
 
 /** YACA on Ethereum; the private token here keeps the profile's symbol. */
 const L1_SYMBOL = 'YACA';
 
-/** The unit the amount is printed in: the side the money is on when the crossing starts. */
-const unitOf = (c: Crossing): string => (c.kind === 3 ? L1_SYMBOL : PARAMS.TOKEN_SYMBOL);
+/**
+ * A send-ahead is two rows in two places: money leaving on the version that sent it, money arriving on
+ * the version it was forwarded to. This is the second one.
+ */
+const arrivesHere = (c: Crossing, ownVersion: string): boolean =>
+  c.kind === 2 && c.version !== ownVersion && c.target === ownVersion;
+
+const kindOf = (c: Crossing, ownVersion: string): RowKind => {
+  if (c.kind === 3 || arrivesHere(c, ownVersion)) return 'in';
+  return c.kind === 1 ? 'out' : 'ahead';
+};
+
+/** The kind in words, which is what the row leads with: a deposit must not read like a mining claim. */
+const titleOf = (c: Crossing, target: string, view: BridgeView, ownVersion: string): string => {
+  if (c.kind === 1) return 'To Ethereum';
+  if (c.kind === 3) return 'From Ethereum';
+  return arrivesHere(c, ownVersion)
+    ? `From ${versionNameOf(c.version, view.canonical)}`
+    : `Sent ahead to ${target}`;
+};
+
+/** The amount as this balance sees it, in this balance's unit whichever side the crossing started on. */
+const signedOf = (c: Crossing, kind: RowKind): string =>
+  `${kind === 'in' ? '+' : '−'}${fmt(BigInt(c.amount), PARAMS.DECIMALS)} ${PARAMS.TOKEN_SYMBOL}`;
+
+/**
+ * The Ethereum address the row names: an exit's recipient, a deposit's sender. A deposit found on-chain
+ * before its event was read has none on record and says so; a send-ahead names nobody.
+ */
+const senderOf = (c: Crossing): string | undefined => {
+  if (c.kind === 2) return undefined;
+  const eth = knownEth(c);
+  return eth ? shortAddress(eth) : 'found on Ethereum';
+};
 
 export interface ActivityRowView {
   c: Crossing;
   line: RowLine;
-  amount: string;
-  unit: string;
-  direction: string;
-  when: string;
+  kind: RowKind;
+  title: string;
+  /** The other party when the row names one, then when it began. */
+  meta: string;
+  signed: string;
   /** Past its week: the row keeps its place and its amount, folded to one line. */
   collapsed: boolean;
   /** The version's last day as Details tell it, while an exit or a send-ahead is still on its way out. */
@@ -69,9 +109,11 @@ const elapsedOf = (
   return state === 'proving' ? (now - c.createdAt) / 1000 : undefined;
 };
 
-/** The Ethereum party a sentence names; a redeem's recipient only once the record knows it. */
-const partyOf = (c: Crossing): string | undefined =>
-  c.kind === 2 ? (c.recipient ? shortAddress(c.recipient) : undefined) : shortAddress(c.ethAddress);
+/** The Ethereum party a sentence names; a redeem's recipient only once the record knows it, a depositor only when read. */
+const partyOf = (c: Crossing): string | undefined => {
+  const eth = c.kind === 2 ? c.recipient : knownEth(c);
+  return eth && shortAddress(eth);
+};
 
 /**
  * The standing and deadline a crossing is judged under: its own version's. A V5 send viewed on V6
@@ -167,10 +209,10 @@ export function activity(
       return {
         c,
         line,
-        amount: fmt(BigInt(c.amount), PARAMS.DECIMALS),
-        unit: unitOf(c),
-        direction: whoOf(c, shortAddress, target),
-        when: stamp(c.createdAt),
+        kind: kindOf(c, env.ownVersion),
+        title: titleOf(c, target, view, env.ownVersion),
+        meta: [senderOf(c), stamp(c.createdAt)].filter(Boolean).join(' · '),
+        signed: signedOf(c, kindOf(c, env.ownVersion)),
         collapsed: line.chip.tone === 'dim' && now - c.updatedAt > FADE_AFTER_MS,
         deadline:
           c.kind !== 3 && inFlight(c) ? deadlinePhrase(own?.deadline, afterOf(view, flipped)) : undefined,

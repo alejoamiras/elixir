@@ -285,7 +285,7 @@ function Sent({
           className="text-uv-2"
           data-testid="sent-tx"
         >
-          transaction ↗
+          transaction
         </ExternalLink>
       </Foot>
       <Actions>

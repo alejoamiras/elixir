@@ -137,9 +137,14 @@ test('on V5: a words account mines one claim, exits to Ethereum (forwarded and m
   await shot(page, 'from-ethereum-preflip');
   await page.getByTestId('deposit-go').click();
   await expect(page.getByTestId('deposit-done')).toBeVisible({ timeout: 2 * 60_000 });
+  // The wallet that sent it is the user's own: the step says what happened, not whose wallet it was.
+  await expect(page.getByTestId('deposit-done')).toContainText('Deposit sent');
   await shot(page, 'from-ethereum-sent');
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(rows(page, 3)).toHaveCount(1);
+  // The row leads with its kind and a signed amount, so a deposit cannot read as a mining claim.
+  await expect(rows(page, 3).getByTestId('row-title')).toHaveText('From Ethereum');
+  await expect(rows(page, 3).getByTestId('row-amount')).toHaveText(/^\+0\.5 /);
   await shot(page, 'arrival-on-its-way');
   await ctl.nudge();
   await expect(page.getByTestId('row-claim')).toHaveText('Claim', { timeout: 3 * 60_000 });

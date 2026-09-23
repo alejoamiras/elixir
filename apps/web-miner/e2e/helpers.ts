@@ -97,6 +97,31 @@ export async function openDialog(page: Page): Promise<void> {
   await expect(screen).toBeVisible({ timeout: 10_000 });
 }
 
+/**
+ * The dialog's sideways overflow with the running step's right cell reading `text`. The text node's
+ * data is swapped and restored inside one task: React keeps its node and no render lands between.
+ */
+export const dialogOverflowWithRight = (page: Page, text: string): Promise<number> =>
+  page.evaluate((long) => {
+    const d = document.querySelector('[data-testid=sign-in]') as HTMLElement;
+    const node = d.querySelector('[data-state=active] [data-slot=step-right]')?.firstChild as Text;
+    const was = node.data;
+    node.data = long;
+    const over = d.scrollWidth - d.clientWidth;
+    node.data = was;
+    return over;
+  }, text);
+
+/** Horizontal overflow, in px, of the page and of the account dialog's own box; none is ≤ 0. */
+export const dialogOverflow = (page: Page): Promise<{ page: number; inner: number }> =>
+  page.evaluate(() => {
+    const d = document.querySelector('[data-testid=sign-in]') as HTMLElement;
+    return {
+      page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      inner: d.scrollWidth - d.clientWidth,
+    };
+  });
+
 export async function passKeyScreen(page: Page): Promise<void> {
   await openDialog(page);
   const open = page.getByTestId('open-key');

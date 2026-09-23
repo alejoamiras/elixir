@@ -529,7 +529,9 @@ export class MinerController {
   }
 
   private dispatch(event: Event) {
-    const [state, commands] = reduce(this.store.get(minerAtom), event);
+    // One clock for the chart: most events arrive with a wall clock or nothing, and a claim's span needs both ends.
+    const stamped = event.t === undefined ? { ...event, t: performance.now() } : event;
+    const [state, commands] = reduce(this.store.get(minerAtom), stamped);
     this.store.set(minerAtom, state);
     for (const c of commands) this.execute(c);
   }
