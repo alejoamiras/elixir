@@ -6,7 +6,7 @@ eli5_mode: artifact
 code_review: off
 hardening: none (no new trust boundary; the hosted Stats reads only what the miner's guard already admits — the realm it joins is recorded in §4)
 budget: "recon 3 agents (Stats mapper, miner sweep, landing and Stats sweep); codex at high (GPT-6 Astra); the Claude leg on Opus 5.5 (the owner prefers it to Fable); code-review off (owner, 2026-09-23)"
-status: awaiting owner approval (2026-09-23); round-1 audits folded (codex reject, Opus conditional approve); final codex pass approve on round 3
+status: approved by the owner 2026-09-23 with conditions (§2 "At approval"); codex final pass approve (round 3); Opus conditional approve, folded
 created: 2026-09-23
 ---
 
@@ -65,13 +65,19 @@ Defaults this plan chose where the canvas is silent (each in the ledger, §8; co
 - The flywheel copy says "speedups that land in Barretenberg", never "miners improve Barretenberg": the retarget
   cancels a public speedup and pays for a private one (raised with the owner 2026-09-23).
 
+At approval (owner, 2026-09-23): the defaults above confirmed; the live download progress ("13.0 of 20 MB") stays;
+the landing's reassurance line drops its gas clause; the old origin's bar takes the Lucide icons too. Asks 4–7 were
+not objected to and stand at their defaults.
+
 ## 3. Architecture & Implementation
 
 ### 3.1 Words, icons, the small fixes (arc 1)
 
 **Icons.** `packages/ui/src/components/icons.tsx` keeps its API (`Icon({ name, size })`, `data-icon`); its glyphs
 become Lucide components at `strokeWidth={1.5}`: `mine → Pickaxe`, `wallet → Wallet`, `stats → ChartColumn`,
-`verify → ShieldCheck`, `settings → Settings`, `finger → FingerprintPattern`. No consumer changes.
+`verify → ShieldCheck`, `settings → Settings`, `finger → FingerprintPattern`. No consumer changes. The old origin's
+bar (`oldTabs`: Send ahead on `mine`, Stats on `stats`, `lib/tabs.ts`) draws through the same `Icon`, so it takes the
+same glyphs (owner, 2026-09-23).
 
 **Words.** One module owns the miner's difficulty sentences, `apps/web-miner/src/lib/words.ts` (the epoch tips, the
 difficulty tip with its live number, the chart's popover, the empty caption, the mini window's tooltip "About one
@@ -228,7 +234,11 @@ flywheel is `apps/web-landing/src/sections/Why.tsx`, section id `why`, between H
 - below `md`, the same four steps as How's numbered list;
 - `role="img"` with a label naming the four steps in ring order; its own test id (`why-loop`), because two tests
   count `rule-diagram`.
-The download size leaves the landing's reassurance (`copy.ts:45`) and the preflight caption (`PreflightTile.tsx:10`).
+The download size leaves the landing's reassurance (`copy.ts:45`) and the preflight caption (`PreflightTile.tsx:10`);
+the reassurance reads "A standard Aztec token: private notes, private transfers. Mining needs a desktop browser." (the
+canvas's line without its gas clause, owner 2026-09-23). The miner's live download progress stays. "No testnet talk"
+also reaches the bar's button: "Mine on testnet" becomes "Open the miner", the landing's own label for that link
+(`copy.ts:38,214`); the network badge (`sections/Bar.tsx:18`) stays — it names the network the page reads.
 
 ### 3.4 One surface: Stats inside the miner (arcs 4a and 4b)
 
@@ -490,7 +500,7 @@ pin applies, the Ethereum slot (10 s); creates the store, the node client and th
    that prunes a checkpoint after that is out of scope: the balance, which the PXE syncs, stays right; only the win
    line could be wrong.
 
-### Asks (for the approval)
+### Asks (answered at approval, 2026-09-23: 1 keep; 2 drop the gas clause; 3 confirmed; 4–7 defaults stand)
 1. **The live download progress** ("13.0 of 20 MB" while the proving keys download) — keep it (it measures; the
    plan's default) or remove it too ("no download size anywhere").
 2. **"no gas on testnet"** in the landing's reassurance line, which the canvas kept although "no testnet talk" — the
@@ -536,7 +546,7 @@ inventory).
 ### Arc 1 — words, icons, the small fixes
 
 **P1 · Lucide icons.** §3.1. Gate: fast layers; `header.vitest.tsx` asserts each tab's Lucide glyph instead of counting
-paths. Layers: lint, typecheck, unit.
+paths, and `shell.vitest.tsx`'s old-origin case asserts the same glyphs on `oldTabs`. Layers: lint, typecheck, unit.
 
 **P2 · One word: difficulty.** §3.1, every row of `Words-Deck` and `Words-Tiles`, Stats' "wins". Gate: fast layers with
 the moved specs (`cockpit.vitest.tsx`, `loop-tile.vitest.tsx`, `ui` `score-loop.vitest.tsx`, `tooltip.vitest.tsx`,
@@ -607,7 +617,9 @@ survives a reload); the replay lane green.
 
 **P6 · The landing and the flywheel.** §3.3. Gate: fast layers; a `Why` spec (four steps in ring order, the list below
 `md`, the label, its test id); `sections.vitest.tsx` updated; `landing.e2e.ts` with the `why` section and the "Why"
-anchor; `grep -rn "20 MB"` over the copy files finds nothing; `external-link-arrows` green.
+anchor; `grep -rn "20 MB"` and `grep -rn "no gas"` over the landing's copy files find nothing, the reassurance
+line is the approved text, and no reader-facing string in `copy.ts` says "testnet" (the bar's button reads "Open the
+miner"); `external-link-arrows` green.
 
 **Arc 3 gate:** fast layers; the four shards; `bun run e2e:agent -- bun run --cwd apps/web-landing test:e2e`.
 
@@ -643,7 +655,8 @@ chunk answering 404 → the boundary card, mining continues; `stats.e2e.ts`'s ba
 eight baselines regenerated (the bar and the sub-tabs) and each diff inspected.
 
 **Arc 4b gate:** everything once on the stack's top: fast layers; the four shards; web-stats e2e and visual;
-web-landing e2e; `bun run e2e:agent -- bun run site:e2e`; `bun run lint:actions`.
+web-landing e2e; `bun run e2e:agent -- bun run site:e2e`; `YACANA_APP_ROLE=old bun run site:build` (the old origin
+builds, with its bar on the Lucide icons and no stats routes); `bun run lint:actions`.
 
 ## 7. Delivery — arcs → stacked PRs
 
@@ -682,12 +695,12 @@ converges. Then `gh stack submit --auto` (drafts), `gh pr edit` bodies (ending w
 | L16 | Pre-send injection for the pruned anchor | codex 14; Opus 13 | at `sendTx` (the send is already recorded there, `wallet.ts:83-86`) | adopted |
 | L17 | Tailwind `@source` for the package in both apps, a computed-style check on `/mine/stats` | codex 15; Opus 12 | a new screenshot gate for hosted Stats (its pages are the gated components) | adopted |
 | L18 | The strip leaves on × or at the first real start | codex 10; Opus 6 | on its Start click (an abandoned sign-in dismissed it) | adopted |
-| L19 | Stats' "claims" → "wins" on screen only | default | renaming the CSV/JSON columns | owner at approval |
-| L20 | `syncChainTip` measured later | main draft | changing it here | owner at approval |
-| L21 | No Bridge icon (a text sub-tab) | canvas | an icon for a tab that leaves | owner at approval |
-| L22 | `/stats`' Mine and Wallet are same-tab links | default | new-tab links | owner at approval |
+| L19 | Stats' "claims" → "wins" on screen only | default | renaming the CSV/JSON columns | owner: yes |
+| L20 | `syncChainTip` measured later | main draft | changing it here | owner: default stands |
+| L21 | No Bridge icon (a text sub-tab) | canvas | an icon for a tab that leaves | owner: yes |
+| L22 | `/stats`' Mine and Wallet are same-tab links | default | new-tab links | owner: yes |
 | L23 | `siteTabs` in `packages/ui` | main draft; both audits | two builders with a parity test | adopted |
-| L24 | The live download progress stays | default | removing a measurement with the warnings | Ask 1 |
+| L24 | The live download progress stays | default | removing a measurement with the warnings | owner: keep |
 | L25 | Flywheel section A (the loop) | owner, 2026-09-23 | B (three facts) | owner's pick |
 | L26 | The old origin's change gated by specs (its router, `OLD_REDIRECTS`) | Opus 13 | the rig's `origin` case per arc (boots an upgrading network for a route map) | adopted |
 | L27 | Start after three failed sends is one more try while the epoch is open | canvas A | discarding the win on Start (the behaviour the owner reported) | adopted |
@@ -699,12 +712,15 @@ converges. Then `gh stack submit --auto` (drafts), `gh pr edit` bodies (ending w
 | L33 | `yieldTo` gates every read the runtime starts; windows deferred, never dropped | final codex 8 | skipping ticks only | adopted |
 | L34 | Quiet on the Ethereum path; a quiet outcome older than the cooldown is ignored | final codex 9 | node-only marking | adopted |
 | L35 | The e2e fault on `aztec_getPublicDataWitness` with a hash parameter, asserting the fault and the transition; the real-proving title in `canary.e2e.ts` | final codex 10 | an undiscovered target; a title the canary shard does not run | adopted |
-| L36 | Timing and signed-out mini window surfaced as Asks 5 and 6 | final codex 11 | leaving them implicit | owner at approval |
+| L36 | Timing and signed-out mini window surfaced as Asks 5 and 6 | final codex 11 | leaving them implicit | owner: defaults stand |
 | L37 | Count attempts from the moment one starts building; three in all | final codex r2-12 | counting sends (a failure before sending never counts: unbounded) | adopted |
 | L38 | Two lifetimes: a submission dies at its expiry, the ticket only when its epoch closes or the version retires | final codex r2-13 | "every submission expired" as an outcome (drops the secret of a win still claimable) | adopted |
 | L39 | Reverts before the epoch; "not minted" ends the ticket, not its submissions (watched for a late revert) | final codex r2-14 | the closed-epoch path first (skips the revert recovery); dropping live submissions at closure | adopted |
 | L40 | Only the foreground record resumes mining, and only if the user has not stopped; a watch never does | final codex r2-15 | "mining resumes once after settling" for every record | adopted |
 | L41 | A switch that ends while Stats is showing starts the new runtime at once | final codex r2-16 | waiting for the next showing (a disposed runtime while mounted) | adopted |
+| L42 | The old origin's bar on the Lucide icons | owner, 2026-09-23 | leaving v5 on the hand-drawn set | owner |
+| L43 | The reassurance line without its gas clause | owner (Ask 2) | "no gas on testnet" as drawn; "no gas" (may stop being true on mainnet) | owner |
+| L44 | The bar's "Mine on testnet" → "Open the miner"; the network badge stays | owner's "no testnet talk" | leaving the one testnet string the canvas missed | adopted at approval |
 
 ## 9. Audit verdicts
 
@@ -734,6 +750,9 @@ submission fate and permission to resume"). Confidence high at plan level; P4, P
 
 **Disputed, still open:** none. Rejected with reasons: a hosted screenshot gate (L17), refusing an in-flight send on
 Stop (L31).
+
+**Owner (2026-09-23): approved with conditions** — keep the live download progress; drop the gas clause; the §2
+defaults confirmed; the old origin's bar on the Lucide icons too. Asks 4–7 not objected to: defaults stand.
 
 ## 10. Post-implementation (self-contained — the implementing session executes this from here)
 
@@ -769,7 +788,7 @@ Implementation rules: comments say what the code cannot and never cite this plan
 gate; `LESSONS_FILE=implementations-plan/yacana-one-surface/lessons/phase-N.md` printed when a phase closes; three
 failures on one step (five under `/loop`) → stop and reassess with codex.
 
-## Seeds (draft — finalized after approval)
+## Seeds (final, 2026-09-23 — set exactly one per session, inside the worktree)
 
 ELI5 (the approval page): https://claude.ai/artifact/W3C8DvD83nd9W56Aw7RU2u — source
 `implementations-plan/yacana-one-surface/eli5.html` (gitignored); republish that file to keep the URL.
@@ -777,7 +796,7 @@ ELI5 (the approval page): https://claude.ai/artifact/W3C8DvD83nd9W56Aw7RU2u — 
 Recommended: `/goal` (completion is visible in the transcript).
 
 ```
-/goal All phases P1–P8 marked ✓ in implementations-plan/yacana-one-surface/plan.md (the phase headers in the file), each ✓ backed by its phase's validation gate from plan.md §6 reported passing in the transcript; for each phase the agent has printed `LESSONS_FILE=implementations-plan/yacana-one-surface/lessons/phase-N.md`; code_review is off, so /code-review was NOT run; the codex fix loop converged for each of the five arcs at its boundary and for the final cross-arc pass, each evidenced by a resumed codex pass reporting no new material findings, quoted in the transcript; the stack of five PRs exists on GitHub, created only after all loops converged (`gh stack view` output in the transcript); `bun run lint` and `bun test` both report exit 0 in the transcript.
+/goal All phases P1–P8 marked ✓ in implementations-plan/yacana-one-surface/plan.md (the phase headers in the file), each ✓ backed by its phase's validation gate from plan.md §6 reported passing in the transcript; for each phase the agent has printed `LESSONS_FILE=implementations-plan/yacana-one-surface/lessons/phase-N.md`; code_review is off, so /code-review was NOT run; the codex fix loop converged for each of the five arcs at its boundary and for the final cross-arc pass, each evidenced by a resumed codex pass reporting no new material findings, quoted in the transcript; the stack of five PRs exists on GitHub, created only after all loops converged (`gh stack view` output in the transcript), each PR's checks passing (`gh pr checks` output in the transcript); `bun run lint`, `bun run typecheck` and `bun test` each report exit 0 in the transcript.
 ```
 
 Alternative: `/loop` (use exactly one of the two per session).
