@@ -66,7 +66,8 @@ export function witnessFiles(repoDir: string): { to: string; lines: string[] }[]
 /**
  * The nested apps' deep links as exact 200 rewrites to each app's directory: Cloudflare evaluates
  * `_redirects` before static assets (a wildcard would shadow the app's bundle) and turns an
- * `.html` target into a canonical 308.
+ * `.html` target into a canonical 308. Each with its trailing slash too, which the routers read alike
+ * and which would otherwise fall through to the landing.
  */
 const MINER_LINKS: Record<Exclude<MinerRoute, 'mine'>, true> = {
   wallet: true,
@@ -78,10 +79,11 @@ const MINER_LINKS: Record<Exclude<MinerRoute, 'mine'>, true> = {
 /** The old origin's miner has no stats pages. */
 const OLD_LINKS = ['wallet', 'settings'] as const satisfies readonly (keyof typeof MINER_LINKS)[];
 const STATS_LINKS: Record<Exclude<StatsRoute, 'stats'>, true> = { verify: true, bridge: true };
+const both = (path: string, to: string): string[] => [`${path} ${to} 200`, `${path}/ ${to} 200`];
 export const REDIRECTS = [
-  ...Object.keys(MINER_LINKS).map((r) => `/mine/${r} /mine/ 200`),
-  ...Object.keys(STATS_LINKS).map((r) => `/stats/${r} /stats/ 200`),
-  '/verify /stats/ 200',
+  ...Object.keys(MINER_LINKS).flatMap((r) => both(`/mine/${r}`, '/mine/')),
+  ...Object.keys(STATS_LINKS).flatMap((r) => both(`/stats/${r}`, '/stats/')),
+  ...both('/verify', '/stats/'),
 ];
 /** The old origin's: the version's old bookmarks (`/mine/`, its deep links) land on the one app at `/`. */
 export const OLD_REDIRECTS = [

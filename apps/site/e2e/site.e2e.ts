@@ -80,6 +80,7 @@ test('one origin, three apps: every path serves its app under the same headers; 
     ['/mine/stats', 'stats'],
     ['/mine/stats/bridge', 'no-bridge'],
     ['/mine/stats/verify', 'verify'],
+    ['/mine/stats/', 'stats'],
   ] as const) {
     await page.goto(`${r.baseURL}${path}${query(r)}`);
     await expect(page.getByTestId(shown), path).toBeVisible({ timeout: 2 * 60_000 });
