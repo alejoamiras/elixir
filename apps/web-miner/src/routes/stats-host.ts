@@ -9,7 +9,7 @@ import { quietNodeClient } from '@yacana/web-kit/browser/node';
 import { currentNodeEndpoint, normaliseEndpoint } from '@yacana/web-kit/browser/node-guard';
 import { nodeHealth, type Transport } from '@yacana/web-kit/browser/node-health';
 import type { createStore } from 'jotai';
-import { type Endpoints, endpointsAtom, minerAtom } from '../state';
+import { claimCheckAtom, type Endpoints, endpointsAtom, minerAtom } from '../state';
 
 type Store = ReturnType<typeof createStore>;
 
@@ -34,6 +34,12 @@ export const hostedBusy = (
   guardNode: string | null,
   node: string,
 ): boolean => claiming || transport.kind !== 'ok' || guardNode !== normaliseEndpoint(node);
+
+/** The claim path reads the node: a claim out, the rebuild after a lost race, or a recorded win's check. */
+export const claimBusy = (store: Store): boolean => {
+  const { phase } = store.get(minerAtom);
+  return phase === 'claiming' || phase === 'recovering' || store.get(claimCheckAtom);
+};
 
 export interface Turns {
   /** Resolves when a request may leave; rejects once closed. */
@@ -101,16 +107,13 @@ export interface HostedPage {
 
 /**
  * The runtime Stats runs on `e`: every read quiet, abandoned 10 s after it leaves. Each node request waits
- * its turn, none leaving while Stats is hidden or `hostedBusy` holds; the Ethereum reads wait for neither,
- * since a claim and the node's cooldown never touch the RPC. Its start, stop and dispose show, hide and close
- * the turns.
+ * its turn, none leaving while Stats is hidden or `hostedBusy` holds; an Ethereum batch waits for
+ * `hostedBusy` only to start (a claim and the node's cooldown never touch the RPC). Its start, stop and
+ * dispose show, hide and close the turns.
  */
 export function hostedRuntime(e: Endpoints, page: HostedPage, sources?: StatsSources): StatsRuntime {
-  const claiming = () => {
-    const { phase } = page.store.get(minerAtom);
-    return phase === 'claiming' || phase === 'recovering';
-  };
-  const busy = () => hostedBusy(claiming(), nodeHealth().transport, currentNodeEndpoint(), e.nodeUrl);
+  const busy = () =>
+    hostedBusy(claimBusy(page.store), nodeHealth().transport, currentNodeEndpoint(), e.nodeUrl);
   const turns = createTurns(busy);
   const runtime = createStatsRuntime(
     {

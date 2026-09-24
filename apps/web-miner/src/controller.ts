@@ -36,7 +36,7 @@ import {
   txProvingAtom,
 } from './presto';
 import { settingsAtom } from './settings';
-import { balanceAtom, claimsAtom, epochAtom, logAtom, minerAtom } from './state';
+import { balanceAtom, claimCheckAtom, claimsAtom, epochAtom, logAtom, minerAtom } from './state';
 import type { FromWorker, MineJob, ToWorker } from './worker-protocol';
 
 type Store = ReturnType<typeof createStore>;
@@ -970,10 +970,12 @@ export class MinerController {
       this.recheck = true;
       return this.checking;
     }
+    this.store.set(claimCheckAtom, true);
     this.checking = this.track(() => this.checkAll())
       .catch(() => {})
       .finally(() => {
         this.checking = undefined;
+        this.store.set(claimCheckAtom, false);
         if (!this.recheck) return;
         this.recheck = false;
         void this.check();

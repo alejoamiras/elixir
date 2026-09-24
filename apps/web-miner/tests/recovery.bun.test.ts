@@ -20,7 +20,7 @@ import { createStore } from 'jotai';
 import type { Deployment, Fee } from '../src/chain.ts';
 import { MinerController, type Rebound } from '../src/controller.ts';
 import { winNote } from '../src/lib/claim-copy.ts';
-import { balanceAtom, claimsAtom, minerAtom } from '../src/state.ts';
+import { balanceAtom, claimCheckAtom, claimsAtom, minerAtom } from '../src/state.ts';
 import type { SentTx, TurnOwn } from '../src/wallet.ts';
 import type { FromWorker, ToWorker } from '../src/worker-protocol.ts';
 
@@ -592,12 +592,16 @@ describe('claim recovery', () => {
     async () => {
       node.plans = [{ before: PRUNED }, { before: PRUNED }, { before: PRUNED }, { receipts: [{ block: 5 }] }];
       const c = await boot();
+      const checking: boolean[] = [];
+      store.sub(claimCheckAtom, () => checking.push(store.get(claimCheckAtom)));
       const id = win();
       await settle(() => textOf(id) === spent);
       expect(actionOf(id)).toBe('Retry');
       const reads = node.storageReads;
       await sleep(200);
       expect(node.storageReads).toBeGreaterThan(reads);
+      // Each check says so while it reads, and only then: hosted reads hold for it.
+      expect(checking.slice(0, 4)).toEqual([true, false, true, false]);
       expect([node.attempts, node.sent.length, mines(), phase()]).toEqual([3, 0, 1, 'idle']);
       expect(textOf(id)).toBe(spent);
       expect(await c.retryPendingClaim()).toBe(true);

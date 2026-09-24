@@ -12,8 +12,8 @@ import type { Connection } from '@yacana/web-kit/browser/connection';
 import { currentNodeEndpoint, setNodeEndpoint, setOriginalFetch } from '@yacana/web-kit/browser/node-guard';
 import { resetNodeHealth } from '@yacana/web-kit/browser/node-health';
 import { createStore } from 'jotai';
-import { createStatsHost, createTurns, hostedBusy, hostedRuntime } from '../src/routes/stats-host';
-import { type Endpoints, endpointsAtom, minerAtom } from '../src/state';
+import { claimBusy, createStatsHost, createTurns, hostedBusy, hostedRuntime } from '../src/routes/stats-host';
+import { claimCheckAtom, type Endpoints, endpointsAtom, minerAtom } from '../src/state';
 
 const A: Endpoints = { nodeUrl: 'http://a/', ethRpcUrl: 'http://rpc/', switching: false };
 const B: Endpoints = { ...A, nodeUrl: 'http://b/' };
@@ -113,6 +113,23 @@ describe('when a hosted request may leave', () => {
       true,
       true,
     ]);
+  });
+
+  test('the claim path holds them while a claim is out, during the rebuild and while a recorded win is checked', () => {
+    const store = createStore();
+    const at = (phase: 'idle' | 'mining' | 'claiming' | 'recovering', check = false) => {
+      store.set(minerAtom, { ...store.get(minerAtom), phase });
+      store.set(claimCheckAtom, check);
+      return claimBusy(store);
+    };
+    expect([
+      at('idle'),
+      at('mining'),
+      at('claiming'),
+      at('recovering'),
+      at('idle', true),
+      at('mining', true),
+    ]).toEqual([false, false, true, true, true, true]);
   });
 
   test('at once while shown and free; a waiting one is checked only while shown; a close refuses', async () => {
