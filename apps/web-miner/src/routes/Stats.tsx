@@ -1,15 +1,16 @@
 // Stats as pages of the miner, loaded the first time they are opened. Its reads go beside the page's
 // own and never before them: each request quiet (no cooldown opens or lasts on it) with its own 10 s
-// deadline, and none starts while a claim is out, the node is cooling down, or the guard does not admit
-// the node yet (a direct visit reaches here before the preflight points the guard).
+// deadline, and none leaves while a claim is out, the node is not ok, or the guard does not admit the
+// node yet (a direct visit reaches here before the preflight points the guard) — not even one inside a
+// batch that began before.
 import { StatsPages } from '@yacana/stats-view/pages';
 import { createStatsRuntime } from '@yacana/stats-view/runtime';
 import { NodeWayOut, type StatsTab } from '@yacana/ui';
 import { type Connection, defaultNodeUrl, restoreDefaultNode } from '@yacana/web-kit/browser/connection';
 import { quietEthRpcClient } from '@yacana/web-kit/browser/eth-rpc';
 import { quietNodeClient } from '@yacana/web-kit/browser/node';
-import { currentNodeEndpoint, normaliseEndpoint } from '@yacana/web-kit/browser/node-guard';
-import { coolingDown, nodeHealth } from '@yacana/web-kit/browser/node-health';
+import { currentNodeEndpoint } from '@yacana/web-kit/browser/node-guard';
+import { nodeHealth } from '@yacana/web-kit/browser/node-health';
 import { useAtomValue, useStore } from 'jotai';
 import { useEffect } from 'react';
 import { bridgeRecord } from '../bridge/env';
@@ -17,7 +18,7 @@ import { FAQ_HREF } from '../lib/apex';
 import { statsRouteOf } from '../lib/tabs';
 import { navigate, pathFor } from '../routes';
 import { type Endpoints, endpointsAtom, minerAtom } from '../state';
-import { createStatsHost, type StatsHost } from './stats-host';
+import { createStatsHost, hostedBusy, type StatsHost, whenFree } from './stats-host';
 
 const DEADLINE_MS = 10_000;
 
@@ -36,18 +37,17 @@ function hostFor(store: Store, connection: Connection): StatsHost {
     const { phase } = store.get(minerAtom);
     return phase === 'claiming' || phase === 'recovering';
   };
-  const make = (e: Endpoints) =>
-    createStatsRuntime({
+  const make = (e: Endpoints, gone: AbortSignal) => {
+    const busy = () => hostedBusy(claiming(), nodeHealth().transport, currentNodeEndpoint(), e.nodeUrl);
+    return createStatsRuntime({
       store,
       connection: { ...connection, nodeUrl: e.nodeUrl, ethRpcUrl: e.ethRpcUrl },
-      node: quietNodeClient(e.nodeUrl, DEADLINE_MS),
+      node: quietNodeClient(e.nodeUrl, DEADLINE_MS, () => whenFree(busy, gone)),
       eth: bridgeRecord() ? quietEthRpcClient(e.ethRpcUrl, DEADLINE_MS) : undefined,
       fill: false,
-      yieldTo: () =>
-        claiming() ||
-        coolingDown(nodeHealth().transport) ||
-        currentNodeEndpoint() !== normaliseEndpoint(e.nodeUrl),
+      yieldTo: busy,
     });
+  };
   host ??= createStatsHost(store, make);
   return host;
 }

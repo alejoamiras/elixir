@@ -63,7 +63,6 @@ function useTabStatus(enabled: boolean) {
 /** The banner calls the numbers stale once the controller would have paused for silence (a minute). */
 const STALE_AFTER_MS = 60_000;
 
-/** "mining here · 11.8 proofs/min · 1 win" at the right of the stats' tabs, while this tab mines. */
 function MiningHere() {
   const miner = useAtomValue(minerAtom);
   if (miner.phase === 'idle') return null;
@@ -75,7 +74,6 @@ function MiningHere() {
   );
 }
 
-/** Overview · Bridge · Verify under the bar on the stats routes, and "mining here" at their right. */
 function StatsSubTabs({ route }: { route: Route }) {
   const page = statsPageOf(route);
   return (
