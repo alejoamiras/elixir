@@ -12,16 +12,21 @@ const failedChunk = (e: unknown): string | undefined =>
   /dynamically imported module: (\S+)/i.exec(e instanceof Error ? e.message : '')?.[1];
 
 // The document keeps a failed module fetch for good (its module map answers every later import() of
-// that URL without the network), so a retry asks for the chunk under a URL of its own.
+// that URL without the network), so each retry asks for the chunk under a URL of its own. Loaded once,
+// the module is every later mount's: a second instance would bring a second host onto the store.
 let failed: string | undefined;
-const load = (attempt: number): Promise<StatsModule> =>
-  (failed
-    ? (import(/* @vite-ignore */ `${failed.split('?')[0]}?retry=${attempt}`) as Promise<StatsModule>)
-    : import('../routes/Stats')
+let retries = 0;
+let loading: Promise<StatsModule> | undefined;
+const load = (): Promise<StatsModule> =>
+  (loading ??= (
+    failed
+      ? (import(/* @vite-ignore */ `${failed.split('?')[0]}?retry=${++retries}`) as Promise<StatsModule>)
+      : import('../routes/Stats')
   ).catch((e: unknown) => {
+    loading = undefined;
     failed ??= failedChunk(e);
     throw e;
-  });
+  }));
 
 class LoadBoundary extends Component<
   { onRetry: () => void; children: ReactNode },
@@ -67,13 +72,10 @@ class LoadBoundary extends Component<
 
 export function StatsRoute({ page, connection }: { page: StatsTab; connection: Connection }) {
   // React.lazy keeps a rejected load for good: each attempt is a lazy of its own.
-  const [attempt, setAttempt] = useState(() => ({ n: 0, Stats: lazy(() => load(0)) }));
+  const [attempt, setAttempt] = useState(() => ({ n: 0, Stats: lazy(load) }));
   const { Stats } = attempt;
   return (
-    <LoadBoundary
-      key={attempt.n}
-      onRetry={() => setAttempt(({ n }) => ({ n: n + 1, Stats: lazy(() => load(n + 1)) }))}
-    >
+    <LoadBoundary key={attempt.n} onRetry={() => setAttempt(({ n }) => ({ n: n + 1, Stats: lazy(load) }))}>
       <Suspense fallback={null}>
         <Stats page={page} connection={connection} />
       </Suspense>

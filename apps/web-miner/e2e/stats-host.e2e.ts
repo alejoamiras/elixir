@@ -56,6 +56,10 @@ test('Stats inside the miner while it mines: the chunk refused, then loaded; its
   });
 
   // The chunk refused on first opening: the card under the bar, the aside still counting.
+  const fetched: string[] = [];
+  page.on('request', (req) => {
+    if (STATS_CHUNK.test(req.url())) fetched.push(new URL(req.url()).search);
+  });
   await page.route(STATS_CHUNK, (route) => route.fulfill({ status: 404, body: 'not found' }));
   await page.getByTestId('nav-stats').click();
   await expect(page).toHaveURL(/\/stats$/);
@@ -101,6 +105,11 @@ test('Stats inside the miner while it mines: the chunk refused, then loaded; its
     expect(pip.isClosed()).toBe(false);
     await expect(pip.locator('[data-testid=pip-footer]')).toBeVisible();
   }
+  // Opened again: the module loaded by the retry is reused, not fetched a third time.
+  await page.getByTestId('nav-stats').click();
+  await expect(overview).toBeVisible();
+  expect(fetched).toEqual(['', '?retry=1']);
+  await page.getByTestId('nav-mine').click();
   await page.getByTestId('stop').click();
 });
 
