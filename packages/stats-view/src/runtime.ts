@@ -87,6 +87,19 @@ const SLOW_MS = 300;
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+/** Resolves after `ms`, or at once when `signal` aborts; nothing stays armed after either. */
+const sleep = (ms: number, signal: AbortSignal): Promise<void> =>
+  new Promise((resolve) => {
+    if (signal.aborted) return resolve();
+    const done = () => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    signal.addEventListener('abort', done);
+  });
+
 /** The browser's storage, or nothing where it throws (a locked-down context): the cache is optional. */
 const storage = (): StorageLike | null => {
   try {
@@ -353,18 +366,19 @@ class Instance implements StatsRuntime {
 
   /**
    * Each step goes on only while the instance is started and current; a start() after a stop picks the
-   * boot up again. A boot that fails because the node is throttled or silent waits for its turn and retries.
+   * boot up again. A boot that fails tries again: after the node's turn when it is throttled or silent, else
+   * a poll later — a quiet read's failure leaves the node's health ok.
    */
   private async bootSteps(): Promise<void> {
     this.key ??= await this.cacheKeyFor();
     if (!(await this.free())) return;
     try {
       if (!this.reader) {
-        this.put(statusAtom, { phase: 'loading', step: 'checking the deployment' });
+        this.step('checking the deployment');
         this.reader = await this.sources.open(this.o.connection, this.o.node, this.o.limits);
         if (!(await this.free())) return;
       }
-      this.put(statusAtom, { phase: 'loading', step: 'reading the chain' });
+      this.step('reading the chain');
       const fixed = await bootBeats(this.sources.reads(this.reader), this.publish, firstEpoch());
       this.booted = true;
       this.put(statusAtom, { phase: 'ready' });
@@ -373,10 +387,15 @@ class Instance implements StatsRuntime {
       this.cadence(false);
     } catch (e) {
       this.put(statusAtom, { phase: 'error', message: message(e) });
-      if (nodeHealth().transport.kind === 'ok') return;
-      await waitTurn(this.running.signal);
+      if (nodeHealth().transport.kind === 'ok') await sleep(POLL_MS, this.running.signal);
+      else await waitTurn(this.running.signal);
       if (this.live()) return this.bootSteps();
     }
+  }
+
+  /** A boot step shows unless an attempt's error does: that one stays until an attempt succeeds. */
+  private step(step: string): void {
+    if (this.o.store.get(statusAtom).phase !== 'error') this.put(statusAtom, { phase: 'loading', step });
   }
 
   private async readBridge(): Promise<void> {
