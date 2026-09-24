@@ -84,6 +84,7 @@ export const INVENTORY: Readonly<Record<string, Readonly<Record<string, number>>
     'Stats inside the miner while it mines: the chunk refused, then loaded; its pages come and go without a reload, the mini window, the proofs or the guard moving; Space scrolls': 0,
     'Stats opened during a claim reads nothing until it settles; an Ethereum switch leaves a bridge read held on the old RPC without effect': 1,
     'a node switch while on Stats: the next runtime reads the new node, and nothing is blocked': 1,
+    'a direct visit to Stats before the preflight points the guard at the node: Stats waits for it, then reads': 0,
   },
   // The W claim for a balance, the exit's burn, the deposit's claim; the wallet cells prove nothing.
   'bridge-states.e2e.ts': {

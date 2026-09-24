@@ -140,8 +140,8 @@ test('Stats opened during a claim reads nothing until it settles; an Ethereum sw
   await page.getByTestId('nav-stats').click();
   await expect(page.getByTestId('stats')).toBeVisible();
   await page.waitForTimeout(5_000);
-  await expect(page.getByText(/no premine/)).toHaveCount(0);
-  await expect(page.getByTestId('strip')).toHaveAttribute('data-skeleton', '');
+  expect(await page.getByText(/no premine/).count()).toBe(0);
+  expect(await page.getByTestId('strip').getAttribute('data-skeleton')).toBe('');
   await expect(page.getByTestId('phase')).toHaveText(/^claiming/);
   releaseSends();
   await expect(page.getByText(/no premine/)).toBeVisible({ timeout: 2 * 60_000 });
@@ -195,9 +195,10 @@ test('Stats opened during a claim reads nothing until it settles; an Ethereum sw
   });
   await first.route.abort('failed');
   await failed;
+  // Counted, not awaited: the successor's next read, 30 s on, would clear what a late publish put there.
   await page.waitForTimeout(3_000);
-  await expect(page.getByTestId('bridge-stale')).toHaveCount(0);
-  await expect(page.getByTestId('bridge-error')).toHaveCount(0);
+  expect(await page.getByTestId('bridge-stale').count()).toBe(0);
+  expect(await page.getByTestId('bridge-error').count()).toBe(0);
   await expect(page.getByTestId('bridge-kpis')).toBeVisible();
   expect((await guardSlots(page)).eth).toBe(newRpc);
 });
@@ -253,6 +254,25 @@ test('a node switch while on Stats: the next runtime reads the new node, and not
     .then(() => null);
   expect(await Promise.race([read, refused])).toBeNull();
   await expect(page).toHaveURL(/\/stats$/);
-  await expect(card).toHaveCount(0);
-  await expect(page.getByText(/blocked endpoint/)).toHaveCount(0);
+  expect(await card.count()).toBe(0);
+  expect(await page.getByText(/blocked endpoint/).count()).toBe(0);
+});
+
+test('a direct visit to Stats before the preflight points the guard at the node: Stats waits for it, then reads', async ({
+  page,
+}) => {
+  const r = run();
+  // The preflight's first await held for five seconds: Stats mounts while the guard has no node.
+  await page.addInitScript(() => {
+    const databases = IDBFactory.prototype.databases;
+    IDBFactory.prototype.databases = function (this: IDBFactory) {
+      return new Promise<void>((resolve) => setTimeout(resolve, 5_000)).then(() => databases.call(this));
+    };
+  });
+  await page.goto(pageUrl(r).replace('/?', '/stats?'));
+  await expect(page.getByTestId('stats')).toBeVisible();
+  expect((await guardSlots(page)).node, 'the guard was on its node already: nothing to wait for').toBeNull();
+  const card = page.getByTestId('boot-error');
+  await expect(page.getByText(/no premine/).or(card)).toBeVisible({ timeout: 2 * 60_000 });
+  expect(await card.count()).toBe(0);
 });
