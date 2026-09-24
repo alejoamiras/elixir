@@ -322,8 +322,10 @@ per accepted proof up to the unconstrained-witness class.
 
   It repeats the 2026-09-13 relaunch (`implementations-plan/yacana-bridge/lessons/phase-11.md`), without its
   crossings:
-  1. `git mv` the live-named files under the old deployment's date: `deployments/testnet.json`,
-     `deployments/testnet.example-claim.json` and `deployments/witnesses/testnet.jsonl` → `testnet-2026-09-13.*`.
+  1. `git mv` the live-named files under the old deployment's date: `deployments/testnet.json` and
+     `deployments/testnet.example-claim.json` → `testnet-2026-09-13.*`, and the witness archive out of
+     `deployments/witnesses/` (to `deployments/testnet-2026-09-13.witnesses.jsonl`): the site serves every archive
+     there by rollup version (`apps/site/src/assemble.ts:44-63`), and the new miner shares the old one's.
   2. `l1-deploy.ts deployments/testnet.json` (no record at that path → the `testnet.bridge.json` side file), with
      `YACANA_REGISTRY` and `YACANA_OPERATORS` from the old record's `bridge` block.
   3. `YACANA_PORTAL=<new portal> bun run deploy`: a fresh launch, not a continuation; it folds the side file in.
@@ -335,14 +337,13 @@ per accepted proof up to the unconstrained-witness class.
      committed artifact's class id equals the record's `minerClassId`. Push; the preview build serves `build.json`
      with the new miner.
 
-  **Keys and RPCs** come from `~/projects/nulo`: `packages/bridge-core/.env` (the Sepolia operator key, the testnet
-  deployer secret `BRIDGE_DEPLOYER_SECRET_TESTNET`, the relayer key), else the `.env` files under
-  `~/projects/nulo/.claude/worktrees/*/`. Rules, as in 2026-09-13:
-  - Only wrapper scripts in the session's scratchpad read them (`set -a; source …; set +a`): never on a command line,
-    never printed or logged, never copied into this repo.
-  - The record's `l1RpcUrl` is a public endpoint. A keyed RPC URL from nulo may send transactions, but never enters
-    the record, a commit or a log.
-  - If auto mode's classifier refuses the read, stop and ask the owner for a permission rule. Never work around it.
+  **Keys** (owner, 2026-09-24; the nulo `.env` files are not on this machine): a keyed run, per my-stack's keyed-runs
+  section. The values live in 1Password (vault `Keyed-Runs`, item `Yacana-Testnet`; a fresh operators key funded from
+  the old operators EOA, a fresh deployer secret) and reach the run only through the owner's `op-remote` on the Mac,
+  which shows the command before Touch ID. The committed `deployments/testnet.env.example` holds `op://` references
+  and the public values; the operators address is derived inside the run. Steps 1–4 are one request (`env-exec
+  request`, a clean and pushed HEAD), watched with `env-exec wait`. The record's `l1RpcUrl` is the public Sepolia
+  node, the only origin `l1-deploy.ts` records.
 
   Alternative: merge first and relaunch after; the page's miner calls fail in between.
 - A2. **Accept `claim` at 2^16** (≈ +2.2k gates; a few percent of claim proving, measured) rather than a relaxed,
