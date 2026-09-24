@@ -204,6 +204,8 @@ export class MinerController {
   private watches: WinRecord[] = [];
   private checking: Promise<void> | undefined;
   private recheck = false;
+  /** Check reads still out, those given up at the deadline included: the node still serves them. */
+  private checkReads = 0;
   private recoveryTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly recoveryDelay: (ms: number) => number;
   /** Bumped by a switch and by dispose: a check begun before either acts on nothing it read. */
@@ -960,7 +962,18 @@ export class MinerController {
   /** A read that cannot answer in time is `unknown`, like one that fails; the drain still waits for it. */
   private read<T>(p: Promise<T>): Promise<T | 'unknown'> {
     this.inflightRead = Promise.all([this.inflightRead, p.catch(() => {})]).then(() => {});
+    this.checkReads++;
+    const settled = () => {
+      this.checkReads--;
+      this.sayChecking();
+    };
+    p.then(settled, settled);
     return deadline(p, this.readDeadlineMs).catch(() => 'unknown' as const);
+  }
+
+  /** A check reads the chain from its start until the last of its reads ends. */
+  private sayChecking(): void {
+    this.store.set(claimCheckAtom, this.checking !== undefined || this.checkReads > 0);
   }
 
   /** One check of every recorded win, one check at a time; the drain of a switch waits for it. */
@@ -970,16 +983,16 @@ export class MinerController {
       this.recheck = true;
       return this.checking;
     }
-    this.store.set(claimCheckAtom, true);
     this.checking = this.track(() => this.checkAll())
       .catch(() => {})
       .finally(() => {
         this.checking = undefined;
-        this.store.set(claimCheckAtom, false);
+        this.sayChecking();
         if (!this.recheck) return;
         this.recheck = false;
         void this.check();
       });
+    this.sayChecking();
     return this.checking;
   }
 

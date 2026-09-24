@@ -1364,8 +1364,11 @@ describe('claim recovery', () => {
       });
       await sleep(150);
       expect(drained).toBe(false);
+      // The check gave the held read up; the node still serves it, so hosted reads still hold.
+      expect(store.get(claimCheckAtom)).toBe(true);
       release();
       await drain;
+      expect(store.get(claimCheckAtom)).toBe(false);
       c.dispose();
     },
     T,
