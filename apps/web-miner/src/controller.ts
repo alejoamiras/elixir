@@ -521,7 +521,7 @@ export class MinerController {
       // await it, so accumulate rather than overwrite. Settled entries drop out on their own.
       const tracked = read.catch(() => {});
       this.inflightRead = Promise.all([this.inflightRead, tracked]).then(() => {});
-      if (this.checking !== undefined || this.claimPhase()) this.countRead(tracked);
+      if (this.onClaimPath()) this.countRead(tracked);
       return deadline(read, this.readDeadlineMs);
     });
     this.refreshing = run.catch(() => {});
@@ -1262,6 +1262,11 @@ export class MinerController {
   private claimPhase(): boolean {
     const { phase } = this.store.get(minerAtom);
     return phase === 'claiming' || phase === 'recovering';
+  }
+
+  /** The claim path: a check, a claim or its rebuild, or a read of the rebuilt view until one succeeds. */
+  private onClaimPath(): boolean {
+    return this.checking !== undefined || this.claimPhase() || this.unread;
   }
 
   /** The switch is over (rebuilt or failed): the poll may read again. */

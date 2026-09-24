@@ -245,18 +245,16 @@ describe('lost-race recovery', () => {
     controller.dispose();
   });
 
-  test('a rebuilt view’s first read past its deadline holds hosted reads until it ends', async () => {
-    let release = () => {};
-    const held = new Promise<bigint>((r) => {
-      release = () => r(9n);
-    });
+  test('a rebuilt view’s reads past their deadline hold hosted reads until each ends, Start’s retry too', async () => {
+    const holds: (() => void)[] = [];
+    const balance = () =>
+      new Promise<bigint>((r) => {
+        holds.push(() => r(9n));
+      });
     const controller = await boot(
       fakeDeployment(5n, () => Promise.reject(REVERTED)),
       async () => ({
-        deployment: fakeDeployment(
-          () => held,
-          () => Promise.reject(BLOCKED),
-        ),
+        deployment: fakeDeployment(balance, () => Promise.reject(BLOCKED)),
         fee,
         rebuilt: true,
       }),
@@ -267,7 +265,14 @@ describe('lost-race recovery', () => {
     // The rebuild is over and gave its read up; the node still serves it.
     expect(store.get(minerAtom).phase).toBe('idle');
     expect(store.get(claimReadsAtom)).toBe(true);
-    release();
+    holds[0]?.();
+    await settle(() => !store.get(claimReadsAtom));
+    // Start reads the rebuilt view again from idle; given up at its deadline, it holds them the same way.
+    controller.start();
+    await settle(() => holds.length === 2);
+    await sleep(100);
+    expect(store.get(claimReadsAtom)).toBe(true);
+    holds[1]?.();
     await settle(() => !store.get(claimReadsAtom));
     controller.dispose();
   });

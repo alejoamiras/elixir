@@ -7,7 +7,6 @@ import { canMint } from '../src/claim-check.ts';
 const OPEN = new Fr(1n);
 const RETIRED = new Fr(2n);
 
-/** A node answering the open epoch's slot with `open` and the retirement's with `retired`. */
 const deployment = (open: () => Promise<Fr>, retired: () => Promise<Fr>) =>
   ({
     node: {
