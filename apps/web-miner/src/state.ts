@@ -66,8 +66,11 @@ export interface Rules {
 
 export const bootAtom = atom<Boot>({ phase: 'preflight', rows: [] });
 export const minerAtom = atom<MinerState>(initial);
-/** A recorded win's check is reading the chain (its sends, its nullifier, whether it can still mint), in any phase. */
-export const claimCheckAtom = atom(false);
+/**
+ * The claim path's reads are out: a recorded win's check from its start, and every read a check, a claim
+ * or its rebuild started until that read settles, however long after its deadline.
+ */
+export const claimReadsAtom = atom(false);
 export const epochAtom = atom<EpochInfo | null>(null);
 export const rulesAtom = atom<Rules | null>(null);
 export const balanceAtom = atom<bigint | null>(null);

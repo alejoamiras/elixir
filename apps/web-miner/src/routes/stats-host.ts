@@ -9,7 +9,7 @@ import { quietNodeClient } from '@yacana/web-kit/browser/node';
 import { currentNodeEndpoint, normaliseEndpoint } from '@yacana/web-kit/browser/node-guard';
 import { nodeHealth, type Transport } from '@yacana/web-kit/browser/node-health';
 import type { createStore } from 'jotai';
-import { claimCheckAtom, type Endpoints, endpointsAtom, minerAtom } from '../state';
+import { claimReadsAtom, type Endpoints, endpointsAtom, minerAtom } from '../state';
 
 type Store = ReturnType<typeof createStore>;
 
@@ -35,10 +35,13 @@ export const hostedBusy = (
   node: string,
 ): boolean => claiming || transport.kind !== 'ok' || guardNode !== normaliseEndpoint(node);
 
-/** The claim path reads the node: a claim out, the rebuild after a lost race, or a recorded win's check. */
+/**
+ * The claim path reads the node: a claim out, the rebuild after a lost race, a check, or any read one of
+ * them started that is still out.
+ */
 export const claimBusy = (store: Store): boolean => {
   const { phase } = store.get(minerAtom);
-  return phase === 'claiming' || phase === 'recovering' || store.get(claimCheckAtom);
+  return phase === 'claiming' || phase === 'recovering' || store.get(claimReadsAtom);
 };
 
 export interface Turns {
