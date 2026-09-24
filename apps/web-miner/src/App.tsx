@@ -36,7 +36,7 @@ import { useHotkeys, useIntroEnds, usePauses, useResumeOnOpen } from './features
 import { pillStatus } from './lib/status';
 import { minerStatsTabs, minerTabs, oldTabs, statsPageOf } from './lib/tabs';
 import { prestoAtom } from './presto';
-import { navigate, pathFor, type Route, useRoute } from './routes';
+import { navigate, pathFor, type Route, signInShowsOn, useRoute } from './routes';
 import { Mine } from './routes/Mine';
 import { Settings } from './routes/Settings';
 import { Wallet } from './routes/Wallet';
@@ -192,11 +192,9 @@ export function App({ connection, session }: { connection: Connection; session: 
   useEffect(() => {
     if ((boot.phase === 'signedOut' || isOldRole()) && route === 'wallet') navigate('mine');
   }, [boot.phase, route]);
-  // Settings stays reachable signed out (the node is changed there), and Stats reads without an
-  // account; everywhere else the sign-in sits over the cockpit, and the page's keys are its while it
-  // shows. On Stats the keys are the browser's: Space scrolls.
+  // The page's keys are the sign-in's while it shows; on Stats they are the browser's: Space scrolls.
   const statsPage = statsPageOf(route);
-  const signInHere = route !== 'settings' && !statsPage;
+  const signInHere = signInShowsOn(route);
   const dialogShowing = signInHere && (boot.phase === 'opening' || (boot.phase === 'signedOut' && signIn));
   useTabStatus(settings.tabStatus);
   useHotkeys(controller, onStart, session.consent, !dialogShowing && !statsPage);

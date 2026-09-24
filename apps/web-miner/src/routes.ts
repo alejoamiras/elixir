@@ -23,6 +23,9 @@ export const routeFromPath = (pathname: string): Route => {
 
 export const pathFor = (route: Route): string => `${base}/${route === 'mine' ? '' : route}`;
 
+/** Settings stays reachable signed out (the node is changed there) and Stats reads without an account. */
+export const signInShowsOn = (route: Route): boolean => route !== 'settings' && !route.startsWith('stats');
+
 /** What the wallet opens on arrival: the Send dialog, or the words backup on the way to Sign out. */
 export type Intent = 'send' | 'backup';
 
