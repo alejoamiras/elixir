@@ -2,7 +2,7 @@
 // and the clock. It never points the fetch guard anywhere: the host sets the endpoints and hands it the
 // clients. While stopped it arms nothing and starts nothing (a batch of reads already out runs to its end);
 // after dispose() nothing it started publishes or persists.
-import type { Node } from '@yacana/miner-core/reader';
+import type { Node, ReadLimits } from '@yacana/miner-core/reader';
 import { type Connection, expectedDeployment, firstEpoch } from '@yacana/web-kit/browser/connection';
 import { endpointFingerprint, quietNodeReads } from '@yacana/web-kit/browser/node-guard';
 import { nodeHealth, waitTurn } from '@yacana/web-kit/browser/node-health';
@@ -46,6 +46,8 @@ export interface StatsRuntimeOptions {
   onFresh?: () => void;
   /** While true no read starts; one asked for meanwhile waits for it to clear. */
   yieldTo?: () => boolean;
+  /** Every node read's limits; the reader's own when absent. */
+  limits?: ReadLimits;
 }
 
 export interface StatsRuntime {
@@ -61,7 +63,7 @@ export interface StatsRuntime {
 
 /** What an instance reads through; the spec hands it fakes. */
 export interface StatsSources {
-  open: (connection: Connection, node: Node) => Promise<Reader>;
+  open: (connection: Connection, node: Node, limits?: ReadLimits) => Promise<Reader>;
   reads: (r: Reader) => BeatReads;
   bridge: (eth: PublicClient) => (() => Promise<BridgeSnapshot>) | null;
 }
@@ -359,7 +361,7 @@ class Instance implements StatsRuntime {
     try {
       if (!this.reader) {
         this.put(statusAtom, { phase: 'loading', step: 'checking the deployment' });
-        this.reader = await this.sources.open(this.o.connection, this.o.node);
+        this.reader = await this.sources.open(this.o.connection, this.o.node, this.o.limits);
         if (!(await this.free())) return;
       }
       this.put(statusAtom, { phase: 'loading', step: 'reading the chain' });
