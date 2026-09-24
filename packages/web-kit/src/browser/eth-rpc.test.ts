@@ -11,6 +11,14 @@ const answers = (chainId: bigint): Record<string, (params: unknown[]) => string>
 const rpc = (chainId: bigint) => async (input: RequestInfo | URL, init?: RequestInit) => {
   const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
   if (href.includes('down')) throw new TypeError('Failed to fetch');
+  // Headers at once, then a body that never comes; aborting the request errors it, as a browser does.
+  if (href.includes('stall'))
+    return new Response(
+      new ReadableStream({
+        start: (c) => init?.signal?.addEventListener('abort', () => c.error(init.signal?.reason)),
+      }),
+      { headers: { 'content-type': 'application/json' } },
+    );
   const { id, method, params } = JSON.parse(init?.body as string) as {
     id: number;
     method: string;
@@ -103,6 +111,18 @@ describe('the Ethereum RPC setting', () => {
     } finally {
       guard.setEthRpcEndpoint(null, 1_000);
       mod.resetEthRpcHealth();
+    }
+  });
+
+  test("the quiet client's deadline covers the body, not only the headers", async () => {
+    const STALL = 'https://stall.example/';
+    guard.setEthRpcEndpoint(STALL, 3_000);
+    try {
+      const started = performance.now();
+      await expect(mod.quietEthRpcClient(STALL, 50).getBlockNumber({ cacheTime: 0 })).rejects.toThrow();
+      expect(performance.now() - started).toBeLessThan(1_000);
+    } finally {
+      guard.setEthRpcEndpoint(null, 1_000);
     }
   });
 

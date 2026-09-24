@@ -358,6 +358,22 @@ describe('quiet work', () => {
     expect(health.nodeHealth().transport.kind).toBe('throttled');
   });
 
+  test('a quiet request leaves only on its turn, and not at all when the turn is refused', async () => {
+    let release: () => void = () => {};
+    const turn = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const read = node.quietNodeClient(NODE, 10_000, () => turn).getBlockNumber();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(calls).toEqual([]);
+    release();
+    await read.catch(() => {}); // the fake's answer is not a block number; the request is what counts
+    expect(calls).toEqual([NODE]);
+    const refused = node.quietNodeClient(NODE, 10_000, () => Promise.reject(new Error('disposed')));
+    await expect(refused.getBlockNumber()).rejects.toThrow('disposed');
+    expect(calls).toEqual([NODE]);
+  });
+
   test('a quiet failure that started before a cooldown leaves it as it was; a quiet probe after it ends it', async () => {
     const early = performance.now();
     await new Promise((r) => setTimeout(r, 2));

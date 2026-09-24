@@ -36,14 +36,15 @@ export const nodeClient = (url: string): Node => createAztecNodeClient(url, {}, 
 
 /**
  * A client for optional reads beside the page's own: each request quiet (it never opens nor extends a
- * cooldown) and abandoned after `deadlineMs`, no retries. The SDK's transport builds each `init` itself and
- * takes neither, so this one mirrors it with both.
+ * cooldown), sent once `turn` resolves and abandoned `deadlineMs` after it leaves, no retries. The SDK's
+ * transport builds each `init` itself and takes neither mark nor signal, so this one mirrors it with both.
  */
-export const quietNodeClient = (url: string, deadlineMs: number): Node =>
+export const quietNodeClient = (url: string, deadlineMs: number, turn?: () => Promise<void>): Node =>
   createAztecNodeClient(
     url,
     {},
     async (host: string, body: unknown, extraHeaders: Record<string, string> = {}) => {
+      await turn?.();
       const init: QuietInit = {
         method: 'POST',
         body: jsonStringify(body),

@@ -28,7 +28,17 @@ export const ethRpcClient = (url: string) => createPublicClient({ transport: htt
 /** For optional reads: every request quiet (RPC health never hears of it), given up after `timeoutMs`. */
 export const quietEthRpcClient = (url: string, timeoutMs: number) =>
   createPublicClient({
-    transport: http(url, { retryCount: 0, timeout: timeoutMs, fetchOptions: { [QUIET]: true } as QuietInit }),
+    transport: http(url, {
+      retryCount: 0,
+      timeout: timeoutMs,
+      fetchOptions: { [QUIET]: true } as QuietInit,
+      // viem's own timeout ends when the headers arrive: this signal also bounds the body.
+      fetchFn: (input, init) =>
+        fetch(input, {
+          ...init,
+          signal: AbortSignal.any([AbortSignal.timeout(timeoutMs), ...(init?.signal ? [init.signal] : [])]),
+        }),
+    }),
   });
 
 /**
